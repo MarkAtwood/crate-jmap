@@ -41,6 +41,25 @@ pub struct ResultReference {
     pub path: String,
 }
 
+impl ResultReference {
+    /// Construct a `ResultReference` from its three required fields.
+    ///
+    /// `result_of`: call-id of the prior method invocation
+    /// `name`: method name of that invocation (e.g. `"Foo/get"`)
+    /// `path`: RFC 6901 JSON Pointer into the result (e.g. `"/list/*/id"`)
+    pub fn new(
+        result_of: impl Into<String>,
+        name: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Self {
+        Self {
+            result_of: result_of.into(),
+            name: name.into(),
+            path: path.into(),
+        }
+    }
+}
+
 /// A JMAP method argument that can be either a direct value or a ResultReference.
 ///
 /// In JMAP JSON, a ResultReference is indicated by a "#" prefix on the key:
@@ -76,7 +95,7 @@ pub struct ResultReference {
 /// // serde_json::Value does not implement Sealed — this must not compile.
 /// let _: Argument<serde_json::Value> = Argument::Value(serde_json::Value::Null);
 /// ```
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Argument<T: sealed::Sealed> {
     Value(T),

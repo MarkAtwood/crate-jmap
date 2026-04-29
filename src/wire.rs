@@ -8,7 +8,7 @@ use std::collections::HashMap;
 pub type Invocation = (String, serde_json::Value, String);
 
 /// JMAP request envelope (RFC 8620 §3.3).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct JmapRequest {
     /// Capability URIs this request uses, e.g. `["urn:ietf:params:jmap:core"]`.
@@ -18,11 +18,11 @@ pub struct JmapRequest {
     pub method_calls: Vec<Invocation>,
     /// Client-supplied creation ID map (optional, RFC 8620 §3.3).
     #[serde(rename = "createdIds", skip_serializing_if = "Option::is_none")]
-    pub created_ids: Option<HashMap<String, Id>>,
+    pub created_ids: Option<HashMap<Id, Id>>,
 }
 
 /// JMAP response envelope (RFC 8620 §3.4).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
 pub struct JmapResponse {
     /// Ordered list of method responses (same 3-tuple structure as requests).
@@ -34,7 +34,7 @@ pub struct JmapResponse {
     /// Maps client-supplied creation IDs to server-assigned IDs.
     /// Omitted when no objects were created in the batch (RFC 8620 §3.4).
     #[serde(rename = "createdIds", skip_serializing_if = "Option::is_none")]
-    pub created_ids: Option<HashMap<String, Id>>,
+    pub created_ids: Option<HashMap<Id, Id>>,
 }
 
 #[cfg(test)]
@@ -120,7 +120,7 @@ mod tests {
     #[test]
     fn created_ids_present_when_some() {
         let mut ids = std::collections::HashMap::new();
-        ids.insert("c0".to_owned(), Id::from("server-1"));
+        ids.insert(Id::from("c0"), Id::from("server-1"));
         let resp = JmapResponse {
             method_responses: vec![],
             session_state: "s-1".into(),

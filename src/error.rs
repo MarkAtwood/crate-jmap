@@ -6,7 +6,7 @@ use thiserror::Error;
 ///
 /// See RFC 8620 §3.6.2 for the standard error type strings.
 /// The JSON key is `"type"` (not `"error_type"`) per RFC 8620.
-#[derive(Debug, Clone, Error, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Error, Serialize, Deserialize)]
 #[error("{error_type}")]
 #[non_exhaustive]
 pub struct JmapError {
@@ -121,7 +121,7 @@ impl JmapError {
         }
     }
 
-    /// RFC 8620 §5.2 — "cannotCalculateChanges"
+    /// RFC 8620 §5.2 and §5.6 — "cannotCalculateChanges"
     pub fn cannot_calculate_changes() -> Self {
         Self {
             error_type: "cannotCalculateChanges".into(),
