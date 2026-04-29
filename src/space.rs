@@ -93,6 +93,40 @@ pub struct SpaceBan {
     pub expires_at: Option<UTCDate>,
 }
 
+impl Space {
+    /// Construct a [`Space`] from its required fields.
+    ///
+    /// `description` and `icon_blob_id` default to `None`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: Id,
+        name: impl Into<String>,
+        roles: Vec<SpaceRole>,
+        members: Vec<SpaceMember>,
+        categories: Vec<Category>,
+        uncategorized_channel_ids: Vec<Id>,
+        created_at: UTCDate,
+        is_public: bool,
+        is_publicly_previewable: bool,
+        member_count: u64,
+    ) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            roles,
+            members,
+            categories,
+            uncategorized_channel_ids,
+            created_at,
+            is_public,
+            is_publicly_previewable,
+            member_count,
+            description: None,
+            icon_blob_id: None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -69,6 +69,46 @@ pub struct Chat {
     pub message_expiry_seconds: Option<u64>,
 }
 
+impl Chat {
+    /// Construct a [`Chat`] from its required fields.
+    ///
+    /// All optional fields default to `None`.
+    pub fn new(
+        id: Id,
+        kind: impl Into<String>,
+        created_at: UTCDate,
+        unread_count: u64,
+        pinned_message_ids: Vec<Id>,
+        muted: bool,
+        receive_typing_indicators: bool,
+    ) -> Self {
+        Self {
+            id,
+            kind: kind.into(),
+            created_at,
+            unread_count,
+            pinned_message_ids,
+            muted,
+            receive_typing_indicators,
+            contact_id: None,
+            name: None,
+            description: None,
+            avatar_blob_id: None,
+            members: None,
+            space_id: None,
+            category_id: None,
+            position: None,
+            topic: None,
+            slow_mode_seconds: None,
+            permission_overrides: None,
+            last_message_at: None,
+            mute_until: None,
+            receipt_sharing: None,
+            message_expiry_seconds: None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

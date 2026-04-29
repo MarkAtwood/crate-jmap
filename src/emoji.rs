@@ -16,6 +16,28 @@ pub struct CustomEmoji {
     pub space_id: Option<Id>,
 }
 
+impl CustomEmoji {
+    /// Construct a [`CustomEmoji`] from its required fields.
+    ///
+    /// `space_id` defaults to `None` (server-global emoji).
+    pub fn new(
+        id: Id,
+        name: impl Into<String>,
+        blob_id: Id,
+        created_by: Id,
+        created_at: UTCDate,
+    ) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            blob_id,
+            created_by,
+            created_at,
+            space_id: None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
