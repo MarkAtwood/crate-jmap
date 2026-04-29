@@ -14,20 +14,6 @@ pub struct ReadPosition {
     pub last_read_at: Option<UTCDate>,
 }
 
-impl ReadPosition {
-    /// Construct a [`ReadPosition`] from its required fields.
-    ///
-    /// Both optional fields default to `None`.
-    pub fn new(id: Id, chat_id: Id) -> Self {
-        Self {
-            id,
-            chat_id,
-            last_read_message_id: None,
-            last_read_at: None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

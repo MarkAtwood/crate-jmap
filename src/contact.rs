@@ -43,33 +43,6 @@ pub struct ChatContact {
     pub endpoints: Option<Vec<Endpoint>>,
 }
 
-impl ChatContact {
-    /// Construct a [`ChatContact`] from its required fields.
-    ///
-    /// All optional fields default to `None`.
-    pub fn new(
-        id: Id,
-        login: impl Into<String>,
-        first_seen_at: UTCDate,
-        last_seen_at: UTCDate,
-        blocked: bool,
-    ) -> Self {
-        Self {
-            id,
-            login: login.into(),
-            first_seen_at,
-            last_seen_at,
-            blocked,
-            display_name: None,
-            presence: None,
-            last_active_at: None,
-            status_text: None,
-            status_emoji: None,
-            endpoints: None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

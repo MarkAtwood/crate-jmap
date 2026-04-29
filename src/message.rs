@@ -125,57 +125,6 @@ pub struct Message {
     pub deleted_for_all: Option<bool>,
 }
 
-impl Message {
-    /// Construct a [`Message`] from its required fields.
-    ///
-    /// All optional fields default to `None`.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        id: Id,
-        sender_msg_id: Id,
-        sender_id: impl Into<String>,
-        chat_id: Id,
-        body: impl Into<String>,
-        body_type: impl Into<String>,
-        attachments: Vec<Attachment>,
-        mentions: Vec<Mention>,
-        actions: Vec<MessageAction>,
-        reactions: HashMap<String, Reaction>,
-        sent_at: UTCDate,
-        received_at: UTCDate,
-        delivery_state: impl Into<String>,
-    ) -> Self {
-        Self {
-            id,
-            sender_msg_id,
-            sender_id: sender_id.into(),
-            chat_id,
-            body: body.into(),
-            body_type: body_type.into(),
-            attachments,
-            mentions,
-            actions,
-            reactions,
-            sent_at,
-            received_at,
-            delivery_state: delivery_state.into(),
-            reply_to: None,
-            thread_root_id: None,
-            reply_count: None,
-            unread_reply_count: None,
-            sender_expires_at: None,
-            burn_on_read: None,
-            delivery_receipts: None,
-            delivered_at: None,
-            read_at: None,
-            edited_at: None,
-            edit_history: None,
-            deleted_at: None,
-            deleted_for_all: None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

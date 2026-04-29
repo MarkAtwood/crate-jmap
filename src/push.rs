@@ -64,50 +64,6 @@ pub struct ChatMessagePush {
     pub messages: Vec<ChatMessageEntry>,
 }
 
-impl ChatMessagePush {
-    /// Construct a [`ChatMessagePush`] from its required fields.
-    pub fn new(account_id: Id, state: impl Into<String>, messages: Vec<ChatMessageEntry>) -> Self {
-        Self {
-            account_id,
-            state: state.into(),
-            messages,
-        }
-    }
-}
-
-impl ChatMessageEntry {
-    /// Construct a [`ChatMessageEntry`] from its required fields.
-    ///
-    /// All optional fields default to `None`.
-    #[allow(clippy::too_many_arguments)]
-    pub fn new(
-        message_id: Id,
-        chat_id: Id,
-        chat_kind: impl Into<String>,
-        sender_id: impl Into<String>,
-        sent_at: UTCDate,
-        has_mention: bool,
-        has_mention_all: bool,
-        encrypted: bool,
-    ) -> Self {
-        Self {
-            message_id,
-            chat_id,
-            chat_kind: chat_kind.into(),
-            sender_id: sender_id.into(),
-            sent_at,
-            has_mention,
-            has_mention_all,
-            encrypted,
-            chat_name: None,
-            space_id: None,
-            space_name: None,
-            sender_display_name: None,
-            body_snippet: None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

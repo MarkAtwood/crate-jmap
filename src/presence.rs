@@ -18,28 +18,6 @@ pub struct PresenceStatus {
     pub expires_at: Option<UTCDate>,
 }
 
-impl PresenceStatus {
-    /// Construct a [`PresenceStatus`] from its required fields.
-    ///
-    /// All optional fields default to `None`.
-    pub fn new(
-        id: Id,
-        presence: impl Into<String>,
-        receipt_sharing: bool,
-        updated_at: UTCDate,
-    ) -> Self {
-        Self {
-            id,
-            presence: presence.into(),
-            receipt_sharing,
-            updated_at,
-            status_text: None,
-            status_emoji: None,
-            expires_at: None,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
