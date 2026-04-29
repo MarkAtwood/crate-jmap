@@ -88,7 +88,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     /// Registering the same name twice replaces the earlier handler.
     ///
     /// Using `Arc` rather than `Box` allows the same handler instance to be
-    /// registered under multiple method names without cloning.
+    /// shared across multiple method name registrations (via `Arc::clone`).
     pub fn register(
         &mut self,
         method: impl Into<String>,
