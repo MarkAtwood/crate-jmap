@@ -70,6 +70,29 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 
 Run all four before considering any work done.
 
+## Sibling Crate Congruence (REQUIRED)
+
+This crate must stay congruent with two siblings at all times:
+
+| Crate | Path | Relationship | What to watch |
+|---|---|---|---|
+| `jmap-types` | `~/PROJECT/crate-jmap-types/` | **Dependency** — provides `Id`, `State`, `UTCDate`, `Date` | If it adds/renames/removes those types, update imports and usages here |
+| `jmap-mail-types` | `~/PROJECT/crate-jmap-mail-types/` | **Pattern sibling** — the template this crate follows | If it changes struct conventions, `#[non_exhaustive]` policy, serde attribute style, or test patterns, apply the same changes here |
+
+**Rules:**
+
+1. Before touching any type that wraps or uses `Id`, `State`, `UTCDate`, or `Date`: read `~/PROJECT/crate-jmap-types/src/id.rs` to confirm the current API.
+2. Before adding new public structs: check how `~/PROJECT/crate-jmap-mail-types/` models analogous types — copy the pattern, not the content.
+3. If a change here would break `jmap-mail-types` conventions, stop and flag it to the user.
+4. Do not introduce a dependency that `jmap-mail-types` does not also have, without explicit user approval.
+
+**Check congruence with:**
+```bash
+cargo build -p jmap-types 2>&1        # confirm dep still compiles
+diff <(cd ../crate-jmap-types && cargo metadata --no-deps --format-version 1 | jq '.packages[0].dependencies') \
+     <(cargo metadata --no-deps --format-version 1 | jq '.packages[0].dependencies')
+```
+
 ## Design Constraints (Settled)
 
 | Decision | Choice |
