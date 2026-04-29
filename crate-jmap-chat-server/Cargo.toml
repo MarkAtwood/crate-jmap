@@ -1,0 +1,16 @@
+[package]
+name = "jmap-chat-server"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "JMAP Chat extension method handlers — backend-agnostic, plugs into jmap-server Dispatcher"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+jmap-types      = { path = "../crate-jmap-types" }
+jmap-chat-types = { path = "../crate-jmap-chat-types" }
+jmap-server     = { path = "../crate-jmap-server" }
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror  = "2"
+tokio      = { version = "1", features = ["rt"] }
