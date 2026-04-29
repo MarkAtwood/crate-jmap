@@ -1,0 +1,7 @@
+{
+  "type": "multipart/mixed",
+  "subParts": [
+    {"partId": "1", "blobId": "abc", "size": 10, "type": "text/plain"},
+    {"partId": "2", "blobId": "def", "size": 20, "type": "image/png", "disposition": "attachment"}
+  ]
+}

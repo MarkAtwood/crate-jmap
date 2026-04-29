@@ -1,0 +1,10 @@
+{
+  "id": "I64588216",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "replyTo": [{"email": "replies@example.com"}],
+  "bcc": [{"name": "Archive", "email": "archive@example.com"}],
+  "textSignature": "-- \nJohn Doe",
+  "htmlSignature": "<p>-- <br>John Doe</p>",
+  "mayDelete": false
+}

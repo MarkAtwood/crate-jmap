@@ -1,0 +1,4 @@
+{
+  "mailFrom": {"email": "john@example.com"},
+  "rcptTo": [{"email": "jane@example.com"}]
+}

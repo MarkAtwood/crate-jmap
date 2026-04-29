@@ -1,0 +1,22 @@
+{
+  "id": "MBf3d12a7b9e4c0815",
+  "name": "Trash",
+  "role": "trash",
+  "sortOrder": 60,
+  "totalEmails": 42,
+  "unreadEmails": 0,
+  "totalThreads": 38,
+  "unreadThreads": 0,
+  "myRights": {
+    "mayAddItems": true,
+    "mayRename": false,
+    "maySubmit": false,
+    "mayDelete": false,
+    "maySetKeywords": true,
+    "mayRemoveItems": true,
+    "mayCreateChild": false,
+    "maySetSeen": true,
+    "mayReadItems": true
+  },
+  "isSubscribed": false
+}

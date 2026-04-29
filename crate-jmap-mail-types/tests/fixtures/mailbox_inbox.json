@@ -1,0 +1,22 @@
+{
+  "id": "MB23cfa8094c0f41e6",
+  "name": "Inbox",
+  "role": "inbox",
+  "sortOrder": 10,
+  "totalEmails": 16307,
+  "unreadEmails": 13905,
+  "totalThreads": 5833,
+  "unreadThreads": 5128,
+  "myRights": {
+    "mayAddItems": true,
+    "mayRename": false,
+    "maySubmit": true,
+    "mayDelete": false,
+    "maySetKeywords": true,
+    "mayRemoveItems": true,
+    "mayCreateChild": true,
+    "maySetSeen": true,
+    "mayReadItems": true
+  },
+  "isSubscribed": true
+}
