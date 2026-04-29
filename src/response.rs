@@ -1,7 +1,4 @@
-use axum::{
-    http::{header, StatusCode},
-    response::{IntoResponse, Response},
-};
+use http::{header, Response, StatusCode};
 
 use crate::{Invocation, JmapError};
 
@@ -44,14 +41,23 @@ pub fn error_status(err: &JmapError) -> StatusCode {
 /// Used when an error occurs before method dispatch (e.g., parse failure,
 /// unknown capability).  Derives the HTTP status from the error type via
 /// [`error_status`].  Use [`request_error`] to construct.
+///
+/// Call [`RequestError::into_response`] to produce an `http::Response<String>`
+/// with the RFC 7807 Problem Details body.  axum accepts this directly
+/// (it implements `IntoResponse` for `http::Response<impl Into<Bytes>>`).
 #[derive(Debug)]
 pub struct RequestError {
     status: StatusCode,
     err: JmapError,
 }
 
-impl IntoResponse for RequestError {
-    fn into_response(self) -> Response {
+impl RequestError {
+    /// Convert into an HTTP response with an RFC 7807 Problem Details body.
+    ///
+    /// The `Content-Type` is `application/problem+json`.  The body is a JSON
+    /// object with at minimum `"type"` (full URN) and `"status"` fields per
+    /// RFC 7807 §3.1, plus `"limit"` for `limit` errors (RFC 8620 §3.6.1).
+    pub fn into_response(self) -> Response<String> {
         let status = self.status;
         let err = self.err;
         // RFC 8620 §3.6.1 requires RFC 7807 Problem Details format with full URN type.
@@ -79,12 +85,13 @@ impl IntoResponse for RequestError {
             );
         }
         let body = serde_json::Value::Object(obj).to_string();
-        (
-            status,
-            [(header::CONTENT_TYPE, "application/problem+json")],
-            body,
-        )
-            .into_response()
+        // Builder only fails for invalid status codes or header values; both are
+        // controlled here and known-valid, so this cannot panic.
+        Response::builder()
+            .status(status)
+            .header(header::CONTENT_TYPE, "application/problem+json")
+            .body(body)
+            .expect("valid status code and Content-Type header")
     }
 }
 
@@ -98,7 +105,7 @@ pub fn request_error(err: JmapError) -> RequestError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::response::IntoResponse;
+    use http::StatusCode;
 
     // -----------------------------------------------------------------------
     // error_invocation
@@ -227,13 +234,14 @@ mod tests {
     }
 
     /// Oracle: RFC 8620 §3.6.1 — type field must be a full URN.
-    #[tokio::test]
-    async fn request_error_type_is_full_urn() {
-        use axum::body::to_bytes;
-        let re = request_error(JmapError::not_request());
-        let resp = re.into_response();
-        let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
-        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    #[test]
+    fn request_error_type_is_full_urn() {
+        let body: serde_json::Value = serde_json::from_str(
+            &request_error(JmapError::not_request())
+                .into_response()
+                .into_body(),
+        )
+        .unwrap();
         assert_eq!(
             body["type"], "urn:ietf:params:jmap:error:notRequest",
             "type must be full URN"
@@ -241,24 +249,26 @@ mod tests {
     }
 
     /// Oracle: RFC 7807 §3.1 — status field must equal the HTTP status code.
-    #[tokio::test]
-    async fn request_error_status_field_matches_http_status() {
-        use axum::body::to_bytes;
-        let re = request_error(JmapError::not_request());
-        let resp = re.into_response();
-        let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
-        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    #[test]
+    fn request_error_status_field_matches_http_status() {
+        let body: serde_json::Value = serde_json::from_str(
+            &request_error(JmapError::not_request())
+                .into_response()
+                .into_body(),
+        )
+        .unwrap();
         assert_eq!(body["status"], 400, "status field must match HTTP code");
     }
 
     /// Oracle: RFC 8620 §3.6.1 — limit errors MUST include "limit" property.
-    #[tokio::test]
-    async fn request_error_limit_includes_limit_property() {
-        use axum::body::to_bytes;
-        let re = request_error(JmapError::limit("maxCallsInRequest"));
-        let resp = re.into_response();
-        let bytes = to_bytes(resp.into_body(), usize::MAX).await.unwrap();
-        let body: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    #[test]
+    fn request_error_limit_includes_limit_property() {
+        let body: serde_json::Value = serde_json::from_str(
+            &request_error(JmapError::limit("maxCallsInRequest"))
+                .into_response()
+                .into_body(),
+        )
+        .unwrap();
         assert_eq!(
             body["limit"], "maxCallsInRequest",
             "limit property must name the exceeded limit"

@@ -29,7 +29,7 @@ impl JmapHandler<String> for FooGetHandler {        // String is the CallerCtx t
 let mut dispatcher: Dispatcher<String> = Dispatcher::new();
 dispatcher.register("Foo/get", Box::new(FooGetHandler));
 
-// In your axum handler (or similar):
+// In your handler:
 // let request = jmap_server::parse_request(body_json, 16)?;
 // let response = dispatcher.dispatch(request, caller_identity, session_state).await;
 ```
@@ -48,7 +48,7 @@ use jmap_server::{parse_request, request_error};
 
 // Parse and validate a JMAP request body.
 let req = parse_request(body_json, /* max_calls */ 16)
-    .map_err(request_error)?;   // returns axum-compatible RequestError on failure
+    .map_err(request_error)?;   // returns RequestError on failure
 ```
 
 `parse_request` validates:
