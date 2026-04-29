@@ -7,7 +7,7 @@ Depends only on serde, serde_json, and thiserror — no tokio, no axum, no async
 
 ```
 jmap-types  ← this crate
-    ├── jmap-server          adds dispatcher, axum, tokio
+    ├── jmap-server          adds dispatcher, tokio, http
     ├── jmap-mail-types      adds RFC 8621 data types
     ├── jmap-chat-types      adds Chat extension data types
     └── (future extensions)
@@ -17,7 +17,7 @@ jmap-types  ← this crate
 
 The type foundation for the entire jmap-* family. Any crate that needs to speak
 JMAP wire format depends on this crate. Client-only crates can depend on it
-directly without pulling in server-side deps (tokio, axum).
+directly without pulling in server-side deps (tokio, http).
 
 ## What This Crate Is Not
 
