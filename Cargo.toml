@@ -5,8 +5,10 @@ members = [
     "crate-jmap-chat-types",
     "crate-jmap-server",
     "crate-jmap-mail-server",
+    "crate-jmap-client",
     "crate-jmap-chat-server",
     "crate-jmap-chat-client",
+    "crate-jmap-mail-client",
 ]
 resolver = "2"
 
@@ -20,7 +22,10 @@ jmap-types        = { path = "crate-jmap-types" }
 jmap-mail-types   = { path = "crate-jmap-mail-types" }
 jmap-chat-types   = { path = "crate-jmap-chat-types" }
 jmap-server       = { path = "crate-jmap-server" }
+jmap-client       = { path = "crate-jmap-client" }
 jmap-chat-server  = { path = "crate-jmap-chat-server" }
+jmap-mail-client  = { path = "crate-jmap-mail-client" }
+futures           = "0.3"
 serde             = { version = "1", features = ["derive"] }
 serde_json        = "1"
 thiserror         = "2"

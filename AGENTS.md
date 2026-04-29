@@ -11,7 +11,11 @@ the JMAP Chat extension). All five crates live in `crate-jmap-*/` subdirectories
 | `crate-jmap-mail-types/` | `jmap-mail-types` | RFC 8621 data types, no async |
 | `crate-jmap-chat-types/` | `jmap-chat-types` | JMAP Chat extension types, no async |
 | `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers |
+| `crate-jmap-client/` | `jmap-client` | RFC 8620 base client: auth, session, blob, SSE, WebSocket |
 | `crate-jmap-mail-server/` | `jmap-mail-server` | RFC 8621 method handlers (greenfield) |
+| `crate-jmap-mail-client/` | `jmap-mail-client` | RFC 8621 client methods (greenfield) |
+| `crate-jmap-chat-server/` | `jmap-chat-server` | JMAP Chat method handlers (greenfield) |
+| `crate-jmap-chat-client/` | `jmap-chat-client` | JMAP Chat client methods (greenfield) |
 
 Read the crate's `PLAN.md` before touching its code.
 

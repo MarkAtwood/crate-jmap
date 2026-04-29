@@ -75,16 +75,17 @@ cargo fmt --all
 Cargo workspace containing the full `jmap-*` crate family (RFC 8620 + RFC 8621 + Chat extension):
 
 ```
-jmap-types          (crate-jmap-types/)      — shared wire types: Id, JmapRequest/Response,
-                                               ResultReference, JmapError. No async.
-    ├── jmap-server     (crate-jmap-server/)  — dispatcher, parse_request, ResultReference
-    │                                           resolution, HTTP helpers. Depends on tokio+http.
-    ├── jmap-mail-types (crate-jmap-mail-types/) — RFC 8621 data types: Email, Mailbox,
-    │                                           Thread, Identity, EmailSubmission. No async.
-    │       └── jmap-mail-server (crate-jmap-mail-server/) — RFC 8621 method handlers,
-    │                                           MailBackend trait. Greenfield — see PLAN.md.
-    └── jmap-chat-types (crate-jmap-chat-types/) — JMAP Chat extension types: Chat, Message,
-                                                Space, etc. No async.
+jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference, JmapError. No async.
+    ├── jmap-server     — dispatcher, parse_request, ResultReference resolution, HTTP helpers.
+    ├── jmap-client     — RFC 8620 base client: auth, session fetch, blob, SSE, WebSocket.
+    │       ├── jmap-chat-client   — JMAP Chat method implementations.
+    │       └── jmap-mail-client   — RFC 8621 method implementations.
+    ├── jmap-mail-types — RFC 8621 data types: Email, Mailbox, Thread, etc. No async.
+    │       ├── jmap-mail-server   — RFC 8621 method handlers, MailBackend trait.
+    │       └── (jmap-mail-client also depends on this)
+    └── jmap-chat-types — JMAP Chat extension types: Chat, Message, Space, etc. No async.
+            ├── jmap-chat-server   — Chat method handlers, ChatBackend trait.
+            └── (jmap-chat-client also depends on this)
 ```
 
 Dependency rule: type crates (`*-types`) have no async deps. Server crates (`*-server`)

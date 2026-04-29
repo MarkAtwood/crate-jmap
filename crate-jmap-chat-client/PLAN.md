@@ -6,8 +6,9 @@ Auth-agnostic JMAP Chat HTTP client with WebSocket and SSE support.
 
 ```
 jmap-types
+    ├── jmap-client              base HTTP client (auth, session, blob, SSE, WebSocket)
     └── jmap-chat-types
-            └── jmap-chat-client  ← this crate
+            └── jmap-chat-client  ← this crate (will depend on jmap-client once it exists)
 ```
 
 ## What This Crate Is
@@ -78,7 +79,13 @@ for types now supplied by `jmap-chat-types`).
    come from `jmap-chat-types`. The `src/types.rs` re-export layer in `jmapchat-client`
    may be eliminable or significantly thinned.
 
-3. **Auth is unchanged** — the pluggable `AuthProvider` trait and the three built-in
+3. **Auth, transport, session, SSE, WebSocket, blob belong in `jmap-client`** — once
+   `jmap-client` is implemented, add it as a dependency and remove the corresponding
+   modules from this crate (`auth.rs`, `blob.rs`, `client.rs`, `error.rs`, `sse.rs`,
+   `ws/`). For now (skeleton stage), duplicate them here from `jmapchat-client` and
+   plan the refactor as a follow-up.
+
+4. **Auth is unchanged** — the pluggable `AuthProvider` trait and the three built-in
    providers (`BearerAuth`, `BasicAuth`, `NoneAuth`) are directly portable.
 
 ## Module Layout

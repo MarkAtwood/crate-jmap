@@ -1,0 +1,18 @@
+[package]
+name = "jmap-mail-client"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.75"
+description = "RFC 8621 JMAP for Mail client — Email, Mailbox, Thread, Identity, EmailSubmission methods"
+license = "MIT OR Apache-2.0"
+
+[dependencies]
+jmap-types      = { path = "../crate-jmap-types" }
+jmap-mail-types = { path = "../crate-jmap-mail-types" }
+jmap-client     = { path = "../crate-jmap-client" }
+serde_json      = "1"
+thiserror       = "2"
+
+[dev-dependencies]
+tokio    = { version = "1", features = ["rt-multi-thread", "macros"] }
+wiremock = "0.6"

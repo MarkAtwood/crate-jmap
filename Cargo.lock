@@ -740,6 +740,35 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-client"
+version = "0.1.0"
+dependencies = [
+ "futures",
+ "jmap-types",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-tungstenite",
+ "url",
+ "wiremock",
+]
+
+[[package]]
+name = "jmap-mail-client"
+version = "0.1.0"
+dependencies = [
+ "jmap-client",
+ "jmap-mail-types",
+ "jmap-types",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "jmap-mail-server"
 version = "0.1.0"
 dependencies = [
