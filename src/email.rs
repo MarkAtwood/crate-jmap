@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{Date, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A parsed email address (RFC 8621 §4.1.2.3).
@@ -176,15 +176,10 @@ pub struct Email {
     pub subject: Option<String>,
     /// Parsed value of the Date header field (RFC 8621 §4.1.3).
     ///
-    /// The RFC specifies this as type `Date` (any RFC 3339 timezone offset),
-    /// not `UTCDate`. Email Date headers commonly use non-UTC offsets such as
-    /// `"+10:00"`. This field uses `UTCDate` as a placeholder because `jmap-types`
-    /// does not yet provide a timezone-aware `Date` type; the underlying `String`
-    /// storage accepts any RFC 3339 value without validation.
-    ///
-    /// Tracked: replace with a proper `Date` type when available in jmap-types.
+    /// Type `Date` (any RFC 3339 timezone offset) per the RFC.  Email Date
+    /// headers commonly carry non-UTC offsets such as `"+10:00"`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub sent_at: Option<UTCDate>,
+    pub sent_at: Option<Date>,
 
     // --- Raw headers (§4.1.3) ---
     /// All header fields of the message in Raw form, in order.
@@ -213,125 +208,4 @@ pub struct Email {
     /// Short plaintext preview of the message body (≤256 characters).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    // Oracle: RFC 8621 §4.1.2.3 — EmailAddress with name and email.
-    #[test]
-    fn email_address_with_name_round_trips() {
-        let addr = EmailAddress {
-            name: Some("John Doe".to_owned()),
-            email: "john@example.com".to_owned(),
-        };
-        let json = serde_json::to_string(&addr).expect("serialize");
-        let back: EmailAddress = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(addr, back);
-        assert!(json.contains("\"name\":\"John Doe\""));
-        assert!(json.contains("\"email\":\"john@example.com\""));
-    }
-
-    // Oracle: RFC 8621 §4.1.2.3 — name is omitted from JSON when null.
-    #[test]
-    fn email_address_null_name_omitted() {
-        let addr = EmailAddress {
-            name: None,
-            email: "anon@example.com".to_owned(),
-        };
-        let json = serde_json::to_string(&addr).expect("serialize");
-        assert!(!json.contains("name"), "null name must not appear in JSON");
-        assert!(json.contains("\"email\":\"anon@example.com\""));
-    }
-
-    // Oracle: RFC 8621 §4.1.2.3 — deserialize with explicit null name.
-    #[test]
-    fn email_address_deserializes_explicit_null_name() {
-        let json = r#"{"name":null,"email":"x@example.com"}"#;
-        let addr: EmailAddress = serde_json::from_str(json).expect("deserialize");
-        assert_eq!(addr.name, None);
-        assert_eq!(addr.email, "x@example.com");
-    }
-
-    // Oracle: RFC 8621 §4.1.2.4 — EmailAddressGroup with named group.
-    #[test]
-    fn email_address_group_round_trips() {
-        let group = EmailAddressGroup {
-            name: Some("Friends".to_owned()),
-            addresses: vec![
-                EmailAddress {
-                    name: None,
-                    email: "a@example.com".to_owned(),
-                },
-                EmailAddress {
-                    name: Some("Bob".to_owned()),
-                    email: "b@example.com".to_owned(),
-                },
-            ],
-        };
-        let json = serde_json::to_string(&group).expect("serialize");
-        let back: EmailAddressGroup = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(group, back);
-    }
-
-    // Oracle: RFC 8621 §4.1.2.4 — null group name is omitted.
-    #[test]
-    fn email_address_group_null_name_omitted() {
-        let group = EmailAddressGroup {
-            name: None,
-            addresses: vec![],
-        };
-        let json = serde_json::to_string(&group).expect("serialize");
-        assert!(!json.contains("name"), "null name must not appear in JSON");
-    }
-
-    // Oracle: RFC 8621 §4.1.3 — EmailHeader serialises name and value.
-    #[test]
-    fn email_header_round_trips() {
-        let hdr = EmailHeader {
-            name: "Content-Type".to_owned(),
-            value: " text/plain; charset=utf-8".to_owned(),
-        };
-        let json = serde_json::to_string(&hdr).expect("serialize");
-        let back: EmailHeader = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(hdr, back);
-        assert!(json.contains("\"name\":\"Content-Type\""));
-        assert!(json.contains("\"value\":\" text/plain; charset=utf-8\""));
-    }
-
-    // Oracle: RFC 8621 §4.1.4 example — isEncodingProblem: false, isTruncated: true.
-    #[test]
-    fn email_body_value_round_trips() {
-        let bv = EmailBodyValue {
-            value: "<html><body><p>Hello ...".to_owned(),
-            is_encoding_problem: false,
-            is_truncated: true,
-        };
-        let json = serde_json::to_string(&bv).expect("serialize");
-        let back: EmailBodyValue = serde_json::from_str(&json).expect("deserialize");
-        assert_eq!(bv, back);
-        assert!(json.contains("\"isEncodingProblem\":false"));
-        assert!(json.contains("\"isTruncated\":true"));
-    }
-
-    // Oracle: RFC 8621 §4.1.4 — default values are false when absent from JSON.
-    #[test]
-    fn email_body_value_defaults_when_fields_absent() {
-        let json = r#"{"value":"hello"}"#;
-        let bv: EmailBodyValue = serde_json::from_str(json).expect("deserialize");
-        assert!(!bv.is_encoding_problem);
-        assert!(!bv.is_truncated);
-    }
-
-    // Oracle: RFC 8621 §4.1.4 example from §4.5.2 appendix — partId "1" entry.
-    #[test]
-    fn email_body_value_from_rfc_example() {
-        let json =
-            r#"{"value":"<html><body><p>Hello ...","isEncodingProblem":false,"isTruncated":true}"#;
-        let bv: EmailBodyValue = serde_json::from_str(json).expect("deserialize");
-        assert_eq!(bv.value, "<html><body><p>Hello ...");
-        assert!(!bv.is_encoding_problem);
-        assert!(bv.is_truncated);
-    }
 }

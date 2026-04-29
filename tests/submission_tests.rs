@@ -79,6 +79,21 @@ fn delivery_status_roundtrip() {
 }
 
 #[test]
+fn submission_enum_display_matches_wire_names() {
+    // Oracle: RFC 8621 §7 — enum values are lowercase wire strings.
+    assert_eq!(Delivered::Yes.to_string(), "yes");
+    assert_eq!(Delivered::No.to_string(), "no");
+    assert_eq!(Delivered::Queued.to_string(), "queued");
+    assert_eq!(Delivered::Unknown.to_string(), "unknown");
+    assert_eq!(Displayed::Yes.to_string(), "yes");
+    assert_eq!(Displayed::Unknown.to_string(), "unknown");
+    assert_eq!(UndoStatus::Pending.to_string(), "pending");
+    assert_eq!(UndoStatus::Final.to_string(), "final");
+    assert_eq!(UndoStatus::Canceled.to_string(), "canceled");
+    assert_eq!(UndoStatus::Other.to_string(), "other");
+}
+
+#[test]
 fn submission_wire_field_names() {
     let json = common::fixture("email_submission_minimal.json");
     let es: EmailSubmission = serde_json::from_str(&json).expect("deserialize");

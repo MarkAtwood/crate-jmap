@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
@@ -53,6 +54,18 @@ pub enum Delivered {
     Other,
 }
 
+impl fmt::Display for Delivered {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Delivered::Queued => "queued",
+            Delivered::Yes => "yes",
+            Delivered::No => "no",
+            Delivered::Unknown => "unknown",
+            Delivered::Other => "other",
+        })
+    }
+}
+
 /// Display status of a message to a recipient (RFC 8621 §7, `displayed` field).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -65,6 +78,16 @@ pub enum Displayed {
     /// An unrecognised value was received from the server.
     #[serde(other)]
     Other,
+}
+
+impl fmt::Display for Displayed {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            Displayed::Unknown => "unknown",
+            Displayed::Yes => "yes",
+            Displayed::Other => "other",
+        })
+    }
 }
 
 /// Whether an [`EmailSubmission`] may still be canceled (RFC 8621 §7).
@@ -80,7 +103,18 @@ pub enum UndoStatus {
     Canceled,
     /// An unrecognised value was received from the server.
     #[serde(other)]
-    Unknown,
+    Other,
+}
+
+impl fmt::Display for UndoStatus {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            UndoStatus::Pending => "pending",
+            UndoStatus::Final => "final",
+            UndoStatus::Canceled => "canceled",
+            UndoStatus::Other => "other",
+        })
+    }
 }
 
 /// Per-recipient delivery status for an [`EmailSubmission`] (RFC 8621 §7).
@@ -99,7 +133,7 @@ pub struct DeliveryStatus {
 }
 
 /// Represents the submission of an Email for delivery (RFC 8621 §7).
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct EmailSubmission {

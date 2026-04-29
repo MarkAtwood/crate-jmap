@@ -1,6 +1,7 @@
 mod common;
 
 use jmap_mail_types::{Email, EmailBodyPart};
+use jmap_types::Date;
 
 // Roundtrip tests compare serde_json::Value rather than the struct directly.
 // This catches fields that serialize but are not reflected in PartialEq
@@ -68,6 +69,22 @@ fn email_mailbox_ids_serializes_as_object() {
     assert!(
         v["mailboxIds"].is_object(),
         "mailboxIds must serialize as JSON object"
+    );
+}
+
+// Oracle: RFC 8621 §A.1 example — sentAt carries a +10:00 offset (non-UTC Date, not UTCDate).
+#[test]
+fn email_sent_at_accepts_non_utc_timezone() {
+    let json = r#"{"id":"M1","blobId":"G1","threadId":"T1","mailboxIds":{"MB1":true},"size":100,"receivedAt":"2024-01-01T00:00:00Z","sentAt":"2018-07-10T11:03:11+10:00"}"#;
+    let email: Email = serde_json::from_str(json).expect("deserialize");
+    assert_eq!(
+        email.sent_at.as_ref().map(Date::as_ref),
+        Some("2018-07-10T11:03:11+10:00")
+    );
+    let serialized = serde_json::to_string(&email).expect("serialize");
+    assert!(
+        serialized.contains("2018-07-10T11:03:11+10:00"),
+        "non-UTC sentAt must round-trip unchanged"
     );
 }
 

@@ -1,3 +1,5 @@
+use std::fmt;
+
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
@@ -31,14 +33,38 @@ pub enum MailboxRole {
     /// Any role string not recognized by this implementation.
     ///
     /// RFC 8621 §2: "An unrecognized role SHOULD be treated as if no role were set."
+    ///
+    /// **Round-trip warning**: this variant serializes as `"other"`, not as the original
+    /// string received from the server.  Do not echo a `MailboxRole::Other` back to the
+    /// server in a `Mailbox/set` request — omit the `role` field instead (treat as `None`).
     #[serde(other)]
-    Unknown,
+    Other,
+}
+
+impl fmt::Display for MailboxRole {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(match self {
+            MailboxRole::Inbox => "inbox",
+            MailboxRole::Trash => "trash",
+            MailboxRole::Sent => "sent",
+            MailboxRole::Drafts => "drafts",
+            MailboxRole::Junk => "junk",
+            MailboxRole::Archive => "archive",
+            MailboxRole::Flagged => "flagged",
+            MailboxRole::Important => "important",
+            MailboxRole::All => "all",
+            MailboxRole::Other => "other",
+        })
+    }
 }
 
 /// Access control rights the authenticated user holds for a Mailbox (RFC 8621 §2).
 ///
 /// Backwards compatible with IMAP ACLs (RFC 4314).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+///
+/// `Default` produces all-false (no access), which is the most restrictive valid value
+/// and a safe starting point when constructing rights in tests or server code.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[non_exhaustive]
 pub struct MailboxRights {

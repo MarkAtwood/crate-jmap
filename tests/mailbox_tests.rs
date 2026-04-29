@@ -87,7 +87,19 @@ fn mailbox_role_unknown_does_not_error() {
     // A future IANA-registered value must not hard-fail deserialization.
     let role: MailboxRole = serde_json::from_str("\"futurevalue\"")
         .expect("unknown role must not fail deserialization");
-    assert_eq!(role, MailboxRole::Unknown);
+    assert_eq!(role, MailboxRole::Other);
+}
+
+#[test]
+fn mailbox_role_display_matches_wire_names() {
+    // Oracle: RFC 8621 §2 — roles are lowercase strings; Display must match wire name.
+    assert_eq!(MailboxRole::Inbox.to_string(), "inbox");
+    assert_eq!(MailboxRole::Trash.to_string(), "trash");
+    assert_eq!(MailboxRole::Sent.to_string(), "sent");
+    assert_eq!(MailboxRole::Drafts.to_string(), "drafts");
+    assert_eq!(MailboxRole::Junk.to_string(), "junk");
+    assert_eq!(MailboxRole::Archive.to_string(), "archive");
+    assert_eq!(MailboxRole::Other.to_string(), "other");
 }
 
 #[test]
@@ -117,5 +129,5 @@ fn mailbox_with_unknown_role_deserializes() {
     }"#;
     let mb: Mailbox =
         serde_json::from_str(json).expect("Mailbox with unknown role must deserialize");
-    assert_eq!(mb.role, Some(MailboxRole::Unknown));
+    assert_eq!(mb.role, Some(MailboxRole::Other));
 }

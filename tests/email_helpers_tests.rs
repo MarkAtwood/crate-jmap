@@ -2,6 +2,45 @@ mod common;
 
 use jmap_mail_types::{EmailAddress, EmailAddressGroup, EmailBodyValue, EmailHeader};
 
+// Oracle: RFC 8621 §4.1.2.3 — deserialize with explicit null name.
+#[test]
+fn email_address_deserializes_explicit_null_name() {
+    let json = r#"{"name":null,"email":"x@example.com"}"#;
+    let addr: EmailAddress = serde_json::from_str(json).expect("deserialize");
+    assert_eq!(addr.name, None);
+    assert_eq!(addr.email, "x@example.com");
+}
+
+// Oracle: RFC 8621 §4.1.2.4 — null group name is omitted from JSON.
+#[test]
+fn email_address_group_null_name_omitted() {
+    let group: EmailAddressGroup =
+        serde_json::from_str(r#"{"addresses":[]}"#).expect("deserialize");
+    assert!(group.name.is_none());
+    let json = serde_json::to_string(&group).expect("serialize");
+    assert!(!json.contains("name"), "null name must not appear in JSON");
+}
+
+// Oracle: RFC 8621 §4.1.4 — isEncodingProblem and isTruncated default to false when absent.
+#[test]
+fn email_body_value_defaults_when_fields_absent() {
+    let json = r#"{"value":"hello"}"#;
+    let bv: EmailBodyValue = serde_json::from_str(json).expect("deserialize");
+    assert!(!bv.is_encoding_problem);
+    assert!(!bv.is_truncated);
+}
+
+// Oracle: RFC 8621 §4.1.4 example from §4.5.2 appendix — partId "1" entry.
+#[test]
+fn email_body_value_from_rfc_example() {
+    let json =
+        r#"{"value":"<html><body><p>Hello ...","isEncodingProblem":false,"isTruncated":true}"#;
+    let bv: EmailBodyValue = serde_json::from_str(json).expect("deserialize");
+    assert_eq!(bv.value, "<html><body><p>Hello ...");
+    assert!(!bv.is_encoding_problem);
+    assert!(bv.is_truncated);
+}
+
 // Roundtrip tests compare serde_json::Value rather than the struct directly.
 // This catches fields that serialize but are not reflected in PartialEq
 // (e.g., a field present in JSON but missing from the struct), and avoids
