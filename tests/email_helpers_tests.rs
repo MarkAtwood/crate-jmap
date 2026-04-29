@@ -105,29 +105,33 @@ fn email_body_value_fixture_roundtrip() {
 
 #[test]
 fn email_address_new_constructor() {
-    let a = EmailAddress::new("alice@example.com");
+    let a: EmailAddress = serde_json::from_str(r#"{"email":"alice@example.com"}"#)
+        .expect("deserialize email address");
     assert_eq!(a.email, "alice@example.com");
     assert!(a.name.is_none());
 }
 
 #[test]
 fn email_address_group_new_constructor() {
-    let a = EmailAddress::new("alice@example.com");
-    let g = EmailAddressGroup::new(vec![a]);
+    let g: EmailAddressGroup =
+        serde_json::from_str(r#"{"addresses":[{"email":"alice@example.com"}]}"#)
+            .expect("deserialize email address group");
     assert_eq!(g.addresses.len(), 1);
     assert!(g.name.is_none());
 }
 
 #[test]
 fn email_header_new_constructor() {
-    let h = EmailHeader::new("Content-Type", "text/plain");
+    let h: EmailHeader = serde_json::from_str(r#"{"name":"Content-Type","value":"text/plain"}"#)
+        .expect("deserialize email header");
     assert_eq!(h.name, "Content-Type");
     assert_eq!(h.value, "text/plain");
 }
 
 #[test]
 fn email_body_value_new_constructor() {
-    let bv = EmailBodyValue::new("hello world");
+    let bv: EmailBodyValue =
+        serde_json::from_str(r#"{"value":"hello world"}"#).expect("deserialize email body value");
     assert_eq!(bv.value, "hello world");
     assert!(!bv.is_encoding_problem);
     assert!(!bv.is_truncated);

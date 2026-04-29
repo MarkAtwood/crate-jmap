@@ -69,7 +69,8 @@ fn snippet_email_id_wire_name() {
 #[test]
 fn snippet_new_constructor() {
     use jmap_types::Id;
-    let s = jmap_mail_types::SearchSnippet::new(Id::from("Mabc"));
+    let s: jmap_mail_types::SearchSnippet =
+        serde_json::from_str(r#"{"emailId":"Mabc"}"#).expect("deserialize snippet");
     assert_eq!(s.email_id, Id::from("Mabc"));
     assert!(s.subject.is_none());
     assert!(s.preview.is_none());

@@ -113,16 +113,21 @@ fn submission_wire_field_names() {
 
 #[test]
 fn address_new_constructor() {
-    let a = Address::new("user@example.com");
+    let a: Address =
+        serde_json::from_str(r#"{"email":"user@example.com"}"#).expect("deserialize address");
     assert_eq!(a.email, "user@example.com");
     assert!(a.parameters.is_none());
 }
 
 #[test]
 fn envelope_new_constructor() {
-    let from = Address::new("sender@example.com");
-    let to = vec![Address::new("rcpt@example.com")];
-    let env = Envelope::new(from, to);
+    let env: Envelope = serde_json::from_str(
+        r#"{
+        "mailFrom": {"email": "sender@example.com"},
+        "rcptTo": [{"email": "rcpt@example.com"}]
+    }"#,
+    )
+    .expect("deserialize envelope");
     assert_eq!(env.mail_from.email, "sender@example.com");
     assert_eq!(env.rcpt_to.len(), 1);
     assert_eq!(env.rcpt_to[0].email, "rcpt@example.com");
@@ -130,7 +135,9 @@ fn envelope_new_constructor() {
 
 #[test]
 fn delivery_status_new_constructor() {
-    let ds = DeliveryStatus::new("250 OK", Delivered::Yes, Displayed::Unknown);
+    let ds: DeliveryStatus =
+        serde_json::from_str(r#"{"smtpReply":"250 OK","delivered":"yes","displayed":"unknown"}"#)
+            .expect("deserialize delivery status");
     assert_eq!(ds.smtp_reply, "250 OK");
     assert_eq!(ds.delivered, Delivered::Yes);
     assert_eq!(ds.displayed, Displayed::Unknown);
@@ -138,24 +145,24 @@ fn delivery_status_new_constructor() {
 
 #[test]
 fn email_submission_new_constructor() {
-    use jmap_types::{Id, UTCDate};
-    let id = Id::from("sub1");
-    let identity_id = Id::from("id1");
-    let email_id = Id::from("em1");
-    let thread_id = Id::from("th1");
-    let send_at = UTCDate::from("2023-01-15T12:00:00Z");
-    let es = EmailSubmission::new(
-        id.clone(),
-        identity_id.clone(),
-        email_id.clone(),
-        thread_id.clone(),
-        send_at,
-        UndoStatus::Pending,
-    );
-    assert_eq!(es.id, id);
-    assert_eq!(es.identity_id, identity_id);
-    assert_eq!(es.email_id, email_id);
-    assert_eq!(es.thread_id, thread_id);
+    use jmap_types::Id;
+    let es: EmailSubmission = serde_json::from_str(
+        r#"{
+        "id": "sub1",
+        "identityId": "id1",
+        "emailId": "em1",
+        "threadId": "th1",
+        "sendAt": "2023-01-15T12:00:00Z",
+        "undoStatus": "pending",
+        "dsnBlobIds": [],
+        "mdnBlobIds": []
+    }"#,
+    )
+    .expect("deserialize email submission");
+    assert_eq!(es.id, Id::from("sub1"));
+    assert_eq!(es.identity_id, Id::from("id1"));
+    assert_eq!(es.email_id, Id::from("em1"));
+    assert_eq!(es.thread_id, Id::from("th1"));
     assert_eq!(es.undo_status, UndoStatus::Pending);
     assert!(es.envelope.is_none());
     assert!(es.delivery_status.is_none());

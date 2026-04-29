@@ -53,7 +53,8 @@ fn thread_wire_field_name_is_email_ids() {
 #[test]
 fn thread_new_constructor() {
     use jmap_types::Id;
-    let t = jmap_mail_types::Thread::new(Id::from("t1"), vec![Id::from("e1"), Id::from("e2")]);
+    let t: jmap_mail_types::Thread =
+        serde_json::from_str(r#"{"id":"t1","emailIds":["e1","e2"]}"#).expect("deserialize thread");
     assert_eq!(t.id, Id::from("t1"));
     assert_eq!(t.email_ids.len(), 2);
 }

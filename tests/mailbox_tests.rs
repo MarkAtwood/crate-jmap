@@ -147,20 +147,31 @@ fn mailbox_with_unknown_role_deserializes() {
 
 #[test]
 fn mailbox_new_constructor() {
-    use jmap_mail_types::MailboxRights;
-    use jmap_types::Id;
-    let mb = Mailbox::new(
-        Id::from("MB1"),
-        "Inbox",
-        10,
-        16307,
-        3,
-        500,
-        1,
-        MailboxRights::default(),
-        true,
-    );
-    assert_eq!(mb.id, Id::from("MB1"));
+    let mb: Mailbox = serde_json::from_str(
+        r#"{
+        "id": "MB1",
+        "name": "Inbox",
+        "sortOrder": 10,
+        "totalEmails": 16307,
+        "unreadEmails": 3,
+        "totalThreads": 500,
+        "unreadThreads": 1,
+        "myRights": {
+            "mayReadItems": false,
+            "mayAddItems": false,
+            "mayRemoveItems": false,
+            "maySetSeen": false,
+            "maySetKeywords": false,
+            "mayCreateChild": false,
+            "mayRename": false,
+            "mayDelete": false,
+            "maySubmit": false
+        },
+        "isSubscribed": true
+    }"#,
+    )
+    .expect("deserialize mailbox");
+    assert_eq!(mb.id, jmap_types::Id::from("MB1"));
     assert_eq!(mb.name, "Inbox");
     assert_eq!(mb.sort_order, 10);
     assert_eq!(mb.total_emails, 16307);
