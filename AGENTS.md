@@ -1,5 +1,30 @@
 # Agent Instructions
 
+This is a **Cargo workspace** for the `jmap-*` Rust crate family (RFC 8620, RFC 8621, and
+the JMAP Chat extension). All five crates live in `crate-jmap-*/` subdirectories.
+
+## Crate Map
+
+| Directory | Crate | Role |
+|---|---|---|
+| `crate-jmap-types/` | `jmap-types` | Shared wire types — foundation, no async |
+| `crate-jmap-mail-types/` | `jmap-mail-types` | RFC 8621 data types, no async |
+| `crate-jmap-chat-types/` | `jmap-chat-types` | JMAP Chat extension types, no async |
+| `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers |
+| `crate-jmap-mail-server/` | `jmap-mail-server` | RFC 8621 method handlers (greenfield) |
+
+Read the crate's `PLAN.md` before touching its code.
+
+## Key Rules
+
+- **`cargo test --workspace`** must pass before any commit.
+- **No async** in `*-types` crates — no tokio, no futures.
+- **`crate-jmapchat-*`** directories in `../` are reference/inspiration only; do not
+  modify them and do not add them to this workspace.
+- **Spec refs** live at `~/PROJECT/jmap-chat-spec/references/` (RFC 8620, RFC 8621) and
+  `~/PROJECT/jmap-chat-spec/` (Chat drafts).
+- Test oracles must be independent of the code under test (RFC example JSON, OpenSSL output).
+
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
 ## Quick Reference

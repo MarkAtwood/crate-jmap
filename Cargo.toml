@@ -1,0 +1,25 @@
+[workspace]
+members = [
+    "crate-jmap-types",
+    "crate-jmap-mail-types",
+    "crate-jmap-chat-types",
+    "crate-jmap-server",
+    "crate-jmap-mail-server",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.75"
+license = "MIT OR Apache-2.0"
+
+[workspace.dependencies]
+jmap-types      = { path = "crate-jmap-types" }
+jmap-mail-types = { path = "crate-jmap-mail-types" }
+jmap-chat-types = { path = "crate-jmap-chat-types" }
+jmap-server     = { path = "crate-jmap-server" }
+serde       = { version = "1", features = ["derive"] }
+serde_json  = "1"
+thiserror   = "2"
+tokio       = { version = "1", features = ["rt"] }
+http        = "1"

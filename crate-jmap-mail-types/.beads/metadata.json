@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "embedded",
-  "dolt_database": "crate_jmap_mail_types",
-  "project_id": "12753c25-0710-42ec-8009-020a41460be9"
-}

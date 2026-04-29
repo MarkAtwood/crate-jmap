@@ -52,18 +52,57 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
-
 ```bash
-# Example:
-# npm install
-# npm test
+# Check all crates
+cargo check --workspace
+
+# Run all tests
+cargo test --workspace
+
+# Check a single crate
+cargo check -p jmap-types
+cargo test -p jmap-server
+
+# Lint
+cargo clippy --workspace -- -D warnings
+
+# Format
+cargo fmt --all
 ```
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+Cargo workspace containing the full `jmap-*` crate family (RFC 8620 + RFC 8621 + Chat extension):
+
+```
+jmap-types          (crate-jmap-types/)      — shared wire types: Id, JmapRequest/Response,
+                                               ResultReference, JmapError. No async.
+    ├── jmap-server     (crate-jmap-server/)  — dispatcher, parse_request, ResultReference
+    │                                           resolution, HTTP helpers. Depends on tokio+http.
+    ├── jmap-mail-types (crate-jmap-mail-types/) — RFC 8621 data types: Email, Mailbox,
+    │                                           Thread, Identity, EmailSubmission. No async.
+    │       └── jmap-mail-server (crate-jmap-mail-server/) — RFC 8621 method handlers,
+    │                                           MailBackend trait. Greenfield — see PLAN.md.
+    └── jmap-chat-types (crate-jmap-chat-types/) — JMAP Chat extension types: Chat, Message,
+                                                Space, etc. No async.
+```
+
+Dependency rule: type crates (`*-types`) have no async deps. Server crates (`*-server`)
+may depend on tokio/http. Client crates (not yet in this workspace) follow the same rule.
+
+Each crate has a `PLAN.md` with full design rationale, source material references, and
+test strategy. Read it before implementing anything in that crate.
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- **Path deps**: each crate references siblings via `path = "../crate-jmap-*"` — do not
+  change to version deps until publishing.
+- **Test oracles**: tests must use independent fixtures (hand-written JSON from RFC examples,
+  or OpenSSL/pyca output). Never derive expected values from the code under test.
+- **No async in type crates**: `jmap-types`, `jmap-mail-types`, `jmap-chat-types` must not
+  depend on tokio or any async runtime.
+- **`crate-jmapchat-*` dirs** (outside this workspace): reference/inspiration only — not
+  members of this workspace and not to be modified here.
+- **Spec references**: RFC 8620 and RFC 8621 are at `~/PROJECT/jmap-chat-spec/references/`.
+  JMAP Chat drafts are at `~/PROJECT/jmap-chat-spec/`.
+- **Crate naming**: crate name = `jmap-*`, directory name = `crate-jmap-*`.
