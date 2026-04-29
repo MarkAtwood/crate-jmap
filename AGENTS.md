@@ -103,6 +103,8 @@ diff <(cd ../crate-jmap-types && cargo metadata --no-deps --format-version 1 | j
 | Field names | Must match spec drafts exactly |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | Test oracle | Hand-written JSON from spec examples — never from code under test |
+| Constructors | **None.** No `::new()` methods in this crate. Construction is the consumer's responsibility. Downstream crates use `serde_json` deserialization to create instances. |
+| Attribute order | `#[non_exhaustive]` → `#[derive(...)]` → `#[serde(...)]` on every type |
 
 ## Subagent Guidance
 
