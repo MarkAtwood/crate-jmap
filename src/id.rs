@@ -23,6 +23,22 @@ pub struct Id(String);
 #[non_exhaustive]
 pub struct UTCDate(String);
 
+/// RFC 3339 date-time string with any timezone offset (RFC 8620 §1.4).
+///
+/// Format: `YYYY-MM-DDTHH:MM:SS±HH:MM` or `Z` suffix — any valid RFC 3339 offset,
+/// letters uppercase, fractional seconds omitted if zero.
+/// Example: `"2014-10-30T14:12:00+08:00"`.
+///
+/// Distinct from [`UTCDate`], which requires the time-offset to be `Z`.
+/// Use `Date` for fields derived from RFC 5322 email headers (e.g. `sentAt`),
+/// which commonly carry non-UTC offsets.
+// #[non_exhaustive] prevents callers from pattern-matching the inner field,
+// preserving semver freedom to add fields later.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+#[non_exhaustive]
+pub struct Date(String);
+
 /// Opaque server state token (RFC 8620 §1.2).
 ///
 /// Returned by `/get` and `/changes` methods. Clients echo it back in
@@ -69,6 +85,7 @@ macro_rules! impl_string_newtype {
 
 impl_string_newtype!(Id);
 impl_string_newtype!(UTCDate);
+impl_string_newtype!(Date);
 impl_string_newtype!(State);
 
 #[cfg(test)]
@@ -134,5 +151,15 @@ mod tests {
         let json = serde_json::to_string(&s).expect("serialize");
         let s2: State = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(s, s2);
+    }
+
+    // Oracle: RFC 8620 §1.4 example — Date allows non-UTC offsets, unlike UTCDate.
+    #[test]
+    fn date_accepts_non_utc_offset() {
+        let d = Date("2014-10-30T14:12:00+08:00".to_owned());
+        let json = serde_json::to_string(&d).expect("serialize Date");
+        assert_eq!(json, "\"2014-10-30T14:12:00+08:00\"");
+        let d2: Date = serde_json::from_str(&json).expect("deserialize Date");
+        assert_eq!(d, d2);
     }
 }
