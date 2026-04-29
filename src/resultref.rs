@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// This trait is intentionally sealed: it is defined in a private module and
 /// can only be implemented inside this crate. The current sealed set is:
-/// `String`, `Vec<String>`, `u32`, `u64`, `bool`.
+/// `String`, `Vec<String>`, `Id`, `Vec<Id>`, `u32`, `u64`, `bool`.
 ///
 /// **External contributors**: you cannot implement `Sealed` outside this crate.
 /// To add a new type to the sealed set, open a PR to `crate-jmap-types` and
@@ -15,6 +15,8 @@ mod sealed {
 
     impl Sealed for String {}
     impl Sealed for Vec<String> {}
+    impl Sealed for crate::Id {}
+    impl Sealed for Vec<crate::Id> {}
     impl Sealed for u32 {}
     impl Sealed for u64 {}
     impl Sealed for bool {}

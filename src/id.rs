@@ -23,7 +23,7 @@ pub struct UTCDate(String);
 ///
 /// Returned by `/get` and `/changes` methods. Clients echo it back in
 /// `sinceState` / `ifInState` parameters. Treat as opaque — no structure assumed.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[non_exhaustive]
 pub struct State(String);

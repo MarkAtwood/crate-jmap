@@ -1,3 +1,4 @@
+use crate::Id;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -15,6 +16,9 @@ pub struct JmapError {
     /// Human-readable description. Omitted from JSON when `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The id of the existing record. Only set for `"alreadyExists"` (RFC 8620 §5.4 MUST).
+    #[serde(rename = "existingId", skip_serializing_if = "Option::is_none")]
+    pub existing_id: Option<Id>,
 }
 
 impl JmapError {
@@ -23,6 +27,7 @@ impl JmapError {
         Self {
             error_type: "invalidArguments".into(),
             description: Some(desc.into()),
+            existing_id: None,
         }
     }
 
@@ -31,6 +36,7 @@ impl JmapError {
         Self {
             error_type: "forbidden".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -39,6 +45,7 @@ impl JmapError {
         Self {
             error_type: "notFound".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -47,6 +54,7 @@ impl JmapError {
         Self {
             error_type: "accountNotFound".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -55,6 +63,7 @@ impl JmapError {
         Self {
             error_type: "accountNotSupportedByMethod".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -63,6 +72,7 @@ impl JmapError {
         Self {
             error_type: "accountReadOnly".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -71,6 +81,7 @@ impl JmapError {
         Self {
             error_type: "serverUnavailable".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -79,6 +90,7 @@ impl JmapError {
         Self {
             error_type: "serverFail".into(),
             description: Some(desc.into()),
+            existing_id: None,
         }
     }
 
@@ -87,6 +99,7 @@ impl JmapError {
         Self {
             error_type: "serverPartialFail".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -95,6 +108,7 @@ impl JmapError {
         Self {
             error_type: "unknownMethod".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -103,6 +117,7 @@ impl JmapError {
         Self {
             error_type: "invalidResultReference".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -111,6 +126,7 @@ impl JmapError {
         Self {
             error_type: "cannotCalculateChanges".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -119,6 +135,7 @@ impl JmapError {
         Self {
             error_type: "stateMismatch".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -127,14 +144,16 @@ impl JmapError {
         Self {
             error_type: "tooLarge".into(),
             description: None,
+            existing_id: None,
         }
     }
 
     /// RFC 8620 §5.1 and §5.3 — "requestTooLarge"
-    pub fn request_too_large(desc: impl Into<String>) -> Self {
+    pub fn request_too_large() -> Self {
         Self {
             error_type: "requestTooLarge".into(),
-            description: Some(desc.into()),
+            description: None,
+            existing_id: None,
         }
     }
 
@@ -143,6 +162,7 @@ impl JmapError {
         Self {
             error_type: "overQuota".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -151,6 +171,7 @@ impl JmapError {
         Self {
             error_type: "rateLimit".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -159,6 +180,7 @@ impl JmapError {
         Self {
             error_type: "invalidPatch".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -167,6 +189,7 @@ impl JmapError {
         Self {
             error_type: "willDestroy".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -175,6 +198,7 @@ impl JmapError {
         Self {
             error_type: "invalidProperties".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -183,6 +207,7 @@ impl JmapError {
         Self {
             error_type: "singleton".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -191,6 +216,7 @@ impl JmapError {
         Self {
             error_type: "unsupportedFilter".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -199,14 +225,19 @@ impl JmapError {
         Self {
             error_type: "anchorNotFound".into(),
             description: None,
+            existing_id: None,
         }
     }
 
     /// RFC 8620 §5.4 — "alreadyExists"
-    pub fn already_exists() -> Self {
+    ///
+    /// `existing_id` is the id of the record that already exists in the target account.
+    /// Per RFC 8620 §5.4, this field MUST be present on the SetError object.
+    pub fn already_exists(existing_id: Id) -> Self {
         Self {
             error_type: "alreadyExists".into(),
             description: None,
+            existing_id: Some(existing_id),
         }
     }
 
@@ -215,6 +246,7 @@ impl JmapError {
         Self {
             error_type: "fromAccountNotFound".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -223,6 +255,7 @@ impl JmapError {
         Self {
             error_type: "fromAccountNotSupportedByMethod".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -231,6 +264,7 @@ impl JmapError {
         Self {
             error_type: "unsupportedSort".into(),
             description: None,
+            existing_id: None,
         }
     }
 
@@ -239,6 +273,7 @@ impl JmapError {
         Self {
             error_type: "tooManyChanges".into(),
             description: None,
+            existing_id: None,
         }
     }
 }
@@ -361,11 +396,11 @@ mod tests {
     }
 
     #[test]
-    fn request_too_large_includes_description() {
-        let e = JmapError::request_too_large("body exceeds 10MB");
+    fn request_too_large_type_string() {
+        let e = JmapError::request_too_large();
         let json = serde_json::to_string(&e).unwrap();
         assert!(json.contains("\"requestTooLarge\""));
-        assert!(json.contains("body exceeds 10MB"));
+        assert!(!json.contains("\"description\""));
     }
 
     #[test]
@@ -424,11 +459,14 @@ mod tests {
         assert!(json.contains("\"anchorNotFound\""));
     }
 
+    // Oracle: RFC 8620 §5.4 — alreadyExists MUST include existingId of type Id.
     #[test]
-    fn already_exists_type_string() {
-        let e = JmapError::already_exists();
+    fn already_exists_includes_existing_id() {
+        let e = JmapError::already_exists(Id::from("abc123"));
         let json = serde_json::to_string(&e).unwrap();
         assert!(json.contains("\"alreadyExists\""));
+        assert!(json.contains("\"existingId\""));
+        assert!(json.contains("\"abc123\""));
         assert!(!json.contains("\"description\""));
     }
 
