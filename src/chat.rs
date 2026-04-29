@@ -1,5 +1,45 @@
 use jmap_types::{Id, UTCDate};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+/// The kind of a [`Chat`] conversation.
+///
+/// The spec defines three kinds. `Unknown` preserves any future value
+/// for round-trip fidelity without breaking deserialization.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ChatKind {
+    /// One-to-one conversation between two participants.
+    Direct,
+    /// Multi-party conversation without a containing Space.
+    Group,
+    /// A named channel inside a [`crate::Space`].
+    Channel,
+    /// A value not recognized by this version of the library.
+    Unknown(String),
+}
+
+impl Serialize for ChatKind {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(match self {
+            ChatKind::Direct => "direct",
+            ChatKind::Group => "group",
+            ChatKind::Channel => "channel",
+            ChatKind::Unknown(v) => v.as_str(),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for ChatKind {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        Ok(match s.as_str() {
+            "direct" => ChatKind::Direct,
+            "group" => ChatKind::Group,
+            "channel" => ChatKind::Channel,
+            _ => ChatKind::Unknown(s),
+        })
+    }
+}
 
 /// A member of a [`Chat`].
 #[non_exhaustive]
@@ -30,7 +70,7 @@ pub struct ChannelPermission {
 #[serde(rename_all = "camelCase")]
 pub struct Chat {
     pub id: Id,
-    pub kind: String,
+    pub kind: ChatKind,
     pub created_at: UTCDate,
     pub unread_count: u64,
     pub pinned_message_ids: Vec<Id>,
@@ -75,7 +115,7 @@ impl Chat {
     /// All optional fields default to `None`.
     pub fn new(
         id: Id,
-        kind: impl Into<String>,
+        kind: ChatKind,
         created_at: UTCDate,
         unread_count: u64,
         pinned_message_ids: Vec<Id>,
@@ -84,7 +124,7 @@ impl Chat {
     ) -> Self {
         Self {
             id,
-            kind: kind.into(),
+            kind,
             created_at,
             unread_count,
             pinned_message_ids,
@@ -120,7 +160,7 @@ mod tests {
         let json = r#"{"id":"c1","kind":"direct","contactId":"u1","createdAt":"2026-01-01T00:00:00Z","unreadCount":0,"pinnedMessageIds":[],"muted":false,"receiveTypingIndicators":true}"#;
         let chat: Chat = serde_json::from_str(json).expect("deserialize Chat");
         assert_eq!(chat.id.as_ref(), "c1");
-        assert_eq!(chat.kind, "direct");
+        assert_eq!(chat.kind, ChatKind::Direct);
         assert_eq!(chat.contact_id.as_ref().map(|id| id.as_ref()), Some("u1"));
         assert_eq!(chat.created_at.as_ref(), "2026-01-01T00:00:00Z");
         assert!(chat.name.is_none());
@@ -141,7 +181,7 @@ mod tests {
             "muted": false,
             "receiveTypingIndicators": false,
             "permissionOverrides": [
-                {"targetId": "r1", "targetType": "role", "allow": ["sendMessage"], "deny": []}
+                {"targetId": "r1", "targetType": "role", "allow": ["send_message"], "deny": []}
             ]
         }"#;
         let chat: Chat = serde_json::from_str(json).expect("deserialize channel Chat");
@@ -153,7 +193,7 @@ mod tests {
         assert_eq!(overrides.len(), 1);
         assert_eq!(overrides[0].target_id.as_ref(), "r1");
         assert_eq!(overrides[0].target_type, "role");
-        assert_eq!(overrides[0].allow, vec!["sendMessage"]);
+        assert_eq!(overrides[0].allow, vec!["send_message"]);
         assert!(overrides[0].deny.is_empty());
     }
 
@@ -196,7 +236,7 @@ mod tests {
     // Equality check proves both directions are consistent.
     #[test]
     fn channel_permission_roundtrip() {
-        let json = r#"{"targetId":"role42","targetType":"role","allow":["sendMessage","readHistory"],"deny":["manageChannel"]}"#;
+        let json = r#"{"targetId":"role42","targetType":"role","allow":["send_message","manage_channels"],"deny":["ban"]}"#;
         let perm: ChannelPermission =
             serde_json::from_str(json).expect("deserialize ChannelPermission");
         let serialized = serde_json::to_string(&perm).expect("serialize ChannelPermission");

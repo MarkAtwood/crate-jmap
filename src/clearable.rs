@@ -6,7 +6,11 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 /// - JSON value   → `Some(Clearable::Set(v))`
 ///
 /// Pair with `#[serde(default)]` so that an absent field yields `None`.
-// Used by serde's `deserialize_with` attribute — rustc cannot track string-path references.
+///
+/// # Note
+/// Referenced via string path in `#[serde(deserialize_with = "some_clearable")]`.
+/// rustc cannot track such string references, so the compiler incorrectly reports
+/// this function as dead code without the allow attribute.
 #[allow(dead_code)]
 pub(crate) fn some_clearable<'de, D, T>(d: D) -> Result<Option<Clearable<T>>, D::Error>
 where
@@ -22,7 +26,8 @@ where
 /// - `None` = field absent (no change)
 /// - `Some(Clearable::Clear)` = field present as `null` (clear the value)
 /// - `Some(Clearable::Set(v))` = field present with value `v`
-#[non_exhaustive]
+///
+/// Not `#[non_exhaustive]` — callers must be able to match exhaustively on `Clear` / `Set`.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Clearable<T> {
     /// Field was present in JSON as `null` — explicitly clear the value.

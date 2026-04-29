@@ -55,38 +55,25 @@ serde_json = "1"
 
 No other dependencies.
 
-## Planned Types
-
-```rust
-// Core objects (draft-atwood-jmap-chat-00)
-pub struct Chat { pub id: Id, pub name: String, pub space_id: Option<Id>,
-                  pub member_ids: HashMap<Id, bool>, ... }
-pub struct Message { pub id: Id, pub chat_id: Id, pub author_id: Id,
-                     pub sent_at: UTCDate, pub body: String, ... }
-pub struct Space { pub id: Id, pub name: String, ... }
-pub struct ChatContact { pub id: Id, pub user_id: Id, ... }
-pub struct ReadPosition { pub id: Id, pub chat_id: Id, pub message_id: Id, ... }
-
-// Ephemeral events (draft-atwood-jmap-chat-wss-00)
-pub enum EphemeralEvent { Typing { chat_id: Id, user_id: Id }, Presence { ... }, ... }
-```
-
 ## Module Layout
 
 ```
 src/
   lib.rs        re-exports
-  chat.rs       Chat
-  message.rs    Message
-  space.rs      Space
-  contact.rs    ChatContact
+  chat.rs       Chat, ChatMember, ChannelPermission
+  clearable.rs  Clearable<T> — null-vs-absent patch helper
+  contact.rs    ChatContact, Endpoint
+  emoji.rs      CustomEmoji
+  ephemeral.rs  EphemeralMessage (WebSocket events)
+  message.rs    Message, Attachment, Mention, MessageAction, Reaction, MessageRevision, DeliveryReceipt
   position.rs   ReadPosition
-  ephemeral.rs  EphemeralEvent (WebSocket events)
-  push.rs       Push subscription payload types
+  presence.rs   PresenceStatus
+  push.rs       ChatMessagePush, ChatMessageEntry, ChatPushConfig
+  space.rs      Space, SpaceRole, SpaceMember, Category, SpaceInvite, SpaceBan
 ```
 
 ## Test Strategy
 
 - Serde round-trips against hand-written JSON derived from spec examples
-- Tests committed as fixture files in `tests/fixtures/`
+- Tests are inline `#[cfg(test)]` modules in each source file
 - No live network, no external services

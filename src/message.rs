@@ -1,6 +1,82 @@
 use jmap_types::{Id, UTCDate};
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
+
+/// Delivery state of a [`Message`] as defined by the spec.
+///
+/// `Unknown` preserves any future value for round-trip fidelity.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum DeliveryState {
+    /// Enqueued but not yet acknowledged by any recipient.
+    Pending,
+    /// Acknowledged by the recipient's server.
+    Delivered,
+    /// Delivery failed permanently.
+    Failed,
+    /// Received on the recipient's device.
+    Received,
+    /// A value not recognized by this version of the library.
+    Unknown(String),
+}
+
+impl Serialize for DeliveryState {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(match self {
+            DeliveryState::Pending => "pending",
+            DeliveryState::Delivered => "delivered",
+            DeliveryState::Failed => "failed",
+            DeliveryState::Received => "received",
+            DeliveryState::Unknown(v) => v.as_str(),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for DeliveryState {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        Ok(match s.as_str() {
+            "pending" => DeliveryState::Pending,
+            "delivered" => DeliveryState::Delivered,
+            "failed" => DeliveryState::Failed,
+            "received" => DeliveryState::Received,
+            _ => DeliveryState::Unknown(s),
+        })
+    }
+}
+
+/// Identifies who sent a [`Message`] or placed a [`Reaction`].
+///
+/// The account owner is represented as the wire sentinel `"self"`.
+/// All other participants carry their `ChatContact.id` string.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SenderId {
+    /// The message or reaction was sent by the account owner.
+    Owner,
+    /// Another participant, identified by their `ChatContact.id`.
+    Contact(String),
+}
+
+impl Serialize for SenderId {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(match self {
+            SenderId::Owner => "self",
+            SenderId::Contact(id) => id.as_str(),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for SenderId {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let s = String::deserialize(d)?;
+        Ok(if s == "self" {
+            SenderId::Owner
+        } else {
+            SenderId::Contact(s)
+        })
+    }
+}
 
 /// A file attached to a [`Message`].
 #[non_exhaustive]
@@ -11,6 +87,13 @@ pub struct Attachment {
     pub filename: String,
     pub content_type: String,
     pub size: u64,
+    /// SHA-256 digest of the attachment content, hex-encoded: exactly 64 lowercase hex characters.
+    ///
+    /// Kept as `String` rather than a validated newtype because this crate is wire-format only —
+    /// it does not validate field values, consistent with how `Id`, `UTCDate`, and `body_type`
+    /// are handled. A newtype with `TryFrom` validation would be inconsistent with that boundary.
+    /// A newtype without validation would add type-tagging overhead for a field that already has
+    /// a distinct name; mixing it with `blob_id` is not a realistic mistake.
     pub sha256: String,
 }
 
@@ -49,8 +132,7 @@ pub struct Reaction {
     pub emoji: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_emoji_id: Option<Id>,
-    /// `"self"` or a `ChatContact.id` — not a JMAP `Id`, may hold sentinel strings.
-    pub sender_id: String,
+    pub sender_id: SenderId,
     pub sent_at: UTCDate,
 }
 
@@ -84,8 +166,7 @@ pub struct DeliveryReceipt {
 pub struct Message {
     pub id: Id,
     pub sender_msg_id: Id,
-    /// `"self"` or a `ChatContact.id`.
-    pub sender_id: String,
+    pub sender_id: SenderId,
     pub chat_id: Id,
     pub body: String,
     pub body_type: String,
@@ -95,7 +176,7 @@ pub struct Message {
     pub reactions: HashMap<String, Reaction>,
     pub sent_at: UTCDate,
     pub received_at: UTCDate,
-    pub delivery_state: String,
+    pub delivery_state: DeliveryState,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<Id>,
@@ -133,7 +214,7 @@ impl Message {
     pub fn new(
         id: Id,
         sender_msg_id: Id,
-        sender_id: impl Into<String>,
+        sender_id: SenderId,
         chat_id: Id,
         body: impl Into<String>,
         body_type: impl Into<String>,
@@ -143,12 +224,12 @@ impl Message {
         reactions: HashMap<String, Reaction>,
         sent_at: UTCDate,
         received_at: UTCDate,
-        delivery_state: impl Into<String>,
+        delivery_state: DeliveryState,
     ) -> Self {
         Self {
             id,
             sender_msg_id,
-            sender_id: sender_id.into(),
+            sender_id,
             chat_id,
             body: body.into(),
             body_type: body_type.into(),
@@ -158,7 +239,7 @@ impl Message {
             reactions,
             sent_at,
             received_at,
-            delivery_state: delivery_state.into(),
+            delivery_state,
             reply_to: None,
             thread_root_id: None,
             reply_count: None,
@@ -202,7 +283,7 @@ mod tests {
         }"#;
         let msg: Message = serde_json::from_str(json).expect("deserialize minimal Message");
         assert_eq!(msg.id.as_ref(), "m1");
-        assert_eq!(msg.sender_id, "self");
+        assert_eq!(msg.sender_id, SenderId::Owner);
         assert!(msg.attachments.is_empty());
         assert!(msg.mentions.is_empty());
         assert!(msg.actions.is_empty());
@@ -240,7 +321,7 @@ mod tests {
         assert_eq!(msg.reactions.len(), 1);
         let reaction = msg.reactions.get("r1").expect("reaction key r1");
         assert_eq!(reaction.emoji, "👍");
-        assert_eq!(reaction.sender_id, "u99");
+        assert_eq!(reaction.sender_id, SenderId::Contact("u99".to_owned()));
     }
 
     // Oracle: serde rename contract — the wire key for action_type must be "type".

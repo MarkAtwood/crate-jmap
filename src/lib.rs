@@ -1,8 +1,11 @@
 //! JMAP Chat extension data types (draft-atwood-jmap-chat).
 //!
 //! Provides serde-annotated structs and enums for the Chat, Message, Space,
-//! ChatContact, ReadPosition, PresenceStatus, and ephemeral WebSocket event
-//! types defined by the JMAP Chat extension drafts.
+//! ChatContact, ReadPosition, PresenceStatus, CustomEmoji, and ephemeral
+//! WebSocket event and push notification types defined by the JMAP Chat
+//! extension drafts.
+//!
+//! [`Clearable<T>`] handles the JSON null-vs-absent distinction for patch fields.
 //!
 //! Types only — no method handlers, no async, no network I/O.
 
@@ -19,7 +22,7 @@ pub mod presence;
 pub mod push;
 pub mod space;
 
-pub use chat::{ChannelPermission, Chat, ChatMember};
+pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember};
 pub use clearable::Clearable;
 pub use contact::{ChatContact, Endpoint};
 pub use emoji::CustomEmoji;
@@ -27,9 +30,10 @@ pub use ephemeral::{
     ChatPresenceEvent, ChatStreamDisable, ChatStreamEnable, ChatTypingEvent, EphemeralMessage,
 };
 pub use message::{
-    Attachment, DeliveryReceipt, Mention, Message, MessageAction, MessageRevision, Reaction,
+    Attachment, DeliveryReceipt, DeliveryState, Mention, Message, MessageAction, MessageRevision,
+    Reaction, SenderId,
 };
 pub use position::ReadPosition;
-pub use presence::PresenceStatus;
+pub use presence::{Presence, PresenceStatus};
 pub use push::{ChatMessageEntry, ChatMessagePush, ChatPushConfig};
 pub use space::{Category, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};

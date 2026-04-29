@@ -1,3 +1,4 @@
+use crate::presence::Presence;
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
@@ -32,7 +33,7 @@ pub struct ChatContact {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub presence: Option<String>,
+    pub presence: Option<Presence>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_active_at: Option<UTCDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -87,7 +88,7 @@ mod tests {
         let c: ChatContact = serde_json::from_str(json).expect("deserialize ChatContact");
         assert_eq!(c.id.as_ref(), "u1");
         assert_eq!(c.login, "alice@example.com");
-        assert_eq!(c.blocked, false);
+        assert!(!c.blocked);
         assert!(c.display_name.is_none());
         assert!(c.endpoints.is_none());
     }

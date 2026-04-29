@@ -1,4 +1,5 @@
-use jmap_types::{Id, UTCDate};
+use crate::chat::ChatKind;
+use jmap_types::{Id, State, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Client-supplied filter controlling which push notifications are delivered.
@@ -30,7 +31,7 @@ pub struct ChatPushConfig {
 pub struct ChatMessageEntry {
     pub message_id: Id,
     pub chat_id: Id,
-    pub chat_kind: String,
+    pub chat_kind: ChatKind,
     pub sender_id: String,
     pub sent_at: UTCDate,
     pub has_mention: bool,
@@ -53,20 +54,20 @@ pub struct ChatMessageEntry {
 /// Push payload carrying one or more new message summaries for an account.
 ///
 /// The wire format includes `"@type": "ChatMessagePush"` as a discriminant.
-/// `state` is a JMAP state token (opaque string), not an [`Id`].
+/// `state` is a JMAP state token ([`State`]) — an opaque, comparable string token.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "@type", rename = "ChatMessagePush")]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMessagePush {
     pub account_id: Id,
-    pub state: String,
+    pub state: State,
     pub messages: Vec<ChatMessageEntry>,
 }
 
 impl ChatMessagePush {
     /// Construct a [`ChatMessagePush`] from its required fields.
-    pub fn new(account_id: Id, state: impl Into<String>, messages: Vec<ChatMessageEntry>) -> Self {
+    pub fn new(account_id: Id, state: impl Into<State>, messages: Vec<ChatMessageEntry>) -> Self {
         Self {
             account_id,
             state: state.into(),
@@ -76,34 +77,69 @@ impl ChatMessagePush {
 }
 
 impl ChatMessageEntry {
-    /// Construct a [`ChatMessageEntry`] from its required fields.
+    /// Construct a plaintext [`ChatMessageEntry`] for push delivery.
     ///
-    /// All optional fields default to `None`.
+    /// Sets `encrypted = false`. Pass `body_snippet = None` when the user has
+    /// disabled message previews; pass `Some(snippet)` to include a preview.
+    ///
+    /// Use [`ChatMessageEntry::encrypted`] for encrypted messages — that
+    /// constructor enforces `body_snippet = None` so plaintext cannot leak.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(
+    pub fn plaintext(
         message_id: Id,
         chat_id: Id,
-        chat_kind: impl Into<String>,
+        chat_kind: ChatKind,
         sender_id: impl Into<String>,
         sent_at: UTCDate,
         has_mention: bool,
         has_mention_all: bool,
-        encrypted: bool,
+        body_snippet: Option<impl Into<String>>,
     ) -> Self {
         Self {
             message_id,
             chat_id,
-            chat_kind: chat_kind.into(),
+            chat_kind,
             sender_id: sender_id.into(),
             sent_at,
             has_mention,
             has_mention_all,
-            encrypted,
+            encrypted: false,
+            body_snippet: body_snippet.map(Into::into),
             chat_name: None,
             space_id: None,
             space_name: None,
             sender_display_name: None,
+        }
+    }
+
+    /// Construct an encrypted [`ChatMessageEntry`] for push delivery.
+    ///
+    /// Sets `encrypted = true` and `body_snippet = None`. The spec forbids
+    /// body content in encrypted push entries; this constructor makes the
+    /// invariant impossible to violate.
+    pub fn encrypted(
+        message_id: Id,
+        chat_id: Id,
+        chat_kind: ChatKind,
+        sender_id: impl Into<String>,
+        sent_at: UTCDate,
+        has_mention: bool,
+        has_mention_all: bool,
+    ) -> Self {
+        Self {
+            message_id,
+            chat_id,
+            chat_kind,
+            sender_id: sender_id.into(),
+            sent_at,
+            has_mention,
+            has_mention_all,
+            encrypted: true,
             body_snippet: None,
+            chat_name: None,
+            space_id: None,
+            space_name: None,
+            sender_display_name: None,
         }
     }
 }
@@ -120,11 +156,11 @@ mod tests {
         let push: ChatMessagePush =
             serde_json::from_str(json).expect("deserialize ChatMessagePush");
         assert_eq!(push.account_id.as_ref(), "u1");
-        assert_eq!(push.state, "d35ecb040aab");
+        assert_eq!(push.state.as_ref(), "d35ecb040aab");
         assert_eq!(push.messages.len(), 1);
         let entry = &push.messages[0];
         assert_eq!(entry.message_id.as_ref(), "msg1");
-        assert_eq!(entry.chat_kind, "channel");
+        assert_eq!(entry.chat_kind, ChatKind::Channel);
         assert!(entry.has_mention);
     }
 
@@ -133,7 +169,7 @@ mod tests {
     fn push_type_tag() {
         let push = ChatMessagePush {
             account_id: Id::from("u1"),
-            state: "abc123".to_string(),
+            state: State::from("abc123"),
             messages: vec![],
         };
         let json = serde_json::to_string(&push).expect("serialize ChatMessagePush");
@@ -141,6 +177,65 @@ mod tests {
             json.contains(r#""@type":"ChatMessagePush""#),
             "expected @type tag in output, got: {json}"
         );
+    }
+
+    // Oracle: encrypted() constructor must enforce encrypted=true and body_snippet=None.
+    // Verifies the invariant: spec forbids body content in encrypted push entries.
+    #[test]
+    fn encrypted_entry_has_no_snippet() {
+        let entry = ChatMessageEntry::encrypted(
+            Id::from("m1"),
+            Id::from("c1"),
+            ChatKind::Channel,
+            "alice",
+            UTCDate::from("2026-04-29T00:00:00Z"),
+            false,
+            false,
+        );
+        assert!(entry.encrypted);
+        assert!(
+            entry.body_snippet.is_none(),
+            "encrypted entry must have no body_snippet"
+        );
+        let json = serde_json::to_string(&entry).expect("serialize");
+        assert!(
+            !json.contains("bodySnippet"),
+            "bodySnippet must be absent in encrypted entry, got: {json}"
+        );
+    }
+
+    // Oracle: plaintext() sets encrypted=false and passes body_snippet through.
+    #[test]
+    fn plaintext_entry_carries_snippet() {
+        let entry = ChatMessageEntry::plaintext(
+            Id::from("m2"),
+            Id::from("c1"),
+            ChatKind::Direct,
+            "bob",
+            UTCDate::from("2026-04-29T00:00:00Z"),
+            false,
+            false,
+            Some("Hello!"),
+        );
+        assert!(!entry.encrypted);
+        assert_eq!(entry.body_snippet.as_deref(), Some("Hello!"));
+    }
+
+    // Oracle: plaintext() with body_snippet=None is valid (user has previews disabled).
+    #[test]
+    fn plaintext_entry_no_snippet() {
+        let entry = ChatMessageEntry::plaintext(
+            Id::from("m3"),
+            Id::from("c1"),
+            ChatKind::Direct,
+            "carol",
+            UTCDate::from("2026-04-29T00:00:00Z"),
+            false,
+            false,
+            None::<String>,
+        );
+        assert!(!entry.encrypted);
+        assert!(entry.body_snippet.is_none());
     }
 
     // Oracle: hand-crafted minimal direct-chat entry with no chat_name;
@@ -159,7 +254,7 @@ mod tests {
         }"#;
         let entry: ChatMessageEntry =
             serde_json::from_str(json).expect("deserialize ChatMessageEntry");
-        assert_eq!(entry.chat_kind, "direct");
+        assert_eq!(entry.chat_kind, ChatKind::Direct);
         assert!(entry.chat_name.is_none());
     }
 
