@@ -65,7 +65,7 @@ source material locations, and migration notes for kith and stoa.
 
 ```
 jmap-types                   serde/serde_json only — shared wire types
-    ├── jmap-server          + tokio, axum — this crate
+    ├── jmap-server          + tokio, http — this crate
     ├── jmap-mail-types      + RFC 8621 data types
     │       └── jmap-mail-server
     ├── jmap-chat-types      + Chat extension data types
@@ -125,7 +125,7 @@ This crate (`src/`) — request dispatch and HTTP response helpers:
 src/
   lib.rs        re-exports from jmap-types; Dispatcher<CallerCtx>, JmapHandler<CallerCtx>
   parse.rs      parse_request, resolve_args (ResultReference resolution)
-  response.rs   error_invocation, error_status, RequestError, request_error (axum helpers)
+  response.rs   error_invocation, error_status, RequestError, request_error (http response helpers)
 ```
 
 Dependency `crate-jmap-types` (`../crate-jmap-types/src/`) — shared wire types:
@@ -180,4 +180,4 @@ Copies of these drafts exist in `jmap-chat-js/docs/`, `jmap-chat-jsbig/docs/`, a
 - Wire format is camelCase JSON — use `#[serde(rename_all = "camelCase")]` on structs
 - Role/authorization checks are NOT in the dispatcher — that is the caller's responsibility
 - `max_calls` is a `parse_request` parameter, not a crate constant — each consumer sets its own
-- Dependencies: serde, serde_json, tokio, axum, thiserror — no others
+- Dependencies: serde, serde_json, tokio, http, thiserror — no others

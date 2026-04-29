@@ -10,7 +10,7 @@ This crate is one piece of a planned family. Naming convention: `jmap-{extension
 
 ```
 jmap-types                   serde/serde_json only — shared wire types
-    ├── jmap-server          + tokio, axum — dispatcher, parse, ResultReference
+    ├── jmap-server          + tokio, http — dispatcher, parse, ResultReference
     ├── jmap-mail-types      + RFC 8621 data types
     │       └── jmap-mail-server
     ├── jmap-chat-types      + Chat extension data types
@@ -24,7 +24,8 @@ Directory naming: `crate-{crate-name}` (e.g. `crate-jmap-server`, `crate-jmap-ty
 **Status:** `jmap-types` (`../crate-jmap-types`) exists. Wire types (`JmapError`,
 `JmapRequest`, `JmapResponse`, `Invocation`, `ResultReference`, `Argument<T>`) live there
 and are re-exported by this crate. This crate owns only the server-side layer: parsing,
-ResultReference resolution, the dispatcher, and axum HTTP helpers.
+ResultReference resolution, the dispatcher, and HTTP response helpers
+(framework-agnostic via the `http` crate).
 
 ## What This Crate Is
 
@@ -59,7 +60,7 @@ Logic extracted / adapted by this crate:
 | `parse_request` | `kith/crates/kith-jmap/src/lib.rs` | Strip kith capability check; keep max_calls param |
 | `resolve_args` / `ResultReferenceStore` | `crate-jmapchat-server/jmapchat-server/src/ref_store.rs` | Two-phase (atomic on failure); also has `json_pointer` helper and RFC 6901 tilde-escaping tests |
 | `Dispatcher`, `JmapHandler` trait | `kith/crates/kith-jmap/src/lib.rs` | Replace `Role`+`Identity` with generic `CallerCtx`; merge `PeerJmapHandler` into single generic trait |
-| axum HTTP handler pattern | `crate-jmapchat-server/jmapchat-server-axum/src/handlers/jmap.rs` | Minimal; shows `Json(req)` extractor + `dispatch()` → `Json(resp).into_response()` |
+| HTTP handler pattern | `crate-jmapchat-server/jmapchat-server-axum/src/handlers/jmap.rs` | Shows `dispatch()` + `RequestError::into_response()` → `http::Response<String>` (axum accepts this directly) |
 
 `stoa/crates/mail/src/jmap/dispatch.rs` is a synchronous `HandlerFn` type alias only — not useful here.
 
@@ -68,11 +69,15 @@ Logic extracted / adapted by this crate:
 ```toml
 jmap-types = { path = "../crate-jmap-types" }
 tokio = { version = "1", features = ["rt"] }
-axum = "0.8"
+http = "1"
 ```
 
 `jmap-types` already pulls in serde, serde_json, and thiserror. No other dependencies.
 No cloud SDKs, no auth crates, no application logic.
+
+The `http` crate provides framework-agnostic `Response<T>`, `StatusCode`, and header types.
+`RequestError::into_response()` returns `http::Response<String>`, which axum, hyper, and any
+`http`-based framework accept directly.
 
 ## Public API
 
@@ -112,12 +117,15 @@ pub fn resolve_args(
 ### HTTP helpers
 
 ```rust
-pub fn error_invocation(method: &str, call_id: &str, err: JmapError) -> Invocation
-pub fn error_status(err: &JmapError) -> StatusCode
-pub struct RequestError(pub StatusCode, pub JmapError);
-impl IntoResponse for RequestError { ... }
+pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation
+pub fn error_status(err: &JmapError) -> http::StatusCode
+pub struct RequestError { /* private fields */ }
+impl RequestError { pub fn into_response(self) -> http::Response<String> }
 pub fn request_error(err: JmapError) -> RequestError
 ```
+
+`RequestError::into_response()` returns an RFC 7807 Problem Details body.
+No axum dependency — any HTTP framework that speaks `http::Response` can use this.
 
 ### Dispatcher
 
@@ -146,7 +154,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
 **Key design decisions:**
 
 - Role checks are NOT in the dispatcher. Authorization is the caller's responsibility
-  (do it in your axum middleware before calling `dispatch`).
+  (do it in your HTTP middleware before calling `dispatch`).
 - Unknown method name (no registered handler) → `unknownMethod` error invocation.
 - Each handler runs in `tokio::task::spawn` for panic isolation. A panicking handler
   returns `serverFail`, not a crashed connection task.
@@ -184,7 +192,7 @@ src/
 3. In kith-jmap:
    - All handlers become `JmapHandler<Identity>` (owner handlers ignore the caller arg)
    - `PeerJmapHandler` trait is deleted (merged into single generic trait)
-   - Role check moves into the axum handler before `dispatcher.dispatch(...)` is called
+   - Role check moves into the HTTP handler before `dispatcher.dispatch(...)` is called
    - `METHOD_ROLES` table stays — kith still enforces it, just not inside `Dispatcher`
    - `MAX_CALLS_IN_REQUEST = 16` stays — passed as arg to `parse_request(body, 16)`
 

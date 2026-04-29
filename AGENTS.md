@@ -21,7 +21,7 @@ This crate sits at the base of a planned family (naming: `jmap-{extension}-{role
 
 ```
 jmap-types          (planned) serde/serde_json only — shared wire types
-    └── jmap-server           this crate — dispatcher, parse, axum glue
+    └── jmap-server           this crate — dispatcher, parse, http response helpers
     └── jmap-mail-types       (planned)
     └── jmap-chat-types       (planned, replaces jmapchat-types)
 ```
@@ -137,7 +137,7 @@ If you change a public API type or function signature, check that both consumers
 - Do not commit or push without explicit user approval
 - Do not use TodoWrite or markdown task lists — use `bd create` for all tracking
 - Do not add features not in PLAN.md or not explicitly directed
-- Do not introduce dependencies beyond: serde, serde_json, tokio, axum, thiserror
+- Do not introduce dependencies beyond: serde, serde_json, tokio, http, thiserror
 - Do not add auth logic, role checks, capability structs, or application-specific types
 - Do not remove or alter the Beads integration block in CLAUDE.md or AGENTS.md
 
