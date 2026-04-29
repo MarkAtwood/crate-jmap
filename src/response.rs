@@ -12,9 +12,9 @@ use crate::{Invocation, JmapError};
 /// Method-level errors are returned inside `methodResponses` with HTTP 200 —
 /// they are NOT returned as top-level HTTP errors.
 pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {
-    let err_value = serde_json::to_value(&err).unwrap_or_else(
-        |_| serde_json::json!({"type": "serverFail", "description": "serialization error"}),
-    );
+    // JmapError derives Serialize with String/Option<String> fields only;
+    // serde_json::to_value cannot fail for this type.
+    let err_value = serde_json::to_value(&err).expect("JmapError::Serialize is infallible");
     ("error".to_owned(), err_value, call_id.to_owned())
 }
 
@@ -32,6 +32,9 @@ pub fn error_status(err: &JmapError) -> StatusCode {
         "serverFail" => StatusCode::INTERNAL_SERVER_ERROR,
         "serverUnavailable" => StatusCode::SERVICE_UNAVAILABLE,
         // Any unrecognized type is an internal bug, not a client error.
+        // The most common mistake is passing a method-level error (e.g. "accountNotFound",
+        // "notFound") to request_error() — those must stay in methodResponses at HTTP 200
+        // via error_invocation() per RFC 8620 §3.6.2.
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
@@ -60,9 +63,9 @@ impl IntoResponse for RequestError {
             serde_json::Value::Number(status.as_u16().into()),
         );
         // For "limit" errors, RFC 8620 §3.6.1 REQUIRES a "limit" property naming
-        // the exceeded limit.  We store the limit name in description for this type.
-        // The limit() constructor always supplies a name; fall back to "unknown" if
-        // a JmapError is constructed directly without a description.
+        // the exceeded limit.  By convention (see JmapError::limit()), the limit
+        // name is stored in the description field.  Use JmapError::limit(name) —
+        // never set error_type = "limit" manually — to ensure this invariant holds.
         if err.error_type == "limit" {
             let limit_name = err.description.as_deref().unwrap_or("unknown");
             obj.insert(

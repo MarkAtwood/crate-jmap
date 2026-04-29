@@ -46,11 +46,13 @@ pub fn resolve_args(args: &mut Value, prior_responses: &[Invocation]) -> Result<
     };
 
     // Collect (#key, value) pairs up front; cannot borrow obj mutably while iterating.
-    let ref_pairs: Vec<(String, Value)> = obj
-        .iter()
-        .filter(|(k, _)| k.starts_with('#'))
-        .map(|(k, v)| (k.clone(), v.clone()))
-        .collect();
+    // obj.len() is an upper bound (not all keys need the # prefix).
+    let mut ref_pairs: Vec<(String, Value)> = Vec::with_capacity(obj.len());
+    ref_pairs.extend(
+        obj.iter()
+            .filter(|(k, _)| k.starts_with('#'))
+            .map(|(k, v)| (k.clone(), v.clone())),
+    );
 
     if ref_pairs.is_empty() {
         return Ok(());
@@ -137,10 +139,15 @@ fn json_pointer_ext(value: &Value, path: &str) -> Option<Value> {
         }
         Some(Value::Array(result))
     } else {
-        // RFC 6901: unescape ~1 → /, ~0 → ~ (in that order)
-        let key = token.replace("~1", "/").replace("~0", "~");
+        // RFC 6901: unescape ~1 → /, ~0 → ~ (in that order).
+        // Skip allocation when the token contains no ~ characters (common case).
+        let key: std::borrow::Cow<str> = if token.contains('~') {
+            token.replace("~1", "/").replace("~0", "~").into()
+        } else {
+            token.into()
+        };
         let next = match value {
-            Value::Object(obj) => obj.get(&key)?,
+            Value::Object(obj) => obj.get(key.as_ref())?,
             Value::Array(arr) => {
                 // RFC 6901 §4: leading zeros are not allowed in array index tokens.
                 if key.len() > 1 && key.starts_with('0') {

@@ -31,6 +31,14 @@ pub type HandlerFuture = Pin<Box<dyn Future<Output = Result<Value, JmapError>> +
 ///
 /// `CallerCtx` is whatever your auth layer produces — an `Identity`, a session
 /// token, `()`, etc. The dispatcher passes it through unchanged.
+///
+/// # /set response contract
+///
+/// Handlers for `/set` methods (RFC 8620 §5.3) that create objects MUST include
+/// an `"id"` field (type string) in each entry of the `"created"` map.  The
+/// dispatcher reads this field to accumulate `createdIds` in the response.
+/// Entries without an `"id"` field are silently skipped — the dispatcher cannot
+/// retroactively error a method call that already returned success.
 pub trait JmapHandler<CallerCtx>: Send + Sync {
     /// `call_id` is the client-supplied identifier for this invocation (RFC 8620 §3.3).
     /// Handlers may use it for logging or correlation but need not echo it —
@@ -49,6 +57,10 @@ pub trait JmapHandler<CallerCtx>: Send + Sync {
 /// Register handlers with [`Dispatcher::register`], then call
 /// [`Dispatcher::dispatch`] per request.  `CallerCtx` is cloned for each
 /// method call in the batch, so it must be `Clone`.
+///
+/// `CallerCtx` must also be `'static` because each handler call is spawned as
+/// a [`tokio::task`].  To share non-static data (e.g. a database connection),
+/// wrap it in `Arc<T>` — `Arc` is `Clone + Send + 'static` when `T: Send + Sync`.
 ///
 /// # Thread safety
 ///
@@ -84,6 +96,8 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     /// handler runs in a `tokio::task::spawn` for panic isolation: a panicking
     /// handler returns a `serverFail` invocation rather than crashing the
     /// connection task.
+    ///
+    /// `CallerCtx` must be `Clone + Send + 'static`; see the struct-level doc.
     ///
     /// # Cancellation
     ///
@@ -136,9 +150,16 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             match result {
                 Ok(Ok(resp_value)) => {
                     // Accumulate createdIds from /set responses (RFC 8620 §3.4).
+                    // Only when the client sent createdIds; otherwise the field
+                    // is omitted from the response.
                     if client_sent_created_ids {
                         if let Some(map) = resp_value.get("created").and_then(|v| v.as_object()) {
                             for (client_id, created_obj) in map {
+                                // RFC 8620 §5.3 requires each created object to contain
+                                // an "id" field.  If the handler violates this contract
+                                // (no "id" key or non-string value), the entry is silently
+                                // skipped — the dispatcher cannot produce an error for a
+                                // method call that already succeeded.
                                 if let Some(id_val) = created_obj.get("id").and_then(|v| v.as_str())
                                 {
                                     created_ids.insert(client_id.as_str().into(), id_val.into());
@@ -181,6 +202,16 @@ mod tests {
     use super::*;
     use serde_json::{json, Value};
     use std::sync::{Arc, Mutex};
+
+    // Compile-time: Dispatcher must be Send + Sync so it can be wrapped in Arc
+    // and shared across tokio tasks.  This assertion catches future regressions
+    // that would silently break thread-safety (e.g., adding a Cell or Rc field).
+    #[allow(dead_code)]
+    fn assert_dispatcher_send_sync() {
+        fn check<T: Send + Sync>() {}
+        check::<Dispatcher<String>>();
+        check::<Dispatcher<()>>();
+    }
 
     // -----------------------------------------------------------------------
     // Test handler implementations

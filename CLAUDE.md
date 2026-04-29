@@ -83,7 +83,7 @@ Everything is fluid. See PLAN.md for details and migration notes.
 | `~/PROJECT/kith/` | Primary source — types and dispatch logic being extracted |
 | `~/PROJECT/stoa/` | Consumer (email/Usenet, possibly Chat too) |
 | `~/GIT/jmap-client/` | Reference JMAP client (Stalwart) — patterns to study |
-| `~/PROJECT/crate-jmap-types/` | Planned — shared wire types (does not exist yet) |
+| `~/PROJECT/crate-jmap-types/` | Shared wire types (direct dependency of this crate) |
 | `~/PROJECT/crate-jmapchat-server/` | Existing Chat server lib (will be renamed `crate-jmap-chat-server`) |
 | `~/PROJECT/crate-jmapchat-client/` | Existing Chat client lib (will be renamed `crate-jmap-chat-client`) |
 
@@ -119,13 +119,22 @@ RUSTDOCFLAGS="-D warnings" cargo doc --no-deps
 
 ## Architecture Overview
 
+This crate (`src/`) — request dispatch and HTTP response helpers:
+
 ```
 src/
-  lib.rs        re-exports; Dispatcher<CallerCtx>
-  types.rs      JmapError, JmapRequest, JmapResponse, Invocation
-  resultref.rs  ResultReference, Argument<T>
-  parse.rs      parse_request, resolve_args
-  response.rs   error_invocation, error_status, RequestError, request_error
+  lib.rs        re-exports from jmap-types; Dispatcher<CallerCtx>, JmapHandler<CallerCtx>
+  parse.rs      parse_request, resolve_args (ResultReference resolution)
+  response.rs   error_invocation, error_status, RequestError, request_error (axum helpers)
+```
+
+Dependency `crate-jmap-types` (`../crate-jmap-types/src/`) — shared wire types:
+
+```
+error.rs        JmapError (with all RFC 8620 constructors)
+id.rs           Id, State, UTCDate (opaque string newtypes)
+resultref.rs    ResultReference, Argument<T> (sealed generic)
+wire.rs         JmapRequest, JmapResponse, Invocation
 ```
 
 The `Dispatcher<CallerCtx>` receives a `JmapRequest` (a batch of method calls) and processes
