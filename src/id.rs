@@ -5,6 +5,8 @@ use std::fmt;
 ///
 /// Character set: URL-safe base64 alphabet (A-Za-z0-9, `-`, `_`), max 255 octets.
 /// Clients MUST treat Id values as opaque strings — no parsing of structure.
+// #[non_exhaustive] prevents callers from pattern-matching the inner field
+// (e.g. `let Id(s) = id;`), preserving semver freedom to add fields later.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[non_exhaustive]
@@ -14,6 +16,8 @@ pub struct Id(String);
 ///
 /// Format: `YYYY-MM-DDTHH:MM:SSZ` — time-offset MUST be `Z`, letters uppercase,
 /// fractional seconds omitted if zero. Example: `"2014-10-30T06:12:00Z"`.
+// #[non_exhaustive] prevents callers from pattern-matching the inner field,
+// preserving semver freedom to add fields later.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[non_exhaustive]
@@ -23,97 +27,49 @@ pub struct UTCDate(String);
 ///
 /// Returned by `/get` and `/changes` methods. Clients echo it back in
 /// `sinceState` / `ifInState` parameters. Treat as opaque — no structure assumed.
+// #[non_exhaustive] prevents callers from pattern-matching the inner field,
+// preserving semver freedom to add fields later.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[non_exhaustive]
 pub struct State(String);
 
-impl fmt::Display for Id {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
+/// Generates `Display`, `From<String>`, `From<&str>`, `AsRef<str>`, and
+/// `into_inner` for a transparent `String` newtype.
+macro_rules! impl_string_newtype {
+    ($T:ident) => {
+        impl fmt::Display for $T {
+            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                f.write_str(&self.0)
+            }
+        }
+        impl From<String> for $T {
+            fn from(s: String) -> Self {
+                Self(s)
+            }
+        }
+        impl From<&str> for $T {
+            fn from(s: &str) -> Self {
+                Self(s.to_owned())
+            }
+        }
+        impl AsRef<str> for $T {
+            fn as_ref(&self) -> &str {
+                &self.0
+            }
+        }
+        impl $T {
+            /// Consumes the value and returns the inner `String`.
+            pub fn into_inner(self) -> String {
+                self.0
+            }
+        }
+    };
 }
 
-impl fmt::Display for UTCDate {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl fmt::Display for State {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(&self.0)
-    }
-}
-
-impl From<String> for Id {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-impl From<&str> for Id {
-    fn from(s: &str) -> Self {
-        Self(s.to_owned())
-    }
-}
-impl AsRef<str> for Id {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl Id {
-    /// Consumes the `Id` and returns the inner `String`.
-    pub fn into_inner(self) -> String {
-        self.0
-    }
-}
-
-impl From<String> for UTCDate {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-impl From<&str> for UTCDate {
-    fn from(s: &str) -> Self {
-        Self(s.to_owned())
-    }
-}
-impl AsRef<str> for UTCDate {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl UTCDate {
-    /// Consumes the `UTCDate` and returns the inner `String`.
-    pub fn into_inner(self) -> String {
-        self.0
-    }
-}
-
-impl From<String> for State {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-impl From<&str> for State {
-    fn from(s: &str) -> Self {
-        Self(s.to_owned())
-    }
-}
-impl AsRef<str> for State {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
-impl State {
-    /// Consumes the `State` and returns the inner `String`.
-    pub fn into_inner(self) -> String {
-        self.0
-    }
-}
+impl_string_newtype!(Id);
+impl_string_newtype!(UTCDate);
+impl_string_newtype!(State);
 
 #[cfg(test)]
 mod tests {
