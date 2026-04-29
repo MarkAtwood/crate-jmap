@@ -74,7 +74,7 @@ pub struct ResultReference {
 /// // serde_json::Value does not implement Sealed — this must not compile.
 /// let _: Argument<serde_json::Value> = Argument::Value(serde_json::Value::Null);
 /// ```
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Argument<T: sealed::Sealed> {
     Value(T),

@@ -14,7 +14,7 @@ pub struct Id(String);
 ///
 /// Format: `YYYY-MM-DDTHH:MM:SSZ` — time-offset MUST be `Z`, letters uppercase,
 /// fractional seconds omitted if zero. Example: `"2014-10-30T06:12:00Z"`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 #[non_exhaustive]
 pub struct UTCDate(String);

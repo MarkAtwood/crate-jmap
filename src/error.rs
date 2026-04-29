@@ -18,7 +18,7 @@ pub struct JmapError {
 }
 
 impl JmapError {
-    // RFC 8620 §7.1 — "invalidArguments"
+    /// RFC 8620 §3.6.2 — "invalidArguments"
     pub fn invalid_arguments(desc: impl Into<String>) -> Self {
         Self {
             error_type: "invalidArguments".into(),
@@ -26,7 +26,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §7.1 — "forbidden"
+    /// RFC 8620 §3.6.2 — "forbidden"
     pub fn forbidden() -> Self {
         Self {
             error_type: "forbidden".into(),
@@ -34,7 +34,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §7.1 — "notFound"
+    /// RFC 8620 §5.3 — "notFound"
     pub fn not_found() -> Self {
         Self {
             error_type: "notFound".into(),
@@ -42,7 +42,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.1 — "accountNotFound"
+    /// RFC 8620 §5.1 — "accountNotFound"
     pub fn account_not_found() -> Self {
         Self {
             error_type: "accountNotFound".into(),
@@ -50,7 +50,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.1 — "accountNotSupportedByMethod"
+    /// RFC 8620 §5.1 — "accountNotSupportedByMethod"
     pub fn account_not_supported_by_method() -> Self {
         Self {
             error_type: "accountNotSupportedByMethod".into(),
@@ -58,7 +58,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.1 — "accountReadOnly"
+    /// RFC 8620 §5.1 — "accountReadOnly"
     pub fn account_read_only() -> Self {
         Self {
             error_type: "accountReadOnly".into(),
@@ -66,7 +66,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §7.1 — "serverUnavailable"
+    /// RFC 8620 §3.6.2 — "serverUnavailable"
     pub fn server_unavailable() -> Self {
         Self {
             error_type: "serverUnavailable".into(),
@@ -74,7 +74,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §7.1 — "serverFail"
+    /// RFC 8620 §3.6.2 — "serverFail"
     pub fn server_fail(desc: impl Into<String>) -> Self {
         Self {
             error_type: "serverFail".into(),
@@ -82,7 +82,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §7.1 — "serverPartialFail"
+    /// RFC 8620 §3.6.2 — "serverPartialFail"
     pub fn server_partial_fail() -> Self {
         Self {
             error_type: "serverPartialFail".into(),
@@ -90,7 +90,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §7.1 — "unknownMethod"
+    /// RFC 8620 §3.6.2 — "unknownMethod"
     pub fn unknown_method() -> Self {
         Self {
             error_type: "unknownMethod".into(),
@@ -98,7 +98,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §7.1 — "invalidResultReference"
+    /// RFC 8620 §3.6.2 — "invalidResultReference"
     pub fn invalid_result_reference() -> Self {
         Self {
             error_type: "invalidResultReference".into(),
@@ -106,7 +106,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.5 — "cannotCalculateChanges"
+    /// RFC 8620 §5.2 — "cannotCalculateChanges"
     pub fn cannot_calculate_changes() -> Self {
         Self {
             error_type: "cannotCalculateChanges".into(),
@@ -114,7 +114,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.3 — "stateMismatch"
+    /// RFC 8620 §5.3 — "stateMismatch"
     pub fn state_mismatch() -> Self {
         Self {
             error_type: "stateMismatch".into(),
@@ -122,7 +122,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.3 — "tooLarge"
+    /// RFC 8620 §5.3 — "tooLarge"
     pub fn too_large() -> Self {
         Self {
             error_type: "tooLarge".into(),
@@ -130,7 +130,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.3 — "requestTooLarge"
+    /// RFC 8620 §5.1 and §5.3 — "requestTooLarge"
     pub fn request_too_large(desc: impl Into<String>) -> Self {
         Self {
             error_type: "requestTooLarge".into(),
@@ -138,15 +138,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §7.1 — "unknownCapability"
-    pub fn unknown_capability(cap: impl Into<String>) -> Self {
-        Self {
-            error_type: "unknownCapability".into(),
-            description: Some(cap.into()),
-        }
-    }
-
-    // RFC 8620 §5.3 — "overQuota"
+    /// RFC 8620 §5.3 — "overQuota"
     pub fn over_quota() -> Self {
         Self {
             error_type: "overQuota".into(),
@@ -154,7 +146,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.3 — "rateLimit"
+    /// RFC 8620 §5.3 — "rateLimit"
     pub fn rate_limit() -> Self {
         Self {
             error_type: "rateLimit".into(),
@@ -162,7 +154,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.3 — "invalidPatch"
+    /// RFC 8620 §5.3 — "invalidPatch"
     pub fn invalid_patch() -> Self {
         Self {
             error_type: "invalidPatch".into(),
@@ -170,7 +162,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.3 — "willDestroy"
+    /// RFC 8620 §5.3 — "willDestroy"
     pub fn will_destroy() -> Self {
         Self {
             error_type: "willDestroy".into(),
@@ -178,7 +170,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.3 — "invalidProperties"
+    /// RFC 8620 §5.3 — "invalidProperties"
     pub fn invalid_properties() -> Self {
         Self {
             error_type: "invalidProperties".into(),
@@ -186,7 +178,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.3 — "singleton"
+    /// RFC 8620 §5.3 — "singleton"
     pub fn singleton() -> Self {
         Self {
             error_type: "singleton".into(),
@@ -194,7 +186,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.5 — "unsupportedFilter"
+    /// RFC 8620 §5.5 — "unsupportedFilter"
     pub fn unsupported_filter() -> Self {
         Self {
             error_type: "unsupportedFilter".into(),
@@ -202,7 +194,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.5 — "anchorNotFound"
+    /// RFC 8620 §5.5 — "anchorNotFound"
     pub fn anchor_not_found() -> Self {
         Self {
             error_type: "anchorNotFound".into(),
@@ -210,7 +202,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.4 — "alreadyExists"
+    /// RFC 8620 §5.4 — "alreadyExists"
     pub fn already_exists() -> Self {
         Self {
             error_type: "alreadyExists".into(),
@@ -218,7 +210,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.4 — "fromAccountNotFound"
+    /// RFC 8620 §5.4 — "fromAccountNotFound"
     pub fn from_account_not_found() -> Self {
         Self {
             error_type: "fromAccountNotFound".into(),
@@ -226,7 +218,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.4 — "fromAccountNotSupportedByMethod"
+    /// RFC 8620 §5.4 — "fromAccountNotSupportedByMethod"
     pub fn from_account_not_supported_by_method() -> Self {
         Self {
             error_type: "fromAccountNotSupportedByMethod".into(),
@@ -234,7 +226,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.5 — "unsupportedSort"
+    /// RFC 8620 §5.5 — "unsupportedSort"
     pub fn unsupported_sort() -> Self {
         Self {
             error_type: "unsupportedSort".into(),
@@ -242,7 +234,7 @@ impl JmapError {
         }
     }
 
-    // RFC 8620 §5.6 — "tooManyChanges"
+    /// RFC 8620 §5.6 — "tooManyChanges"
     pub fn too_many_changes() -> Self {
         Self {
             error_type: "tooManyChanges".into(),
@@ -255,7 +247,7 @@ impl JmapError {
 mod tests {
     use super::*;
 
-    // Independent oracle: RFC 8620 §7.1 specifies these exact type strings.
+    // Independent oracle: RFC 8620 §3.6.2 and §5.x specify these exact type strings.
 
     #[test]
     fn invalid_arguments_serializes_type_and_description() {
@@ -374,14 +366,6 @@ mod tests {
         let json = serde_json::to_string(&e).unwrap();
         assert!(json.contains("\"requestTooLarge\""));
         assert!(json.contains("body exceeds 10MB"));
-    }
-
-    #[test]
-    fn unknown_capability_includes_description() {
-        let e = JmapError::unknown_capability("urn:ietf:params:jmap:mail");
-        let json = serde_json::to_string(&e).unwrap();
-        assert!(json.contains("\"unknownCapability\""));
-        assert!(json.contains("urn:ietf:params:jmap:mail"));
     }
 
     #[test]
