@@ -7,6 +7,7 @@ machinery. No opinion on authentication, method sets, capability URIs, or storag
 ## Usage
 
 ```rust
+use std::sync::Arc;
 use jmap_server::{Dispatcher, JmapHandler, HandlerFuture, JmapError};
 use serde_json::Value;
 
@@ -27,7 +28,7 @@ impl JmapHandler<String> for FooGetHandler {        // String is the CallerCtx t
 
 // 2. Register handlers and dispatch requests.
 let mut dispatcher: Dispatcher<String> = Dispatcher::new();
-dispatcher.register("Foo/get", Box::new(FooGetHandler));
+dispatcher.register("Foo/get", Arc::new(FooGetHandler));
 
 // In your handler:
 // let request = jmap_server::parse_request(body_json, 16)?;

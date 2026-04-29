@@ -9,8 +9,12 @@ use crate::{Invocation, JmapError};
 /// Method-level errors are returned inside `methodResponses` with HTTP 200 —
 /// they are NOT returned as top-level HTTP errors.
 pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {
-    // JmapError derives Serialize with String/Option<String> fields only;
-    // serde_json::to_value cannot fail for this type.
+    // JmapError uses #[derive(Serialize)] with only String, Option<String>, and
+    // Option<Id> fields — all JSON-serializable primitives with string keys.
+    // serde_json::to_value only fails when a Serialize impl produces a non-string
+    // map key; the derived impl for JmapError cannot do this.  If jmap-types ever
+    // adds a field with a custom Serialize impl, that impl must preserve this
+    // guarantee (string-keyed struct fields only).
     let err_value = serde_json::to_value(&err).expect("JmapError::Serialize is infallible");
     ("error".to_owned(), err_value, call_id.to_owned())
 }
@@ -43,8 +47,8 @@ pub fn error_status(err: &JmapError) -> StatusCode {
 /// [`error_status`].  Use [`request_error`] to construct.
 ///
 /// Call [`RequestError::into_response`] to produce an `http::Response<String>`
-/// with the RFC 7807 Problem Details body.  axum accepts this directly
-/// (it implements `IntoResponse` for `http::Response<impl Into<Bytes>>`).
+/// with the RFC 7807 Problem Details body.  Any HTTP framework that works with
+/// the `http` crate (axum, hyper, warp, etc.) accepts this directly.
 #[derive(Debug)]
 pub struct RequestError {
     status: StatusCode,

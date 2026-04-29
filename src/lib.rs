@@ -16,7 +16,7 @@ mod response;
 pub use parse::{parse_request, resolve_args};
 pub use response::{error_invocation, error_status, request_error, RequestError};
 
-use std::{collections::HashMap, future::Future, pin::Pin, sync::Arc};
+use std::{collections::HashMap, fmt, future::Future, pin::Pin, sync::Arc};
 
 use serde_json::Value;
 use tokio::task;
@@ -40,6 +40,10 @@ pub type HandlerFuture = Pin<Box<dyn Future<Output = Result<Value, JmapError>> +
 /// Entries without an `"id"` field are silently skipped — the dispatcher cannot
 /// retroactively error a method call that already returned success.
 pub trait JmapHandler<CallerCtx>: Send + Sync {
+    /// `method` is the registered method name for this call.  A single handler
+    /// instance may be registered under multiple names (e.g. both `"Foo/get"` and
+    /// `"Bar/get"`); this parameter lets the handler distinguish between them.
+    ///
     /// `call_id` is the client-supplied identifier for this invocation (RFC 8620 §3.3).
     /// Handlers may use it for logging or correlation but need not echo it —
     /// the dispatcher echoes it in the response automatically.
@@ -82,12 +86,15 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     /// Register a handler for the given method name.
     ///
     /// Registering the same name twice replaces the earlier handler.
+    ///
+    /// Using `Arc` rather than `Box` allows the same handler instance to be
+    /// registered under multiple method names without cloning.
     pub fn register(
         &mut self,
         method: impl Into<String>,
-        handler: Box<dyn JmapHandler<CallerCtx>>,
+        handler: Arc<dyn JmapHandler<CallerCtx>>,
     ) {
-        self.handlers.insert(method.into(), Arc::from(handler));
+        self.handlers.insert(method.into(), handler);
     }
 
     /// Process a validated [`JmapRequest`] and return a [`JmapResponse`].
@@ -194,6 +201,14 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
 impl<CallerCtx: Clone + Send + 'static> Default for Dispatcher<CallerCtx> {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Dispatcher")
+            .field("methods", &self.handlers.keys().collect::<Vec<_>>())
+            .finish()
     }
 }
 
@@ -334,7 +349,7 @@ mod tests {
     #[tokio::test]
     async fn known_method_success() {
         let mut d: Dispatcher<String> = Dispatcher::new();
-        d.register("Foo/get", Box::new(EchoHandler(json!({"list": []}))));
+        d.register("Foo/get", Arc::new(EchoHandler(json!({"list": []}))));
         let req = single_call("Foo/get", json!({}), "c1");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
@@ -348,7 +363,7 @@ mod tests {
     #[tokio::test]
     async fn handler_returns_error() {
         let mut d: Dispatcher<String> = Dispatcher::new();
-        d.register("Foo/get", Box::new(ErrorHandler(JmapError::not_found())));
+        d.register("Foo/get", Arc::new(ErrorHandler(JmapError::not_found())));
         let req = single_call("Foo/get", json!({}), "c2");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
@@ -374,7 +389,7 @@ mod tests {
     #[tokio::test]
     async fn mixed_batch_all_responses_in_order() {
         let mut d: Dispatcher<String> = Dispatcher::new();
-        d.register("M/a", Box::new(EchoHandler(json!({"ok": true}))));
+        d.register("M/a", Arc::new(EchoHandler(json!({"ok": true}))));
         // "M/b" is NOT registered → unknownMethod
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
@@ -412,8 +427,8 @@ mod tests {
     #[tokio::test]
     async fn error_does_not_abort_subsequent_calls() {
         let mut d: Dispatcher<String> = Dispatcher::new();
-        d.register("M/ok", Box::new(EchoHandler(json!({"ok": true}))));
-        d.register("M/err", Box::new(ErrorHandler(JmapError::forbidden())));
+        d.register("M/ok", Arc::new(EchoHandler(json!({"ok": true}))));
+        d.register("M/err", Arc::new(ErrorHandler(JmapError::forbidden())));
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![
@@ -439,7 +454,7 @@ mod tests {
     #[tokio::test]
     async fn panicking_handler_returns_server_fail() {
         let mut d: Dispatcher<String> = Dispatcher::new();
-        d.register("Panic/now", Box::new(PanicHandler));
+        d.register("Panic/now", Arc::new(PanicHandler));
         let req = single_call("Panic/now", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);
@@ -454,7 +469,7 @@ mod tests {
     #[tokio::test]
     async fn panic_message_not_in_response() {
         let mut d: Dispatcher<String> = Dispatcher::new();
-        d.register("Panic/now", Box::new(PanicHandler));
+        d.register("Panic/now", Arc::new(PanicHandler));
         let req = single_call("Panic/now", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         let (_, args, _) = &resp.method_responses[0];
@@ -477,11 +492,11 @@ mod tests {
         let mut d: Dispatcher<String> = Dispatcher::new();
         d.register(
             "Foo/get",
-            Box::new(EchoHandler(json!({"list": [{"id": "item-1"}]}))),
+            Arc::new(EchoHandler(json!({"list": [{"id": "item-1"}]}))),
         );
         d.register(
             "Bar/query",
-            Box::new(CaptureArgsHandler(Arc::clone(&captured))),
+            Arc::new(CaptureArgsHandler(Arc::clone(&captured))),
         );
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
@@ -548,7 +563,7 @@ mod tests {
         let mut d: Dispatcher<String> = Dispatcher::new();
         d.register(
             "Foo/set",
-            Box::new(EchoHandler(
+            Arc::new(EchoHandler(
                 json!({"created": {"client-1": {"id": "server-abc"}}}),
             )),
         );
@@ -574,7 +589,7 @@ mod tests {
     #[tokio::test]
     async fn created_ids_absent_when_no_set() {
         let mut d: Dispatcher<String> = Dispatcher::new();
-        d.register("Foo/get", Box::new(EchoHandler(json!({"list": []}))));
+        d.register("Foo/get", Arc::new(EchoHandler(json!({"list": []}))));
         let req = single_call("Foo/get", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         assert!(
@@ -589,11 +604,11 @@ mod tests {
         let mut d: Dispatcher<String> = Dispatcher::new();
         d.register(
             "A/set",
-            Box::new(EchoHandler(json!({"created": {"cA": {"id": "sA"}}}))),
+            Arc::new(EchoHandler(json!({"created": {"cA": {"id": "sA"}}}))),
         );
         d.register(
             "B/set",
-            Box::new(EchoHandler(json!({"created": {"cB": {"id": "sB"}}}))),
+            Arc::new(EchoHandler(json!({"created": {"cB": {"id": "sB"}}}))),
         );
         // Client sends createdIds to signal it wants the response field.
         let req = JmapRequest::new(
@@ -628,7 +643,7 @@ mod tests {
         let mut d: Dispatcher<String> = Dispatcher::new();
         d.register(
             "Foo/set",
-            Box::new(EchoHandler(
+            Arc::new(EchoHandler(
                 json!({"created": {"client-new": {"id": "server-new"}}}),
             )),
         );
@@ -668,7 +683,7 @@ mod tests {
         let mut d: Dispatcher<String> = Dispatcher::new();
         d.register(
             "Foo/get",
-            Box::new(CaptureCallerHandler(Arc::clone(&captured))),
+            Arc::new(CaptureCallerHandler(Arc::clone(&captured))),
         );
         let req = single_call("Foo/get", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
@@ -688,7 +703,7 @@ mod tests {
     #[tokio::test]
     async fn unit_caller_ctx_works() {
         let mut d: Dispatcher<()> = Dispatcher::new();
-        d.register("Foo/get", Box::new(EchoHandler(json!({"ok": true}))));
+        d.register("Foo/get", Arc::new(EchoHandler(json!({"ok": true}))));
         let req = single_call("Foo/get", json!({}), "c0");
         let resp = d.dispatch(req, (), "s0".into()).await;
         assert_eq!(resp.method_responses.len(), 1);

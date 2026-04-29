@@ -106,11 +106,11 @@ Note: `max_calls` is a parameter (not hardcoded) so each server sets its own lim
 ### ResultReference resolution
 
 ```rust
-/// Resolve all #-prefixed keys in `args` against `prior_responses` (RFC 8620 §9).
+/// Resolve all #-prefixed keys in `args` against `prior_responses` (RFC 8620 §3.7).
 /// Modifies args in place. Returns Err(JmapError) on any resolution failure.
 pub fn resolve_args(
     args: &mut serde_json::Value,
-    prior_responses: &[(String, String, serde_json::Value)],
+    prior_responses: &[Invocation],   // Invocation = (method_name, args, call_id): (String, Value, String)
 ) -> Result<(), JmapError>
 ```
 
@@ -145,9 +145,9 @@ pub struct Dispatcher<CallerCtx> { ... }
 impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     pub fn new() -> Self
     pub fn register(&mut self, method: impl Into<String>,
-                    handler: Box<dyn JmapHandler<CallerCtx>>)
+                    handler: Arc<dyn JmapHandler<CallerCtx>>)
     pub async fn dispatch(&self, request: JmapRequest,
-                          caller: CallerCtx, session_state: String) -> JmapResponse
+                          caller: CallerCtx, session_state: State) -> JmapResponse
 }
 ```
 
