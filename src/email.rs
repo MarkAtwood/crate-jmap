@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// In RFC 5322 terminology this is a "mailbox" (an addr-spec with optional
 /// display-name), distinct from the JMAP [`Mailbox`](crate::Mailbox) folder type.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailAddress {
@@ -25,6 +26,7 @@ pub struct EmailAddress {
 ///
 /// Preserves RFC 5322 group structure. Consecutive mailboxes not part of
 /// a named group are collected under an `EmailAddressGroup` with `name: null`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailAddressGroup {
@@ -38,6 +40,7 @@ pub struct EmailAddressGroup {
 /// A single RFC 5322 header field (RFC 8621 §4.1.3).
 ///
 /// The `name` retains original capitalisation; `value` is the raw field value.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailHeader {
@@ -50,6 +53,7 @@ pub struct EmailHeader {
 /// The decoded text content of one body part (RFC 8621 §4.1.4).
 ///
 /// Returned inside the `bodyValues` map of an Email object.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailBodyValue {
@@ -57,10 +61,16 @@ pub struct EmailBodyValue {
     pub value: String,
     /// `true` if charset decoding or content-transfer-encoding decoding
     /// encountered errors (RFC 8621 §4.1.4).
+    ///
+    /// Always present in serialized output (no `skip_serializing_if`); RFC 8621 §4.1.4
+    /// requires both flags in the `bodyValues` map.  `#[serde(default)]` handles
+    /// deserialization when absent (treated as `false`).
     #[serde(default)]
     pub is_encoding_problem: bool,
     /// `true` if `value` was truncated due to a `maxBodyValueBytes` limit
     /// (RFC 8621 §4.1.4).
+    ///
+    /// Always present in serialized output; same rationale as `is_encoding_problem`.
     #[serde(default)]
     pub is_truncated: bool,
 }
@@ -69,6 +79,7 @@ pub struct EmailBodyValue {
 ///
 /// The `sub_parts` field is recursive: multipart bodies nest further
 /// `EmailBodyPart` values.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailBodyPart {
@@ -117,6 +128,7 @@ pub struct EmailBodyPart {
 /// and body fields (§4.1.4).  Fields that are not requested in an `Email/get`
 /// call will be absent from the response; all optional fields are represented
 /// as `Option` so a partial response can still deserialize.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Email {
@@ -127,9 +139,17 @@ pub struct Email {
     pub blob_id: Id,
     /// Id of the Thread this Email belongs to.
     pub thread_id: Id,
-    /// Set of Mailbox ids this Email belongs to (value is always true).
+    /// Set of Mailbox ids this Email belongs to.
+    ///
+    /// Represented as `HashMap<Id, bool>` because the JMAP wire format uses a JSON object
+    /// with boolean values (RFC 8621 §4.1.1).  Values are always `true` in full-object
+    /// responses; the map shape is also used in PatchObject updates (RFC 8620 §5.3) where
+    /// a `null` value removes an entry.
     pub mailbox_ids: HashMap<Id, bool>,
-    /// Keywords applied to this Email (value is always true).
+    /// Keywords applied to this Email.
+    ///
+    /// Same `HashMap<Id, bool>` shape as `mailbox_ids` — JMAP wire format requirement.
+    /// Values are always `true` in full-object responses (RFC 8621 §4.1.1).
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
     pub keywords: HashMap<String, bool>,
     /// Size in octets of the raw RFC 5322 message.

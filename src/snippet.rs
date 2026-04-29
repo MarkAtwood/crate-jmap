@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 /// determine a snippet for that Email. Per RFC 8620 §5.1, absent and `null`
 /// are semantically equivalent for `|null` properties, so these fields are
 /// omitted from serialized JSON (rather than emitted as `null`) when `None`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SearchSnippet {

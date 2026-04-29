@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Groups related Email objects by conversation thread. The `emailIds` field
 /// lists member Email ids sorted oldest-first by `receivedAt`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Thread {

@@ -43,6 +43,9 @@ fn mailbox_role_wire_names() {
         (MailboxRole::Drafts, "\"drafts\""),
         (MailboxRole::Junk, "\"junk\""),
         (MailboxRole::Archive, "\"archive\""),
+        (MailboxRole::Flagged, "\"flagged\""),
+        (MailboxRole::Important, "\"important\""),
+        (MailboxRole::All, "\"all\""),
     ];
     for (role, expected) in cases {
         let s = serde_json::to_string(&role).expect("serialize role");
@@ -84,10 +87,13 @@ fn mailbox_trash_deserializes_correctly() {
 #[test]
 fn mailbox_role_unknown_does_not_error() {
     // Oracle: RFC 8621 §2 — unrecognized roles SHOULD be treated as if no role were set.
-    // A future IANA-registered value must not hard-fail deserialization.
+    // A future IANA-registered value must not hard-fail deserialization and must round-trip.
     let role: MailboxRole = serde_json::from_str("\"futurevalue\"")
         .expect("unknown role must not fail deserialization");
-    assert_eq!(role, MailboxRole::Other);
+    assert_eq!(role, MailboxRole::Other("futurevalue".to_owned()));
+    // The original string must be preserved on re-serialization.
+    let reserialized = serde_json::to_string(&role).expect("serialize");
+    assert_eq!(reserialized, "\"futurevalue\"");
 }
 
 #[test]
@@ -99,7 +105,14 @@ fn mailbox_role_display_matches_wire_names() {
     assert_eq!(MailboxRole::Drafts.to_string(), "drafts");
     assert_eq!(MailboxRole::Junk.to_string(), "junk");
     assert_eq!(MailboxRole::Archive.to_string(), "archive");
-    assert_eq!(MailboxRole::Other.to_string(), "other");
+    assert_eq!(MailboxRole::Flagged.to_string(), "flagged");
+    assert_eq!(MailboxRole::Important.to_string(), "important");
+    assert_eq!(MailboxRole::All.to_string(), "all");
+    assert_eq!(MailboxRole::Other("other".to_owned()).to_string(), "other");
+    assert_eq!(
+        MailboxRole::Other("futurevalue".to_owned()).to_string(),
+        "futurevalue"
+    );
 }
 
 #[test]
@@ -129,5 +142,5 @@ fn mailbox_with_unknown_role_deserializes() {
     }"#;
     let mb: Mailbox =
         serde_json::from_str(json).expect("Mailbox with unknown role must deserialize");
-    assert_eq!(mb.role, Some(MailboxRole::Other));
+    assert_eq!(mb.role, Some(MailboxRole::Other("futurevalue".to_owned())));
 }

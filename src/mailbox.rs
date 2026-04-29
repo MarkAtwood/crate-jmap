@@ -8,8 +8,7 @@ use serde::{Deserialize, Serialize};
 /// Values correspond to IMAP Mailbox Name Attributes (RFC 8457), converted to
 /// lowercase.  An account is not required to have Mailboxes with any particular
 /// role, and at most one Mailbox per account may hold each role.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum MailboxRole {
     /// The primary inbox for new incoming messages.
@@ -34,11 +33,55 @@ pub enum MailboxRole {
     ///
     /// RFC 8621 §2: "An unrecognized role SHOULD be treated as if no role were set."
     ///
-    /// **Round-trip warning**: this variant serializes as `"other"`, not as the original
-    /// string received from the server.  Do not echo a `MailboxRole::Other` back to the
-    /// server in a `Mailbox/set` request — omit the `role` field instead (treat as `None`).
-    #[serde(other)]
-    Other,
+    /// The inner string retains the original value received from the server, so
+    /// this variant round-trips correctly.  When sending a `Mailbox/set` request
+    /// for a mailbox whose role came from the server, it is safe to echo the role
+    /// back — or omit it by setting `role` to `None`.
+    Other(String),
+}
+
+impl Serialize for MailboxRole {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(match self {
+            MailboxRole::Inbox => "inbox",
+            MailboxRole::Trash => "trash",
+            MailboxRole::Sent => "sent",
+            MailboxRole::Drafts => "drafts",
+            MailboxRole::Junk => "junk",
+            MailboxRole::Archive => "archive",
+            MailboxRole::Flagged => "flagged",
+            MailboxRole::Important => "important",
+            MailboxRole::All => "all",
+            MailboxRole::Other(v) => v.as_str(),
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for MailboxRole {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct Visitor;
+        impl serde::de::Visitor<'_> for Visitor {
+            type Value = MailboxRole;
+            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+                write!(f, "a JMAP Mailbox role string")
+            }
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<MailboxRole, E> {
+                Ok(match v {
+                    "inbox" => MailboxRole::Inbox,
+                    "trash" => MailboxRole::Trash,
+                    "sent" => MailboxRole::Sent,
+                    "drafts" => MailboxRole::Drafts,
+                    "junk" => MailboxRole::Junk,
+                    "archive" => MailboxRole::Archive,
+                    "flagged" => MailboxRole::Flagged,
+                    "important" => MailboxRole::Important,
+                    "all" => MailboxRole::All,
+                    _ => MailboxRole::Other(v.to_owned()),
+                })
+            }
+        }
+        d.deserialize_str(Visitor)
+    }
 }
 
 impl fmt::Display for MailboxRole {
@@ -53,7 +96,7 @@ impl fmt::Display for MailboxRole {
             MailboxRole::Flagged => "flagged",
             MailboxRole::Important => "important",
             MailboxRole::All => "all",
-            MailboxRole::Other => "other",
+            MailboxRole::Other(v) => v.as_str(),
         })
     }
 }
@@ -64,6 +107,7 @@ impl fmt::Display for MailboxRole {
 ///
 /// `Default` produces all-false (no access), which is the most restrictive valid value
 /// and a safe starting point when constructing rights in tests or server code.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MailboxRights {
@@ -91,6 +135,7 @@ pub struct MailboxRights {
 ///
 /// Mailboxes are the containers for Email objects.  Each Email must belong to
 /// at least one Mailbox.  Mailboxes form an acyclic forest via `parent_id`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Mailbox {

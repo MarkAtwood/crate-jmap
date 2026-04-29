@@ -90,7 +90,11 @@ fn submission_enum_display_matches_wire_names() {
     assert_eq!(UndoStatus::Pending.to_string(), "pending");
     assert_eq!(UndoStatus::Final.to_string(), "final");
     assert_eq!(UndoStatus::Canceled.to_string(), "canceled");
-    assert_eq!(UndoStatus::Other.to_string(), "other");
+    assert_eq!(UndoStatus::Other("other".to_owned()).to_string(), "other");
+    assert_eq!(
+        UndoStatus::Other("futurevalue".to_owned()).to_string(),
+        "futurevalue"
+    );
 }
 
 #[test]

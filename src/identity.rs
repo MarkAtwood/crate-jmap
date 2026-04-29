@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 /// An RFC 8621 §6 Identity object.
 ///
 /// Stores information about an email address or domain the user may send from.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Identity {
