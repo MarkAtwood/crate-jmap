@@ -37,6 +37,42 @@ pub struct JmapResponse {
     pub created_ids: Option<HashMap<Id, Id>>,
 }
 
+impl JmapRequest {
+    /// Construct a [`JmapRequest`].
+    ///
+    /// Required because the struct is `#[non_exhaustive]` and cannot be
+    /// built with a struct literal outside this crate.
+    pub fn new(
+        using: Vec<String>,
+        method_calls: Vec<Invocation>,
+        created_ids: Option<HashMap<Id, Id>>,
+    ) -> Self {
+        Self {
+            using,
+            method_calls,
+            created_ids,
+        }
+    }
+}
+
+impl JmapResponse {
+    /// Construct a [`JmapResponse`].
+    ///
+    /// Required because the struct is `#[non_exhaustive]` and cannot be
+    /// built with a struct literal outside this crate.
+    pub fn new(
+        method_responses: Vec<Invocation>,
+        session_state: State,
+        created_ids: Option<HashMap<Id, Id>>,
+    ) -> Self {
+        Self {
+            method_responses,
+            session_state,
+            created_ids,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

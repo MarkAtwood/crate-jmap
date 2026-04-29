@@ -276,6 +276,75 @@ impl JmapError {
             existing_id: None,
         }
     }
+
+    /// RFC 8620 §3.6.1 — "notJSON" (request-level error)
+    ///
+    /// The request body was not valid JSON or did not have `application/json` content type.
+    pub fn not_json() -> Self {
+        Self {
+            error_type: "notJSON".into(),
+            description: None,
+            existing_id: None,
+        }
+    }
+
+    /// RFC 8620 §3.6.1 — "notRequest" (request-level error)
+    ///
+    /// The request parsed as JSON but did not match the JMAP Request object shape.
+    pub fn not_request() -> Self {
+        Self {
+            error_type: "notRequest".into(),
+            description: None,
+            existing_id: None,
+        }
+    }
+
+    /// RFC 8620 §3.6.1 — "limit" (request-level error)
+    ///
+    /// The request was rejected because it would exceed a capability limit such as
+    /// `maxCallsInRequest` or `maxSizeRequest`.
+    ///
+    /// `limit_name` is the name of the exceeded limit (e.g. `"maxCallsInRequest"`).
+    /// The HTTP layer MUST forward this name as the `"limit"` property in the
+    /// RFC 7807 Problem Details response body.  The name is stored in
+    /// [`description`][JmapError::description] for that purpose.
+    ///
+    /// **Invariant**: always construct limit errors with this function, never by
+    /// setting `error_type = "limit"` and `description` manually.  The HTTP
+    /// response layer (`jmap-server::RequestError`) reads `description` to
+    /// populate the RFC-required `"limit"` field; a missing description produces
+    /// an invalid response.
+    pub fn limit(limit_name: impl Into<String>) -> Self {
+        Self {
+            error_type: "limit".into(),
+            description: Some(limit_name.into()),
+            existing_id: None,
+        }
+    }
+
+    /// RFC 8620 §3.6.1 — "unknownCapability" (request-level error)
+    ///
+    /// The request used a capability URI not recognized by this server.
+    pub fn unknown_capability() -> Self {
+        Self {
+            error_type: "unknownCapability".into(),
+            description: None,
+            existing_id: None,
+        }
+    }
+
+    /// Create a `JmapError` with a custom or extension error type string.
+    ///
+    /// Use this when propagating a server error whose `type` value is not one of
+    /// the RFC 8620 standard types, or in tests that need to construct an
+    /// arbitrary `JmapError` value.
+    pub fn custom(error_type: impl Into<String>) -> Self {
+        Self {
+            error_type: error_type.into(),
+            description: None,
+            existing_id: None,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -500,6 +569,50 @@ mod tests {
         let json = serde_json::to_string(&e).unwrap();
         assert!(json.contains("\"tooManyChanges\""));
         assert!(!json.contains("\"description\""));
+    }
+
+    #[test]
+    fn not_json_type_string() {
+        let e = JmapError::not_json();
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"notJSON\""));
+        assert!(!json.contains("\"description\""));
+    }
+
+    #[test]
+    fn not_request_type_string() {
+        let e = JmapError::not_request();
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"notRequest\""));
+        assert!(!json.contains("\"description\""));
+    }
+
+    #[test]
+    fn limit_includes_limit_name_in_description() {
+        // Oracle: the limit name is stored in description so the HTTP layer
+        // can forward it as the "limit" field in RFC 7807 Problem Details.
+        let e = JmapError::limit("maxCallsInRequest");
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"limit\""));
+        assert!(json.contains("\"maxCallsInRequest\""));
+    }
+
+    #[test]
+    fn unknown_capability_type_string() {
+        let e = JmapError::unknown_capability();
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"unknownCapability\""));
+        assert!(!json.contains("\"description\""));
+    }
+
+    #[test]
+    fn custom_error_type_round_trips() {
+        let e = JmapError::custom("urn:example:customError");
+        assert_eq!(e.error_type, "urn:example:customError");
+        let json = serde_json::to_string(&e).unwrap();
+        assert!(json.contains("\"urn:example:customError\""));
+        let restored: JmapError = serde_json::from_str(&json).unwrap();
+        assert_eq!(restored.error_type, "urn:example:customError");
     }
 
     #[test]
