@@ -93,6 +93,36 @@ may depend on tokio/http. Client crates (not yet in this workspace) follow the s
 Each crate has a `PLAN.md` with full design rationale, source material references, and
 test strategy. Read it before implementing anything in that crate.
 
+## Source Material
+
+### Specs (normative)
+
+`~/PROJECT/jmap-chat-spec/references/` contains every relevant RFC and IETF draft as plain text:
+- `rfc8620.txt` — JMAP base protocol (wire types, ResultReference, Session, errors)
+- `rfc8621.txt` — JMAP for Mail (Email, Mailbox, Thread, Identity, EmailSubmission)
+- `draft-ietf-jmap-*.txt` — calendars, contacts, blob extensions, etc.
+
+JMAP Chat extension drafts are in `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-*.md`.
+
+Read the spec section before implementing anything. Do not guess at wire field names.
+
+### Reference Implementations
+
+These are **read-only** — do not modify, do not add to this workspace:
+
+| Path | Key content |
+|---|---|
+| `~/PROJECT/crate-jmapchat-server/jmapchat-server/` | `StorageBackend` trait, `RefStore`, dispatch/ResultReference tests |
+| `~/PROJECT/crate-jmapchat-server/jmapchat-types/` | `Clearable<T>`, `#[non_exhaustive]`, serde conventions |
+| `~/PROJECT/crate-jmapchat-client/` | Client-side type usage patterns |
+| `~/PROJECT/kith/crates/kith-core/` | Original `JmapError`, wire types, `ResultReference` |
+| `~/PROJECT/kith/crates/kith-jmap/` | Dispatcher, `parse_request`, ResultReference resolution |
+| `~/PROJECT/stoa/crates/mail/` | JMAP mail consumer — dispatch, session/capability structs |
+
+Each crate's `PLAN.md` cites exact files and line numbers to extract from.
+
+For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before fetching from the network.
+
 ## Conventions & Patterns
 
 - **Path deps**: each crate references siblings via `path = "../crate-jmap-*"` — do not
@@ -103,6 +133,4 @@ test strategy. Read it before implementing anything in that crate.
   depend on tokio or any async runtime.
 - **`crate-jmapchat-*` dirs** (outside this workspace): reference/inspiration only — not
   members of this workspace and not to be modified here.
-- **Spec references**: RFC 8620 and RFC 8621 are at `~/PROJECT/jmap-chat-spec/references/`.
-  JMAP Chat drafts are at `~/PROJECT/jmap-chat-spec/`.
 - **Crate naming**: crate name = `jmap-*`, directory name = `crate-jmap-*`.

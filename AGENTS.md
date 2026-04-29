@@ -15,14 +15,44 @@ the JMAP Chat extension). All five crates live in `crate-jmap-*/` subdirectories
 
 Read the crate's `PLAN.md` before touching its code.
 
+## Source Material
+
+### Specs (normative)
+
+All live at `~/PROJECT/jmap-chat-spec/references/`:
+
+| File | Covers |
+|---|---|
+| `rfc8620.txt` | JMAP base protocol — wire types, ResultReference, Session, error codes |
+| `rfc8621.txt` | JMAP for Mail — Email, Mailbox, Thread, Identity, EmailSubmission |
+| `draft-atwood-jmap-chat-*.md` | JMAP Chat extension (in `~/PROJECT/jmap-chat-spec/`) |
+| `draft-ietf-jmap-*.txt` | Other IETF JMAP extensions (calendars, contacts, blob, etc.) |
+
+When implementing anything, read the relevant RFC section first. Do not guess at wire field names.
+
+### Reference Implementations (local — read, do not modify)
+
+| Path | What to look for |
+|---|---|
+| `~/PROJECT/crate-jmapchat-server/jmapchat-server/` | Handler/backend pattern, `StorageBackend` trait, `RefStore`, dispatch tests |
+| `~/PROJECT/crate-jmapchat-server/jmapchat-types/` | Type idioms: `Clearable<T>`, `#[non_exhaustive]`, serde rename conventions |
+| `~/PROJECT/crate-jmapchat-client/` | Client-side type usage |
+| `~/PROJECT/kith/crates/kith-core/` | Original `JmapError`, `JmapRequest/Response`, `ResultReference` source |
+| `~/PROJECT/kith/crates/kith-jmap/` | Original dispatcher, `parse_request`, ResultReference resolution |
+| `~/PROJECT/stoa/crates/mail/` | JMAP mail consumer — `dispatch.rs`, session/capability structs |
+
+The PLAN.md in each crate identifies exactly which files and line numbers to draw from.
+
+### Broader Ecosystem
+
+For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching for the network.
+
 ## Key Rules
 
 - **`cargo test --workspace`** must pass before any commit.
 - **No async** in `*-types` crates — no tokio, no futures.
 - **`crate-jmapchat-*`** directories in `../` are reference/inspiration only; do not
   modify them and do not add them to this workspace.
-- **Spec refs** live at `~/PROJECT/jmap-chat-spec/references/` (RFC 8620, RFC 8621) and
-  `~/PROJECT/jmap-chat-spec/` (Chat drafts).
 - Test oracles must be independent of the code under test (RFC example JSON, OpenSSL output).
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
