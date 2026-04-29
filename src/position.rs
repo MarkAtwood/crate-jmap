@@ -2,9 +2,9 @@ use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Tracks how far a user has read within a Chat (spec: ReadPosition object).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct ReadPosition {
     pub id: Id,
     pub chat_id: Id,
@@ -12,6 +12,20 @@ pub struct ReadPosition {
     pub last_read_message_id: Option<Id>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_read_at: Option<UTCDate>,
+}
+
+impl ReadPosition {
+    /// Construct a [`ReadPosition`] from its required fields.
+    ///
+    /// Both optional fields default to `None`.
+    pub fn new(id: Id, chat_id: Id) -> Self {
+        Self {
+            id,
+            chat_id,
+            last_read_message_id: None,
+            last_read_at: None,
+        }
+    }
 }
 
 #[cfg(test)]

@@ -2,9 +2,9 @@ use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A member of a [`Chat`].
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct ChatMember {
     pub id: Id,
     pub role: String,
@@ -14,9 +14,9 @@ pub struct ChatMember {
 }
 
 /// A per-channel permission override entry.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct ChannelPermission {
     pub target_id: Id,
     pub target_type: String,
@@ -25,9 +25,9 @@ pub struct ChannelPermission {
 }
 
 /// A JMAP Chat object.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Chat {
     pub id: Id,
     pub kind: String,
@@ -67,6 +67,46 @@ pub struct Chat {
     pub receipt_sharing: Option<bool>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message_expiry_seconds: Option<u64>,
+}
+
+impl Chat {
+    /// Construct a [`Chat`] from its required fields.
+    ///
+    /// All optional fields default to `None`.
+    pub fn new(
+        id: Id,
+        kind: impl Into<String>,
+        created_at: UTCDate,
+        unread_count: u64,
+        pinned_message_ids: Vec<Id>,
+        muted: bool,
+        receive_typing_indicators: bool,
+    ) -> Self {
+        Self {
+            id,
+            kind: kind.into(),
+            created_at,
+            unread_count,
+            pinned_message_ids,
+            muted,
+            receive_typing_indicators,
+            contact_id: None,
+            name: None,
+            description: None,
+            avatar_blob_id: None,
+            members: None,
+            space_id: None,
+            category_id: None,
+            position: None,
+            topic: None,
+            slow_mode_seconds: None,
+            permission_overrides: None,
+            last_message_at: None,
+            mute_until: None,
+            receipt_sharing: None,
+            message_expiry_seconds: None,
+        }
+    }
 }
 
 #[cfg(test)]

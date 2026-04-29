@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 /// Client-supplied filter controlling which push notifications are delivered.
 ///
 /// All fields are optional; omitting a field uses the server default.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatPushConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -24,8 +24,8 @@ pub struct ChatPushConfig {
 ///
 /// Per spec, `body_snippet` MUST be `None` when `encrypted` is `true`.
 /// The type does not enforce this — it is a caller invariant.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMessageEntry {
     pub message_id: Id,
@@ -54,14 +54,58 @@ pub struct ChatMessageEntry {
 ///
 /// The wire format includes `"@type": "ChatMessagePush"` as a discriminant.
 /// `state` is a JMAP state token (opaque string), not an [`Id`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "@type", rename = "ChatMessagePush")]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMessagePush {
     pub account_id: Id,
     pub state: String,
     pub messages: Vec<ChatMessageEntry>,
+}
+
+impl ChatMessagePush {
+    /// Construct a [`ChatMessagePush`] from its required fields.
+    pub fn new(account_id: Id, state: impl Into<String>, messages: Vec<ChatMessageEntry>) -> Self {
+        Self {
+            account_id,
+            state: state.into(),
+            messages,
+        }
+    }
+}
+
+impl ChatMessageEntry {
+    /// Construct a [`ChatMessageEntry`] from its required fields.
+    ///
+    /// All optional fields default to `None`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        message_id: Id,
+        chat_id: Id,
+        chat_kind: impl Into<String>,
+        sender_id: impl Into<String>,
+        sent_at: UTCDate,
+        has_mention: bool,
+        has_mention_all: bool,
+        encrypted: bool,
+    ) -> Self {
+        Self {
+            message_id,
+            chat_id,
+            chat_kind: chat_kind.into(),
+            sender_id: sender_id.into(),
+            sent_at,
+            has_mention,
+            has_mention_all,
+            encrypted,
+            chat_name: None,
+            space_id: None,
+            space_name: None,
+            sender_display_name: None,
+            body_snippet: None,
+        }
+    }
 }
 
 #[cfg(test)]

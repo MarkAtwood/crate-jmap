@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 /// Client→server: subscribe to ephemeral events for selected data types.
 ///
 /// `chat_ids: None` means all chats; `contact_ids: None` means all contacts.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatStreamEnable {
     /// Data-type tags to stream (e.g. `"typing"`, `"presence"`).
@@ -20,13 +20,13 @@ pub struct ChatStreamEnable {
 }
 
 /// Client→server: unsubscribe from ephemeral events.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ChatStreamDisable {}
 
 /// Server→client: a contact is typing (or stopped typing) in a chat.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatTypingEvent {
     /// The chat in which typing is occurring.
@@ -43,8 +43,8 @@ pub struct ChatTypingEvent {
 /// - `None` = field absent → no change
 /// - `Some(Clearable::Clear)` = JSON `null` → clear the value
 /// - `Some(Clearable::Set(v))` = JSON string → set to `v`
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatPresenceEvent {
     /// The contact whose presence changed.
@@ -76,8 +76,8 @@ pub struct ChatPresenceEvent {
 ///
 /// Unknown `@type` values deserialize to `EphemeralMessage::Unknown` rather
 /// than producing an error, allowing forward-compatible clients.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "@type")]
 pub enum EphemeralMessage {
     #[serde(rename = "ChatStreamEnable")]

@@ -3,8 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 /// A file attached to a [`Message`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
     pub blob_id: Id,
@@ -15,8 +15,8 @@ pub struct Attachment {
 }
 
 /// An `@mention` within a [`Message`] body.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Mention {
     pub id: Id,
@@ -25,8 +25,8 @@ pub struct Mention {
 }
 
 /// An interactive action button attached to a [`Message`].
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageAction {
     /// Wire name is `"type"` — Rust keyword, so renamed explicitly.
@@ -42,8 +42,8 @@ pub struct MessageAction {
 }
 
 /// A single emoji reaction placed on a [`Message`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Reaction {
     pub emoji: String,
@@ -55,8 +55,8 @@ pub struct Reaction {
 }
 
 /// A prior revision of a [`Message`] body, stored in edit history.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageRevision {
     pub body: String,
@@ -65,8 +65,8 @@ pub struct MessageRevision {
 }
 
 /// Per-recipient delivery receipt for a [`Message`].
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeliveryReceipt {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -78,8 +78,8 @@ pub struct DeliveryReceipt {
 }
 
 /// A single chat message as defined by the JMAP Chat extension.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
     pub id: Id,
@@ -123,6 +123,57 @@ pub struct Message {
     pub deleted_at: Option<UTCDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_for_all: Option<bool>,
+}
+
+impl Message {
+    /// Construct a [`Message`] from its required fields.
+    ///
+    /// All optional fields default to `None`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: Id,
+        sender_msg_id: Id,
+        sender_id: impl Into<String>,
+        chat_id: Id,
+        body: impl Into<String>,
+        body_type: impl Into<String>,
+        attachments: Vec<Attachment>,
+        mentions: Vec<Mention>,
+        actions: Vec<MessageAction>,
+        reactions: HashMap<String, Reaction>,
+        sent_at: UTCDate,
+        received_at: UTCDate,
+        delivery_state: impl Into<String>,
+    ) -> Self {
+        Self {
+            id,
+            sender_msg_id,
+            sender_id: sender_id.into(),
+            chat_id,
+            body: body.into(),
+            body_type: body_type.into(),
+            attachments,
+            mentions,
+            actions,
+            reactions,
+            sent_at,
+            received_at,
+            delivery_state: delivery_state.into(),
+            reply_to: None,
+            thread_root_id: None,
+            reply_count: None,
+            unread_reply_count: None,
+            sender_expires_at: None,
+            burn_on_read: None,
+            delivery_receipts: None,
+            delivered_at: None,
+            read_at: None,
+            edited_at: None,
+            edit_history: None,
+            deleted_at: None,
+            deleted_for_all: None,
+        }
+    }
 }
 
 #[cfg(test)]

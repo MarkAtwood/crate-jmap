@@ -2,9 +2,9 @@ use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A user's current presence state (spec: PresenceStatus object).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct PresenceStatus {
     pub id: Id,
     pub presence: String,
@@ -16,6 +16,28 @@ pub struct PresenceStatus {
     pub status_emoji: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
+}
+
+impl PresenceStatus {
+    /// Construct a [`PresenceStatus`] from its required fields.
+    ///
+    /// All optional fields default to `None`.
+    pub fn new(
+        id: Id,
+        presence: impl Into<String>,
+        receipt_sharing: bool,
+        updated_at: UTCDate,
+    ) -> Self {
+        Self {
+            id,
+            presence: presence.into(),
+            receipt_sharing,
+            updated_at,
+            status_text: None,
+            status_emoji: None,
+            expires_at: None,
+        }
+    }
 }
 
 #[cfg(test)]

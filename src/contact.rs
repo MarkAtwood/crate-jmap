@@ -2,9 +2,9 @@ use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A reachable endpoint for a contact (e.g. XMPP, SIP, email).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Endpoint {
     /// Wire name is "type" — camelCase expansion would give "endpointType".
     #[serde(rename = "type")]
@@ -20,9 +20,9 @@ pub struct Endpoint {
 }
 
 /// A remote user known to this server (spec: ChatContact object).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct ChatContact {
     pub id: Id,
     pub login: String,
@@ -41,6 +41,33 @@ pub struct ChatContact {
     pub status_emoji: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoints: Option<Vec<Endpoint>>,
+}
+
+impl ChatContact {
+    /// Construct a [`ChatContact`] from its required fields.
+    ///
+    /// All optional fields default to `None`.
+    pub fn new(
+        id: Id,
+        login: impl Into<String>,
+        first_seen_at: UTCDate,
+        last_seen_at: UTCDate,
+        blocked: bool,
+    ) -> Self {
+        Self {
+            id,
+            login: login.into(),
+            first_seen_at,
+            last_seen_at,
+            blocked,
+            display_name: None,
+            presence: None,
+            last_active_at: None,
+            status_text: None,
+            status_emoji: None,
+            endpoints: None,
+        }
+    }
 }
 
 #[cfg(test)]

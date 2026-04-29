@@ -22,8 +22,8 @@ where
 /// - `None` = field absent (no change)
 /// - `Some(Clearable::Clear)` = field present as `null` (clear the value)
 /// - `Some(Clearable::Set(v))` = field present with value `v`
-#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Clearable<T> {
     /// Field was present in JSON as `null` — explicitly clear the value.
     Clear,

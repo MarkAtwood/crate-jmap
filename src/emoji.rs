@@ -2,9 +2,9 @@ use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A server-defined or space-scoped custom emoji (spec: CustomEmoji object).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct CustomEmoji {
     pub id: Id,
     pub name: String,
@@ -14,6 +14,28 @@ pub struct CustomEmoji {
     /// If absent, the emoji is server-global; if present, scoped to that Space.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<Id>,
+}
+
+impl CustomEmoji {
+    /// Construct a [`CustomEmoji`] from its required fields.
+    ///
+    /// `space_id` defaults to `None` (server-global emoji).
+    pub fn new(
+        id: Id,
+        name: impl Into<String>,
+        blob_id: Id,
+        created_by: Id,
+        created_at: UTCDate,
+    ) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            blob_id,
+            created_by,
+            created_at,
+            space_id: None,
+        }
+    }
 }
 
 #[cfg(test)]

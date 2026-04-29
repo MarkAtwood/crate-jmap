@@ -2,9 +2,9 @@ use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A role that can be assigned to members within a Space.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct SpaceRole {
     pub id: Id,
     pub name: String,
@@ -15,9 +15,9 @@ pub struct SpaceRole {
 }
 
 /// A member of a Space and their assigned roles.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct SpaceMember {
     pub id: Id,
     pub role_ids: Vec<Id>,
@@ -27,9 +27,9 @@ pub struct SpaceMember {
 }
 
 /// A category grouping channels within a Space.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Category {
     pub id: Id,
     pub name: String,
@@ -38,9 +38,9 @@ pub struct Category {
 }
 
 /// A Space is a server-like container holding channels, members, and roles.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Space {
     pub id: Id,
     pub name: String,
@@ -59,9 +59,9 @@ pub struct Space {
 }
 
 /// An invite code allowing others to join a Space.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct SpaceInvite {
     pub id: Id,
     pub code: String,
@@ -78,9 +78,9 @@ pub struct SpaceInvite {
 }
 
 /// A ban preventing a user from accessing a Space.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct SpaceBan {
     pub id: Id,
     pub space_id: Id,
@@ -91,6 +91,40 @@ pub struct SpaceBan {
     pub reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
+}
+
+impl Space {
+    /// Construct a [`Space`] from its required fields.
+    ///
+    /// `description` and `icon_blob_id` default to `None`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: Id,
+        name: impl Into<String>,
+        roles: Vec<SpaceRole>,
+        members: Vec<SpaceMember>,
+        categories: Vec<Category>,
+        uncategorized_channel_ids: Vec<Id>,
+        created_at: UTCDate,
+        is_public: bool,
+        is_publicly_previewable: bool,
+        member_count: u64,
+    ) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            roles,
+            members,
+            categories,
+            uncategorized_channel_ids,
+            created_at,
+            is_public,
+            is_publicly_previewable,
+            member_count,
+            description: None,
+            icon_blob_id: None,
+        }
+    }
 }
 
 #[cfg(test)]
