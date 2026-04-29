@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 /// omitted from serialized JSON (rather than emitted as `null`) when `None`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct SearchSnippet {
     /// The Email id the snippet applies to.
     pub email_id: Id,

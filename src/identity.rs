@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 /// Stores information about an email address or domain the user may send from.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Identity {
     /// The id of the Identity (immutable; server-set).
     pub id: Id,

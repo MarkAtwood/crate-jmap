@@ -9,7 +9,6 @@ use serde::{Deserialize, Serialize};
 /// Used in both `mailFrom` and the elements of `rcptTo` within an [`Envelope`].
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Address {
     /// The email address (Mailbox as per RFC 5321 Reverse-path / Forward-path).
     pub email: String,
@@ -28,7 +27,6 @@ pub struct Address {
 /// If omitted on creation the server derives it from the Email headers.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Envelope {
     /// Return address for the SMTP MAIL FROM command.
     pub mail_from: Address,
@@ -37,7 +35,7 @@ pub struct Envelope {
 }
 
 /// Delivery status of a message to a recipient (RFC 8621 §7, `delivered` field).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum Delivered {
@@ -50,6 +48,10 @@ pub enum Delivered {
     /// The final delivery status is unknown.
     Unknown,
     /// An unrecognised value was received from the server.
+    ///
+    /// **Round-trip warning**: this variant serializes as `"other"`, not as the original
+    /// string received from the server.  Do not echo a `Delivered::Other` back to the
+    /// server — treat it as [`Delivered::Unknown`] instead.
     #[serde(other)]
     Other,
 }
@@ -67,7 +69,7 @@ impl fmt::Display for Delivered {
 }
 
 /// Display status of a message to a recipient (RFC 8621 §7, `displayed` field).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum Displayed {
@@ -76,6 +78,10 @@ pub enum Displayed {
     /// The message has been displayed to the recipient at least once.
     Yes,
     /// An unrecognised value was received from the server.
+    ///
+    /// **Round-trip warning**: this variant serializes as `"other"`, not as the original
+    /// string received from the server.  Do not echo a `Displayed::Other` back to the
+    /// server — treat it as [`Displayed::Unknown`] instead.
     #[serde(other)]
     Other,
 }
@@ -91,7 +97,7 @@ impl fmt::Display for Displayed {
 }
 
 /// Whether an [`EmailSubmission`] may still be canceled (RFC 8621 §7).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum UndoStatus {
@@ -102,6 +108,10 @@ pub enum UndoStatus {
     /// The submission was canceled and will not be delivered to any recipient.
     Canceled,
     /// An unrecognised value was received from the server.
+    ///
+    /// **Round-trip warning**: this variant serializes as `"other"`, not as the original
+    /// string received from the server.  Do not echo an `UndoStatus::Other` back to the
+    /// server — treat it as [`UndoStatus::Final`] instead.
     #[serde(other)]
     Other,
 }
@@ -120,7 +130,6 @@ impl fmt::Display for UndoStatus {
 /// Per-recipient delivery status for an [`EmailSubmission`] (RFC 8621 §7).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct DeliveryStatus {
     /// The SMTP reply string returned when the server last attempted relay,
     /// or from a later DSN (RFC 3464).  Multi-line responses are concatenated
@@ -135,7 +144,6 @@ pub struct DeliveryStatus {
 /// Represents the submission of an Email for delivery (RFC 8621 §7).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct EmailSubmission {
     /// Server-assigned immutable identifier for this submission.
     pub id: Id,

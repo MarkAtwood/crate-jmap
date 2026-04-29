@@ -13,7 +13,6 @@ use serde::{Deserialize, Serialize};
 /// display-name), distinct from the JMAP [`Mailbox`](crate::Mailbox) folder type.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct EmailAddress {
     /// The decoded display-name of the mailbox, or `null` if absent.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -28,7 +27,6 @@ pub struct EmailAddress {
 /// a named group are collected under an `EmailAddressGroup` with `name: null`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct EmailAddressGroup {
     /// The decoded display-name of the group, or `null` for ungrouped mailboxes.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -42,7 +40,6 @@ pub struct EmailAddressGroup {
 /// The `name` retains original capitalisation; `value` is the raw field value.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct EmailHeader {
     /// The header field name (e.g. `"Content-Type"`), case-preserved.
     pub name: String,
@@ -55,7 +52,6 @@ pub struct EmailHeader {
 /// Returned inside the `bodyValues` map of an Email object.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct EmailBodyValue {
     /// The decoded text content of the part.
     pub value: String,
@@ -75,7 +71,6 @@ pub struct EmailBodyValue {
 /// `EmailBodyPart` values.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct EmailBodyPart {
     /// Uniquely identifies this part within the Email (null for multipart/*).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -124,7 +119,6 @@ pub struct EmailBodyPart {
 /// as `Option` so a partial response can still deserialize.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Email {
     // --- Metadata (§4.1.1) ---
     /// The JMAP object id of this Email.

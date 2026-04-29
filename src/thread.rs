@@ -7,7 +7,6 @@ use serde::{Deserialize, Serialize};
 /// lists member Email ids sorted oldest-first by `receivedAt`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Thread {
     /// The id of the Thread (immutable; server-set).
     pub id: Id,

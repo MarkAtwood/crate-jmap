@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 /// Values correspond to IMAP Mailbox Name Attributes (RFC 8457), converted to
 /// lowercase.  An account is not required to have Mailboxes with any particular
 /// role, and at most one Mailbox per account may hold each role.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum MailboxRole {
@@ -66,7 +66,6 @@ impl fmt::Display for MailboxRole {
 /// and a safe starting point when constructing rights in tests or server code.
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct MailboxRights {
     /// User may use this Mailbox in Email/query filters and read its emails.
     pub may_read_items: bool,
@@ -94,7 +93,6 @@ pub struct MailboxRights {
 /// at least one Mailbox.  Mailboxes form an acyclic forest via `parent_id`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[non_exhaustive]
 pub struct Mailbox {
     /// Server-assigned immutable identifier.
     pub id: Id,
