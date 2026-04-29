@@ -54,6 +54,16 @@ pub struct Address {
     pub parameters: Option<HashMap<String, Option<String>>>,
 }
 
+impl Address {
+    /// Construct an `Address` from an SMTP email address.  `parameters` defaults to `None`.
+    pub fn new(email: impl Into<String>) -> Self {
+        Self {
+            email: email.into(),
+            parameters: None,
+        }
+    }
+}
+
 /// SMTP envelope for an [`EmailSubmission`] (RFC 8621 §7).
 ///
 /// Carries the return address and recipient list used in the SMTP dialogue.
@@ -66,6 +76,13 @@ pub struct Envelope {
     pub mail_from: Address,
     /// Recipient addresses for SMTP RCPT TO commands.
     pub rcpt_to: Vec<Address>,
+}
+
+impl Envelope {
+    /// Construct an `Envelope` from a return address and recipient list.
+    pub fn new(mail_from: Address, rcpt_to: Vec<Address>) -> Self {
+        Self { mail_from, rcpt_to }
+    }
 }
 
 /// Delivery status of a message to a recipient (RFC 8621 §7, `delivered` field).
@@ -182,6 +199,17 @@ pub struct DeliveryStatus {
     pub displayed: Displayed,
 }
 
+impl DeliveryStatus {
+    /// Construct a `DeliveryStatus` from its three required fields.
+    pub fn new(smtp_reply: impl Into<String>, delivered: Delivered, displayed: Displayed) -> Self {
+        Self {
+            smtp_reply: smtp_reply.into(),
+            delivered,
+            displayed,
+        }
+    }
+}
+
 /// Represents the submission of an Email for delivery (RFC 8621 §7).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -216,4 +244,32 @@ pub struct EmailSubmission {
     ///
     /// Always present in serialized output; same rationale as `dsn_blob_ids`.
     pub mdn_blob_ids: Vec<Id>,
+}
+
+impl EmailSubmission {
+    /// Construct an `EmailSubmission` from its six required fields.
+    ///
+    /// `envelope`, `delivery_status`, `dsn_blob_ids`, and `mdn_blob_ids` default
+    /// to `None` / empty; set them after construction as needed.
+    pub fn new(
+        id: Id,
+        identity_id: Id,
+        email_id: Id,
+        thread_id: Id,
+        send_at: UTCDate,
+        undo_status: UndoStatus,
+    ) -> Self {
+        Self {
+            id,
+            identity_id,
+            email_id,
+            thread_id,
+            send_at,
+            undo_status,
+            envelope: None,
+            delivery_status: None,
+            dsn_blob_ids: Vec::new(),
+            mdn_blob_ids: Vec::new(),
+        }
+    }
 }

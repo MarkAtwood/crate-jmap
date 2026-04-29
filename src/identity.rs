@@ -29,3 +29,23 @@ pub struct Identity {
     /// Whether the user may delete this Identity (server-set).
     pub may_delete: bool,
 }
+
+impl Identity {
+    /// Construct an `Identity` from its three identifying fields.
+    ///
+    /// `name`, `text_signature`, and `html_signature` default to `""` (as per
+    /// RFC 8621 §6).  `reply_to` and `bcc` default to `None`.  Set them after
+    /// construction as needed.
+    pub fn new(id: Id, email: impl Into<String>, may_delete: bool) -> Self {
+        Self {
+            id,
+            email: email.into(),
+            may_delete,
+            name: String::new(),
+            reply_to: None,
+            bcc: None,
+            text_signature: String::new(),
+            html_signature: String::new(),
+        }
+    }
+}

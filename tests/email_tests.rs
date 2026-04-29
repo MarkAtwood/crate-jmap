@@ -101,3 +101,31 @@ fn email_keywords_map_serializes_as_object() {
     );
     assert_eq!(v["keywords"]["$seen"], serde_json::Value::Bool(true));
 }
+
+#[test]
+fn email_body_part_default() {
+    let p = EmailBodyPart::default();
+    assert!(p.part_id.is_none());
+    assert!(p.type_.is_none());
+    assert!(p.sub_parts.is_none());
+}
+
+#[test]
+fn email_new_constructor() {
+    use jmap_types::{Id, UTCDate};
+    use std::collections::HashMap;
+    let mut mbox_ids = HashMap::new();
+    mbox_ids.insert(Id::from("MB1"), true);
+    let email = jmap_mail_types::Email::new(
+        Id::from("M1"),
+        Id::from("G1"),
+        Id::from("T1"),
+        mbox_ids,
+        1234,
+        UTCDate::from("2024-01-01T00:00:00Z"),
+    );
+    assert_eq!(email.id, Id::from("M1"));
+    assert!(email.from.is_none());
+    assert!(email.keywords.is_empty());
+    assert!(!email.has_attachment);
+}

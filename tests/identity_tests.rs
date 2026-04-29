@@ -138,3 +138,15 @@ fn identity_wire_field_names() {
     assert!(serialized.contains("\"htmlSignature\""));
     assert!(serialized.contains("\"mayDelete\""));
 }
+
+#[test]
+fn identity_new_constructor() {
+    use jmap_types::Id;
+    let id = Identity::new(Id::from("I1"), "alice@example.com", false);
+    assert_eq!(id.id, Id::from("I1"));
+    assert_eq!(id.email, "alice@example.com");
+    assert_eq!(id.name, "");
+    assert_eq!(id.text_signature, "");
+    assert!(id.reply_to.is_none());
+    assert!(!id.may_delete);
+}

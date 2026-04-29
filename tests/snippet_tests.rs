@@ -65,3 +65,12 @@ fn snippet_email_id_wire_name() {
         "emailId wire name must be correct"
     );
 }
+
+#[test]
+fn snippet_new_constructor() {
+    use jmap_types::Id;
+    let s = jmap_mail_types::SearchSnippet::new(Id::from("Mabc"));
+    assert_eq!(s.email_id, Id::from("Mabc"));
+    assert!(s.subject.is_none());
+    assert!(s.preview.is_none());
+}

@@ -49,3 +49,11 @@ fn thread_wire_field_name_is_email_ids() {
         serialized
     );
 }
+
+#[test]
+fn thread_new_constructor() {
+    use jmap_types::Id;
+    let t = jmap_mail_types::Thread::new(Id::from("t1"), vec![Id::from("e1"), Id::from("e2")]);
+    assert_eq!(t.id, Id::from("t1"));
+    assert_eq!(t.email_ids.len(), 2);
+}

@@ -144,3 +144,30 @@ fn mailbox_with_unknown_role_deserializes() {
         serde_json::from_str(json).expect("Mailbox with unknown role must deserialize");
     assert_eq!(mb.role, Some(MailboxRole::Other("futurevalue".to_owned())));
 }
+
+#[test]
+fn mailbox_new_constructor() {
+    use jmap_mail_types::MailboxRights;
+    use jmap_types::Id;
+    let mb = Mailbox::new(
+        Id::from("MB1"),
+        "Inbox",
+        10,
+        16307,
+        3,
+        500,
+        1,
+        MailboxRights::default(),
+        true,
+    );
+    assert_eq!(mb.id, Id::from("MB1"));
+    assert_eq!(mb.name, "Inbox");
+    assert_eq!(mb.sort_order, 10);
+    assert_eq!(mb.total_emails, 16307);
+    assert_eq!(mb.unread_emails, 3);
+    assert_eq!(mb.total_threads, 500);
+    assert_eq!(mb.unread_threads, 1);
+    assert!(mb.is_subscribed);
+    assert!(mb.parent_id.is_none());
+    assert!(mb.role.is_none());
+}

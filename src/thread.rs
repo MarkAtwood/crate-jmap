@@ -14,3 +14,10 @@ pub struct Thread {
     /// The ids of the Emails in the Thread, sorted oldest-first by `receivedAt` (server-set).
     pub email_ids: Vec<Id>,
 }
+
+impl Thread {
+    /// Construct a `Thread` from its two required fields.
+    pub fn new(id: Id, email_ids: Vec<Id>) -> Self {
+        Self { id, email_ids }
+    }
+}

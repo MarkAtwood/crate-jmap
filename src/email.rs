@@ -22,6 +22,16 @@ pub struct EmailAddress {
     pub email: String,
 }
 
+impl EmailAddress {
+    /// Construct an `EmailAddress` from an addr-spec.  `name` defaults to `None`.
+    pub fn new(email: impl Into<String>) -> Self {
+        Self {
+            email: email.into(),
+            name: None,
+        }
+    }
+}
+
 /// A named group of email addresses (RFC 8621 §4.1.2.4).
 ///
 /// Preserves RFC 5322 group structure. Consecutive mailboxes not part of
@@ -37,6 +47,16 @@ pub struct EmailAddressGroup {
     pub addresses: Vec<EmailAddress>,
 }
 
+impl EmailAddressGroup {
+    /// Construct an `EmailAddressGroup`.  `name` defaults to `None` (ungrouped).
+    pub fn new(addresses: Vec<EmailAddress>) -> Self {
+        Self {
+            name: None,
+            addresses,
+        }
+    }
+}
+
 /// A single RFC 5322 header field (RFC 8621 §4.1.3).
 ///
 /// The `name` retains original capitalisation; `value` is the raw field value.
@@ -48,6 +68,16 @@ pub struct EmailHeader {
     pub name: String,
     /// The header field value in Raw form.
     pub value: String,
+}
+
+impl EmailHeader {
+    /// Construct an `EmailHeader` from a name and raw value.
+    pub fn new(name: impl Into<String>, value: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            value: value.into(),
+        }
+    }
 }
 
 /// The decoded text content of one body part (RFC 8621 §4.1.4).
@@ -75,12 +105,25 @@ pub struct EmailBodyValue {
     pub is_truncated: bool,
 }
 
+impl EmailBodyValue {
+    /// Construct an `EmailBodyValue` from decoded text content.
+    ///
+    /// `is_encoding_problem` and `is_truncated` default to `false`.
+    pub fn new(value: impl Into<String>) -> Self {
+        Self {
+            value: value.into(),
+            is_encoding_problem: false,
+            is_truncated: false,
+        }
+    }
+}
+
 /// One MIME body part within an Email (RFC 8621 §4.1.4).
 ///
 /// The `sub_parts` field is recursive: multipart bodies nest further
 /// `EmailBodyPart` values.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailBodyPart {
     /// Uniquely identifies this part within the Email (null for multipart/*).
@@ -222,4 +265,48 @@ pub struct Email {
     /// Short plaintext preview of the message body (≤256 characters).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
+}
+
+impl Email {
+    /// Construct an `Email` from its six required metadata fields (RFC 8621 §4.1.1).
+    ///
+    /// All parsed-header and body fields default to `None` / empty; set them
+    /// after construction as needed.
+    pub fn new(
+        id: Id,
+        blob_id: Id,
+        thread_id: Id,
+        mailbox_ids: HashMap<Id, bool>,
+        size: u64,
+        received_at: UTCDate,
+    ) -> Self {
+        Self {
+            id,
+            blob_id,
+            thread_id,
+            mailbox_ids,
+            size,
+            received_at,
+            keywords: HashMap::new(),
+            message_id: None,
+            in_reply_to: None,
+            references: None,
+            sender: None,
+            from: None,
+            to: None,
+            cc: None,
+            bcc: None,
+            reply_to: None,
+            subject: None,
+            sent_at: None,
+            headers: Vec::new(),
+            body_values: HashMap::new(),
+            text_body: Vec::new(),
+            html_body: Vec::new(),
+            attachments: Vec::new(),
+            body_structure: None,
+            has_attachment: false,
+            preview: None,
+        }
+    }
 }

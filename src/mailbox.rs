@@ -164,3 +164,36 @@ pub struct Mailbox {
     /// Whether the user has subscribed to this Mailbox.
     pub is_subscribed: bool,
 }
+
+impl Mailbox {
+    /// Construct a `Mailbox` from its required fields.
+    ///
+    /// `parent_id` and `role` default to `None`; set them after construction
+    /// when known.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: Id,
+        name: impl Into<String>,
+        sort_order: u32,
+        total_emails: u32,
+        unread_emails: u32,
+        total_threads: u32,
+        unread_threads: u32,
+        my_rights: MailboxRights,
+        is_subscribed: bool,
+    ) -> Self {
+        Self {
+            id,
+            name: name.into(),
+            sort_order,
+            total_emails,
+            unread_emails,
+            total_threads,
+            unread_threads,
+            my_rights,
+            is_subscribed,
+            parent_id: None,
+            role: None,
+        }
+    }
+}
