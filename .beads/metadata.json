@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "JMAP",
+  "project_id": "d76885f3-be4c-4b4d-ab6b-03676aab6bfd"
+}
