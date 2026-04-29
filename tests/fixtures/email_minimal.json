@@ -1,0 +1,9 @@
+{
+  "id": "Mfoo123",
+  "blobId": "Gfoo456",
+  "threadId": "Tbar789",
+  "mailboxIds": {"MBabc": true},
+  "size": 1234,
+  "receivedAt": "2024-01-15T10:30:00Z",
+  "hasAttachment": false
+}
