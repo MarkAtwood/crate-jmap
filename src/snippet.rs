@@ -25,3 +25,14 @@ pub struct SearchSnippet {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
 }
+
+impl SearchSnippet {
+    /// Construct a [`SearchSnippet`] with no subject or preview match.
+    pub fn new(email_id: Id) -> Self {
+        Self {
+            email_id,
+            subject: None,
+            preview: None,
+        }
+    }
+}

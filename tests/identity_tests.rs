@@ -142,17 +142,7 @@ fn identity_wire_field_names() {
 #[test]
 fn identity_new_constructor() {
     use jmap_types::Id;
-    let id: Identity = serde_json::from_str(
-        r#"{
-        "id": "I1",
-        "name": "",
-        "email": "alice@example.com",
-        "textSignature": "",
-        "htmlSignature": "",
-        "mayDelete": false
-    }"#,
-    )
-    .expect("deserialize identity");
+    let id = Identity::new(Id::from("I1"), "alice@example.com", false);
     assert_eq!(id.id, Id::from("I1"));
     assert_eq!(id.email, "alice@example.com");
     assert_eq!(id.name, "");

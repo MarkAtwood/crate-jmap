@@ -112,18 +112,19 @@ fn email_body_part_default() {
 
 #[test]
 fn email_new_constructor() {
-    use jmap_types::Id;
-    let email: jmap_mail_types::Email = serde_json::from_str(
-        r#"{
-        "id": "M1",
-        "blobId": "G1",
-        "threadId": "T1",
-        "mailboxIds": {"MB1": true},
-        "size": 1234,
-        "receivedAt": "2024-01-01T00:00:00Z"
-    }"#,
-    )
-    .expect("deserialize email");
+    use jmap_types::{Id, UTCDate};
+    use std::collections::HashMap;
+    let mut mailbox_ids = HashMap::new();
+    mailbox_ids.insert(Id::from("MB1"), true);
+    let received_at: UTCDate = serde_json::from_str(r#""2024-01-01T00:00:00Z""#).unwrap();
+    let email = jmap_mail_types::Email::new(
+        Id::from("M1"),
+        Id::from("G1"),
+        Id::from("T1"),
+        mailbox_ids,
+        1234,
+        received_at,
+    );
     assert_eq!(email.id, Id::from("M1"));
     assert!(email.from.is_none());
     assert!(email.keywords.is_empty());
