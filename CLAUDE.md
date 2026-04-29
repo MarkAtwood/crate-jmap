@@ -2,6 +2,12 @@
 
 This file provides instructions and context for AI coding agents working on this project.
 
+## Git Commit Policy
+
+Always ask before `git commit` or `git push`.
+
+**Exception — fix/test loops**: When operating in a review or fix loop (e.g. invoked via a `~/PROMPT-*.md` prompt, a beads workflow, or any iterative fix-test cycle), committing code changes after each fix is permitted without asking. Pushing to remote still requires explicit user confirmation.
+
 <!-- BEGIN BEADS INTEGRATION v:1 profile:minimal hash:ca08a54f -->
 ## Beads Issue Tracker
 
