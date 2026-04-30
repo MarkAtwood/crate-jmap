@@ -21,6 +21,9 @@ pub struct JmapError {
     /// The id of the existing record. Only set for `"alreadyExists"` (RFC 8620 §5.4 MUST).
     #[serde(rename = "existingId", skip_serializing_if = "Option::is_none")]
     pub existing_id: Option<Id>,
+    /// Maximum `maxChanges` value the server will accept. Only set for `"tooManyChanges"` (RFC 8620 §9.6.1 MUST).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub limit: Option<u64>,
 }
 
 impl JmapError {
@@ -30,6 +33,7 @@ impl JmapError {
             error_type: "invalidArguments".into(),
             description: Some(desc.into()),
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -39,6 +43,7 @@ impl JmapError {
             error_type: "forbidden".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -48,6 +53,7 @@ impl JmapError {
             error_type: "notFound".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -57,6 +63,7 @@ impl JmapError {
             error_type: "accountNotFound".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -66,6 +73,7 @@ impl JmapError {
             error_type: "accountNotSupportedByMethod".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -75,6 +83,7 @@ impl JmapError {
             error_type: "accountReadOnly".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -84,6 +93,7 @@ impl JmapError {
             error_type: "serverUnavailable".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -93,6 +103,7 @@ impl JmapError {
             error_type: "serverFail".into(),
             description: Some(desc.into()),
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -102,6 +113,7 @@ impl JmapError {
             error_type: "serverPartialFail".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -111,6 +123,7 @@ impl JmapError {
             error_type: "unknownMethod".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -120,6 +133,7 @@ impl JmapError {
             error_type: "invalidResultReference".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -129,6 +143,7 @@ impl JmapError {
             error_type: "cannotCalculateChanges".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -138,6 +153,7 @@ impl JmapError {
             error_type: "stateMismatch".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -147,6 +163,7 @@ impl JmapError {
             error_type: "tooLarge".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -156,6 +173,7 @@ impl JmapError {
             error_type: "requestTooLarge".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -165,6 +183,7 @@ impl JmapError {
             error_type: "overQuota".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -174,6 +193,7 @@ impl JmapError {
             error_type: "rateLimit".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -183,6 +203,7 @@ impl JmapError {
             error_type: "invalidPatch".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -192,6 +213,7 @@ impl JmapError {
             error_type: "willDestroy".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -201,6 +223,7 @@ impl JmapError {
             error_type: "invalidProperties".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -210,6 +233,7 @@ impl JmapError {
             error_type: "singleton".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -219,6 +243,7 @@ impl JmapError {
             error_type: "unsupportedFilter".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -228,6 +253,7 @@ impl JmapError {
             error_type: "anchorNotFound".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -240,6 +266,7 @@ impl JmapError {
             error_type: "alreadyExists".into(),
             description: None,
             existing_id: Some(existing_id),
+            limit: None,
         }
     }
 
@@ -249,6 +276,7 @@ impl JmapError {
             error_type: "fromAccountNotFound".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -258,6 +286,7 @@ impl JmapError {
             error_type: "fromAccountNotSupportedByMethod".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -267,6 +296,7 @@ impl JmapError {
             error_type: "unsupportedSort".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -276,6 +306,20 @@ impl JmapError {
             error_type: "tooManyChanges".into(),
             description: None,
             existing_id: None,
+            limit: None,
+        }
+    }
+
+    /// Returns a `tooManyChanges` error with the server's limit included.
+    ///
+    /// Per RFC 8620 §9.6.1, the `limit` field MUST be present so the client
+    /// knows the maximum `maxChanges` value to use on retry.
+    pub fn too_many_changes_with_limit(limit: u64) -> Self {
+        Self {
+            error_type: "tooManyChanges".into(),
+            description: None,
+            existing_id: None,
+            limit: Some(limit),
         }
     }
 
@@ -287,6 +331,7 @@ impl JmapError {
             error_type: "notJSON".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -298,6 +343,7 @@ impl JmapError {
             error_type: "notRequest".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -321,6 +367,7 @@ impl JmapError {
             error_type: "limit".into(),
             description: Some(limit_name.into()),
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -332,6 +379,7 @@ impl JmapError {
             error_type: "unknownCapability".into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 
@@ -345,6 +393,7 @@ impl JmapError {
             error_type: error_type.into(),
             description: None,
             existing_id: None,
+            limit: None,
         }
     }
 }
@@ -571,6 +620,23 @@ mod tests {
         let json = serde_json::to_string(&e).unwrap();
         assert!(json.contains("\"tooManyChanges\""));
         assert!(!json.contains("\"description\""));
+    }
+
+    #[test]
+    fn too_many_changes_with_limit_serializes_limit_field() {
+        let err = JmapError::too_many_changes_with_limit(100);
+        let v = serde_json::to_value(&err).unwrap();
+        assert_eq!(v["type"], "tooManyChanges");
+        assert_eq!(v["limit"], 100u64);
+        assert!(v.get("description").is_none());
+    }
+
+    #[test]
+    fn too_many_changes_without_limit_has_no_limit_field() {
+        let err = JmapError::too_many_changes();
+        let v = serde_json::to_value(&err).unwrap();
+        assert_eq!(v["type"], "tooManyChanges");
+        assert!(v.get("limit").is_none());
     }
 
     #[test]

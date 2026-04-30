@@ -1,0 +1,1061 @@
+//! Email/get, Email/changes, Email/query, Email/queryChanges, Email/set,
+//! Email/copy, Email/import, Email/parse method handlers (RFC 8621 §4–5).
+
+use std::collections::HashMap;
+
+use jmap_mail_types::{Email, Keyword};
+use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
+use serde_json::{json, Value};
+
+use crate::backend::{BackendChangesError, BackendSetError, MailBackend};
+
+// ---------------------------------------------------------------------------
+// Email/get (RFC 8621 §5.1)
+// ---------------------------------------------------------------------------
+
+/// Handle an `Email/get` method call (RFC 8621 §5.1).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+pub async fn handle_email_get<B: MailBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let ids: Option<Vec<Id>> = match args.get("ids") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
+        ),
+    };
+
+    let properties: Option<Vec<String>> = match args.get("properties") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
+        ),
+    };
+
+    let ids_slice = ids.as_deref();
+    let (list, not_found) = backend
+        .get_objects::<Email>(&account_id, ids_slice, None)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let state = backend
+        .get_state::<Email>(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let list_json: Vec<Value> = list
+        .iter()
+        .map(|email| {
+            let val = serde_json::to_value(email).unwrap_or(Value::Null);
+            match &properties {
+                Some(props) => filter_properties(&val, props),
+                None => val,
+            }
+        })
+        .collect();
+
+    let not_found_json: Option<Vec<Value>> = if not_found.is_empty() {
+        None
+    } else {
+        Some(
+            not_found
+                .iter()
+                .map(|id| Value::String(id.as_ref().to_string()))
+                .collect(),
+        )
+    };
+
+    let resp = json!({
+        "accountId": account_id.as_ref(),
+        "state": state.as_ref(),
+        "list": list_json,
+        "notFound": not_found_json,
+    });
+
+    Ok((resp, vec![]))
+}
+
+// ---------------------------------------------------------------------------
+// Email/changes (RFC 8620 §5.2, as applied to Email)
+// ---------------------------------------------------------------------------
+
+/// Handle an `Email/changes` method call (RFC 8621 §5.2).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+pub async fn handle_email_changes<B: MailBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
+        Some(s) => State::from(s),
+        None => return Err(JmapError::invalid_arguments("sinceState is required")),
+    };
+
+    let max_changes: Option<u64> = match args.get("maxChanges") {
+        None | Some(Value::Null) => None,
+        Some(v) => v.as_u64(),
+    };
+
+    let result = backend
+        .get_changes::<Email>(&account_id, &since_state, max_changes)
+        .await
+        .map_err(|e| match e {
+            BackendChangesError::TooManyChanges { limit } => {
+                JmapError::too_many_changes_with_limit(limit)
+            }
+            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
+        })?;
+
+    // RFC 8621 §5.2: updatedProperties — null for MemoryBackend (no partial-update tracking).
+    let resp = json!({
+        "accountId": account_id.as_ref(),
+        "oldState": since_state.as_ref(),
+        "newState": result.new_state.as_ref(),
+        "hasMoreChanges": result.has_more_changes,
+        "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "updatedProperties": Value::Null,
+    });
+
+    Ok((resp, vec![]))
+}
+
+// ---------------------------------------------------------------------------
+// Email/query (RFC 8621 §4.4)
+// ---------------------------------------------------------------------------
+
+/// Handle an `Email/query` method call (RFC 8621 §4.4).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+pub async fn handle_email_query<B: MailBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let filter: Option<jmap_mail_types::EmailFilter> = match args.get("filter") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
+        ),
+    };
+
+    let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.get("sort") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
+        ),
+    };
+
+    let limit: Option<u64> = match args.get("limit") {
+        None | Some(Value::Null) => Some(256),
+        Some(v) => v.as_u64(),
+    };
+
+    let position: i64 = args.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+
+    let collapse_threads: bool = args
+        .get("collapseThreads")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let sort_slice = sort.as_deref();
+    let result = backend
+        .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, limit, position)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    // collapseThreads: if requested, fetch each email to read threadId and deduplicate.
+    let ids = if collapse_threads {
+        collapse_by_thread(backend, &account_id, result.ids).await
+    } else {
+        result.ids
+    };
+
+    let total = ids.len() as u64;
+
+    let resp = json!({
+        "accountId": account_id.as_ref(),
+        "queryState": result.query_state.as_ref(),
+        "canCalculateChanges": result.can_calculate_changes,
+        "position": result.position,
+        "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "total": total,
+    });
+
+    Ok((resp, vec![]))
+}
+
+// ---------------------------------------------------------------------------
+// Email/queryChanges (RFC 8620 §5.6, as applied to Email)
+// ---------------------------------------------------------------------------
+
+/// Handle an `Email/queryChanges` method call.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+pub async fn handle_email_query_changes<B: MailBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
+        Some(s) => State::from(s),
+        None => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
+    };
+
+    let filter: Option<jmap_mail_types::EmailFilter> = match args.get("filter") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
+        ),
+    };
+
+    let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.get("sort") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
+        ),
+    };
+
+    let max_changes: Option<u64> = match args.get("maxChanges") {
+        None | Some(Value::Null) => None,
+        Some(v) => v.as_u64(),
+    };
+
+    let up_to_id: Option<Id> = match args.get("upToId") {
+        None | Some(Value::Null) => None,
+        Some(v) => v.as_str().map(Id::from),
+    };
+
+    let sort_slice = sort.as_deref();
+    let result = backend
+        .query_changes::<Email>(
+            &account_id,
+            &since_query_state,
+            filter.as_ref(),
+            sort_slice,
+            max_changes,
+            up_to_id.as_ref(),
+        )
+        .await
+        .map_err(|e| match e {
+            BackendChangesError::TooManyChanges { limit } => {
+                JmapError::too_many_changes_with_limit(limit)
+            }
+            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
+        })?;
+
+    let added_json: Vec<Value> = result
+        .added
+        .iter()
+        .map(|item| {
+            json!({
+                "id": item.id.as_ref(),
+                "index": item.index,
+            })
+        })
+        .collect();
+
+    let removed_json: Vec<Value> = result
+        .removed
+        .iter()
+        .map(|id| Value::String(id.as_ref().to_string()))
+        .collect();
+
+    let resp = json!({
+        "accountId": account_id.as_ref(),
+        "oldQueryState": result.old_query_state.as_ref(),
+        "newQueryState": result.new_query_state.as_ref(),
+        "total": result.total,
+        "removed": removed_json,
+        "added": added_json,
+    });
+
+    Ok((resp, vec![]))
+}
+
+// ---------------------------------------------------------------------------
+// Email/set (RFC 8621 §5.5)
+// ---------------------------------------------------------------------------
+
+/// Immutable Email fields (RFC 8621 §5.5.4).
+///
+/// A patch key that equals or starts with `"<field>/"` for any of these names
+/// is rejected with `invalidProperties`.
+const IMMUTABLE_EMAIL_FIELDS: &[&str] = &[
+    "id",
+    "blobId",
+    "threadId",
+    "size",
+    "receivedAt",
+    "messageId",
+    "inReplyTo",
+    "references",
+    "sender",
+    "from",
+    "to",
+    "cc",
+    "bcc",
+    "replyTo",
+    "subject",
+    "sentAt",
+    "bodyStructure",
+    "bodyValues",
+    "textBody",
+    "htmlBody",
+    "attachments",
+    "hasAttachment",
+    "preview",
+    "headers",
+];
+
+/// Handle an `Email/set` method call (RFC 8621 §5.5).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+pub async fn handle_email_set<B: MailBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let old_state = backend
+        .get_state::<Email>(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
+        if if_in_state != old_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
+
+    let mut created = serde_json::Map::new();
+    let mut not_created = serde_json::Map::new();
+    let mut updated = serde_json::Map::new();
+    let mut not_updated = serde_json::Map::new();
+    let mut destroyed_list: Vec<Value> = Vec::new();
+    let mut not_destroyed = serde_json::Map::new();
+    let mut mutated = false;
+
+    // -----------------------------------------------------------------------
+    // create
+    // -----------------------------------------------------------------------
+    if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+        for (create_id, obj_val) in create_map {
+            // Validate: at least one mailboxId is required (RFC 8621 §5.5.3).
+            let mailbox_ids_ok = obj_val
+                .get("mailboxIds")
+                .and_then(|v| v.as_object())
+                .map(|m| !m.is_empty())
+                .unwrap_or(false);
+
+            if !mailbox_ids_ok {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["mailboxIds"],
+                    }),
+                );
+                continue;
+            }
+
+            // Build the Email object from the creation payload.
+            let email = match build_email_from_create(obj_val, &account_id, backend).await {
+                Ok(e) => e,
+                Err(desc) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({
+                            "type": "invalidProperties",
+                            "description": desc,
+                        }),
+                    );
+                    continue;
+                }
+            };
+
+            match backend
+                .create_object::<Email>(&account_id, create_id, email)
+                .await
+            {
+                Ok((server_id, created_obj)) => {
+                    mutated = true;
+                    // RFC 8621 §5.5: created map contains only server-set fields.
+                    created.insert(
+                        create_id.clone(),
+                        json!({
+                            "id": server_id.as_ref(),
+                            "blobId": created_obj.blob_id.as_ref(),
+                            "threadId": created_obj.thread_id.as_ref(),
+                            "size": created_obj.size,
+                        }),
+                    );
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                    );
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // update
+    // -----------------------------------------------------------------------
+    if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
+        for (id_str, patch_val) in update_map {
+            let id = Id::from(id_str.as_str());
+
+            // Check for immutable field violations in the patch keys.
+            if let Some(bad_field) = find_immutable_patch_key(patch_val) {
+                not_updated.insert(
+                    id_str.clone(),
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": [bad_field],
+                    }),
+                );
+                continue;
+            }
+
+            match backend
+                .update_object::<Email>(&account_id, &id, patch_val.clone())
+                .await
+            {
+                Ok(_) => {
+                    mutated = true;
+                    updated.insert(id_str.clone(), Value::Null);
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                    );
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // destroy
+    // -----------------------------------------------------------------------
+    if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
+        for id_val in destroy_arr {
+            let id_str = match id_val.as_str() {
+                Some(s) => s,
+                None => continue,
+            };
+            let id = Id::from(id_str);
+
+            match backend.destroy_object::<Email>(&account_id, &id).await {
+                Ok(()) => {
+                    mutated = true;
+                    destroyed_list.push(Value::String(id_str.to_string()));
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_destroyed.insert(
+                        id_str.to_string(),
+                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                    );
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_destroyed.insert(
+                        id_str.to_string(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+            }
+        }
+    }
+
+    let new_state = if mutated {
+        backend
+            .get_state::<Email>(&account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?
+    } else {
+        old_state.clone()
+    };
+
+    let resp = json!({
+        "accountId": account_id.as_ref(),
+        "oldState": old_state.as_ref(),
+        "newState": new_state.as_ref(),
+        "created": Value::Object(created),
+        "updated": Value::Object(updated),
+        "destroyed": destroyed_list,
+        "notCreated": Value::Object(not_created),
+        "notUpdated": Value::Object(not_updated),
+        "notDestroyed": Value::Object(not_destroyed),
+    });
+
+    Ok((resp, vec![]))
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+fn extract_account_id(args: &Value) -> Result<Id, JmapError> {
+    match args.get("accountId").and_then(|v| v.as_str()) {
+        Some(s) => Ok(Id::from(s)),
+        None => Err(JmapError::invalid_arguments("accountId is required")),
+    }
+}
+
+/// Return only the keys in `properties` from the JSON object `obj`.
+fn filter_properties(obj: &Value, properties: &[String]) -> Value {
+    match obj {
+        Value::Object(map) => {
+            let filtered: serde_json::Map<String, Value> = map
+                .iter()
+                .filter(|(k, _)| properties.contains(k))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            Value::Object(filtered)
+        }
+        _ => obj.clone(),
+    }
+}
+
+/// Return the first patch key that names an immutable Email field, if any.
+///
+/// A patch key violates immutability if it equals an immutable field name, or
+/// starts with `"<field>/"` (JSON Merge Patch sub-path syntax).
+fn find_immutable_patch_key(patch: &Value) -> Option<String> {
+    let map = patch.as_object()?;
+    for key in map.keys() {
+        for &field in IMMUTABLE_EMAIL_FIELDS {
+            if key == field || key.starts_with(&format!("{field}/")) {
+                return Some(field.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// Build an [`Email`] from a creation payload (`obj_val`).
+///
+/// Extracts `mailboxIds`, `keywords`, and optional header fields from the
+/// creation object. Assigns a `blobId` equal to the email's id (a MemoryBackend
+/// convention), and assigns a thread id by searching existing emails for
+/// matching `inReplyTo`/`references`.
+async fn build_email_from_create<B: MailBackend>(
+    obj_val: &Value,
+    account_id: &Id,
+    backend: &B,
+) -> Result<Email, String> {
+    // mailboxIds: required (already validated non-empty by caller).
+    let mailbox_ids: HashMap<Id, bool> = obj_val
+        .get("mailboxIds")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+
+    // keywords: optional.
+    let keywords: HashMap<Keyword, bool> = obj_val
+        .get("keywords")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+
+    // Subject, inReplyTo, references — used for thread assignment.
+    let subject: Option<String> = obj_val
+        .get("subject")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_owned());
+
+    let in_reply_to: Option<Vec<String>> = obj_val
+        .get("inReplyTo")
+        .and_then(|v| serde_json::from_value(v.clone()).ok());
+
+    let references: Option<Vec<String>> = obj_val
+        .get("references")
+        .and_then(|v| serde_json::from_value(v.clone()).ok());
+
+    // Thread assignment: look for an existing email whose messageId matches
+    // any of the inReplyTo/references tokens.
+    let thread_id = assign_thread(
+        backend,
+        account_id,
+        in_reply_to.as_deref().unwrap_or(&[]),
+        references.as_deref().unwrap_or(&[]),
+    )
+    .await;
+
+    // Size: use provided value or 0 (MemoryBackend does not parse raw bytes here).
+    let size: u64 = obj_val.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+
+    // receivedAt: use provided value or now (RFC 8621 §5.5.3).
+    let received_at: UTCDate = obj_val
+        .get("receivedAt")
+        .and_then(|v| v.as_str())
+        .map(UTCDate::from)
+        .unwrap_or_else(|| UTCDate::from("1970-01-01T00:00:00Z"));
+
+    // blobId: use provided value or a placeholder; MemoryBackend will inject
+    // the real id after create_object assigns it.
+    let blob_id: Id = obj_val
+        .get("blobId")
+        .and_then(|v| v.as_str())
+        .map(Id::from)
+        .unwrap_or_else(|| Id::from("placeholder-blob"));
+
+    let mut email = Email::new(
+        next_id(),
+        blob_id,
+        thread_id,
+        mailbox_ids,
+        size,
+        received_at,
+    );
+    email.keywords = keywords;
+    email.subject = subject;
+    email.in_reply_to = in_reply_to;
+    email.references = references;
+
+    Ok(email)
+}
+
+/// Assign a thread id for a new email.
+///
+/// Searches existing emails in the account for a `messageId` that matches
+/// any of the `in_reply_to` or `references` tokens. If found, reuses that
+/// thread id. Otherwise returns a fresh id.
+async fn assign_thread<B: MailBackend>(
+    backend: &B,
+    account_id: &Id,
+    in_reply_to: &[String],
+    references: &[String],
+) -> Id {
+    if in_reply_to.is_empty() && references.is_empty() {
+        return next_id();
+    }
+
+    let refs: Vec<&str> = in_reply_to
+        .iter()
+        .chain(references.iter())
+        .map(|s| s.as_str())
+        .collect();
+
+    // Fetch all existing emails and search for a matching messageId.
+    if let Ok((all_emails, _)) = backend.get_objects::<Email>(account_id, None, None).await {
+        for email in &all_emails {
+            if let Some(msg_ids) = &email.message_id {
+                for msg_id in msg_ids {
+                    if refs.contains(&msg_id.as_str()) {
+                        return email.thread_id.clone();
+                    }
+                }
+            }
+        }
+    }
+
+    next_id()
+}
+
+/// Generate a unique opaque Id using an atomic counter.
+fn next_id() -> Id {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    static COUNTER: AtomicU64 = AtomicU64::new(1);
+    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    Id::from(format!("{n:016x}"))
+}
+
+/// Deduplicate `ids` by `threadId`, keeping only the first email per thread.
+///
+/// Fetches all emails from the backend to read their thread ids. Emails that
+/// cannot be fetched are kept as-is (safe fallback).
+async fn collapse_by_thread<B: MailBackend>(backend: &B, account_id: &Id, ids: Vec<Id>) -> Vec<Id> {
+    // Build a map of email_id → thread_id from the backend.
+    let thread_map: HashMap<Id, Id> =
+        match backend.get_objects::<Email>(account_id, None, None).await {
+            Ok((emails, _)) => emails
+                .into_iter()
+                .map(|e| (e.id.clone(), e.thread_id.clone()))
+                .collect(),
+            Err(_) => HashMap::new(),
+        };
+
+    let mut seen_threads: HashMap<Id, bool> = HashMap::new();
+    let mut result = Vec::with_capacity(ids.len());
+
+    for id in ids {
+        match thread_map.get(&id) {
+            Some(tid) => {
+                if seen_threads.insert(tid.clone(), true).is_none() {
+                    result.push(id);
+                }
+            }
+            None => {
+                // Email not in map (just created?); include it.
+                result.push(id);
+            }
+        }
+    }
+
+    result
+}
+
+// ---------------------------------------------------------------------------
+// Email/import (RFC 8621 §5.7)
+// ---------------------------------------------------------------------------
+
+/// Handle an `Email/import` method call (RFC 8621 §5.7).
+///
+/// Each entry in `emails` must name a blob already uploaded to the account.
+/// The backend parses the raw bytes, assigns a thread, and stores the new email.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+pub async fn handle_email_import<B: MailBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let emails = match args.get("emails").and_then(|v| v.as_object()) {
+        Some(m) => m.clone(),
+        None => return Err(JmapError::invalid_arguments("emails is required")),
+    };
+
+    let old_state = backend
+        .get_state::<Email>(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let mut created = serde_json::Map::new();
+    let mut not_created = serde_json::Map::new();
+
+    for (import_id, entry) in &emails {
+        let blob_id: Id = match entry.get("blobId").and_then(|v| v.as_str()) {
+            Some(s) => Id::from(s),
+            None => {
+                not_created.insert(
+                    import_id.clone(),
+                    json!({"type": "invalidProperties", "properties": ["blobId"]}),
+                );
+                continue;
+            }
+        };
+
+        let mailbox_ids: Vec<Id> = match entry.get("mailboxIds").and_then(|v| v.as_object()) {
+            Some(m) => m.keys().map(|k| Id::from(k.as_str())).collect(),
+            None => {
+                not_created.insert(
+                    import_id.clone(),
+                    json!({"type": "invalidProperties", "properties": ["mailboxIds"]}),
+                );
+                continue;
+            }
+        };
+
+        let keywords: Vec<jmap_mail_types::Keyword> = entry
+            .get("keywords")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default();
+
+        let received_at: Option<UTCDate> = entry
+            .get("receivedAt")
+            .and_then(|v| v.as_str())
+            .map(UTCDate::from);
+
+        match backend
+            .import_email(
+                &account_id,
+                &blob_id,
+                &mailbox_ids,
+                &keywords,
+                received_at.as_ref(),
+            )
+            .await
+        {
+            Ok((server_id, email)) => {
+                let mut obj = serde_json::to_value(&email).unwrap_or(Value::Null);
+                if let Value::Object(ref mut map) = obj {
+                    map.insert(
+                        "id".to_owned(),
+                        Value::String(server_id.as_ref().to_string()),
+                    );
+                }
+                created.insert(import_id.clone(), obj);
+            }
+            Err(BackendSetError::SetError(set_err)) => {
+                not_created.insert(
+                    import_id.clone(),
+                    serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                );
+            }
+            Err(BackendSetError::Other(e)) => {
+                return Err(JmapError::server_fail(e.to_string()));
+            }
+        }
+    }
+
+    let new_state = backend
+        .get_state::<Email>(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let resp = json!({
+        "accountId": account_id.as_ref(),
+        "oldState": old_state.as_ref(),
+        "newState": new_state.as_ref(),
+        "created": if created.is_empty() { Value::Null } else { Value::Object(created) },
+        "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
+    });
+
+    Ok((resp, vec![]))
+}
+
+// ---------------------------------------------------------------------------
+// Email/parse (RFC 8621 §5.8)
+// ---------------------------------------------------------------------------
+
+/// Handle an `Email/parse` method call (RFC 8621 §5.8).
+///
+/// Parses the blobs identified by `blobIds` and returns Email objects without
+/// storing them. Blobs not found → `notParsable`.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
+pub async fn handle_email_parse<B: MailBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let blob_ids: Vec<Id> = match args.get("blobIds") {
+        Some(v) => serde_json::from_value(v.clone())
+            .map_err(|_| JmapError::invalid_arguments("blobIds must be an Id array"))?,
+        None => return Err(JmapError::invalid_arguments("blobIds is required")),
+    };
+
+    let properties: Option<Vec<String>> = match args.get("properties") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
+        ),
+    };
+
+    let mut parsed = serde_json::Map::new();
+    let mut not_parsable: Vec<Value> = Vec::new();
+    let not_found: Vec<Value> = Vec::new();
+
+    for blob_id in &blob_ids {
+        match backend.parse_email(&account_id, blob_id).await {
+            Ok(email) => {
+                let val = serde_json::to_value(&email).unwrap_or(Value::Null);
+                let val = match &properties {
+                    Some(props) => filter_properties(&val, props),
+                    None => val,
+                };
+                parsed.insert(blob_id.as_ref().to_string(), val);
+            }
+            Err(_) => {
+                // Blob exists but cannot be parsed (not a valid RFC 5322 message).
+                not_parsable.push(Value::String(blob_id.as_ref().to_string()));
+            }
+        }
+    }
+
+    let resp = json!({
+        "accountId": account_id.as_ref(),
+        "parsed": if parsed.is_empty() { Value::Null } else { Value::Object(parsed) },
+        "notParsable": if not_parsable.is_empty() { Value::Null } else { Value::Array(not_parsable) },
+        "notFound": if not_found.is_empty() { Value::Null } else { Value::Array(not_found) },
+    });
+
+    Ok((resp, vec![]))
+}
+
+// ---------------------------------------------------------------------------
+// Email/copy (RFC 8621 §6.1 / RFC 8620 §6.3)
+// ---------------------------------------------------------------------------
+
+/// Handle an `Email/copy` method call (RFC 8621 §6.1).
+///
+/// Copies one or more emails from `fromAccountId` into the current account.
+/// Supports `onSuccessDestroyOriginal` and `onSuccessUpdateOriginal`.
+///
+/// Returns `(response_args, extra_invocations)`. Extra invocations are
+/// generated when `onSuccessDestroyOriginal: true` or `onSuccessUpdateOriginal`
+/// is set, per RFC 8620 §6.3.
+pub async fn handle_email_copy<B: MailBackend>(
+    backend: &B,
+    args: Value,
+    call_id: &str,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+    let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
+        Some(s) => Id::from(s),
+        None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
+    };
+
+    let create = match args.get("create").and_then(|v| v.as_object()) {
+        Some(m) => m.clone(),
+        None => return Err(JmapError::invalid_arguments("create is required")),
+    };
+
+    let on_success_destroy_original: bool = args
+        .get("onSuccessDestroyOriginal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let on_success_update_original: Option<serde_json::Map<String, Value>> = args
+        .get("onSuccessUpdateOriginal")
+        .and_then(|v| v.as_object())
+        .cloned();
+
+    let old_state = backend
+        .get_state::<Email>(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let mut created = serde_json::Map::new();
+    let mut not_created = serde_json::Map::new();
+    let mut copied_source_ids: Vec<(String, Id)> = Vec::new(); // (copy_id, source_id)
+
+    for (copy_id, entry) in &create {
+        let source_id: Id = match entry.get("id").and_then(|v| v.as_str()) {
+            Some(s) => Id::from(s),
+            None => {
+                not_created.insert(
+                    copy_id.clone(),
+                    json!({"type": "invalidProperties", "properties": ["id"]}),
+                );
+                continue;
+            }
+        };
+
+        let mailbox_ids: Vec<Id> = match entry.get("mailboxIds").and_then(|v| v.as_object()) {
+            Some(m) => m.keys().map(|k| Id::from(k.as_str())).collect(),
+            None => {
+                not_created.insert(
+                    copy_id.clone(),
+                    json!({"type": "invalidProperties", "properties": ["mailboxIds"]}),
+                );
+                continue;
+            }
+        };
+
+        let keywords: Vec<Keyword> = entry
+            .get("keywords")
+            .and_then(|v| serde_json::from_value(v.clone()).ok())
+            .unwrap_or_default();
+
+        match backend
+            .copy_email(
+                &from_account_id,
+                &source_id,
+                &account_id,
+                &mailbox_ids,
+                &keywords,
+            )
+            .await
+        {
+            Ok((new_id, new_email)) => {
+                let mut obj = serde_json::to_value(&new_email).unwrap_or(Value::Null);
+                if let Value::Object(ref mut map) = obj {
+                    map.insert("id".to_owned(), Value::String(new_id.as_ref().to_string()));
+                }
+                created.insert(copy_id.clone(), obj);
+                copied_source_ids.push((copy_id.clone(), source_id));
+            }
+            Err(BackendSetError::SetError(set_err)) => {
+                not_created.insert(
+                    copy_id.clone(),
+                    serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                );
+            }
+            Err(BackendSetError::Other(e)) => {
+                return Err(JmapError::server_fail(e.to_string()));
+            }
+        }
+    }
+
+    let new_state = backend
+        .get_state::<Email>(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let resp = json!({
+        "fromAccountId": from_account_id.as_ref(),
+        "accountId": account_id.as_ref(),
+        "oldState": old_state.as_ref(),
+        "newState": new_state.as_ref(),
+        "created": if created.is_empty() { Value::Null } else { Value::Object(created) },
+        "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
+    });
+
+    // Generate extra invocations for onSuccess* fields (RFC 8620 §6.3).
+    let mut extra: Vec<Invocation> = Vec::new();
+
+    if !copied_source_ids.is_empty() {
+        if on_success_destroy_original {
+            let destroy_ids: Vec<Value> = copied_source_ids
+                .iter()
+                .map(|(_, src)| Value::String(src.as_ref().to_string()))
+                .collect();
+            let set_args = json!({
+                "accountId": from_account_id.as_ref(),
+                "destroy": destroy_ids,
+            });
+            extra.push((
+                "Email/set".to_owned(),
+                set_args,
+                format!("{call_id}-destroy"),
+            ));
+        }
+
+        if let Some(update_map) = on_success_update_original {
+            if !update_map.is_empty() {
+                let mut update = serde_json::Map::new();
+                for (_, src_id) in &copied_source_ids {
+                    if let Some(patch) = update_map.get(src_id.as_ref()) {
+                        update.insert(src_id.as_ref().to_string(), patch.clone());
+                    }
+                }
+                if !update.is_empty() {
+                    let set_args = json!({
+                        "accountId": from_account_id.as_ref(),
+                        "update": update,
+                    });
+                    extra.push((
+                        "Email/set".to_owned(),
+                        set_args,
+                        format!("{call_id}-update"),
+                    ));
+                }
+            }
+        }
+    }
+
+    Ok((resp, extra))
+}

@@ -1,0 +1,1091 @@
+//! Shared test infrastructure — MemoryBackend in-memory MailBackend implementation.
+//!
+//! Each integration test binary includes this module with `mod common;`.
+//! Dead-code warnings are suppressed because not all items are used in every binary.
+#![allow(dead_code)]
+#![allow(async_fn_in_trait)]
+
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
+use jmap_mail_server::{
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapObject,
+    MailBackend, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+};
+use jmap_mail_types::{Email, EmailAddress, EmailFilterCondition, Keyword, SearchSnippet};
+use jmap_types::{Id, State, UTCDate};
+
+// ---------------------------------------------------------------------------
+// Internal state
+// ---------------------------------------------------------------------------
+
+/// A change log entry for one state transition.
+#[derive(Clone)]
+struct ChangeEntry {
+    /// The state counter AFTER this change.
+    new_state: u64,
+    created: Vec<Id>,
+    updated: Vec<Id>,
+    destroyed: Vec<Id>,
+}
+
+/// Shared inner state, behind Arc<Mutex>.
+#[derive(Default)]
+struct Inner {
+    /// `(type_name, account_id)` → `id → serialized object`
+    objects: HashMap<(String, String), HashMap<Id, serde_json::Value>>,
+    /// `(type_name, account_id)` → current state counter
+    states: HashMap<(String, String), u64>,
+    /// `(type_name, account_id)` → ordered change entries
+    change_log: HashMap<(String, String), Vec<ChangeEntry>>,
+    /// blob_id → raw bytes (used by import_email and parse_email)
+    blobs: HashMap<Id, Vec<u8>>,
+}
+
+impl Inner {
+    fn current_state(&self, type_name: &str, account_id: &str) -> u64 {
+        *self
+            .states
+            .get(&(type_name.to_owned(), account_id.to_owned()))
+            .unwrap_or(&0)
+    }
+
+    fn bump_state(&mut self, type_name: &str, account_id: &str) -> u64 {
+        let entry = self
+            .states
+            .entry((type_name.to_owned(), account_id.to_owned()))
+            .or_insert(0);
+        *entry += 1;
+        *entry
+    }
+
+    fn objects_mut(
+        &mut self,
+        type_name: &str,
+        account_id: &str,
+    ) -> &mut HashMap<Id, serde_json::Value> {
+        self.objects
+            .entry((type_name.to_owned(), account_id.to_owned()))
+            .or_default()
+    }
+
+    fn objects_ref(
+        &self,
+        type_name: &str,
+        account_id: &str,
+    ) -> Option<&HashMap<Id, serde_json::Value>> {
+        self.objects
+            .get(&(type_name.to_owned(), account_id.to_owned()))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// IdFate: per-ID fate tracker for RFC 8620 §5.6 deduplication
+// ---------------------------------------------------------------------------
+
+/// Per-ID fate tracker for RFC 8620 §5.6 ID deduplication across change log entries.
+///
+/// Rules across multiple entries in a single /changes window:
+/// - created+updated → Created (update does not change that the object is new to the client)
+/// - created+destroyed → removed from map (client never knew the object)
+/// - updated+destroyed → Destroyed (client must remove it)
+/// - updated+updated → Updated (deduplicated)
+enum IdFate {
+    Created,
+    Updated,
+    Destroyed,
+}
+
+// ---------------------------------------------------------------------------
+// MemoryBackend
+// ---------------------------------------------------------------------------
+
+/// Maximum number of objects returned when `ids=None` in [`MemoryBackend::get_objects`].
+const MAX_FETCH_ALL: usize = 500;
+
+/// In-memory [`MailBackend`] for integration tests and examples.
+///
+/// **Known limitation**: the internal change log grows without bound. This is
+/// intentional for unit tests (which are short-lived).
+#[derive(Clone, Default)]
+pub struct MemoryBackend {
+    inner: Arc<Mutex<Inner>>,
+}
+
+impl MemoryBackend {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Store a blob so that [`import_email`](MemoryBackend::import_email) can find it.
+    pub fn store_blob(&self, blob_id: Id, bytes: Vec<u8>) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.blobs.insert(blob_id, bytes);
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MemoryError
+// ---------------------------------------------------------------------------
+
+#[derive(Debug)]
+pub struct MemoryError(pub String);
+
+impl std::fmt::Display for MemoryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "MemoryBackend error: {}", self.0)
+    }
+}
+
+impl std::error::Error for MemoryError {}
+
+// ---------------------------------------------------------------------------
+// MailBackend impl
+// ---------------------------------------------------------------------------
+
+impl MailBackend for MemoryBackend {
+    type Error = MemoryError;
+
+    // -----------------------------------------------------------------------
+    // get_objects
+    // -----------------------------------------------------------------------
+
+    async fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        _properties: Option<&[O::Property]>,
+    ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+        let inner = self.inner.lock().unwrap();
+        let store = match inner.objects_ref(O::TYPE_NAME, account_id.as_ref()) {
+            Some(s) => s,
+            None => return Ok((vec![], ids.map(|s| s.to_vec()).unwrap_or_default())),
+        };
+
+        let mut found = Vec::new();
+        let mut not_found = Vec::new();
+
+        if let Some(ids) = ids {
+            for id in ids {
+                match store.get(id) {
+                    Some(val) => {
+                        let obj: O = serde_json::from_value(val.clone()).map_err(|e| {
+                            MemoryError(format!("deserialize {}: {e}", O::TYPE_NAME))
+                        })?;
+                        found.push(obj);
+                    }
+                    None => not_found.push(id.clone()),
+                }
+            }
+        } else {
+            for val in store.values().take(MAX_FETCH_ALL) {
+                let obj: O = serde_json::from_value(val.clone())
+                    .map_err(|e| MemoryError(format!("deserialize {}: {e}", O::TYPE_NAME)))?;
+                found.push(obj);
+            }
+        }
+
+        Ok((found, not_found))
+    }
+
+    // -----------------------------------------------------------------------
+    // create_object
+    // -----------------------------------------------------------------------
+
+    async fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        _create_id: &str,
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        let mut val = serde_json::to_value(&obj)
+            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize: {e}"))))?;
+        // Use the object's existing id if present (e.g. singleton types such as
+        // VacationResponse whose id is always "singleton"); otherwise assign a UUID.
+        let id = if let Some(existing) = val.get("id").and_then(|v| v.as_str()) {
+            Id::from(existing)
+        } else {
+            let uuid_id = Id::from(uuid::Uuid::new_v4().to_string());
+            // Inject the server-assigned id into the stored value.
+            if let serde_json::Value::Object(ref mut map) = val {
+                map.insert(
+                    "id".to_owned(),
+                    serde_json::Value::String(uuid_id.to_string()),
+                );
+            }
+            uuid_id
+        };
+        let created_obj: O = serde_json::from_value(val.clone()).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
+        })?;
+
+        let mut inner = self.inner.lock().unwrap();
+        inner
+            .objects_mut(O::TYPE_NAME, account_id.as_ref())
+            .insert(id.clone(), val);
+        let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        inner
+            .change_log
+            .entry((O::TYPE_NAME.to_owned(), account_id.to_string()))
+            .or_default()
+            .push(ChangeEntry {
+                new_state,
+                created: vec![id.clone()],
+                updated: vec![],
+                destroyed: vec![],
+            });
+
+        Ok((id, created_obj))
+    }
+
+    // -----------------------------------------------------------------------
+    // update_object
+    // -----------------------------------------------------------------------
+
+    async fn update_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        // O::Patch is always serde_json::Value in this codebase (every SetObject impl
+        // uses `type Patch = serde_json::Value`). Downcast via Any; if the downcast
+        // fails, serialize via serde_json::to_string + re-parse as a fallback.
+        use std::any::Any;
+        let patch_val: serde_json::Value = {
+            let boxed: Box<dyn Any> = Box::new(patch);
+            match boxed.downcast::<serde_json::Value>() {
+                Ok(v) => *v,
+                Err(other) => {
+                    // Fallback: the patch is not serde_json::Value; re-serialize via
+                    // the erased representation using serde_json's internal plumbing.
+                    // This branch is unreachable with the current trait impls but keeps
+                    // the backend correct if a typed Patch is ever introduced.
+                    let _ = other;
+                    return Err(BackendSetError::Other(MemoryError(
+                        "MemoryBackend::update_object: patch type is not serde_json::Value; \
+                         re-serialize path not implemented"
+                            .to_owned(),
+                    )));
+                }
+            }
+        };
+
+        let mut inner = self.inner.lock().unwrap();
+        let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
+        let existing = store
+            .get_mut(id)
+            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+
+        // JSON Merge Patch (RFC 7396): null values remove keys; non-null values overwrite.
+        if let serde_json::Value::Object(base) = existing {
+            if let serde_json::Value::Object(patch_map) = patch_val {
+                for (k, v) in patch_map {
+                    if v.is_null() {
+                        base.remove(&k);
+                    } else {
+                        base.insert(k, v);
+                    }
+                }
+            }
+        }
+
+        let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        inner
+            .change_log
+            .entry((O::TYPE_NAME.to_owned(), account_id.to_string()))
+            .or_default()
+            .push(ChangeEntry {
+                new_state,
+                created: vec![],
+                updated: vec![id.clone()],
+                destroyed: vec![],
+            });
+
+        Ok(None) // MemoryBackend does not echo server-modified fields
+    }
+
+    // -----------------------------------------------------------------------
+    // destroy_object
+    // -----------------------------------------------------------------------
+
+    async fn destroy_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        let mut inner = self.inner.lock().unwrap();
+        let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
+        store
+            .remove(id)
+            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+        let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        inner
+            .change_log
+            .entry((O::TYPE_NAME.to_owned(), account_id.to_string()))
+            .or_default()
+            .push(ChangeEntry {
+                new_state,
+                created: vec![],
+                updated: vec![],
+                destroyed: vec![id.clone()],
+            });
+        Ok(())
+    }
+
+    // -----------------------------------------------------------------------
+    // get_state
+    // -----------------------------------------------------------------------
+
+    async fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+    ) -> Result<State, Self::Error> {
+        let inner = self.inner.lock().unwrap();
+        let n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
+        Ok(State::from(n.to_string()))
+    }
+
+    // -----------------------------------------------------------------------
+    // get_changes
+    // -----------------------------------------------------------------------
+
+    async fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        let since: u64 = since_state.as_ref().parse().map_err(|_| {
+            BackendChangesError::Other(MemoryError(format!("invalid state token: {since_state}")))
+        })?;
+
+        // Snapshot relevant change log entries under a brief lock, then release.
+        let (relevant, has_more, new_state) = {
+            let inner = self.inner.lock().unwrap();
+            let log = inner
+                .change_log
+                .get(&(O::TYPE_NAME.to_owned(), account_id.to_string()))
+                .map(|v| v.as_slice())
+                .unwrap_or(&[]);
+
+            let limit = max_changes.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize);
+            // Binary search for the first entry with new_state > since.
+            let start = log.partition_point(|e| e.new_state <= since);
+            // Take limit+1 as sentinel to detect has_more.
+            let mut entries: Vec<ChangeEntry> = log[start..]
+                .iter()
+                .take(limit.saturating_add(1))
+                .cloned()
+                .collect();
+            let has_more = entries.len() > limit;
+            if has_more {
+                entries.pop();
+            }
+            // If nothing changed, new_state == since_state (client is already up to date).
+            let new_state = entries
+                .last()
+                .map(|e| State::from(e.new_state.to_string()))
+                .unwrap_or_else(|| since_state.clone());
+            (entries, has_more, new_state)
+        };
+
+        // RFC 8620 §5.6 ID deduplication across the window.
+        let mut fates: HashMap<Id, IdFate> = HashMap::new();
+        for entry in &relevant {
+            for id in &entry.created {
+                fates.insert(id.clone(), IdFate::Created);
+            }
+            for id in &entry.updated {
+                let fate = match fates.get(id) {
+                    Some(IdFate::Created) => IdFate::Created,
+                    Some(IdFate::Destroyed) => IdFate::Destroyed,
+                    _ => IdFate::Updated,
+                };
+                fates.insert(id.clone(), fate);
+            }
+            for id in &entry.destroyed {
+                match fates.remove(id) {
+                    Some(IdFate::Created) => {} // created+destroyed in window → omit
+                    Some(_) | None => {
+                        fates.insert(id.clone(), IdFate::Destroyed);
+                    }
+                }
+            }
+        }
+
+        let mut created = Vec::new();
+        let mut updated = Vec::new();
+        let mut destroyed = Vec::new();
+        for (id, fate) in fates {
+            match fate {
+                IdFate::Created => created.push(id),
+                IdFate::Updated => updated.push(id),
+                IdFate::Destroyed => destroyed.push(id),
+            }
+        }
+
+        Ok(ChangesResult {
+            created,
+            updated,
+            destroyed,
+            has_more_changes: has_more,
+            new_state,
+        })
+    }
+
+    // -----------------------------------------------------------------------
+    // query_objects
+    // -----------------------------------------------------------------------
+
+    async fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        _filter: Option<&O::Filter>,
+        _sort: Option<&[O::Comparator]>,
+        limit: Option<u64>,
+        position: i64,
+    ) -> Result<QueryResult, Self::Error> {
+        // Collect and sort IDs outside the lock for deterministic ordering.
+        let (mut all_ids, state_n) = {
+            let inner = self.inner.lock().unwrap();
+            let ids: Vec<Id> = inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .map(|s| s.keys().cloned().collect())
+                .unwrap_or_default();
+            let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
+            (ids, state_n)
+        };
+        all_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+
+        let total = all_ids.len();
+        let start = if position >= 0 {
+            (position as usize).min(total)
+        } else {
+            let neg = (-position) as usize;
+            total.saturating_sub(neg)
+        };
+
+        let ids: Vec<Id> = all_ids[start..]
+            .iter()
+            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
+            .cloned()
+            .collect();
+
+        Ok(QueryResult {
+            ids,
+            position: start as i64,
+            total: Some(total as u64),
+            query_state: State::from(state_n.to_string()),
+            can_calculate_changes: true,
+        })
+    }
+
+    // -----------------------------------------------------------------------
+    // query_changes
+    // -----------------------------------------------------------------------
+
+    async fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        since_query_state: &State,
+        _filter: Option<&O::Filter>,
+        _sort: Option<&[O::Comparator]>,
+        _max_changes: Option<u64>,
+        _up_to_id: Option<&Id>,
+    ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        // MemoryBackend does not track per-query result sets. Return the full
+        // current id list as "added" when since_query_state == "0"; otherwise
+        // return empty changes. Callers that need precise queryChanges tracking
+        // should use get_changes + query_objects instead.
+        let (mut all_ids, state_n) = {
+            let inner = self.inner.lock().unwrap();
+            let ids: Vec<Id> = inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .map(|s| s.keys().cloned().collect())
+                .unwrap_or_default();
+            let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
+            (ids, state_n)
+        };
+        all_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        let new_query_state = State::from(state_n.to_string());
+
+        let added: Vec<AddedItem> = if since_query_state.as_ref() == "0" {
+            all_ids
+                .into_iter()
+                .enumerate()
+                .map(|(i, id)| AddedItem {
+                    id,
+                    index: i as u64,
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        Ok(QueryChangesResult {
+            old_query_state: since_query_state.clone(),
+            new_query_state,
+            total: None,
+            removed: vec![],
+            added,
+        })
+    }
+
+    // -----------------------------------------------------------------------
+    // import_email
+    // -----------------------------------------------------------------------
+
+    async fn import_email(
+        &self,
+        account_id: &Id,
+        blob_id: &Id,
+        mailbox_ids: &[Id],
+        keywords: &[Keyword],
+        received_at: Option<&UTCDate>,
+    ) -> Result<(Id, Email), BackendSetError<Self::Error>> {
+        let bytes = {
+            let inner = self.inner.lock().unwrap();
+            inner.blobs.get(blob_id).cloned().ok_or_else(|| {
+                BackendSetError::SetError(SetError::new(SetErrorType::BlobNotFound))
+            })?
+        };
+
+        // Parse message headers from raw bytes (best-effort RFC 5322 parsing).
+        let parsed = parse_rfc5322_headers(&bytes);
+
+        // Assign thread: look for existing email with matching message-id.
+        let thread_id = {
+            let inner = self.inner.lock().unwrap();
+            assign_thread_inner(&inner, account_id, &parsed.in_reply_to, &parsed.references)
+        };
+
+        // Build the Email object.
+        let email_id = Id::from(uuid::Uuid::new_v4().to_string());
+        let mailbox_map: HashMap<Id, bool> =
+            mailbox_ids.iter().map(|id| (id.clone(), true)).collect();
+        let kw_map: HashMap<Keyword, bool> = keywords.iter().map(|k| (k.clone(), true)).collect();
+
+        let received = received_at
+            .cloned()
+            .unwrap_or_else(|| UTCDate::from("1970-01-01T00:00:00Z"));
+
+        let mut email = Email::new(
+            email_id.clone(),
+            blob_id.clone(),
+            thread_id.clone(),
+            mailbox_map,
+            bytes.len() as u64,
+            received,
+        );
+        email.keywords = kw_map;
+        email.subject = parsed.subject;
+        email.message_id = parsed.message_id;
+        email.in_reply_to = if parsed.in_reply_to.is_empty() {
+            None
+        } else {
+            Some(parsed.in_reply_to)
+        };
+        email.references = if parsed.references.is_empty() {
+            None
+        } else {
+            Some(parsed.references)
+        };
+        email.from = parsed.from;
+        email.to = parsed.to;
+        if let Some(preview) = parsed.preview {
+            email.preview = Some(preview);
+        }
+
+        // Ensure the Thread object exists.
+        let thread_val = serde_json::json!({
+            "id": thread_id.to_string(),
+            "emailIds": [email_id.to_string()]
+        });
+
+        // Serialize the email for storage.
+        let email_val = serde_json::to_value(&email)
+            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize email: {e}"))))?;
+
+        {
+            let mut inner = self.inner.lock().unwrap();
+
+            // Insert or update Thread (append email_id if thread exists).
+            let thread_store = inner.objects_mut("Thread", account_id.as_ref());
+            thread_store
+                .entry(thread_id.clone())
+                .and_modify(|v| {
+                    if let Some(arr) = v.get_mut("emailIds").and_then(|a| a.as_array_mut()) {
+                        arr.push(serde_json::Value::String(email_id.to_string()));
+                    }
+                })
+                .or_insert(thread_val);
+
+            // Insert Email.
+            inner
+                .objects_mut("Email", account_id.as_ref())
+                .insert(email_id.clone(), email_val);
+
+            // Bump state for both Email and Thread.
+            let new_email_state = inner.bump_state("Email", account_id.as_ref());
+            inner
+                .change_log
+                .entry(("Email".to_owned(), account_id.to_string()))
+                .or_default()
+                .push(ChangeEntry {
+                    new_state: new_email_state,
+                    created: vec![email_id.clone()],
+                    updated: vec![],
+                    destroyed: vec![],
+                });
+            let new_thread_state = inner.bump_state("Thread", account_id.as_ref());
+            inner
+                .change_log
+                .entry(("Thread".to_owned(), account_id.to_string()))
+                .or_default()
+                .push(ChangeEntry {
+                    new_state: new_thread_state,
+                    created: vec![thread_id],
+                    updated: vec![],
+                    destroyed: vec![],
+                });
+        }
+
+        Ok((email_id, email))
+    }
+
+    // -----------------------------------------------------------------------
+    // parse_email
+    // -----------------------------------------------------------------------
+
+    async fn parse_email(&self, account_id: &Id, blob_id: &Id) -> Result<Email, Self::Error> {
+        let bytes = {
+            let inner = self.inner.lock().unwrap();
+            inner
+                .blobs
+                .get(blob_id)
+                .cloned()
+                .ok_or_else(|| MemoryError(format!("blob not found: {blob_id}")))?
+        };
+
+        let parsed = parse_rfc5322_headers(&bytes);
+
+        // parse_email does not store — use a synthetic id.
+        let email_id = Id::from(format!("parse-{blob_id}"));
+        // Assign a thread id based on account state but do not store the thread.
+        let thread_id = {
+            let inner = self.inner.lock().unwrap();
+            assign_thread_inner(&inner, account_id, &parsed.in_reply_to, &parsed.references)
+        };
+
+        let mailbox_map = HashMap::new();
+        let received = UTCDate::from("1970-01-01T00:00:00Z");
+        let mut email = Email::new(
+            email_id,
+            blob_id.clone(),
+            thread_id,
+            mailbox_map,
+            bytes.len() as u64,
+            received,
+        );
+        email.subject = parsed.subject;
+        email.message_id = parsed.message_id;
+        email.in_reply_to = if parsed.in_reply_to.is_empty() {
+            None
+        } else {
+            Some(parsed.in_reply_to)
+        };
+        email.references = if parsed.references.is_empty() {
+            None
+        } else {
+            Some(parsed.references)
+        };
+        email.from = parsed.from;
+        email.to = parsed.to;
+        if let Some(preview) = parsed.preview {
+            email.preview = Some(preview);
+        }
+
+        Ok(email)
+    }
+
+    // -----------------------------------------------------------------------
+    // copy_email
+    // -----------------------------------------------------------------------
+
+    async fn copy_email(
+        &self,
+        from_account_id: &Id,
+        email_id: &Id,
+        to_account_id: &Id,
+        mailbox_ids: &[Id],
+        keywords: &[Keyword],
+    ) -> Result<(Id, Email), BackendSetError<Self::Error>> {
+        // Look up source email.
+        let src_val = {
+            let inner = self.inner.lock().unwrap();
+            inner
+                .objects_ref("Email", from_account_id.as_ref())
+                .and_then(|s| s.get(email_id))
+                .cloned()
+                .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?
+        };
+
+        let src_email: Email = serde_json::from_value(src_val).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!("deserialize source email: {e}")))
+        })?;
+
+        // Assign thread in destination account.
+        let thread_id = {
+            let inner = self.inner.lock().unwrap();
+            assign_thread_inner(
+                &inner,
+                to_account_id,
+                src_email.in_reply_to.as_deref().unwrap_or(&[]),
+                src_email.references.as_deref().unwrap_or(&[]),
+            )
+        };
+
+        let new_id = Id::from(uuid::Uuid::new_v4().to_string());
+        let mailbox_map: HashMap<Id, bool> =
+            mailbox_ids.iter().map(|id| (id.clone(), true)).collect();
+        let kw_map: HashMap<Keyword, bool> = keywords.iter().map(|k| (k.clone(), true)).collect();
+
+        let mut new_email = Email::new(
+            new_id.clone(),
+            src_email.blob_id.clone(),
+            thread_id.clone(),
+            mailbox_map,
+            src_email.size,
+            src_email.received_at.clone(),
+        );
+        new_email.keywords = kw_map;
+        new_email.subject = src_email.subject.clone();
+        new_email.message_id = src_email.message_id.clone();
+        new_email.in_reply_to = src_email.in_reply_to.clone();
+        new_email.references = src_email.references.clone();
+        new_email.from = src_email.from.clone();
+        new_email.to = src_email.to.clone();
+        new_email.preview = src_email.preview.clone();
+
+        let email_val = serde_json::to_value(&new_email).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!("serialize copied email: {e}")))
+        })?;
+        let thread_val = serde_json::json!({
+            "id": thread_id.to_string(),
+            "emailIds": [new_id.to_string()]
+        });
+
+        {
+            let mut inner = self.inner.lock().unwrap();
+            inner
+                .objects_mut("Thread", to_account_id.as_ref())
+                .entry(thread_id.clone())
+                .and_modify(|v| {
+                    if let Some(arr) = v.get_mut("emailIds").and_then(|a| a.as_array_mut()) {
+                        arr.push(serde_json::Value::String(new_id.to_string()));
+                    }
+                })
+                .or_insert(thread_val);
+
+            inner
+                .objects_mut("Email", to_account_id.as_ref())
+                .insert(new_id.clone(), email_val);
+
+            let new_email_state = inner.bump_state("Email", to_account_id.as_ref());
+            inner
+                .change_log
+                .entry(("Email".to_owned(), to_account_id.to_string()))
+                .or_default()
+                .push(ChangeEntry {
+                    new_state: new_email_state,
+                    created: vec![new_id.clone()],
+                    updated: vec![],
+                    destroyed: vec![],
+                });
+            let new_thread_state = inner.bump_state("Thread", to_account_id.as_ref());
+            inner
+                .change_log
+                .entry(("Thread".to_owned(), to_account_id.to_string()))
+                .or_default()
+                .push(ChangeEntry {
+                    new_state: new_thread_state,
+                    created: vec![thread_id],
+                    updated: vec![],
+                    destroyed: vec![],
+                });
+        }
+
+        Ok((new_id, new_email))
+    }
+
+    // -----------------------------------------------------------------------
+    // search_snippets
+    // -----------------------------------------------------------------------
+
+    async fn search_snippets(
+        &self,
+        account_id: &Id,
+        email_ids: &[Id],
+        filter: Option<&EmailFilterCondition>,
+    ) -> Result<Vec<SearchSnippet>, Self::Error> {
+        let text_needle = filter.and_then(|f| f.text.as_deref());
+        let subject_needle = filter.and_then(|f| f.subject.as_deref());
+        let body_needle = filter.and_then(|f| f.body.as_deref());
+
+        let inner = self.inner.lock().unwrap();
+        let store = inner.objects_ref("Email", account_id.as_ref());
+
+        let mut snippets = Vec::new();
+        for id in email_ids {
+            let mut snippet = SearchSnippet::new(id.clone());
+
+            if let Some(store) = store {
+                if let Some(val) = store.get(id) {
+                    let subject = val.get("subject").and_then(|s| s.as_str()).unwrap_or("");
+                    let preview = val.get("preview").and_then(|s| s.as_str()).unwrap_or("");
+
+                    // Build subject snippet.
+                    let subj_needle = subject_needle.or(text_needle);
+                    if let Some(needle) = subj_needle {
+                        if !subject.is_empty() {
+                            snippet.subject = Some(highlight(subject, needle));
+                        }
+                    }
+
+                    // Build preview snippet from preview or body needle.
+                    let prev_needle = body_needle.or(text_needle);
+                    if let Some(needle) = prev_needle {
+                        if !preview.is_empty() {
+                            snippet.preview = Some(highlight(preview, needle));
+                        }
+                    }
+                }
+            }
+
+            snippets.push(snippet);
+        }
+
+        Ok(snippets)
+    }
+
+    // -----------------------------------------------------------------------
+    // supports_type
+    // -----------------------------------------------------------------------
+
+    fn supports_type<O: JmapObject>(&self) -> bool {
+        true
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/// Minimal parsed fields from an RFC 5322 message header block.
+struct ParsedHeaders {
+    subject: Option<String>,
+    message_id: Option<Vec<String>>,
+    in_reply_to: Vec<String>,
+    references: Vec<String>,
+    from: Option<Vec<EmailAddress>>,
+    to: Option<Vec<EmailAddress>>,
+    /// Short preview of the body (first 256 bytes of the text body, if any).
+    preview: Option<String>,
+}
+
+/// Bare-minimum RFC 5322 header parser.
+///
+/// Reads raw bytes as UTF-8 (lossy), splits on the blank line that separates
+/// headers from the body, and extracts the fields needed for threading and
+/// snippet generation. Folded header lines (CRLF + whitespace) are unfolded.
+///
+/// This is intentionally simple — it handles the common cases in tests. A
+/// production implementation would use a proper MIME library.
+fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
+    let text = String::from_utf8_lossy(bytes);
+
+    // Split headers from body at the first blank line.
+    let (header_block, body_block) = if let Some(idx) = text.find("\r\n\r\n") {
+        (&text[..idx], &text[idx + 4..])
+    } else if let Some(idx) = text.find("\n\n") {
+        (&text[..idx], &text[idx + 2..])
+    } else {
+        (text.as_ref(), "")
+    };
+
+    // Unfold header lines: CRLF or LF followed by whitespace = continuation.
+    let unfolded = header_block
+        .replace("\r\n ", " ")
+        .replace("\r\n\t", " ")
+        .replace("\n ", " ")
+        .replace("\n\t", " ");
+
+    let mut subject = None;
+    let mut message_id: Option<Vec<String>> = None;
+    let mut in_reply_to: Vec<String> = Vec::new();
+    let mut references: Vec<String> = Vec::new();
+    let mut from_header: Option<String> = None;
+    let mut to_header: Option<String> = None;
+
+    for line in unfolded.lines() {
+        if let Some(rest) = line.strip_prefix("Subject:") {
+            subject = Some(rest.trim().to_owned());
+        } else if let Some(rest) = line.strip_prefix("subject:") {
+            subject = Some(rest.trim().to_owned());
+        } else if let Some(rest) = line
+            .strip_prefix("Message-ID:")
+            .or_else(|| line.strip_prefix("Message-Id:"))
+        {
+            let ids = extract_msg_ids(rest);
+            if !ids.is_empty() {
+                message_id = Some(ids);
+            }
+        } else if let Some(rest) = line.strip_prefix("In-Reply-To:") {
+            in_reply_to = extract_msg_ids(rest);
+        } else if let Some(rest) = line.strip_prefix("References:") {
+            references = extract_msg_ids(rest);
+        } else if let Some(rest) = line.strip_prefix("From:") {
+            from_header = Some(rest.trim().to_owned());
+        } else if let Some(rest) = line.strip_prefix("To:") {
+            to_header = Some(rest.trim().to_owned());
+        }
+    }
+
+    let from = from_header.as_deref().map(parse_address_list);
+    let to = to_header.as_deref().map(parse_address_list);
+
+    // Extract a short preview from the body.
+    let preview = if body_block.trim().is_empty() {
+        None
+    } else {
+        let trimmed = body_block.trim();
+        let end = trimmed
+            .char_indices()
+            .take(256)
+            .last()
+            .map(|(i, c)| i + c.len_utf8())
+            .unwrap_or(trimmed.len());
+        Some(trimmed[..end].to_owned())
+    };
+
+    ParsedHeaders {
+        subject,
+        message_id,
+        in_reply_to,
+        references,
+        from,
+        to,
+        preview,
+    }
+}
+
+/// Extract `<id>` tokens from a Message-ID / In-Reply-To / References value.
+fn extract_msg_ids(s: &str) -> Vec<String> {
+    let mut ids = Vec::new();
+    let mut rest = s;
+    while let Some(start) = rest.find('<') {
+        rest = &rest[start + 1..];
+        if let Some(end) = rest.find('>') {
+            ids.push(rest[..end].to_owned());
+            rest = &rest[end + 1..];
+        } else {
+            break;
+        }
+    }
+    ids
+}
+
+/// Very simple RFC 5322 address parser: handles `Display Name <addr>` and bare `addr`.
+///
+/// Splits on commas, strips whitespace, extracts `<>` if present.
+fn parse_address_list(s: &str) -> Vec<EmailAddress> {
+    s.split(',')
+        .filter_map(|part| {
+            let part = part.trim();
+            if part.is_empty() {
+                return None;
+            }
+            if let (Some(lt), Some(gt)) = (part.rfind('<'), part.rfind('>')) {
+                if lt < gt {
+                    let email = part[lt + 1..gt].trim().to_owned();
+                    let name = part[..lt].trim().trim_matches('"').trim().to_owned();
+                    let mut addr = EmailAddress::new(email);
+                    if !name.is_empty() {
+                        addr.name = Some(name);
+                    }
+                    return Some(addr);
+                }
+            }
+            Some(EmailAddress::new(part.to_owned()))
+        })
+        .collect()
+}
+
+/// Assign a thread id for an email being imported or copied.
+///
+/// Searches existing emails in the account for a `message_id` that matches
+/// any of the `in_reply_to` or `references` tokens. If found, reuses that
+/// thread id. Otherwise returns a fresh id.
+fn assign_thread_inner(
+    inner: &Inner,
+    account_id: &Id,
+    in_reply_to: &[String],
+    references: &[String],
+) -> Id {
+    let refs: Vec<&str> = in_reply_to
+        .iter()
+        .chain(references.iter())
+        .map(|s| s.as_str())
+        .collect();
+
+    if !refs.is_empty() {
+        if let Some(store) = inner.objects_ref("Email", account_id.as_ref()) {
+            for val in store.values() {
+                if let Some(msg_ids) = val.get("messageId").and_then(|v| v.as_array()) {
+                    for msg_id in msg_ids {
+                        if let Some(s) = msg_id.as_str() {
+                            if refs.contains(&s) {
+                                if let Some(tid) = val.get("threadId").and_then(|v| v.as_str()) {
+                                    return Id::from(tid);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Id::from(uuid::Uuid::new_v4().to_string())
+}
+
+/// Highlight occurrences of `needle` in `haystack` using `<mark>…</mark>` tags.
+///
+/// Case-insensitive match. HTML-escapes `&`, `<`, `>` in the surrounding text.
+fn highlight(haystack: &str, needle: &str) -> String {
+    if needle.is_empty() {
+        return html_escape(haystack);
+    }
+    let lower_hay = haystack.to_lowercase();
+    let lower_needle = needle.to_lowercase();
+    let mut result = String::with_capacity(haystack.len() + 32);
+    let mut pos = 0;
+    while let Some(idx) = lower_hay[pos..].find(&lower_needle) {
+        let abs = pos + idx;
+        result.push_str(&html_escape(&haystack[pos..abs]));
+        result.push_str("<mark>");
+        result.push_str(&html_escape(&haystack[abs..abs + needle.len()]));
+        result.push_str("</mark>");
+        pos = abs + needle.len();
+    }
+    result.push_str(&html_escape(&haystack[pos..]));
+    result
+}
+
+/// HTML-escape `&`, `<`, `>`.
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+}

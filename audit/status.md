@@ -37,3 +37,5 @@
 [04:30:14] REVIEW myoss: P0=0 P1=1 P2=3 P3=4 P4=1 opinion=0
 [04:37:27] REVIEW round2: P0=0 P1=0 P2=0 opinion=0
 [04:38:11] COORDINATOR: JMAP-kjt.7 complete; review loop CLEAN; epic JMAP-kjt done
+[20:50:46] COORDINATOR: JMAP-8mj closed (limit field on JmapError); IMPL-5c0 running with compile errors; sent fix guidance
+[20:52:00] team-5c0: JMAP-5c0 complete; MemoryBackend done; uuid added to dev-deps

@@ -25,7 +25,13 @@ use tokio::task;
 ///
 /// Handlers must return a `Send` future.  The concrete type is a heap-allocated
 /// trait object so the trait itself remains object-safe.
-pub type HandlerFuture = Pin<Box<dyn Future<Output = Result<Value, JmapError>> + Send>>;
+///
+/// The `Vec<Invocation>` holds zero or more additional entries to append to
+/// `methodResponses` immediately after the primary response (in order).  Most
+/// handlers return an empty `Vec`.  RFC 8621 §7.5 `EmailSubmission/set` uses
+/// this to append the implicit `Email/set` invocation for `onSuccessUpdateEmail`.
+pub type HandlerFuture =
+    Pin<Box<dyn Future<Output = Result<(Value, Vec<Invocation>), JmapError>> + Send>>;
 
 /// Implement this for each JMAP method handler.
 ///
@@ -146,21 +152,24 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             let call_id_clone = call_id.clone();
 
             // Run in a spawned task for panic isolation.
-            let result: Result<Result<Value, JmapError>, tokio::task::JoinError> =
-                task::spawn(async move {
-                    handler
-                        .call(method_clone, call_id_clone, args, caller_clone)
-                        .await
-                })
-                .await;
+            let result: Result<
+                Result<(Value, Vec<Invocation>), JmapError>,
+                tokio::task::JoinError,
+            > = task::spawn(async move {
+                handler
+                    .call(method_clone, call_id_clone, args, caller_clone)
+                    .await
+            })
+            .await;
 
             match result {
-                Ok(Ok(resp_value)) => {
+                Ok(Ok((primary_value, extra_invocations))) => {
                     // Accumulate createdIds from /set responses (RFC 8620 §3.4).
                     // Only when the client sent createdIds; otherwise the field
                     // is omitted from the response.
                     if client_sent_created_ids {
-                        if let Some(map) = resp_value.get("created").and_then(|v| v.as_object()) {
+                        if let Some(map) = primary_value.get("created").and_then(|v| v.as_object())
+                        {
                             for (client_id, created_obj) in map {
                                 // RFC 8620 §5.3 requires each created object to contain
                                 // an "id" field.  If the handler violates this contract
@@ -174,7 +183,11 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                             }
                         }
                     }
-                    method_responses.push((method, resp_value, call_id));
+                    // Push the primary response first, then any extra invocations
+                    // appended by the handler (e.g. onSuccessUpdateEmail from
+                    // EmailSubmission/set, RFC 8621 §7.5).  Order is preserved.
+                    method_responses.push((method, primary_value, call_id));
+                    method_responses.extend(extra_invocations);
                 }
                 Ok(Err(e)) => {
                     method_responses.push(error_invocation(&call_id, e));
@@ -244,7 +257,7 @@ mod tests {
             _caller: C,
         ) -> HandlerFuture {
             let v = self.0.clone();
-            Box::pin(async move { Ok(v) })
+            Box::pin(async move { Ok((v, vec![])) })
         }
     }
 
@@ -278,7 +291,7 @@ mod tests {
             let slot = self.0.clone();
             Box::pin(async move {
                 *slot.lock().expect("test: mutex poisoned") = Some(args);
-                Ok(json!({}))
+                Ok((json!({}), vec![]))
             })
         }
     }
@@ -297,7 +310,7 @@ mod tests {
             let slot = self.0.clone();
             Box::pin(async move {
                 *slot.lock().expect("test: mutex poisoned") = Some(caller);
-                Ok(json!({}))
+                Ok((json!({}), vec![]))
             })
         }
     }
@@ -711,5 +724,59 @@ mod tests {
             resp.method_responses[0].1.get("type").is_none(),
             "must succeed with () caller"
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // Extra invocations
+    // -----------------------------------------------------------------------
+
+    /// A handler that returns both a primary response and one extra invocation.
+    ///
+    /// Models RFC 8621 §7.5 EmailSubmission/set with onSuccessUpdateEmail: the
+    /// submission response is primary; the implied Email/set call is extra.
+    struct ExtraInvocationHandler;
+
+    impl JmapHandler<String> for ExtraInvocationHandler {
+        fn call(
+            &self,
+            _method: String,
+            _call_id: String,
+            _args: Value,
+            _caller: String,
+        ) -> HandlerFuture {
+            Box::pin(async move {
+                let primary = json!({"type": "primary"});
+                let extra: Vec<Invocation> = vec![(
+                    "Extra/call".to_owned(),
+                    json!({"type": "extra"}),
+                    "x0".to_owned(),
+                )];
+                Ok((primary, extra))
+            })
+        }
+    }
+
+    /// Oracle: handler returning extra invocations → both primary and extra appear in
+    /// methodResponses in order (primary first, then extra).
+    #[tokio::test]
+    async fn extra_invocations_appended_after_primary() {
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register("Sub/set", Arc::new(ExtraInvocationHandler));
+        let req = single_call("Sub/set", json!({}), "c0");
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+
+        assert_eq!(
+            resp.method_responses.len(),
+            2,
+            "primary + 1 extra = 2 total invocations"
+        );
+        // First: the primary Sub/set response.
+        assert_eq!(resp.method_responses[0].0, "Sub/set");
+        assert_eq!(resp.method_responses[0].2, "c0");
+        assert_eq!(resp.method_responses[0].1["type"], "primary");
+        // Second: the appended extra invocation.
+        assert_eq!(resp.method_responses[1].0, "Extra/call");
+        assert_eq!(resp.method_responses[1].2, "x0");
+        assert_eq!(resp.method_responses[1].1["type"], "extra");
     }
 }
