@@ -560,6 +560,56 @@ async fn test_subscribe_events_crlf_line_endings() {
     );
 }
 
+/// Oracle: RFC 8895 §9 — SSE frame terminated by LF + CRLF blank line (\n\r\n)
+/// must parse correctly. This combination is not detected by \n\n (LFs are
+/// separated by \r) and must be caught by the explicit \n\r\n search.
+#[tokio::test]
+async fn test_subscribe_events_lf_crlf_frame_delimiter() {
+    use futures::StreamExt as _;
+    use jmap_client::sse::SseEvent;
+
+    // LF-terminated field lines, CRLF-terminated blank line: \n\r\n delimiter.
+    let body = "event: state\ndata: {\"changed\":{}}\n\r\n";
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/events"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("Content-Type", "text/event-stream")
+                .set_body_bytes(body.as_bytes().to_vec()),
+        )
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let event_url = format!("{}/events", server.uri());
+    let mut stream = client
+        .subscribe_events(&event_url, None)
+        .await
+        .expect("subscribe_events must succeed");
+
+    let frame = stream
+        .next()
+        .await
+        .expect("stream must yield at least one frame")
+        .expect("frame must not be an error");
+
+    // Oracle: state event must be recognized after \n\r\n delimiter.
+    assert!(
+        matches!(frame.event, SseEvent::StateChange(_)),
+        "LF+CRLF-terminated state event must parse as StateChange, got {:?}",
+        frame.event
+    );
+}
+
 /// Oracle: RFC 8895 §9 — SSE lines terminated with bare CR must parse
 /// identically to LF-terminated lines (CR-only is a valid line terminator).
 #[tokio::test]
@@ -607,6 +657,42 @@ async fn test_subscribe_events_cr_line_endings() {
         "CR-terminated state event must parse as StateChange, got {:?}",
         frame.event
     );
+}
+
+/// Oracle: security requirement — subscribe_events must reject a 200 response
+/// whose Content-Type is not text/event-stream. A misconfigured server returning
+/// application/json would silently produce no events; return InvalidSession instead.
+#[tokio::test]
+async fn test_subscribe_events_rejects_wrong_content_type() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/events"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("Content-Type", "application/json")
+                .set_body_bytes(b"{}".to_vec()),
+        )
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let event_url = format!("{}/events", server.uri());
+    // BoxStream is not Debug, so expect_err is unavailable; use match.
+    let result = client.subscribe_events(&event_url, None).await;
+    match result {
+        Ok(_) => panic!("wrong Content-Type must fail before streaming starts"),
+        Err(ref e) => assert!(
+            matches!(e, ClientError::InvalidSession(_)),
+            "expected InvalidSession for wrong Content-Type, got {e:?}"
+        ),
+    }
 }
 
 // ---------------------------------------------------------------------------

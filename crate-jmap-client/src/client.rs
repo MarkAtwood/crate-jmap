@@ -203,6 +203,22 @@ impl JmapClient {
         Self::new(DefaultTransport, auth, base_url, config)
     }
 
+    /// Apply the auth header (if any) to a request builder.
+    ///
+    /// Centralises the repeated `if let Some(...) = self.auth.auth_header()` pattern
+    /// that every HTTP method uses. Callers: `fetch_session`, `call`,
+    /// `subscribe_events`, `upload_blob`, `download_blob`.
+    pub(crate) fn inject_auth(
+        &self,
+        builder: reqwest::RequestBuilder,
+    ) -> reqwest::RequestBuilder {
+        if let Some((name, value)) = self.auth.auth_header() {
+            builder.header(name, value)
+        } else {
+            builder
+        }
+    }
+
     /// Returns `Err(ClientError::AuthFailed)` when the HTTP status indicates an
     /// authentication or authorization failure.
     ///
@@ -237,10 +253,7 @@ impl JmapClient {
                 ClientError::InvalidArgument(format!("cannot construct session URL: {e}"))
             })?;
 
-        let mut req = self.http.get(url).timeout(self.config.request_timeout);
-        if let Some((name, value)) = self.auth.auth_header() {
-            req = req.header(name, value);
-        }
+        let req = self.inject_auth(self.http.get(url).timeout(self.config.request_timeout));
 
         let resp = {
             let raw_resp = req.send().await.map_err(ClientError::Http)?;
@@ -288,14 +301,12 @@ impl JmapClient {
         require_http_url(api_url)?;
         let limit = self.config.max_call_body;
 
-        let mut builder = self
-            .http
-            .post(api_url)
-            .json(req)
-            .timeout(self.config.request_timeout);
-        if let Some((name, value)) = self.auth.auth_header() {
-            builder = builder.header(name, value);
-        }
+        let builder = self.inject_auth(
+            self.http
+                .post(api_url)
+                .json(req)
+                .timeout(self.config.request_timeout),
+        );
 
         let resp = {
             let raw_resp = builder.send().await.map_err(ClientError::Http)?;
@@ -356,13 +367,26 @@ impl JmapClient {
         if let Some(id) = last_event_id {
             req = req.header("Last-Event-ID", id);
         }
-        if let Some((name, value)) = self.auth.auth_header() {
-            req = req.header(name, value);
-        }
+        let req = self.inject_auth(req);
 
         let resp = req.send().await.map_err(ClientError::Http)?;
         Self::check_auth_status(resp.status())?;
         let resp = resp.error_for_status().map_err(ClientError::Http)?;
+
+        // Verify Content-Type before streaming. A misconfigured server returning
+        // application/json would silently produce no events (no SSE delimiter found).
+        {
+            let ct = resp
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok())
+                .unwrap_or("");
+            if !ct.starts_with("text/event-stream") {
+                return Err(ClientError::InvalidSession(format!(
+                    "subscribe_events: expected Content-Type text/event-stream, got: {ct:?}"
+                )));
+            }
+        }
 
         let byte_stream = resp.bytes_stream();
 
@@ -388,6 +412,8 @@ impl JmapClient {
                     // chunk boundary:
                     //   - `\r\n\r\n` (4 bytes): longest prefix that fits in one chunk
                     //     but is incomplete is `\r\n\r` (3 bytes) — exactly covered.
+                    //   - `\n\r\n` (3 bytes): longest incomplete prefix is `\n\r` (2
+                    //     bytes) — covered by the 3-byte overlap.
                     //   - `\n\n` and `\r\r` (2 bytes each): longest incomplete prefix
                     //     is 1 byte — covered by the 3-byte overlap.
                     // Since \r and \n are single-byte UTF-8 codepoints, 3 bytes back
@@ -402,6 +428,12 @@ impl JmapClient {
                         buf[scan_from..]
                             .find("\r\r")
                             .map(|p| (scan_from + p, 2usize)),
+                        // Mixed: LF-terminated last field line followed by a
+                        // CRLF-terminated blank line.  Not detected by \n\n (the
+                        // LFs are separated by a CR) or \r\n\r\n (no leading \r\n).
+                        buf[scan_from..]
+                            .find("\n\r\n")
+                            .map(|p| (scan_from + p, 3usize)),
                     ]
                     .into_iter()
                     .flatten()

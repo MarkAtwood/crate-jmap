@@ -201,10 +201,24 @@ pub async fn connect_ws(
     config.max_message_size = Some(MAX_WS_MESSAGE_BYTES);
     config.max_frame_size = Some(MAX_WS_MESSAGE_BYTES);
 
-    let (ws_stream, _response) =
-        tokio_tungstenite::connect_async_with_config(request, Some(config), false)
-            .await
-            .map_err(crate::error::ClientError::WebSocket)?;
+    // Apply a 10-second connect timeout, consistent with the HTTP transport's
+    // connect_timeout in DefaultTransport/CustomCaTransport.  tungstenite does
+    // not expose a connect timeout parameter, so we wrap at the Future level.
+    // A stalled TCP or TLS handshake would otherwise block indefinitely.
+    let connect_result = tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        tokio_tungstenite::connect_async_with_config(request, Some(config), false),
+    )
+    .await
+    .map_err(|_elapsed| {
+        crate::error::ClientError::WebSocket(tokio_tungstenite::tungstenite::Error::Io(
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "WebSocket connect timed out after 10 seconds",
+            ),
+        ))
+    })?;
+    let (ws_stream, _response) = connect_result.map_err(crate::error::ClientError::WebSocket)?;
 
     let (sink, stream) = ws_stream.split();
     Ok(WsSession { sink, stream })

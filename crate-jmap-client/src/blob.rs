@@ -136,15 +136,13 @@ impl JmapClient {
         // Compute SHA-256 before handing ownership of data to the request body.
         let local_sha256 = compute_sha256_hex(&data);
 
-        let mut req = self
-            .http
-            .post(&url)
-            .header(CONTENT_TYPE, ct_hv)
-            .timeout(self.config.request_timeout)
-            .body(data);
-        if let Some((name, value)) = self.auth.auth_header() {
-            req = req.header(name, value);
-        }
+        let req = self.inject_auth(
+            self.http
+                .post(&url)
+                .header(CONTENT_TYPE, ct_hv)
+                .timeout(self.config.request_timeout)
+                .body(data),
+        );
 
         let resp = req.send().await.map_err(ClientError::Http)?;
         let status = resp.status();
@@ -231,10 +229,7 @@ impl JmapClient {
         ];
         let url = expand_url_template(download_url_template, &vars)?;
 
-        let mut req = self.http.get(&url).timeout(self.config.request_timeout);
-        if let Some((hdr_name, hdr_value)) = self.auth.auth_header() {
-            req = req.header(hdr_name, hdr_value);
-        }
+        let req = self.inject_auth(self.http.get(&url).timeout(self.config.request_timeout));
 
         let resp = req.send().await.map_err(ClientError::Http)?;
         let status = resp.status();
