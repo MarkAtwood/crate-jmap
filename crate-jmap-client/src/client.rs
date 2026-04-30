@@ -67,6 +67,48 @@ impl Default for ClientConfig {
     }
 }
 
+impl ClientConfig {
+    /// Validate that all config fields satisfy their constraints.
+    ///
+    /// Called automatically by [`JmapClient::new`].  Callers may also call
+    /// this directly to pre-validate a config before passing it to the
+    /// constructor.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidArgument`] when any field is zero or
+    /// out-of-range.
+    pub fn validate(&self) -> Result<(), ClientError> {
+        if self.max_session_body == 0 {
+            return Err(ClientError::InvalidArgument(
+                "ClientConfig.max_session_body must be > 0".into(),
+            ));
+        }
+        if self.max_call_body == 0 {
+            return Err(ClientError::InvalidArgument(
+                "ClientConfig.max_call_body must be > 0".into(),
+            ));
+        }
+        if self.max_download_body == 0 {
+            return Err(ClientError::InvalidArgument(
+                "ClientConfig.max_download_body must be > 0".into(),
+            ));
+        }
+        if self.max_upload_body == 0 {
+            return Err(ClientError::InvalidArgument(
+                "ClientConfig.max_upload_body must be > 0".into(),
+            ));
+        }
+        if self.request_timeout == std::time::Duration::ZERO {
+            return Err(ClientError::InvalidArgument(
+                "ClientConfig.request_timeout must be > 0; use Duration::from_secs(30) or similar"
+                    .into(),
+            ));
+        }
+        Ok(())
+    }
+}
+
 /// Auth-agnostic JMAP base HTTP client.
 ///
 /// Construct with [`JmapClient::new`] or [`JmapClient::new_plain`].
@@ -138,32 +180,7 @@ impl JmapClient {
                 "base_url must not have a fragment".into(),
             ));
         }
-        if config.max_session_body == 0 {
-            return Err(ClientError::InvalidArgument(
-                "ClientConfig.max_session_body must be > 0".into(),
-            ));
-        }
-        if config.max_call_body == 0 {
-            return Err(ClientError::InvalidArgument(
-                "ClientConfig.max_call_body must be > 0".into(),
-            ));
-        }
-        if config.max_download_body == 0 {
-            return Err(ClientError::InvalidArgument(
-                "ClientConfig.max_download_body must be > 0".into(),
-            ));
-        }
-        if config.max_upload_body == 0 {
-            return Err(ClientError::InvalidArgument(
-                "ClientConfig.max_upload_body must be > 0".into(),
-            ));
-        }
-        if config.request_timeout == std::time::Duration::ZERO {
-            return Err(ClientError::InvalidArgument(
-                "ClientConfig.request_timeout must be > 0; use Duration::from_secs(30) or similar"
-                    .into(),
-            ));
-        }
+        config.validate()?;
         let http = transport.build_client()?;
         Ok(Self {
             base_url: parsed,
