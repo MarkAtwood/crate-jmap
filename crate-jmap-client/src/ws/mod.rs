@@ -171,13 +171,10 @@ pub async fn connect_ws(
     auth_header: Option<(&str, &str)>,
 ) -> Result<WsSession, crate::error::ClientError> {
     // Validate scheme to prevent SSRF via a compromised or MITM'd session.
-    // Accept only lowercase ws:// and wss:// so the guard and tungstenite see
-    // the same string — no risk of tungstenite rejecting an uppercase scheme
-    // after the guard passes.
-    // Case-insensitive scheme check: RFC 3986 §3.1 allows uppercase scheme letters,
-    // and tungstenite may accept or reject them independently of our guard.
-    // Checking the lowercased prefix ensures both `WS://` and `ws://` are caught
-    // while the original URL is kept in the error message for diagnostics.
+    // Case-insensitive check per RFC 3986 §3.1: lowercase the URL before
+    // comparing so that `WS://` and `wss://` are both accepted.  The
+    // original (unmodified) URL is passed to tungstenite and kept in error
+    // messages for diagnostics.
     let ws_url_lc = ws_url.to_ascii_lowercase();
     if !ws_url_lc.starts_with("ws://") && !ws_url_lc.starts_with("wss://") {
         return Err(crate::error::ClientError::InvalidArgument(format!(

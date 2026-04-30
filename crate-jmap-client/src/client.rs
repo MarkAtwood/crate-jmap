@@ -235,12 +235,11 @@ impl JmapClient {
             .join(".well-known/jmap")
             .map_err(|e| {
                 ClientError::InvalidArgument(format!("cannot construct session URL: {e}"))
-            })?
-            .to_string();
+            })?;
 
-        let mut req = self.http.get(&url).timeout(self.config.request_timeout);
+        let mut req = self.http.get(url).timeout(self.config.request_timeout);
         if let Some((name, value)) = self.auth.auth_header() {
-            req = req.header(name, value.as_str());
+            req = req.header(name, value);
         }
 
         let resp = {
@@ -294,7 +293,7 @@ impl JmapClient {
             .json(req)
             .timeout(self.config.request_timeout);
         if let Some((name, value)) = self.auth.auth_header() {
-            builder = builder.header(name, value.as_str());
+            builder = builder.header(name, value);
         }
 
         let resp = {
@@ -333,9 +332,12 @@ impl JmapClient {
     /// exceeds this limit the stream yields `ClientError::SseFrameTooLarge`
     /// and terminates.
     ///
-    /// No idle timeout is applied to the stream (unlike point requests).
-    /// Wrap in [`tokio::time::timeout`] if you need to detect server silence
-    /// and reconnect after a quiet period.
+    /// No timeout is applied to this call or to the resulting stream.  The
+    /// connect timeout (10 s, TCP only) is the only deadline enforced.  If the
+    /// server stalls before sending HTTP response headers, or later goes silent
+    /// on the open connection, this call or the stream will hang indefinitely.
+    /// Wrap the entire call and/or stream iteration in [`tokio::time::timeout`]
+    /// if you need to bound either phase.
     ///
     /// Returns `ClientError::AuthFailed` on HTTP 401 or 403 before the stream
     /// starts.
@@ -353,7 +355,7 @@ impl JmapClient {
             req = req.header("Last-Event-ID", id);
         }
         if let Some((name, value)) = self.auth.auth_header() {
-            req = req.header(name, value.as_str());
+            req = req.header(name, value);
         }
 
         let resp = req.send().await.map_err(ClientError::Http)?;
@@ -367,7 +369,7 @@ impl JmapClient {
                 stream: byte_stream,
                 raw_buf: Vec::new(),
                 buf: String::new(),
-                scan_from: 0usize, // invariant: valid UTF-8 char boundary of buf; 0 always satisfies this
+                scan_from: 0, // invariant: valid UTF-8 char boundary of buf; 0 always satisfies this
             }),
             |state| async move {
                 let SseStreamState {

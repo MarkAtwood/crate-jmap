@@ -5,6 +5,9 @@ use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 
+use crate::client::JmapClient;
+use crate::error::ClientError;
+
 /// Response body returned by a successful blob upload (RFC 8620 §6.1).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -47,21 +50,21 @@ pub struct BlobUploadResponse {
 pub(crate) fn expand_url_template(
     template: &str,
     vars: &[(&str, &str)],
-) -> Result<String, crate::error::ClientError> {
+) -> Result<String, ClientError> {
     let mut result = String::with_capacity(template.len() + 64);
     let mut rest = template;
     while let Some(open) = rest.find('{') {
         result.push_str(&rest[..open]);
         rest = &rest[open + 1..];
         let close = rest.find('}').ok_or_else(|| {
-            crate::error::ClientError::InvalidSession("URL template has unmatched '{'".to_owned())
+            ClientError::InvalidSession("URL template has unmatched '{'".to_owned())
         })?;
         let name = &rest[..close];
         rest = &rest[close + 1..];
         if let Some((_, value)) = vars.iter().find(|(n, _)| *n == name) {
             result.push_str(&percent_encode(value));
         } else {
-            return Err(crate::error::ClientError::InvalidSession(format!(
+            return Err(ClientError::InvalidSession(format!(
                 "URL template variable not supplied: {{{name}}}"
             )));
         }
@@ -110,7 +113,7 @@ fn hex_nibble_lower(nibble: u8) -> char {
     }
 }
 
-impl crate::client::JmapClient {
+impl JmapClient {
     /// Upload raw bytes to the JMAP blob store (RFC 8620 §6.1).
     ///
     /// `upload_url_template` is from `Session.upload_url`; `{accountId}` is
@@ -124,9 +127,9 @@ impl crate::client::JmapClient {
         account_id: &str,
         data: bytes::Bytes,
         content_type: &str,
-    ) -> Result<BlobUploadResponse, crate::error::ClientError> {
+    ) -> Result<BlobUploadResponse, ClientError> {
         let ct_hv = HeaderValue::from_str(content_type)
-            .map_err(crate::error::ClientError::InvalidHeaderValue)?;
+            .map_err(ClientError::InvalidHeaderValue)?;
         let url = expand_url_template(upload_url_template, &[("accountId", account_id)])?;
 
         // Compute SHA-256 before handing ownership of data to the request body.
@@ -139,21 +142,21 @@ impl crate::client::JmapClient {
             .timeout(self.config.request_timeout)
             .body(data);
         if let Some((name, value)) = self.auth.auth_header() {
-            req = req.header(name, value.as_str());
+            req = req.header(name, value);
         }
 
-        let resp = req.send().await.map_err(crate::error::ClientError::Http)?;
+        let resp = req.send().await.map_err(ClientError::Http)?;
         let status = resp.status();
-        crate::client::JmapClient::check_auth_status(status)?;
+        Self::check_auth_status(status)?;
         let resp = resp
             .error_for_status()
-            .map_err(crate::error::ClientError::Http)?;
+            .map_err(ClientError::Http)?;
 
         let upload_limit = self.config.max_upload_body;
 
         if let Some(len) = resp.content_length() {
             if len > upload_limit {
-                return Err(crate::error::ClientError::ResponseTooLarge {
+                return Err(ClientError::ResponseTooLarge {
                     actual: len,
                     limit: upload_limit,
                 });
@@ -162,19 +165,19 @@ impl crate::client::JmapClient {
         let bytes = resp
             .bytes()
             .await
-            .map_err(crate::error::ClientError::Http)?;
+            .map_err(ClientError::Http)?;
         if bytes.len() as u64 > upload_limit {
-            return Err(crate::error::ClientError::ResponseTooLarge {
+            return Err(ClientError::ResponseTooLarge {
                 actual: bytes.len() as u64,
                 limit: upload_limit,
             });
         }
         let upload_resp: BlobUploadResponse =
-            serde_json::from_slice(&bytes).map_err(crate::error::ClientError::Parse)?;
+            serde_json::from_slice(&bytes).map_err(ClientError::Parse)?;
 
         if let Some(ref server_sha256) = upload_resp.sha256 {
             if !is_valid_sha256_hex(server_sha256) {
-                return Err(crate::error::ClientError::InvalidSession(format!(
+                return Err(ClientError::InvalidSession(format!(
                     "server sha256 field is not 64-char hex: {server_sha256:?}"
                 )));
             }
@@ -183,7 +186,7 @@ impl crate::client::JmapClient {
             // same digest; rejecting on case alone would cause spurious integrity errors.
             let server_lower = server_sha256.to_ascii_lowercase();
             if local_sha256 != server_lower {
-                return Err(crate::error::ClientError::BlobIntegrityMismatch {
+                return Err(ClientError::BlobIntegrityMismatch {
                     expected: local_sha256,
                     actual: server_lower,
                 });
@@ -214,7 +217,7 @@ impl crate::client::JmapClient {
         name: &str,
         accept_type: Option<&str>,
         expected_sha256: Option<&str>,
-    ) -> Result<bytes::Bytes, crate::error::ClientError> {
+    ) -> Result<bytes::Bytes, ClientError> {
         let vars = [
             ("accountId", account_id),
             ("blobId", blob_id),
@@ -228,22 +231,22 @@ impl crate::client::JmapClient {
 
         let mut req = self.http.get(&url).timeout(self.config.request_timeout);
         if let Some((hdr_name, hdr_value)) = self.auth.auth_header() {
-            req = req.header(hdr_name, hdr_value.as_str());
+            req = req.header(hdr_name, hdr_value);
         }
 
-        let resp = req.send().await.map_err(crate::error::ClientError::Http)?;
+        let resp = req.send().await.map_err(ClientError::Http)?;
         let status = resp.status();
-        crate::client::JmapClient::check_auth_status(status)?;
+        Self::check_auth_status(status)?;
         let resp = resp
             .error_for_status()
-            .map_err(crate::error::ClientError::Http)?;
+            .map_err(ClientError::Http)?;
 
         let download_limit = self.config.max_download_body;
 
         // Check Content-Length header as an early-exit optimization.
         if let Some(len) = resp.content_length() {
             if len > download_limit {
-                return Err(crate::error::ClientError::ResponseTooLarge {
+                return Err(ClientError::ResponseTooLarge {
                     actual: len,
                     limit: download_limit,
                 });
@@ -252,10 +255,10 @@ impl crate::client::JmapClient {
         let bytes = resp
             .bytes()
             .await
-            .map_err(crate::error::ClientError::Http)?;
+            .map_err(ClientError::Http)?;
         // Content-Length can lie — enforce cap on actual bytes read.
         if bytes.len() as u64 > download_limit {
-            return Err(crate::error::ClientError::ResponseTooLarge {
+            return Err(ClientError::ResponseTooLarge {
                 actual: bytes.len() as u64,
                 limit: download_limit,
             });
@@ -263,7 +266,7 @@ impl crate::client::JmapClient {
 
         if let Some(expected) = expected_sha256 {
             if !is_valid_sha256_hex(expected) {
-                return Err(crate::error::ClientError::InvalidArgument(format!(
+                return Err(ClientError::InvalidArgument(format!(
                     "expected_sha256 is not 64-char hex: {expected:?}"
                 )));
             }
@@ -272,7 +275,7 @@ impl crate::client::JmapClient {
             // a server or external source. Both represent the same digest.
             let expected_lower = expected.to_ascii_lowercase();
             if actual != expected_lower {
-                return Err(crate::error::ClientError::BlobIntegrityMismatch {
+                return Err(ClientError::BlobIntegrityMismatch {
                     expected: expected_lower,
                     actual,
                 });
