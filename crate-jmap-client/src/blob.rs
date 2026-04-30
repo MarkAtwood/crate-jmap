@@ -19,7 +19,12 @@ pub struct BlobUploadResponse {
     pub content_type: String,
     /// Size of the uploaded blob in bytes.
     pub size: u64,
-    /// SHA-256 hex digest of the blob, if provided by the server.
+    /// SHA-256 hex digest of the uploaded blob as 64 lowercase hex characters,
+    /// if the server supports the JMAP-CID draft extension (`draft-atwood-jmap-cid`).
+    ///
+    /// This field is **not** defined by RFC 8620. It is present only on servers
+    /// that advertise the `urn:ietf:params:jmap:cid` capability. Servers that
+    /// do not implement the extension omit the field.
     pub sha256: Option<String>,
 }
 
@@ -30,14 +35,41 @@ pub struct BlobUploadResponse {
 /// unreserved characters (ALPHA / DIGIT / `-` / `.` / `_` / `~`), which pass
 /// through unchanged; all other bytes are encoded as `%XX` with uppercase hex
 /// (RFC 3986 §2.1 requires uppercase).
-pub(crate) fn expand_url_template(template: &str, vars: &[(&str, &str)]) -> String {
-    let mut result = template.to_owned();
-    for (name, value) in vars {
-        let placeholder = format!("{{{name}}}");
-        let encoded = percent_encode(value);
-        result = result.replace(&placeholder, &encoded);
+///
+/// Entries in `vars` whose name does not appear in the template are silently
+/// ignored. A variable that appears in the template but has no entry in `vars`
+/// is an error (`ClientError::InvalidArgument`), preventing the literal
+/// `{name}` brace syntax from leaking into the request URL.
+///
+/// # RFC 6570 Level-1
+/// Only simple-string expansion is supported. Reserved-expansion (`{+var}`)
+/// and other Level-2+ operators are not supported.
+pub(crate) fn expand_url_template(
+    template: &str,
+    vars: &[(&str, &str)],
+) -> Result<String, crate::error::ClientError> {
+    let mut result = String::with_capacity(template.len() + 64);
+    let mut rest = template;
+    while let Some(open) = rest.find('{') {
+        result.push_str(&rest[..open]);
+        rest = &rest[open + 1..];
+        let close = rest.find('}').ok_or_else(|| {
+            crate::error::ClientError::InvalidArgument(
+                "URL template has unmatched '{'".to_owned(),
+            )
+        })?;
+        let name = &rest[..close];
+        rest = &rest[close + 1..];
+        if let Some((_, value)) = vars.iter().find(|(n, _)| *n == name) {
+            result.push_str(&percent_encode(value));
+        } else {
+            return Err(crate::error::ClientError::InvalidArgument(format!(
+                "URL template variable not supplied: {{{name}}}"
+            )));
+        }
     }
-    result
+    result.push_str(rest);
+    Ok(result)
 }
 
 /// Percent-encode a string value per RFC 3986 §2.3 unreserved character set.
@@ -89,7 +121,7 @@ impl crate::client::JmapClient {
     ) -> Result<BlobUploadResponse, crate::error::ClientError> {
         let ct_hv = HeaderValue::from_str(content_type)
             .map_err(crate::error::ClientError::InvalidHeaderValue)?;
-        let url = expand_url_template(upload_url_template, &[("accountId", account_id)]);
+        let url = expand_url_template(upload_url_template, &[("accountId", account_id)])?;
 
         // Compute SHA-256 before handing ownership of data to the request body.
         let local_sha256 = compute_sha256_hex(&data);
@@ -167,16 +199,16 @@ impl crate::client::JmapClient {
         accept_type: Option<&str>,
         expected_sha256: Option<&str>,
     ) -> Result<bytes::Bytes, crate::error::ClientError> {
-        let vars: Vec<(&str, &str)> = vec![
+        let vars = vec![
             ("accountId", account_id),
             ("blobId", blob_id),
             ("name", name),
-            // RFC 6570 Level-1: undefined variables expand to empty string.
-            // Always substitute {type} so templates with ?accept={type} produce
-            // ?accept= (empty, server ignores) rather than the literal "{type}".
+            // Always supply {type} — even as empty string — so templates
+            // containing `?accept={type}` expand cleanly rather than triggering
+            // the unexpanded-placeholder error.
             ("type", accept_type.unwrap_or("")),
         ];
-        let url = expand_url_template(download_url_template, &vars);
+        let url = expand_url_template(download_url_template, &vars)?;
 
         let mut req = self.http.get(&url).timeout(self.config.request_timeout);
         if let Some((hdr_name, hdr_value)) = self.auth.auth_header() {
@@ -259,7 +291,8 @@ mod tests {
         let result = expand_url_template(
             "https://example.com/upload/{accountId}/",
             &[("accountId", "account1")],
-        );
+        )
+        .expect("must succeed");
         assert_eq!(result, "https://example.com/upload/account1/");
     }
 
@@ -273,7 +306,8 @@ mod tests {
                 ("blobId", "blob-123"),
                 ("name", "my file.png"),
             ],
-        );
+        )
+        .expect("must succeed");
         assert_eq!(result, "/download/acc1/blob-123/my%20file.png");
     }
 
@@ -288,8 +322,37 @@ mod tests {
                 ("name", "x.jpg"),
                 ("type", "image/png"),
             ],
-        );
+        )
+        .expect("must succeed");
         assert_eq!(result, "/dl/a/b/x.jpg?accept=image%2Fpng");
+    }
+
+    // Oracle: expand_url_template must error when a template variable has no
+    // entry in vars — leaving a literal {name} in the URL would produce a
+    // broken request with no diagnostic at the call site.
+    #[test]
+    fn expand_unknown_variable_returns_error() {
+        let err = expand_url_template(
+            "https://example.com/upload/{accountId}/{unknownVar}/",
+            &[("accountId", "acc1")],
+        )
+        .expect_err("must fail when template variable is not supplied");
+        assert!(
+            matches!(err, crate::error::ClientError::InvalidArgument(_)),
+            "expected InvalidArgument, got {err:?}"
+        );
+    }
+
+    // Oracle: vars entries whose name does not appear in the template are
+    // silently ignored — extra vars are benign (caller may pass a superset).
+    #[test]
+    fn expand_unused_var_is_ignored() {
+        let result = expand_url_template(
+            "https://example.com/upload/{accountId}/",
+            &[("accountId", "acc1"), ("extraVar", "value")],
+        )
+        .expect("extra vars must be silently ignored");
+        assert_eq!(result, "https://example.com/upload/acc1/");
     }
 
     // Oracle: tests/fixtures/blob/upload_response.json — hand-written fixture

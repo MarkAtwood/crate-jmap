@@ -4,6 +4,10 @@ pub enum ClientError {
     /// Network or TLS error from the HTTP layer. May be retriable (transient
     /// network failure) or permanent (TLS configuration error). Indicates a
     /// network or transport problem, not a JMAP protocol error.
+    ///
+    /// **Semver note**: this variant embeds `reqwest::Error` directly. Callers
+    /// that match this variant are semver-locked to the same `reqwest` major
+    /// version as this crate. This is a known pre-1.0 limitation.
     #[error("HTTP error: {0}")]
     Http(#[from] reqwest::Error),
 
@@ -73,6 +77,10 @@ pub enum ClientError {
 
     /// A WebSocket transport error (connection, framing, or TLS). May be
     /// retriable (transient network failure) or permanent (TLS config error).
+    ///
+    /// **Semver note**: this variant embeds `tungstenite::Error` directly.
+    /// Callers that match this variant are semver-locked to the same
+    /// `tokio-tungstenite` major version as this crate. Pre-1.0 limitation.
     #[error("WebSocket error: {0}")]
     WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
 }
