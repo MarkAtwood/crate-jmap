@@ -40,9 +40,9 @@ impl Identity {
     ///
     /// `name`, `text_signature`, and `html_signature` default to `""`.
     /// `reply_to` and `bcc` default to `None`.
-    pub fn new(id: impl Into<Id>, email: impl Into<String>, may_delete: bool) -> Self {
+    pub fn new(id: Id, email: impl Into<String>, may_delete: bool) -> Self {
         Self {
-            id: id.into(),
+            id,
             email: email.into(),
             may_delete,
             name: String::new(),

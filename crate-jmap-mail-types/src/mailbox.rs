@@ -128,7 +128,7 @@ impl Mailbox {
     // literals outside this crate.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: impl Into<Id>,
+        id: Id,
         name: impl Into<String>,
         sort_order: u32,
         total_emails: u32,
@@ -139,7 +139,7 @@ impl Mailbox {
         is_subscribed: bool,
     ) -> Self {
         Self {
-            id: id.into(),
+            id,
             name: name.into(),
             sort_order,
             total_emails,

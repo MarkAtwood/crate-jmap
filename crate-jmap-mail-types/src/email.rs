@@ -314,17 +314,17 @@ impl Email {
     ///
     /// All parsed-header and body fields default to `None` / empty.
     pub fn new(
-        id: impl Into<Id>,
-        blob_id: impl Into<Id>,
-        thread_id: impl Into<Id>,
+        id: Id,
+        blob_id: Id,
+        thread_id: Id,
         mailbox_ids: HashMap<Id, bool>,
         size: u64,
         received_at: UTCDate,
     ) -> Self {
         Self {
-            id: id.into(),
-            blob_id: blob_id.into(),
-            thread_id: thread_id.into(),
+            id,
+            blob_id,
+            thread_id,
             mailbox_ids,
             keywords: HashMap::new(),
             size,

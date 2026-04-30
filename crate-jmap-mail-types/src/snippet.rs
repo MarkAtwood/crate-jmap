@@ -33,9 +33,9 @@ pub struct SearchSnippet {
 
 impl SearchSnippet {
     /// Construct a [`SearchSnippet`] with no subject or preview match.
-    pub fn new(email_id: impl Into<Id>) -> Self {
+    pub fn new(email_id: Id) -> Self {
         Self {
-            email_id: email_id.into(),
+            email_id,
             subject: None,
             preview: None,
         }

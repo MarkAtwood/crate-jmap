@@ -196,18 +196,18 @@ impl EmailSubmission {
     /// `envelope` and `delivery_status` default to `None`.
     /// `dsn_blob_ids` and `mdn_blob_ids` default to empty.
     pub fn new(
-        id: impl Into<Id>,
-        identity_id: impl Into<Id>,
-        email_id: impl Into<Id>,
-        thread_id: impl Into<Id>,
+        id: Id,
+        identity_id: Id,
+        email_id: Id,
+        thread_id: Id,
         send_at: UTCDate,
         undo_status: UndoStatus,
     ) -> Self {
         Self {
-            id: id.into(),
-            identity_id: identity_id.into(),
-            email_id: email_id.into(),
-            thread_id: thread_id.into(),
+            id,
+            identity_id,
+            email_id,
+            thread_id,
             envelope: None,
             send_at,
             undo_status,

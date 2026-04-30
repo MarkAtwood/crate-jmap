@@ -22,10 +22,7 @@ pub struct Thread {
 
 impl Thread {
     /// Construct a [`Thread`] from its two required fields.
-    pub fn new(id: impl Into<Id>, email_ids: Vec<Id>) -> Self {
-        Self {
-            id: id.into(),
-            email_ids,
-        }
+    pub fn new(id: Id, email_ids: Vec<Id>) -> Self {
+        Self { id, email_ids }
     }
 }

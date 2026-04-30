@@ -50,9 +50,9 @@ impl VacationResponse {
     /// Construct a [`VacationResponse`] from its two required fields.
     ///
     /// All optional fields default to `None`.
-    pub fn new(id: impl Into<Id>, is_enabled: bool) -> Self {
+    pub fn new(id: Id, is_enabled: bool) -> Self {
         Self {
-            id: id.into(),
+            id,
             is_enabled,
             from_date: None,
             to_date: None,
