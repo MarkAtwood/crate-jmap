@@ -1,0 +1,20 @@
+PHASE 1 COMPLETE — 2026-04-29
+
+Research agents: INVENTORY, API-SHAPE, SPEC, INTEGRATION, SECURITY, GAP — all reported.
+
+Key findings applied:
+- JMAP-0ke: ClientError::RateLimited removed (chat-specific)
+- JMAP-n2p: SseEvent::Typing and ::Presence removed; blob.rs NOT verbatim (rename JmapChatClient→JmapClient)
+- JMAP-bfg: WsFrame::ChatTyping and ::ChatPresence removed; RFC 8887 §4.3.2 @type field ADDED (protocol bug fix); Invocation tuple migration (struct→tuple)
+- JMAP-y4j: Session includes only RFC 8620 base fields; ChatCapability moves to jmap-chat-types; WebSocketCapability stays
+- JMAP-aax: extract_response promoted to pub; response body size caps added (fetch_session 1MiB, call 8MiB, download_blob 64MiB); Session URL scheme validation added
+- JMAP-kam: test coverage expanded to verify split (no chat variants), size caps, WS @type field
+- JMAP-7sr (NEW): standalone security bead for response body size caps (P1, blocks after JMAP-aax)
+- JMAP-1ie (NEW): extension trait design bead for jmap-mail-client/jmap-chat-client (P2, blocks after JMAP-75e)
+
+Ready for Phase 2 (implementation):
+  Wave 0 (parallel): JMAP-0ke, JMAP-n2p, JMAP-y4j, JMAP-bfg
+  Wave 1: JMAP-aax (after wave 0)
+  Wave 2: JMAP-75e (after JMAP-aax)
+  Wave 3: JMAP-7sr, JMAP-kam (after JMAP-75e)
+  Wave 4: JMAP-1ie (after JMAP-75e)

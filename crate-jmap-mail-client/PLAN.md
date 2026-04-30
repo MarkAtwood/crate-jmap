@@ -51,42 +51,74 @@ thiserror       = "2"
 
 No direct reqwest/tokio dependency — all I/O goes through `jmap-client`.
 
+## Extension Trait Pattern
+
+Cross-crate inherent impls are not valid Rust (orphan rule: only the crate that defines
+a type may add inherent methods to it). To add methods to `JmapClient` from this crate,
+we use an **extension trait**:
+
+```rust
+pub trait JmapMailExt {
+    async fn email_get(...) -> Result<...>;
+}
+
+impl JmapMailExt for JmapClient {
+    async fn email_get(...) -> Result<...> { ... }
+}
+```
+
+Callers must bring the trait into scope: `use jmap_mail_client::JmapMailExt;`
+
+Rust 1.75 AFIT (async fn in trait, via RPITIT) is used — no `async-trait` crate needed.
+This works because we do not need `dyn JmapMailExt`. If dyn dispatch is ever required,
+wrap with `async-trait 0.1` at that time.
+
 ## Planned Public API
 
 ```rust
-/// Extension methods on JmapClient for RFC 8621.
-impl JmapClient {
+use jmap_client::{ClientError, JmapClient};
+use jmap_mail_types::{Email, Mailbox, Thread, Identity, EmailSubmission, SearchSnippet};
+use jmap_types::{Id, State};
+
+/// Extension trait adding RFC 8621 (JMAP for Mail) methods to [`JmapClient`].
+///
+/// Import this trait to use: `use jmap_mail_client::JmapMailExt;`
+pub trait JmapMailExt {
     // Email
-    pub async fn email_get(&self, account_id: &Id, ids: &[Id], props: &[&str])
+    async fn email_get(&self, account_id: &Id, ids: &[Id], props: &[&str])
         -> Result<GetResponse<Email>, ClientError>;
-    pub async fn email_set(&self, account_id: &Id, req: SetRequest<Email>)
+    async fn email_set(&self, account_id: &Id, req: SetRequest<Email>)
         -> Result<SetResponse<Email>, ClientError>;
-    pub async fn email_query(&self, account_id: &Id, req: EmailQueryRequest)
+    async fn email_query(&self, account_id: &Id, req: EmailQueryRequest)
         -> Result<QueryResponse, ClientError>;
-    pub async fn email_changes(&self, account_id: &Id, since_state: &State, max: Option<u64>)
+    async fn email_changes(&self, account_id: &Id, since_state: &State, max: Option<u64>)
         -> Result<ChangesResponse, ClientError>;
 
     // Mailbox
-    pub async fn mailbox_get(&self, account_id: &Id, ids: Option<&[Id]>)
+    async fn mailbox_get(&self, account_id: &Id, ids: Option<&[Id]>)
         -> Result<GetResponse<Mailbox>, ClientError>;
-    pub async fn mailbox_set(&self, account_id: &Id, req: SetRequest<Mailbox>)
+    async fn mailbox_set(&self, account_id: &Id, req: SetRequest<Mailbox>)
         -> Result<SetResponse<Mailbox>, ClientError>;
 
     // Thread
-    pub async fn thread_get(&self, account_id: &Id, ids: &[Id])
+    async fn thread_get(&self, account_id: &Id, ids: &[Id])
         -> Result<GetResponse<Thread>, ClientError>;
 
     // Identity
-    pub async fn identity_get(&self, account_id: &Id, ids: Option<&[Id]>)
+    async fn identity_get(&self, account_id: &Id, ids: Option<&[Id]>)
         -> Result<GetResponse<Identity>, ClientError>;
 
     // EmailSubmission
-    pub async fn email_submission_set(&self, account_id: &Id, req: SetRequest<EmailSubmission>)
+    async fn email_submission_set(&self, account_id: &Id, req: SetRequest<EmailSubmission>)
         -> Result<SetResponse<EmailSubmission>, ClientError>;
 
     // SearchSnippet
-    pub async fn search_snippet_get(&self, account_id: &Id, filter: serde_json::Value, email_ids: &[Id])
+    async fn search_snippet_get(&self, account_id: &Id, filter: serde_json::Value, email_ids: &[Id])
         -> Result<Vec<SearchSnippet>, ClientError>;
+}
+
+impl JmapMailExt for JmapClient {
+    // implementations in email.rs, mailbox.rs, thread.rs, identity.rs, submission.rs, snippet.rs
 }
 ```
 
@@ -94,7 +126,7 @@ impl JmapClient {
 
 ```
 src/
-  lib.rs        re-exports; impl JmapClient extension methods
+  lib.rs        pub trait JmapMailExt; impl JmapMailExt for JmapClient; re-exports
   email.rs      Email/get, Email/set, Email/query, Email/changes request/response types
   mailbox.rs    Mailbox/get, Mailbox/set, Mailbox/query request/response types
   thread.rs     Thread/get, Thread/changes request/response types

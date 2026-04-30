@@ -69,6 +69,41 @@ Note: `jmapchat-client` also depends on `chrono`, `base64`, `sha2`, and `ulid`. 
 whether those are still needed once type imports are updated (some may have been needed
 for types now supplied by `jmap-chat-types`).
 
+## Extension Trait Pattern
+
+Cross-crate inherent impls are not valid Rust (orphan rule: only the crate that defines
+a type may add inherent methods to it). When `jmap-client` is adopted as the base
+transport (see Key Design Decision 3 below), Chat methods will be added to `JmapClient`
+via an extension trait — not via `impl JmapClient`:
+
+```rust
+use jmap_client::{ClientError, JmapClient};
+
+/// Extension trait adding JMAP Chat methods to [`JmapClient`].
+///
+/// Import this trait to use: `use jmap_chat_client::JmapChatExt;`
+pub trait JmapChatExt {
+    async fn chat_get(&self, account_id: &Id, ids: &[Id])
+        -> Result<GetResponse<Chat>, ClientError>;
+    async fn chat_set(&self, account_id: &Id, req: SetRequest<Chat>)
+        -> Result<SetResponse<Chat>, ClientError>;
+    // ... all Chat, Message, Space, ReadPosition, ChatContact methods
+}
+
+impl JmapChatExt for JmapClient {
+    // implementations in methods/
+}
+```
+
+Callers must bring the trait into scope: `use jmap_chat_client::JmapChatExt;`
+
+Rust 1.75 AFIT (async fn in trait, via RPITIT) is used — no `async-trait` crate needed
+for the common non-dyn case. If `dyn JmapChatExt` is ever required, add `async-trait 0.1`
+at that time.
+
+During the skeleton stage (before `jmap-client` is ready), `JmapChatClient` is a
+standalone struct in `src/client.rs`. The trait-based API is the target end state.
+
 ## Key Design Decisions vs. jmapchat-client
 
 1. **Use `jmap-types` wire types directly** — `JmapRequest`, `JmapResponse`,

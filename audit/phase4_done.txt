@@ -1,0 +1,26 @@
+PHASE 4 COMPLETE — 2026-04-29
+
+Epic JMAP-3g1 closed.
+
+Crate delivered: crate-jmap-client/
+  src/auth.rs       AuthProvider, BearerAuth, BasicAuth, NoneAuth, TransportConfig
+  src/blob.rs       upload_blob, download_blob, BlobUploadResponse
+  src/client.rs     JmapClient, ClientConfig, extract_response
+  src/error.rs      ClientError (no RateLimited — chat-specific)
+  src/push.rs       StateChange (canonical type, shared by SSE and WS)
+  src/request.rs    Session, AccountInfo, WebSocketCapability, JmapRequestBuilder
+  src/sse.rs        SseEvent, SseFrame, parse_sse_block
+  src/ws/mod.rs     WsFrame, WsSession, connect_ws
+  src/lib.rs        re-exports
+
+  tests/client_tests.rs  19 integration tests (wiremock)
+
+Key design decisions applied:
+- ClientConfig #[non_exhaustive], validated in new()
+- RFC 8887 @type: "Request" field injected in send_request
+- Response body size caps on all 4 HTTP methods
+- SSE UTF-8 chunking with raw_buf accumulation and 1-byte minimum drain
+- SSE + WS cap via named constants (SSE_BUF_SIZE_LIMIT, MAX_WS_MESSAGE_BYTES)
+- SseEvent::StateChange and WsFrame::StateChange both use push::StateChange
+- No Chat-specific types (removed: RateLimited, Typing, Presence, ChatTyping, ChatPresence)
+- Session struct: RFC 8620 §2 base fields only

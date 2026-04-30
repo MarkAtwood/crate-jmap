@@ -1,0 +1,14 @@
+PHASE 3 COMPLETE — 2026-04-29
+
+Epic JMAP-3g1 (jmap-client crate) — 4 review rounds.
+
+Round 1 (JMAP-dt7): upload_blob missing response size cap (P0 fixed)
+Round 2 (JMAP-8kf): upload_blob/download_blob missing timeout (P0 fixed); SSE string copy (P2 fixed)
+Round 3 (JMAP-sev): raw_buf unbounded growth on invalid UTF-8 (P0 fixed); SseEvent::StateChange duplicate type (P1 fixed); Duration::ZERO not rejected (P1 fixed)
+Round 4 (JMAP-r7g):
+  - SEC1: raw_buf drain no-op when valid_up_to==0 (P1 fixed: drain at least 1 byte)
+  - SEC3: upload_blob response size cap untested (P1 fixed: test added); Session URL fields uploadUrl/downloadUrl/eventSourceUrl not tested (P1 fixed: test added)
+  - SEC6: unnecessary intermediate String alloc in SSE frame extraction (P2 fixed); WS degradation arms re-allocating type_name (P2 fixed); SSE cap as magic numbers instead of named constant (P2 fixed: SSE_BUF_SIZE_LIMIT added)
+  - SEC0, SEC2, SEC4, SEC7: pass
+
+Final state: P0=0, P1=0, P2=0. 19 integration tests + 42 unit tests pass.

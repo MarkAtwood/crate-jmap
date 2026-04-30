@@ -150,7 +150,7 @@ mod tests {
         assert_eq!(space.roles, vec![]);
         assert_eq!(space.members, vec![]);
         assert_eq!(space.categories, vec![]);
-        assert_eq!(space.uncategorized_channel_ids, vec![]);
+        assert_eq!(space.uncategorized_channel_ids, Vec::<Id>::new());
         assert_eq!(space.member_count, 0);
         assert!(!space.is_public);
     }

@@ -50,8 +50,9 @@ pub struct Date(String);
 #[non_exhaustive]
 pub struct State(String);
 
-/// Generates `Display`, `From<String>`, `From<&str>`, `AsRef<str>`, and
-/// `into_inner` for a transparent `String` newtype.
+/// Generates `Display`, `From<String>`, `From<&str>`, `AsRef<str>`,
+/// `PartialEq<str>`, `PartialEq<&str>`, and `into_inner` for a transparent
+/// `String` newtype.
 macro_rules! impl_string_newtype {
     ($T:ident) => {
         impl fmt::Display for $T {
@@ -72,6 +73,16 @@ macro_rules! impl_string_newtype {
         impl AsRef<str> for $T {
             fn as_ref(&self) -> &str {
                 &self.0
+            }
+        }
+        impl PartialEq<str> for $T {
+            fn eq(&self, other: &str) -> bool {
+                self.0 == other
+            }
+        }
+        impl PartialEq<&str> for $T {
+            fn eq(&self, other: &&str) -> bool {
+                self.0 == *other
             }
         }
         impl $T {
