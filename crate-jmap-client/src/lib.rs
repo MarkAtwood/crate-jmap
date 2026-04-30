@@ -2,6 +2,8 @@
 // See PLAN.md for the full implementation plan.
 // Extension-specific clients (jmap-chat-client, jmap-mail-client) depend on this crate.
 
+#![forbid(unsafe_code)]
+
 pub mod auth;
 pub mod blob;
 pub mod client;

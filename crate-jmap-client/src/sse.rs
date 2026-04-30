@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use crate::push;
 
 /// A parsed SSE frame: the event and the `id:` line value (if any).
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct SseFrame {
     pub event: SseEvent,
@@ -15,7 +15,7 @@ pub struct SseFrame {
 }
 
 /// A parsed SSE event from a JMAP event source (RFC 8620 §7.3).
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum SseEvent {
     /// A "state" event: maps accountId → (typeName → newState).
@@ -50,7 +50,8 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
         } else if let Some(value) = line.strip_prefix("data:") {
             data_lines.push(value.trim());
         } else if let Some(value) = line.strip_prefix("id:") {
-            id = Some(value.trim().to_owned());
+            let trimmed = value.trim();
+            id = if trimmed.is_empty() { None } else { Some(trimmed.to_owned()) };
         }
         // Comments (lines starting with ':') and unknown fields are silently ignored.
     }

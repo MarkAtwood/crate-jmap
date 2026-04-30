@@ -101,7 +101,7 @@ impl crate::client::JmapClient {
             .timeout(self.config.request_timeout)
             .body(data);
         if let Some((name, value)) = self.auth.auth_header() {
-            req = req.header(name.as_str(), value.as_str());
+            req = req.header(name, value.as_str());
         }
 
         let resp = req.send().await.map_err(crate::error::ClientError::Http)?;
@@ -180,7 +180,7 @@ impl crate::client::JmapClient {
 
         let mut req = self.http.get(&url).timeout(self.config.request_timeout);
         if let Some((hdr_name, hdr_value)) = self.auth.auth_header() {
-            req = req.header(hdr_name.as_str(), hdr_value.as_str());
+            req = req.header(hdr_name, hdr_value.as_str());
         }
 
         let resp = req.send().await.map_err(crate::error::ClientError::Http)?;

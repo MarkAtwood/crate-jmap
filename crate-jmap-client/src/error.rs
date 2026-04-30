@@ -1,3 +1,4 @@
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
     /// Network or TLS error from the HTTP layer. May be retriable (transient

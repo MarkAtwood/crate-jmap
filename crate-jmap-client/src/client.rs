@@ -77,6 +77,15 @@ pub struct JmapClient {
     pub(crate) config: ClientConfig,
 }
 
+impl std::fmt::Debug for JmapClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("JmapClient")
+            .field("base_url", &self.base_url)
+            .field("config", &self.config)
+            .finish_non_exhaustive()
+    }
+}
+
 impl JmapClient {
     /// Create a new client.
     ///
@@ -200,16 +209,18 @@ impl JmapClient {
     /// Returns `ClientError::AuthFailed` on HTTP 401 or 403.
     pub async fn fetch_session(&self) -> Result<Session, ClientError> {
         let limit = self.config.max_session_body;
-        // url::Url::Display for an origin URL always ends with a trailing slash
-        // (e.g. "https://host/"), so the format string has no explicit separator.
-        let url = format!("{}.well-known/jmap", self.base_url);
+        let url = self
+            .base_url
+            .join(".well-known/jmap")
+            .map_err(|e| ClientError::InvalidArgument(format!("cannot construct session URL: {e}")))?
+            .to_string();
 
         let mut req = self
             .http
             .get(&url)
             .timeout(self.config.request_timeout);
         if let Some((name, value)) = self.auth.auth_header() {
-            req = req.header(name.as_str(), value.as_str());
+            req = req.header(name, value.as_str());
         }
 
         let resp = {
@@ -267,7 +278,7 @@ impl JmapClient {
             .json(req)
             .timeout(self.config.request_timeout);
         if let Some((name, value)) = self.auth.auth_header() {
-            builder = builder.header(name.as_str(), value.as_str());
+            builder = builder.header(name, value.as_str());
         }
 
         let resp = {
@@ -325,7 +336,7 @@ impl JmapClient {
             req = req.header("Last-Event-ID", id);
         }
         if let Some((name, value)) = self.auth.auth_header() {
-            req = req.header(name.as_str(), value.as_str());
+            req = req.header(name, value.as_str());
         }
 
         let resp = req.send().await.map_err(ClientError::Http)?;
@@ -389,15 +400,7 @@ impl JmapClient {
                     match stream.next().await {
                         None => return None,
                         Some(Err(e)) => {
-                            return Some((
-                                Err(ClientError::Http(e)),
-                                Some(SseStreamState {
-                                    stream,
-                                    raw_buf,
-                                    buf,
-                                    scan_from,
-                                }),
-                            ));
+                            return Some((Err(ClientError::Http(e)), None));
                         }
                         Some(Ok(bytes)) => {
                             // Accumulate raw bytes first. A multi-byte UTF-8 codepoint
@@ -509,8 +512,8 @@ fn validate_session_urls(session: &Session) -> Result<(), ClientError> {
         &session.download_url,
         &session.event_source_url,
     ] {
-        let scheme = url.split("://").next().unwrap_or(""); // safe: split always yields at least one element
-        if scheme != "http" && scheme != "https" {
+        let has_http_scheme = url.starts_with("http://") || url.starts_with("https://");
+        if !has_http_scheme {
             return Err(ClientError::InvalidArgument(format!(
                 "session URL has non-http/https scheme: {:?}",
                 url

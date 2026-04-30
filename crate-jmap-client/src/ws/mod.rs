@@ -26,7 +26,7 @@ const MAX_WS_MESSAGE_BYTES: usize = 1 << 20; // 1 MiB
 /// Marked `#[non_exhaustive]` because the spec may define additional
 /// `@type` values in future revisions.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum WsFrame {
     /// RFC 8620 §7.1 StateChange — one or more object types have changed
     /// state; client must re-fetch the affected data types.
@@ -93,12 +93,12 @@ impl WsSession {
         let mut val = serde_json::to_value(req)?;
         let obj = val
             .as_object_mut()
-            // serde_json serializes a struct as a JSON object; this cannot
-            // fail for JmapRequest.
-            .expect("JmapRequest serializes to a JSON object");
-        obj.insert("@type".to_string(), serde_json::Value::String("Request".to_string()));
+            .ok_or_else(|| crate::error::ClientError::InvalidArgument(
+                "JmapRequest did not serialize to a JSON object".to_string(),
+            ))?;
+        obj.insert("@type".to_owned(), serde_json::Value::String("Request".to_owned()));
         if let Some(request_id) = id {
-            obj.insert("id".to_string(), serde_json::Value::String(request_id.to_string()));
+            obj.insert("id".to_owned(), serde_json::Value::String(request_id.to_string()));
         }
         let text = serde_json::to_string(&val)?;
         self.sink
@@ -196,6 +196,12 @@ pub async fn connect_ws(
 
     let (sink, stream) = ws_stream.split();
     Ok(WsSession { sink, stream })
+}
+
+impl std::fmt::Debug for WsSession {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WsSession").finish_non_exhaustive()
+    }
 }
 
 #[cfg(test)]
