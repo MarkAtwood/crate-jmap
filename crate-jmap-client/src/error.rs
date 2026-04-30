@@ -27,10 +27,7 @@ pub enum ClientError {
     /// shape. Indicates the server sent a malformed response. Not retriable
     /// without a server fix.
     ///
-    /// **Note on `#[from]`**: only [`Serialize`](ClientError::Serialize) carries
-    /// `#[from] serde_json::Error`.  Rust permits only one `From<serde_json::Error>`
-    /// impl per type, so `?` on JSON parse operations must use
-    /// `.map_err(ClientError::Parse)` explicitly.
+    /// Construct explicitly: `.map_err(ClientError::Parse)`.
     #[error("parse error: {0}")]
     Parse(serde_json::Error),
 
@@ -68,8 +65,10 @@ pub enum ClientError {
 
     /// A request could not be serialized to JSON. Indicates a caller bug —
     /// the data structure contains non-serializable values. Not retriable.
+    ///
+    /// Construct explicitly: `.map_err(ClientError::Serialize)`.
     #[error("serialization error: {0}")]
-    Serialize(#[from] serde_json::Error),
+    Serialize(serde_json::Error),
 
     /// An SSE frame exceeded the 1 MiB buffer limit. The stream is terminated
     /// after this error. Indicates a misbehaving or hostile server.

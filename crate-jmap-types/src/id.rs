@@ -87,6 +87,11 @@ macro_rules! impl_string_newtype {
                 self.0 == *other
             }
         }
+        impl std::borrow::Borrow<str> for $T {
+            fn borrow(&self) -> &str {
+                &self.0
+            }
+        }
         impl $T {
             /// Consumes the value and returns the inner `String`.
             pub fn into_inner(self) -> String {

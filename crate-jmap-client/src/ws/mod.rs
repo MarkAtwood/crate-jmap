@@ -95,7 +95,7 @@ impl WsSession {
         // RFC 8887 §4.3.2: every JMAP request frame over WebSocket MUST
         // carry "@type": "Request".  The base JmapRequest struct does not
         // include this field (it is WebSocket-only), so we add it here.
-        let mut val = serde_json::to_value(req)?;
+        let mut val = serde_json::to_value(req).map_err(crate::error::ClientError::Serialize)?;
         let obj = val.as_object_mut().ok_or_else(|| {
             crate::error::ClientError::InvalidArgument(
                 "JmapRequest did not serialize to a JSON object".to_owned(),
@@ -111,7 +111,7 @@ impl WsSession {
                 serde_json::Value::String(request_id.to_owned()),
             );
         }
-        let text = serde_json::to_string(&val)?;
+        let text = serde_json::to_string(&val).map_err(crate::error::ClientError::Serialize)?;
         self.sink
             .send(Message::Text(text.into()))
             .await
@@ -249,7 +249,7 @@ mod tests {
                     .changed
                     .get("account1")
                     .expect("account1 must be present");
-                assert_eq!(account.get("Mail").map(String::as_str), Some("s2"));
+                assert_eq!(account.get("Mail").map(|s| s.as_ref()), Some("s2"));
             }
             other => panic!("expected StateChange, got {other:?}"),
         }

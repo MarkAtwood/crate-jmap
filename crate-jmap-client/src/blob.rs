@@ -83,20 +83,28 @@ fn percent_encode(value: &str) -> String {
             out.push(char::from(byte));
         } else {
             out.push('%');
-            out.push(hex_digit(byte >> 4, true));
-            out.push(hex_digit(byte & 0x0f, true));
+            out.push(hex_nibble_upper(byte >> 4));
+            out.push(hex_nibble_upper(byte & 0x0f));
         }
     }
     out
 }
 
-/// Returns the hex character for `nibble` (0–15).
-/// Uppercase for percent-encoding (RFC 3986 §2.1); lowercase for SHA-256 hex
-/// output (JMAP-CID §1 requires lowercase).
-fn hex_digit(nibble: u8, uppercase: bool) -> char {
+/// Returns the uppercase hex character for `nibble` (0–15).
+/// Used for percent-encoding (RFC 3986 §2.1 requires uppercase).
+fn hex_nibble_upper(nibble: u8) -> char {
     match nibble {
         0..=9 => char::from(b'0' + nibble),
-        10..=15 if uppercase => char::from(b'A' + nibble - 10),
+        10..=15 => char::from(b'A' + nibble - 10),
+        _ => unreachable!("nibble must be 0–15"),
+    }
+}
+
+/// Returns the lowercase hex character for `nibble` (0–15).
+/// Used for SHA-256 hex output (JMAP-CID §1 requires lowercase).
+fn hex_nibble_lower(nibble: u8) -> char {
+    match nibble {
+        0..=9 => char::from(b'0' + nibble),
         10..=15 => char::from(b'a' + nibble - 10),
         _ => unreachable!("nibble must be 0–15"),
     }
@@ -288,8 +296,8 @@ fn is_valid_sha256_hex(s: &str) -> bool {
 fn compute_sha256_hex(data: &[u8]) -> String {
     let hash = Sha256::digest(data);
     hash.iter().fold(String::with_capacity(64), |mut s, b| {
-        s.push(hex_digit(*b >> 4, false));
-        s.push(hex_digit(*b & 0x0f, false));
+        s.push(hex_nibble_lower(*b >> 4));
+        s.push(hex_nibble_lower(*b & 0x0f));
         s
     })
 }

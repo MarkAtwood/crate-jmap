@@ -443,26 +443,7 @@ impl JmapClient {
                                 return Some((Err(ClientError::SseFrameTooLarge), None));
                             }
                             let old_len = buf.len();
-                            match std::str::from_utf8(&raw_buf) {
-                                Ok(s) => {
-                                    buf.push_str(s);
-                                    raw_buf.clear();
-                                }
-                                Err(e) => {
-                                    let valid_up_to = e.valid_up_to();
-                                    // valid_up_to is always a char boundary by definition.
-                                    buf.push_str(
-                                        std::str::from_utf8(&raw_buf[..valid_up_to])
-                                            .expect("valid_up_to is a valid UTF-8 boundary"),
-                                    );
-                                    // Drain valid prefix plus at least one byte so that an
-                                    // invalid-sequence head (valid_up_to == 0) is not stuck
-                                    // in raw_buf forever, which would cause it to grow until
-                                    // the 1 MiB cap fires even if valid data follows.
-                                    let drain_end = valid_up_to.max(1);
-                                    raw_buf.drain(..drain_end.min(raw_buf.len()));
-                                }
-                            }
+                            decode_utf8_chunk(&mut raw_buf, &mut buf);
                             scan_from = old_len.saturating_sub(3);
                             // Walk backward to a valid UTF-8 char boundary so that
                             // buf[scan_from..] never panics on multibyte characters.
@@ -525,6 +506,53 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
     serde_json::from_value(args).map_err(ClientError::Parse)
 }
 
+/// Decode as much valid UTF-8 as possible from `raw` into `buf`, draining
+/// consumed (or definitively-invalid) bytes from `raw`.
+///
+/// Three cases:
+/// - `raw` is fully valid UTF-8: pushed entirely to `buf`, `raw` cleared.
+/// - `raw` ends with an **incomplete** multi-byte sequence (`error_len == None`):
+///   the valid prefix is pushed to `buf` and drained from `raw`; the incomplete
+///   head bytes stay in `raw` for the next chunk to complete them.
+/// - `raw` contains a **definitively invalid** byte sequence (`error_len == Some(n)`):
+///   the valid prefix is pushed to `buf`; the valid prefix AND the `n` invalid
+///   bytes are drained from `raw` so they do not accumulate.
+///
+/// The caller is responsible for capping `raw.len()` before calling this
+/// function; unbounded growth from a hostile server that never completes a
+/// sequence is prevented by the 1 MiB `SSE_BUF_SIZE_LIMIT` check in
+/// `subscribe_events`.
+fn decode_utf8_chunk(raw: &mut Vec<u8>, buf: &mut String) {
+    match std::str::from_utf8(raw) {
+        Ok(s) => {
+            buf.push_str(s);
+            raw.clear();
+        }
+        Err(e) => {
+            let valid_up_to = e.valid_up_to();
+            // valid_up_to is always a char boundary by definition.
+            buf.push_str(
+                std::str::from_utf8(&raw[..valid_up_to])
+                    .expect("valid_up_to is a valid UTF-8 boundary"),
+            );
+            match e.error_len() {
+                Some(n) => {
+                    // Definitively invalid: drain the valid prefix AND the
+                    // invalid bytes so they do not accumulate in raw.
+                    let drain_end = (valid_up_to + n).min(raw.len());
+                    raw.drain(..drain_end);
+                }
+                None => {
+                    // Incomplete multi-byte sequence: drain only the valid
+                    // prefix.  The incomplete head stays in raw until the next
+                    // chunk arrives with the missing continuation bytes.
+                    raw.drain(..valid_up_to);
+                }
+            }
+        }
+    }
+}
+
 /// Validate that all URL fields in `session` use an http or https scheme.
 ///
 /// Returns `ClientError::InvalidSession` if any URL has a non-http/https scheme.
@@ -560,4 +588,93 @@ fn validate_session_urls(session: &Session) -> Result<(), ClientError> {
         }
     }
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::decode_utf8_chunk;
+
+    /// Oracle: all-ASCII bytes pushed to buf; raw cleared.
+    #[test]
+    fn decode_utf8_chunk_all_ascii() {
+        let mut raw = b"hello".to_vec();
+        let mut buf = String::new();
+        decode_utf8_chunk(&mut raw, &mut buf);
+        assert_eq!(buf, "hello");
+        assert!(raw.is_empty());
+    }
+
+    /// Oracle: complete multi-byte codepoint (U+00E9 café = 0xC3 0xA9) pushed fully.
+    #[test]
+    fn decode_utf8_chunk_complete_multibyte() {
+        let mut raw = "café".as_bytes().to_vec();
+        let mut buf = String::new();
+        decode_utf8_chunk(&mut raw, &mut buf);
+        assert_eq!(buf, "café");
+        assert!(raw.is_empty());
+    }
+
+    /// Oracle: first byte of a 2-byte sequence (U+00E9 = 0xC3 0xA9) arrives alone.
+    /// error_len == None (incomplete) — the byte must be RETAINED in raw, not dropped.
+    /// Regression test for the bug where valid_up_to.max(1) discarded this byte.
+    #[test]
+    fn decode_utf8_chunk_incomplete_head_retained() {
+        let mut raw = vec![0xC3u8]; // first byte of 2-byte sequence
+        let mut buf = String::new();
+        decode_utf8_chunk(&mut raw, &mut buf);
+        assert_eq!(buf, "", "no complete codepoints to push");
+        assert_eq!(raw, vec![0xC3u8], "incomplete head must stay in raw");
+    }
+
+    /// Oracle: valid ASCII prefix then first byte of a 2-byte sequence.
+    /// Valid prefix goes to buf; incomplete head stays in raw.
+    #[test]
+    fn decode_utf8_chunk_prefix_then_incomplete_head() {
+        let mut raw = vec![b'a', b'b', 0xC3u8];
+        let mut buf = String::new();
+        decode_utf8_chunk(&mut raw, &mut buf);
+        assert_eq!(buf, "ab");
+        assert_eq!(raw, vec![0xC3u8], "incomplete head must stay in raw");
+    }
+
+    /// Oracle: two-call simulation — incomplete sequence completed on second call.
+    /// This is the exact HTTP chunk-split scenario the fix targets.
+    #[test]
+    fn decode_utf8_chunk_split_sequence_completed() {
+        // Chunk 1: only the first byte of U+00E9 (é = 0xC3 0xA9)
+        let mut raw = vec![0xC3u8];
+        let mut buf = String::new();
+        decode_utf8_chunk(&mut raw, &mut buf);
+        assert_eq!(raw, vec![0xC3u8], "incomplete head retained after chunk 1");
+
+        // Chunk 2: completion byte
+        raw.push(0xA9u8);
+        decode_utf8_chunk(&mut raw, &mut buf);
+        assert_eq!(buf, "é", "character fully decoded after chunk 2");
+        assert!(raw.is_empty());
+    }
+
+    /// Oracle: definitively invalid byte (0xFF is never valid in UTF-8) is drained.
+    #[test]
+    fn decode_utf8_chunk_invalid_byte_drained() {
+        let mut raw = vec![0xFFu8];
+        let mut buf = String::new();
+        decode_utf8_chunk(&mut raw, &mut buf);
+        assert_eq!(buf, "");
+        assert!(raw.is_empty(), "definitively invalid byte must be drained");
+    }
+
+    /// Oracle: valid prefix then definitively invalid byte — prefix pushed and both drained.
+    #[test]
+    fn decode_utf8_chunk_prefix_then_invalid_drained() {
+        let mut raw = vec![b'a', b'b', 0xFFu8];
+        let mut buf = String::new();
+        decode_utf8_chunk(&mut raw, &mut buf);
+        assert_eq!(buf, "ab");
+        assert!(raw.is_empty(), "prefix and invalid byte must be drained");
+    }
 }

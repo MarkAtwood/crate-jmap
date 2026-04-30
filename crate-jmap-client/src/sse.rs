@@ -4,6 +4,8 @@
 
 use std::collections::HashMap;
 
+use jmap_types::{Id, State};
+
 use crate::push;
 
 /// A parsed SSE frame: the event and the `id:` line value (if any).
@@ -101,8 +103,7 @@ fn parse_state_data(data: &str) -> SseEvent {
     let Some(changed_val) = obj.remove("changed") else {
         return SseEvent::Unknown;
     };
-    let Ok(changed) =
-        serde_json::from_value::<HashMap<String, HashMap<String, String>>>(changed_val)
+    let Ok(changed) = serde_json::from_value::<HashMap<Id, HashMap<String, State>>>(changed_val)
     else {
         return SseEvent::Unknown;
     };
@@ -124,7 +125,7 @@ mod tests {
                     sc.changed
                         .get("acc1")
                         .and_then(|m| m.get("Message"))
-                        .map(String::as_str),
+                        .map(|s| s.as_ref()),
                     Some("s42"),
                     "changed[acc1][Message] must equal s42"
                 );
@@ -145,7 +146,7 @@ mod tests {
                     sc.changed
                         .get("acc1")
                         .and_then(|m| m.get("Message"))
-                        .map(String::as_str),
+                        .map(|s| s.as_ref()),
                     Some("s42"),
                     "changed[acc1][Message] must equal s42"
                 );
