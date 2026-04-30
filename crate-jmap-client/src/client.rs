@@ -364,7 +364,9 @@ impl JmapClient {
                     // scan_from is set to old_len.saturating_sub(3) after each append
                     // so we only re-scan the overlap region.  3 bytes back covers the
                     // longest incomplete delimiter prefix that can straddle a chunk
-                    // boundary: `\r\n\r` (prefix of `\r\n\r\n`).
+                    // boundary: `\r\n\r` (prefix of `\r\n\r\n`).  Since \r and \n are
+                    // single-byte codepoints, "3 bytes back" == "3 chars back" — no
+                    // UTF-8 boundary adjustment is needed for these specific delimiters.
                     let frame_end = [
                         buf[scan_from..]
                             .find("\r\n\r\n")
@@ -480,7 +482,7 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
         .method_responses
         .into_iter()
         .find(|inv| inv.2 == call_id)
-        .ok_or_else(|| ClientError::MethodNotFound(call_id.to_string()))?;
+        .ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
     let (method_name, args, _) = inv;
 
     // RFC 8620 §3.6.1: a method name of "error" signals a protocol-level error.

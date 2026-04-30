@@ -99,11 +99,11 @@ impl WsSession {
         let obj = val
             .as_object_mut()
             .ok_or_else(|| crate::error::ClientError::InvalidArgument(
-                "JmapRequest did not serialize to a JSON object".to_string(),
+                "JmapRequest did not serialize to a JSON object".to_owned(),
             ))?;
         obj.insert("@type".to_owned(), serde_json::Value::String("Request".to_owned()));
         if let Some(request_id) = id {
-            obj.insert("id".to_owned(), serde_json::Value::String(request_id.to_string()));
+            obj.insert("id".to_owned(), serde_json::Value::String(request_id.to_owned()));
         }
         let text = serde_json::to_string(&val)?;
         self.sink
@@ -118,13 +118,14 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
     let val: serde_json::Value =
         serde_json::from_str(text).map_err(|e| crate::error::ClientError::Parse(e.to_string()))?;
 
-    // Use a sentinel string for the absent case so Unknown carries a meaningful
-    // type_name regardless of whether @type was missing or just unrecognized.
+    // Pre-extract type_name as owned String before moving val into from_value.
+    // The borrow checker prevents borrowing val (for @type) and moving val
+    // (into from_value) in the same expression, so ownership must be taken first.
     let type_name = val
         .get("@type")
         .and_then(|v| v.as_str())
         .unwrap_or("<no @type>")
-        .to_string();
+        .to_owned();
 
     match type_name.as_str() {
         // A malformed StateChange is degraded to Unknown rather than a
@@ -164,8 +165,10 @@ pub async fn connect_ws(
     auth_header: Option<(&str, &str)>,
 ) -> Result<WsSession, crate::error::ClientError> {
     // Validate scheme to prevent SSRF via a compromised or MITM'd session.
-    let lc = ws_url.to_ascii_lowercase();
-    if !lc.starts_with("ws://") && !lc.starts_with("wss://") {
+    // Accept only lowercase ws:// and wss:// so the guard and tungstenite see
+    // the same string — no risk of tungstenite rejecting an uppercase scheme
+    // after the guard passes.
+    if !ws_url.starts_with("ws://") && !ws_url.starts_with("wss://") {
         return Err(crate::error::ClientError::InvalidArgument(format!(
             "WebSocket URL must start with ws:// or wss://, got: {ws_url:?}"
         )));

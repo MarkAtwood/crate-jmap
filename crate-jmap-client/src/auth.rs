@@ -98,12 +98,13 @@ pub trait AuthProvider: Send + Sync {
     /// - Header value: visible ASCII characters (0x21–0x7E) and horizontal tab
     ///   (0x09) only; no other control characters.
     ///
-    /// Implementations that violate this contract will cause a panic in
-    /// `connect_ws` (`ws/mod.rs`), which parses the returned value into a
-    /// typed [`http::HeaderValue`]. The HTTP code paths use the value as `&str`
-    /// directly and do not perform that conversion, so the panic is deferred
-    /// until the WebSocket path is exercised — it will not appear in tests that
-    /// only exercise HTTP methods.
+    /// Implementations that violate this contract cause a panic in
+    /// `connect_ws` (`ws/mod.rs`), which parses the returned value into a typed
+    /// [`http::HeaderValue`]. On HTTP code paths the header value is passed as
+    /// `&str` directly to reqwest, which silently drops headers it cannot encode
+    /// rather than returning an error — the violation is invisible until the
+    /// WebSocket path is exercised. Test all custom `AuthProvider` impls against
+    /// both HTTP and WebSocket call paths.
     fn auth_header(&self) -> Option<(&'static str, String)>;
 }
 
@@ -132,13 +133,14 @@ impl BearerAuth {
     ///
     /// # Errors
     ///
-    /// - [`ClientError::InvalidArgument`] if `token` is empty or whitespace-only.
+    /// - [`ClientError::InvalidArgument`] if `token` is empty or contains
+    ///   whitespace (RFC 6750 §2.1 bearer tokens must not contain whitespace).
     /// - [`ClientError::InvalidHeaderValue`] if `token` contains characters that
     ///   are not valid in an HTTP header value (non-visible-ASCII octets).
     pub fn new(token: &str) -> Result<Self, ClientError> {
-        if token.trim().is_empty() {
+        if token.is_empty() || token.chars().any(|c| c.is_ascii_whitespace()) {
             return Err(ClientError::InvalidArgument(
-                "BearerAuth token may not be empty or whitespace-only".into(),
+                "BearerAuth token may not be empty or contain whitespace (RFC 6750 §2.1)".into(),
             ));
         }
         let header_string = format!("Bearer {token}");

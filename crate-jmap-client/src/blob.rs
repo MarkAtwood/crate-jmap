@@ -82,7 +82,7 @@ fn percent_encode(value: &str) -> String {
             || byte == b'_'
             || byte == b'~'
         {
-            out.push(byte as char);
+            out.push(char::from(byte));
         } else {
             out.push('%');
             out.push(hex_digit(byte >> 4, true));
@@ -168,9 +168,13 @@ impl crate::client::JmapClient {
 
         if let Some(ref server_sha256) = upload_resp.sha256 {
             validate_sha256_format(server_sha256)?;
-            if local_sha256 != *server_sha256 {
+            // Normalize to lowercase before comparison: JMAP-CID specifies lowercase
+            // but non-conformant servers may return uppercase hex. Both represent the
+            // same digest; rejecting on case alone would cause spurious integrity errors.
+            let server_lower = server_sha256.to_ascii_lowercase();
+            if local_sha256 != server_lower {
                 return Err(crate::error::ClientError::BlobIntegrityMismatch {
-                    expected: server_sha256.clone(),
+                    expected: server_lower,
                     actual: local_sha256,
                 });
             }
@@ -184,9 +188,11 @@ impl crate::client::JmapClient {
     /// `download_url_template` is from `Session.download_url`; `{accountId}`,
     /// `{blobId}`, `{name}`, and `{type}` are substituted before the GET request.
     /// Pass `accept_type` (e.g. `"image/png"`) for content-type negotiation; pass
-    /// `None` when no preference is needed — `{type}` expands to an empty string
-    /// per RFC 6570 Level-1, so templates that include `?accept={type}` produce
-    /// `?accept=` when `accept_type` is `None`.
+    /// `None` when no preference is needed — `{type}` expands to an empty string,
+    /// so templates that include `?accept={type}` produce `?accept=` when
+    /// `accept_type` is `None`. If the server does not tolerate an empty
+    /// `?accept=` query parameter, the server should omit `{type}` from the
+    /// `download_url` template in the Session document.
     /// If `expected_sha256` is `Some`, the downloaded bytes are verified
     /// against the hex digest and `ClientError::BlobIntegrityMismatch` is
     /// returned on mismatch.
@@ -199,7 +205,7 @@ impl crate::client::JmapClient {
         accept_type: Option<&str>,
         expected_sha256: Option<&str>,
     ) -> Result<bytes::Bytes, crate::error::ClientError> {
-        let vars = vec![
+        let vars = [
             ("accountId", account_id),
             ("blobId", blob_id),
             ("name", name),
@@ -248,9 +254,12 @@ impl crate::client::JmapClient {
         if let Some(expected) = expected_sha256 {
             validate_sha256_format(expected)?;
             let actual = compute_sha256_hex(&bytes);
-            if actual != expected {
+            // Normalize expected to lowercase; callers may hold uppercase hex from
+            // a server or external source. Both represent the same digest.
+            let expected_lower = expected.to_ascii_lowercase();
+            if actual != expected_lower {
                 return Err(crate::error::ClientError::BlobIntegrityMismatch {
-                    expected: expected.to_owned(),
+                    expected: expected_lower,
                     actual,
                 });
             }
@@ -262,11 +271,11 @@ impl crate::client::JmapClient {
 
 /// Validate that `s` is exactly 64 lowercase hex characters (RFC 6570 / JMAP-CID).
 fn validate_sha256_format(s: &str) -> Result<(), crate::error::ClientError> {
-    if s.len() == 64 && s.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f')) {
+    if s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()) {
         Ok(())
     } else {
         Err(crate::error::ClientError::Parse(format!(
-            "sha256 field is not 64-char lowercase hex: {s:?}"
+            "sha256 field is not 64-char hex: {s:?}"
         )))
     }
 }

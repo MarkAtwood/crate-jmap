@@ -41,7 +41,7 @@ impl JmapRequestBuilder {
     /// `"unknownCapability"` error — the builder does not validate it.
     pub fn new(using: &[&str]) -> Self {
         Self {
-            using: using.iter().map(|s| s.to_string()).collect(),
+            using: using.iter().map(|&s| s.to_owned()).collect(),
             method_calls: Vec::new(),
             call_ids: std::collections::HashSet::new(),
         }

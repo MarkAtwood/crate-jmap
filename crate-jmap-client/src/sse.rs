@@ -7,6 +7,19 @@ use std::collections::HashMap;
 use crate::push;
 
 /// A parsed SSE frame: the event and the `id:` line value (if any).
+///
+/// # `id` field semantics
+///
+/// RFC 8895 §9.2 distinguishes three id states:
+/// - A frame with no `id:` field → last event ID is **unchanged**.
+/// - A frame with a bare `id:` field (no value) → last event ID is **reset**.
+/// - A frame with `id: <value>` → last event ID is **updated** to `<value>`.
+///
+/// This implementation conflates the first two cases: both produce `id: None`.
+/// Callers implementing reconnect with `Last-Event-ID` should treat `None` as
+/// "no change" and retain the previously-seen ID. The "reset" semantic is not
+/// representable without a tri-state type; this simplification is intentional
+/// for JMAP, where bare `id:` reset frames are rare in practice.
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct SseFrame {
@@ -58,7 +71,7 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
 
     let event = match event_type {
         Some("state") => match data_lines.as_slice() {
-            [] => parse_state_data(""),
+            [] => SseEvent::Unknown, // no data: lines → nothing to parse
             [single] => parse_state_data(single),
             _ => parse_state_data(&data_lines.join("\n")),
         },
