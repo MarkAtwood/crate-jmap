@@ -1,13 +1,14 @@
 //! Email/get, Email/changes, Email/query, Email/queryChanges, Email/set,
 //! Email/copy, Email/import, Email/parse method handlers (RFC 8621 §4–5).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use jmap_mail_types::{Email, Keyword};
 use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendChangesError, BackendSetError, MailBackend};
+use crate::helpers::extract_account_id;
 
 // ---------------------------------------------------------------------------
 // Email/get (RFC 8621 §5.1)
@@ -171,25 +172,52 @@ pub async fn handle_email_query<B: MailBackend>(
         .unwrap_or(false);
 
     let sort_slice = sort.as_deref();
-    let result = backend
-        .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, limit, position)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    // collapseThreads: if requested, fetch each email to read threadId and deduplicate.
-    let ids = if collapse_threads {
-        collapse_by_thread(backend, &account_id, result.ids).await
+    // When collapseThreads is set, fetch all matching emails (no limit) to compute the
+    // correct total (= unique thread count across the full result set), then paginate
+    // the collapsed list ourselves. Without collapseThreads, delegate limit/position to
+    // the backend and use the backend's authoritative total.
+    let (ids, total, query_state, can_calculate_changes, reported_position) = if collapse_threads {
+        let all = backend
+            .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, None, 0)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        let all_collapsed = collapse_by_thread(backend, &account_id, all.ids).await;
+        let thread_total = all_collapsed.len() as u64;
+        let start = position.max(0) as usize;
+        let page: Vec<Id> = all_collapsed
+            .into_iter()
+            .skip(start)
+            .take(limit.unwrap_or(256) as usize)
+            .collect();
+        (
+            page,
+            Some(thread_total),
+            all.query_state,
+            all.can_calculate_changes,
+            position.max(0),
+        )
     } else {
-        result.ids
+        let result = backend
+            .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, limit, position)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        let pos = result.position;
+        let total = result.total;
+        (
+            result.ids,
+            total,
+            result.query_state,
+            result.can_calculate_changes,
+            pos,
+        )
     };
-
-    let total = ids.len() as u64;
 
     let resp = json!({
         "accountId": account_id.as_ref(),
-        "queryState": result.query_state.as_ref(),
-        "canCalculateChanges": result.can_calculate_changes,
-        "position": result.position,
+        "queryState": query_state.as_ref(),
+        "canCalculateChanges": can_calculate_changes,
+        "position": reported_position,
         "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "total": total,
     });
@@ -525,20 +553,14 @@ pub async fn handle_email_set<B: MailBackend>(
 // Helpers
 // ---------------------------------------------------------------------------
 
-fn extract_account_id(args: &Value) -> Result<Id, JmapError> {
-    match args.get("accountId").and_then(|v| v.as_str()) {
-        Some(s) => Ok(Id::from(s)),
-        None => Err(JmapError::invalid_arguments("accountId is required")),
-    }
-}
-
 /// Return only the keys in `properties` from the JSON object `obj`.
 fn filter_properties(obj: &Value, properties: &[String]) -> Value {
     match obj {
         Value::Object(map) => {
+            let prop_set: HashSet<&str> = properties.iter().map(|s| s.as_str()).collect();
             let filtered: serde_json::Map<String, Value> = map
                 .iter()
-                .filter(|(k, _)| properties.contains(k))
+                .filter(|(k, _)| prop_set.contains(k.as_str()))
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
             Value::Object(filtered)
@@ -555,7 +577,9 @@ fn find_immutable_patch_key(patch: &Value) -> Option<String> {
     let map = patch.as_object()?;
     for key in map.keys() {
         for &field in IMMUTABLE_EMAIL_FIELDS {
-            if key == field || key.starts_with(&format!("{field}/")) {
+            if key == field
+                || (key.starts_with(field) && key.as_bytes().get(field.len()) == Some(&b'/'))
+            {
                 return Some(field.to_string());
             }
         }
@@ -704,13 +728,13 @@ async fn collapse_by_thread<B: MailBackend>(backend: &B, account_id: &Id, ids: V
             Err(_) => HashMap::new(),
         };
 
-    let mut seen_threads: HashMap<Id, bool> = HashMap::new();
+    let mut seen_threads: HashSet<Id> = HashSet::new();
     let mut result = Vec::with_capacity(ids.len());
 
     for id in ids {
         match thread_map.get(&id) {
             Some(tid) => {
-                if seen_threads.insert(tid.clone(), true).is_none() {
+                if seen_threads.insert(tid.clone()) {
                     result.push(id);
                 }
             }
@@ -866,7 +890,6 @@ pub async fn handle_email_parse<B: MailBackend>(
 
     let mut parsed = serde_json::Map::new();
     let mut not_parsable: Vec<Value> = Vec::new();
-    let not_found: Vec<Value> = Vec::new();
 
     for blob_id in &blob_ids {
         match backend.parse_email(&account_id, blob_id).await {
@@ -889,7 +912,7 @@ pub async fn handle_email_parse<B: MailBackend>(
         "accountId": account_id.as_ref(),
         "parsed": if parsed.is_empty() { Value::Null } else { Value::Object(parsed) },
         "notParsable": if not_parsable.is_empty() { Value::Null } else { Value::Array(not_parsable) },
-        "notFound": if not_found.is_empty() { Value::Null } else { Value::Array(not_found) },
+        "notFound": Value::Null,
     });
 
     Ok((resp, vec![]))

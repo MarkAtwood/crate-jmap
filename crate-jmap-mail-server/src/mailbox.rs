@@ -5,6 +5,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendChangesError, BackendSetError, MailBackend, SetError, SetErrorType};
+use crate::helpers::extract_account_id;
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)
@@ -653,13 +654,6 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-fn extract_account_id(args: &Value) -> Result<Id, JmapError> {
-    match args.get("accountId").and_then(|v| v.as_str()) {
-        Some(s) => Ok(Id::from(s)),
-        None => Err(JmapError::invalid_arguments("accountId is required")),
-    }
-}
 
 /// Build a [`Mailbox`] from a JSON create-properties object.
 ///

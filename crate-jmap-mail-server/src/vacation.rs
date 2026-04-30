@@ -8,7 +8,8 @@ use jmap_mail_types::VacationResponse;
 use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, GetObject, MailBackend, SetError, SetErrorType, SetObject};
+use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
+use crate::helpers::extract_account_id;
 
 const SINGLETON_ID: &str = "singleton";
 
@@ -254,22 +255,4 @@ pub async fn handle_vacation_set<B: MailBackend>(
         }),
         vec![],
     ))
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-fn extract_account_id(args: &Value) -> Result<Id, JmapError> {
-    match args.get("accountId").and_then(|v| v.as_str()) {
-        Some(s) => Ok(Id::from(s)),
-        None => Err(JmapError::invalid_arguments("accountId is required")),
-    }
-}
-
-// Silence dead-code warnings for trait bounds used only in generic constraints.
-fn _assert_object_bounds()
-where
-    VacationResponse: GetObject + SetObject,
-{
 }

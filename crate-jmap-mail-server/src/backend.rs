@@ -30,7 +30,7 @@ pub trait SetObject: JmapObject {
     ///
     /// Typically [`serde_json::Value`] for open-ended JSON Merge Patch, or a
     /// typed struct if the backend wants structured patching.
-    type Patch: serde::de::DeserializeOwned + Send + Sync + 'static;
+    type Patch: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
 }
 
 /// Marker for object types that support `query` and `queryChanges` operations.
@@ -97,6 +97,7 @@ impl SetError {
 }
 
 /// The machine-readable type for a [`SetError`] (RFC 8620 §5.3 and RFC 8621).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum SetErrorType {
@@ -147,6 +148,18 @@ pub enum SetErrorType {
     ForbiddenToSend,
     /// RFC 8621 §7.5 — The submission cannot be undone.
     CannotUnsend,
+}
+
+impl std::fmt::Display for SetErrorType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // Reuse the serde camelCase name (e.g. "overQuota", "notFound") as the
+        // display form — zero-maintenance and consistent with the wire format.
+        let s = serde_json::to_value(self)
+            .ok()
+            .and_then(|v| v.as_str().map(|s| s.to_owned()))
+            .unwrap_or_else(|| format!("{self:?}"));
+        f.write_str(&s)
+    }
 }
 
 // ---------------------------------------------------------------------------

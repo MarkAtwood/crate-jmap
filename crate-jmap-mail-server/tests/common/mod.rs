@@ -248,28 +248,8 @@ impl MailBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-        // O::Patch is always serde_json::Value in this codebase (every SetObject impl
-        // uses `type Patch = serde_json::Value`). Downcast via Any; if the downcast
-        // fails, serialize via serde_json::to_string + re-parse as a fallback.
-        use std::any::Any;
-        let patch_val: serde_json::Value = {
-            let boxed: Box<dyn Any> = Box::new(patch);
-            match boxed.downcast::<serde_json::Value>() {
-                Ok(v) => *v,
-                Err(other) => {
-                    // Fallback: the patch is not serde_json::Value; re-serialize via
-                    // the erased representation using serde_json's internal plumbing.
-                    // This branch is unreachable with the current trait impls but keeps
-                    // the backend correct if a typed Patch is ever introduced.
-                    let _ = other;
-                    return Err(BackendSetError::Other(MemoryError(
-                        "MemoryBackend::update_object: patch type is not serde_json::Value; \
-                         re-serialize path not implemented"
-                            .to_owned(),
-                    )));
-                }
-            }
-        };
+        let patch_val: serde_json::Value = serde_json::to_value(patch)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
 
         let mut inner = self.inner.lock().unwrap();
         let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());

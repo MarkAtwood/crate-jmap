@@ -5,6 +5,7 @@ use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
 use crate::backend::MailBackend;
+use crate::helpers::extract_account_id;
 
 /// Handle a `SearchSnippet/get` method call (RFC 8621 §5.9).
 ///
@@ -82,15 +83,4 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
         }),
         vec![],
     ))
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-fn extract_account_id(args: &Value) -> Result<Id, JmapError> {
-    match args.get("accountId").and_then(|v| v.as_str()) {
-        Some(s) => Ok(Id::from(s)),
-        None => Err(JmapError::invalid_arguments("accountId is required")),
-    }
 }

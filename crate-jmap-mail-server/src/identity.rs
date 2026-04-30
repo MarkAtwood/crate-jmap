@@ -4,6 +4,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendChangesError, BackendSetError, MailBackend, SetErrorType};
+use crate::helpers::extract_account_id;
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
 ///
@@ -354,15 +355,4 @@ pub async fn handle_identity_set<B: MailBackend>(
     });
 
     Ok((resp, vec![]))
-}
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-fn extract_account_id(args: &Value) -> Result<Id, JmapError> {
-    match args.get("accountId").and_then(|v| v.as_str()) {
-        Some(s) => Ok(Id::from(s)),
-        None => Err(JmapError::invalid_arguments("accountId is required")),
-    }
 }

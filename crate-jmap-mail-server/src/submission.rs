@@ -17,6 +17,7 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendChangesError, BackendSetError, MailBackend, SetError, SetErrorType};
+use crate::helpers::{extract_account_id, now_utc_string};
 
 // ---------------------------------------------------------------------------
 // EmailSubmission/get
@@ -354,6 +355,11 @@ pub async fn handle_submission_set<B: MailBackend>(
         let mut email_updated = serde_json::Map::new();
         let mut email_not_updated = serde_json::Map::new();
 
+        let email_old_state = backend
+            .get_state::<Email>(&account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
         for (email_id_str, patch) in updates {
             let email_id = Id::from(email_id_str.as_str());
             match backend
@@ -381,7 +387,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             }
         }
 
-        let email_old_state = backend
+        let email_new_state = backend
             .get_state::<Email>(&account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
@@ -389,7 +395,7 @@ pub async fn handle_submission_set<B: MailBackend>(
         let email_set_resp = json!({
             "accountId": account_id.as_ref(),
             "oldState": email_old_state.as_ref(),
-            "newState": email_old_state.as_ref(),
+            "newState": email_new_state.as_ref(),
             "created": {},
             "updated": Value::Object(email_updated),
             "destroyed": [],
@@ -407,13 +413,6 @@ pub async fn handle_submission_set<B: MailBackend>(
 // ---------------------------------------------------------------------------
 // Private helpers
 // ---------------------------------------------------------------------------
-
-fn extract_account_id(args: &Value) -> Result<Id, JmapError> {
-    match args.get("accountId").and_then(|v| v.as_str()) {
-        Some(s) => Ok(Id::from(s)),
-        None => Err(JmapError::invalid_arguments("accountId is required")),
-    }
-}
 
 /// Validate that an email address string contains no CR or LF characters.
 ///
@@ -526,7 +525,7 @@ async fn process_create<B: MailBackend>(
 
     // --- sendAt (current time if null/absent) ---
     let send_at: UTCDate = match create_args.get("sendAt") {
-        None | Some(Value::Null) => UTCDate::from("2026-04-30T00:00:00Z"),
+        None | Some(Value::Null) => UTCDate::from(now_utc_string().as_str()),
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
             SetError::new(SetErrorType::InvalidProperties)
                 .with_properties(vec!["sendAt".to_owned()])

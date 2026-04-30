@@ -24,6 +24,7 @@ use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod backend;
 pub mod email;
+mod helpers;
 pub mod identity;
 pub mod mailbox;
 pub mod snippet;
