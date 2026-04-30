@@ -1,10 +1,10 @@
-// WebSocket transport for JMAP (RFC 8887)
-//
-// Provides `connect_ws` which establishes a WebSocket connection and returns a
-// `WsSession` for sending and receiving frames.
-//
-// URL source: `Session::capabilities["urn:ietf:params:jmap:websocket"].url`
-// (The session document advertises the WebSocket endpoint.)
+//! WebSocket transport for JMAP (RFC 8887).
+//!
+//! Provides [`connect_ws`] which establishes a WebSocket connection and
+//! returns a [`WsSession`] for sending and receiving frames.
+//!
+//! URL source: `Session::capabilities["urn:ietf:params:jmap:websocket"].url`
+//! (the session document advertises the WebSocket endpoint).
 
 use std::str::FromStr as _;
 

@@ -10,7 +10,7 @@ use std::collections::HashMap;
 
 use serde::Deserialize;
 
-use jmap_types::{Invocation, JmapRequest};
+use jmap_types::{Invocation, JmapRequest, State};
 
 // ---------------------------------------------------------------------------
 // JmapRequestBuilder (RFC 8620 §3.3)
@@ -94,6 +94,7 @@ impl JmapRequestBuilder {
 /// Contains only the base RFC 8620 fields. Extension-specific fields
 /// (e.g. JMAP Chat `ownerUserId`) are surfaced by extension crates that
 /// parse the `capabilities` and `accounts` maps.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
@@ -136,7 +137,7 @@ pub struct Session {
     ///
     /// Changes whenever any session property changes. Returned in every API
     /// response as `sessionState`; clients compare to detect staleness.
-    pub state: String,
+    pub state: State,
 }
 
 impl Session {
@@ -170,6 +171,7 @@ impl Session {
 // ---------------------------------------------------------------------------
 
 /// Per-account metadata in a JMAP Session (RFC 8620 §2).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountInfo {
@@ -197,6 +199,7 @@ pub struct AccountInfo {
 ///
 /// Advertised in `Session.capabilities` when the server supports JMAP over
 /// WebSocket. The `url` field is the `wss://` endpoint to connect to.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebSocketCapability {

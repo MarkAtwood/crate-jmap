@@ -1,6 +1,6 @@
-// SSE types and frame parser for JMAP push notifications.
-// Spec: RFC 8620 §7.3 (Push via Server-Sent Events)
-// Wire format: RFC 8895 (Server-Sent Events)
+//! SSE types and frame parser for JMAP push notifications.
+//! Spec: RFC 8620 §7.3 (Push via Server-Sent Events)
+//! Wire format: RFC 8895 (Server-Sent Events)
 
 use std::collections::HashMap;
 

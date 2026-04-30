@@ -1,3 +1,10 @@
+//! Auth traits and credential implementations for JMAP clients.
+//!
+//! Provides [`TransportConfig`] (TLS/HTTP client construction) and
+//! [`AuthProvider`] (per-request credential injection), plus built-in
+//! implementations: [`DefaultTransport`], [`CustomCaTransport`],
+//! [`NoneAuth`], [`BearerAuth`], and [`BasicAuth`].
+
 use std::sync::Arc;
 
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;

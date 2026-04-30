@@ -1,4 +1,7 @@
-// JmapClient — auth-agnostic base JMAP HTTP client (RFC 8620).
+//! Auth-agnostic base JMAP HTTP client (RFC 8620).
+//!
+//! Provides [`JmapClient`] for session fetch, API calls, blob transfer,
+//! SSE event streaming, and [`extract_response`] for parsing method results.
 
 use std::sync::Arc;
 
@@ -392,8 +395,7 @@ impl JmapClient {
                                 slice.to_owned()
                             }
                         };
-                        let suffix = buf.split_off(pos + delim_len);
-                        buf = suffix;
+                        buf.drain(..pos + delim_len);
                         scan_from = 0; // 0 satisfies the UTF-8 char boundary invariant
                         let sse_frame = parse_sse_block(&frame);
                         return Some((
@@ -496,8 +498,7 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
         let description = args
             .get("description")
             .and_then(|v| v.as_str())
-            .unwrap_or("unknown") // safe: fallback literal, not user input
-            .to_owned();
+            .map(str::to_owned);
         return Err(ClientError::MethodError {
             error_type: err_type,
             description,
@@ -509,9 +510,13 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
 
 /// Validate that all URL fields in `session` use an http or https scheme.
 ///
-/// Returns `ClientError::InvalidArgument` if any URL has a non-http/https scheme.
+/// Returns `ClientError::InvalidSession` if any URL has a non-http/https scheme.
 /// This prevents a malicious server from injecting non-HTTP URLs into subsequent
 /// requests (e.g. `file://`, `ftp://`).
+///
+/// Scheme comparison is case-insensitive per RFC 3986 §3.1: both `http://` and
+/// `HTTP://` are accepted.  Session URL templates may contain `{variable}`
+/// syntax that prevents full URL parsing, so only the scheme prefix is checked.
 fn validate_session_urls(session: &Session) -> Result<(), ClientError> {
     for url in [
         &session.api_url,
@@ -519,9 +524,19 @@ fn validate_session_urls(session: &Session) -> Result<(), ClientError> {
         &session.download_url,
         &session.event_source_url,
     ] {
-        let has_http_scheme = url.starts_with("http://") || url.starts_with("https://");
-        if !has_http_scheme {
-            return Err(ClientError::InvalidArgument(format!(
+        // Extract the scheme by taking the prefix before "://", then compare
+        // case-insensitively.  Using find("://") rather than starts_with covers
+        // RFC 3986 §3.1 uppercase schemes (e.g. "HTTPS://").
+        // URL templates (e.g. "https://host/dl/{accountId}") cannot be parsed
+        // by url::Url directly due to the {variable} syntax, so a full URL
+        // parse is not used here.
+        let scheme = url
+            .find("://")
+            .map(|i| &url[..i])
+            .unwrap_or("")
+            .to_ascii_lowercase();
+        if scheme != "http" && scheme != "https" {
+            return Err(ClientError::InvalidSession(format!(
                 "session URL has non-http/https scheme: {:?}",
                 url
             )));

@@ -26,6 +26,11 @@ pub enum ClientError {
     /// A server response could not be parsed or did not match the expected
     /// shape. Indicates the server sent a malformed response. Not retriable
     /// without a server fix.
+    ///
+    /// **Note on `#[from]`**: only [`Serialize`](ClientError::Serialize) carries
+    /// `#[from] serde_json::Error`.  Rust permits only one `From<serde_json::Error>`
+    /// impl per type, so `?` on JSON parse operations must use
+    /// `.map_err(ClientError::Parse)` explicitly.
     #[error("parse error: {0}")]
     Parse(serde_json::Error),
 
@@ -53,10 +58,12 @@ pub enum ClientError {
     /// The JMAP server returned a method-level error object (RFC 8620 §3.6).
     /// Retriability depends on `error_type` (e.g. `serverFail` may be
     /// retried; `invalidArguments` is not retriable).
-    #[error("JMAP method error: {error_type}: {description}")]
+    ///
+    /// `description` is `None` when the server omits the optional description field.
+    #[error("JMAP method error: {error_type}")]
     MethodError {
         error_type: String,
-        description: String,
+        description: Option<String>,
     },
 
     /// A request could not be serialized to JSON. Indicates a caller bug —

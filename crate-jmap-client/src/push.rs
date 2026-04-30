@@ -1,5 +1,5 @@
-// Canonical push notification types shared by SSE and WebSocket transports.
-// Spec: RFC 8620 §7.1 (Push Subscriptions)
+//! Canonical push notification types shared by SSE and WebSocket transports.
+//! Spec: RFC 8620 §7.1 (Push Subscriptions)
 
 use std::collections::HashMap;
 

@@ -1,4 +1,4 @@
-// Blob upload/download operations and supporting types (RFC 8620 §6.1, §6.2)
+//! Blob upload/download operations and supporting types (RFC 8620 §6.1, §6.2)
 
 use jmap_types::Id;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
@@ -38,8 +38,8 @@ pub struct BlobUploadResponse {
 ///
 /// Entries in `vars` whose name does not appear in the template are silently
 /// ignored. A variable that appears in the template but has no entry in `vars`
-/// is an error (`ClientError::InvalidArgument`), preventing the literal
-/// `{name}` brace syntax from leaking into the request URL.
+/// is an error (`ClientError::InvalidSession`) because templates come from the
+/// server's Session document — an unexpected variable indicates a server bug.
 ///
 /// # RFC 6570 Level-1
 /// Only simple-string expansion is supported. Reserved-expansion (`{+var}`)
@@ -54,14 +54,14 @@ pub(crate) fn expand_url_template(
         result.push_str(&rest[..open]);
         rest = &rest[open + 1..];
         let close = rest.find('}').ok_or_else(|| {
-            crate::error::ClientError::InvalidArgument("URL template has unmatched '{'".to_owned())
+            crate::error::ClientError::InvalidSession("URL template has unmatched '{'".to_owned())
         })?;
         let name = &rest[..close];
         rest = &rest[close + 1..];
         if let Some((_, value)) = vars.iter().find(|(n, _)| *n == name) {
             result.push_str(&percent_encode(value));
         } else {
-            return Err(crate::error::ClientError::InvalidArgument(format!(
+            return Err(crate::error::ClientError::InvalidSession(format!(
                 "URL template variable not supplied: {{{name}}}"
             )));
         }
@@ -165,7 +165,11 @@ impl crate::client::JmapClient {
             serde_json::from_slice(&bytes).map_err(crate::error::ClientError::Parse)?;
 
         if let Some(ref server_sha256) = upload_resp.sha256 {
-            validate_sha256_format(server_sha256)?;
+            if !is_valid_sha256_hex(server_sha256) {
+                return Err(crate::error::ClientError::InvalidSession(format!(
+                    "server sha256 field is not 64-char hex: {server_sha256:?}"
+                )));
+            }
             // Normalize to lowercase before comparison: JMAP-CID specifies lowercase
             // but non-conformant servers may return uppercase hex. Both represent the
             // same digest; rejecting on case alone would cause spurious integrity errors.
@@ -250,7 +254,11 @@ impl crate::client::JmapClient {
         }
 
         if let Some(expected) = expected_sha256 {
-            validate_sha256_format(expected)?;
+            if !is_valid_sha256_hex(expected) {
+                return Err(crate::error::ClientError::InvalidArgument(format!(
+                    "expected_sha256 is not 64-char hex: {expected:?}"
+                )));
+            }
             let actual = compute_sha256_hex(&bytes);
             // Normalize expected to lowercase; callers may hold uppercase hex from
             // a server or external source. Both represent the same digest.
@@ -267,16 +275,13 @@ impl crate::client::JmapClient {
     }
 }
 
-/// Validate that `s` is exactly 64 hex characters (uppercase or lowercase accepted;
-/// callers normalize to lowercase before comparison).
-fn validate_sha256_format(s: &str) -> Result<(), crate::error::ClientError> {
-    if s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()) {
-        Ok(())
-    } else {
-        Err(crate::error::ClientError::InvalidSession(format!(
-            "sha256 field is not 64-char hex: {s:?}"
-        )))
-    }
+/// Returns `true` if `s` is exactly 64 hex characters (uppercase or lowercase).
+///
+/// Callers are responsible for producing the appropriate [`ClientError`] variant:
+/// - server-provided digest (upload response `sha256` field) → [`ClientError::InvalidSession`]
+/// - caller-supplied expected digest (`download_blob` `expected_sha256` arg) → [`ClientError::InvalidArgument`]
+fn is_valid_sha256_hex(s: &str) -> bool {
+    s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 /// Compute SHA-256 of `data` and return as 64-char lowercase hex string.
@@ -336,8 +341,8 @@ mod tests {
     }
 
     // Oracle: expand_url_template must error when a template variable has no
-    // entry in vars — leaving a literal {name} in the URL would produce a
-    // broken request with no diagnostic at the call site.
+    // entry in vars — the template comes from the server's Session document,
+    // so an unrecognized variable name indicates a server-side bug.
     #[test]
     fn expand_unknown_variable_returns_error() {
         let err = expand_url_template(
@@ -346,8 +351,8 @@ mod tests {
         )
         .expect_err("must fail when template variable is not supplied");
         assert!(
-            matches!(err, crate::error::ClientError::InvalidArgument(_)),
-            "expected InvalidArgument, got {err:?}"
+            matches!(err, crate::error::ClientError::InvalidSession(_)),
+            "expected InvalidSession, got {err:?}"
         );
     }
 

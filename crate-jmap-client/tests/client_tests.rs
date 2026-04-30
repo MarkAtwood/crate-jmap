@@ -282,8 +282,8 @@ async fn test_fetch_session_rejects_non_http_api_url() {
         .await
         .expect_err("ftp apiUrl must fail");
     assert!(
-        matches!(err, ClientError::InvalidArgument(_)),
-        "expected InvalidArgument for ftp apiUrl, got {err:?}"
+        matches!(err, ClientError::InvalidSession(_)),
+        "expected InvalidSession for ftp apiUrl, got {err:?}"
     );
 }
 
@@ -318,8 +318,8 @@ async fn test_fetch_session_rejects_non_http_other_urls() {
             .await
             .expect_err(&format!("ftp {field} must fail"));
         assert!(
-            matches!(err, ClientError::InvalidArgument(_)),
-            "expected InvalidArgument for ftp {field}, got {err:?}"
+            matches!(err, ClientError::InvalidSession(_)),
+            "expected InvalidSession for ftp {field}, got {err:?}"
         );
     }
 }
@@ -568,8 +568,8 @@ fn test_extract_response_method_error() {
         matches!(
             &err,
             ClientError::MethodError { error_type, description }
-                if error_type == "serverFail" && description == "oops"
+                if error_type == "serverFail" && description.as_deref() == Some("oops")
         ),
-        "expected MethodError{{serverFail, oops}}, got {err:?}"
+        "expected MethodError{{serverFail, Some(\"oops\")}}, got {err:?}"
     );
 }
