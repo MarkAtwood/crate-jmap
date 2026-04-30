@@ -191,7 +191,7 @@ async fn test_fetch_session_returns_session() {
 /// A response body of 1 MiB + 1 byte must return ClientError::ResponseTooLarge.
 #[tokio::test]
 async fn test_fetch_session_size_cap() {
-    let oversized_body = "x".repeat(1 * 1024 * 1024 + 1);
+    let oversized_body = "x".repeat(1024 * 1024 + 1);
     let server = MockServer::start().await;
 
     Mock::given(method("GET"))

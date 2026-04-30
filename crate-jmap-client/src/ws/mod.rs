@@ -26,7 +26,7 @@ const MAX_WS_MESSAGE_BYTES: usize = 1 << 20; // 1 MiB
 /// Marked `#[non_exhaustive]` because the spec may define additional
 /// `@type` values in future revisions.
 #[non_exhaustive]
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum WsFrame {
     /// RFC 8620 §7.1 StateChange — one or more object types have changed
     /// state; client must re-fetch the affected data types.
