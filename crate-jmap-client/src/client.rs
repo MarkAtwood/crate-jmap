@@ -376,11 +376,13 @@ impl JmapClient {
         // Verify Content-Type before streaming. A misconfigured server returning
         // application/json would silently produce no events (no SSE delimiter found).
         {
+            // to_ascii_lowercase(): media types are case-insensitive per RFC 7231 §3.1.1.1.
             let ct = resp
                 .headers()
                 .get(reqwest::header::CONTENT_TYPE)
                 .and_then(|v| v.to_str().ok())
-                .unwrap_or("");
+                .unwrap_or("")
+                .to_ascii_lowercase();
             if !ct.starts_with("text/event-stream") {
                 return Err(ClientError::InvalidSession(format!(
                     "subscribe_events: expected Content-Type text/event-stream, got: {ct:?}"
