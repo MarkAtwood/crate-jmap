@@ -367,16 +367,16 @@ pub trait MailBackend: Send + Sync + 'static {
     ///
     /// Used by `Email/parse` to distinguish RFC 8621 §5.8 error categories:
     /// a blob that exists but cannot be parsed → `notParsable`; one that does
-    /// not exist → `notFound`. The default implementation returns `false`, which
-    /// conservatively places all parse failures into `notParsable`. Backends
-    /// should override this for correct RFC conformance.
+    /// not exist → `notFound`. The default returns `true`, which preserves the
+    /// pre-existing behaviour of routing all parse failures to `notParsable`.
+    /// Backends should override this for correct RFC conformance.
     fn blob_exists(
         &self,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send {
         let _ = (account_id, blob_id);
-        std::future::ready(false)
+        std::future::ready(true)
     }
 
     /// Parse a raw message blob and return an Email object without storing it
