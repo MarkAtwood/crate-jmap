@@ -174,8 +174,8 @@ impl crate::client::JmapClient {
             let server_lower = server_sha256.to_ascii_lowercase();
             if local_sha256 != server_lower {
                 return Err(crate::error::ClientError::BlobIntegrityMismatch {
-                    expected: server_lower,
-                    actual: local_sha256,
+                    expected: local_sha256,
+                    actual: server_lower,
                 });
             }
         }

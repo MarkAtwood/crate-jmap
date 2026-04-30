@@ -94,7 +94,7 @@ impl JmapRequestBuilder {
 /// Contains only the base RFC 8620 fields. Extension-specific fields
 /// (e.g. JMAP Chat `ownerUserId`) are surfaced by extension crates that
 /// parse the `capabilities` and `accounts` maps.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
     /// Map of capability URI → capability object (RFC 8620 §2).
@@ -172,7 +172,7 @@ impl Session {
 // ---------------------------------------------------------------------------
 
 /// Per-account metadata in a JMAP Session (RFC 8620 §2).
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountInfo {
     /// Human-readable account name (e.g. the owner's email address).
@@ -199,7 +199,7 @@ pub struct AccountInfo {
 ///
 /// Advertised in `Session.capabilities` when the server supports JMAP over
 /// WebSocket. The `url` field is the `wss://` endpoint to connect to.
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct WebSocketCapability {
     /// The WebSocket endpoint URL (`wss://`).

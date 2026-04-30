@@ -35,7 +35,7 @@ struct SseStreamState<S> {
 /// `..ClientConfig::default()` when constructing it, allowing new fields to
 /// be added in minor versions without breaking callers.
 #[non_exhaustive]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientConfig {
     /// Timeout for HTTP request/response cycles (fetch_session, call, upload_blob, download_blob).
     /// Does NOT apply to SSE or WebSocket streams (which are indefinite by nature).
@@ -319,6 +319,10 @@ impl JmapClient {
     /// Buffer growth is capped at 1 MiB per frame. If a single SSE frame
     /// exceeds this limit the stream yields `ClientError::SseFrameTooLarge`
     /// and terminates.
+    ///
+    /// No idle timeout is applied to the stream (unlike point requests).
+    /// Wrap in [`tokio::time::timeout`] if you need to detect server silence
+    /// and reconnect after a quiet period.
     ///
     /// Returns `ClientError::AuthFailed` on HTTP 401 or 403 before the stream
     /// starts.

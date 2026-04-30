@@ -20,7 +20,7 @@ use crate::push;
 /// "no change" and retain the previously-seen ID. The "reset" semantic is not
 /// representable without a tri-state type; this simplification is intentional
 /// for JMAP, where bare `id:` reset frames are rare in practice.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct SseFrame {
     pub event: SseEvent,
@@ -28,7 +28,7 @@ pub struct SseFrame {
 }
 
 /// A parsed SSE event from a JMAP event source (RFC 8620 §7.3).
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum SseEvent {
     /// A "state" event: maps accountId → (typeName → newState).
