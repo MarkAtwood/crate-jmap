@@ -96,14 +96,20 @@ impl WsSession {
         // carry "@type": "Request".  The base JmapRequest struct does not
         // include this field (it is WebSocket-only), so we add it here.
         let mut val = serde_json::to_value(req)?;
-        let obj = val
-            .as_object_mut()
-            .ok_or_else(|| crate::error::ClientError::InvalidArgument(
+        let obj = val.as_object_mut().ok_or_else(|| {
+            crate::error::ClientError::InvalidArgument(
                 "JmapRequest did not serialize to a JSON object".to_owned(),
-            ))?;
-        obj.insert("@type".to_owned(), serde_json::Value::String("Request".to_owned()));
+            )
+        })?;
+        obj.insert(
+            "@type".to_owned(),
+            serde_json::Value::String("Request".to_owned()),
+        );
         if let Some(request_id) = id {
-            obj.insert("id".to_owned(), serde_json::Value::String(request_id.to_owned()));
+            obj.insert(
+                "id".to_owned(),
+                serde_json::Value::String(request_id.to_owned()),
+            );
         }
         let text = serde_json::to_string(&val)?;
         self.sink
@@ -185,14 +191,10 @@ pub async fn connect_ws(
 
     if let Some((name, value)) = auth_header {
         let hdr_name = http::HeaderName::from_str(name).map_err(|e| {
-            crate::error::ClientError::InvalidArgument(format!(
-                "invalid auth header name: {e}"
-            ))
+            crate::error::ClientError::InvalidArgument(format!("invalid auth header name: {e}"))
         })?;
         let hdr_value = http::HeaderValue::from_str(value).map_err(|_| {
-            crate::error::ClientError::InvalidArgument(
-                "invalid auth header value".to_owned(),
-            )
+            crate::error::ClientError::InvalidArgument("invalid auth header value".to_owned())
         })?;
         request.headers_mut().insert(hdr_name, hdr_value);
     }
@@ -243,7 +245,10 @@ mod tests {
         let frame = parse_ws_frame(json).expect("must parse");
         match frame {
             WsFrame::StateChange(sc) => {
-                let account = sc.changed.get("account1").expect("account1 must be present");
+                let account = sc
+                    .changed
+                    .get("account1")
+                    .expect("account1 must be present");
                 assert_eq!(account.get("Mail").map(String::as_str), Some("s2"));
             }
             other => panic!("expected StateChange, got {other:?}"),
@@ -305,7 +310,9 @@ mod tests {
         );
         // Reproduce the injection logic from send_request (same code path, no network).
         let mut val = serde_json::to_value(&req).expect("serialize");
-        let obj = val.as_object_mut().expect("JmapRequest serializes to object");
+        let obj = val
+            .as_object_mut()
+            .expect("JmapRequest serializes to object");
         obj.insert(
             "@type".to_owned(),
             serde_json::Value::String("Request".to_owned()),
@@ -328,12 +335,17 @@ mod tests {
             None,
         );
         let mut val = serde_json::to_value(&req).expect("serialize");
-        let obj = val.as_object_mut().expect("JmapRequest serializes to object");
+        let obj = val
+            .as_object_mut()
+            .expect("JmapRequest serializes to object");
         obj.insert(
             "@type".to_owned(),
             serde_json::Value::String("Request".to_owned()),
         );
-        obj.insert("id".to_owned(), serde_json::Value::String("req-42".to_owned()));
+        obj.insert(
+            "id".to_owned(),
+            serde_json::Value::String("req-42".to_owned()),
+        );
         let serialized = serde_json::to_string(&val).expect("serialize to string");
 
         assert!(
@@ -352,7 +364,9 @@ mod tests {
             None,
         );
         let mut val = serde_json::to_value(&req).expect("serialize");
-        let obj = val.as_object_mut().expect("JmapRequest serializes to object");
+        let obj = val
+            .as_object_mut()
+            .expect("JmapRequest serializes to object");
         obj.insert(
             "@type".to_owned(),
             serde_json::Value::String("Request".to_owned()),

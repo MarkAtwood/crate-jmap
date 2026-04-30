@@ -65,7 +65,11 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
             data_lines.push(value.strip_prefix(' ').unwrap_or(value));
         } else if let Some(value) = line.strip_prefix("id:") {
             let v = value.strip_prefix(' ').unwrap_or(value);
-            id = if v.is_empty() { None } else { Some(v.to_owned()) };
+            id = if v.is_empty() {
+                None
+            } else {
+                Some(v.to_owned())
+            };
         }
         // Comments (lines starting with ':') and unknown fields are silently ignored.
     }

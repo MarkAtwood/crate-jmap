@@ -157,7 +157,8 @@ impl JmapClient {
         }
         if config.request_timeout == std::time::Duration::ZERO {
             return Err(ClientError::InvalidArgument(
-                "ClientConfig.request_timeout must be > 0; use Duration::from_secs(30) or similar".into(),
+                "ClientConfig.request_timeout must be > 0; use Duration::from_secs(30) or similar"
+                    .into(),
             ));
         }
         let http = transport.build_client()?;
@@ -212,13 +213,12 @@ impl JmapClient {
         let url = self
             .base_url
             .join(".well-known/jmap")
-            .map_err(|e| ClientError::InvalidArgument(format!("cannot construct session URL: {e}")))?
+            .map_err(|e| {
+                ClientError::InvalidArgument(format!("cannot construct session URL: {e}"))
+            })?
             .to_string();
 
-        let mut req = self
-            .http
-            .get(&url)
-            .timeout(self.config.request_timeout);
+        let mut req = self.http.get(&url).timeout(self.config.request_timeout);
         if let Some((name, value)) = self.auth.auth_header() {
             req = req.header(name, value.as_str());
         }
@@ -233,10 +233,7 @@ impl JmapClient {
         // both the header and the actual read size.
         if let Some(len) = resp.content_length() {
             if len > limit {
-                return Err(ClientError::ResponseTooLarge {
-                    actual: len,
-                    limit,
-                });
+                return Err(ClientError::ResponseTooLarge { actual: len, limit });
             }
         }
         let bytes = resp.bytes().await.map_err(ClientError::Http)?;
@@ -247,8 +244,7 @@ impl JmapClient {
             });
         }
 
-        let session: Session = serde_json::from_slice(&bytes)
-            .map_err(ClientError::Parse)?;
+        let session: Session = serde_json::from_slice(&bytes).map_err(ClientError::Parse)?;
 
         validate_session_urls(&session)?;
 
@@ -290,10 +286,7 @@ impl JmapClient {
         // Enforce size cap before reading.
         if let Some(len) = resp.content_length() {
             if len > limit {
-                return Err(ClientError::ResponseTooLarge {
-                    actual: len,
-                    limit,
-                });
+                return Err(ClientError::ResponseTooLarge { actual: len, limit });
             }
         }
         let bytes = resp.bytes().await.map_err(ClientError::Http)?;
@@ -304,8 +297,8 @@ impl JmapClient {
             });
         }
 
-        let jmap_resp: jmap_types::JmapResponse = serde_json::from_slice(&bytes)
-            .map_err(ClientError::Parse)?;
+        let jmap_resp: jmap_types::JmapResponse =
+            serde_json::from_slice(&bytes).map_err(ClientError::Parse)?;
 
         Ok(jmap_resp)
     }

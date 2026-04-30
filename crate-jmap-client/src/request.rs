@@ -226,10 +226,8 @@ mod tests {
     /// The expected JSON shape is derived directly from the RFC §3.3 example.
     #[test]
     fn builder_two_calls_serializes_correctly() {
-        let mut builder = JmapRequestBuilder::new(&[
-            "urn:ietf:params:jmap:core",
-            "urn:ietf:params:jmap:mail",
-        ]);
+        let mut builder =
+            JmapRequestBuilder::new(&["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"]);
         builder
             .add_call(
                 "Mailbox/get",
@@ -256,7 +254,9 @@ mod tests {
         assert!(using.contains(&json!("urn:ietf:params:jmap:mail")));
 
         // Oracle: RFC 8620 §3.3 — "methodCalls" must be present
-        let calls = v["methodCalls"].as_array().expect("methodCalls must be array");
+        let calls = v["methodCalls"]
+            .as_array()
+            .expect("methodCalls must be array");
         assert_eq!(calls.len(), 2, "must have exactly 2 method calls");
 
         // Oracle: RFC 8620 §3.2 — each invocation is [methodName, args, callId]
@@ -360,7 +360,8 @@ mod tests {
             "state": "75128aab4b1b"
         }"#;
 
-        let session: Session = serde_json::from_str(raw).expect("RFC 8620 §2.1 example must deserialize");
+        let session: Session =
+            serde_json::from_str(raw).expect("RFC 8620 §2.1 example must deserialize");
 
         // Oracle: RFC 8620 §2.1
         assert_eq!(session.username, "john@example.com");
@@ -381,21 +382,33 @@ mod tests {
 
         // Oracle: RFC 8620 §2.1 — capabilities map
         assert!(
-            session.capabilities.contains_key("urn:ietf:params:jmap:core"),
+            session
+                .capabilities
+                .contains_key("urn:ietf:params:jmap:core"),
             "must have core capability"
         );
         assert!(
-            session.capabilities.contains_key("urn:ietf:params:jmap:mail"),
+            session
+                .capabilities
+                .contains_key("urn:ietf:params:jmap:mail"),
             "must have mail capability"
         );
         assert!(
-            session.capabilities.contains_key("https://example.com/apis/foobar"),
+            session
+                .capabilities
+                .contains_key("https://example.com/apis/foobar"),
             "must have vendor capability"
         );
 
         // Oracle: RFC 8620 §2.1 — accounts map
-        assert!(session.accounts.contains_key("A13824"), "must have account A13824");
-        assert!(session.accounts.contains_key("A97813"), "must have account A97813");
+        assert!(
+            session.accounts.contains_key("A13824"),
+            "must have account A13824"
+        );
+        assert!(
+            session.accounts.contains_key("A97813"),
+            "must have account A97813"
+        );
 
         // Oracle: RFC 8620 §2.1 — primaryAccounts
         assert_eq!(
@@ -442,11 +455,15 @@ mod tests {
         assert!(account.is_personal, "isPersonal must be true");
         assert!(!account.is_read_only, "isReadOnly must be false");
         assert!(
-            account.account_capabilities.contains_key("urn:ietf:params:jmap:mail"),
+            account
+                .account_capabilities
+                .contains_key("urn:ietf:params:jmap:mail"),
             "must have mail capability"
         );
         assert!(
-            account.account_capabilities.contains_key("urn:ietf:params:jmap:contacts"),
+            account
+                .account_capabilities
+                .contains_key("urn:ietf:params:jmap:contacts"),
             "must have contacts capability"
         );
 
@@ -462,8 +479,8 @@ mod tests {
                 }
             }
         }"#;
-        let account2: AccountInfo =
-            serde_json::from_str(raw2).expect("RFC 8620 §2.1 read-only AccountInfo must deserialize");
+        let account2: AccountInfo = serde_json::from_str(raw2)
+            .expect("RFC 8620 §2.1 read-only AccountInfo must deserialize");
 
         assert_eq!(account2.name, "jane@example.com");
         assert!(!account2.is_personal, "isPersonal must be false");
@@ -511,7 +528,10 @@ mod tests {
         }"#;
         let session: Session = serde_json::from_str(raw).expect("Session must deserialize");
         let result = session.websocket_capability();
-        assert!(matches!(result, Ok(None)), "expected Ok(None), got {result:?}");
+        assert!(
+            matches!(result, Ok(None)),
+            "expected Ok(None), got {result:?}"
+        );
     }
 
     /// Oracle: Session.websocket_capability() returns Ok(Some) when key present and valid.

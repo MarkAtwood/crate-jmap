@@ -54,9 +54,7 @@ pub(crate) fn expand_url_template(
         result.push_str(&rest[..open]);
         rest = &rest[open + 1..];
         let close = rest.find('}').ok_or_else(|| {
-            crate::error::ClientError::InvalidArgument(
-                "URL template has unmatched '{'".to_owned(),
-            )
+            crate::error::ClientError::InvalidArgument("URL template has unmatched '{'".to_owned())
         })?;
         let name = &rest[..close];
         rest = &rest[close + 1..];

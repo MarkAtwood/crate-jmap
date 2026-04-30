@@ -13,9 +13,12 @@ pub mod request;
 pub mod sse;
 pub mod ws;
 
-pub use auth::{AuthProvider, BasicAuth, BearerAuth, CustomCaTransport, DefaultTransport, NoneAuth, TransportConfig};
+pub use auth::{
+    AuthProvider, BasicAuth, BearerAuth, CustomCaTransport, DefaultTransport, NoneAuth,
+    TransportConfig,
+};
 pub use blob::BlobUploadResponse;
-pub use client::{ClientConfig, extract_response, JmapClient};
+pub use client::{extract_response, ClientConfig, JmapClient};
 pub use error::ClientError;
 pub use push::StateChange;
 pub use request::{AccountInfo, JmapRequestBuilder, Session, WebSocketCapability};

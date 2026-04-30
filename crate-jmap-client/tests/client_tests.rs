@@ -14,8 +14,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn session_fixture() -> serde_json::Value {
     let text = std::fs::read_to_string(
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("tests/fixtures/jmap/session.json"),
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/jmap/session.json"),
     )
     .expect("cannot read session.json fixture");
     serde_json::from_str(&text).expect("session.json must be valid JSON")
@@ -49,7 +48,13 @@ fn minimal_request() -> jmap_types::JmapRequest {
 /// Oracle: base_url validation — empty string must be rejected.
 #[test]
 fn test_new_rejects_empty_url() {
-    let result = JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, "", jmap_client::client::ClientConfig::default()).map(|_| ());
+    let result = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        "",
+        jmap_client::client::ClientConfig::default(),
+    )
+    .map(|_| ());
     assert!(
         matches!(result, Err(ClientError::InvalidArgument(_))),
         "empty base_url must return InvalidArgument, got {result:?}"
@@ -156,9 +161,13 @@ async fn test_fetch_session_returns_session() {
         .mount(&server)
         .await;
 
-    let client =
-        JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-            .expect("client construction must succeed");
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
 
     let session = client
         .fetch_session()
@@ -200,9 +209,13 @@ async fn test_fetch_session_size_cap() {
         .mount(&server)
         .await;
 
-    let client =
-        JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-            .expect("client construction must succeed");
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
 
     let err = client
         .fetch_session()
@@ -226,9 +239,13 @@ async fn test_fetch_session_401_returns_auth_failed() {
         .mount(&server)
         .await;
 
-    let client =
-        JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-            .expect("client construction must succeed");
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
 
     let err = client.fetch_session().await.expect_err("401 must fail");
     assert!(
@@ -252,9 +269,13 @@ async fn test_fetch_session_rejects_non_http_api_url() {
         .mount(&server)
         .await;
 
-    let client =
-        JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-            .expect("client construction must succeed");
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
 
     let err = client
         .fetch_session()
@@ -284,9 +305,13 @@ async fn test_fetch_session_rejects_non_http_other_urls() {
             .mount(&server)
             .await;
 
-        let client =
-            JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-                .expect("client construction must succeed");
+        let client = JmapClient::new(
+            jmap_client::auth::DefaultTransport,
+            NoneAuth,
+            &server.uri(),
+            jmap_client::client::ClientConfig::default(),
+        )
+        .expect("client construction must succeed");
 
         let err = client
             .fetch_session()
@@ -315,9 +340,13 @@ async fn test_call_round_trip() {
         .mount(&server)
         .await;
 
-    let client =
-        JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-            .expect("client construction must succeed");
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
 
     let api_url = format!("{}/api/", server.uri());
     let resp = client
@@ -345,9 +374,13 @@ async fn test_call_size_cap() {
         .mount(&server)
         .await;
 
-    let client =
-        JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-            .expect("client construction must succeed");
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
 
     let api_url = format!("{}/api/", server.uri());
     let err = client
@@ -372,9 +405,13 @@ async fn test_call_401_returns_auth_failed() {
         .mount(&server)
         .await;
 
-    let client =
-        JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-            .expect("client construction must succeed");
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
 
     let api_url = format!("{}/api/", server.uri());
     let err = client
@@ -404,13 +441,22 @@ async fn test_upload_blob_response_size_cap() {
         .mount(&server)
         .await;
 
-    let client =
-        JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-            .expect("client construction must succeed");
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
 
     let template = format!("{}/upload/{{accountId}}/", server.uri());
     let err = client
-        .upload_blob(&template, "account1", bytes::Bytes::from(b"hello".to_vec()), "application/octet-stream")
+        .upload_blob(
+            &template,
+            "account1",
+            bytes::Bytes::from(b"hello".to_vec()),
+            "application/octet-stream",
+        )
         .await
         .expect_err("oversized upload response must fail");
     assert!(
@@ -436,11 +482,18 @@ async fn test_download_blob_size_cap() {
         .mount(&server)
         .await;
 
-    let client =
-        JmapClient::new(jmap_client::auth::DefaultTransport, NoneAuth, &server.uri(), jmap_client::client::ClientConfig::default())
-            .expect("client construction must succeed");
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
 
-    let template = format!("{}/download/{{accountId}}/{{blobId}}/{{name}}", server.uri());
+    let template = format!(
+        "{}/download/{{accountId}}/{{blobId}}/{{name}}",
+        server.uri()
+    );
     let err = client
         .download_blob(&template, "account1", "blob-abc", "file.bin", None, None)
         .await
