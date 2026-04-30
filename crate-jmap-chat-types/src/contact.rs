@@ -1,3 +1,5 @@
+//! ChatContact and Endpoint objects for remote users.
+
 use crate::presence::Presence;
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};

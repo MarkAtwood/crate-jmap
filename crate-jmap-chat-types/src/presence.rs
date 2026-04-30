@@ -1,9 +1,11 @@
+//! Presence state and PresenceStatus object.
+
 use jmap_types::{Id, UTCDate};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 /// Presence state as defined by the spec.
 ///
-/// `Unknown` preserves any future value for round-trip fidelity.
+/// `Other` preserves any future value for round-trip fidelity.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Presence {
@@ -18,35 +20,16 @@ pub enum Presence {
     /// Not connected.
     Offline,
     /// A value not recognized by this version of the library.
-    Unknown(String),
+    Other(String),
 }
 
-impl Serialize for Presence {
-    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(match self {
-            Presence::Online => "online",
-            Presence::Away => "away",
-            Presence::Busy => "busy",
-            Presence::Invisible => "invisible",
-            Presence::Offline => "offline",
-            Presence::Unknown(v) => v.as_str(),
-        })
-    }
-}
-
-impl<'de> Deserialize<'de> for Presence {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(d)?;
-        Ok(match s.as_str() {
-            "online" => Presence::Online,
-            "away" => Presence::Away,
-            "busy" => Presence::Busy,
-            "invisible" => Presence::Invisible,
-            "offline" => Presence::Offline,
-            _ => Presence::Unknown(s),
-        })
-    }
-}
+impl_string_enum!(Presence, "a presence state string",
+    "online" => Online,
+    "away" => Away,
+    "busy" => Busy,
+    "invisible" => Invisible,
+    "offline" => Offline,
+);
 
 /// A user's current presence state (spec: PresenceStatus object).
 #[non_exhaustive]
@@ -69,12 +52,7 @@ impl PresenceStatus {
     /// Construct a [`PresenceStatus`] from its required fields.
     ///
     /// All optional fields default to `None`.
-    pub fn new(
-        id: Id,
-        presence: Presence,
-        receipt_sharing: bool,
-        updated_at: UTCDate,
-    ) -> Self {
+    pub fn new(id: Id, presence: Presence, receipt_sharing: bool, updated_at: UTCDate) -> Self {
         Self {
             id,
             presence,

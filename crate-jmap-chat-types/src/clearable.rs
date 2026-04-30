@@ -1,3 +1,5 @@
+//! [`Clearable<T>`] helper for JSON null-vs-absent patch semantics.
+
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 

@@ -1,3 +1,5 @@
+//! Push notification payload types for chat message delivery.
+
 use crate::chat::ChatKind;
 use jmap_types::{Id, State, UTCDate};
 use serde::{Deserialize, Serialize};

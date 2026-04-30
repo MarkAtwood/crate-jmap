@@ -359,16 +359,16 @@ mod tests {
     /// Oracle: nested AND(OR(...)) structure roundtrips.
     #[test]
     fn nested_and_or_roundtrip() {
-        let filter = EmailFilter::Operator(FilterOperator {
-            operator: Operator::And,
-            conditions: vec![
+        let filter = EmailFilter::Operator(FilterOperator::new(
+            Operator::And,
+            vec![
                 EmailFilter::Condition(EmailFilterCondition {
                     in_mailbox: Some(Id::from("inbox-id")),
                     ..Default::default()
                 }),
-                EmailFilter::Operator(FilterOperator {
-                    operator: Operator::Or,
-                    conditions: vec![
+                EmailFilter::Operator(FilterOperator::new(
+                    Operator::Or,
+                    vec![
                         EmailFilter::Condition(EmailFilterCondition {
                             has_keyword: Some(Keyword::from("$flagged")),
                             ..Default::default()
@@ -378,9 +378,9 @@ mod tests {
                             ..Default::default()
                         }),
                     ],
-                }),
+                )),
             ],
-        });
+        ));
         let json = serde_json::to_string(&filter).expect("serialize");
         let back: EmailFilter = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(filter, back);

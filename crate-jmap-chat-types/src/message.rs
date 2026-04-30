@@ -1,10 +1,12 @@
+//! Chat message, attachments, reactions, and delivery state types.
+
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 
 /// Delivery state of a [`Message`] as defined by the spec.
 ///
-/// `Unknown` preserves any future value for round-trip fidelity.
+/// `Other` preserves any future value for round-trip fidelity.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum DeliveryState {
@@ -17,33 +19,15 @@ pub enum DeliveryState {
     /// Received on the recipient's device.
     Received,
     /// A value not recognized by this version of the library.
-    Unknown(String),
+    Other(String),
 }
 
-impl Serialize for DeliveryState {
-    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(match self {
-            DeliveryState::Pending => "pending",
-            DeliveryState::Delivered => "delivered",
-            DeliveryState::Failed => "failed",
-            DeliveryState::Received => "received",
-            DeliveryState::Unknown(v) => v.as_str(),
-        })
-    }
-}
-
-impl<'de> Deserialize<'de> for DeliveryState {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(d)?;
-        Ok(match s.as_str() {
-            "pending" => DeliveryState::Pending,
-            "delivered" => DeliveryState::Delivered,
-            "failed" => DeliveryState::Failed,
-            "received" => DeliveryState::Received,
-            _ => DeliveryState::Unknown(s),
-        })
-    }
-}
+impl_string_enum!(DeliveryState, "a delivery state string",
+    "pending" => Pending,
+    "delivered" => Delivered,
+    "failed" => Failed,
+    "received" => Received,
+);
 
 /// Identifies who sent a [`Message`] or placed a [`Reaction`].
 ///
@@ -74,6 +58,15 @@ impl<'de> Deserialize<'de> for SenderId {
             SenderId::Owner
         } else {
             SenderId::Contact(s)
+        })
+    }
+}
+
+impl std::fmt::Display for SenderId {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            SenderId::Owner => "self",
+            SenderId::Contact(id) => id.as_str(),
         })
     }
 }

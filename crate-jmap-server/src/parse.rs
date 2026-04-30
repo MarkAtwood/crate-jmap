@@ -1,3 +1,5 @@
+//! Request parsing and ResultReference resolution (RFC 8620 §3.3, §3.7).
+
 use crate::{Invocation, JmapError, JmapRequest, ResultReference};
 use serde_json::Value;
 
@@ -10,6 +12,22 @@ use serde_json::Value;
 ///
 /// Capability URI checking is NOT performed here — that is the caller's
 /// responsibility.
+///
+/// # Caller responsibility: `notJSON`
+///
+/// This function takes a pre-parsed [`serde_json::Value`], not raw bytes.  The
+/// caller is responsible for the initial JSON parse of the HTTP request body.
+/// If that parse fails (the body is not valid JSON), the caller must produce the
+/// `notJSON` error response itself — [`crate::error_invocation`] and
+/// [`crate::request_error`] with [`JmapError::not_json()`] handle that case.
+/// `parse_request` only validates the JMAP structure of an already-parsed value.
+///
+/// # Errors
+///
+/// Returns [`JmapError::not_request()`] if the value does not match the
+/// `JmapRequest` schema or if `using` is empty.  Returns
+/// [`JmapError::limit("maxCallsInRequest")`][JmapError::limit] if the method
+/// call count exceeds `max_calls`.
 pub fn parse_request(body: Value, max_calls: usize) -> Result<JmapRequest, JmapError> {
     let req: JmapRequest = serde_json::from_value(body).map_err(|_| JmapError::not_request())?;
 

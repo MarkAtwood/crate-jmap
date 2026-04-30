@@ -1,5 +1,23 @@
 # Agent Instructions — jmap-mail-types
 
+## 🔒 LOCKED CRATE — EXPLICIT PERMISSION REQUIRED BEFORE ANY CHANGE
+
+This crate's public API, wire format, module layout, type names, field names,
+serde attributes, and design conventions are **locked and stabilized**.
+
+**You may NOT, under any circumstances:**
+- Add, rename, or remove any public type, field, or variant
+- Change any serde attribute, derive, or wire format
+- Change constructor signatures or add/remove constructors
+- Add, remove, or upgrade dependencies
+- Alter `#[non_exhaustive]` annotations
+- Modify test oracles or fixture files
+- Refactor or "clean up" any existing code
+
+**To make ANY change to this crate** you must first describe the exact change to
+the user and receive explicit written approval for that specific change. "Fixing
+a bug" or "improving the code" is not sufficient — stop and report, then wait.
+
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
 ## Before Starting Any Work

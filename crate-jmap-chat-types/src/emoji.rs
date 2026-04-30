@@ -1,3 +1,5 @@
+//! CustomEmoji object for server-global and space-scoped emoji.
+
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 

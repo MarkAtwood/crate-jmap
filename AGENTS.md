@@ -19,6 +19,20 @@ the JMAP Chat extension). All five crates live in `crate-jmap-*/` subdirectories
 
 Read the crate's `PLAN.md` before touching its code.
 
+## 🔒 Locked Crates
+
+The following crates are **locked** — public API, wire format, type names, field
+names, serde attributes, and design conventions are stabilized. Agents must not
+modify them without explicit per-change user approval:
+
+| Crate | Directory |
+|---|---|
+| `jmap-types` | `crate-jmap-types/` |
+| `jmap-mail-types` | `crate-jmap-mail-types/` |
+| `jmap-chat-types` | `crate-jmap-chat-types/` |
+
+Each crate's `AGENTS.md` lists the full restriction. When in doubt: stop and ask.
+
 ## Source Material
 
 ### Specs (normative)

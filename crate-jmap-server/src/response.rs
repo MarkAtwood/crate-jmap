@@ -1,6 +1,25 @@
+//! HTTP response helpers for JMAP request-level errors (RFC 8620 §3.6.1, RFC 7807).
+
 use http::{header, Response, StatusCode};
+use serde::Serialize;
 
 use crate::{Invocation, JmapError};
+
+/// RFC 7807 Problem Details body for JMAP request-level errors.
+///
+/// `type` and `status` are always present.  `limit` is present for `limit`
+/// errors (RFC 8620 §3.6.1 requires naming the exceeded limit).  `detail` is
+/// present for other errors that carry a description.
+#[derive(Serialize)]
+struct ProblemDetails<'a> {
+    #[serde(rename = "type")]
+    type_urn: String,
+    status: u16,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    limit: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    detail: Option<&'a str>,
+}
 
 /// Wrap a method-level error as an error `Invocation` for `methodResponses`.
 ///
@@ -21,9 +40,20 @@ pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {
 
 /// Map a [`JmapError`] type string to the appropriate HTTP status code.
 ///
-/// Error type strings are per RFC 8620 §7.1.  Only request-level errors should
-/// flow through here; method-level errors stay inside `methodResponses` at HTTP
-/// 200 and never reach this function.
+/// Error type strings are per RFC 8620 §7.1.
+///
+/// # Request-level errors only
+///
+/// Only request-level errors should flow through this function.  Method-level
+/// errors (`accountNotFound`, `notFound`, `unknownMethod`, etc.) belong in
+/// `methodResponses` at HTTP 200 via [`error_invocation`] — they must never
+/// reach `error_status`.  Passing a method-level error here is a caller bug;
+/// the catch-all maps unrecognized types to 500 rather than silently returning
+/// a wrong status code.
+///
+/// Request-level error types (safe to pass here): `notJSON`, `notRequest`,
+/// `limit`, `unknownCapability`, `invalidArguments`, `requestTooLarge`,
+/// `forbidden`, `serverFail`, `serverUnavailable`.
 pub fn error_status(err: &JmapError) -> StatusCode {
     match err.error_type.as_str() {
         // RFC 8620 §3.6.1 request-level errors → 400.
@@ -65,30 +95,24 @@ impl RequestError {
         let status = self.status;
         let err = self.err;
         // RFC 8620 §3.6.1 requires RFC 7807 Problem Details format with full URN type.
-        let type_urn = format!("urn:ietf:params:jmap:error:{}", err.error_type);
-        let mut obj = serde_json::Map::new();
-        obj.insert("type".to_owned(), serde_json::Value::String(type_urn));
-        obj.insert(
-            "status".to_owned(),
-            serde_json::Value::Number(status.as_u16().into()),
-        );
         // For "limit" errors, RFC 8620 §3.6.1 REQUIRES a "limit" property naming
         // the exceeded limit.  By convention (see JmapError::limit()), the limit
         // name is stored in the description field.  Use JmapError::limit(name) —
         // never set error_type = "limit" manually — to ensure this invariant holds.
-        if err.error_type == "limit" {
-            let limit_name = err.description.as_deref().unwrap_or("unknown");
-            obj.insert(
-                "limit".to_owned(),
-                serde_json::Value::String(limit_name.to_owned()),
-            );
-        } else if let Some(detail) = &err.description {
-            obj.insert(
-                "detail".to_owned(),
-                serde_json::Value::String(detail.clone()),
-            );
-        }
-        let body = serde_json::Value::Object(obj).to_string();
+        let (limit, detail) = if err.error_type == "limit" {
+            (Some(err.description.as_deref().unwrap_or("unknown")), None)
+        } else {
+            (None, err.description.as_deref())
+        };
+        let details = ProblemDetails {
+            type_urn: format!("urn:ietf:params:jmap:error:{}", err.error_type),
+            status: status.as_u16(),
+            limit,
+            detail,
+        };
+        // ProblemDetails only contains String, u16, and Option<&str> fields —
+        // all JSON-serializable; to_json() cannot fail here.
+        let body = serde_json::to_string(&details).expect("ProblemDetails is infallible");
         // Builder only fails for invalid status codes or header values; both are
         // controlled here and known-valid, so this cannot panic.
         Response::builder()
@@ -101,14 +125,31 @@ impl RequestError {
 
 /// Convenience constructor: wrap a [`JmapError`] in a [`RequestError`],
 /// deriving the HTTP status code automatically.
+///
+/// # Request-level errors only
+///
+/// Pass only request-level errors (see [`error_status`] for the full list).
+/// Method-level errors must go through [`error_invocation`] instead.
 pub fn request_error(err: JmapError) -> RequestError {
     let status = error_status(&err);
     RequestError { status, err }
 }
 
+impl From<JmapError> for RequestError {
+    /// Convert a [`JmapError`] into a [`RequestError`], deriving the HTTP
+    /// status code automatically via [`error_status`].
+    ///
+    /// Enables `?` propagation in functions returning `Result<_, RequestError>`.
+    /// Pass only request-level errors; see [`error_status`] for the safe list.
+    fn from(err: JmapError) -> Self {
+        request_error(err)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Id;
     use http::StatusCode;
 
     // -----------------------------------------------------------------------
@@ -278,5 +319,70 @@ mod tests {
             "limit property must name the exceeded limit"
         );
         assert_eq!(body["type"], "urn:ietf:params:jmap:error:limit");
+    }
+
+    // -----------------------------------------------------------------------
+    // JmapError serialization invariant (guards the .expect() in error_invocation)
+    // -----------------------------------------------------------------------
+
+    /// Oracle: error_invocation depends on JmapError being infallibly serializable.
+    /// This test exercises every JmapError constructor to catch any future regression
+    /// in jmap-types that breaks the invariant.
+    #[test]
+    fn jmap_error_all_constructors_serialize() {
+        let errors = vec![
+            JmapError::not_json(),
+            JmapError::not_request(),
+            JmapError::limit("maxCallsInRequest"),
+            JmapError::unknown_capability(),
+            JmapError::forbidden(),
+            JmapError::server_fail("test"),
+            JmapError::server_unavailable(),
+            JmapError::server_partial_fail(),
+            JmapError::unknown_method(),
+            JmapError::invalid_arguments("x"),
+            JmapError::invalid_result_reference(),
+            JmapError::not_found(),
+            JmapError::account_not_found(),
+            JmapError::account_not_supported_by_method(),
+            JmapError::account_read_only(),
+            JmapError::request_too_large(),
+            JmapError::singleton(),
+            JmapError::will_destroy(),
+            JmapError::invalid_patch(),
+            JmapError::invalid_properties(),
+            JmapError::too_large(),
+            JmapError::rate_limit(),
+            JmapError::over_quota(),
+            JmapError::state_mismatch(),
+            JmapError::cannot_calculate_changes(),
+            JmapError::anchor_not_found(),
+            JmapError::unsupported_sort(),
+            JmapError::unsupported_filter(),
+            JmapError::too_many_changes(),
+            JmapError::from_account_not_found(),
+            JmapError::from_account_not_supported_by_method(),
+            JmapError::already_exists(Id::from("existing-1")),
+            JmapError::custom("customErrorType"),
+        ];
+        for err in &errors {
+            let v = serde_json::to_value(err);
+            assert!(v.is_ok(), "JmapError variant failed to serialize: {err:?}");
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // From<JmapError> for RequestError
+    // -----------------------------------------------------------------------
+
+    /// Oracle: From<JmapError> must produce the same result as request_error().
+    #[test]
+    fn from_jmap_error_matches_request_error() {
+        let via_from: RequestError = JmapError::invalid_arguments("x").into();
+        let via_fn = request_error(JmapError::invalid_arguments("x"));
+        assert_eq!(
+            via_from.into_response().status(),
+            via_fn.into_response().status()
+        );
     }
 }

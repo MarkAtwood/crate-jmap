@@ -1,3 +1,5 @@
+//! WebSocket ephemeral message types for real-time events.
+
 use crate::clearable::{some_clearable, Clearable};
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};

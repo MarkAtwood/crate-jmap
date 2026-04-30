@@ -1,10 +1,10 @@
-#![forbid(unsafe_code)]
-
 //! Backend-agnostic JMAP server framework (RFC 8620).
 //!
 //! Provides request parsing, ResultReference resolution, HTTP response helpers,
 //! and the [`Dispatcher`] machinery. No opinion on authentication, method sets,
 //! capability URIs, or storage.
+
+#![forbid(unsafe_code)]
 
 pub use jmap_types::{
     Argument, Id, Invocation, JmapError, JmapRequest, JmapResponse, ResultReference, State, UTCDate,
@@ -207,7 +207,7 @@ impl<CallerCtx: Clone + Send + 'static> Default for Dispatcher<CallerCtx> {
 impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Dispatcher")
-            .field("methods", &self.handlers.keys().collect::<Vec<_>>())
+            .field("methods", &self.handlers.keys())
             .finish()
     }
 }

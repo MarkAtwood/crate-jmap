@@ -1,3 +1,5 @@
+//! ReadPosition object tracking a user's read cursor in a Chat.
+
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 

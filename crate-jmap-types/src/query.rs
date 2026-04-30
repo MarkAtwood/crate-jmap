@@ -7,6 +7,7 @@
 use serde::{Deserialize, Serialize};
 
 /// Logical operator for combining filter conditions (RFC 8620 §5.5).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Operator {
@@ -25,6 +26,7 @@ pub enum Operator {
 /// because serde untagged tries variants in declaration order.
 /// `FilterOperator<T>` requires an `"operator"` field and fails fast without
 /// it, allowing the deserializer to fall through to `Condition(T)`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Filter<T> {
@@ -35,12 +37,23 @@ pub enum Filter<T> {
 }
 
 /// Logical combination of filters (RFC 8620 §5.5).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FilterOperator<T> {
     /// Logical operator: AND, OR, or NOT.
     pub operator: Operator,
     /// Sub-conditions to evaluate.
     pub conditions: Vec<Filter<T>>,
+}
+
+impl<T> FilterOperator<T> {
+    /// Create a new [`FilterOperator`] with the given logical operator and conditions.
+    pub fn new(operator: Operator, conditions: Vec<Filter<T>>) -> Self {
+        Self {
+            operator,
+            conditions,
+        }
+    }
 }
 
 #[cfg(test)]

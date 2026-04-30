@@ -1,9 +1,11 @@
+//! Chat conversation object and supporting types.
+
 use jmap_types::{Id, UTCDate};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 /// The kind of a [`Chat`] conversation.
 ///
-/// The spec defines three kinds. `Unknown` preserves any future value
+/// The spec defines three kinds. `Other` preserves any future value
 /// for round-trip fidelity without breaking deserialization.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -15,31 +17,14 @@ pub enum ChatKind {
     /// A named channel inside a [`crate::Space`].
     Channel,
     /// A value not recognized by this version of the library.
-    Unknown(String),
+    Other(String),
 }
 
-impl Serialize for ChatKind {
-    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(match self {
-            ChatKind::Direct => "direct",
-            ChatKind::Group => "group",
-            ChatKind::Channel => "channel",
-            ChatKind::Unknown(v) => v.as_str(),
-        })
-    }
-}
-
-impl<'de> Deserialize<'de> for ChatKind {
-    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let s = String::deserialize(d)?;
-        Ok(match s.as_str() {
-            "direct" => ChatKind::Direct,
-            "group" => ChatKind::Group,
-            "channel" => ChatKind::Channel,
-            _ => ChatKind::Unknown(s),
-        })
-    }
-}
+impl_string_enum!(ChatKind, "a chat kind string",
+    "direct" => Direct,
+    "group" => Group,
+    "channel" => Channel,
+);
 
 /// A member of a [`Chat`].
 #[non_exhaustive]
