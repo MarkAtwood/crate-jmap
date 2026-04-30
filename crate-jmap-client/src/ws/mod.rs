@@ -186,7 +186,7 @@ pub async fn connect_ws(
         })?;
         let hdr_value = http::HeaderValue::from_str(value).map_err(|_| {
             crate::error::ClientError::InvalidArgument(
-                "invalid auth header value".to_string(),
+                "invalid auth header value".to_owned(),
             )
         })?;
         request.headers_mut().insert(hdr_name, hdr_value);

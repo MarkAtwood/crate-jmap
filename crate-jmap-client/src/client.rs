@@ -491,12 +491,12 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
             .get("type")
             .and_then(|v| v.as_str())
             .unwrap_or("serverError") // safe: fallback literal, not user input
-            .to_string();
+            .to_owned();
         let description = args
             .get("description")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown") // safe: fallback literal, not user input
-            .to_string();
+            .to_owned();
         return Err(ClientError::MethodError {
             error_type: err_type,
             description,

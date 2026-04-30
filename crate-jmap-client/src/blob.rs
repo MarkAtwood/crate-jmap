@@ -19,8 +19,8 @@ pub struct BlobUploadResponse {
     pub content_type: String,
     /// Size of the uploaded blob in bytes.
     pub size: u64,
-    /// SHA-256 hex digest of the uploaded blob as 64 lowercase hex characters,
-    /// if the server supports the JMAP-CID draft extension (`draft-atwood-jmap-cid`).
+    /// SHA-256 hex digest of the uploaded blob as 64 hex characters (uppercase or
+    /// lowercase), if the server supports the JMAP-CID draft extension (`draft-atwood-jmap-cid`).
     ///
     /// This field is **not** defined by RFC 8620. It is present only on servers
     /// that advertise the `urn:ietf:params:jmap:cid` capability. Servers that
@@ -97,9 +97,9 @@ fn percent_encode(value: &str) -> String {
 /// output (JMAP-CID §1 requires lowercase).
 fn hex_digit(nibble: u8, uppercase: bool) -> char {
     match nibble {
-        0..=9 => (b'0' + nibble) as char,
-        10..=15 if uppercase => (b'A' + nibble - 10) as char,
-        10..=15 => (b'a' + nibble - 10) as char,
+        0..=9 => char::from(b'0' + nibble),
+        10..=15 if uppercase => char::from(b'A' + nibble - 10),
+        10..=15 => char::from(b'a' + nibble - 10),
         _ => unreachable!("nibble must be 0–15"),
     }
 }
@@ -269,7 +269,8 @@ impl crate::client::JmapClient {
     }
 }
 
-/// Validate that `s` is exactly 64 lowercase hex characters (RFC 6570 / JMAP-CID).
+/// Validate that `s` is exactly 64 hex characters (uppercase or lowercase accepted;
+/// callers normalize to lowercase before comparison).
 fn validate_sha256_format(s: &str) -> Result<(), crate::error::ClientError> {
     if s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()) {
         Ok(())

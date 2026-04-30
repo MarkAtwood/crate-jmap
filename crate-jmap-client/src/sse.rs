@@ -58,13 +58,14 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
     let mut id: Option<String> = None;
 
     for line in block.lines() {
+        // RFC 8895 §9.1: if value starts with U+0020 SPACE, remove exactly that one space.
         if let Some(value) = line.strip_prefix("event:") {
-            event_type = Some(value.trim());
+            event_type = Some(value.strip_prefix(' ').unwrap_or(value));
         } else if let Some(value) = line.strip_prefix("data:") {
-            data_lines.push(value.trim());
+            data_lines.push(value.strip_prefix(' ').unwrap_or(value));
         } else if let Some(value) = line.strip_prefix("id:") {
-            let trimmed = value.trim();
-            id = if trimmed.is_empty() { None } else { Some(trimmed.to_owned()) };
+            let v = value.strip_prefix(' ').unwrap_or(value);
+            id = if v.is_empty() { None } else { Some(v.to_owned()) };
         }
         // Comments (lines starting with ':') and unknown fields are silently ignored.
     }
