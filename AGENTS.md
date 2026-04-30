@@ -30,6 +30,7 @@ modify them without explicit per-change user approval:
 | `jmap-types` | `crate-jmap-types/` |
 | `jmap-mail-types` | `crate-jmap-mail-types/` |
 | `jmap-chat-types` | `crate-jmap-chat-types/` |
+| `jmap-client` | `crate-jmap-client/` |
 
 Each crate's `AGENTS.md` lists the full restriction. When in doubt: stop and ask.
 

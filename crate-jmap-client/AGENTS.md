@@ -1,0 +1,78 @@
+# Agent Instructions — jmap-client
+
+## 🔒 LOCKED CRATE — EXPLICIT PERMISSION REQUIRED BEFORE ANY CHANGE
+
+This crate has been reviewed and stabilized. Its public API, auth traits, wire
+behavior, error variants, configuration types, and test oracles are locked.
+
+**You may NOT, under any circumstances:**
+- Add, rename, or remove any public type, trait, method, or field
+- Change `ClientError` variants, their fields, or their `#[error]` strings
+- Change `AuthProvider`, `TransportConfig`, or their method signatures
+- Change `ClientConfig` field names, types, or defaults
+- Change `JmapClient` method signatures (`new`, `new_plain`, `fetch_session`,
+  `call`, `subscribe_events`, `upload_blob`, `download_blob`)
+- Change `WsSession`, `WsFrame`, `SseFrame`, or `SseEvent` shapes
+- Change `Session`, `AccountInfo`, or `WebSocketCapability` field names or serde
+- Alter `#[non_exhaustive]` annotations
+- Add, remove, or upgrade dependencies
+- Modify test oracles or fixture files
+- Refactor or "clean up" any existing code
+
+**To make ANY change to this crate** you must first describe the exact change to
+the user and receive explicit written approval for that specific change. "Fixing
+a bug" or "improving the code" is not sufficient — stop and report, then wait.
+
+## Before Starting Any Work
+
+1. Read `PLAN.md` — design rationale, public API, source material
+2. Run `bd ready` — check for open issues before creating new ones
+3. Ask the user for explicit permission before touching any source file
+
+## What This Is
+
+RFC 8620 base JMAP client: auth-agnostic HTTP transport, session fetch, API
+calls, blob upload/download, SSE event streaming, and WebSocket support.
+Extension crates (`jmap-mail-client`, `jmap-chat-client`) build on top of this.
+
+## Crate Family Context
+
+```
+jmap-types
+    └── jmap-client  ← this crate
+            ├── jmap-mail-client
+            └── jmap-chat-client
+```
+
+## Build & Test
+
+```bash
+cargo fmt --all
+cargo clippy -- -D warnings
+cargo test -p jmap-client
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p jmap-client
+```
+
+Run all four before considering any work done.
+
+## Design Constraints (Settled)
+
+| Decision | Choice |
+|---|---|
+| Auth | `AuthProvider` trait — transport and credentials are independent |
+| TLS | `TransportConfig` trait — `DefaultTransport` and `CustomCaTransport` |
+| Error type | `ClientError` enum with `#[non_exhaustive]` and `thiserror` |
+| SSE framing | `SseStreamState` unfold loop with `scan_from` 3-byte overlap |
+| UTF-8 streaming | `raw_buf` + `decode_utf8_chunk` split-sequence handling |
+| WS frames | `WsRequestFrame` with `#[serde(flatten)]` — single-pass serialization |
+| Size caps | Content-Length early exit + streaming per-chunk cap in `download_blob` |
+| Unsafe | Forbidden — `#![forbid(unsafe_code)]` |
+
+## Non-Interactive Shell Commands
+
+```bash
+cp -f source dest       mv -f source dest       rm -f file
+rm -rf directory        cp -rf source dest
+```
+
+Use `-o BatchMode=yes` for scp/ssh. Use `-y` for apt-get.
