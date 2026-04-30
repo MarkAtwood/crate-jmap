@@ -7,7 +7,7 @@ use sha2::{Digest, Sha256};
 
 /// Response body returned by a successful blob upload (RFC 8620 §6.1).
 #[non_exhaustive]
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlobUploadResponse {
     /// The account the blob was uploaded to.
