@@ -32,11 +32,11 @@ fn call_response_fixture() -> serde_json::Value {
 
 fn minimal_request() -> jmap_types::JmapRequest {
     jmap_types::JmapRequest::new(
-        vec!["urn:ietf:params:jmap:core".to_string()],
+        vec!["urn:ietf:params:jmap:core".to_owned()],
         vec![(
-            "Mailbox/get".to_string(),
+            "Mailbox/get".to_owned(),
             serde_json::json!({"accountId": "A13824", "ids": null}),
-            "r1".to_string(),
+            "r1".to_owned(),
         )],
         None,
     )
@@ -244,7 +244,7 @@ async fn test_fetch_session_rejects_non_http_api_url() {
     let server = MockServer::start().await;
 
     let mut body = session_fixture();
-    body["apiUrl"] = serde_json::Value::String("ftp://example.com/api/".to_string());
+    body["apiUrl"] = serde_json::Value::String("ftp://example.com/api/".to_owned());
 
     Mock::given(method("GET"))
         .and(path("/.well-known/jmap"))
@@ -270,11 +270,13 @@ async fn test_fetch_session_rejects_non_http_api_url() {
 /// eventSourceUrl with a non-http scheme must return ClientError::InvalidArgument.
 #[tokio::test]
 async fn test_fetch_session_rejects_non_http_other_urls() {
-    let server = MockServer::start().await;
-
+    // A fresh MockServer per iteration ensures each request receives exactly
+    // the intended body with one field set to ftp://, regardless of wiremock
+    // mock-matching order when multiple mocks are registered on the same path.
     for field in &["uploadUrl", "downloadUrl", "eventSourceUrl"] {
+        let server = MockServer::start().await;
         let mut body = session_fixture();
-        body[*field] = serde_json::Value::String("ftp://example.com/bad".to_string());
+        body[*field] = serde_json::Value::String("ftp://example.com/bad".to_owned());
 
         Mock::given(method("GET"))
             .and(path("/.well-known/jmap"))
@@ -459,9 +461,9 @@ async fn test_download_blob_size_cap() {
 fn test_extract_response_success() {
     let resp = jmap_types::JmapResponse::new(
         vec![(
-            "Mailbox/get".to_string(),
+            "Mailbox/get".to_owned(),
             serde_json::json!({"accountId": "A13824", "state": "s1", "list": [], "notFound": []}),
-            "r1".to_string(),
+            "r1".to_owned(),
         )],
         "sess1".into(),
         None,
@@ -477,9 +479,9 @@ fn test_extract_response_success() {
 fn test_extract_response_not_found() {
     let resp = jmap_types::JmapResponse::new(
         vec![(
-            "Mailbox/get".to_string(),
+            "Mailbox/get".to_owned(),
             serde_json::json!({}),
-            "r1".to_string(),
+            "r1".to_owned(),
         )],
         "sess1".into(),
         None,
@@ -499,9 +501,9 @@ fn test_extract_response_not_found() {
 fn test_extract_response_method_error() {
     let resp = jmap_types::JmapResponse::new(
         vec![(
-            "error".to_string(),
+            "error".to_owned(),
             serde_json::json!({"type": "serverFail", "description": "oops"}),
-            "r1".to_string(),
+            "r1".to_owned(),
         )],
         "sess1".into(),
         None,

@@ -168,7 +168,12 @@ pub async fn connect_ws(
     // Accept only lowercase ws:// and wss:// so the guard and tungstenite see
     // the same string — no risk of tungstenite rejecting an uppercase scheme
     // after the guard passes.
-    if !ws_url.starts_with("ws://") && !ws_url.starts_with("wss://") {
+    // Case-insensitive scheme check: RFC 3986 §3.1 allows uppercase scheme letters,
+    // and tungstenite may accept or reject them independently of our guard.
+    // Checking the lowercased prefix ensures both `WS://` and `ws://` are caught
+    // while the original URL is kept in the error message for diagnostics.
+    let ws_url_lc = ws_url.to_ascii_lowercase();
+    if !ws_url_lc.starts_with("ws://") && !ws_url_lc.starts_with("wss://") {
         return Err(crate::error::ClientError::InvalidArgument(format!(
             "WebSocket URL must start with ws:// or wss://, got: {ws_url:?}"
         )));
@@ -221,7 +226,7 @@ mod tests {
     #[test]
     fn ws_frame_has_no_chat_variants() {
         let frame = WsFrame::Unknown {
-            type_name: "test".to_string(),
+            type_name: "test".to_owned(),
         };
         match frame {
             WsFrame::StateChange(_) => {}
@@ -294,7 +299,7 @@ mod tests {
     #[test]
     fn send_request_includes_at_type_request() {
         let req = jmap_types::JmapRequest::new(
-            vec!["urn:ietf:params:jmap:core".to_string()],
+            vec!["urn:ietf:params:jmap:core".to_owned()],
             vec![],
             None,
         );
@@ -302,8 +307,8 @@ mod tests {
         let mut val = serde_json::to_value(&req).expect("serialize");
         let obj = val.as_object_mut().expect("JmapRequest serializes to object");
         obj.insert(
-            "@type".to_string(),
-            serde_json::Value::String("Request".to_string()),
+            "@type".to_owned(),
+            serde_json::Value::String("Request".to_owned()),
         );
         let serialized = serde_json::to_string(&val).expect("serialize to string");
 
@@ -318,17 +323,17 @@ mod tests {
     #[test]
     fn send_request_includes_id_when_provided() {
         let req = jmap_types::JmapRequest::new(
-            vec!["urn:ietf:params:jmap:core".to_string()],
+            vec!["urn:ietf:params:jmap:core".to_owned()],
             vec![],
             None,
         );
         let mut val = serde_json::to_value(&req).expect("serialize");
         let obj = val.as_object_mut().expect("JmapRequest serializes to object");
         obj.insert(
-            "@type".to_string(),
-            serde_json::Value::String("Request".to_string()),
+            "@type".to_owned(),
+            serde_json::Value::String("Request".to_owned()),
         );
-        obj.insert("id".to_string(), serde_json::Value::String("req-42".to_string()));
+        obj.insert("id".to_owned(), serde_json::Value::String("req-42".to_owned()));
         let serialized = serde_json::to_string(&val).expect("serialize to string");
 
         assert!(

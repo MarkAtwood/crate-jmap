@@ -29,7 +29,7 @@ pub trait TransportConfig: Send + Sync {
 ///
 /// Use for servers with publicly-trusted certificates. Pair with any
 /// [`AuthProvider`] for credential injection.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DefaultTransport;
 
 impl TransportConfig for DefaultTransport {
@@ -43,7 +43,7 @@ impl TransportConfig for DefaultTransport {
 /// Use when the server presents a certificate signed by a private CA.
 /// Pair with any [`AuthProvider`] for credential injection — including
 /// [`BearerAuth`] or [`BasicAuth`] if the server also requires credentials.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CustomCaTransport {
     der_cert: Vec<u8>,
 }
@@ -98,18 +98,18 @@ pub trait AuthProvider: Send + Sync {
     /// - Header value: visible ASCII characters (0x21–0x7E) and horizontal tab
     ///   (0x09) only; no other control characters.
     ///
-    /// Implementations that violate this contract cause a panic in
-    /// `connect_ws` (`ws/mod.rs`), which parses the returned value into a typed
-    /// [`http::HeaderValue`]. On HTTP code paths the header value is passed as
-    /// `&str` directly to reqwest, which silently drops headers it cannot encode
-    /// rather than returning an error — the violation is invisible until the
-    /// WebSocket path is exercised. Test all custom `AuthProvider` impls against
-    /// both HTTP and WebSocket call paths.
+    /// Implementations that violate this contract will cause
+    /// [`ClientError::InvalidArgument`] in `connect_ws` (`ws/mod.rs`), which
+    /// parses the value into a typed [`http::HeaderValue`]. On HTTP code paths
+    /// reqwest returns the error from `.send()` as a builder error rather than
+    /// an `InvalidArgument` — the error type differs between the two paths.
+    /// Test all custom `AuthProvider` implementations against both HTTP and
+    /// WebSocket call paths.
     fn auth_header(&self) -> Option<(&'static str, String)>;
 }
 
 /// No authentication: no `Authorization` header.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NoneAuth;
 
 impl AuthProvider for NoneAuth {
