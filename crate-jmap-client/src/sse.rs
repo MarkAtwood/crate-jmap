@@ -56,10 +56,12 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
         // Comments (lines starting with ':') and unknown fields are silently ignored.
     }
 
-    let data = data_lines.join("\n");
-
     let event = match event_type {
-        Some("state") => parse_state_data(&data),
+        Some("state") => match data_lines.as_slice() {
+            [] => parse_state_data(""),
+            [single] => parse_state_data(single),
+            _ => parse_state_data(&data_lines.join("\n")),
+        },
         _ => SseEvent::Unknown,
     };
 
@@ -69,7 +71,8 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
 /// Parse the data payload of a "state" event.
 ///
 /// Accepts both the bare `{"changed":{...}}` shape and the shape with
-/// `"@type":"StateChange"` as the spec example includes it.
+/// `"@type":"StateChange"` per RFC 8620 §7.3 (StateChange object definition).
+/// The `@type` field is stripped before deserialization; only `changed` is used.
 fn parse_state_data(data: &str) -> SseEvent {
     let Ok(mut v) = serde_json::from_str::<serde_json::Value>(data) else {
         return SseEvent::Unknown;

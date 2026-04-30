@@ -35,6 +35,11 @@ pub enum WsFrame {
     Response(jmap_types::JmapResponse),
     /// Unrecognized `@type` — silently ignored per forward-compatibility rules
     /// (RFC 8887 §4.3.1: clients SHOULD ignore unknown message types).
+    ///
+    /// Also produced when a known type (`"Response"` or `"StateChange"`) fails
+    /// to deserialize — `type_name` will be `"Response"` or `"StateChange"` in
+    /// that case, which can signal server misbehavior or a schema version
+    /// mismatch. Callers that log unknown frames should check for these names.
     Unknown { type_name: String },
 }
 

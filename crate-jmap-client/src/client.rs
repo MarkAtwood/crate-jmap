@@ -350,7 +350,7 @@ impl JmapClient {
                 stream: byte_stream,
                 raw_buf: Vec::new(),
                 buf: String::new(),
-                scan_from: 0usize,
+                scan_from: 0usize, // invariant: valid UTF-8 char boundary of buf; 0 always satisfies this
             }),
             |state| async move {
                 let SseStreamState {
@@ -381,10 +381,17 @@ impl JmapClient {
                     .min_by_key(|&(pos, _)| pos);
 
                     if let Some((pos, delim_len)) = frame_end {
-                        let frame = buf[..pos].replace("\r\n", "\n").replace('\r', "\n");
+                        let frame = {
+                            let slice = &buf[..pos];
+                            if slice.contains('\r') {
+                                slice.replace("\r\n", "\n").replace('\r', "\n")
+                            } else {
+                                slice.to_owned()
+                            }
+                        };
                         let suffix = buf.split_off(pos + delim_len);
                         buf = suffix;
-                        scan_from = 0;
+                        scan_from = 0; // 0 satisfies the UTF-8 char boundary invariant
                         let sse_frame = parse_sse_block(&frame);
                         return Some((
                             Ok(sse_frame),
@@ -413,29 +420,27 @@ impl JmapClient {
                             if raw_buf.len() > SSE_BUF_SIZE_LIMIT {
                                 return Some((Err(ClientError::SseFrameTooLarge), None));
                             }
-                            let text = match std::str::from_utf8(&raw_buf) {
+                            let old_len = buf.len();
+                            match std::str::from_utf8(&raw_buf) {
                                 Ok(s) => {
-                                    let owned = s.to_owned();
+                                    buf.push_str(s);
                                     raw_buf.clear();
-                                    owned
                                 }
                                 Err(e) => {
                                     let valid_up_to = e.valid_up_to();
                                     // valid_up_to is always a char boundary by definition.
-                                    let owned = std::str::from_utf8(&raw_buf[..valid_up_to])
-                                        .expect("valid_up_to is a valid UTF-8 boundary")
-                                        .to_owned();
+                                    buf.push_str(
+                                        std::str::from_utf8(&raw_buf[..valid_up_to])
+                                            .expect("valid_up_to is a valid UTF-8 boundary"),
+                                    );
                                     // Drain valid prefix plus at least one byte so that an
                                     // invalid-sequence head (valid_up_to == 0) is not stuck
                                     // in raw_buf forever, which would cause it to grow until
                                     // the 1 MiB cap fires even if valid data follows.
                                     let drain_end = valid_up_to.max(1);
                                     raw_buf.drain(..drain_end.min(raw_buf.len()));
-                                    owned
                                 }
-                            };
-                            let old_len = buf.len();
-                            buf.push_str(&text);
+                            }
                             scan_from = old_len.saturating_sub(3);
                             // Walk backward to a valid UTF-8 char boundary so that
                             // buf[scan_from..] never panics on multibyte characters.
@@ -476,17 +481,16 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
         .into_iter()
         .find(|inv| inv.2 == call_id)
         .ok_or_else(|| ClientError::MethodNotFound(call_id.to_string()))?;
+    let (method_name, args, _) = inv;
 
     // RFC 8620 §3.6.1: a method name of "error" signals a protocol-level error.
-    if inv.0 == "error" {
-        let err_type = inv
-            .1
+    if method_name == "error" {
+        let err_type = args
             .get("type")
             .and_then(|v| v.as_str())
             .unwrap_or("serverError") // safe: fallback literal, not user input
             .to_string();
-        let description = inv
-            .1
+        let description = args
             .get("description")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown") // safe: fallback literal, not user input
@@ -497,7 +501,7 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
         });
     }
 
-    serde_json::from_value(inv.1).map_err(|e| ClientError::Parse(e.to_string()))
+    serde_json::from_value(args).map_err(|e| ClientError::Parse(e.to_string()))
 }
 
 /// Validate that all URL fields in `session` use an http or https scheme.

@@ -98,9 +98,12 @@ pub trait AuthProvider: Send + Sync {
     /// - Header value: visible ASCII characters (0x21–0x7E) and horizontal tab
     ///   (0x09) only; no other control characters.
     ///
-    /// Implementations that violate this contract will cause a panic in the
-    /// WebSocket connection path (`connect_ws`), which parses the returned
-    /// strings back into typed header values.
+    /// Implementations that violate this contract will cause a panic in
+    /// `connect_ws` (`ws/mod.rs`), which parses the returned value into a
+    /// typed [`http::HeaderValue`]. The HTTP code paths use the value as `&str`
+    /// directly and do not perform that conversion, so the panic is deferred
+    /// until the WebSocket path is exercised — it will not appear in tests that
+    /// only exercise HTTP methods.
     fn auth_header(&self) -> Option<(&'static str, String)>;
 }
 
