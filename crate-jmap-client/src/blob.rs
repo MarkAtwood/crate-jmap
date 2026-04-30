@@ -80,10 +80,28 @@ pub struct BlobUploadResponse {
 /// # RFC 6570 Level-1
 /// Only simple-string expansion is supported. Reserved-expansion (`{+var}`)
 /// and other Level-2+ operators are not supported.
-pub(crate) fn expand_url_template(
-    template: &str,
-    vars: &[(&str, &str)],
-) -> Result<String, ClientError> {
+///
+/// # Usage with `subscribe_events`
+///
+/// [`Session::event_source_url`] is a URI template with variables `types`,
+/// `closeafter`, and `ping`. Expand it before calling
+/// [`JmapClient::subscribe_events`]:
+///
+/// ```rust,ignore
+/// let url = expand_url_template(
+///     &session.event_source_url,
+///     &[
+///         ("types", "Email,Mailbox"),
+///         ("closeafter", "state"),
+///         ("ping", "0"),
+///     ],
+/// )?;
+/// client.subscribe_events(&url, None).await?;
+/// ```
+///
+/// [`Session::event_source_url`]: crate::request::Session::event_source_url
+/// [`JmapClient::subscribe_events`]: crate::client::JmapClient::subscribe_events
+pub fn expand_url_template(template: &str, vars: &[(&str, &str)]) -> Result<String, ClientError> {
     let mut result = String::with_capacity(template.len() + 64);
     let mut rest = template;
     while let Some(open) = rest.find('{') {
@@ -162,8 +180,7 @@ impl JmapClient {
         content_type: &str,
     ) -> Result<BlobUploadResponse, ClientError> {
         crate::client::require_http_url(upload_url_template)?;
-        let ct_hv = HeaderValue::from_str(content_type)
-            .map_err(ClientError::InvalidHeaderValue)?;
+        let ct_hv = HeaderValue::from_str(content_type).map_err(ClientError::InvalidHeaderValue)?;
         let url = expand_url_template(upload_url_template, &[("accountId", account_id)])?;
 
         // Compute SHA-256 before handing ownership of data to the request body.
@@ -180,9 +197,7 @@ impl JmapClient {
         let resp = req.send().await.map_err(ClientError::Http)?;
         let status = resp.status();
         Self::check_auth_status(status)?;
-        let resp = resp
-            .error_for_status()
-            .map_err(ClientError::Http)?;
+        let resp = resp.error_for_status().map_err(ClientError::Http)?;
 
         let upload_limit = self.config.max_upload_body;
 
@@ -194,10 +209,7 @@ impl JmapClient {
                 });
             }
         }
-        let bytes = resp
-            .bytes()
-            .await
-            .map_err(ClientError::Http)?;
+        let bytes = resp.bytes().await.map_err(ClientError::Http)?;
         if bytes.len() as u64 > upload_limit {
             return Err(ClientError::ResponseTooLarge {
                 actual: bytes.len() as u64,
@@ -269,9 +281,7 @@ impl JmapClient {
         let resp = req.send().await.map_err(ClientError::Http)?;
         let status = resp.status();
         Self::check_auth_status(status)?;
-        let resp = resp
-            .error_for_status()
-            .map_err(ClientError::Http)?;
+        let resp = resp.error_for_status().map_err(ClientError::Http)?;
 
         let download_limit = self.config.max_download_body;
 
@@ -284,10 +294,7 @@ impl JmapClient {
                 });
             }
         }
-        let bytes = resp
-            .bytes()
-            .await
-            .map_err(ClientError::Http)?;
+        let bytes = resp.bytes().await.map_err(ClientError::Http)?;
         // Content-Length can lie — enforce cap on actual bytes read.
         if bytes.len() as u64 > download_limit {
             return Err(ClientError::ResponseTooLarge {
@@ -404,11 +411,8 @@ mod tests {
     // because templates come from the server's Session document.
     #[test]
     fn expand_unmatched_open_brace_returns_error() {
-        let err = expand_url_template(
-            "https://example.com/{unclosed",
-            &[],
-        )
-        .expect_err("unmatched '{' must return an error");
+        let err = expand_url_template("https://example.com/{unclosed", &[])
+            .expect_err("unmatched '{' must return an error");
         assert!(
             matches!(err, crate::error::ClientError::InvalidSession(_)),
             "expected InvalidSession for unmatched brace, got {err:?}"

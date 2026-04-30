@@ -80,9 +80,7 @@ impl JmapRequestBuilder {
     /// been added. An empty `methodCalls` array is invalid per RFC 8620 §3.3.
     pub fn build(self) -> Result<JmapRequest, ClientError> {
         if self.method_calls.is_empty() {
-            return Err(ClientError::InvalidArgument(
-                "no method calls added".into(),
-            ));
+            return Err(ClientError::InvalidArgument("no method calls added".into()));
         }
         Ok(JmapRequest::new(self.using, self.method_calls, None))
     }
@@ -157,9 +155,7 @@ impl Session {
     /// - `Ok(None)` — server does not advertise JMAP WebSocket support.
     /// - `Ok(Some(...))` — WebSocket is supported; use `result.url` to connect.
     /// - `Err` — capability key is present but the value is malformed.
-    pub fn websocket_capability(
-        &self,
-    ) -> Result<Option<WebSocketCapability>, ClientError> {
+    pub fn websocket_capability(&self) -> Result<Option<WebSocketCapability>, ClientError> {
         let Some(raw) = self.capabilities.get("urn:ietf:params:jmap:websocket") else {
             return Ok(None);
         };

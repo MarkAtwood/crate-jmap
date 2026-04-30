@@ -95,6 +95,16 @@ pub enum ClientError {
     /// `tokio-tungstenite` major version as this crate. Pre-1.0 limitation.
     #[error("WebSocket error: {0}")]
     WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
+
+    /// The server returned a response that violates the JMAP protocol (outside
+    /// the Session fetch path). Examples: wrong `Content-Type` on an SSE
+    /// connection, unexpected response shape on a non-session endpoint.
+    ///
+    /// Distinct from [`ClientError::InvalidSession`], which indicates a
+    /// problem with the Session document itself. Not retriable without a
+    /// server fix.
+    #[error("unexpected server response: {0}")]
+    UnexpectedResponse(String),
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +134,7 @@ mod tests {
             ClientError::SseFrameTooLarge { .. } => {}
             ClientError::ResponseTooLarge { .. } => {}
             ClientError::WebSocket(_) => {}
+            ClientError::UnexpectedResponse(_) => {}
         }
     }
 }

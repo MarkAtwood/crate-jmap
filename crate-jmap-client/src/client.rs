@@ -214,10 +214,7 @@ impl JmapClient {
     /// Centralises the repeated `if let Some(...) = self.auth.auth_header()` pattern
     /// that every HTTP method uses. Callers: `fetch_session`, `call`,
     /// `subscribe_events`, `upload_blob`, `download_blob`.
-    pub(crate) fn inject_auth(
-        &self,
-        builder: reqwest::RequestBuilder,
-    ) -> reqwest::RequestBuilder {
+    pub(crate) fn inject_auth(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
         if let Some((name, value)) = self.auth.auth_header() {
             builder.header(name, value)
         } else {
@@ -247,17 +244,16 @@ impl JmapClient {
     /// The response body is capped at 1 MiB. Returns `ClientError::ResponseTooLarge`
     /// if the server sends more. Session URL fields (`apiUrl`, `uploadUrl`,
     /// `downloadUrl`, `eventSourceUrl`) are validated to have http/https scheme;
-    /// a non-http scheme returns `ClientError::InvalidArgument`.
+    /// a non-http scheme returns `ClientError::InvalidSession`.
     ///
     /// Returns `ClientError::AuthFailed` on HTTP 401 or 403.
     pub async fn fetch_session(&self) -> Result<Session, ClientError> {
         let limit = self.config.max_session_body;
-        let url = self
-            .base_url
-            .join(".well-known/jmap")
-            .map_err(|e| {
-                ClientError::InvalidArgument(format!("cannot construct session URL: {e}"))
-            })?;
+        let url = self.base_url.join(".well-known/jmap").map_err(|e| {
+            // base_url was pre-validated in JmapClient::new; this path is
+            // unreachable in practice but must be handled for completeness.
+            ClientError::InvalidSession(format!("cannot construct session URL: {e}"))
+        })?;
 
         let req = self.inject_auth(self.http.get(url).timeout(self.config.request_timeout));
 
@@ -343,6 +339,22 @@ impl JmapClient {
     /// Open an SSE connection to `event_source_url` and return an async stream
     /// of parsed [`SseFrame`]s (RFC 8620 §7.3).
     ///
+    /// # URI template expansion
+    ///
+    /// `Session.event_source_url` is a URI template (RFC 6570 Level-1) with
+    /// variables `types`, `closeafter`, and `ping`. You **must** expand it
+    /// before passing it to this function, or the server will receive the
+    /// literal text `{types}` in the URL and return an error. Use
+    /// [`expand_url_template`](crate::expand_url_template):
+    ///
+    /// ```rust,ignore
+    /// let url = jmap_client::expand_url_template(
+    ///     &session.event_source_url,
+    ///     &[("types", "*"), ("closeafter", "no"), ("ping", "0")],
+    /// )?;
+    /// let stream = client.subscribe_events(&url, None).await?;
+    /// ```
+    ///
     /// If `last_event_id` is `Some`, sends a `Last-Event-ID` header so the
     /// server can resume from where the previous stream left off.
     ///
@@ -390,7 +402,7 @@ impl JmapClient {
                 .unwrap_or("")
                 .to_ascii_lowercase();
             if !ct.starts_with("text/event-stream") {
-                return Err(ClientError::InvalidSession(format!(
+                return Err(ClientError::UnexpectedResponse(format!(
                     "subscribe_events: expected Content-Type text/event-stream, got: {ct:?}"
                 )));
             }
@@ -485,7 +497,12 @@ impl JmapClient {
                             // Cap raw_buf to prevent OOM on persistent invalid UTF-8 input.
                             // Use the same limit as the decoded buf cap.
                             if raw_buf.len() > sse_frame_limit {
-                                return Some((Err(ClientError::SseFrameTooLarge { limit: sse_frame_limit }), None));
+                                return Some((
+                                    Err(ClientError::SseFrameTooLarge {
+                                        limit: sse_frame_limit,
+                                    }),
+                                    None,
+                                ));
                             }
                             let old_len = buf.len();
                             decode_utf8_chunk(&mut raw_buf, &mut buf);
@@ -498,7 +515,12 @@ impl JmapClient {
                             // Guard against unbounded buffer growth from a hostile server.
                             // Yield the error and terminate (state = None).
                             if buf.len() > sse_frame_limit {
-                                return Some((Err(ClientError::SseFrameTooLarge { limit: sse_frame_limit }), None));
+                                return Some((
+                                    Err(ClientError::SseFrameTooLarge {
+                                        limit: sse_frame_limit,
+                                    }),
+                                    None,
+                                ));
                             }
                         }
                     }

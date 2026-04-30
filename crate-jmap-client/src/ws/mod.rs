@@ -16,6 +16,25 @@ use tokio_tungstenite::tungstenite::Message;
 
 use crate::push::StateChange;
 
+/// Wire frame sent from the client to the server over WebSocket (RFC 8887 §4.3.2).
+///
+/// Wraps a [`jmap_types::JmapRequest`] and injects the mandatory `@type: "Request"`
+/// field (and optional `id`) in a single `serde_json::to_string` pass, avoiding
+/// the `to_value` + mutation + `to_string` double-serialization that the naive
+/// approach requires.
+#[derive(serde::Serialize)]
+struct WsRequestFrame<'a> {
+    /// RFC 8887 §4.3.2 — every JMAP request frame MUST carry "@type": "Request".
+    #[serde(rename = "@type")]
+    ws_type: &'static str,
+    /// Optional correlation ID echoed back in the server's Response frame.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    id: Option<&'a str>,
+    /// The JMAP request payload; flattened into the enclosing JSON object.
+    #[serde(flatten)]
+    inner: &'a jmap_types::JmapRequest,
+}
+
 /// Maximum WebSocket message size (1 MiB), consistent with the SSE frame limit.
 /// Prevents a misbehaving or hostile server from forcing the client to buffer
 /// large messages over the event connection.
@@ -91,27 +110,14 @@ impl WsSession {
         req: &jmap_types::JmapRequest,
         id: Option<&str>,
     ) -> Result<(), crate::error::ClientError> {
-        // Serialize the request, then inject the mandatory @type field.
-        // RFC 8887 §4.3.2: every JMAP request frame over WebSocket MUST
-        // carry "@type": "Request".  The base JmapRequest struct does not
-        // include this field (it is WebSocket-only), so we add it here.
-        let mut val = serde_json::to_value(req).map_err(crate::error::ClientError::Serialize)?;
-        let obj = val.as_object_mut().ok_or_else(|| {
-            crate::error::ClientError::InvalidArgument(
-                "JmapRequest did not serialize to a JSON object".to_owned(),
-            )
-        })?;
-        obj.insert(
-            "@type".to_owned(),
-            serde_json::Value::String("Request".to_owned()),
-        );
-        if let Some(request_id) = id {
-            obj.insert(
-                "id".to_owned(),
-                serde_json::Value::String(request_id.to_owned()),
-            );
-        }
-        let text = serde_json::to_string(&val).map_err(crate::error::ClientError::Serialize)?;
+        // Wrap req in WsRequestFrame to inject @type and optional id in one
+        // serialization pass (no intermediate serde_json::Value allocation).
+        let frame = WsRequestFrame {
+            ws_type: "Request",
+            id,
+            inner: req,
+        };
+        let text = serde_json::to_string(&frame).map_err(crate::error::ClientError::Serialize)?;
         self.sink
             .send(Message::Text(text.into()))
             .await

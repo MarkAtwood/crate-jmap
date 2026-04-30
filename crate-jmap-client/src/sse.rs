@@ -84,12 +84,18 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
 
     let event = match event_type {
         Some("state") => match data_lines.as_slice() {
-            [] => SseEvent::Unknown { event_type: "state".to_owned() }, // no data: lines
+            [] => SseEvent::Unknown {
+                event_type: "state".to_owned(),
+            }, // no data: lines
             [single] => parse_state_data("state", single),
             _ => parse_state_data("state", &data_lines.join("\n")),
         },
-        Some(t) => SseEvent::Unknown { event_type: t.to_owned() },
-        None => SseEvent::Unknown { event_type: String::new() },
+        Some(t) => SseEvent::Unknown {
+            event_type: t.to_owned(),
+        },
+        None => SseEvent::Unknown {
+            event_type: String::new(),
+        },
     };
 
     SseFrame { event, id }
@@ -105,20 +111,22 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
 /// `"@type":"StateChange"` per RFC 8620 §7.3 (StateChange object definition).
 /// The `@type` field is stripped before deserialization; only `changed` is used.
 fn parse_state_data(event_type: &str, data: &str) -> SseEvent {
-    let Ok(mut v) = serde_json::from_str::<serde_json::Value>(data) else {
-        return SseEvent::Unknown { event_type: event_type.to_owned() };
-    };
-    let Some(obj) = v.as_object_mut() else {
-        return SseEvent::Unknown { event_type: event_type.to_owned() };
-    };
-    let Some(changed_val) = obj.remove("changed") else {
-        return SseEvent::Unknown { event_type: event_type.to_owned() };
-    };
-    let Ok(changed) = serde_json::from_value::<HashMap<Id, HashMap<String, State>>>(changed_val)
-    else {
-        return SseEvent::Unknown { event_type: event_type.to_owned() };
-    };
-    SseEvent::StateChange(push::StateChange { changed })
+    match try_parse_state_change(data) {
+        Some(sc) => SseEvent::StateChange(sc),
+        None => SseEvent::Unknown {
+            event_type: event_type.to_owned(),
+        },
+    }
+}
+
+/// Try to parse a StateChange payload; returns `None` on any parse failure.
+fn try_parse_state_change(data: &str) -> Option<push::StateChange> {
+    let mut v = serde_json::from_str::<serde_json::Value>(data).ok()?;
+    let obj = v.as_object_mut()?;
+    let changed_val = obj.remove("changed")?;
+    let changed =
+        serde_json::from_value::<HashMap<Id, HashMap<String, State>>>(changed_val).ok()?;
+    Some(push::StateChange { changed })
 }
 
 #[cfg(test)]
@@ -240,7 +248,9 @@ mod tests {
     /// This match will fail to compile if either variant is ever reintroduced.
     #[test]
     fn sse_event_no_typing_or_presence() {
-        let e = SseEvent::Unknown { event_type: String::new() };
+        let e = SseEvent::Unknown {
+            event_type: String::new(),
+        };
         match e {
             SseEvent::StateChange(_) => {}
             SseEvent::Unknown { .. } => {}

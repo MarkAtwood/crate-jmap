@@ -17,7 +17,7 @@ pub use auth::{
     AuthProvider, BasicAuth, BearerAuth, CustomCaTransport, DefaultTransport, NoneAuth,
     TransportConfig,
 };
-pub use blob::{BlobUploadResponse, DownloadBlobParams};
+pub use blob::{expand_url_template, BlobUploadResponse, DownloadBlobParams};
 pub use client::{extract_response, ClientConfig, JmapClient};
 pub use error::ClientError;
 pub use push::StateChange;

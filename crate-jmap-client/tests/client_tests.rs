@@ -668,7 +668,7 @@ async fn test_subscribe_events_cr_line_endings() {
 
 /// Oracle: security requirement — subscribe_events must reject a 200 response
 /// whose Content-Type is not text/event-stream. A misconfigured server returning
-/// application/json would silently produce no events; return InvalidSession instead.
+/// application/json would silently produce no events; return UnexpectedResponse instead.
 #[tokio::test]
 async fn test_subscribe_events_rejects_wrong_content_type() {
     let server = MockServer::start().await;
@@ -696,8 +696,8 @@ async fn test_subscribe_events_rejects_wrong_content_type() {
     match result {
         Ok(_) => panic!("wrong Content-Type must fail before streaming starts"),
         Err(ref e) => assert!(
-            matches!(e, ClientError::InvalidSession(_)),
-            "expected InvalidSession for wrong Content-Type, got {e:?}"
+            matches!(e, ClientError::UnexpectedResponse(_)),
+            "expected UnexpectedResponse for wrong Content-Type, got {e:?}"
         ),
     }
 }

@@ -97,10 +97,10 @@ pub trait AuthProvider: Send + Sync {
     ///
     /// Returns `None` when no `Authorization` header is required.
     ///
-    /// The returned header value borrows from `self`; it must live at least
-    /// as long as the `&self` borrow.  Implementations that pre-compute the
-    /// value at construction time can return `&self.field` directly, avoiding
-    /// any per-request allocation.
+    /// Both strings borrow from `self` and must live at least as long as the
+    /// `&self` borrow.  Implementations that pre-compute the values at
+    /// construction time can return `&self.field` directly, avoiding any
+    /// per-request allocation.
     ///
     /// # Implementation contract
     ///
@@ -117,7 +117,7 @@ pub trait AuthProvider: Send + Sync {
     /// an `InvalidArgument` — the error type differs between the two paths.
     /// Test all custom `AuthProvider` implementations against both HTTP and
     /// WebSocket call paths.
-    fn auth_header(&self) -> Option<(&'static str, &str)>;
+    fn auth_header(&self) -> Option<(&str, &str)>;
 }
 
 /// No authentication: no `Authorization` header.
@@ -125,7 +125,7 @@ pub trait AuthProvider: Send + Sync {
 pub struct NoneAuth;
 
 impl AuthProvider for NoneAuth {
-    fn auth_header(&self) -> Option<(&'static str, &str)> {
+    fn auth_header(&self) -> Option<(&str, &str)> {
         None
     }
 }
@@ -171,7 +171,7 @@ impl std::fmt::Debug for BearerAuth {
 }
 
 impl AuthProvider for BearerAuth {
-    fn auth_header(&self) -> Option<(&'static str, &str)> {
+    fn auth_header(&self) -> Option<(&str, &str)> {
         Some(("authorization", &self.header_string))
     }
 }
@@ -221,7 +221,7 @@ impl std::fmt::Debug for BasicAuth {
 }
 
 impl AuthProvider for BasicAuth {
-    fn auth_header(&self) -> Option<(&'static str, &str)> {
+    fn auth_header(&self) -> Option<(&str, &str)> {
         Some(("authorization", &self.header_string))
     }
 }
@@ -268,7 +268,7 @@ impl TransportConfig for Box<dyn TransportConfig> {
 //
 // Maintenance cost: every method added to `AuthProvider` must be mirrored here.
 impl AuthProvider for Arc<dyn AuthProvider> {
-    fn auth_header(&self) -> Option<(&'static str, &str)> {
+    fn auth_header(&self) -> Option<(&str, &str)> {
         (**self).auth_header()
     }
 }
@@ -283,7 +283,7 @@ impl AuthProvider for Arc<dyn AuthProvider> {
 //
 // Maintenance cost: every method added to `AuthProvider` must be mirrored here.
 impl AuthProvider for Box<dyn AuthProvider> {
-    fn auth_header(&self) -> Option<(&'static str, &str)> {
+    fn auth_header(&self) -> Option<(&str, &str)> {
         (**self).auth_header()
     }
 }
