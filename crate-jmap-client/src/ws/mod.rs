@@ -116,7 +116,7 @@ impl WsSession {
 /// Parse a raw WebSocket text frame into a `WsFrame`.
 fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
     let val: serde_json::Value =
-        serde_json::from_str(text).map_err(|e| crate::error::ClientError::Parse(e.to_string()))?;
+        serde_json::from_str(text).map_err(crate::error::ClientError::Parse)?;
 
     // Pre-extract type_name as owned String before moving val into from_value.
     // The borrow checker prevents borrowing val (for @type) and moving val

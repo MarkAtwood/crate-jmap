@@ -248,7 +248,7 @@ impl JmapClient {
         }
 
         let session: Session = serde_json::from_slice(&bytes)
-            .map_err(|e| ClientError::Parse(e.to_string()))?;
+            .map_err(ClientError::Parse)?;
 
         validate_session_urls(&session)?;
 
@@ -305,7 +305,7 @@ impl JmapClient {
         }
 
         let jmap_resp: jmap_types::JmapResponse = serde_json::from_slice(&bytes)
-            .map_err(|e| ClientError::Parse(e.to_string()))?;
+            .map_err(ClientError::Parse)?;
 
         Ok(jmap_resp)
     }
@@ -511,7 +511,7 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
         });
     }
 
-    serde_json::from_value(args).map_err(|e| ClientError::Parse(e.to_string()))
+    serde_json::from_value(args).map_err(ClientError::Parse)
 }
 
 /// Validate that all URL fields in `session` use an http or https scheme.

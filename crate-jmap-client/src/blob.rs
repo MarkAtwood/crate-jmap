@@ -164,7 +164,7 @@ impl crate::client::JmapClient {
             });
         }
         let upload_resp: BlobUploadResponse =
-            serde_json::from_slice(&bytes).map_err(|e| crate::error::ClientError::Parse(e.to_string()))?;
+            serde_json::from_slice(&bytes).map_err(crate::error::ClientError::Parse)?;
 
         if let Some(ref server_sha256) = upload_resp.sha256 {
             validate_sha256_format(server_sha256)?;
@@ -275,7 +275,7 @@ fn validate_sha256_format(s: &str) -> Result<(), crate::error::ClientError> {
     if s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit()) {
         Ok(())
     } else {
-        Err(crate::error::ClientError::Parse(format!(
+        Err(crate::error::ClientError::InvalidSession(format!(
             "sha256 field is not 64-char hex: {s:?}"
         )))
     }

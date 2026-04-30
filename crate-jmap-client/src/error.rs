@@ -27,7 +27,7 @@ pub enum ClientError {
     /// shape. Indicates the server sent a malformed response. Not retriable
     /// without a server fix.
     #[error("parse error: {0}")]
-    Parse(String),
+    Parse(serde_json::Error),
 
     /// Downloaded blob SHA-256 does not match the expected digest. Indicates
     /// in-transit corruption or a misbehaving server. Not retriable without

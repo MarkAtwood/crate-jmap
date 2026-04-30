@@ -161,9 +161,7 @@ impl Session {
         };
         serde_json::from_value::<WebSocketCapability>(raw.clone())
             .map(Some)
-            .map_err(|e| {
-                crate::error::ClientError::Parse(format!("malformed websocket capability: {e}"))
-            })
+            .map_err(crate::error::ClientError::Parse)
     }
 }
 
