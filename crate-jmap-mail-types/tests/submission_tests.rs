@@ -1,7 +1,8 @@
 mod common;
 
 use jmap_mail_types::{
-    Address, Delivered, DeliveryStatus, Displayed, EmailSubmission, Envelope, UndoStatus,
+    Address, Delivered, DeliveryStatus, Displayed, EmailSubmission, EmailSubmissionFilterCondition,
+    Envelope, UndoStatus,
 };
 
 // Roundtrip tests compare serde_json::Value rather than the struct directly.
@@ -158,4 +159,44 @@ fn email_submission_new_constructor() {
     assert!(es.delivery_status.is_none());
     assert!(es.dsn_blob_ids.is_empty());
     assert!(es.mdn_blob_ids.is_empty());
+}
+
+/// Oracle: RFC 8621 §7.3 — EmailSubmissionFilterCondition roundtrips with
+/// correct camelCase wire names.
+#[test]
+fn submission_filter_condition_roundtrip() {
+    let json = r#"{"undoStatus":"pending","before":"2024-06-01T00:00:00Z"}"#;
+    let f: EmailSubmissionFilterCondition = serde_json::from_str(json).expect("must parse");
+    assert_eq!(f.undo_status, Some(UndoStatus::Pending));
+    let back = serde_json::to_string(&f).expect("serialize");
+    assert_eq!(back, json);
+}
+
+/// Oracle: empty EmailSubmissionFilterCondition serializes to `{}`.
+#[test]
+fn submission_filter_condition_empty() {
+    let f = EmailSubmissionFilterCondition::default();
+    let json = serde_json::to_string(&f).expect("serialize");
+    assert_eq!(json, "{}");
+}
+
+/// Oracle: RFC 8621 §7.3 — all fields present roundtrip correctly.
+#[test]
+fn submission_filter_condition_all_fields() {
+    use jmap_types::Id;
+    let mut f = EmailSubmissionFilterCondition::default();
+    f.identity_ids = Some(vec![Id::from("id1"), Id::from("id2")]);
+    f.email_ids = Some(vec![Id::from("em1")]);
+    f.thread_ids = Some(vec![Id::from("th1")]);
+    f.undo_status = Some(UndoStatus::Final);
+    let json = serde_json::to_string(&f).expect("serialize");
+    assert!(
+        json.contains("\"identityIds\""),
+        "wire name must be camelCase"
+    );
+    assert!(json.contains("\"emailIds\""));
+    assert!(json.contains("\"threadIds\""));
+    assert!(json.contains("\"undoStatus\""));
+    let back: EmailSubmissionFilterCondition = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(f, back);
 }

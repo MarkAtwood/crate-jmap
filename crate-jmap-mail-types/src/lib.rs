@@ -47,18 +47,27 @@
 
 pub mod email;
 pub mod identity;
+pub mod keyword;
 pub mod mailbox;
+pub mod query;
 pub mod snippet;
 pub mod submission;
 pub mod thread;
+pub mod vacation;
 
 pub use email::{
     Email, EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue, EmailHeader,
 };
 pub use identity::Identity;
 pub use mailbox::{Mailbox, MailboxRights, MailboxRole};
+pub use query::{
+    EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmissionFilter, Filter,
+    FilterOperator, Operator,
+};
 pub use snippet::SearchSnippet;
 pub use submission::{
-    Address, Delivered, DeliveryStatus, Displayed, EmailSubmission, Envelope, UndoStatus,
+    Address, Delivered, DeliveryStatus, Displayed, EmailSubmission, EmailSubmissionFilterCondition,
+    Envelope, UndoStatus,
 };
 pub use thread::Thread;
+pub use vacation::VacationResponse;

@@ -273,3 +273,45 @@ impl EmailSubmission {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// EmailSubmission/query filter (RFC 8621 §7.3)
+// ---------------------------------------------------------------------------
+
+/// Filter condition for EmailSubmission/query (RFC 8621 §7.3).
+///
+/// All fields are optional.  If zero properties are specified, the condition
+/// evaluates to `true` for every submission.
+///
+/// RFC 8621 §7.3 uses the standard `/query` mechanism (RFC 8620 §5.5), so
+/// `EmailSubmissionFilterCondition` can be used inside a
+/// `Filter<EmailSubmissionFilterCondition>` to combine conditions with
+/// logical operators.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailSubmissionFilterCondition {
+    /// The submission's `identityId` must be in this list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub identity_ids: Option<Vec<Id>>,
+
+    /// The submission's `emailId` must be in this list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub email_ids: Option<Vec<Id>>,
+
+    /// The submission's `threadId` must be in this list.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thread_ids: Option<Vec<Id>>,
+
+    /// The submission's `undoStatus` must equal this value.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub undo_status: Option<UndoStatus>,
+
+    /// The `sendAt` of the submission must be before this date-time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub before: Option<UTCDate>,
+
+    /// The `sendAt` of the submission must be on or after this date-time.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub after: Option<UTCDate>,
+}

@@ -29,3 +29,11 @@
 [00:31:22] REVIEW round 3: P0=1 P1=2 P2=0
 [00:32:38] fix3-config: sev.3 complete
 [00:32:53] fix3-sse: sev.1/sev.2 complete
+[04:11:31] COORDINATOR: starting fresh run for JMAP-kjt.1
+[04:11:42] COORDINATOR: claimed JMAP-kjt.1, starting phase0
+[04:20:45] COORDINATOR: JMAP-kjt.1 complete; Filter<T>/EmailFilterCondition implemented and tested
+[04:25:19] COORDINATOR: starting review loop for JMAP-kjt.7
+[04:29:13] REVIEW rusty: P0=0 P1=0 P2=5 P3=2 P4=4
+[04:30:14] REVIEW myoss: P0=0 P1=1 P2=3 P3=4 P4=1 opinion=0
+[04:37:27] REVIEW round2: P0=0 P1=0 P2=0 opinion=0
+[04:38:11] COORDINATOR: JMAP-kjt.7 complete; review loop CLEAN; epic JMAP-kjt done
