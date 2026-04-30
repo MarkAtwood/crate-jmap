@@ -366,11 +366,15 @@ impl JmapClient {
                 loop {
                     // Search for any double-newline delimiter (LF/CRLF/CR variants).
                     // scan_from is set to old_len.saturating_sub(3) after each append
-                    // so we only re-scan the overlap region.  3 bytes back covers the
-                    // longest incomplete delimiter prefix that can straddle a chunk
-                    // boundary: `\r\n\r` (prefix of `\r\n\r\n`).  Since \r and \n are
-                    // single-byte codepoints, "3 bytes back" == "3 chars back" — no
-                    // UTF-8 boundary adjustment is needed for these specific delimiters.
+                    // so we only re-scan the overlap region.  3 bytes back is the
+                    // minimum that covers all delimiter prefixes that can straddle a
+                    // chunk boundary:
+                    //   - `\r\n\r\n` (4 bytes): longest prefix that fits in one chunk
+                    //     but is incomplete is `\r\n\r` (3 bytes) — exactly covered.
+                    //   - `\n\n` and `\r\r` (2 bytes each): longest incomplete prefix
+                    //     is 1 byte — covered by the 3-byte overlap.
+                    // Since \r and \n are single-byte UTF-8 codepoints, 3 bytes back
+                    // is always a valid char boundary — no adjustment needed.
                     let frame_end = [
                         buf[scan_from..]
                             .find("\r\n\r\n")

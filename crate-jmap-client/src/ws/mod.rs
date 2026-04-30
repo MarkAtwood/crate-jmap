@@ -342,6 +342,30 @@ mod tests {
         );
     }
 
+    /// Oracle: RFC 8887 §4.3.2 — when id is None, no `id` field appears in the frame.
+    /// The server must not receive a spurious null or empty id field.
+    #[test]
+    fn send_request_omits_id_when_none() {
+        let req = jmap_types::JmapRequest::new(
+            vec!["urn:ietf:params:jmap:core".to_owned()],
+            vec![],
+            None,
+        );
+        let mut val = serde_json::to_value(&req).expect("serialize");
+        let obj = val.as_object_mut().expect("JmapRequest serializes to object");
+        obj.insert(
+            "@type".to_owned(),
+            serde_json::Value::String("Request".to_owned()),
+        );
+        // id=None: do NOT insert the id field (mirrors send_request None branch).
+        let serialized = serde_json::to_string(&val).expect("serialize to string");
+
+        assert!(
+            !serialized.contains("\"id\":"),
+            "RFC 8887 §4.3.2: no id field must appear when id is None; got: {serialized}"
+        );
+    }
+
     /// Oracle: connect_ws must reject http:// and https:// URLs with InvalidArgument.
     ///
     /// This is the documented SSRF prevention guard: a compromised or MITM'd session

@@ -17,10 +17,10 @@ pub enum ClientError {
     #[error("invalid header value: {0}")]
     InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
 
-    /// The server returned HTTP 401 or 403 during authentication. Not
-    /// retriable without correcting credentials. Indicates authentication
-    /// failure.
-    #[error("authentication failed: HTTP {0}")]
+    /// The server returned HTTP 401 (authentication failure) or 403
+    /// (authorization failure — credentials present but insufficient). Not
+    /// retriable without correcting credentials.
+    #[error("authentication or authorization failure: HTTP {0}")]
     AuthFailed(u16),
 
     /// A server response could not be parsed or did not match the expected
