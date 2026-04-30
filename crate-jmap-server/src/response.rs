@@ -31,10 +31,12 @@ pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {
     // JmapError uses #[derive(Serialize)] with only String, Option<String>, and
     // Option<Id> fields — all JSON-serializable primitives with string keys.
     // serde_json::to_value only fails when a Serialize impl produces a non-string
-    // map key; the derived impl for JmapError cannot do this.  If jmap-types ever
-    // adds a field with a custom Serialize impl, that impl must preserve this
-    // guarantee (string-keyed struct fields only).
-    let err_value = serde_json::to_value(&err).expect("JmapError::Serialize is infallible");
+    // map key; the derived impl for JmapError cannot do this.  The fallback is a
+    // defensive measure against a future jmap-types change that breaks the invariant;
+    // it prevents a panic at the cost of slightly less specific error information.
+    let err_value = serde_json::to_value(&err).unwrap_or_else(|_| {
+        serde_json::json!({"type": "serverFail", "description": "internal error"})
+    });
     ("error".to_owned(), err_value, call_id.to_owned())
 }
 

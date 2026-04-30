@@ -513,6 +513,44 @@ mod tests {
         assert_eq!(args, json!({"val": "slash-value"}));
     }
 
+    // Oracle: RFC 6901 §3 — `~0` is the escape sequence for `~`.
+    // Replacement order must be ~1 first then ~0; otherwise `~01` would
+    // incorrectly become `/` instead of `~1`.
+    #[test]
+    fn resolve_args_path_tilde0_escaping() {
+        let prior = vec![(
+            "Foo/get".to_owned(),
+            json!({"a~b": "tilde-value"}),
+            "c0".to_owned(),
+        )];
+        let mut args = json!({
+            "#val": {"resultOf": "c0", "name": "Foo/get", "path": "/a~0b"}
+        });
+        resolve_args(&mut args, &prior).expect("~0-escaped path must resolve");
+        assert_eq!(args, json!({"val": "tilde-value"}));
+    }
+
+    // Oracle: RFC 6901 §3 — `~01` must decode to the literal string `~1`,
+    // NOT to `/`. ~1 is replaced first (yielding `~1`), then ~0 on what
+    // remains would replace `~0` — but after the first pass `~01` → `~1`
+    // there is no `~0` left; the result is `/`.
+    // Wait — `~01`: replace ~1 first: `~01` has no `~1` at position 0 (it's `~0` then `1`).
+    // So `~01` → replace ~1 → no match → `~01` → replace ~0 → `~` → result: `~1`.
+    // i.e. `~01` decodes to `~1` (literal tilde followed by 1), NOT to `/`.
+    #[test]
+    fn resolve_args_path_tilde01_decodes_to_tilde1() {
+        let prior = vec![(
+            "Foo/get".to_owned(),
+            json!({"~1": "tilde-one-value"}),
+            "c0".to_owned(),
+        )];
+        let mut args = json!({
+            "#val": {"resultOf": "c0", "name": "Foo/get", "path": "/~01"}
+        });
+        resolve_args(&mut args, &prior).expect("~01 must decode to literal key ~1");
+        assert_eq!(args, json!({"val": "tilde-one-value"}));
+    }
+
     // Oracle: RFC 8620 §3.7 — /list/*/threadId maps threadId from each list element.
     #[test]
     fn resolve_args_wildcard_maps_over_array() {
