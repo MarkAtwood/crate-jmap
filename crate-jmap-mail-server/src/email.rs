@@ -890,6 +890,7 @@ pub async fn handle_email_parse<B: MailBackend>(
 
     let mut parsed = serde_json::Map::new();
     let mut not_parsable: Vec<Value> = Vec::new();
+    let mut not_found: Vec<Value> = Vec::new();
 
     for blob_id in &blob_ids {
         match backend.parse_email(&account_id, blob_id).await {
@@ -902,8 +903,12 @@ pub async fn handle_email_parse<B: MailBackend>(
                 parsed.insert(blob_id.as_ref().to_string(), val);
             }
             Err(_) => {
-                // Blob exists but cannot be parsed (not a valid RFC 5322 message).
-                not_parsable.push(Value::String(blob_id.as_ref().to_string()));
+                // RFC 8621 §5.8: distinguish "blob not found" from "not parsable".
+                if backend.blob_exists(&account_id, blob_id).await {
+                    not_parsable.push(Value::String(blob_id.as_ref().to_string()));
+                } else {
+                    not_found.push(Value::String(blob_id.as_ref().to_string()));
+                }
             }
         }
     }
@@ -912,7 +917,7 @@ pub async fn handle_email_parse<B: MailBackend>(
         "accountId": account_id.as_ref(),
         "parsed": if parsed.is_empty() { Value::Null } else { Value::Object(parsed) },
         "notParsable": if not_parsable.is_empty() { Value::Null } else { Value::Array(not_parsable) },
-        "notFound": Value::Null,
+        "notFound": if not_found.is_empty() { Value::Null } else { Value::Array(not_found) },
     });
 
     Ok((resp, vec![]))

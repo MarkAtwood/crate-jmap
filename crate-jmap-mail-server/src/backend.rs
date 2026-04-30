@@ -363,6 +363,22 @@ pub trait MailBackend: Send + Sync + 'static {
         Output = Result<(jmap_types::Id, jmap_mail_types::Email), BackendSetError<Self::Error>>,
     > + Send;
 
+    /// Return `true` if `blob_id` exists in `account_id`'s blob store.
+    ///
+    /// Used by `Email/parse` to distinguish RFC 8621 §5.8 error categories:
+    /// a blob that exists but cannot be parsed → `notParsable`; one that does
+    /// not exist → `notFound`. The default implementation returns `false`, which
+    /// conservatively places all parse failures into `notParsable`. Backends
+    /// should override this for correct RFC conformance.
+    fn blob_exists(
+        &self,
+        account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = bool> + Send {
+        let _ = (account_id, blob_id);
+        std::future::ready(false)
+    }
+
     /// Parse a raw message blob and return an Email object without storing it
     /// (RFC 8621 §5.8 — `Email/parse`).
     fn parse_email(
