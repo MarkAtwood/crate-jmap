@@ -12,10 +12,6 @@ use crate::error::ClientError;
 use crate::request::Session;
 use crate::sse::{parse_sse_block, SseFrame};
 
-/// Per-frame byte cap for the SSE streaming buffer (raw bytes and decoded text).
-/// Mirrors `MAX_WS_MESSAGE_BYTES` in `ws/mod.rs`. 1 MiB.
-const SSE_BUF_SIZE_LIMIT: usize = 1024 * 1024;
-
 /// Internal state threaded through the `subscribe_events` unfold loop.
 struct SseStreamState<S> {
     stream: S,
@@ -53,6 +49,10 @@ pub struct ClientConfig {
     pub max_download_body: u64,
     /// Maximum response body for upload_blob() response parsing. Default: 1 MiB.
     pub max_upload_body: u64,
+    /// Maximum byte length of a single SSE frame (raw bytes and decoded text).
+    /// Protects against memory exhaustion from a hostile or misbehaving server
+    /// that sends a single very large frame. Must be > 0. Default: 1 MiB.
+    pub max_sse_frame: usize,
 }
 
 impl Default for ClientConfig {
@@ -63,6 +63,7 @@ impl Default for ClientConfig {
             max_call_body: 8 * 1024 * 1024,
             max_download_body: 64 * 1024 * 1024,
             max_upload_body: 1024 * 1024,
+            max_sse_frame: 1024 * 1024,
         }
     }
 }
@@ -103,6 +104,11 @@ impl ClientConfig {
             return Err(ClientError::InvalidArgument(
                 "ClientConfig.request_timeout must be > 0; use Duration::from_secs(30) or similar"
                     .into(),
+            ));
+        }
+        if self.max_sse_frame == 0 {
+            return Err(ClientError::InvalidArgument(
+                "ClientConfig.max_sse_frame must be > 0".into(),
             ));
         }
         Ok(())
@@ -340,9 +346,9 @@ impl JmapClient {
     /// If `last_event_id` is `Some`, sends a `Last-Event-ID` header so the
     /// server can resume from where the previous stream left off.
     ///
-    /// Buffer growth is capped at 1 MiB per frame. If a single SSE frame
-    /// exceeds this limit the stream yields `ClientError::SseFrameTooLarge`
-    /// and terminates.
+    /// Buffer growth is capped at [`ClientConfig::max_sse_frame`] bytes per
+    /// frame (default: 1 MiB). If a single SSE frame exceeds this limit the
+    /// stream yields `ClientError::SseFrameTooLarge` and terminates.
     ///
     /// No timeout is applied to this call or to the resulting stream.  The
     /// connect timeout (10 s, TCP only) is the only deadline enforced.  If the
@@ -391,6 +397,7 @@ impl JmapClient {
         }
 
         let byte_stream = resp.bytes_stream();
+        let sse_frame_limit = self.config.max_sse_frame;
 
         Ok(futures::stream::unfold(
             Some(SseStreamState {
@@ -399,7 +406,7 @@ impl JmapClient {
                 buf: String::new(),
                 scan_from: 0, // invariant: valid UTF-8 char boundary of buf; 0 always satisfies this
             }),
-            |state| async move {
+            move |state| async move {
                 let SseStreamState {
                     mut stream,
                     mut raw_buf,
@@ -476,9 +483,9 @@ impl JmapClient {
                             // next chunk completes the sequence.
                             raw_buf.extend_from_slice(&bytes);
                             // Cap raw_buf to prevent OOM on persistent invalid UTF-8 input.
-                            // Use the same limit as the decoded buf cap (1 MiB per frame).
-                            if raw_buf.len() > SSE_BUF_SIZE_LIMIT {
-                                return Some((Err(ClientError::SseFrameTooLarge), None));
+                            // Use the same limit as the decoded buf cap.
+                            if raw_buf.len() > sse_frame_limit {
+                                return Some((Err(ClientError::SseFrameTooLarge { limit: sse_frame_limit }), None));
                             }
                             let old_len = buf.len();
                             decode_utf8_chunk(&mut raw_buf, &mut buf);
@@ -490,8 +497,8 @@ impl JmapClient {
                             }
                             // Guard against unbounded buffer growth from a hostile server.
                             // Yield the error and terminate (state = None).
-                            if buf.len() > SSE_BUF_SIZE_LIMIT {
-                                return Some((Err(ClientError::SseFrameTooLarge), None));
+                            if buf.len() > sse_frame_limit {
+                                return Some((Err(ClientError::SseFrameTooLarge { limit: sse_frame_limit }), None));
                             }
                         }
                     }
@@ -541,7 +548,7 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
         });
     }
 
-    serde_json::from_value(args.clone()).map_err(ClientError::Parse)
+    <T as serde::Deserialize>::deserialize(args).map_err(ClientError::Parse)
 }
 
 /// Decode as much valid UTF-8 as possible from `raw` into `buf`, draining
@@ -591,6 +598,18 @@ fn decode_utf8_chunk(raw: &mut Vec<u8>, buf: &mut String) {
     }
 }
 
+/// Extract the URL scheme as a lowercase ASCII string.
+///
+/// Returns the prefix before `"://"`, lowercased per RFC 3986 §3.1 (schemes
+/// are case-insensitive). Returns an empty string if `"://"` is not present.
+/// URL templates containing `{variable}` syntax are handled correctly because
+/// the extraction is a prefix scan, not a full URL parse.
+fn url_scheme(url: &str) -> String {
+    url.find("://")
+        .map(|i| url[..i].to_ascii_lowercase())
+        .unwrap_or_default()
+}
+
 /// Validate that `url` uses an http or https scheme.
 ///
 /// Called at the top of each public method that accepts a URL parameter
@@ -602,11 +621,7 @@ fn decode_utf8_chunk(raw: &mut Vec<u8>, buf: &mut String) {
 ///
 /// Returns [`ClientError::InvalidArgument`] if the scheme is not http/https.
 pub(crate) fn require_http_url(url: &str) -> Result<(), ClientError> {
-    let scheme = url
-        .find("://")
-        .map(|i| &url[..i])
-        .unwrap_or("")
-        .to_ascii_lowercase();
+    let scheme = url_scheme(url);
     if scheme != "http" && scheme != "https" {
         return Err(ClientError::InvalidArgument(format!(
             "URL must have http or https scheme, got: {url:?}"
@@ -631,17 +646,7 @@ fn validate_session_urls(session: &Session) -> Result<(), ClientError> {
         &session.download_url,
         &session.event_source_url,
     ] {
-        // Extract the scheme by taking the prefix before "://", then compare
-        // case-insensitively.  Using find("://") rather than starts_with covers
-        // RFC 3986 §3.1 uppercase schemes (e.g. "HTTPS://").
-        // URL templates (e.g. "https://host/dl/{accountId}") cannot be parsed
-        // by url::Url directly due to the {variable} syntax, so a full URL
-        // parse is not used here.
-        let scheme = url
-            .find("://")
-            .map(|i| &url[..i])
-            .unwrap_or("")
-            .to_ascii_lowercase();
+        let scheme = url_scheme(url);
         if scheme != "http" && scheme != "https" {
             return Err(ClientError::InvalidSession(format!(
                 "session URL has non-http/https scheme: {:?}",

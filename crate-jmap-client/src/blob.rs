@@ -8,6 +8,39 @@ use sha2::{Digest, Sha256};
 use crate::client::JmapClient;
 use crate::error::ClientError;
 
+/// Parameters for [`JmapClient::download_blob`].
+///
+/// Use a struct literal to avoid confusion between the six string-typed fields:
+///
+/// ```rust,ignore
+/// client.download_blob(DownloadBlobParams {
+///     download_url_template: &session.download_url,
+///     account_id: "A13824",
+///     blob_id: "Gbc4c...",
+///     name: "attachment.pdf",
+///     accept_type: Some("application/pdf"),
+///     expected_sha256: None,
+/// }).await?;
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct DownloadBlobParams<'a> {
+    /// URL template from `Session.download_url`.
+    pub download_url_template: &'a str,
+    /// Account ID that owns the blob.
+    pub account_id: &'a str,
+    /// Server-assigned blob identifier.
+    pub blob_id: &'a str,
+    /// Human-readable filename for the `{name}` template variable.
+    pub name: &'a str,
+    /// Optional accept type for the `{type}` template variable (e.g. `"image/png"`).
+    /// Pass `None` when no content-type preference is needed; `{type}` expands to an
+    /// empty string.
+    pub accept_type: Option<&'a str>,
+    /// Optional expected SHA-256 hex digest for integrity verification.
+    /// Pass `None` to skip the check.
+    pub expected_sha256: Option<&'a str>,
+}
+
 /// Response body returned by a successful blob upload (RFC 8620 §6.1).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -197,26 +230,28 @@ impl JmapClient {
 
     /// Download a blob by ID (RFC 8620 §6.2).
     ///
-    /// `download_url_template` is from `Session.download_url`; `{accountId}`,
-    /// `{blobId}`, `{name}`, and `{type}` are substituted before the GET request.
-    /// Pass `accept_type` (e.g. `"image/png"`) for content-type negotiation; pass
-    /// `None` when no preference is needed — `{type}` expands to an empty string,
-    /// so templates that include `?accept={type}` produce `?accept=` when
-    /// `accept_type` is `None`. If the server does not tolerate an empty
-    /// `?accept=` query parameter, the server should omit `{type}` from the
-    /// `download_url` template in the Session document.
-    /// If `expected_sha256` is `Some`, the downloaded bytes are verified
+    /// Template variables `{accountId}`, `{blobId}`, `{name}`, and `{type}` are
+    /// substituted from the corresponding fields of `params` before the GET
+    /// request. `{type}` expands to an empty string when `params.accept_type`
+    /// is `None`; templates that include `?accept={type}` produce `?accept=`.
+    /// If the server does not tolerate an empty `?accept=` parameter, omit
+    /// `{type}` from the `download_url` template in the Session document.
+    ///
+    /// If `params.expected_sha256` is `Some`, the downloaded bytes are verified
     /// against the hex digest and `ClientError::BlobIntegrityMismatch` is
     /// returned on mismatch.
     pub async fn download_blob(
         &self,
-        download_url_template: &str,
-        account_id: &str,
-        blob_id: &str,
-        name: &str,
-        accept_type: Option<&str>,
-        expected_sha256: Option<&str>,
+        params: DownloadBlobParams<'_>,
     ) -> Result<bytes::Bytes, ClientError> {
+        let DownloadBlobParams {
+            download_url_template,
+            account_id,
+            blob_id,
+            name,
+            accept_type,
+            expected_sha256,
+        } = params;
         crate::client::require_http_url(download_url_template)?;
         let vars = [
             ("accountId", account_id),

@@ -75,10 +75,11 @@ pub enum ClientError {
     #[error("serialization error: {0}")]
     Serialize(serde_json::Error),
 
-    /// An SSE frame exceeded the 1 MiB buffer limit. The stream is terminated
-    /// after this error. Indicates a misbehaving or hostile server.
-    #[error("SSE frame too large (limit: 1 MiB)")]
-    SseFrameTooLarge,
+    /// An SSE frame exceeded the configured buffer limit
+    /// ([`ClientConfig::max_sse_frame`]). The stream is terminated after this
+    /// error. Indicates a misbehaving or hostile server.
+    #[error("SSE frame too large (limit: {limit} bytes)")]
+    SseFrameTooLarge { limit: usize },
 
     /// A server response body exceeded the enforced size limit. Protects
     /// against unbounded memory allocation from malicious or buggy servers.
@@ -120,7 +121,7 @@ mod tests {
             ClientError::MethodNotFound(_) => {}
             ClientError::MethodError { .. } => {}
             ClientError::Serialize(_) => {}
-            ClientError::SseFrameTooLarge => {}
+            ClientError::SseFrameTooLarge { .. } => {}
             ClientError::ResponseTooLarge { .. } => {}
             ClientError::WebSocket(_) => {}
         }

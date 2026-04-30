@@ -495,7 +495,14 @@ async fn test_download_blob_size_cap() {
         server.uri()
     );
     let err = client
-        .download_blob(&template, "account1", "blob-abc", "file.bin", None, None)
+        .download_blob(jmap_client::DownloadBlobParams {
+            download_url_template: &template,
+            account_id: "account1",
+            blob_id: "blob-abc",
+            name: "file.bin",
+            accept_type: None,
+            expected_sha256: None,
+        })
         .await
         .expect_err("oversized download must fail");
     assert!(
