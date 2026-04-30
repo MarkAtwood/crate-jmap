@@ -1,7 +1,8 @@
-// Generic filter types for JMAP /query methods (RFC 8620 §5.5).
-//
-// These types are object-independent.  Object-specific filter conditions
-// (e.g. `EmailFilterCondition`) are defined in their respective type crates.
+//! RFC 8620 §5.5 generic filter types for JMAP `/query` methods.
+//!
+//! Provides [`Filter`], [`FilterOperator`], and [`Operator`].
+//! Object-specific filter conditions (e.g. `EmailFilterCondition`) are
+//! defined in their respective type crates.
 
 use serde::{Deserialize, Serialize};
 

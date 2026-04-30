@@ -1,3 +1,5 @@
+//! RFC 8620 §1.2/§1.4 opaque string newtypes: [`Id`], [`UTCDate`], [`Date`], [`State`].
+
 use serde::{Deserialize, Serialize};
 use std::fmt;
 

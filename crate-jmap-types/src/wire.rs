@@ -1,3 +1,5 @@
+//! RFC 8620 §3 JMAP request/response envelope types ([`JmapRequest`], [`JmapResponse`], [`Invocation`]).
+
 use crate::id::{Id, State};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

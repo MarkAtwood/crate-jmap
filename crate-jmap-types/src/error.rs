@@ -1,3 +1,5 @@
+//! RFC 8620 §3.6 JMAP method-level error type ([`JmapError`]).
+
 use crate::Id;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

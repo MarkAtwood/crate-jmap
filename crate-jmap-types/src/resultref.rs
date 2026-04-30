@@ -1,3 +1,7 @@
+//! RFC 8620 §7 ResultReference — back-references between method calls in a batch.
+//!
+//! Provides [`ResultReference`] and [`Argument<T>`].
+
 use serde::{Deserialize, Serialize};
 
 /// Sealed marker for types that are safe to use with [`Argument<T>`].
