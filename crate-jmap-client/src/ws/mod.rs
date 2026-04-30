@@ -313,11 +313,8 @@ mod tests {
     }
 
     /// Oracle: RFC 8887 §4.3.2 — every JMAP request sent over WebSocket MUST
-    /// include "@type": "Request".  The base JmapRequest struct does not carry
-    /// this field; send_request must inject it before transmission.
-    ///
-    /// This test serializes the value that send_request would write to the wire
-    /// by reconstructing the same JSON-mutation logic and verifying the output.
+    /// include "@type": "Request".  Tests WsRequestFrame serde directly to
+    /// verify the #[serde(rename = "@type")] attribute and flatten are correct.
     #[test]
     fn send_request_includes_at_type_request() {
         let req = jmap_types::JmapRequest::new(
@@ -325,17 +322,12 @@ mod tests {
             vec![],
             None,
         );
-        // Reproduce the injection logic from send_request (same code path, no network).
-        let mut val = serde_json::to_value(&req).expect("serialize");
-        let obj = val
-            .as_object_mut()
-            .expect("JmapRequest serializes to object");
-        obj.insert(
-            "@type".to_owned(),
-            serde_json::Value::String("Request".to_owned()),
-        );
-        let serialized = serde_json::to_string(&val).expect("serialize to string");
-
+        let frame = WsRequestFrame {
+            ws_type: "Request",
+            id: None,
+            inner: &req,
+        };
+        let serialized = serde_json::to_string(&frame).expect("WsRequestFrame must serialize");
         assert!(
             serialized.contains("\"@type\":\"Request\""),
             "RFC 8887 §4.3.2 requires @type:Request in outgoing WS frames; got: {serialized}"
@@ -343,7 +335,7 @@ mod tests {
     }
 
     /// Oracle: RFC 8887 §4.3.2 — optional `id` field is echoed in the response.
-    /// When an id is supplied to send_request it must appear in the serialized frame.
+    /// When an id is supplied, WsRequestFrame must include it in the serialized frame.
     #[test]
     fn send_request_includes_id_when_provided() {
         let req = jmap_types::JmapRequest::new(
@@ -351,20 +343,12 @@ mod tests {
             vec![],
             None,
         );
-        let mut val = serde_json::to_value(&req).expect("serialize");
-        let obj = val
-            .as_object_mut()
-            .expect("JmapRequest serializes to object");
-        obj.insert(
-            "@type".to_owned(),
-            serde_json::Value::String("Request".to_owned()),
-        );
-        obj.insert(
-            "id".to_owned(),
-            serde_json::Value::String("req-42".to_owned()),
-        );
-        let serialized = serde_json::to_string(&val).expect("serialize to string");
-
+        let frame = WsRequestFrame {
+            ws_type: "Request",
+            id: Some("req-42"),
+            inner: &req,
+        };
+        let serialized = serde_json::to_string(&frame).expect("WsRequestFrame must serialize");
         assert!(
             serialized.contains("\"id\":\"req-42\""),
             "RFC 8887 §4.3.2 optional id must be present when provided; got: {serialized}"
@@ -372,7 +356,7 @@ mod tests {
     }
 
     /// Oracle: RFC 8887 §4.3.2 — when id is None, no `id` field appears in the frame.
-    /// The server must not receive a spurious null or empty id field.
+    /// WsRequestFrame uses skip_serializing_if to omit the field entirely.
     #[test]
     fn send_request_omits_id_when_none() {
         let req = jmap_types::JmapRequest::new(
@@ -380,17 +364,12 @@ mod tests {
             vec![],
             None,
         );
-        let mut val = serde_json::to_value(&req).expect("serialize");
-        let obj = val
-            .as_object_mut()
-            .expect("JmapRequest serializes to object");
-        obj.insert(
-            "@type".to_owned(),
-            serde_json::Value::String("Request".to_owned()),
-        );
-        // id=None: do NOT insert the id field (mirrors send_request None branch).
-        let serialized = serde_json::to_string(&val).expect("serialize to string");
-
+        let frame = WsRequestFrame {
+            ws_type: "Request",
+            id: None,
+            inner: &req,
+        };
+        let serialized = serde_json::to_string(&frame).expect("WsRequestFrame must serialize");
         assert!(
             !serialized.contains("\"id\":"),
             "RFC 8887 §4.3.2: no id field must appear when id is None; got: {serialized}"

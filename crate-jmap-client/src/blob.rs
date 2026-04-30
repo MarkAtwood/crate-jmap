@@ -1,5 +1,6 @@
 //! Blob upload/download operations and supporting types (RFC 8620 §6.1, §6.2)
 
+use futures::StreamExt as _;
 use jmap_types::Id;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use serde::Deserialize;
@@ -285,7 +286,8 @@ impl JmapClient {
 
         let download_limit = self.config.max_download_body;
 
-        // Check Content-Length header as an early-exit optimization.
+        // Early rejection on Content-Length header. Does not replace the streaming
+        // check below: Content-Length can lie or be absent.
         if let Some(len) = resp.content_length() {
             if len > download_limit {
                 return Err(ClientError::ResponseTooLarge {
@@ -294,14 +296,25 @@ impl JmapClient {
                 });
             }
         }
-        let bytes = resp.bytes().await.map_err(ClientError::Http)?;
-        // Content-Length can lie — enforce cap on actual bytes read.
-        if bytes.len() as u64 > download_limit {
-            return Err(ClientError::ResponseTooLarge {
-                actual: bytes.len() as u64,
-                limit: download_limit,
-            });
+
+        // Stream body chunk-by-chunk and enforce the cap before each accumulation.
+        // This prevents buffering a response that exceeds the limit when Content-Length
+        // is absent or lying — without this, resp.bytes().await would buffer the full
+        // response before the check could fire.
+        let mut stream = resp.bytes_stream();
+        let mut body: Vec<u8> = Vec::new();
+        while let Some(chunk) = stream.next().await {
+            let chunk = chunk.map_err(ClientError::Http)?;
+            let new_len = body.len() as u64 + chunk.len() as u64;
+            if new_len > download_limit {
+                return Err(ClientError::ResponseTooLarge {
+                    actual: new_len,
+                    limit: download_limit,
+                });
+            }
+            body.extend_from_slice(&chunk);
         }
+        let bytes = bytes::Bytes::from(body);
 
         if let Some(expected) = expected_sha256 {
             if !is_valid_sha256_hex(expected) {
