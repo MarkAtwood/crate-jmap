@@ -1,13 +1,15 @@
-// Email/query filter types (RFC 8621 §4.4).
-//
-// Provides [`EmailFilterCondition`] — the mail-specific condition object for
-// Email/query — and the [`EmailFilter`] type alias for convenience.
-//
-// The generic [`Filter`], [`FilterOperator`], and [`Operator`] types used here
-// are defined in `jmap-types::query` (RFC 8620 §5.5).
+//! Email/query filter and comparator types (RFC 8621 §4.4).
+//!
+//! Provides [`EmailFilterCondition`] — the mail-specific condition object for
+//! Email/query — and the [`EmailFilter`] type alias for convenience.
+//!
+//! The generic [`Filter`], [`FilterOperator`], and [`Operator`] types used here
+//! are defined in `jmap-types::query` (RFC 8620 §5.5).
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
+
+use crate::keyword::Keyword;
 
 pub use jmap_types::query::{Filter, FilterOperator, Operator};
 
@@ -15,6 +17,9 @@ pub use jmap_types::query::{Filter, FilterOperator, Operator};
 pub type EmailFilter = Filter<EmailFilterCondition>;
 
 /// Concrete filter type for EmailSubmission/query (RFC 8621 §7.3).
+///
+/// The condition struct ([`crate::submission::EmailSubmissionFilterCondition`])
+/// lives in [`crate::submission`] alongside the other EmailSubmission types.
 pub type EmailSubmissionFilter = Filter<crate::submission::EmailSubmissionFilterCondition>;
 
 /// Filter condition for Email objects (RFC 8621 §4.4.1).
@@ -26,6 +31,23 @@ pub type EmailSubmissionFilter = Filter<crate::submission::EmailSubmissionFilter
 ///
 /// Do not add `#[serde(deny_unknown_fields)]` — it breaks `#[serde(untagged)]`
 /// deserialization when `EmailFilterCondition` is used inside `Filter<T>`.
+///
+/// # Construction from outside this crate
+///
+/// The struct is `#[non_exhaustive]`: struct literal syntax and functional
+/// record update (`{ field: val, ..Default::default() }`) are unavailable to
+/// external callers.  Use [`Default::default`] and then mutate the fields you
+/// need:
+///
+/// ```rust
+/// use jmap_mail_types::query::EmailFilterCondition;
+/// use jmap_mail_types::{keyword, Keyword};
+/// use jmap_types::Id;
+///
+/// let mut cond = EmailFilterCondition::default();
+/// cond.in_mailbox = Some(Id::from("inbox-id"));
+/// cond.has_keyword = Some(Keyword::from(keyword::SEEN));
+/// ```
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -63,23 +85,23 @@ pub struct EmailFilterCondition {
 
     /// All Emails in the same Thread must have this keyword.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub all_in_thread_have_keyword: Option<String>,
+    pub all_in_thread_have_keyword: Option<Keyword>,
 
     /// At least one Email in the same Thread must have this keyword.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub some_in_thread_have_keyword: Option<String>,
+    pub some_in_thread_have_keyword: Option<Keyword>,
 
     /// No Email in the same Thread may have this keyword.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub none_in_thread_have_keyword: Option<String>,
+    pub none_in_thread_have_keyword: Option<Keyword>,
 
     /// This Email must have this keyword.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub has_keyword: Option<String>,
+    pub has_keyword: Option<Keyword>,
 
     /// This Email must not have this keyword.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub not_keyword: Option<String>,
+    pub not_keyword: Option<Keyword>,
 
     /// The `hasAttachment` property of the Email must equal this value.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -115,8 +137,13 @@ pub struct EmailFilterCondition {
 
     /// Arbitrary header field match.  RFC 8621 §4.4.1 requires exactly 1 or 2
     /// elements: the first is the header field name; the second (optional) is
-    /// the value to match.  Supplying 0 or 3+ elements is a protocol error and
-    /// is rejected at deserialization time.
+    /// the value to match.
+    ///
+    /// **Invariant**: when `Some`, the `Vec` must have exactly 1 or 2 elements.
+    /// This is enforced at deserialization time (supplying 0 or 3+ elements is
+    /// rejected with an error).  Code that constructs an
+    /// `EmailFilterCondition` directly and sets `header` is responsible for
+    /// upholding this invariant; serialization does not re-validate.
     #[serde(
         default,
         skip_serializing_if = "Option::is_none",
@@ -126,24 +153,85 @@ pub struct EmailFilterCondition {
 }
 
 // ---------------------------------------------------------------------------
+// ComparatorProperty (RFC 8621 §4.4.2)
+// ---------------------------------------------------------------------------
+
+/// The property to sort by in an [`EmailComparator`] (RFC 8621 §4.4.2).
+///
+/// When the variant is [`HasKeyword`](ComparatorProperty::HasKeyword),
+/// [`AllInThreadHaveKeyword`](ComparatorProperty::AllInThreadHaveKeyword), or
+/// [`SomeInThreadHaveKeyword`](ComparatorProperty::SomeInThreadHaveKeyword),
+/// the `keyword` field on [`EmailComparator`] **MUST** also be set
+/// (RFC 8621 §4.4.2).
+///
+/// Unknown property names from the server are preserved in
+/// [`Other`](ComparatorProperty::Other) so they round-trip correctly.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ComparatorProperty {
+    /// Sort by `receivedAt`.
+    ReceivedAt,
+    /// Sort by message size in octets.
+    Size,
+    /// Sort by the text of the From header field.
+    From,
+    /// Sort by the text of the To header field.
+    To,
+    /// Sort by the decoded Subject.
+    Subject,
+    /// Sort by `sentAt`.
+    SentAt,
+    /// Sort by whether Emails in the Thread have the given `keyword`.
+    HasKeyword,
+    /// Sort by whether all Emails in the Thread have the given `keyword`.
+    AllInThreadHaveKeyword,
+    /// Sort by whether some Emails in the Thread have the given `keyword`.
+    SomeInThreadHaveKeyword,
+    /// A server-extension property name not listed above.
+    Other(String),
+}
+
+impl_string_enum!(ComparatorProperty, "an Email comparator property string",
+    "receivedAt"              => ReceivedAt,
+    "size"                    => Size,
+    "from"                    => From,
+    "to"                      => To,
+    "subject"                 => Subject,
+    "sentAt"                  => SentAt,
+    "hasKeyword"              => HasKeyword,
+    "allInThreadHaveKeyword"  => AllInThreadHaveKeyword,
+    "someInThreadHaveKeyword" => SomeInThreadHaveKeyword,
+);
+
+// ---------------------------------------------------------------------------
 // EmailComparator (RFC 8621 §4.4.2)
 // ---------------------------------------------------------------------------
 
 /// Sort comparator for Email/query (RFC 8621 §4.4.2).
 ///
-/// The `property` field names the attribute to sort by; see RFC 8621 §4.4.2
-/// for the full list ("receivedAt", "size", "from", "to", "subject",
-/// "sentAt", "hasKeyword", "allInThreadHaveKeyword", "someInThreadHaveKeyword").
+/// When `property` is one of the keyword-based variants
+/// ([`ComparatorProperty::HasKeyword`], [`ComparatorProperty::AllInThreadHaveKeyword`],
+/// [`ComparatorProperty::SomeInThreadHaveKeyword`]), the `keyword` field
+/// **MUST** also be set.  `is_ascending` defaults to `true` per RFC 8620 §5.5.
 ///
-/// When `property` is one of the keyword-based sort properties, `keyword`
-/// MUST also be set (RFC 8621 §4.4.2).  `is_ascending` defaults to `true`
-/// per RFC 8620 §5.5.
+/// # Construction
+///
+/// Use [`EmailComparator::new`] to construct from outside this crate.
+/// The struct is `#[non_exhaustive]`; struct literal syntax is not available
+/// to external callers.
+///
+/// ```rust
+/// use jmap_mail_types::query::{EmailComparator, ComparatorProperty};
+///
+/// let mut cmp = EmailComparator::new(ComparatorProperty::ReceivedAt);
+/// cmp.is_ascending = false;  // sort descending
+/// ```
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailComparator {
-    /// The property name to sort by.
-    pub property: String,
+    /// The property to sort by.
+    pub property: ComparatorProperty,
 
     /// If `true`, sort ascending; if `false`, sort descending.
     /// Defaults to `true` per RFC 8620 §5.5.
@@ -154,10 +242,36 @@ pub struct EmailComparator {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub collation: Option<String>,
 
-    /// Required when `property` is `"hasKeyword"`, `"allInThreadHaveKeyword"`,
-    /// or `"someInThreadHaveKeyword"` (RFC 8621 §4.4.2).
+    /// Required when `property` is one of the keyword-based variants
+    /// (RFC 8621 §4.4.2).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub keyword: Option<String>,
+    pub keyword: Option<Keyword>,
+}
+
+impl EmailComparator {
+    /// Construct an [`EmailComparator`] for the given property.
+    ///
+    /// `is_ascending` defaults to `true` (RFC 8620 §5.5 default).
+    /// `collation` and `keyword` default to `None`.
+    ///
+    /// Set fields directly after construction:
+    ///
+    /// ```rust
+    /// use jmap_mail_types::query::{EmailComparator, ComparatorProperty};
+    /// use jmap_mail_types::Keyword;
+    ///
+    /// let mut cmp = EmailComparator::new(ComparatorProperty::HasKeyword);
+    /// cmp.keyword = Some(Keyword::from("$flagged"));
+    /// cmp.is_ascending = false;
+    /// ```
+    pub fn new(property: ComparatorProperty) -> Self {
+        Self {
+            property,
+            is_ascending: true,
+            collation: None,
+            keyword: None,
+        }
+    }
 }
 
 fn bool_true() -> bool {
@@ -224,11 +338,15 @@ mod tests {
                 assert_eq!(op.operator, Operator::Or);
                 assert_eq!(op.conditions.len(), 2);
                 match &op.conditions[0] {
-                    Filter::Condition(c) => assert_eq!(c.has_keyword.as_deref(), Some("music")),
+                    Filter::Condition(c) => {
+                        assert_eq!(c.has_keyword.as_deref(), Some("music"))
+                    }
                     other => panic!("expected Condition, got {other:?}"),
                 }
                 match &op.conditions[1] {
-                    Filter::Condition(c) => assert_eq!(c.has_keyword.as_deref(), Some("video")),
+                    Filter::Condition(c) => {
+                        assert_eq!(c.has_keyword.as_deref(), Some("video"))
+                    }
                     other => panic!("expected Condition, got {other:?}"),
                 }
             }
@@ -252,11 +370,11 @@ mod tests {
                     operator: Operator::Or,
                     conditions: vec![
                         EmailFilter::Condition(EmailFilterCondition {
-                            has_keyword: Some("$flagged".to_owned()),
+                            has_keyword: Some(Keyword::from("$flagged")),
                             ..Default::default()
                         }),
                         EmailFilter::Condition(EmailFilterCondition {
-                            has_keyword: Some("$answered".to_owned()),
+                            has_keyword: Some(Keyword::from("$answered")),
                             ..Default::default()
                         }),
                     ],
@@ -283,11 +401,11 @@ mod tests {
             in_mailbox: Some(Id::from("mb1")),
             min_size: Some(1024),
             max_size: Some(65536),
-            all_in_thread_have_keyword: Some("$seen".to_owned()),
-            some_in_thread_have_keyword: Some("$flagged".to_owned()),
-            none_in_thread_have_keyword: Some("$draft".to_owned()),
-            has_keyword: Some("$answered".to_owned()),
-            not_keyword: Some("$junk".to_owned()),
+            all_in_thread_have_keyword: Some(Keyword::from("$seen")),
+            some_in_thread_have_keyword: Some(Keyword::from("$flagged")),
+            none_in_thread_have_keyword: Some(Keyword::from("$draft")),
+            has_keyword: Some(Keyword::from("$answered")),
+            not_keyword: Some(Keyword::from("$junk")),
             has_attachment: Some(true),
             text: Some("hello".to_owned()),
             from: Some("alice@example.com".to_owned()),
@@ -389,14 +507,14 @@ mod tests {
         let json0 =
             r#"{"property":"someInThreadHaveKeyword","keyword":"$flagged","isAscending":false}"#;
         let c0: EmailComparator = serde_json::from_str(json0).expect("must parse");
-        assert_eq!(c0.property, "someInThreadHaveKeyword");
+        assert_eq!(c0.property, ComparatorProperty::SomeInThreadHaveKeyword);
         assert_eq!(c0.keyword.as_deref(), Some("$flagged"));
         assert!(!c0.is_ascending);
 
         // Second: subject sort with collation, isAscending defaults to true (omitted).
         let json1 = r#"{"property":"subject","collation":"i;ascii-casemap"}"#;
         let c1: EmailComparator = serde_json::from_str(json1).expect("must parse");
-        assert_eq!(c1.property, "subject");
+        assert_eq!(c1.property, ComparatorProperty::Subject);
         assert_eq!(c1.collation.as_deref(), Some("i;ascii-casemap"));
         assert!(c1.is_ascending);
         // isAscending is true (default) and must be omitted on serialization.
@@ -406,7 +524,7 @@ mod tests {
         // Third: receivedAt descending.
         let json2 = r#"{"property":"receivedAt","isAscending":false}"#;
         let c2: EmailComparator = serde_json::from_str(json2).expect("must parse");
-        assert_eq!(c2.property, "receivedAt");
+        assert_eq!(c2.property, ComparatorProperty::ReceivedAt);
         assert!(!c2.is_ascending);
         let back2 = serde_json::to_string(&c2).expect("serialize");
         assert_eq!(back2, json2);
@@ -438,7 +556,11 @@ mod tests {
         let f: EmailFilter = serde_json::from_str(json).expect("must parse as empty Condition");
         match &f {
             Filter::Condition(c) => {
-                assert_eq!(*c, EmailFilterCondition::default(), "unknown fields yield all-None");
+                assert_eq!(
+                    *c,
+                    EmailFilterCondition::default(),
+                    "unknown fields yield all-None"
+                );
             }
             other => panic!("expected empty Condition, got {other:?}"),
         }
@@ -453,6 +575,34 @@ mod tests {
         assert!(
             matches!(&f, Filter::Condition(c) if c == &EmailFilterCondition::default()),
             "empty object must yield all-None Condition"
+        );
+    }
+
+    /// Oracle: EmailComparator::new produces expected defaults and correct JSON.
+    /// RFC 8620 §5.5 — isAscending defaults to true and is omitted when true.
+    #[test]
+    fn comparator_new_constructor() {
+        let cmp = EmailComparator::new(ComparatorProperty::ReceivedAt);
+        assert_eq!(cmp.property, ComparatorProperty::ReceivedAt);
+        assert!(cmp.is_ascending);
+        assert!(cmp.collation.is_none());
+        assert!(cmp.keyword.is_none());
+        // isAscending:true is the default and must be omitted on the wire.
+        let json = serde_json::to_string(&cmp).expect("serialize");
+        assert_eq!(json, r#"{"property":"receivedAt"}"#);
+    }
+
+    /// Oracle: EmailComparator::new with field mutation produces correct JSON.
+    /// RFC 8621 §4.4.2 — keyword-based comparator must include keyword field.
+    #[test]
+    fn comparator_new_with_mutation() {
+        let mut cmp = EmailComparator::new(ComparatorProperty::HasKeyword);
+        cmp.keyword = Some(Keyword::from("$flagged"));
+        cmp.is_ascending = false;
+        let json = serde_json::to_string(&cmp).expect("serialize");
+        assert_eq!(
+            json,
+            r#"{"property":"hasKeyword","isAscending":false,"keyword":"$flagged"}"#
         );
     }
 }

@@ -1,3 +1,8 @@
+//! RFC 8621 §3 Thread object.
+//!
+//! Provides [`Thread`] — groups related [`crate::Email`] objects by
+//! conversation thread.
+
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +22,10 @@ pub struct Thread {
 
 impl Thread {
     /// Construct a [`Thread`] from its two required fields.
-    pub fn new(id: Id, email_ids: Vec<Id>) -> Self {
-        Self { id, email_ids }
+    pub fn new(id: impl Into<Id>, email_ids: Vec<Id>) -> Self {
+        Self {
+            id: id.into(),
+            email_ids,
+        }
     }
 }

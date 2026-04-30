@@ -1,3 +1,8 @@
+//! RFC 8621 §6 Identity object.
+//!
+//! Provides [`Identity`] — stores information about an email address or domain
+//! the user may send from.
+
 use crate::email::EmailAddress;
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
@@ -35,9 +40,9 @@ impl Identity {
     ///
     /// `name`, `text_signature`, and `html_signature` default to `""`.
     /// `reply_to` and `bcc` default to `None`.
-    pub fn new(id: Id, email: impl Into<String>, may_delete: bool) -> Self {
+    pub fn new(id: impl Into<Id>, email: impl Into<String>, may_delete: bool) -> Self {
         Self {
-            id,
+            id: id.into(),
             email: email.into(),
             may_delete,
             name: String::new(),

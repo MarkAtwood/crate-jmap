@@ -1,7 +1,17 @@
+//! RFC 8621 §4 Email object and its component types.
+//!
+//! Provides [`Email`], [`EmailAddress`], [`EmailAddressGroup`], [`EmailHeader`],
+//! [`EmailBodyPart`], and [`EmailBodyValue`].  These are the types used in
+//! `Email/get` responses and `Email/set` requests.
+//!
+//! See [`Email`] for notes on full vs partial responses.
+
 use std::collections::HashMap;
 
 use jmap_types::{Date, Id, UTCDate};
 use serde::{Deserialize, Serialize};
+
+use crate::keyword::Keyword;
 
 /// A parsed email address (RFC 8621 §4.1.2.3).
 ///
@@ -168,9 +178,39 @@ pub struct EmailBodyPart {
 /// An Email object (RFC 8621 §4.1).
 ///
 /// Combines metadata (§4.1.1), parsed header convenience properties (§4.1.3),
-/// and body fields (§4.1.4).  Fields that are not requested in an `Email/get`
-/// call will be absent from the response; all optional fields are represented
-/// as `Option` so a partial response can still deserialize.
+/// and body fields (§4.1.4).
+///
+/// # Full vs partial responses
+///
+/// This type is designed for **full `Email/get` responses** where all metadata
+/// properties are present.  The metadata fields `blob_id`, `thread_id`,
+/// `mailbox_ids`, `size`, and `received_at` are required (non-`Option`);
+/// deserialization fails if any of them is absent from the JSON.
+///
+/// RFC 8621 §4.5 allows clients to request only a subset of properties.  If
+/// a partial response omits any required metadata field, `serde_json::from_str`
+/// will return a "missing field" error.  For partial-property responses,
+/// deserialize into `serde_json::Value` first or define a narrower type with
+/// all fields `Option`.
+///
+/// Header convenience properties (§4.1.3) and body fields (§4.1.4) are all
+/// `Option`; they deserialize as `None` when not included in the response.
+///
+/// # Serialization caveat for server implementors
+///
+/// Several collection fields (`keywords`, `body_values`, `text_body`,
+/// `html_body`, `attachments`, `headers`) use
+/// `#[serde(skip_serializing_if = "…::is_empty")]`.  This is correct for
+/// partial responses — a property not in the client's `properties` list MUST be
+/// absent from the response.  However, RFC 8621 §4.1.1 defines `keywords` with
+/// `default: {}`, meaning a server MUST include `"keywords":{}` in the response
+/// when the property was requested and the email has no keywords.
+///
+/// **Do not rely on `serde_json::to_value(email)` to produce RFC-compliant JSON
+/// for full-object responses.**  Server code in `jmap-mail-server` must
+/// explicitly populate any collection fields that are in the requested
+/// `properties` set before serialization, or use a custom serializer that
+/// includes them.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -191,10 +231,12 @@ pub struct Email {
     pub mailbox_ids: HashMap<Id, bool>,
     /// Keywords applied to this Email.
     ///
-    /// Same `HashMap<Id, bool>` shape as `mailbox_ids` — JMAP wire format requirement.
+    /// Same JSON object shape as `mailbox_ids` (string keys, boolean values) — JMAP wire
+    /// format requirement.  Keys are [`Keyword`] values (not JMAP `Id`s); system keywords
+    /// start with `$` which is not valid inside a JMAP `Id` (RFC 8620 §1.2).
     /// Values are always `true` in full-object responses (RFC 8621 §4.1.1).
     #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub keywords: HashMap<String, bool>,
+    pub keywords: HashMap<Keyword, bool>,
     /// Size in octets of the raw RFC 5322 message.
     pub size: u64,
     /// Date the Email was received by the message store.
@@ -272,17 +314,17 @@ impl Email {
     ///
     /// All parsed-header and body fields default to `None` / empty.
     pub fn new(
-        id: Id,
-        blob_id: Id,
-        thread_id: Id,
+        id: impl Into<Id>,
+        blob_id: impl Into<Id>,
+        thread_id: impl Into<Id>,
         mailbox_ids: HashMap<Id, bool>,
         size: u64,
         received_at: UTCDate,
     ) -> Self {
         Self {
-            id,
-            blob_id,
-            thread_id,
+            id: id.into(),
+            blob_id: blob_id.into(),
+            thread_id: thread_id.into(),
             mailbox_ids,
             keywords: HashMap::new(),
             size,

@@ -1,4 +1,7 @@
-use std::fmt;
+//! RFC 8621 §2 Mailbox object and its component types.
+//!
+//! Provides [`Mailbox`], [`MailboxRole`], and [`MailboxRights`].
+//! Mailboxes are the folder containers for [`crate::Email`] objects.
 
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
@@ -40,66 +43,17 @@ pub enum MailboxRole {
     Other(String),
 }
 
-impl Serialize for MailboxRole {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(match self {
-            MailboxRole::Inbox => "inbox",
-            MailboxRole::Trash => "trash",
-            MailboxRole::Sent => "sent",
-            MailboxRole::Drafts => "drafts",
-            MailboxRole::Junk => "junk",
-            MailboxRole::Archive => "archive",
-            MailboxRole::Flagged => "flagged",
-            MailboxRole::Important => "important",
-            MailboxRole::All => "all",
-            MailboxRole::Other(v) => v.as_str(),
-        })
-    }
-}
-
-impl<'de> Deserialize<'de> for MailboxRole {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        struct Visitor;
-        impl serde::de::Visitor<'_> for Visitor {
-            type Value = MailboxRole;
-            fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "a JMAP Mailbox role string")
-            }
-            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<MailboxRole, E> {
-                Ok(match v {
-                    "inbox" => MailboxRole::Inbox,
-                    "trash" => MailboxRole::Trash,
-                    "sent" => MailboxRole::Sent,
-                    "drafts" => MailboxRole::Drafts,
-                    "junk" => MailboxRole::Junk,
-                    "archive" => MailboxRole::Archive,
-                    "flagged" => MailboxRole::Flagged,
-                    "important" => MailboxRole::Important,
-                    "all" => MailboxRole::All,
-                    _ => MailboxRole::Other(v.to_owned()),
-                })
-            }
-        }
-        d.deserialize_str(Visitor)
-    }
-}
-
-impl fmt::Display for MailboxRole {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            MailboxRole::Inbox => "inbox",
-            MailboxRole::Trash => "trash",
-            MailboxRole::Sent => "sent",
-            MailboxRole::Drafts => "drafts",
-            MailboxRole::Junk => "junk",
-            MailboxRole::Archive => "archive",
-            MailboxRole::Flagged => "flagged",
-            MailboxRole::Important => "important",
-            MailboxRole::All => "all",
-            MailboxRole::Other(v) => v.as_str(),
-        })
-    }
-}
+impl_string_enum!(MailboxRole, "a JMAP Mailbox role string",
+    "inbox"     => Inbox,
+    "trash"     => Trash,
+    "sent"      => Sent,
+    "drafts"    => Drafts,
+    "junk"      => Junk,
+    "archive"   => Archive,
+    "flagged"   => Flagged,
+    "important" => Important,
+    "all"       => All,
+);
 
 /// Access control rights the authenticated user holds for a Mailbox (RFC 8621 §2).
 ///
@@ -169,9 +123,12 @@ impl Mailbox {
     /// Construct a [`Mailbox`] from its required fields.
     ///
     /// `parent_id` and `role` default to `None`.
+    // Nine arguments because Mailbox has nine required RFC 8621 properties; all
+    // are needed for construction since #[non_exhaustive] prevents struct
+    // literals outside this crate.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
-        id: Id,
+        id: impl Into<Id>,
         name: impl Into<String>,
         sort_order: u32,
         total_emails: u32,
@@ -182,7 +139,7 @@ impl Mailbox {
         is_subscribed: bool,
     ) -> Self {
         Self {
-            id,
+            id: id.into(),
             name: name.into(),
             sort_order,
             total_emails,

@@ -45,6 +45,9 @@
 
 #![forbid(unsafe_code)]
 
+#[macro_use]
+mod string_enum;
+
 pub mod email;
 pub mod identity;
 pub mod keyword;
@@ -59,10 +62,11 @@ pub use email::{
     Email, EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue, EmailHeader,
 };
 pub use identity::Identity;
+pub use keyword::Keyword;
 pub use mailbox::{Mailbox, MailboxRights, MailboxRole};
 pub use query::{
-    EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmissionFilter, Filter,
-    FilterOperator, Operator,
+    ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmissionFilter,
+    Filter, FilterOperator, Operator,
 };
 pub use snippet::SearchSnippet;
 pub use submission::{

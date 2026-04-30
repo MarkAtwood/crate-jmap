@@ -1,3 +1,8 @@
+//! RFC 8621 §5 SearchSnippet object.
+//!
+//! Provides [`SearchSnippet`] — a highlighted text excerpt returned by
+//! `SearchSnippet/get` for each matched [`crate::Email`].
+
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
@@ -28,9 +33,9 @@ pub struct SearchSnippet {
 
 impl SearchSnippet {
     /// Construct a [`SearchSnippet`] with no subject or preview match.
-    pub fn new(email_id: Id) -> Self {
+    pub fn new(email_id: impl Into<Id>) -> Self {
         Self {
-            email_id,
+            email_id: email_id.into(),
             subject: None,
             preview: None,
         }

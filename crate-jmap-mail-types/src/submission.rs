@@ -1,40 +1,17 @@
+//! [`EmailSubmission`] and related types for RFC 8621 §7.
+//!
+//! Covers the SMTP envelope ([`Envelope`], [`Address`]), per-recipient delivery
+//! status ([`DeliveryStatus`], [`Delivered`], [`Displayed`]), undo tracking
+//! ([`UndoStatus`]), and the [`EmailSubmission`] object itself.
+//!
+//! Also defines [`EmailSubmissionFilterCondition`] for EmailSubmission/query
+//! (RFC 8621 §7.3); the `EmailSubmissionFilter` type alias lives in
+//! [`crate::query`].
+
 use std::collections::HashMap;
-use std::fmt;
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
-
-// Shared deserialize helper: deserialize a string for an enum with an Other(String) catch-all.
-macro_rules! impl_string_enum_serde {
-    ($ty:ident, $expecting:literal, $( $s:literal => $variant:ident ),+ $(,)?) => {
-        impl Serialize for $ty {
-            fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-                s.serialize_str(match self {
-                    $( $ty::$variant => $s, )+
-                    $ty::Other(v) => v.as_str(),
-                })
-            }
-        }
-        impl<'de> Deserialize<'de> for $ty {
-            fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-                struct Visitor;
-                impl serde::de::Visitor<'_> for Visitor {
-                    type Value = $ty;
-                    fn expecting(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                        write!(f, $expecting)
-                    }
-                    fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<$ty, E> {
-                        Ok(match v {
-                            $( $s => $ty::$variant, )+
-                            _ => $ty::Other(v.to_owned()),
-                        })
-                    }
-                }
-                d.deserialize_str(Visitor)
-            }
-        }
-    };
-}
 
 /// SMTP envelope address with optional MAIL FROM / RCPT TO parameters (RFC 8621 §7).
 ///
@@ -103,24 +80,12 @@ pub enum Delivered {
     Other(String),
 }
 
-impl_string_enum_serde!(Delivered, "a delivery status string",
-    "queued" => Queued,
-    "yes"    => Yes,
-    "no"     => No,
+impl_string_enum!(Delivered, "a delivery status string",
+    "queued"  => Queued,
+    "yes"     => Yes,
+    "no"      => No,
     "unknown" => Unknown,
 );
-
-impl fmt::Display for Delivered {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Delivered::Queued => "queued",
-            Delivered::Yes => "yes",
-            Delivered::No => "no",
-            Delivered::Unknown => "unknown",
-            Delivered::Other(v) => v.as_str(),
-        })
-    }
-}
 
 /// Display status of a message to a recipient (RFC 8621 §7, `displayed` field).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -136,20 +101,10 @@ pub enum Displayed {
     Other(String),
 }
 
-impl_string_enum_serde!(Displayed, "a display status string",
+impl_string_enum!(Displayed, "a display status string",
     "unknown" => Unknown,
     "yes"     => Yes,
 );
-
-impl fmt::Display for Displayed {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Displayed::Unknown => "unknown",
-            Displayed::Yes => "yes",
-            Displayed::Other(v) => v.as_str(),
-        })
-    }
-}
 
 /// Whether an [`EmailSubmission`] may still be canceled (RFC 8621 §7).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -167,22 +122,11 @@ pub enum UndoStatus {
     Other(String),
 }
 
-impl_string_enum_serde!(UndoStatus, "an undo status string",
+impl_string_enum!(UndoStatus, "an undo status string",
     "pending"  => Pending,
     "final"    => Final,
     "canceled" => Canceled,
 );
-
-impl fmt::Display for UndoStatus {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            UndoStatus::Pending => "pending",
-            UndoStatus::Final => "final",
-            UndoStatus::Canceled => "canceled",
-            UndoStatus::Other(v) => v.as_str(),
-        })
-    }
-}
 
 /// Per-recipient delivery status for an [`EmailSubmission`] (RFC 8621 §7).
 #[non_exhaustive]
@@ -252,18 +196,18 @@ impl EmailSubmission {
     /// `envelope` and `delivery_status` default to `None`.
     /// `dsn_blob_ids` and `mdn_blob_ids` default to empty.
     pub fn new(
-        id: Id,
-        identity_id: Id,
-        email_id: Id,
-        thread_id: Id,
+        id: impl Into<Id>,
+        identity_id: impl Into<Id>,
+        email_id: impl Into<Id>,
+        thread_id: impl Into<Id>,
         send_at: UTCDate,
         undo_status: UndoStatus,
     ) -> Self {
         Self {
-            id,
-            identity_id,
-            email_id,
-            thread_id,
+            id: id.into(),
+            identity_id: identity_id.into(),
+            email_id: email_id.into(),
+            thread_id: thread_id.into(),
             envelope: None,
             send_at,
             undo_status,

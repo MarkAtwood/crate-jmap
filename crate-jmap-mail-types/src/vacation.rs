@@ -1,7 +1,7 @@
-// VacationResponse object type (RFC 8621 §8).
-//
-// A singleton object (exactly one per account) that controls the automatic
-// out-of-office reply behaviour for the account.
+//! RFC 8621 §8 VacationResponse object.
+//!
+//! Provides [`VacationResponse`] — a singleton object (one per account) that
+//! controls the automatic out-of-office reply behaviour for the account.
 
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
