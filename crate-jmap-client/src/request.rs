@@ -7,10 +7,13 @@
 //   Id, UTCDate, State, Date, JmapRequest, JmapResponse, Invocation, ResultReference
 
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use serde::Deserialize;
 
 use jmap_types::{Invocation, JmapRequest, State};
+
+use crate::error::ClientError;
 
 // ---------------------------------------------------------------------------
 // JmapRequestBuilder (RFC 8620 §3.3)
@@ -28,7 +31,7 @@ use jmap_types::{Invocation, JmapRequest, State};
 pub struct JmapRequestBuilder {
     using: Vec<String>,
     method_calls: Vec<Invocation>,
-    call_ids: std::collections::HashSet<String>,
+    call_ids: HashSet<String>,
 }
 
 impl JmapRequestBuilder {
@@ -43,7 +46,7 @@ impl JmapRequestBuilder {
         Self {
             using: using.iter().map(|&s| s.to_owned()).collect(),
             method_calls: Vec::new(),
-            call_ids: std::collections::HashSet::new(),
+            call_ids: HashSet::new(),
         }
     }
 
@@ -59,10 +62,10 @@ impl JmapRequestBuilder {
         method: impl Into<String>,
         args: serde_json::Value,
         call_id: impl Into<String>,
-    ) -> Result<&mut Self, crate::error::ClientError> {
+    ) -> Result<&mut Self, ClientError> {
         let call_id = call_id.into();
         if !self.call_ids.insert(call_id.clone()) {
-            return Err(crate::error::ClientError::InvalidArgument(format!(
+            return Err(ClientError::InvalidArgument(format!(
                 "JmapRequestBuilder: duplicate call_id {:?}",
                 call_id
             )));
@@ -75,9 +78,9 @@ impl JmapRequestBuilder {
     ///
     /// Returns `Err(ClientError::InvalidArgument)` if no method calls have
     /// been added. An empty `methodCalls` array is invalid per RFC 8620 §3.3.
-    pub fn build(self) -> Result<JmapRequest, crate::error::ClientError> {
+    pub fn build(self) -> Result<JmapRequest, ClientError> {
         if self.method_calls.is_empty() {
-            return Err(crate::error::ClientError::InvalidArgument(
+            return Err(ClientError::InvalidArgument(
                 "no method calls added".into(),
             ));
         }
@@ -156,13 +159,13 @@ impl Session {
     /// - `Err` — capability key is present but the value is malformed.
     pub fn websocket_capability(
         &self,
-    ) -> Result<Option<WebSocketCapability>, crate::error::ClientError> {
+    ) -> Result<Option<WebSocketCapability>, ClientError> {
         let Some(raw) = self.capabilities.get("urn:ietf:params:jmap:websocket") else {
             return Ok(None);
         };
         serde_json::from_value::<WebSocketCapability>(raw.clone())
             .map(Some)
-            .map_err(crate::error::ClientError::Parse)
+            .map_err(ClientError::Parse)
     }
 }
 
@@ -275,7 +278,7 @@ mod tests {
     fn builder_returns_err_on_empty_build() {
         let result = JmapRequestBuilder::new(&["urn:ietf:params:jmap:core"]).build();
         assert!(
-            matches!(result, Err(crate::error::ClientError::InvalidArgument(_))),
+            matches!(result, Err(ClientError::InvalidArgument(_))),
             "empty build must return Err(InvalidArgument), got {result:?}"
         );
     }
@@ -290,7 +293,7 @@ mod tests {
             .expect("first add_call must succeed");
         let result = builder.add_call("Bar/get", json!({}), "r1"); // duplicate
         assert!(
-            matches!(result, Err(crate::error::ClientError::InvalidArgument(_))),
+            matches!(result, Err(ClientError::InvalidArgument(_))),
             "duplicate call_id must return Err(InvalidArgument), got {result:?}"
         );
     }

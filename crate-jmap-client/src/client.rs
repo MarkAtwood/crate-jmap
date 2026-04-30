@@ -285,6 +285,7 @@ impl JmapClient {
         api_url: &str,
         req: &jmap_types::JmapRequest,
     ) -> Result<jmap_types::JmapResponse, ClientError> {
+        require_http_url(api_url)?;
         let limit = self.config.max_call_body;
 
         let mut builder = self
@@ -347,6 +348,7 @@ impl JmapClient {
         last_event_id: Option<&str>,
     ) -> Result<futures::stream::BoxStream<'static, Result<SseFrame, ClientError>>, ClientError>
     {
+        require_http_url(event_source_url)?;
         let mut req = self
             .http
             .get(event_source_url)
@@ -477,13 +479,13 @@ impl JmapClient {
 /// `jmap-mail-client`) can use it to extract typed results from a
 /// [`jmap_types::JmapResponse`] without depending on internal details.
 pub fn extract_response<T: serde::de::DeserializeOwned>(
-    resp: jmap_types::JmapResponse,
+    resp: &jmap_types::JmapResponse,
     call_id: &str,
 ) -> Result<T, ClientError> {
     // Invocation is a type alias (String, Value, String) = (method, args, call_id)
     let inv = resp
         .method_responses
-        .into_iter()
+        .iter()
         .find(|inv| inv.2 == call_id)
         .ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
     let (method_name, args, _) = inv;
@@ -505,7 +507,7 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
         });
     }
 
-    serde_json::from_value(args).map_err(ClientError::Parse)
+    serde_json::from_value(args.clone()).map_err(ClientError::Parse)
 }
 
 /// Decode as much valid UTF-8 as possible from `raw` into `buf`, draining
@@ -553,6 +555,30 @@ fn decode_utf8_chunk(raw: &mut Vec<u8>, buf: &mut String) {
             }
         }
     }
+}
+
+/// Validate that `url` uses an http or https scheme.
+///
+/// Called at the top of each public method that accepts a URL parameter
+/// (`call`, `subscribe_events`, `upload_blob`, `download_blob`).  This is a
+/// defense-in-depth check: the primary protection is [`validate_session_urls`]
+/// which rejects bad URLs in the Session document at fetch time.  This check
+/// makes each individual call site self-defending against accidentally passing
+/// a non-http URL (e.g. from a test fixture or a misused API).
+///
+/// Returns [`ClientError::InvalidArgument`] if the scheme is not http/https.
+pub(crate) fn require_http_url(url: &str) -> Result<(), ClientError> {
+    let scheme = url
+        .find("://")
+        .map(|i| &url[..i])
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    if scheme != "http" && scheme != "https" {
+        return Err(ClientError::InvalidArgument(format!(
+            "URL must have http or https scheme, got: {url:?}"
+        )));
+    }
+    Ok(())
 }
 
 /// Validate that all URL fields in `session` use an http or https scheme.

@@ -63,8 +63,13 @@ pub enum ClientError {
         description: Option<String>,
     },
 
-    /// A request could not be serialized to JSON. Indicates a caller bug —
-    /// the data structure contains non-serializable values. Not retriable.
+    /// A JMAP request could not be serialized to JSON when sending over
+    /// WebSocket. Indicates a caller bug — the data structure contains
+    /// non-serializable values. Not retriable.
+    ///
+    /// This error is only returned by [`WsSession::send_request`]; the HTTP
+    /// `call()` path delegates serialization to reqwest, which surfaces
+    /// serialization failures as [`ClientError::Http`].
     ///
     /// Construct explicitly: `.map_err(ClientError::Serialize)`.
     #[error("serialization error: {0}")]

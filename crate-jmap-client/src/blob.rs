@@ -128,6 +128,7 @@ impl JmapClient {
         data: bytes::Bytes,
         content_type: &str,
     ) -> Result<BlobUploadResponse, ClientError> {
+        crate::client::require_http_url(upload_url_template)?;
         let ct_hv = HeaderValue::from_str(content_type)
             .map_err(ClientError::InvalidHeaderValue)?;
         let url = expand_url_template(upload_url_template, &[("accountId", account_id)])?;
@@ -218,6 +219,7 @@ impl JmapClient {
         accept_type: Option<&str>,
         expected_sha256: Option<&str>,
     ) -> Result<bytes::Bytes, ClientError> {
+        crate::client::require_http_url(download_url_template)?;
         let vars = [
             ("accountId", account_id),
             ("blobId", blob_id),
@@ -364,6 +366,22 @@ mod tests {
         assert!(
             matches!(err, crate::error::ClientError::InvalidSession(_)),
             "expected InvalidSession, got {err:?}"
+        );
+    }
+
+    // Oracle: expand_url_template must error on a template with an unmatched
+    // '{' — no corresponding '}' exists. The expected error is InvalidSession
+    // because templates come from the server's Session document.
+    #[test]
+    fn expand_unmatched_open_brace_returns_error() {
+        let err = expand_url_template(
+            "https://example.com/{unclosed",
+            &[],
+        )
+        .expect_err("unmatched '{' must return an error");
+        assert!(
+            matches!(err, crate::error::ClientError::InvalidSession(_)),
+            "expected InvalidSession for unmatched brace, got {err:?}"
         );
     }
 

@@ -40,8 +40,14 @@ pub enum SseEvent {
     StateChange(push::StateChange),
     /// Unrecognized event type, keepalive, or parse failure.
     ///
-    /// Callers should silently ignore this variant.
-    Unknown,
+    /// `event_type` carries the value of the SSE `event:` field for
+    /// diagnostics — e.g. `"ping"` for a keepalive, `"state"` when the
+    /// state payload failed to parse.  An empty string means the frame had
+    /// no `event:` field (a keepalive comment or bare data).
+    ///
+    /// Callers should silently ignore this variant; log `event_type` when
+    /// debugging unexpected parse failures.
+    Unknown { event_type: String },
 }
 
 /// Parse a single SSE block (the text between two blank lines) into an [`SseFrame`].
@@ -78,11 +84,12 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
 
     let event = match event_type {
         Some("state") => match data_lines.as_slice() {
-            [] => SseEvent::Unknown, // no data: lines → nothing to parse
-            [single] => parse_state_data(single),
-            _ => parse_state_data(&data_lines.join("\n")),
+            [] => SseEvent::Unknown { event_type: "state".to_owned() }, // no data: lines
+            [single] => parse_state_data("state", single),
+            _ => parse_state_data("state", &data_lines.join("\n")),
         },
-        _ => SseEvent::Unknown,
+        Some(t) => SseEvent::Unknown { event_type: t.to_owned() },
+        None => SseEvent::Unknown { event_type: String::new() },
     };
 
     SseFrame { event, id }
@@ -90,22 +97,26 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
 
 /// Parse the data payload of a "state" event.
 ///
+/// `event_type` is passed through to `SseEvent::Unknown` on failure so
+/// callers can distinguish a parse error on a "state" event from a parse
+/// error on some other type.
+///
 /// Accepts both the bare `{"changed":{...}}` shape and the shape with
 /// `"@type":"StateChange"` per RFC 8620 §7.3 (StateChange object definition).
 /// The `@type` field is stripped before deserialization; only `changed` is used.
-fn parse_state_data(data: &str) -> SseEvent {
+fn parse_state_data(event_type: &str, data: &str) -> SseEvent {
     let Ok(mut v) = serde_json::from_str::<serde_json::Value>(data) else {
-        return SseEvent::Unknown;
+        return SseEvent::Unknown { event_type: event_type.to_owned() };
     };
     let Some(obj) = v.as_object_mut() else {
-        return SseEvent::Unknown;
+        return SseEvent::Unknown { event_type: event_type.to_owned() };
     };
     let Some(changed_val) = obj.remove("changed") else {
-        return SseEvent::Unknown;
+        return SseEvent::Unknown { event_type: event_type.to_owned() };
     };
     let Ok(changed) = serde_json::from_value::<HashMap<Id, HashMap<String, State>>>(changed_val)
     else {
-        return SseEvent::Unknown;
+        return SseEvent::Unknown { event_type: event_type.to_owned() };
     };
     SseEvent::StateChange(push::StateChange { changed })
 }
@@ -161,7 +172,7 @@ mod tests {
         let block = "event: ping\ndata: {}";
         let SseFrame { event, .. } = parse_sse_block(block);
         assert!(
-            matches!(event, SseEvent::Unknown),
+            matches!(event, SseEvent::Unknown { .. }),
             "unrecognized event type must yield Unknown"
         );
     }
@@ -171,7 +182,7 @@ mod tests {
     fn parse_empty_block() {
         let SseFrame { event, id } = parse_sse_block("");
         assert!(
-            matches!(event, SseEvent::Unknown),
+            matches!(event, SseEvent::Unknown { .. }),
             "empty block must yield Unknown"
         );
         assert!(id.is_none(), "empty block must have no id");
@@ -184,7 +195,7 @@ mod tests {
         let block = "event: state\ndata: not-json";
         let SseFrame { event, .. } = parse_sse_block(block);
         assert!(
-            matches!(event, SseEvent::Unknown),
+            matches!(event, SseEvent::Unknown { .. }),
             "malformed JSON must yield Unknown, not panic or error"
         );
     }
@@ -220,7 +231,7 @@ mod tests {
         );
         let SseFrame { event, .. } = parse_sse_block(block);
         assert!(
-            matches!(event, SseEvent::Unknown),
+            matches!(event, SseEvent::Unknown { .. }),
             "both data: lines must be joined: first-line-valid JSON + second line = Unknown"
         );
     }
@@ -229,10 +240,10 @@ mod tests {
     /// This match will fail to compile if either variant is ever reintroduced.
     #[test]
     fn sse_event_no_typing_or_presence() {
-        let e = SseEvent::Unknown;
+        let e = SseEvent::Unknown { event_type: String::new() };
         match e {
             SseEvent::StateChange(_) => {}
-            SseEvent::Unknown => {}
+            SseEvent::Unknown { .. } => {}
         }
     }
 }

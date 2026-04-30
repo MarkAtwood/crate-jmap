@@ -505,6 +505,111 @@ async fn test_download_blob_size_cap() {
 }
 
 // ---------------------------------------------------------------------------
+// subscribe_events — SSE line-ending normalization
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8895 §9 — SSE lines terminated with CRLF must parse
+/// identically to LF-terminated lines.
+///
+/// A server sending HTTP/1.1 CRLF-terminated SSE is realistic; the client
+/// must normalize \r\n → \n before handing the block to parse_sse_block.
+#[tokio::test]
+async fn test_subscribe_events_crlf_line_endings() {
+    use futures::StreamExt as _;
+    use jmap_client::sse::SseEvent;
+
+    // CRLF-terminated SSE block ending in the double-CRLF frame delimiter.
+    let crlf_body = "event: state\r\ndata: {\"changed\":{}}\r\n\r\n";
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/events"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("Content-Type", "text/event-stream")
+                .set_body_bytes(crlf_body.as_bytes().to_vec()),
+        )
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let event_url = format!("{}/events", server.uri());
+    let mut stream = client
+        .subscribe_events(&event_url, None)
+        .await
+        .expect("subscribe_events must succeed");
+
+    let frame = stream
+        .next()
+        .await
+        .expect("stream must yield at least one frame")
+        .expect("frame must not be an error");
+
+    // Oracle: the "state" event type must be recognized after CRLF normalization.
+    assert!(
+        matches!(frame.event, SseEvent::StateChange(_)),
+        "CRLF-terminated state event must parse as StateChange, got {:?}",
+        frame.event
+    );
+}
+
+/// Oracle: RFC 8895 §9 — SSE lines terminated with bare CR must parse
+/// identically to LF-terminated lines (CR-only is a valid line terminator).
+#[tokio::test]
+async fn test_subscribe_events_cr_line_endings() {
+    use futures::StreamExt as _;
+    use jmap_client::sse::SseEvent;
+
+    // CR-only-terminated SSE block ending in the double-CR frame delimiter.
+    let cr_body = "event: state\rdata: {\"changed\":{}}\r\r";
+
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/events"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("Content-Type", "text/event-stream")
+                .set_body_bytes(cr_body.as_bytes().to_vec()),
+        )
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let event_url = format!("{}/events", server.uri());
+    let mut stream = client
+        .subscribe_events(&event_url, None)
+        .await
+        .expect("subscribe_events must succeed");
+
+    let frame = stream
+        .next()
+        .await
+        .expect("stream must yield at least one frame")
+        .expect("frame must not be an error");
+
+    // Oracle: the "state" event type must be recognized after CR normalization.
+    assert!(
+        matches!(frame.event, SseEvent::StateChange(_)),
+        "CR-terminated state event must parse as StateChange, got {:?}",
+        frame.event
+    );
+}
+
+// ---------------------------------------------------------------------------
 // extract_response
 // ---------------------------------------------------------------------------
 
@@ -522,7 +627,7 @@ fn test_extract_response_success() {
         None,
     );
 
-    let val = jmap_client::client::extract_response::<serde_json::Value>(resp, "r1");
+    let val = jmap_client::client::extract_response::<serde_json::Value>(&resp, "r1");
     assert!(val.is_ok(), "extract_response must succeed: {val:?}");
 }
 
@@ -540,7 +645,7 @@ fn test_extract_response_not_found() {
         None,
     );
 
-    let err = jmap_client::client::extract_response::<serde_json::Value>(resp, "r99")
+    let err = jmap_client::client::extract_response::<serde_json::Value>(&resp, "r99")
         .expect_err("wrong call_id must fail");
     assert!(
         matches!(err, ClientError::MethodNotFound(_)),
@@ -562,7 +667,7 @@ fn test_extract_response_method_error() {
         None,
     );
 
-    let err = jmap_client::client::extract_response::<serde_json::Value>(resp, "r1")
+    let err = jmap_client::client::extract_response::<serde_json::Value>(&resp, "r1")
         .expect_err("error invocation must fail");
     assert!(
         matches!(
