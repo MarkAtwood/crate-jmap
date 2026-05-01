@@ -258,15 +258,14 @@ impl MailBackend for MemoryBackend {
             .get_mut(id)
             .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
 
-        // JSON Merge Patch (RFC 7396): null values remove keys; non-null values overwrite.
+        // JMAP patch (RFC 8620 §5.3): keys may be "/" separated paths into nested
+        // objects (e.g. "mailboxIds/abc123"). Null values remove the target key;
+        // non-null values overwrite it. apply_jmap_patch handles both flat and
+        // path-style keys so that cascade operations like mailboxIds/<id>: null work.
         if let serde_json::Value::Object(base) = existing {
             if let serde_json::Value::Object(patch_map) = patch_val {
                 for (k, v) in patch_map {
-                    if v.is_null() {
-                        base.remove(&k);
-                    } else {
-                        base.insert(k, v);
-                    }
+                    apply_jmap_patch(base, &k, v);
                 }
             }
         }
@@ -621,8 +620,16 @@ impl MailBackend for MemoryBackend {
                 .or_default()
                 .push(ChangeEntry {
                     new_state: new_thread_state,
-                    created: if thread_existed { vec![] } else { vec![thread_id.clone()] },
-                    updated: if thread_existed { vec![thread_id] } else { vec![] },
+                    created: if thread_existed {
+                        vec![]
+                    } else {
+                        vec![thread_id.clone()]
+                    },
+                    updated: if thread_existed {
+                        vec![thread_id]
+                    } else {
+                        vec![]
+                    },
                     destroyed: vec![],
                 });
         }
@@ -772,7 +779,9 @@ impl MailBackend for MemoryBackend {
             thread_id.clone(),
             mailbox_map,
             src_email.size,
-            received_at.cloned().unwrap_or_else(|| src_email.received_at.clone()),
+            received_at
+                .cloned()
+                .unwrap_or_else(|| src_email.received_at.clone()),
         );
         new_email.keywords = kw_map;
         new_email.subject = src_email.subject.clone();
@@ -828,8 +837,16 @@ impl MailBackend for MemoryBackend {
                 .or_default()
                 .push(ChangeEntry {
                     new_state: new_thread_state,
-                    created: if thread_existed { vec![] } else { vec![thread_id.clone()] },
-                    updated: if thread_existed { vec![thread_id] } else { vec![] },
+                    created: if thread_existed {
+                        vec![]
+                    } else {
+                        vec![thread_id.clone()]
+                    },
+                    updated: if thread_existed {
+                        vec![thread_id]
+                    } else {
+                        vec![]
+                    },
                     destroyed: vec![],
                 });
         }
@@ -1123,6 +1140,38 @@ fn highlight(haystack: &str, needle: &str) -> String {
     result
 }
 
+/// Apply one JMAP patch key-value pair to a JSON object (RFC 8620 §5.3).
+///
+/// Keys may contain "/" separators naming a path into nested objects
+/// (e.g. `"mailboxIds/abc123"`). Null values remove the target key; non-null
+/// values overwrite or create it.  This is the JMAP patch format, which is
+/// a superset of RFC 7396 flat merge-patch.
+fn apply_jmap_patch(
+    base: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: serde_json::Value,
+) {
+    if let Some(slash) = key.find('/') {
+        let head = &key[..slash];
+        let tail = &key[slash + 1..];
+        if let Some(entry) = base.get_mut(head) {
+            if let serde_json::Value::Object(inner) = entry {
+                apply_jmap_patch(inner, tail, value);
+            }
+        } else if !value.is_null() {
+            // Parent absent and value is non-null: create parent then set leaf.
+            let mut inner = serde_json::Map::new();
+            apply_jmap_patch(&mut inner, tail, value);
+            base.insert(head.to_owned(), serde_json::Value::Object(inner));
+        }
+        // Parent absent and value is null: nothing to remove — no-op.
+    } else if value.is_null() {
+        base.remove(key);
+    } else {
+        base.insert(key.to_owned(), value);
+    }
+}
+
 /// HTML-escape `&`, `<`, `>`.
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
@@ -1144,9 +1193,8 @@ fn html_escape(s: &str) -> String {
 /// Valid `op` strings: `"create"`, `"update"`, `"destroy"`, `"import"`.
 pub struct FaultyBackend {
     pub inner: MemoryBackend,
-    failures: std::sync::Arc<
-        std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>,
-    >,
+    failures:
+        std::sync::Arc<std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>>,
 }
 
 impl FaultyBackend {
@@ -1176,7 +1224,9 @@ impl MailBackend for FaultyBackend {
         ids: Option<&[Id]>,
         properties: Option<&[O::Property]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-        self.inner.get_objects::<O>(account_id, ids, properties).await
+        self.inner
+            .get_objects::<O>(account_id, ids, properties)
+            .await
     }
 
     async fn create_object<O: SetObject + Send + Sync>(
@@ -1190,7 +1240,9 @@ impl MailBackend for FaultyBackend {
                 "injected create error".to_owned(),
             )));
         }
-        self.inner.create_object::<O>(account_id, create_id, obj).await
+        self.inner
+            .create_object::<O>(account_id, create_id, obj)
+            .await
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
