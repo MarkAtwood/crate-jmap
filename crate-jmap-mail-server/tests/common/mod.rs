@@ -1152,36 +1152,56 @@ fn highlight(haystack: &str, needle: &str) -> String {
     }
     let lower_needle = needle.to_lowercase();
     let needle_char_count = lower_needle.chars().count();
+    // Lowercase the whole haystack once. Because lowercasing can change a char's
+    // byte length (e.g. Ω (2 bytes) → ω (2 bytes), but Σ (2 bytes) → σ (2 bytes),
+    // and some chars expand), we match positions in lower_haystack and convert them
+    // to char counts, then re-locate those char counts in the original haystack.
+    let lower_haystack = haystack.to_lowercase();
     let mut result = String::with_capacity(haystack.len() + 32);
-    // Iterate over haystack character by character, keeping parallel position in lower_hay.
-    // We re-lowercase the remaining slice each iteration to avoid byte-offset mismatches
-    // that occur when Unicode chars change byte length on lowercasing (e.g., Ω → ω).
-    let mut remaining = haystack;
+    // Byte offsets into lower_haystack and haystack respectively.
+    let mut lower_pos = 0usize; // position in lower_haystack
+    let mut orig_pos = 0usize; // corresponding byte position in haystack
+    // Build a parallel char-index table: lower_char_starts[i] = byte offset of
+    // the i-th char in lower_haystack; orig_char_starts[i] = byte offset of
+    // the i-th char in haystack.
+    let lower_chars: Vec<usize> = lower_haystack.char_indices().map(|(i, _)| i).collect();
+    let orig_chars: Vec<usize> = haystack.char_indices().map(|(i, _)| i).collect();
+    // char_pos tracks which char index lower_pos corresponds to.
+    let mut char_pos = 0usize;
     loop {
-        let lower_remaining = remaining.to_lowercase();
-        match lower_remaining.find(&lower_needle) {
+        match lower_haystack[lower_pos..].find(&lower_needle) {
             None => {
-                result.push_str(&html_escape(remaining));
+                result.push_str(&html_escape(&haystack[orig_pos..]));
                 break;
             }
-            Some(lower_idx) => {
-                // lower_idx is a byte offset in lower_remaining. Convert to a char count
-                // so we can find the corresponding byte offset in remaining (whose chars
-                // may have different byte widths after lowercasing).
-                let chars_before = lower_remaining[..lower_idx].chars().count();
-                let (match_start, _) = remaining
-                    .char_indices()
-                    .nth(chars_before)
-                    .unwrap_or((remaining.len(), ' '));
-                let (match_end, _) = remaining
-                    .char_indices()
-                    .nth(chars_before + needle_char_count)
-                    .unwrap_or((remaining.len(), ' '));
-                result.push_str(&html_escape(&remaining[..match_start]));
+            Some(rel_lower_idx) => {
+                // Byte offset in lower_haystack where the match starts.
+                let abs_lower_idx = lower_pos + rel_lower_idx;
+                // Count how many lower chars precede the match start from char_pos.
+                let chars_before = lower_haystack[lower_pos..abs_lower_idx].chars().count();
+                let match_char_start = char_pos + chars_before;
+                let match_char_end = match_char_start + needle_char_count;
+                // Byte offsets in original haystack.
+                let orig_match_start = orig_chars
+                    .get(match_char_start)
+                    .copied()
+                    .unwrap_or(haystack.len());
+                let orig_match_end = orig_chars
+                    .get(match_char_end)
+                    .copied()
+                    .unwrap_or(haystack.len());
+                result.push_str(&html_escape(&haystack[orig_pos..orig_match_start]));
                 result.push_str("<mark>");
-                result.push_str(&html_escape(&remaining[match_start..match_end]));
+                result.push_str(&html_escape(&haystack[orig_match_start..orig_match_end]));
                 result.push_str("</mark>");
-                remaining = &remaining[match_end..];
+                // Advance past the match.
+                let lower_match_end = lower_chars
+                    .get(match_char_end)
+                    .copied()
+                    .unwrap_or(lower_haystack.len());
+                orig_pos = orig_match_end;
+                lower_pos = lower_match_end;
+                char_pos = match_char_end;
             }
         }
     }

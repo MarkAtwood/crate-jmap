@@ -244,7 +244,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
             if let Some(ref role_str) = f.role {
                 match &m.role {
                     Some(r) => {
-                        if role_to_wire(r) != *role_str {
+                        if role_to_wire(r).as_deref() != Some(role_str.as_str()) {
                             return false;
                         }
                     }
@@ -455,7 +455,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if let Some(role_str) = role_val.as_str() {
                     let role_taken = all_mailboxes
                         .iter()
-                        .any(|m| m.role.as_ref().is_some_and(|r| role_to_wire(r) == role_str));
+                        .any(|m| m.role.as_ref().is_some_and(|r| role_to_wire(r).as_deref() == Some(role_str)));
                     // Also check what we already successfully created in this request.
                     let role_just_created = created
                         .values()
@@ -548,7 +548,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             item.1
                 .as_object()
                 .and_then(|o| o.get("role"))
-                .map_or(false, |v| v.is_null())
+                .is_some_and(|v| v.is_null())
         });
 
         // --- Pass 1: role-vacating updates (patch sets role: null) ---
@@ -581,7 +581,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 .iter()
                 .find(|m| m.id == id)
                 .and_then(|m| m.role.as_ref())
-                .map(role_to_wire);
+                .and_then(role_to_wire);
 
             match backend
                 .update_object::<Mailbox>(&account_id, &id, patch.clone())
@@ -641,7 +641,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         let role_taken = all_mailboxes.iter().any(|m| {
                             m.id != id
                                 && !roles_actually_vacated.contains(role_str)
-                                && m.role.as_ref().is_some_and(|r| role_to_wire(r) == role_str)
+                                && m.role.as_ref().is_some_and(|r| role_to_wire(r).as_deref() == Some(role_str))
                         });
                         let role_just_claimed = roles_claimed_this_request.contains(role_str);
                         let role_just_created = created
@@ -948,15 +948,12 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
 /// Uses serde rather than `Display` to guarantee the output is the canonical
 /// JSON wire format even if the `Display` impl ever diverges from the serde
 /// representation.
-fn role_to_wire(role: &jmap_mail_types::MailboxRole) -> String {
-    serde_json::to_value(role)
-        .ok()
-        .and_then(|v| {
-            if let Value::String(s) = v {
-                Some(s)
-            } else {
-                None
-            }
-        })
-        .unwrap_or_default()
+fn role_to_wire(role: &jmap_mail_types::MailboxRole) -> Option<String> {
+    serde_json::to_value(role).ok().and_then(|v| {
+        if let Value::String(s) = v {
+            Some(s)
+        } else {
+            None
+        }
+    })
 }
