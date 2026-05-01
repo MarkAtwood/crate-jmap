@@ -627,9 +627,12 @@ fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value {
 
 /// Return the first patch key that names an immutable Email field, if any.
 ///
+/// Used by `handle_email_set` and the `onSuccess*` side-effect paths in
+/// `handle_email_copy` and `handle_submission_set` to enforce RFC 8621 §5.5.4.
+///
 /// A patch key violates immutability if it equals an immutable field name, or
 /// starts with `"<field>/"` (JSON Merge Patch sub-path syntax).
-fn find_immutable_patch_key(patch: &Value) -> Option<String> {
+pub(crate) fn find_immutable_patch_key(patch: &Value) -> Option<String> {
     let map = patch.as_object()?;
     for key in map.keys() {
         for &field in IMMUTABLE_EMAIL_FIELDS {
@@ -1268,6 +1271,17 @@ pub async fn handle_email_copy<B: MailBackend>(
         {
             for (copy_id, source_id) in &copied_source_ids {
                 if let Some(patch) = on_success_update.get(copy_id) {
+                    // Apply same immutable-field guard as handle_email_set patches.
+                    if let Some(bad_field) = find_immutable_patch_key(patch) {
+                        email_not_updated.insert(
+                            source_id.as_ref().to_string(),
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": [bad_field],
+                            }),
+                        );
+                        continue;
+                    }
                     match backend
                         .update_object::<Email>(&from_account_id, source_id, patch.clone())
                         .await

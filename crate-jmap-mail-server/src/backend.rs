@@ -523,7 +523,13 @@ pub trait MailBackend: Send + Sync + 'static {
         Output = Result<(jmap_types::Id, jmap_mail_types::Email), BackendSetError<Self::Error>>,
     > + Send;
 
-    /// Return search snippets for the given Email ids (RFC 8621 §5 — `SearchSnippet/get`).
+    /// Return search snippets for the given Email ids (RFC 8621 §5.9 — `SearchSnippet/get`).
+    ///
+    /// For every id in `email_ids` that exists in the account, return a
+    /// [`SearchSnippet`](jmap_mail_types::SearchSnippet) object in the result
+    /// vector (its `subject` and `preview` fields may be `None` if the email
+    /// does not match the filter). **Omit only ids that do not exist in the
+    /// account.** The caller maps absent ids to the `notFound` array.
     fn search_snippets(
         &self,
         account_id: &jmap_types::Id,

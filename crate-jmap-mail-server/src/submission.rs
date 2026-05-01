@@ -449,6 +449,17 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Some(id) => id.clone(),
                     None => continue, // Referenced operation did not succeed; skip.
                 };
+                // Apply same immutable-field guard as handle_email_set patches.
+                if let Some(bad_field) = crate::email::find_immutable_patch_key(patch) {
+                    email_not_updated.insert(
+                        email_id.as_ref().to_string(),
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": [bad_field],
+                        }),
+                    );
+                    continue;
+                }
                 match backend
                     .update_object::<Email>(&account_id, &email_id, patch.clone())
                     .await

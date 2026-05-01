@@ -1539,6 +1539,86 @@ async fn submission_set_on_success_update_email() {
     );
 }
 
+/// Oracle: EmailSubmission/set onSuccessUpdateEmail that patches an immutable
+/// Email field (e.g. "messageId") is rejected with invalidProperties in the
+/// implicit Email/set response.
+///
+/// RFC 8621 §5.5.4 — immutable Email properties must not be mutable via any
+/// patch path, including onSuccessUpdateEmail.
+#[tokio::test]
+async fn submission_set_on_success_update_email_immutable_field_rejected() {
+    use jmap_mail_types::Identity;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account-imm-sub");
+
+    // Create Identity.
+    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let (identity_id, _) = backend
+        .create_object::<Identity>(&account_id, "i0", identity)
+        .await
+        .expect("create Identity");
+
+    // Import an email with To header so envelope can be derived.
+    let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nbody";
+    let blob_id = Id::from("blob-imm-sub");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+    let (email_id, _) = backend
+        .import_email(&account_id, &blob_id, &[Id::from("inbox")], &[], None)
+        .await
+        .expect("import email");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "s1": {
+                "identityId": identity_id.as_ref(),
+                "emailId": email_id.as_ref(),
+            }
+        },
+        // Attempt to overwrite an immutable field on the email after submission.
+        "onSuccessUpdateEmail": {
+            "#s1": { "messageId": ["attacker@evil.com"] }
+        }
+    });
+
+    use jmap_mail_server::submission::handle_submission_set;
+    let (resp, extra) = handle_submission_set(&backend, args, "call-imm-sub")
+        .await
+        .expect("EmailSubmission/set must not return a top-level JmapError");
+
+    // The submission create must succeed.
+    assert!(
+        resp["notCreated"].is_null(),
+        "notCreated must be null; got: {}",
+        resp["notCreated"]
+    );
+
+    // The implicit Email/set must report notUpdated with invalidProperties.
+    assert_eq!(
+        extra.len(),
+        1,
+        "must have one extra invocation for onSuccessUpdateEmail"
+    );
+    let set_resp = &extra[0].1;
+    let not_updated = &set_resp["notUpdated"];
+    assert!(
+        !not_updated.is_null(),
+        "notUpdated must be non-null; immutable field patch must be rejected"
+    );
+    let email_id_str = email_id.as_ref();
+    assert!(
+        not_updated.get(email_id_str).is_some(),
+        "email id must appear in notUpdated; got: {not_updated}"
+    );
+    assert_eq!(
+        not_updated[email_id_str]["type"].as_str(),
+        Some("invalidProperties"),
+        "error type must be invalidProperties; got: {}",
+        not_updated[email_id_str]
+    );
+}
+
 /// Oracle: EmailSubmission/set create with a non-existent identityId returns
 /// notCreated with invalidProperties referencing "identityId".
 ///
@@ -2112,6 +2192,80 @@ async fn email_copy_with_keywords_succeeds() {
     assert!(
         emails[0].keywords.contains_key(keyword::SEEN),
         "$seen must be on the copied email"
+    );
+}
+
+/// Oracle: Email/copy onSuccessUpdateOriginal that patches an immutable field
+/// (e.g. "messageId") is rejected with invalidProperties in the implicit
+/// Email/set response.
+///
+/// RFC 8621 §5.5.4 — immutable Email properties must not be mutable via any
+/// patch path, including onSuccessUpdateOriginal.
+#[tokio::test]
+async fn email_copy_on_success_update_original_immutable_field_rejected() {
+    use jmap_mail_server::handle_email_copy;
+
+    let backend = MemoryBackend::new();
+    let src_account = Id::from("src-imm");
+    let dst_account = Id::from("dst-imm");
+
+    // Import a source email.
+    let msg = b"Subject: immutable test\r\n\r\nbody";
+    let blob_id = Id::from("blob-imm");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+    let (src_id, _) = backend
+        .import_email(&src_account, &blob_id, &[Id::from("inbox")], &[], None)
+        .await
+        .expect("import source email");
+
+    let args = serde_json::json!({
+        "accountId": dst_account.as_ref(),
+        "fromAccountId": src_account.as_ref(),
+        "create": {
+            "c1": {
+                "id": src_id.as_ref(),
+                "mailboxIds": { "inbox": true },
+            }
+        },
+        // Attempt to overwrite an immutable field on the original after copy.
+        "onSuccessUpdateOriginal": {
+            "c1": { "messageId": ["attacker@evil.com"] }
+        }
+    });
+
+    let (resp, extra) = handle_email_copy(&backend, args, "call-imm")
+        .await
+        .expect("Email/copy must not return a top-level JmapError");
+
+    // The copy itself must succeed.
+    assert!(
+        resp["notCreated"].is_null(),
+        "copy notCreated must be null; got: {}",
+        resp["notCreated"]
+    );
+
+    // The implicit Email/set in extra must report notUpdated for the source id.
+    assert_eq!(
+        extra.len(),
+        1,
+        "must have one extra invocation for onSuccessUpdateOriginal"
+    );
+    let set_resp = &extra[0].1;
+    let not_updated = &set_resp["notUpdated"];
+    assert!(
+        !not_updated.is_null(),
+        "notUpdated must be non-null; immutable field patch must be rejected"
+    );
+    let src_id_str = src_id.as_ref();
+    assert!(
+        not_updated.get(src_id_str).is_some(),
+        "source id must appear in notUpdated; got: {not_updated}"
+    );
+    assert_eq!(
+        not_updated[src_id_str]["type"].as_str(),
+        Some("invalidProperties"),
+        "error type must be invalidProperties; got: {}",
+        not_updated[src_id_str]
     );
 }
 
