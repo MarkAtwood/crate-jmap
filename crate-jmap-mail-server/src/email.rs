@@ -173,10 +173,13 @@ pub async fn handle_email_query<B: MailBackend>(
         ),
     };
 
-    let limit: Option<u64> = match args.remove("limit") {
-        None | Some(Value::Null) => Some(256),
+    // limit is always a concrete u64 after parsing (default 256 when absent).
+    // We never pass None to the backend from this handler — None would mean
+    // "no limit", but we always impose at least 256.
+    let limit: u64 = match args.remove("limit") {
+        None | Some(Value::Null) => 256,
         Some(v) => match v.as_u64() {
-            Some(n) => Some(n),
+            Some(n) => n,
             None => {
                 return Err(JmapError::invalid_arguments(format!(
                     "limit: expected a non-negative integer, got {v}"
@@ -226,7 +229,7 @@ pub async fn handle_email_query<B: MailBackend>(
         let page: Vec<Id> = all_collapsed
             .into_iter()
             .skip(start)
-            .take(limit.unwrap_or(256) as usize)
+            .take(limit as usize)
             .collect();
         (
             page,
@@ -237,7 +240,7 @@ pub async fn handle_email_query<B: MailBackend>(
         )
     } else {
         let result = backend
-            .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, limit, position)
+            .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, Some(limit), position)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
         let pos = result.position;
@@ -653,11 +656,12 @@ async fn build_email_from_create<B: MailBackend>(
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
-    // keywords: optional.
-    let keywords: HashMap<Keyword, bool> = obj_val
-        .get("keywords")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
-        .unwrap_or_default();
+    // keywords: optional; reject malformed values (same as Email/import).
+    let keywords: HashMap<Keyword, bool> = match obj_val.get("keywords") {
+        None | Some(Value::Null) => HashMap::new(),
+        Some(v) => serde_json::from_value(v.clone())
+            .map_err(|_| "keywords: invalid keyword or format".to_string())?,
+    };
 
     // Subject, inReplyTo, references — used for thread assignment.
     let subject: Option<String> = obj_val

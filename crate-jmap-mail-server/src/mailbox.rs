@@ -1,6 +1,6 @@
 //! Mailbox/* method handlers (RFC 8621 §2).
 
-use jmap_mail_types::{Email, EmailFilter, EmailFilterCondition, Mailbox};
+use jmap_mail_types::{Email, EmailFilter, EmailFilterCondition, Mailbox, MailboxFilterCondition};
 use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
@@ -129,7 +129,15 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
-    let limit: Option<u64> = args.get("limit").and_then(|v| v.as_u64());
+    let limit: Option<u64> = match args.get("limit") {
+        None | Some(Value::Null) => None,
+        Some(v) => match v.as_u64() {
+            Some(n) => Some(n),
+            None => return Err(JmapError::invalid_arguments(format!(
+                "limit: expected a non-negative integer, got {v}"
+            ))),
+        },
+    };
     let position: i64 = args.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
 
     // Reject any client-supplied sort request: Mailbox/query is implemented
@@ -162,62 +170,57 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         }
     }
 
-    // Extract mailbox-specific filter fields from args.
-    let filter_parent_id: Option<Option<Id>> = match args.get("filter") {
-        Some(f) => match f.get("parentId") {
-            None => None,
-            Some(Value::Null) => Some(None),
-            Some(v) => v.as_str().map(|s| Some(Id::from(s))),
-        },
-        None => None,
+    // Parse filter into MailboxFilterCondition so the struct fields drive the
+    // in-process filter directly, eliminating a duplicate field list.
+    let filter: Option<MailboxFilterCondition> = match args.get("filter") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
+        ),
     };
-    let filter_name: Option<&str> = args
-        .get("filter")
-        .and_then(|f| f.get("name"))
-        .and_then(|v| v.as_str());
-    let filter_role: Option<&str> = args
-        .get("filter")
-        .and_then(|f| f.get("role"))
-        .and_then(|v| v.as_str());
-    let filter_has_any_role: Option<bool> = args
-        .get("filter")
-        .and_then(|f| f.get("hasAnyRole"))
-        .and_then(|v| v.as_bool());
-    let filter_is_subscribed: Option<bool> = args
-        .get("filter")
-        .and_then(|f| f.get("isSubscribed"))
-        .and_then(|v| v.as_bool());
 
     let mut matching: Vec<Id> = all_mailboxes
         .into_iter()
         .filter(|m| {
-            if let Some(ref wanted_parent) = filter_parent_id {
-                if &m.parent_id != wanted_parent {
+            let Some(ref f) = filter else { return true };
+            // parentId: three-way — absent = no filter; null = top-level only; string = specific parent.
+            if let Some(ref pv) = f.parent_id {
+                match pv {
+                    Value::Null => {
+                        if m.parent_id.is_some() {
+                            return false;
+                        }
+                    }
+                    Value::String(id_str) => {
+                        if m.parent_id.as_ref().map(|p| p.as_ref()) != Some(id_str.as_str()) {
+                            return false;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            if let Some(ref name_substr) = f.name {
+                if !m.name.contains(name_substr.as_str()) {
                     return false;
                 }
             }
-            if let Some(name_substr) = filter_name {
-                if !m.name.contains(name_substr) {
-                    return false;
-                }
-            }
-            if let Some(role_str) = filter_role {
+            if let Some(ref role_str) = f.role {
                 match &m.role {
                     Some(r) => {
-                        if r.to_string() != role_str {
+                        if &r.to_string() != role_str {
                             return false;
                         }
                     }
                     None => return false,
                 }
             }
-            if let Some(want_any_role) = filter_has_any_role {
-                let has_role = m.role.is_some();
-                if has_role != want_any_role {
+            if let Some(want_any_role) = f.has_any_role {
+                if m.role.is_some() != want_any_role {
                     return false;
                 }
             }
-            if let Some(want_subscribed) = filter_is_subscribed {
+            if let Some(want_subscribed) = f.is_subscribed {
                 if m.is_subscribed != want_subscribed {
                     return false;
                 }

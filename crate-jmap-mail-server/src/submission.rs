@@ -141,7 +141,12 @@ pub async fn handle_submission_query<B: MailBackend>(
 
     let limit: Option<u64> = match args.get("limit") {
         None | Some(Value::Null) => None,
-        Some(v) => v.as_u64(),
+        Some(v) => match v.as_u64() {
+            Some(n) => Some(n),
+            None => return Err(JmapError::invalid_arguments(format!(
+                "limit: expected a non-negative integer, got {v}"
+            ))),
+        },
     };
 
     let position: i64 = args.get("position").and_then(|v| v.as_i64()).unwrap_or(0);

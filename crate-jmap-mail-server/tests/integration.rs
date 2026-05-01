@@ -11,10 +11,10 @@ mod common;
 use common::MemoryBackend;
 use jmap_mail_server::{
     handle_email_changes, handle_email_get, handle_email_query, handle_email_set,
-    handle_identity_get, handle_identity_set, handle_mailbox_get, handle_mailbox_set,
-    handle_search_snippet_get, handle_submission_get, handle_submission_set, handle_thread_changes,
-    handle_thread_get, handle_vacation_get, handle_vacation_set, JmapObject, MailBackend,
-    SetErrorType,
+    handle_identity_get, handle_identity_set, handle_mailbox_get, handle_mailbox_query,
+    handle_mailbox_set, handle_search_snippet_get, handle_submission_get, handle_submission_query,
+    handle_submission_set, handle_thread_changes, handle_thread_get, handle_vacation_get,
+    handle_vacation_set, JmapObject, MailBackend, SetErrorType,
 };
 use jmap_mail_types::{Identity, Mailbox};
 use jmap_types::Id;
@@ -2143,5 +2143,89 @@ async fn mailbox_set_create_child_then_destroy_parent_blocked() {
             .unwrap_or(""),
         "mailboxHasChild",
         "error must be mailboxHasChild when child was just created"
+    );
+}
+
+/// Oracle: Email/set create with a malformed keywords map returns notCreated/invalidProperties.
+///
+/// RFC 8621 §5.5: keywords must be a map from valid keyword strings to true.
+/// Malformed input (e.g., a non-object value for keywords) must be rejected
+/// rather than silently treated as an empty keyword map.
+#[tokio::test]
+async fn email_set_create_malformed_keywords_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // "keywords" is a string, not a map — invalid per RFC 8621 §5.5.
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "keywords": "not-a-map",
+            }
+        }
+    });
+
+    let (resp, extra) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must not return a JmapError");
+    assert!(extra.is_empty());
+    assert!(resp["created"].is_null(), "created must be null on rejection");
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object");
+    assert!(not_created.contains_key("c0"), "c0 must be in notCreated");
+    assert_eq!(
+        not_created["c0"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties for malformed keywords"
+    );
+}
+
+/// Oracle: Mailbox/query with a non-integer limit returns invalidArguments.
+///
+/// RFC 8620 §5.5: limit must be a UnsignedInt. Passing a string must be rejected,
+/// not silently treated as no-limit. This matches Email/query behaviour.
+#[tokio::test]
+async fn mailbox_query_invalid_limit_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "limit": "not-a-number",
+    });
+
+    let err = handle_mailbox_query(&backend, args)
+        .await
+        .expect_err("Mailbox/query must fail with invalidArguments");
+    assert_eq!(
+        err.error_type.as_str(),
+        "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
+/// Oracle: EmailSubmission/query with a non-integer limit returns invalidArguments.
+///
+/// Consistent with Email/query and Mailbox/query.
+#[tokio::test]
+async fn submission_query_invalid_limit_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "limit": -1,
+    });
+
+    let err = handle_submission_query(&backend, args)
+        .await
+        .expect_err("EmailSubmission/query must fail with invalidArguments");
+    assert_eq!(
+        err.error_type.as_str(),
+        "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
     );
 }
