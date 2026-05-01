@@ -271,12 +271,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Ok(()) => {
                     updated.insert(id_str.clone(), Value::Null);
                 }
-                Err(set_err) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(&set_err)
-                            .expect("type derives Serialize and is always serializable"),
-                    );
+                Err(err_json) => {
+                    not_updated.insert(id_str.clone(), err_json);
                 }
             }
         }
@@ -574,23 +570,27 @@ async fn process_update<B: MailBackend>(
     account_id: &Id,
     id: &Id,
     patch: &Value,
-) -> Result<(), SetError> {
+) -> Result<(), Value> {
     // Look up existing submission to check undoStatus.
     let (existing, not_found) = backend
         .get_objects::<EmailSubmission>(account_id, Some(std::slice::from_ref(id)), None)
         .await
-        .map_err(|e| SetError::new(SetErrorType::NotFound).with_description(e.to_string()))?;
+        .map_err(|e| json!({ "type": "serverFail", "description": e.to_string() }))?;
 
     if !not_found.is_empty() || existing.is_empty() {
-        return Err(SetError::new(SetErrorType::NotFound));
+        return Err(serde_json::to_value(SetError::new(SetErrorType::NotFound))
+            .expect("SetError is always serializable"));
     }
 
     let current = &existing[0];
 
     // Only allow updating undoStatus; if the submission is already final, reject.
     if current.undo_status == UndoStatus::Final {
-        return Err(SetError::new(SetErrorType::CannotUnsend)
-            .with_description("Submission is already in final state and cannot be undone"));
+        return Err(serde_json::to_value(
+            SetError::new(SetErrorType::CannotUnsend)
+                .with_description("Submission is already in final state and cannot be undone"),
+        )
+        .expect("SetError is always serializable"));
     }
 
     // Apply the patch via the backend.
@@ -599,9 +599,11 @@ async fn process_update<B: MailBackend>(
         .await
         .map(|_| ())
         .map_err(|e| match e {
-            BackendSetError::SetError(set_err) => set_err,
+            BackendSetError::SetError(set_err) => {
+                serde_json::to_value(&set_err).expect("SetError is always serializable")
+            }
             BackendSetError::Other(inner) => {
-                SetError::new(SetErrorType::NotFound).with_description(inner.to_string())
+                json!({ "type": "serverFail", "description": inner.to_string() })
             }
         })
 }
