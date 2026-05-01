@@ -456,11 +456,11 @@ pub async fn handle_email_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
-            // Validate: at least one mailboxId is required (RFC 8621 §5.5.3).
+            // Validate: at least one mailboxId with value true is required (RFC 8621 §5.5.3).
             let mailbox_ids_ok = obj_val
                 .get("mailboxIds")
                 .and_then(|v| v.as_object())
-                .map(|m| !m.is_empty())
+                .map(|m| m.values().any(|v| v.as_bool() == Some(true)))
                 .unwrap_or(false);
 
             if !mailbox_ids_ok {
@@ -913,8 +913,13 @@ pub async fn handle_email_import<B: MailBackend>(
             }
         };
 
+        // Only include mailboxIds whose value is true (RFC 8621 §5.7 requires at least one).
         let mailbox_ids: Vec<Id> = match entry.get("mailboxIds").and_then(|v| v.as_object()) {
-            Some(m) => m.keys().map(|k| Id::from(k.as_str())).collect(),
+            Some(m) => m
+                .iter()
+                .filter(|(_, v)| v.as_bool() == Some(true))
+                .map(|(k, _)| Id::from(k.as_str()))
+                .collect(),
             None => {
                 not_created.insert(
                     import_id.clone(),
@@ -1155,8 +1160,13 @@ pub async fn handle_email_copy<B: MailBackend>(
             }
         };
 
+        // Only include mailboxIds whose value is true (RFC 8621 §6.1 requires at least one).
         let mailbox_ids: Vec<Id> = match entry.get("mailboxIds").and_then(|v| v.as_object()) {
-            Some(m) => m.keys().map(|k| Id::from(k.as_str())).collect(),
+            Some(m) => m
+                .iter()
+                .filter(|(_, v)| v.as_bool() == Some(true))
+                .map(|(k, _)| Id::from(k.as_str()))
+                .collect(),
             None => {
                 not_created.insert(
                     copy_id.clone(),

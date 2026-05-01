@@ -1885,6 +1885,57 @@ async fn email_set_create_keyword_false_value_not_stored() {
     );
 }
 
+/// Oracle: Email/set create with all-false mailboxIds is rejected with invalidProperties.
+///
+/// RFC 8621 §5.5.3: "At least one [mailboxId] MUST be set to true."
+/// A map with only false values has no real mailbox membership and must be rejected.
+#[tokio::test]
+async fn email_set_create_all_false_mailbox_ids_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                // All values are false — no true mailbox membership
+                "mailboxIds": { "mb1": false, "mb2": false }
+            }
+        }
+    });
+
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set must not fail at method level");
+
+    assert!(
+        set_resp["created"].is_null(),
+        "created must be null; got: {:?}",
+        set_resp["created"]
+    );
+    let not_created = &set_resp["notCreated"]["c0"];
+    assert!(
+        !not_created.is_null(),
+        "c0 must appear in notCreated; response: {set_resp:?}"
+    );
+    assert_eq!(
+        not_created["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got: {not_created:?}"
+    );
+    let empty = vec![];
+    let props: Vec<&str> = not_created["properties"]
+        .as_array()
+        .unwrap_or(&empty)
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        props.contains(&"mailboxIds"),
+        "properties must name mailboxIds; got: {props:?}"
+    );
+}
+
 /// Oracle: Email/get with a `properties` filter returns only requested fields.
 ///
 /// RFC 8621 §5.1 — when `properties` is given, only those properties appear
