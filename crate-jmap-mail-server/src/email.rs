@@ -906,7 +906,7 @@ async fn collapse_by_thread<B: MailBackend>(
                 }
             }
             None => {
-                // Email not in map (just created?); include it.
+                // Email absent from thread map (concurrent delete or race); include it.
                 result.push(id);
             }
         }
