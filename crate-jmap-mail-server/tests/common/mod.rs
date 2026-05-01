@@ -587,6 +587,7 @@ impl MailBackend for MemoryBackend {
 
             // Insert or update Thread (append email_id if thread exists).
             let thread_store = inner.objects_mut("Thread", account_id.as_ref());
+            let thread_existed = thread_store.contains_key(&thread_id);
             thread_store
                 .entry(thread_id.clone())
                 .and_modify(|v| {
@@ -620,8 +621,8 @@ impl MailBackend for MemoryBackend {
                 .or_default()
                 .push(ChangeEntry {
                     new_state: new_thread_state,
-                    created: vec![thread_id],
-                    updated: vec![],
+                    created: if thread_existed { vec![] } else { vec![thread_id.clone()] },
+                    updated: if thread_existed { vec![thread_id] } else { vec![] },
                     destroyed: vec![],
                 });
         }
@@ -791,6 +792,9 @@ impl MailBackend for MemoryBackend {
 
         {
             let mut inner = self.inner.lock().unwrap();
+            let thread_existed = inner
+                .objects_ref("Thread", to_account_id.as_ref())
+                .is_some_and(|s| s.contains_key(&thread_id));
             inner
                 .objects_mut("Thread", to_account_id.as_ref())
                 .entry(thread_id.clone())
@@ -823,8 +827,8 @@ impl MailBackend for MemoryBackend {
                 .or_default()
                 .push(ChangeEntry {
                     new_state: new_thread_state,
-                    created: vec![thread_id],
-                    updated: vec![],
+                    created: if thread_existed { vec![] } else { vec![thread_id.clone()] },
+                    updated: if thread_existed { vec![thread_id] } else { vec![] },
                     destroyed: vec![],
                 });
         }
@@ -1088,9 +1092,9 @@ fn highlight(haystack: &str, needle: &str) -> String {
         let abs = pos + idx;
         result.push_str(&html_escape(&haystack[pos..abs]));
         result.push_str("<mark>");
-        result.push_str(&html_escape(&haystack[abs..abs + needle.len()]));
+        result.push_str(&html_escape(&haystack[abs..abs + lower_needle.len()]));
         result.push_str("</mark>");
-        pos = abs + needle.len();
+        pos = abs + lower_needle.len();
     }
     result.push_str(&html_escape(&haystack[pos..]));
     result

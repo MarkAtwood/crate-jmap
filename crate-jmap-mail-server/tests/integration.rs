@@ -12,7 +12,7 @@ use common::{FaultyBackend, MemoryBackend};
 use jmap_mail_server::{
     handle_email_changes, handle_email_get, handle_email_import, handle_email_query,
     handle_email_query_changes, handle_email_set, handle_identity_get, handle_identity_set,
-    handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes, handle_mailbox_set,
+    handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes, handle_mailbox_set,
     handle_search_snippet_get, handle_submission_get, handle_submission_query,
     handle_submission_set, handle_thread_changes, handle_thread_get, handle_vacation_get,
     handle_vacation_set, JmapObject, MailBackend, SetErrorType,
@@ -3786,5 +3786,164 @@ async fn identity_set_update_rejects_server_set_fields() {
     assert!(
         props2.contains(&"id"),
         "id must be in rejected properties; got: {props2:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-767: maxChanges=0 rejected (RFC requires positive integer)
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn email_changes_rejects_max_changes_zero() {
+    let backend = MemoryBackend::new();
+    let account_id = "u1";
+    let args = serde_json::json!({
+        "accountId": account_id,
+        "sinceState": "0",
+        "maxChanges": 0,
+    });
+    let err = handle_email_changes(&backend, args)
+        .await
+        .expect_err("maxChanges=0 must return invalidArguments");
+    assert_eq!(err.error_type, "invalidArguments");
+}
+
+#[tokio::test]
+async fn mailbox_changes_rejects_max_changes_zero() {
+    let backend = MemoryBackend::new();
+    let account_id = "u1";
+    let args = serde_json::json!({
+        "accountId": account_id,
+        "sinceState": "0",
+        "maxChanges": 0,
+    });
+    let err = handle_mailbox_changes(&backend, args)
+        .await
+        .expect_err("maxChanges=0 must return invalidArguments");
+    assert_eq!(err.error_type, "invalidArguments");
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-767: Thread change log correctly tracks created vs updated
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn thread_changes_second_import_logs_thread_as_updated_not_created() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("u1");
+
+    // Create a mailbox.
+    let inbox_id = {
+        let mb_args = serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": { "mb1": { "name": "Inbox" } },
+        });
+        let (r, _) = handle_mailbox_set(&backend, mb_args)
+            .await
+            .expect("mailbox create");
+        r["created"]["mb1"]["id"].as_str().unwrap().to_owned()
+    };
+
+    // Store first email blob (must pre-store before import).
+    let msg1 = b"From: alice@example.com
+To: bob@example.com
+Subject: Hello
+Message-ID: <msg1@t767.example.com>
+
+Body one.
+";
+    let blob1 = Id::from("blob-t767-1");
+    backend.store_blob(blob1.clone(), msg1.to_vec());
+
+    // Capture thread state before first import.
+    let state0 = {
+        use jmap_mail_server::backend::MailBackend;
+        backend
+            .get_state::<jmap_mail_types::Thread>(&account_id)
+            .await
+            .unwrap()
+    };
+
+    let import1 = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "emails": {
+            "e1": {
+                "blobId": blob1.as_ref(),
+                "mailboxIds": { inbox_id.clone(): true },
+                "keywords": {},
+            }
+        }
+    });
+    handle_email_import(&backend, import1)
+        .await
+        .expect("first import");
+
+    // Capture thread state after first import.
+    let state1 = {
+        use jmap_mail_server::backend::MailBackend;
+        backend
+            .get_state::<jmap_mail_types::Thread>(&account_id)
+            .await
+            .unwrap()
+    };
+
+    // Store second email blob — replies to first (same thread via In-Reply-To).
+    let msg2 = b"From: bob@example.com
+To: alice@example.com
+Subject: Re: Hello
+Message-ID: <msg2@t767.example.com>
+In-Reply-To: <msg1@t767.example.com>
+
+Body two.
+";
+    let blob2 = Id::from("blob-t767-2");
+    backend.store_blob(blob2.clone(), msg2.to_vec());
+
+    let import2 = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "emails": {
+            "e2": {
+                "blobId": blob2.as_ref(),
+                "mailboxIds": { inbox_id: true },
+                "keywords": {},
+            }
+        }
+    });
+    handle_email_import(&backend, import2)
+        .await
+        .expect("second import");
+
+    // Thread/changes from state1 should report the thread as *updated*, not created.
+    let changes_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sinceState": state1.as_ref(),
+    });
+    let (changes, _) = handle_thread_changes(&backend, changes_args)
+        .await
+        .expect("Thread/changes");
+
+    let created = changes["created"].as_array().unwrap();
+    let updated = changes["updated"].as_array().unwrap();
+    assert!(
+        created.is_empty(),
+        "second import into existing thread must not appear in created; got: {created:?}"
+    );
+    assert!(
+        !updated.is_empty(),
+        "second import into existing thread must appear in updated; got: {updated:?}"
+    );
+
+    // Thread/changes from state0 must show the thread as created (first import).
+    let changes0_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sinceState": state0.as_ref(),
+    });
+    let (changes0, _) = handle_thread_changes(&backend, changes0_args)
+        .await
+        .expect("Thread/changes from state0");
+    let created0 = changes0["created"].as_array().unwrap();
+    assert!(
+        !created0.is_empty(),
+        "first import must appear as created from initial state; got: {created0:?}"
     );
 }
