@@ -317,6 +317,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
             "accountId": account_id.as_ref(),
             "oldQueryState": result.old_query_state.as_ref(),
             "newQueryState": result.new_query_state.as_ref(),
+            "total": result.total,
             "removed": removed,
             "added": added,
         }),

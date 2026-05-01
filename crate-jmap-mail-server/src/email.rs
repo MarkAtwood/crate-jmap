@@ -895,8 +895,9 @@ pub async fn handle_email_import<B: MailBackend>(
             continue;
         }
 
-        let keywords: Vec<jmap_mail_types::Keyword> = match entry.get("keywords") {
-            None | Some(Value::Null) => vec![],
+        // keywords: String[Boolean] wire format — deserialize as HashMap, extract the set ones.
+        let keywords_map: HashMap<jmap_mail_types::Keyword, bool> = match entry.get("keywords") {
+            None | Some(Value::Null) => HashMap::new(),
             Some(v) => match serde_json::from_value(v.clone()) {
                 Ok(kws) => kws,
                 Err(_) => {
@@ -908,6 +909,11 @@ pub async fn handle_email_import<B: MailBackend>(
                 }
             },
         };
+        let keywords: Vec<jmap_mail_types::Keyword> = keywords_map
+            .into_iter()
+            .filter(|(_, v)| *v)
+            .map(|(k, _)| k)
+            .collect();
 
         let received_at: Option<UTCDate> = entry
             .get("receivedAt")
@@ -1122,9 +1128,18 @@ pub async fn handle_email_copy<B: MailBackend>(
                 continue;
             }
         };
+        if mailbox_ids.is_empty() {
+            not_created.insert(
+                copy_id.clone(),
+                json!({"type": "invalidProperties", "properties": ["mailboxIds"],
+                       "description": "at least one mailboxId is required (RFC 8621 §6.1)"}),
+            );
+            continue;
+        }
 
-        let keywords: Vec<Keyword> = match entry.get("keywords") {
-            None | Some(Value::Null) => vec![],
+        // keywords: String[Boolean] wire format — deserialize as HashMap, extract the set ones.
+        let keywords_map: HashMap<Keyword, bool> = match entry.get("keywords") {
+            None | Some(Value::Null) => HashMap::new(),
             Some(v) => match serde_json::from_value(v.clone()) {
                 Ok(kws) => kws,
                 Err(_) => {
@@ -1136,6 +1151,11 @@ pub async fn handle_email_copy<B: MailBackend>(
                 }
             },
         };
+        let keywords: Vec<Keyword> = keywords_map
+            .into_iter()
+            .filter(|(_, v)| *v)
+            .map(|(k, _)| k)
+            .collect();
 
         match backend
             .copy_email(

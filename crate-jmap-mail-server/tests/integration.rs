@@ -1996,6 +1996,125 @@ async fn email_import_empty_mailbox_ids_rejected() {
     );
 }
 
+/// Oracle: Email/import with valid keywords (String[Boolean] map) succeeds and
+/// the imported email carries those keywords.
+///
+/// RFC 8621 §5.7 — keywords is String[Boolean]; the old Vec<Keyword> deserialization
+/// would reject a valid {"$seen": true} payload with invalidProperties.
+#[tokio::test]
+async fn email_import_with_keywords_succeeds() {
+    use jmap_mail_server::handle_email_import;
+    use jmap_mail_types::keyword;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let msg = b"Subject: with keywords\r\n\r\nbody";
+    let blob_id = Id::from("blob-kw");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "emails": {
+            "imp1": {
+                "blobId": blob_id.as_ref(),
+                "mailboxIds": { "inbox": true },
+                "keywords": { "$seen": true, "$flagged": false },
+            }
+        }
+    });
+
+    let (resp, _extra) = handle_email_import(&backend, args)
+        .await
+        .expect("Email/import must not return a JmapError");
+
+    // The import should succeed (created, not notCreated).
+    assert!(
+        resp["notCreated"].is_null(),
+        "notCreated must be null; got: {}",
+        resp["notCreated"]
+    );
+    let created = resp["created"]
+        .as_object()
+        .expect("created must be an object");
+    assert!(created.contains_key("imp1"), "imp1 must be in created");
+
+    // Verify the email carries $seen (true) but not $flagged (false was filtered out).
+    let email_id_str = created["imp1"]["id"].as_str().expect("id must be a string");
+    let email_id = Id::from(email_id_str);
+    let (emails, _) = backend
+        .get_objects::<jmap_mail_types::Email>(&account_id, Some(&[email_id]), None)
+        .await
+        .expect("get_objects");
+    assert_eq!(emails.len(), 1, "imported email must be retrievable");
+    assert!(
+        emails[0].keywords.contains_key(keyword::SEEN),
+        "$seen must be set on the imported email"
+    );
+}
+
+/// Oracle: Email/copy with valid keywords (String[Boolean] map) succeeds.
+///
+/// The old Vec<Keyword> deserialization would reject {"$seen": true} with
+/// invalidProperties. Fixed to HashMap<Keyword, bool>.
+#[tokio::test]
+async fn email_copy_with_keywords_succeeds() {
+    use jmap_mail_server::handle_email_copy;
+    use jmap_mail_types::keyword;
+
+    let backend = MemoryBackend::new();
+    let src_account = Id::from("src");
+    let dst_account = Id::from("dst");
+
+    // Import a source email.
+    let msg = b"Subject: copy-kw test\r\n\r\nbody";
+    let blob_id = Id::from("blob-copy-kw");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+    let (src_id, _) = backend
+        .import_email(&src_account, &blob_id, &[Id::from("inbox")], &[], None)
+        .await
+        .expect("import source email");
+
+    let args = serde_json::json!({
+        "accountId": dst_account.as_ref(),
+        "fromAccountId": src_account.as_ref(),
+        "create": {
+            "c1": {
+                "id": src_id.as_ref(),
+                "mailboxIds": { "inbox": true },
+                "keywords": { "$seen": true, "$flagged": false },
+            }
+        }
+    });
+
+    let (resp, _extra) = handle_email_copy(&backend, args, "call-1")
+        .await
+        .expect("Email/copy must not return a JmapError");
+
+    assert!(
+        resp["notCreated"].is_null(),
+        "notCreated must be null; got: {}",
+        resp["notCreated"]
+    );
+    let created = resp["created"]
+        .as_object()
+        .expect("created must be an object");
+    assert!(created.contains_key("c1"), "c1 must be in created");
+
+    // Verify $seen was applied; $false=false is filtered out.
+    let new_id_str = created["c1"]["id"].as_str().expect("id must be present");
+    let new_id = Id::from(new_id_str);
+    let (emails, _) = backend
+        .get_objects::<jmap_mail_types::Email>(&dst_account, Some(&[new_id]), None)
+        .await
+        .expect("get_objects");
+    assert_eq!(emails.len(), 1, "copied email must be retrievable");
+    assert!(
+        emails[0].keywords.contains_key(keyword::SEEN),
+        "$seen must be on the copied email"
+    );
+}
+
 /// Oracle: EmailSubmission/set update that patches a field other than undoStatus
 /// is rejected with invalidProperties.
 ///
