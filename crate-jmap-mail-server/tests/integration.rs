@@ -2171,7 +2171,10 @@ async fn email_set_create_malformed_keywords_rejected() {
         .await
         .expect("Email/set must not return a JmapError");
     assert!(extra.is_empty());
-    assert!(resp["created"].is_null(), "created must be null on rejection");
+    assert!(
+        resp["created"].is_null(),
+        "created must be null on rejection"
+    );
     let not_created = resp["notCreated"]
         .as_object()
         .expect("notCreated must be an object");

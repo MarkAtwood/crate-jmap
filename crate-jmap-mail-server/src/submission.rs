@@ -143,9 +143,11 @@ pub async fn handle_submission_query<B: MailBackend>(
         None | Some(Value::Null) => None,
         Some(v) => match v.as_u64() {
             Some(n) => Some(n),
-            None => return Err(JmapError::invalid_arguments(format!(
-                "limit: expected a non-negative integer, got {v}"
-            ))),
+            None => {
+                return Err(JmapError::invalid_arguments(format!(
+                    "limit: expected a non-negative integer, got {v}"
+                )))
+            }
         },
     };
 

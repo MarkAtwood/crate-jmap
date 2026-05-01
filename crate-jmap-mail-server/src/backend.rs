@@ -202,6 +202,9 @@ pub enum BackendChangesError<E> {
 impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapError {
     fn from(e: BackendChangesError<E>) -> Self {
         match e {
+            BackendChangesError::TooManyChanges { limit: 0 } => {
+                jmap_types::JmapError::cannot_calculate_changes()
+            }
             BackendChangesError::TooManyChanges { limit } => {
                 jmap_types::JmapError::too_many_changes_with_limit(limit)
             }
@@ -726,4 +729,41 @@ impl SetObject for jmap_mail_types::VacationResponse {
 impl JmapObject for jmap_mail_types::SearchSnippet {
     const TYPE_NAME: &'static str = "SearchSnippet";
     type Property = SearchSnippetProperty;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Oracle: BackendChangesError::TooManyChanges { limit: 0 } must map to
+    /// cannotCalculateChanges (RFC 8620 §5.6), not tooManyChanges with limit 0.
+    ///
+    /// PLAN.md line 167: limit=0 is the convention for "cannot calculate".
+    #[test]
+    fn backend_changes_error_limit_zero_maps_to_cannot_calculate() {
+        let err = jmap_types::JmapError::from(
+            BackendChangesError::<std::convert::Infallible>::TooManyChanges { limit: 0 },
+        );
+        assert_eq!(
+            err.error_type.as_str(),
+            "cannotCalculateChanges",
+            "limit=0 must produce cannotCalculateChanges; got: {:?}",
+            err.error_type
+        );
+    }
+
+    /// Oracle: BackendChangesError::TooManyChanges { limit: N } (N > 0) maps to
+    /// tooManyChanges with the suggested limit.
+    #[test]
+    fn backend_changes_error_nonzero_limit_maps_to_too_many_changes() {
+        let err = jmap_types::JmapError::from(
+            BackendChangesError::<std::convert::Infallible>::TooManyChanges { limit: 50 },
+        );
+        assert_eq!(
+            err.error_type.as_str(),
+            "tooManyChanges",
+            "limit=50 must produce tooManyChanges; got: {:?}",
+            err.error_type
+        );
+    }
 }

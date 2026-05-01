@@ -240,7 +240,13 @@ pub async fn handle_email_query<B: MailBackend>(
         )
     } else {
         let result = backend
-            .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, Some(limit), position)
+            .query_objects::<Email>(
+                &account_id,
+                filter.as_ref(),
+                sort_slice,
+                Some(limit),
+                position,
+            )
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
         let pos = result.position;
