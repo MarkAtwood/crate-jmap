@@ -629,6 +629,39 @@ impl MailBackend for MemoryBackend {
     }
 
     // -----------------------------------------------------------------------
+    // find_thread_by_message_ids
+    // -----------------------------------------------------------------------
+
+    async fn find_thread_by_message_ids(
+        &self,
+        account_id: &Id,
+        message_ids: &[&str],
+    ) -> Result<Option<Id>, Self::Error> {
+        if message_ids.is_empty() {
+            return Ok(None);
+        }
+        let inner = self.inner.lock().unwrap();
+        let store = match inner.objects_ref("Email", account_id.as_ref()) {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+        for val in store.values() {
+            if let Some(ids) = val.get("messageId").and_then(|v| v.as_array()) {
+                for id in ids {
+                    if let Some(s) = id.as_str() {
+                        if message_ids.contains(&s) {
+                            if let Some(tid) = val.get("threadId").and_then(|v| v.as_str()) {
+                                return Ok(Some(Id::from(tid)));
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(None)
+    }
+
+    // -----------------------------------------------------------------------
     // blob_exists / parse_email
     // -----------------------------------------------------------------------
 

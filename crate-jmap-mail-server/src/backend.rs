@@ -468,6 +468,20 @@ pub trait MailBackend: Send + Sync + 'static {
         Output = Result<(jmap_types::Id, jmap_mail_types::Email), BackendSetError<Self::Error>>,
     > + Send;
 
+    /// Return the thread id of the first stored [`Email`](jmap_mail_types::Email) whose
+    /// `messageId` list intersects `message_ids`, or `None` if no match exists.
+    ///
+    /// Used by the `Email/set` create path to assign new emails to an existing
+    /// thread when they reply to or reference a known message. Backends should
+    /// maintain a message-id index to answer this in O(1); the default
+    /// implementation performs a full scan and is provided only as a fallback
+    /// for backends that do not yet have an index.
+    fn find_thread_by_message_ids(
+        &self,
+        account_id: &jmap_types::Id,
+        message_ids: &[&str],
+    ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;
+
     /// Return `true` if `blob_id` exists in `account_id`'s blob store.
     ///
     /// Used by `Email/parse` to distinguish RFC 8621 §5.8 error categories:

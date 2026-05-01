@@ -676,9 +676,9 @@ async fn build_email_from_create<B: MailBackend>(
 
 /// Assign a thread id for a new email.
 ///
-/// Searches existing emails in the account for a `messageId` that matches
-/// any of the `in_reply_to` or `references` tokens. If found, reuses that
-/// thread id. Otherwise returns a fresh id.
+/// Calls [`MailBackend::find_thread_by_message_ids`] with the union of
+/// `in_reply_to` and `references` tokens. Returns the matching thread id if
+/// found, or a freshly generated id if no existing email references these tokens.
 async fn assign_thread<B: MailBackend>(
     backend: &B,
     account_id: &Id,
@@ -695,17 +695,8 @@ async fn assign_thread<B: MailBackend>(
         .map(|s| s.as_str())
         .collect();
 
-    // Fetch all existing emails and search for a matching messageId.
-    if let Ok((all_emails, _)) = backend.get_objects::<Email>(account_id, None, None).await {
-        for email in &all_emails {
-            if let Some(msg_ids) = &email.message_id {
-                for msg_id in msg_ids {
-                    if refs.contains(&msg_id.as_str()) {
-                        return email.thread_id.clone();
-                    }
-                }
-            }
-        }
+    if let Ok(Some(thread_id)) = backend.find_thread_by_message_ids(account_id, &refs).await {
+        return thread_id;
     }
 
     next_id()

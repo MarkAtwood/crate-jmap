@@ -621,6 +621,16 @@ async fn search_snippet_get_capability_gated() {
             self.0.search_snippets(account_id, email_ids, filter).await
         }
 
+        async fn find_thread_by_message_ids(
+            &self,
+            account_id: &Id,
+            message_ids: &[&str],
+        ) -> Result<Option<Id>, Self::Error> {
+            self.0
+                .find_thread_by_message_ids(account_id, message_ids)
+                .await
+        }
+
         fn supports_type<O: JmapObject>(&self) -> bool {
             // Return false for SearchSnippet; delegate everything else.
             if std::any::TypeId::of::<O>()
