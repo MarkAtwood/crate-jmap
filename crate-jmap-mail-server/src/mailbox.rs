@@ -140,7 +140,12 @@ pub async fn handle_mailbox_query<B: MailBackend>(
             }
         },
     };
-    let position: i64 = args.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+    let position: i64 = match args.get("position") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
+        })?,
+    };
 
     // Reject any client-supplied sort request: Mailbox/query is implemented
     // in-process and cannot honour RFC 8621 §2.3 comparators. RFC 8620 §5.5

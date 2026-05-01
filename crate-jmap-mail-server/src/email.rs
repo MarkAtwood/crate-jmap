@@ -100,7 +100,7 @@ pub async fn handle_email_get<B: MailBackend>(
 // Email/changes (RFC 8620 §5.2, as applied to Email)
 // ---------------------------------------------------------------------------
 
-/// Handle an `Email/changes` method call (RFC 8621 §5.2).
+/// Handle an `Email/changes` method call (RFC 8620 §5.2).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_changes<B: MailBackend>(
@@ -188,10 +188,12 @@ pub async fn handle_email_query<B: MailBackend>(
         },
     };
 
-    let position: i64 = args
-        .remove("position")
-        .and_then(|v| v.as_i64())
-        .unwrap_or(0);
+    let position: i64 = match args.remove("position") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
+        })?,
+    };
 
     let collapse_threads: bool = args
         .remove("collapseThreads")

@@ -151,7 +151,12 @@ pub async fn handle_submission_query<B: MailBackend>(
         },
     };
 
-    let position: i64 = args.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+    let position: i64 = match args.get("position") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
+        })?,
+    };
 
     let result = backend
         .query_objects::<EmailSubmission>(&account_id, None, None, limit, position)
@@ -385,10 +390,15 @@ pub async fn handle_submission_set<B: MailBackend>(
         }
     }
 
-    let new_state = backend
-        .get_state::<EmailSubmission>(&account_id)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+    let mutated = !created.is_empty() || !updated.is_empty() || !destroyed.is_empty();
+    let new_state = if mutated {
+        backend
+            .get_state::<EmailSubmission>(&account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?
+    } else {
+        old_state.clone()
+    };
 
     let resp = json!({
         "accountId": account_id.as_ref(),
