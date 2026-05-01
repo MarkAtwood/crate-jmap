@@ -541,14 +541,8 @@ pub async fn handle_submission_set<B: MailBackend>(
 // ---------------------------------------------------------------------------
 
 /// Validate that an email address string contains no CR or LF characters.
-///
-/// Returns `Err` with the offending address on violation.
-fn check_no_crlf(email: &str) -> Result<(), &str> {
-    if email.contains('\r') || email.contains('\n') {
-        Err(email)
-    } else {
-        Ok(())
-    }
+fn check_no_crlf(email: &str) -> bool {
+    !email.contains('\r') && !email.contains('\n')
 }
 
 /// Process a single create entry in an `EmailSubmission/set` request.
@@ -639,12 +633,12 @@ async fn process_create<B: MailBackend>(
     }
 
     // --- SMTP injection defense (RFC 8621 §7.5) ---
-    if check_no_crlf(&envelope.mail_from.email).is_err() {
+    if !check_no_crlf(&envelope.mail_from.email) {
         return Err(json!({ "type": "invalidRecipients",
                            "description": "mailFrom.email contains CR or LF" }));
     }
     for rcpt in &envelope.rcpt_to {
-        if check_no_crlf(&rcpt.email).is_err() {
+        if !check_no_crlf(&rcpt.email) {
             return Err(json!({ "type": "invalidRecipients",
                                "description": format!("rcptTo address {:?} contains CR or LF",
                                                       rcpt.email) }));

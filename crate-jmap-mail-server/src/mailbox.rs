@@ -549,11 +549,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     let mut not_destroyed = serde_json::Map::new();
 
     if let Some(Value::Array(destroy_ids)) = args.get("destroy") {
-        // Re-fetch mailboxes after the create loop so that any newly-created
-        // child mailboxes are visible to the parent-check below. Using the
-        // pre-create snapshot would allow destroying a parent that just got a
-        // new child in the same request.
-        let (mailboxes_after_creates, _) = backend
+        // Re-fetch mailboxes after creates and updates so that any newly-created
+        // or reparented child mailboxes are visible to the parent-check below.
+        let (mailboxes_after_mutations, _) = backend
             .get_objects::<Mailbox>(&account_id, None, None)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
@@ -566,7 +564,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             let id = Id::from(id_str);
 
             // Check for child mailboxes using the post-create snapshot.
-            let has_child = mailboxes_after_creates
+            let has_child = mailboxes_after_mutations
                 .iter()
                 .any(|m| m.parent_id.as_ref() == Some(&id));
             if has_child {
