@@ -71,6 +71,9 @@ pub struct SetError {
     /// Invalid recipient addresses (for `invalidRecipients` — RFC 8621 §7.5).
     #[serde(rename = "invalidRecipients", skip_serializing_if = "Option::is_none")]
     pub invalid_recipients: Option<Vec<String>>,
+    /// Maximum message size in octets (for `tooLarge` on EmailSubmission — RFC 8621 §7.5).
+    #[serde(rename = "maxSize", skip_serializing_if = "Option::is_none")]
+    pub max_size: Option<u64>,
 }
 
 impl SetError {
@@ -83,6 +86,7 @@ impl SetError {
             existing_id: None,
             max_recipients: None,
             invalid_recipients: None,
+            max_size: None,
         }
     }
 
@@ -121,6 +125,12 @@ impl SetError {
         S: Into<String>,
     {
         self.invalid_recipients = Some(addrs.into_iter().map(|s| s.into()).collect());
+        self
+    }
+
+    /// Set the maximum message size in octets (used with `tooLarge` on EmailSubmission — RFC 8621 §7.5).
+    pub fn with_max_size(mut self, n: u64) -> Self {
+        self.max_size = Some(n);
         self
     }
 }
