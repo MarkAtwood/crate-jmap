@@ -36,10 +36,7 @@ pub async fn handle_thread_get<B: MailBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    let list_json: Vec<Value> = list
-        .iter()
-        .map(ser)
-        .collect::<Result<Vec<_>, _>>()?;
+    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),

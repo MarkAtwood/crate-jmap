@@ -54,10 +54,7 @@ pub async fn handle_submission_get<B: MailBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    let list_json: Vec<Value> = list
-        .iter()
-        .map(ser)
-        .collect::<Result<Vec<_>, _>>()?;
+    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),
@@ -401,9 +398,9 @@ pub async fn handle_submission_set<B: MailBackend>(
                 }
                 Err(err) => {
                     let err_json = match err {
-                        CreateError::SetError(se) => {
-                            serde_json::to_value(se).unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }))
-                        }
+                        CreateError::SetError(se) => serde_json::to_value(se).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
                         CreateError::Server(msg) => {
                             json!({ "type": "serverFail", "description": msg })
                         }
@@ -428,7 +425,9 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Err(BackendSetError::SetError(se)) => {
                     not_updated.insert(
                         id_str.clone(),
-                        ser(&se).unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
+                        ser(&se).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -462,8 +461,9 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Err(BackendSetError::SetError(set_err)) => {
                     not_destroyed.insert(
                         id_str.to_owned(),
-                        serde_json::to_value(&set_err)
-                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
+                        serde_json::to_value(&set_err).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -556,8 +556,9 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Err(BackendSetError::SetError(set_err)) => {
                         email_not_updated.insert(
                             email_id.as_ref().to_owned(),
-                            serde_json::to_value(&set_err)
-                                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
+                            serde_json::to_value(&set_err).unwrap_or_else(
+                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                            ),
                         );
                     }
                     Err(BackendSetError::Other(e)) => {
@@ -591,8 +592,9 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Err(BackendSetError::SetError(set_err)) => {
                         email_not_destroyed.insert(
                             email_id.as_ref().to_owned(),
-                            serde_json::to_value(&set_err)
-                                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
+                            serde_json::to_value(&set_err).unwrap_or_else(
+                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                            ),
                         );
                     }
                     Err(BackendSetError::Other(e)) => {
@@ -816,7 +818,8 @@ async fn process_create<B: MailBackend>(
         })?;
 
     // create_object guarantees created_obj.id == server_id; serialize as-is.
-    Ok(serde_json::to_value(&created_obj).unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })))
+    Ok(serde_json::to_value(&created_obj)
+        .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })))
 }
 
 /// Process a single update entry in an `EmailSubmission/set` request.
@@ -852,7 +855,9 @@ async fn process_update<B: MailBackend>(
         .map_err(BackendSetError::Other)?;
 
     if !not_found.is_empty() || existing.is_empty() {
-        return Err(BackendSetError::SetError(SetError::new(SetErrorType::NotFound)));
+        return Err(BackendSetError::SetError(SetError::new(
+            SetErrorType::NotFound,
+        )));
     }
 
     let current = &existing[0];
