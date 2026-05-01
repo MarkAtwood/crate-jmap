@@ -241,6 +241,31 @@ pub enum BackendChangesError<E> {
     Other(E),
 }
 
+impl<E: std::fmt::Display> std::fmt::Display for BackendChangesError<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::TooManyChanges { limit: 0 } => write!(f, "cannot calculate changes"),
+            Self::TooManyChanges { limit } => write!(f, "too many changes (limit: {limit})"),
+            Self::Other(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl<E: std::error::Error + 'static> std::error::Error for BackendChangesError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Other(e) => Some(e),
+            _ => None,
+        }
+    }
+}
+
+impl<E> From<E> for BackendChangesError<E> {
+    fn from(e: E) -> Self {
+        Self::Other(e)
+    }
+}
+
 impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapError {
     fn from(e: BackendChangesError<E>) -> Self {
         match e {
@@ -266,6 +291,24 @@ pub enum BackendSetError<E> {
     SetError(SetError),
     /// An unexpected storage-layer error.
     Other(E),
+}
+
+impl<E: std::fmt::Display> std::fmt::Display for BackendSetError<E> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::SetError(se) => write!(f, "set error: {}", se.error_type),
+            Self::Other(e) => write!(f, "{e}"),
+        }
+    }
+}
+
+impl<E: std::error::Error + 'static> std::error::Error for BackendSetError<E> {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Other(e) => Some(e),
+            _ => None,
+        }
+    }
 }
 
 impl<E> From<SetError> for BackendSetError<E> {

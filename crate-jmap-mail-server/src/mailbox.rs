@@ -514,37 +514,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 
     let mut updated: serde_json::Map<String, Value> = serde_json::Map::new();
     let mut not_updated = serde_json::Map::new();
-    // Track roles assigned by updates in this request to catch same-request
-    // double-claim (e.g. two updates both set role="inbox").
-    let mut roles_updated_this_request: std::collections::HashSet<String> =
+    // Roles claimed by non-vacating updates in this request — prevents
+    // two updates in the same request from both claiming the same role.
+    let mut roles_claimed_this_request: std::collections::HashSet<String> =
         std::collections::HashSet::new();
-
-    // Pre-scan: collect all roles that any update in this request vacates
-    // (role: null on a mailbox that currently holds a role).  Done before
-    // the main loop so that a same-request swap — A vacates "inbox", B claims
-    // "inbox" — succeeds regardless of the order the updates are iterated.
-    let roles_vacated_this_request: std::collections::HashSet<String> = args
-        .get("update")
-        .and_then(|v| v.as_object())
-        .map(|updates| {
-            updates
-                .iter()
-                .filter_map(|(id_str, patch)| {
-                    let obj = patch.as_object()?;
-                    let role_val = obj.get("role")?;
-                    if !role_val.is_null() {
-                        return None;
-                    }
-                    let id = Id::from(id_str.as_str());
-                    all_mailboxes
-                        .iter()
-                        .find(|m| m.id == id)
-                        .and_then(|m| m.role.as_ref())
-                        .map(role_to_wire)
-                })
-                .collect()
-        })
-        .unwrap_or_default();
+    // Roles freed by successful vacating updates (pass 1).  Built only from
+    // updates that actually succeeded, so a failed vacate does NOT release
+    // the role and a same-request claim against it is correctly rejected.
+    let mut roles_actually_vacated: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
 
     // Server-set fields that may not appear in a patch.
     const SERVER_SET: &[&str] = &[
@@ -557,7 +535,82 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     ];
 
     if let Some(Value::Object(updates)) = args.get("update") {
-        for (id_str, patch) in updates {
+        // Two-pass update loop.
+        //
+        // Pass 1 runs every patch that sets role: null (vacating a role).
+        // Pass 2 runs everything else (including role-claiming patches).
+        //
+        // This means a same-request swap — A vacates "inbox", B claims
+        // "inbox" — always succeeds regardless of map iteration order, while
+        // a failed vacate (BackendSetError::Other) does NOT release the role,
+        // so B's claim is correctly rejected.
+        let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates.iter().partition(|item| {
+            item.1
+                .as_object()
+                .and_then(|o| o.get("role"))
+                .map_or(false, |v| v.is_null())
+        });
+
+        // --- Pass 1: role-vacating updates (patch sets role: null) ---
+        for (id_str, patch) in vacating {
+            let id = Id::from(id_str.as_str());
+
+            // Reject patches that touch server-set fields.
+            if let Some(obj) = patch.as_object() {
+                let bad_props: Vec<String> = SERVER_SET
+                    .iter()
+                    .filter(|&&field| obj.contains_key(field))
+                    .map(|&s| s.to_owned())
+                    .collect();
+                if !bad_props.is_empty() {
+                    not_updated.insert(
+                        id_str.clone(),
+                        serde_json::to_value(
+                            SetError::new(SetErrorType::InvalidProperties)
+                                .with_properties(bad_props),
+                        )
+                        .expect("SetError derives Serialize and is always serializable"),
+                    );
+                    continue;
+                }
+            }
+
+            // Capture the role currently held by this mailbox before the
+            // update runs; needed to know which role to record as vacated.
+            let current_role: Option<String> = all_mailboxes
+                .iter()
+                .find(|m| m.id == id)
+                .and_then(|m| m.role.as_ref())
+                .map(role_to_wire);
+
+            match backend
+                .update_object::<Mailbox>(&account_id, &id, patch.clone())
+                .await
+            {
+                Ok(_) => {
+                    updated.insert(id_str.clone(), Value::Null);
+                    if let Some(role) = current_role {
+                        roles_actually_vacated.insert(role);
+                    }
+                }
+                Err(BackendSetError::SetError(se)) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        serde_json::to_value(se)
+                            .expect("type derives Serialize and is always serializable"),
+                    );
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+            }
+        }
+
+        // --- Pass 2: non-vacating updates ---
+        for (id_str, patch) in non_vacating {
             let id = Id::from(id_str.as_str());
 
             // Reject patches that touch server-set fields.
@@ -579,22 +632,22 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     continue;
                 }
 
-                // Role uniqueness on update: check against pre-request state
-                // minus roles vacated anywhere in this request, any role already
-                // claimed by an earlier update in this request, and any role
-                // claimed by the create loop earlier in this request.
+                // Role uniqueness: check against pre-request state minus
+                // roles freed by successful pass-1 vacates, plus any role
+                // already claimed by an earlier update in this pass, plus
+                // any role claimed by the create loop.
                 if let Some(role_val) = obj.get("role").filter(|v| !v.is_null()) {
                     if let Some(role_str) = role_val.as_str() {
                         let role_taken = all_mailboxes.iter().any(|m| {
                             m.id != id
-                                && !roles_vacated_this_request.contains(role_str)
+                                && !roles_actually_vacated.contains(role_str)
                                 && m.role.as_ref().is_some_and(|r| role_to_wire(r) == role_str)
                         });
-                        let role_just_updated = roles_updated_this_request.contains(role_str);
+                        let role_just_claimed = roles_claimed_this_request.contains(role_str);
                         let role_just_created = created
                             .values()
                             .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
-                        if role_taken || role_just_updated || role_just_created {
+                        if role_taken || role_just_claimed || role_just_created {
                             not_updated.insert(
                                 id_str.clone(),
                                 serde_json::to_value(
@@ -605,7 +658,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             );
                             continue;
                         }
-                        roles_updated_this_request.insert(role_str.to_owned());
+                        roles_claimed_this_request.insert(role_str.to_owned());
                     }
                 }
             }
