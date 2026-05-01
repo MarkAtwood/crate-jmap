@@ -2820,6 +2820,82 @@ async fn mailbox_set_role_uniqueness_create_then_update() {
     );
 }
 
+/// Oracle: a single Mailbox/set that vacates a role on mailbox A and claims that
+/// same role on mailbox B must succeed for both updates.
+///
+/// Trigger: role-uniqueness check used a pre-request snapshot and did not track
+/// role vacations within the same request. Mailbox B's update was incorrectly
+/// rejected with invalidProperties because the snapshot still showed A holding
+/// the role, even though A's update (role=null) had already been applied.
+#[tokio::test]
+async fn mailbox_set_role_swap_succeeds_in_single_request() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create mailbox A with role "inbox".
+    let mut mbox_a = Mailbox::new(
+        Id::from("placeholder"),
+        "Inbox".to_string(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        jmap_mail_types::MailboxRights::default(),
+        false,
+    );
+    mbox_a.role = Some(jmap_mail_types::MailboxRole::Inbox);
+    let (id_a, _) = backend
+        .create_object::<Mailbox>(&account_id, "pre0", mbox_a)
+        .await
+        .expect("create mailbox A");
+
+    // Create mailbox B with no role.
+    let mbox_b = Mailbox::new(
+        Id::from("placeholder"),
+        "New Inbox".to_string(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        jmap_mail_types::MailboxRights::default(),
+        false,
+    );
+    let (id_b, _) = backend
+        .create_object::<Mailbox>(&account_id, "pre1", mbox_b)
+        .await
+        .expect("create mailbox B");
+
+    // Single Mailbox/set: A vacates "inbox", B claims "inbox".
+    // Per RFC 8620 §5.3, updates are applied in order — A before B.
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "update": {
+            id_a.as_ref(): { "role": null },
+            id_b.as_ref(): { "role": "inbox" }
+        }
+    });
+
+    let (resp, _) = handle_mailbox_set(&backend, args)
+        .await
+        .expect("Mailbox/set must return a response");
+
+    let updated = resp["updated"].as_object().expect("updated must be an object");
+    let not_updated = resp.get("notUpdated").and_then(|v| v.as_object());
+
+    assert!(
+        updated.contains_key(id_a.as_ref()),
+        "A's vacate update must succeed; notUpdated = {:?}",
+        not_updated
+    );
+    assert!(
+        updated.contains_key(id_b.as_ref()),
+        "B's claim update must succeed; notUpdated = {:?}",
+        not_updated
+    );
+}
+
 /// Oracle: Email/set create with malformed inReplyTo (not an array) must return
 /// invalidProperties, not silently drop the field and create the email.
 ///

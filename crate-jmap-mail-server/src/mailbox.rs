@@ -524,9 +524,37 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 
     let mut updated: serde_json::Map<String, Value> = serde_json::Map::new();
     let mut not_updated = serde_json::Map::new();
-    // Track roles assigned by earlier updates in this same request for uniqueness.
+    // Track roles assigned by updates in this request to catch same-request
+    // double-claim (e.g. two updates both set role="inbox").
     let mut roles_updated_this_request: std::collections::HashSet<String> =
         std::collections::HashSet::new();
+
+    // Pre-scan: collect all roles that any update in this request vacates
+    // (role: null on a mailbox that currently holds a role).  Done before
+    // the main loop so that a same-request swap — A vacates "inbox", B claims
+    // "inbox" — succeeds regardless of the order the updates are iterated.
+    let roles_vacated_this_request: std::collections::HashSet<String> = args
+        .get("update")
+        .and_then(|v| v.as_object())
+        .map(|updates| {
+            updates
+                .iter()
+                .filter_map(|(id_str, patch)| {
+                    let obj = patch.as_object()?;
+                    let role_val = obj.get("role")?;
+                    if !role_val.is_null() {
+                        return None;
+                    }
+                    let id = Id::from(id_str.as_str());
+                    all_mailboxes
+                        .iter()
+                        .find(|m| m.id == id)
+                        .and_then(|m| m.role.as_ref())
+                        .map(|r| r.to_string())
+                })
+                .collect()
+        })
+        .unwrap_or_default();
 
     // Server-set fields that may not appear in a patch.
     const SERVER_SET: &[&str] = &[
@@ -561,13 +589,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     continue;
                 }
 
-                // Role uniqueness on update: check against pre-request state,
-                // any role already assigned by an earlier update in this request,
-                // and any role assigned by the create loop earlier in this request.
+                // Role uniqueness on update: check against pre-request state
+                // minus roles vacated anywhere in this request, any role already
+                // claimed by an earlier update in this request, and any role
+                // claimed by the create loop earlier in this request.
                 if let Some(role_val) = obj.get("role").filter(|v| !v.is_null()) {
                     if let Some(role_str) = role_val.as_str() {
                         let role_taken = all_mailboxes.iter().any(|m| {
                             m.id != id
+                                && !roles_vacated_this_request.contains(role_str)
                                 && m.role.as_ref().is_some_and(|r| r.to_string() == role_str)
                         });
                         let role_just_updated = roles_updated_this_request.contains(role_str);
