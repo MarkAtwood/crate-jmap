@@ -53,7 +53,7 @@ pub async fn handle_mailbox_get<B: MailBackend>(
         Some(
             not_found
                 .iter()
-                .map(|id| Value::String(id.as_ref().to_string()))
+                .map(|id| Value::String(id.as_ref().to_owned()))
                 .collect(),
         )
     };
@@ -616,7 +616,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             );
                             continue;
                         }
-                        roles_updated_this_request.insert(role_str.to_string());
+                        roles_updated_this_request.insert(role_str.to_owned());
                     }
                 }
             }

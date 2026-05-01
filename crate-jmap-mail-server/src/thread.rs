@@ -49,7 +49,7 @@ pub async fn handle_thread_get<B: MailBackend>(
         Some(
             not_found
                 .iter()
-                .map(|id| Value::String(id.as_ref().to_string()))
+                .map(|id| Value::String(id.as_ref().to_owned()))
                 .collect(),
         )
     };

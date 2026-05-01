@@ -242,7 +242,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
             let err = SetError::new(SetErrorType::Singleton)
                 .with_description("VacationResponse is a singleton; cannot destroy");
             not_destroyed.insert(
-                id.to_string(),
+                id.to_owned(),
                 serde_json::to_value(&err)
                     .expect("SetError derives Serialize and is always serializable"),
             );

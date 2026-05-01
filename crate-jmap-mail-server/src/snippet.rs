@@ -67,7 +67,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     let not_found: Vec<Value> = email_ids
         .iter()
         .filter(|id| !found_ids.contains(id.as_ref()))
-        .map(|id| Value::String(id.as_ref().to_string()))
+        .map(|id| Value::String(id.as_ref().to_owned()))
         .collect();
 
     let list_json: Vec<Value> = snippets

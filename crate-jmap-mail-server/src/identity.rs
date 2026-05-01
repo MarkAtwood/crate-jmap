@@ -48,7 +48,7 @@ pub async fn handle_identity_get<B: MailBackend>(
         Some(
             not_found
                 .iter()
-                .map(|id| Value::String(id.as_ref().to_string()))
+                .map(|id| Value::String(id.as_ref().to_owned()))
                 .collect(),
         )
     };
@@ -139,7 +139,7 @@ pub async fn handle_identity_set<B: MailBackend>(
         for (create_id, obj_val) in create_map {
             // Validate: email must be present and non-empty.
             let email = match obj_val.get("email").and_then(|v| v.as_str()) {
-                Some(s) if !s.is_empty() => s.to_string(),
+                Some(s) if !s.is_empty() => s.to_owned(),
                 _ => {
                     not_created.insert(
                         create_id.clone(),
@@ -160,13 +160,13 @@ pub async fn handle_identity_set<B: MailBackend>(
                 true, // server-set: may_delete defaults to true on create
             );
             if let Some(name) = obj_val.get("name").and_then(|v| v.as_str()) {
-                identity.name = name.to_string();
+                identity.name = name.to_owned();
             }
             if let Some(ts) = obj_val.get("textSignature").and_then(|v| v.as_str()) {
-                identity.text_signature = ts.to_string();
+                identity.text_signature = ts.to_owned();
             }
             if let Some(hs) = obj_val.get("htmlSignature").and_then(|v| v.as_str()) {
-                identity.html_signature = hs.to_string();
+                identity.html_signature = hs.to_owned();
             }
             if let Some(rt) = obj_val.get("replyTo") {
                 if !rt.is_null() {
@@ -218,8 +218,8 @@ pub async fn handle_identity_set<B: MailBackend>(
                     if let Some(obj) = created.get_mut(create_id) {
                         if let Some(map) = obj.as_object_mut() {
                             map.insert(
-                                "id".to_string(),
-                                Value::String(server_id.as_ref().to_string()),
+                                "id".to_owned(),
+                                Value::String(server_id.as_ref().to_owned()),
                             );
                         }
                     }
@@ -316,7 +316,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             let (found, not_found_ids) = fetch_result;
 
             if !not_found_ids.is_empty() {
-                not_destroyed.insert(id_str.to_string(), json!({ "type": "notFound" }));
+                not_destroyed.insert(id_str.to_owned(), json!({ "type": "notFound" }));
                 continue;
             }
 
@@ -324,13 +324,13 @@ pub async fn handle_identity_set<B: MailBackend>(
             let identity = match found.into_iter().next() {
                 Some(i) => i,
                 None => {
-                    not_destroyed.insert(id_str.to_string(), json!({ "type": "notFound" }));
+                    not_destroyed.insert(id_str.to_owned(), json!({ "type": "notFound" }));
                     continue;
                 }
             };
 
             if !identity.may_delete {
-                not_destroyed.insert(id_str.to_string(), json!({ "type": "forbidden" }));
+                not_destroyed.insert(id_str.to_owned(), json!({ "type": "forbidden" }));
                 continue;
             }
 
@@ -340,7 +340,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_string()));
+                    destroyed_list.push(Value::String(id_str.to_owned()));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     let type_str = match set_err.error_type {
@@ -348,11 +348,11 @@ pub async fn handle_identity_set<B: MailBackend>(
                         SetErrorType::Forbidden => "forbidden",
                         _ => "serverFail",
                     };
-                    not_destroyed.insert(id_str.to_string(), json!({ "type": type_str }));
+                    not_destroyed.insert(id_str.to_owned(), json!({ "type": type_str }));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
-                        id_str.to_string(),
+                        id_str.to_owned(),
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }

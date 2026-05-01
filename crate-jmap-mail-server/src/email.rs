@@ -81,7 +81,7 @@ pub async fn handle_email_get<B: MailBackend>(
         Some(
             not_found
                 .iter()
-                .map(|id| Value::String(id.as_ref().to_string()))
+                .map(|id| Value::String(id.as_ref().to_owned()))
                 .collect(),
         )
     };
@@ -415,7 +415,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     let removed_json: Vec<Value> = result
         .removed
         .iter()
-        .map(|id| Value::String(id.as_ref().to_string()))
+        .map(|id| Value::String(id.as_ref().to_owned()))
         .collect();
 
     // RFC 8620 §5.6: total MUST be omitted unless calculateTotal is true.
@@ -628,18 +628,18 @@ pub async fn handle_email_set<B: MailBackend>(
             match backend.destroy_object::<Email>(&account_id, &id).await {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_string()));
+                    destroyed_list.push(Value::String(id_str.to_owned()));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_destroyed.insert(
-                        id_str.to_string(),
+                        id_str.to_owned(),
                         serde_json::to_value(&set_err)
                             .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
-                        id_str.to_string(),
+                        id_str.to_owned(),
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
@@ -743,7 +743,7 @@ async fn build_email_from_create<B: MailBackend>(
     let keywords_map: HashMap<Keyword, bool> = match obj_val.get("keywords") {
         None | Some(Value::Null) => HashMap::new(),
         Some(v) => serde_json::from_value(v.clone())
-            .map_err(|_| "keywords: invalid keyword or format".to_string())?,
+            .map_err(|_| "keywords: invalid keyword or format".to_owned())?,
     };
     let keywords: HashMap<Keyword, bool> = keywords_map.into_iter().filter(|(_, v)| *v).collect();
 
@@ -757,7 +757,7 @@ async fn build_email_from_create<B: MailBackend>(
         None | Some(Value::Null) => None,
         Some(v) => Some(
             serde_json::from_value(v.clone())
-                .map_err(|_| "inReplyTo: must be an array of strings".to_string())?,
+                .map_err(|_| "inReplyTo: must be an array of strings".to_owned())?,
         ),
     };
 
@@ -765,7 +765,7 @@ async fn build_email_from_create<B: MailBackend>(
         None | Some(Value::Null) => None,
         Some(v) => Some(
             serde_json::from_value(v.clone())
-                .map_err(|_| "references: must be an array of strings".to_string())?,
+                .map_err(|_| "references: must be an array of strings".to_owned())?,
         ),
     };
 
@@ -1115,14 +1115,14 @@ pub async fn handle_email_parse<B: MailBackend>(
                     Some(set) => filter_properties(&val, set),
                     None => val,
                 };
-                parsed.insert(blob_id.as_ref().to_string(), val);
+                parsed.insert(blob_id.as_ref().to_owned(), val);
             }
             Err(_) => {
                 // RFC 8621 §5.8: distinguish "blob not found" from "not parsable".
                 if backend.blob_exists(&account_id, blob_id).await {
-                    not_parsable.push(Value::String(blob_id.as_ref().to_string()));
+                    not_parsable.push(Value::String(blob_id.as_ref().to_owned()));
                 } else {
-                    not_found.push(Value::String(blob_id.as_ref().to_string()));
+                    not_found.push(Value::String(blob_id.as_ref().to_owned()));
                 }
             }
         }
@@ -1352,18 +1352,18 @@ pub async fn handle_email_copy<B: MailBackend>(
                     .await
                 {
                     Ok(()) => {
-                        email_destroyed.push(Value::String(source_id.as_ref().to_string()));
+                        email_destroyed.push(Value::String(source_id.as_ref().to_owned()));
                     }
                     Err(BackendSetError::SetError(set_err)) => {
                         email_not_destroyed.insert(
-                            source_id.as_ref().to_string(),
+                            source_id.as_ref().to_owned(),
                             serde_json::to_value(&set_err)
                                 .expect("SetError is always serializable"),
                         );
                     }
                     Err(BackendSetError::Other(e)) => {
                         email_not_destroyed.insert(
-                            source_id.as_ref().to_string(),
+                            source_id.as_ref().to_owned(),
                             json!({ "type": "serverFail", "description": e.to_string() }),
                         );
                     }
@@ -1382,7 +1382,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                     // Apply same immutable-field guard as handle_email_set patches.
                     if let Some(bad_field) = find_immutable_patch_key(patch) {
                         email_not_updated.insert(
-                            source_id.as_ref().to_string(),
+                            source_id.as_ref().to_owned(),
                             json!({
                                 "type": "invalidProperties",
                                 "properties": [bad_field],
@@ -1395,18 +1395,18 @@ pub async fn handle_email_copy<B: MailBackend>(
                         .await
                     {
                         Ok(_) => {
-                            email_updated.insert(source_id.as_ref().to_string(), Value::Null);
+                            email_updated.insert(source_id.as_ref().to_owned(), Value::Null);
                         }
                         Err(BackendSetError::SetError(set_err)) => {
                             email_not_updated.insert(
-                                source_id.as_ref().to_string(),
+                                source_id.as_ref().to_owned(),
                                 serde_json::to_value(&set_err)
                                     .expect("SetError is always serializable"),
                             );
                         }
                         Err(BackendSetError::Other(e)) => {
                             email_not_updated.insert(
-                                source_id.as_ref().to_string(),
+                                source_id.as_ref().to_owned(),
                                 json!({ "type": "serverFail", "description": e.to_string() }),
                             );
                         }

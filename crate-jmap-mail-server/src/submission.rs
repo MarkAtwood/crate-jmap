@@ -67,7 +67,7 @@ pub async fn handle_submission_get<B: MailBackend>(
         Some(
             not_found
                 .iter()
-                .map(|id| Value::String(id.as_ref().to_string()))
+                .map(|id| Value::String(id.as_ref().to_owned()))
                 .collect(),
         )
     };
@@ -392,7 +392,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     .map_err(|e| JmapError::server_fail(e.to_string()))?;
                 for sub in subs {
                     submission_email_id_map
-                        .insert(sub.id.as_ref().to_string(), sub.email_id.clone());
+                        .insert(sub.id.as_ref().to_owned(), sub.email_id.clone());
                 }
             }
         }
@@ -542,7 +542,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                 // Apply same immutable-field guard as handle_email_set patches.
                 if let Some(bad_field) = crate::email::find_immutable_patch_key(patch) {
                     email_not_updated.insert(
-                        email_id.as_ref().to_string(),
+                        email_id.as_ref().to_owned(),
                         json!({
                             "type": "invalidProperties",
                             "properties": [bad_field],
@@ -555,18 +555,18 @@ pub async fn handle_submission_set<B: MailBackend>(
                     .await
                 {
                     Ok(_) => {
-                        email_updated.insert(email_id.as_ref().to_string(), Value::Null);
+                        email_updated.insert(email_id.as_ref().to_owned(), Value::Null);
                     }
                     Err(BackendSetError::SetError(set_err)) => {
                         email_not_updated.insert(
-                            email_id.as_ref().to_string(),
+                            email_id.as_ref().to_owned(),
                             serde_json::to_value(&set_err)
                                 .expect("SetError is always serializable"),
                         );
                     }
                     Err(BackendSetError::Other(e)) => {
                         email_not_updated.insert(
-                            email_id.as_ref().to_string(),
+                            email_id.as_ref().to_owned(),
                             json!({ "type": "serverFail", "description": e.to_string() }),
                         );
                     }
@@ -590,18 +590,18 @@ pub async fn handle_submission_set<B: MailBackend>(
                     .await
                 {
                     Ok(()) => {
-                        email_destroyed.push(Value::String(email_id.as_ref().to_string()));
+                        email_destroyed.push(Value::String(email_id.as_ref().to_owned()));
                     }
                     Err(BackendSetError::SetError(set_err)) => {
                         email_not_destroyed.insert(
-                            email_id.as_ref().to_string(),
+                            email_id.as_ref().to_owned(),
                             serde_json::to_value(&set_err)
                                 .expect("SetError is always serializable"),
                         );
                     }
                     Err(BackendSetError::Other(e)) => {
                         email_not_destroyed.insert(
-                            email_id.as_ref().to_string(),
+                            email_id.as_ref().to_owned(),
                             json!({ "type": "serverFail", "description": e.to_string() }),
                         );
                     }
@@ -628,7 +628,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
             "notDestroyed": if email_not_destroyed.is_empty() { Value::Null } else { Value::Object(email_not_destroyed) },
         });
-        extra_invocations.push(("Email/set".to_string(), email_set_resp, call_id.to_owned()));
+        extra_invocations.push(("Email/set".to_owned(), email_set_resp, call_id.to_owned()));
     }
 
     Ok((resp, extra_invocations))
@@ -827,7 +827,7 @@ async fn process_create<B: MailBackend>(
     if let Value::Object(ref mut map) = obj_json {
         map.insert(
             "id".to_owned(),
-            Value::String(server_id.as_ref().to_string()),
+            Value::String(server_id.as_ref().to_owned()),
         );
     }
 
