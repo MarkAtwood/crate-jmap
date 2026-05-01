@@ -1161,9 +1161,9 @@ fn highlight(haystack: &str, needle: &str) -> String {
     // Byte offsets into lower_haystack and haystack respectively.
     let mut lower_pos = 0usize; // position in lower_haystack
     let mut orig_pos = 0usize; // corresponding byte position in haystack
-    // Build a parallel char-index table: lower_char_starts[i] = byte offset of
-    // the i-th char in lower_haystack; orig_char_starts[i] = byte offset of
-    // the i-th char in haystack.
+                               // Build a parallel char-index table: lower_char_starts[i] = byte offset of
+                               // the i-th char in lower_haystack; orig_char_starts[i] = byte offset of
+                               // the i-th char in haystack.
     let lower_chars: Vec<usize> = lower_haystack.char_indices().map(|(i, _)| i).collect();
     let orig_chars: Vec<usize> = haystack.char_indices().map(|(i, _)| i).collect();
     // char_pos tracks which char index lower_pos corresponds to.

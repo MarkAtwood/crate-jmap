@@ -35,10 +35,7 @@ pub async fn handle_identity_get<B: MailBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    let list_json: Vec<Value> = list
-        .iter()
-        .map(ser)
-        .collect::<Result<Vec<_>, _>>()?;
+    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),
@@ -200,15 +197,17 @@ pub async fn handle_identity_set<B: MailBackend>(
                     // serialize the full object (id is already correct).
                     created.insert(
                         create_id.clone(),
-                        serde_json::to_value(&created_obj)
-                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
+                        serde_json::to_value(&created_obj).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_created.insert(
                         create_id.clone(),
-                        serde_json::to_value(&set_err)
-                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
+                        serde_json::to_value(&set_err).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -258,8 +257,9 @@ pub async fn handle_identity_set<B: MailBackend>(
                 Err(BackendSetError::SetError(set_err)) => {
                     not_updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(&set_err)
-                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
+                        serde_json::to_value(&set_err).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {

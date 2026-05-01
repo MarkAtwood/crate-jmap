@@ -1788,9 +1788,15 @@ async fn email_set_create_and_get() {
         "created entry must have threadId"
     );
     // size is server-set; MemoryBackend returns 0 as the placeholder.
-    assert_eq!(c0["size"].as_u64(), Some(0), "size must be server-set (0 from MemoryBackend)");
+    assert_eq!(
+        c0["size"].as_u64(),
+        Some(0),
+        "size must be server-set (0 from MemoryBackend)"
+    );
     // blobId must be present and must NOT be the internal placeholder.
-    let blob_id_str = c0["blobId"].as_str().expect("blobId must be present in created entry");
+    let blob_id_str = c0["blobId"]
+        .as_str()
+        .expect("blobId must be present in created entry");
     assert_ne!(
         blob_id_str, "placeholder-blob",
         "blobId must be a server-assigned id, not the internal placeholder"
