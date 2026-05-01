@@ -255,7 +255,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
             if let Some(ref role_str) = f.role {
                 match &m.role {
                     Some(r) => {
-                        if &r.to_string() != role_str {
+                        if role_to_wire(r) != *role_str {
                             return false;
                         }
                     }
@@ -466,7 +466,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if let Some(role_str) = role_val.as_str() {
                     let role_taken = all_mailboxes
                         .iter()
-                        .any(|m| m.role.as_ref().is_some_and(|r| r.to_string() == role_str));
+                        .any(|m| m.role.as_ref().is_some_and(|r| role_to_wire(r) == role_str));
                     // Also check what we already successfully created in this request.
                     let role_just_created = created
                         .values()
@@ -551,7 +551,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .iter()
                         .find(|m| m.id == id)
                         .and_then(|m| m.role.as_ref())
-                        .map(|r| r.to_string())
+                        .map(role_to_wire)
                 })
                 .collect()
         })
@@ -599,7 +599,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         let role_taken = all_mailboxes.iter().any(|m| {
                             m.id != id
                                 && !roles_vacated_this_request.contains(role_str)
-                                && m.role.as_ref().is_some_and(|r| r.to_string() == role_str)
+                                && m.role.as_ref().is_some_and(|r| role_to_wire(r) == role_str)
                         });
                         let role_just_updated = roles_updated_this_request.contains(role_str);
                         let role_just_created = created
@@ -899,4 +899,22 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
     }
 
     Ok(mailbox)
+}
+
+/// Serialize a [`MailboxRole`] to its RFC 8621 wire-format string.
+///
+/// Uses serde rather than `Display` to guarantee the output is the canonical
+/// JSON wire format even if the `Display` impl ever diverges from the serde
+/// representation.
+fn role_to_wire(role: &jmap_mail_types::MailboxRole) -> String {
+    serde_json::to_value(role)
+        .ok()
+        .and_then(|v| {
+            if let Value::String(s) = v {
+                Some(s)
+            } else {
+                None
+            }
+        })
+        .unwrap_or_default()
 }

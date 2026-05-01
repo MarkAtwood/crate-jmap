@@ -264,6 +264,12 @@ pub enum BackendSetError<E> {
     Other(E),
 }
 
+impl<E> From<SetError> for BackendSetError<E> {
+    fn from(e: SetError) -> Self {
+        Self::SetError(e)
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Result types
 // ---------------------------------------------------------------------------
@@ -598,7 +604,7 @@ pub trait MailBackend: Send + Sync + 'static {
 // ---------------------------------------------------------------------------
 
 /// Property selector for [`jmap_mail_types::Mailbox`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MailboxProperty {
     Id,
     Name,
@@ -614,14 +620,14 @@ pub enum MailboxProperty {
 }
 
 /// Property selector for [`jmap_mail_types::Thread`] `/get`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ThreadProperty {
     Id,
     EmailIds,
 }
 
 /// Property selector for [`jmap_mail_types::Email`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EmailProperty {
     Id,
     BlobId,
@@ -652,7 +658,7 @@ pub enum EmailProperty {
 }
 
 /// Property selector for [`jmap_mail_types::Identity`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum IdentityProperty {
     Id,
     Name,
@@ -665,7 +671,7 @@ pub enum IdentityProperty {
 }
 
 /// Property selector for [`jmap_mail_types::EmailSubmission`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum EmailSubmissionProperty {
     Id,
     IdentityId,
@@ -680,7 +686,7 @@ pub enum EmailSubmissionProperty {
 }
 
 /// Property selector for [`jmap_mail_types::VacationResponse`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum VacationResponseProperty {
     Id,
     IsEnabled,
@@ -692,7 +698,7 @@ pub enum VacationResponseProperty {
 }
 
 /// Property selector for [`jmap_mail_types::SearchSnippet`] `/get`.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SearchSnippetProperty {
     EmailId,
     Subject,

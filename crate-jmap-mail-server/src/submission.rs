@@ -412,7 +412,15 @@ pub async fn handle_submission_set<B: MailBackend>(
                     }
                     created.insert(create_id.clone(), obj_json);
                 }
-                Err(err_json) => {
+                Err(err) => {
+                    let err_json = match err {
+                        CreateError::SetError(se) => {
+                            serde_json::to_value(se).expect("SetError is always serializable")
+                        }
+                        CreateError::Server(msg) => {
+                            json!({ "type": "serverFail", "description": msg })
+                        }
+                    };
                     not_created.insert(create_id.clone(), err_json);
                 }
             }
@@ -635,23 +643,38 @@ fn check_no_crlf(email: &str) -> bool {
     !email.contains('\r') && !email.contains('\n')
 }
 
+/// Typed error for [`process_create`] — avoids `Result<Value, Value>`.
+enum CreateError {
+    SetError(SetError),
+    Server(String),
+}
+
+impl From<SetError> for CreateError {
+    fn from(e: SetError) -> Self {
+        Self::SetError(e)
+    }
+}
+
 /// Process a single create entry in an `EmailSubmission/set` request.
 ///
-/// Returns the JSON for the `created` map on success, or the JSON error object
-/// (suitable for insertion into `notCreated`) on failure.
+/// Returns the JSON for the `created` map on success, or a typed
+/// [`CreateError`] (converted to JSON at the call site) on failure.
 async fn process_create<B: MailBackend>(
     backend: &B,
     account_id: &Id,
     create_id: &str,
     create_args: &Value,
-) -> Result<Value, Value> {
+) -> Result<Value, CreateError> {
     // --- identityId ---
     let identity_id_str = create_args
         .get("identityId")
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
-            json!({ "type": "invalidProperties", "properties": ["identityId"],
-                    "description": "identityId is required" })
+            CreateError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["identityId"])
+                    .with_description("identityId is required"),
+            )
         })?;
     let identity_id = Id::from(identity_id_str);
 
@@ -659,13 +682,14 @@ async fn process_create<B: MailBackend>(
     let (identities, _) = backend
         .get_objects::<Identity>(account_id, Some(std::slice::from_ref(&identity_id)), None)
         .await
-        .map_err(|e| json!({ "type": "serverFail", "description": e.to_string() }))?;
+        .map_err(|e| CreateError::Server(e.to_string()))?;
 
     if identities.is_empty() {
-        return Err(
-            json!({ "type": "invalidProperties", "properties": ["identityId"],
-                           "description": "identityId does not reference an existing Identity" }),
-        );
+        return Err(CreateError::SetError(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(["identityId"])
+                .with_description("identityId does not reference an existing Identity"),
+        ));
     }
     let identity = &identities[0];
 
@@ -674,8 +698,11 @@ async fn process_create<B: MailBackend>(
         .get("emailId")
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
-            json!({ "type": "invalidProperties", "properties": ["emailId"],
-                    "description": "emailId is required" })
+            CreateError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["emailId"])
+                    .with_description("emailId is required"),
+            )
         })?;
     let email_id = Id::from(email_id_str);
 
@@ -683,13 +710,14 @@ async fn process_create<B: MailBackend>(
     let (emails, _) = backend
         .get_objects::<Email>(account_id, Some(std::slice::from_ref(&email_id)), None)
         .await
-        .map_err(|e| json!({ "type": "serverFail", "description": e.to_string() }))?;
+        .map_err(|e| CreateError::Server(e.to_string()))?;
 
     if emails.is_empty() {
-        return Err(
-            json!({ "type": "invalidProperties", "properties": ["emailId"],
-                           "description": "emailId does not reference an existing Email" }),
-        );
+        return Err(CreateError::SetError(
+            SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(["emailId"])
+                .with_description("emailId does not reference an existing Email"),
+        ));
     }
     let email = &emails[0];
     let thread_id = email.thread_id.clone();
@@ -708,18 +736,20 @@ async fn process_create<B: MailBackend>(
             Envelope::new(mail_from, rcpt_to)
         }
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
-            json!({ "type": "invalidProperties", "properties": ["envelope"],
-                    "description": e.to_string() })
+            CreateError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["envelope"])
+                    .with_description(e.to_string()),
+            )
         })?,
     };
 
     // --- noRecipients check (RFC 8621 §7.5) ---
     // Applies whether the envelope was derived or supplied by the client.
     if envelope.rcpt_to.is_empty() {
-        return Err(
-            serde_json::to_value(SetError::new(SetErrorType::NoRecipients))
-                .expect("SetError is always serializable"),
-        );
+        return Err(CreateError::SetError(SetError::new(
+            SetErrorType::NoRecipients,
+        )));
     }
 
     // --- SMTP injection defense (RFC 8621 §7.5) ---
@@ -735,11 +765,11 @@ async fn process_create<B: MailBackend>(
             }
         }
         if !invalid.is_empty() {
-            return Err(json!({
-                "type": "invalidRecipients",
-                "invalidRecipients": invalid,
-                "description": "one or more addresses contain CR or LF",
-            }));
+            return Err(CreateError::SetError(
+                SetError::new(SetErrorType::InvalidRecipients)
+                    .with_invalid_recipients(invalid)
+                    .with_description("one or more addresses contain CR or LF"),
+            ));
         }
     }
 
@@ -747,8 +777,11 @@ async fn process_create<B: MailBackend>(
     let send_at: UTCDate = match create_args.get("sendAt") {
         None | Some(Value::Null) => UTCDate::from(now_utc_string().as_str()),
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
-            json!({ "type": "invalidProperties", "properties": ["sendAt"],
-                    "description": e.to_string() })
+            CreateError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["sendAt"])
+                    .with_description(e.to_string()),
+            )
         })?,
     };
 
@@ -782,12 +815,8 @@ async fn process_create<B: MailBackend>(
         .create_object::<EmailSubmission>(account_id, create_id, submission)
         .await
         .map_err(|e| match e {
-            BackendSetError::SetError(set_err) => {
-                serde_json::to_value(&set_err).expect("SetError is always serializable")
-            }
-            BackendSetError::Other(inner) => {
-                json!({ "type": "serverFail", "description": inner.to_string() })
-            }
+            BackendSetError::SetError(set_err) => CreateError::SetError(set_err),
+            BackendSetError::Other(inner) => CreateError::Server(inner.to_string()),
         })?;
 
     // SetError is always serializable; a failure here is a programming error.
