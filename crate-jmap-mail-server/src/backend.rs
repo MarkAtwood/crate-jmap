@@ -49,7 +49,7 @@ pub trait QueryObject: JmapObject {
 /// `notDestroyed` maps) (RFC 8620 §5.3).
 ///
 /// Construct with [`SetError::new`] and chain the builder methods as needed.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetError {
     /// The machine-readable error type.
@@ -152,13 +152,33 @@ pub enum SetErrorType {
 
 impl std::fmt::Display for SetErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Reuse the serde camelCase name (e.g. "overQuota", "notFound") as the
-        // display form — zero-maintenance and consistent with the wire format.
-        let s = serde_json::to_value(self)
-            .ok()
-            .and_then(|v| v.as_str().map(|s| s.to_owned()))
-            .unwrap_or_else(|| format!("{self:?}"));
-        f.write_str(&s)
+        // Wire-format camelCase names per RFC 8620 §5.3 and RFC 8621.
+        let s = match self {
+            Self::Forbidden => "forbidden",
+            Self::OverQuota => "overQuota",
+            Self::TooLarge => "tooLarge",
+            Self::RateLimit => "rateLimit",
+            Self::NotFound => "notFound",
+            Self::InvalidPatch => "invalidPatch",
+            Self::WillDestroy => "willDestroy",
+            Self::InvalidProperties => "invalidProperties",
+            Self::Singleton => "singleton",
+            Self::MailboxHasChild => "mailboxHasChild",
+            Self::MailboxHasEmail => "mailboxHasEmail",
+            Self::AlreadyExists => "alreadyExists",
+            Self::TooManyKeywords => "tooManyKeywords",
+            Self::TooManyMailboxes => "tooManyMailboxes",
+            Self::BlobNotFound => "blobNotFound",
+            Self::ForbiddenFrom => "forbiddenFrom",
+            Self::InvalidEmail => "invalidEmail",
+            Self::TooManyRecipients => "tooManyRecipients",
+            Self::NoRecipients => "noRecipients",
+            Self::InvalidRecipients => "invalidRecipients",
+            Self::ForbiddenMailFrom => "forbiddenMailFrom",
+            Self::ForbiddenToSend => "forbiddenToSend",
+            Self::CannotUnsend => "cannotUnsend",
+        };
+        f.write_str(s)
     }
 }
 
@@ -179,6 +199,19 @@ pub enum BackendChangesError<E> {
     Other(E),
 }
 
+impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapError {
+    fn from(e: BackendChangesError<E>) -> Self {
+        match e {
+            BackendChangesError::TooManyChanges { limit } => {
+                jmap_types::JmapError::too_many_changes_with_limit(limit)
+            }
+            BackendChangesError::Other(inner) => {
+                jmap_types::JmapError::server_fail(inner.to_string())
+            }
+        }
+    }
+}
+
 /// Error type returned by create/update/destroy backend methods.
 #[non_exhaustive]
 #[derive(Debug)]
@@ -195,6 +228,8 @@ pub enum BackendSetError<E> {
 // ---------------------------------------------------------------------------
 
 /// Result of a `/changes` call (RFC 8620 §5.2).
+#[derive(Debug)]
+#[non_exhaustive]
 pub struct ChangesResult {
     /// Ids of objects that were created since `sinceState`.
     pub created: Vec<jmap_types::Id>,
@@ -208,7 +243,28 @@ pub struct ChangesResult {
     pub new_state: jmap_types::State,
 }
 
+impl ChangesResult {
+    /// Construct a [`ChangesResult`].
+    pub fn new(
+        created: Vec<jmap_types::Id>,
+        updated: Vec<jmap_types::Id>,
+        destroyed: Vec<jmap_types::Id>,
+        has_more_changes: bool,
+        new_state: jmap_types::State,
+    ) -> Self {
+        Self {
+            created,
+            updated,
+            destroyed,
+            has_more_changes,
+            new_state,
+        }
+    }
+}
+
 /// Result of a `/query` call (RFC 8620 §5.5).
+#[derive(Debug)]
+#[non_exhaustive]
 pub struct QueryResult {
     /// The ordered list of matching object ids.
     pub ids: Vec<jmap_types::Id>,
@@ -222,7 +278,28 @@ pub struct QueryResult {
     pub can_calculate_changes: bool,
 }
 
+impl QueryResult {
+    /// Construct a [`QueryResult`].
+    pub fn new(
+        ids: Vec<jmap_types::Id>,
+        position: i64,
+        total: Option<u64>,
+        query_state: jmap_types::State,
+        can_calculate_changes: bool,
+    ) -> Self {
+        Self {
+            ids,
+            position,
+            total,
+            query_state,
+            can_calculate_changes,
+        }
+    }
+}
+
 /// One entry in the `added` list of a `/queryChanges` response (RFC 8620 §5.6).
+#[derive(Debug)]
+#[non_exhaustive]
 pub struct AddedItem {
     /// The id of the newly-added object.
     pub id: jmap_types::Id,
@@ -230,7 +307,16 @@ pub struct AddedItem {
     pub index: u64,
 }
 
+impl AddedItem {
+    /// Construct an [`AddedItem`].
+    pub fn new(id: jmap_types::Id, index: u64) -> Self {
+        Self { id, index }
+    }
+}
+
 /// Result of a `/queryChanges` call (RFC 8620 §5.6).
+#[derive(Debug)]
+#[non_exhaustive]
 pub struct QueryChangesResult {
     /// The query state token supplied by the client in `sinceQueryState`.
     pub old_query_state: jmap_types::State,
@@ -242,6 +328,25 @@ pub struct QueryChangesResult {
     pub removed: Vec<jmap_types::Id>,
     /// Ids added to the result set since `oldQueryState`, with their positions.
     pub added: Vec<AddedItem>,
+}
+
+impl QueryChangesResult {
+    /// Construct a [`QueryChangesResult`].
+    pub fn new(
+        old_query_state: jmap_types::State,
+        new_query_state: jmap_types::State,
+        total: Option<u64>,
+        removed: Vec<jmap_types::Id>,
+        added: Vec<AddedItem>,
+    ) -> Self {
+        Self {
+            old_query_state,
+            new_query_state,
+            total,
+            removed,
+            added,
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------

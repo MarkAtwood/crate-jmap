@@ -7,7 +7,7 @@ use jmap_mail_types::{Email, Keyword};
 use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendChangesError, BackendSetError, MailBackend};
+use crate::backend::{BackendSetError, MailBackend};
 use crate::helpers::extract_account_id;
 
 // ---------------------------------------------------------------------------
@@ -50,12 +50,16 @@ pub async fn handle_email_get<B: MailBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
+    let prop_set: Option<HashSet<&str>> = properties
+        .as_deref()
+        .map(|props| props.iter().map(|s| s.as_str()).collect());
     let list_json: Vec<Value> = list
         .iter()
         .map(|email| {
-            let val = serde_json::to_value(email).unwrap_or(Value::Null);
-            match &properties {
-                Some(props) => filter_properties(&val, props),
+            let val = serde_json::to_value(email)
+                .expect("type derives Serialize and is always serializable");
+            match &prop_set {
+                Some(set) => filter_properties(&val, set),
                 None => val,
             }
         })
@@ -108,12 +112,7 @@ pub async fn handle_email_changes<B: MailBackend>(
     let result = backend
         .get_changes::<Email>(&account_id, &since_state, max_changes)
         .await
-        .map_err(|e| match e {
-            BackendChangesError::TooManyChanges { limit } => {
-                JmapError::too_many_changes_with_limit(limit)
-            }
-            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
-        })?;
+        .map_err(JmapError::from)?;
 
     // RFC 8621 §5.2: updatedProperties — null for MemoryBackend (no partial-update tracking).
     let resp = json!({
@@ -184,7 +183,13 @@ pub async fn handle_email_query<B: MailBackend>(
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
         let all_collapsed = collapse_by_thread(backend, &account_id, all.ids).await;
         let thread_total = all_collapsed.len() as u64;
-        let start = position.max(0) as usize;
+        // RFC 8620 §5.5: negative position is relative to the end of the result set.
+        let start = if position >= 0 {
+            (position as usize).min(all_collapsed.len())
+        } else {
+            let neg = (-position) as usize;
+            all_collapsed.len().saturating_sub(neg)
+        };
         let page: Vec<Id> = all_collapsed
             .into_iter()
             .skip(start)
@@ -195,7 +200,7 @@ pub async fn handle_email_query<B: MailBackend>(
             Some(thread_total),
             all.query_state,
             all.can_calculate_changes,
-            position.max(0),
+            start as i64,
         )
     } else {
         let result = backend
@@ -280,12 +285,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
             up_to_id.as_ref(),
         )
         .await
-        .map_err(|e| match e {
-            BackendChangesError::TooManyChanges { limit } => {
-                JmapError::too_many_changes_with_limit(limit)
-            }
-            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
-        })?;
+        .map_err(JmapError::from)?;
 
     let added_json: Vec<Value> = result
         .added
@@ -437,7 +437,8 @@ pub async fn handle_email_set<B: MailBackend>(
                 Err(BackendSetError::SetError(set_err)) => {
                     not_created.insert(
                         create_id.clone(),
-                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                        serde_json::to_value(&set_err)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -480,7 +481,8 @@ pub async fn handle_email_set<B: MailBackend>(
                 Err(BackendSetError::SetError(set_err)) => {
                     not_updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                        serde_json::to_value(&set_err)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -512,7 +514,8 @@ pub async fn handle_email_set<B: MailBackend>(
                 Err(BackendSetError::SetError(set_err)) => {
                     not_destroyed.insert(
                         id_str.to_string(),
-                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                        serde_json::to_value(&set_err)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -553,11 +556,13 @@ pub async fn handle_email_set<B: MailBackend>(
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Return only the keys in `properties` from the JSON object `obj`.
-fn filter_properties(obj: &Value, properties: &[String]) -> Value {
+/// Return only the keys in `prop_set` from the JSON object `obj`.
+///
+/// The caller is responsible for building the `HashSet` once before iterating
+/// over multiple objects, so the set is not rebuilt on every call.
+fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value {
     match obj {
         Value::Object(map) => {
-            let prop_set: HashSet<&str> = properties.iter().map(|s| s.as_str()).collect();
             let filtered: serde_json::Map<String, Value> = map
                 .iter()
                 .filter(|(k, _)| prop_set.contains(k.as_str()))
@@ -652,8 +657,9 @@ async fn build_email_from_create<B: MailBackend>(
         .map(Id::from)
         .unwrap_or_else(|| Id::from("placeholder-blob"));
 
+    // Use a placeholder id; create_object assigns the real one.
     let mut email = Email::new(
-        next_id(),
+        Id::from("placeholder"),
         blob_id,
         thread_id,
         mailbox_ids,
@@ -718,15 +724,17 @@ fn next_id() -> Id {
 /// Fetches all emails from the backend to read their thread ids. Emails that
 /// cannot be fetched are kept as-is (safe fallback).
 async fn collapse_by_thread<B: MailBackend>(backend: &B, account_id: &Id, ids: Vec<Id>) -> Vec<Id> {
-    // Build a map of email_id → thread_id from the backend.
-    let thread_map: HashMap<Id, Id> =
-        match backend.get_objects::<Email>(account_id, None, None).await {
-            Ok((emails, _)) => emails
-                .into_iter()
-                .map(|e| (e.id.clone(), e.thread_id.clone()))
-                .collect(),
-            Err(_) => HashMap::new(),
-        };
+    // Fetch only the query-result emails (not all emails) to get their thread ids.
+    let thread_map: HashMap<Id, Id> = match backend
+        .get_objects::<Email>(account_id, Some(&ids), None)
+        .await
+    {
+        Ok((emails, _)) => emails
+            .into_iter()
+            .map(|e| (e.id.clone(), e.thread_id.clone()))
+            .collect(),
+        Err(_) => HashMap::new(),
+    };
 
     let mut seen_threads: HashSet<Id> = HashSet::new();
     let mut result = Vec::with_capacity(ids.len());
@@ -821,7 +829,8 @@ pub async fn handle_email_import<B: MailBackend>(
             .await
         {
             Ok((server_id, email)) => {
-                let mut obj = serde_json::to_value(&email).unwrap_or(Value::Null);
+                let mut obj = serde_json::to_value(&email)
+                    .expect("type derives Serialize and is always serializable");
                 if let Value::Object(ref mut map) = obj {
                     map.insert(
                         "id".to_owned(),
@@ -833,11 +842,15 @@ pub async fn handle_email_import<B: MailBackend>(
             Err(BackendSetError::SetError(set_err)) => {
                 not_created.insert(
                     import_id.clone(),
-                    serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                    serde_json::to_value(&set_err)
+                        .expect("type derives Serialize and is always serializable"),
                 );
             }
             Err(BackendSetError::Other(e)) => {
-                return Err(JmapError::server_fail(e.to_string()));
+                not_created.insert(
+                    import_id.clone(),
+                    json!({ "type": "serverFail", "description": e.to_string() }),
+                );
             }
         }
     }
@@ -888,6 +901,10 @@ pub async fn handle_email_parse<B: MailBackend>(
         ),
     };
 
+    let prop_set: Option<HashSet<&str>> = properties
+        .as_deref()
+        .map(|props| props.iter().map(|s| s.as_str()).collect());
+
     let mut parsed = serde_json::Map::new();
     let mut not_parsable: Vec<Value> = Vec::new();
     let mut not_found: Vec<Value> = Vec::new();
@@ -895,9 +912,10 @@ pub async fn handle_email_parse<B: MailBackend>(
     for blob_id in &blob_ids {
         match backend.parse_email(&account_id, blob_id).await {
             Ok(email) => {
-                let val = serde_json::to_value(&email).unwrap_or(Value::Null);
-                let val = match &properties {
-                    Some(props) => filter_properties(&val, props),
+                let val = serde_json::to_value(&email)
+                    .expect("type derives Serialize and is always serializable");
+                let val = match &prop_set {
+                    Some(set) => filter_properties(&val, set),
                     None => val,
                 };
                 parsed.insert(blob_id.as_ref().to_string(), val);
@@ -1009,7 +1027,8 @@ pub async fn handle_email_copy<B: MailBackend>(
             .await
         {
             Ok((new_id, new_email)) => {
-                let mut obj = serde_json::to_value(&new_email).unwrap_or(Value::Null);
+                let mut obj = serde_json::to_value(&new_email)
+                    .expect("type derives Serialize and is always serializable");
                 if let Value::Object(ref mut map) = obj {
                     map.insert("id".to_owned(), Value::String(new_id.as_ref().to_string()));
                 }
@@ -1019,11 +1038,15 @@ pub async fn handle_email_copy<B: MailBackend>(
             Err(BackendSetError::SetError(set_err)) => {
                 not_created.insert(
                     copy_id.clone(),
-                    serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                    serde_json::to_value(&set_err)
+                        .expect("type derives Serialize and is always serializable"),
                 );
             }
             Err(BackendSetError::Other(e)) => {
-                return Err(JmapError::server_fail(e.to_string()));
+                not_created.insert(
+                    copy_id.clone(),
+                    json!({ "type": "serverFail", "description": e.to_string() }),
+                );
             }
         }
     }

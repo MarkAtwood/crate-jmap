@@ -3,7 +3,7 @@
 use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendChangesError, MailBackend};
+use crate::backend::MailBackend;
 use crate::helpers::extract_account_id;
 
 /// Handle a `Thread/get` method call (RFC 8621 §3.1).
@@ -38,7 +38,9 @@ pub async fn handle_thread_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|t| serde_json::to_value(t).unwrap_or(Value::Null))
+        .map(|t| {
+            serde_json::to_value(t).expect("type derives Serialize and is always serializable")
+        })
         .collect();
 
     let not_found_json: Option<Vec<Value>> = if not_found.is_empty() {
@@ -85,18 +87,14 @@ pub async fn handle_thread_changes<B: MailBackend>(
     let result = backend
         .get_changes::<jmap_mail_types::Thread>(&account_id, &since_state, max_changes)
         .await
-        .map_err(|e| match e {
-            BackendChangesError::TooManyChanges { limit } => {
-                JmapError::too_many_changes_with_limit(limit)
-            }
-            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
-        })?;
+        .map_err(JmapError::from)?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),
         "oldState": since_state.as_ref(),
         "newState": result.new_state.as_ref(),
         "hasMoreChanges": result.has_more_changes,
+        "updatedProperties": Value::Null,
         "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),

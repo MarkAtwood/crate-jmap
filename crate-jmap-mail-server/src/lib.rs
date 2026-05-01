@@ -77,7 +77,7 @@ where
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
-                call_fn: Arc::new(move |$b: Arc<B>, $ci: String, $a: serde_json::Value| {
+                call_fn: Box::new(move |$b: Arc<B>, $ci: String, $a: serde_json::Value| {
                     Box::pin(async move { $body }) as HandlerFuture
                 }),
             });
@@ -195,7 +195,7 @@ type CallFn<B> = dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture + Se
 /// Generic wrapper that implements [`JmapHandler`] for any closure.
 struct ClosureHandler<B: MailBackend + 'static> {
     backend: Arc<B>,
-    call_fn: Arc<CallFn<B>>,
+    call_fn: Box<CallFn<B>>,
 }
 
 impl<B: MailBackend + 'static, C: Clone + Send + 'static> JmapHandler<C> for ClosureHandler<B> {

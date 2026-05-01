@@ -4,7 +4,7 @@ use jmap_mail_types::{Email, Mailbox};
 use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendChangesError, BackendSetError, MailBackend, SetError, SetErrorType};
+use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::extract_account_id;
 
 // ---------------------------------------------------------------------------
@@ -39,7 +39,9 @@ pub async fn handle_mailbox_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|m| serde_json::to_value(m).unwrap_or(Value::Null))
+        .map(|m| {
+            serde_json::to_value(m).expect("type derives Serialize and is always serializable")
+        })
         .collect();
 
     let not_found_json: Option<Vec<Value>> = if not_found.is_empty() {
@@ -91,12 +93,7 @@ pub async fn handle_mailbox_changes<B: MailBackend>(
     let result = backend
         .get_changes::<Mailbox>(&account_id, &since_state, max_changes)
         .await
-        .map_err(|e| match e {
-            BackendChangesError::TooManyChanges { limit } => {
-                JmapError::too_many_changes_with_limit(limit)
-            }
-            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
-        })?;
+        .map_err(JmapError::from)?;
 
     Ok((
         json!({
@@ -129,6 +126,15 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 
     let limit: Option<u64> = args.get("limit").and_then(|v| v.as_u64());
     let position: i64 = args.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+
+    // Reject any client-supplied sort request: Mailbox/query is implemented
+    // in-process and cannot honour RFC 8621 §2.3 comparators. RFC 8620 §5.5
+    // requires an unsupportedSort error rather than silently ignoring sort.
+    if let Some(sort) = args.get("sort") {
+        if !sort.is_null() && sort.as_array().map(|a| !a.is_empty()).unwrap_or(true) {
+            return Err(JmapError::unsupported_sort());
+        }
+    }
 
     // Fetch all mailboxes and filter in-process.
     let (all_mailboxes, _) = backend
@@ -269,12 +275,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
             up_to_id.as_ref(),
         )
         .await
-        .map_err(|e| match e {
-            BackendChangesError::TooManyChanges { limit } => {
-                JmapError::too_many_changes_with_limit(limit)
-            }
-            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
-        })?;
+        .map_err(JmapError::from)?;
 
     let removed: Vec<&str> = result.removed.iter().map(|id| id.as_ref()).collect();
     let added: Vec<Value> = result
@@ -357,7 +358,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         SetError::new(SetErrorType::InvalidProperties)
                             .with_properties(vec!["name".to_owned()]),
                     )
-                    .unwrap_or(Value::Null),
+                    .expect("SetError derives Serialize and is always serializable"),
                 );
                 continue;
             }
@@ -379,7 +380,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                 SetError::new(SetErrorType::InvalidProperties)
                                     .with_properties(vec!["role".to_owned()]),
                             )
-                            .unwrap_or(Value::Null),
+                            .expect("SetError derives Serialize and is always serializable"),
                         );
                         continue;
                     }
@@ -397,13 +398,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .await
                     {
                         Ok((_id, obj)) => {
-                            let obj_val = serde_json::to_value(&obj).unwrap_or(Value::Null);
+                            let obj_val = serde_json::to_value(&obj)
+                                .expect("type derives Serialize and is always serializable");
                             created.insert(create_id.clone(), obj_val);
                         }
                         Err(BackendSetError::SetError(se)) => {
                             not_created.insert(
                                 create_id.clone(),
-                                serde_json::to_value(se).unwrap_or(Value::Null),
+                                serde_json::to_value(se)
+                                    .expect("type derives Serialize and is always serializable"),
                             );
                         }
                         Err(BackendSetError::Other(e)) => {
@@ -450,7 +453,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(bad_props),
                         )
-                        .unwrap_or(Value::Null),
+                        .expect("SetError derives Serialize and is always serializable"),
                     );
                     continue;
                 }
@@ -470,7 +473,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                     SetError::new(SetErrorType::InvalidProperties)
                                         .with_properties(vec!["role".to_owned()]),
                                 )
-                                .unwrap_or(Value::Null),
+                                .expect("SetError derives Serialize and is always serializable"),
                             );
                             continue;
                         }
@@ -488,7 +491,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 Err(BackendSetError::SetError(se)) => {
                     not_updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(se).unwrap_or(Value::Null),
+                        serde_json::to_value(se)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -506,6 +510,12 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     let mut not_destroyed = serde_json::Map::new();
 
     if let Some(Value::Array(destroy_ids)) = args.get("destroy") {
+        // Fetch all emails once before the loop to avoid O(N) backend scans.
+        let (all_emails, _) = backend
+            .get_objects::<Email>(&account_id, None, None)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
         for id_val in destroy_ids {
             let id_str = match id_val.as_str() {
                 Some(s) => s,
@@ -521,16 +531,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 not_destroyed.insert(
                     id_str.to_owned(),
                     serde_json::to_value(SetError::new(SetErrorType::MailboxHasChild))
-                        .unwrap_or(Value::Null),
+                        .expect("SetError derives Serialize and is always serializable"),
                 );
                 continue;
             }
-
-            // Fetch emails in this mailbox.
-            let (all_emails, _) = backend
-                .get_objects::<Email>(&account_id, None, None)
-                .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
             let emails_in_mailbox: Vec<&Email> = all_emails
                 .iter()
@@ -542,7 +546,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     not_destroyed.insert(
                         id_str.to_owned(),
                         serde_json::to_value(SetError::new(SetErrorType::MailboxHasEmail))
-                            .unwrap_or(Value::Null),
+                            .expect("SetError derives Serialize and is always serializable"),
                     );
                     continue;
                 }
@@ -588,7 +592,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 Err(BackendSetError::SetError(se)) => {
                     not_destroyed.insert(
                         id_str.to_owned(),
-                        serde_json::to_value(se).unwrap_or(Value::Null),
+                        serde_json::to_value(se)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -666,7 +671,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(vec!["name".to_owned()]),
             )
-            .unwrap_or(Value::Null));
+            .expect("SetError derives Serialize and is always serializable"));
         }
     };
 
@@ -708,7 +713,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
                         SetError::new(SetErrorType::InvalidProperties)
                             .with_properties(vec!["role".to_owned()]),
                     )
-                    .unwrap_or(Value::Null)
+                    .expect("SetError derives Serialize and is always serializable")
                 })?;
             mailbox.role = Some(role);
         }

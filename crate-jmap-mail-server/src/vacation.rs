@@ -73,7 +73,9 @@ pub async fn handle_vacation_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|v| serde_json::to_value(v).unwrap_or(Value::Null))
+        .map(|v| {
+            serde_json::to_value(v).expect("type derives Serialize and is always serializable")
+        })
         .collect();
 
     Ok((

@@ -51,7 +51,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
                 .map_err(|_| JmapError::invalid_arguments("invalid filter"))?;
             match filter {
                 jmap_mail_types::query::Filter::Condition(c) => Some(c),
-                jmap_mail_types::query::Filter::Operator(_) | _ => None,
+                _ => None,
             }
         }
     };
@@ -72,7 +72,9 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
 
     let list_json: Vec<Value> = snippets
         .iter()
-        .map(|s| serde_json::to_value(s).unwrap_or(Value::Null))
+        .map(|s| {
+            serde_json::to_value(s).expect("type derives Serialize and is always serializable")
+        })
         .collect();
 
     Ok((

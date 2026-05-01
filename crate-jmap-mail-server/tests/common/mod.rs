@@ -200,20 +200,21 @@ impl MailBackend for MemoryBackend {
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let mut val = serde_json::to_value(&obj)
             .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize: {e}"))))?;
-        // Use the object's existing id if present (e.g. singleton types such as
-        // VacationResponse whose id is always "singleton"); otherwise assign a UUID.
-        let id = if let Some(existing) = val.get("id").and_then(|v| v.as_str()) {
-            Id::from(existing)
-        } else {
-            let uuid_id = Id::from(uuid::Uuid::new_v4().to_string());
-            // Inject the server-assigned id into the stored value.
-            if let serde_json::Value::Object(ref mut map) = val {
-                map.insert(
-                    "id".to_owned(),
-                    serde_json::Value::String(uuid_id.to_string()),
-                );
+        // Use the object's existing id if it is a meaningful server-assigned
+        // value (e.g. VacationResponse always uses "singleton"). Treat absent
+        // or "placeholder" ids as a signal to assign a fresh UUID.
+        let id = match val.get("id").and_then(|v| v.as_str()) {
+            Some(s) if s != "placeholder" => Id::from(s),
+            _ => {
+                let uuid_id = Id::from(uuid::Uuid::new_v4().to_string());
+                if let serde_json::Value::Object(ref mut map) = val {
+                    map.insert(
+                        "id".to_owned(),
+                        serde_json::Value::String(uuid_id.to_string()),
+                    );
+                }
+                uuid_id
             }
-            uuid_id
         };
         let created_obj: O = serde_json::from_value(val.clone()).map_err(|e| {
             BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
@@ -405,13 +406,9 @@ impl MailBackend for MemoryBackend {
             }
         }
 
-        Ok(ChangesResult {
-            created,
-            updated,
-            destroyed,
-            has_more_changes: has_more,
-            new_state,
-        })
+        Ok(ChangesResult::new(
+            created, updated, destroyed, has_more, new_state,
+        ))
     }
 
     // -----------------------------------------------------------------------
@@ -452,13 +449,13 @@ impl MailBackend for MemoryBackend {
             .cloned()
             .collect();
 
-        Ok(QueryResult {
+        Ok(QueryResult::new(
             ids,
-            position: start as i64,
-            total: Some(total as u64),
-            query_state: State::from(state_n.to_string()),
-            can_calculate_changes: true,
-        })
+            start as i64,
+            Some(total as u64),
+            State::from(state_n.to_string()),
+            true,
+        ))
     }
 
     // -----------------------------------------------------------------------
@@ -494,22 +491,19 @@ impl MailBackend for MemoryBackend {
             all_ids
                 .into_iter()
                 .enumerate()
-                .map(|(i, id)| AddedItem {
-                    id,
-                    index: i as u64,
-                })
+                .map(|(i, id)| AddedItem::new(id, i as u64))
                 .collect()
         } else {
             vec![]
         };
 
-        Ok(QueryChangesResult {
-            old_query_state: since_query_state.clone(),
+        Ok(QueryChangesResult::new(
+            since_query_state.clone(),
             new_query_state,
-            total: None,
-            removed: vec![],
+            None,
+            vec![],
             added,
-        })
+        ))
     }
 
     // -----------------------------------------------------------------------

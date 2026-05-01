@@ -3,7 +3,7 @@
 use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendChangesError, BackendSetError, MailBackend, SetErrorType};
+use crate::backend::{BackendSetError, MailBackend, SetErrorType};
 use crate::helpers::extract_account_id;
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
@@ -37,7 +37,9 @@ pub async fn handle_identity_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|i| serde_json::to_value(i).unwrap_or(Value::Null))
+        .map(|i| {
+            serde_json::to_value(i).expect("type derives Serialize and is always serializable")
+        })
         .collect();
 
     let not_found_json: Option<Vec<Value>> = if not_found.is_empty() {
@@ -83,18 +85,14 @@ pub async fn handle_identity_changes<B: MailBackend>(
     let result = backend
         .get_changes::<jmap_mail_types::Identity>(&account_id, &since_state, max_changes)
         .await
-        .map_err(|e| match e {
-            BackendChangesError::TooManyChanges { limit } => {
-                JmapError::too_many_changes_with_limit(limit)
-            }
-            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
-        })?;
+        .map_err(JmapError::from)?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),
         "oldState": since_state.as_ref(),
         "newState": result.new_state.as_ref(),
         "hasMoreChanges": result.has_more_changes,
+        "updatedProperties": Value::Null,
         "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
@@ -193,7 +191,8 @@ pub async fn handle_identity_set<B: MailBackend>(
                     mutated = true;
                     created.insert(
                         create_id.clone(),
-                        serde_json::to_value(&created_obj).unwrap_or(Value::Null),
+                        serde_json::to_value(&created_obj)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                     // Also inject the id under the create_id key for result reference resolution.
                     if let Some(obj) = created.get_mut(create_id) {
@@ -208,7 +207,8 @@ pub async fn handle_identity_set<B: MailBackend>(
                 Err(BackendSetError::SetError(set_err)) => {
                     not_created.insert(
                         create_id.clone(),
-                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                        serde_json::to_value(&set_err)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -251,7 +251,8 @@ pub async fn handle_identity_set<B: MailBackend>(
                 Err(BackendSetError::SetError(set_err)) => {
                     not_updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                        serde_json::to_value(&set_err)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {

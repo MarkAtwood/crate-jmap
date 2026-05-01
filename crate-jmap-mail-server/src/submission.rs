@@ -16,7 +16,7 @@ use jmap_mail_types::{
 use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendChangesError, BackendSetError, MailBackend, SetError, SetErrorType};
+use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{extract_account_id, now_utc_string};
 
 // ---------------------------------------------------------------------------
@@ -53,7 +53,9 @@ pub async fn handle_submission_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|s| serde_json::to_value(s).unwrap_or(Value::Null))
+        .map(|s| {
+            serde_json::to_value(s).expect("type derives Serialize and is always serializable")
+        })
         .collect();
 
     let not_found_json: Option<Vec<Value>> = if not_found.is_empty() {
@@ -103,18 +105,14 @@ pub async fn handle_submission_changes<B: MailBackend>(
     let result = backend
         .get_changes::<EmailSubmission>(&account_id, &since_state, max_changes)
         .await
-        .map_err(|e| match e {
-            BackendChangesError::TooManyChanges { limit } => {
-                JmapError::too_many_changes_with_limit(limit)
-            }
-            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
-        })?;
+        .map_err(JmapError::from)?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),
         "oldState": since_state.as_ref(),
         "newState": result.new_state.as_ref(),
         "hasMoreChanges": result.has_more_changes,
+        "updatedProperties": Value::Null,
         "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
@@ -198,12 +196,7 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
             up_to_id.as_ref(),
         )
         .await
-        .map_err(|e| match e {
-            BackendChangesError::TooManyChanges { limit } => {
-                JmapError::too_many_changes_with_limit(limit)
-            }
-            BackendChangesError::Other(inner) => JmapError::server_fail(inner.to_string()),
-        })?;
+        .map_err(JmapError::from)?;
 
     let added: Vec<Value> = result
         .added
@@ -260,11 +253,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Ok(obj_json) => {
                     created.insert(create_id.clone(), obj_json);
                 }
-                Err(set_err) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
-                    );
+                Err(err_json) => {
+                    not_created.insert(create_id.clone(), err_json);
                 }
             }
         }
@@ -284,7 +274,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Err(set_err) => {
                     not_updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                        serde_json::to_value(&set_err)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
             }
@@ -312,16 +303,14 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Err(BackendSetError::SetError(set_err)) => {
                     not_destroyed.insert(
                         id_str.to_owned(),
-                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                        serde_json::to_value(&set_err)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
                         id_str.to_owned(),
-                        serde_json::to_value(
-                            SetError::new(SetErrorType::NotFound).with_description(e.to_string()),
-                        )
-                        .unwrap_or(Value::Null),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
             }
@@ -372,16 +361,14 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Err(BackendSetError::SetError(set_err)) => {
                     email_not_updated.insert(
                         email_id_str.clone(),
-                        serde_json::to_value(&set_err).unwrap_or(Value::Null),
+                        serde_json::to_value(&set_err)
+                            .expect("type derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
                     email_not_updated.insert(
                         email_id_str.clone(),
-                        serde_json::to_value(
-                            SetError::new(SetErrorType::NotFound).with_description(e.to_string()),
-                        )
-                        .unwrap_or(Value::Null),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
             }
@@ -427,21 +414,21 @@ fn check_no_crlf(email: &str) -> Result<(), &str> {
 
 /// Process a single create entry in an `EmailSubmission/set` request.
 ///
-/// Returns the JSON for the `created` map on success, or a [`SetError`] on failure.
+/// Returns the JSON for the `created` map on success, or the JSON error object
+/// (suitable for insertion into `notCreated`) on failure.
 async fn process_create<B: MailBackend>(
     backend: &B,
     account_id: &Id,
     create_id: &str,
     create_args: &Value,
-) -> Result<Value, SetError> {
+) -> Result<Value, Value> {
     // --- identityId ---
     let identity_id_str = create_args
         .get("identityId")
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
-            SetError::new(SetErrorType::InvalidProperties)
-                .with_properties(vec!["identityId".to_owned()])
-                .with_description("identityId is required")
+            json!({ "type": "invalidProperties", "properties": ["identityId"],
+                    "description": "identityId is required" })
         })?;
     let identity_id = Id::from(identity_id_str);
 
@@ -449,16 +436,13 @@ async fn process_create<B: MailBackend>(
     let (identities, _) = backend
         .get_objects::<Identity>(account_id, Some(std::slice::from_ref(&identity_id)), None)
         .await
-        .map_err(|e| {
-            SetError::new(SetErrorType::InvalidProperties)
-                .with_description(e.to_string())
-                .with_properties(vec!["identityId".to_owned()])
-        })?;
+        .map_err(|e| json!({ "type": "serverFail", "description": e.to_string() }))?;
 
     if identities.is_empty() {
-        return Err(SetError::new(SetErrorType::InvalidProperties)
-            .with_properties(vec!["identityId".to_owned()])
-            .with_description("identityId does not reference an existing Identity"));
+        return Err(
+            json!({ "type": "invalidProperties", "properties": ["identityId"],
+                           "description": "identityId does not reference an existing Identity" }),
+        );
     }
     let identity = &identities[0];
 
@@ -467,9 +451,8 @@ async fn process_create<B: MailBackend>(
         .get("emailId")
         .and_then(|v| v.as_str())
         .ok_or_else(|| {
-            SetError::new(SetErrorType::InvalidProperties)
-                .with_properties(vec!["emailId".to_owned()])
-                .with_description("emailId is required")
+            json!({ "type": "invalidProperties", "properties": ["emailId"],
+                    "description": "emailId is required" })
         })?;
     let email_id = Id::from(email_id_str);
 
@@ -477,16 +460,13 @@ async fn process_create<B: MailBackend>(
     let (emails, _) = backend
         .get_objects::<Email>(account_id, Some(std::slice::from_ref(&email_id)), None)
         .await
-        .map_err(|e| {
-            SetError::new(SetErrorType::InvalidProperties)
-                .with_description(e.to_string())
-                .with_properties(vec!["emailId".to_owned()])
-        })?;
+        .map_err(|e| json!({ "type": "serverFail", "description": e.to_string() }))?;
 
     if emails.is_empty() {
-        return Err(SetError::new(SetErrorType::InvalidProperties)
-            .with_properties(vec!["emailId".to_owned()])
-            .with_description("emailId does not reference an existing Email"));
+        return Err(
+            json!({ "type": "invalidProperties", "properties": ["emailId"],
+                           "description": "emailId does not reference an existing Email" }),
+        );
     }
     let email = &emails[0];
     let thread_id = email.thread_id.clone();
@@ -505,21 +485,21 @@ async fn process_create<B: MailBackend>(
             Envelope::new(mail_from, rcpt_to)
         }
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
-            SetError::new(SetErrorType::InvalidProperties)
-                .with_properties(vec!["envelope".to_owned()])
-                .with_description(e.to_string())
+            json!({ "type": "invalidProperties", "properties": ["envelope"],
+                    "description": e.to_string() })
         })?,
     };
 
     // --- SMTP injection defense (RFC 8621 §7.5) ---
     if check_no_crlf(&envelope.mail_from.email).is_err() {
-        return Err(SetError::new(SetErrorType::InvalidRecipients)
-            .with_description("mailFrom.email contains CR or LF"));
+        return Err(json!({ "type": "invalidRecipients",
+                           "description": "mailFrom.email contains CR or LF" }));
     }
     for rcpt in &envelope.rcpt_to {
         if check_no_crlf(&rcpt.email).is_err() {
-            return Err(SetError::new(SetErrorType::InvalidRecipients)
-                .with_description(format!("rcptTo address {:?} contains CR or LF", rcpt.email)));
+            return Err(json!({ "type": "invalidRecipients",
+                               "description": format!("rcptTo address {:?} contains CR or LF",
+                                                      rcpt.email) }));
         }
     }
 
@@ -527,9 +507,8 @@ async fn process_create<B: MailBackend>(
     let send_at: UTCDate = match create_args.get("sendAt") {
         None | Some(Value::Null) => UTCDate::from(now_utc_string().as_str()),
         Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
-            SetError::new(SetErrorType::InvalidProperties)
-                .with_properties(vec!["sendAt".to_owned()])
-                .with_description(e.to_string())
+            json!({ "type": "invalidProperties", "properties": ["sendAt"],
+                    "description": e.to_string() })
         })?,
     };
 
@@ -563,15 +542,17 @@ async fn process_create<B: MailBackend>(
         .create_object::<EmailSubmission>(account_id, create_id, submission)
         .await
         .map_err(|e| match e {
-            BackendSetError::SetError(set_err) => set_err,
+            BackendSetError::SetError(set_err) => {
+                serde_json::to_value(&set_err).expect("SetError is always serializable")
+            }
             BackendSetError::Other(inner) => {
-                SetError::new(SetErrorType::InvalidProperties).with_description(inner.to_string())
+                json!({ "type": "serverFail", "description": inner.to_string() })
             }
         })?;
 
-    let mut obj_json = serde_json::to_value(&created_obj).map_err(|e| {
-        SetError::new(SetErrorType::InvalidProperties).with_description(e.to_string())
-    })?;
+    // SetError is always serializable; a failure here is a programming error.
+    let mut obj_json =
+        serde_json::to_value(&created_obj).expect("EmailSubmission is always serializable");
 
     // Ensure the assigned id is in the response.
     if let Value::Object(ref mut map) = obj_json {
