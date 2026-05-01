@@ -31,11 +31,14 @@ pub async fn handle_submission_get<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
-    let ids: Option<Vec<Id>> = match args.get("ids") {
+    let ids: Option<Vec<Id>> = match args.remove("ids") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
     };

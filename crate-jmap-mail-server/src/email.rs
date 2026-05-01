@@ -7,7 +7,7 @@ use jmap_mail_types::{Email, Keyword};
 use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, MailBackend};
+use crate::backend::{BackendSetError, EmailProperty, MailBackend};
 use crate::helpers::extract_account_id;
 
 // ---------------------------------------------------------------------------
@@ -22,19 +22,22 @@ pub async fn handle_email_get<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
-    let ids: Option<Vec<Id>> = match args.get("ids") {
+    let ids: Option<Vec<Id>> = match args.remove("ids") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
     };
 
-    let properties: Option<Vec<String>> = match args.get("properties") {
+    let properties: Option<Vec<String>> = match args.remove("properties") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
         ),
     };
@@ -143,32 +146,38 @@ pub async fn handle_email_query<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
-    let filter: Option<jmap_mail_types::EmailFilter> = match args.get("filter") {
+    let filter: Option<jmap_mail_types::EmailFilter> = match args.remove("filter") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
         ),
     };
 
-    let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.get("sort") {
+    let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.remove("sort") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
         ),
     };
 
-    let limit: Option<u64> = match args.get("limit") {
+    let limit: Option<u64> = match args.remove("limit") {
         None | Some(Value::Null) => Some(256),
         Some(v) => v.as_u64(),
     };
 
-    let position: i64 = args.get("position").and_then(|v| v.as_i64()).unwrap_or(0);
+    let position: i64 = args
+        .remove("position")
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0);
 
     let collapse_threads: bool = args
-        .get("collapseThreads")
+        .remove("collapseThreads")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
@@ -246,38 +255,42 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
-
-    let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
-        Some(s) => State::from(s),
-        None => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
     };
 
-    let filter: Option<jmap_mail_types::EmailFilter> = match args.get("filter") {
+    let since_query_state: State = match args.remove("sinceQueryState") {
+        Some(Value::String(s)) => State::from(s.as_str()),
+        _ => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
+    };
+
+    let filter: Option<jmap_mail_types::EmailFilter> = match args.remove("filter") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
         ),
     };
 
-    let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.get("sort") {
+    let sort: Option<Vec<jmap_mail_types::EmailComparator>> = match args.remove("sort") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|e| JmapError::invalid_arguments(format!("sort: {e}")))?,
         ),
     };
 
-    let max_changes: Option<u64> = match args.get("maxChanges") {
+    let max_changes: Option<u64> = match args.remove("maxChanges") {
         None | Some(Value::Null) => None,
         Some(v) => Some(v.as_u64().ok_or_else(|| {
             JmapError::invalid_arguments("maxChanges must be a positive integer")
         })?),
     };
 
-    let up_to_id: Option<Id> = match args.get("upToId") {
+    let up_to_id: Option<Id> = match args.remove("upToId") {
         None | Some(Value::Null) => None,
-        Some(v) => v.as_str().map(Id::from),
+        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(_) => None,
     };
 
     let sort_slice = sort.as_deref();
@@ -750,8 +763,13 @@ async fn collapse_by_thread<B: MailBackend>(
     ids: Vec<Id>,
 ) -> Result<Vec<Id>, B::Error> {
     // Fetch only the query-result emails (not all emails) to get their thread ids.
+    // Pass a properties hint so backends with column stores can skip body data.
     let (emails, _) = backend
-        .get_objects::<Email>(account_id, Some(&ids), None)
+        .get_objects::<Email>(
+            account_id,
+            Some(&ids),
+            Some(&[EmailProperty::Id, EmailProperty::ThreadId]),
+        )
         .await?;
     let thread_map: HashMap<Id, Id> = emails
         .into_iter()
@@ -922,17 +940,20 @@ pub async fn handle_email_parse<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
-    let blob_ids: Vec<Id> = match args.get("blobIds") {
-        Some(v) => serde_json::from_value(v.clone())
+    let blob_ids: Vec<Id> = match args.remove("blobIds") {
+        Some(v) => serde_json::from_value(v)
             .map_err(|_| JmapError::invalid_arguments("blobIds must be an Id array"))?,
         None => return Err(JmapError::invalid_arguments("blobIds is required")),
     };
 
-    let properties: Option<Vec<String>> = match args.get("properties") {
+    let properties: Option<Vec<String>> = match args.remove("properties") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
         ),
     };

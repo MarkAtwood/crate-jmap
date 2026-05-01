@@ -1,6 +1,6 @@
 //! Mailbox/* method handlers (RFC 8621 §2).
 
-use jmap_mail_types::{Email, Mailbox};
+use jmap_mail_types::{Email, EmailFilter, EmailFilterCondition, Mailbox};
 use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
@@ -17,11 +17,14 @@ pub async fn handle_mailbox_get<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
-    let ids: Option<Vec<Id>> = match args.get("ids") {
+    let ids: Option<Vec<Id>> = match args.remove("ids") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
     };
@@ -530,12 +533,6 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     let mut not_destroyed = serde_json::Map::new();
 
     if let Some(Value::Array(destroy_ids)) = args.get("destroy") {
-        // Fetch all emails once before the loop to avoid O(N) backend scans.
-        let (all_emails, _) = backend
-            .get_objects::<Email>(&account_id, None, None)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
         // Re-fetch mailboxes after the create loop so that any newly-created
         // child mailboxes are visible to the parent-check below. Using the
         // pre-create snapshot would allow destroying a parent that just got a
@@ -565,8 +562,32 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 continue;
             }
 
-            let emails_in_mailbox: Vec<&Email> = all_emails
-                .iter()
+            // Fetch emails in this mailbox. The inMailbox filter allows backends
+            // with indexes to return only the relevant subset; the in-handler
+            // filter below is a correctness safety net for backends that do not
+            // support the filter.
+            let mut email_filter = EmailFilterCondition::default();
+            email_filter.in_mailbox = Some(id.clone());
+            let query_result = backend
+                .query_objects::<Email>(
+                    &account_id,
+                    Some(&EmailFilter::Condition(email_filter)),
+                    None,
+                    None,
+                    0,
+                )
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            let (fetched, _) = if query_result.ids.is_empty() {
+                (vec![], vec![])
+            } else {
+                backend
+                    .get_objects::<Email>(&account_id, Some(&query_result.ids), None)
+                    .await
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?
+            };
+            let emails_in_mailbox: Vec<Email> = fetched
+                .into_iter()
                 .filter(|e| e.mailbox_ids.contains_key(&id))
                 .collect();
 
