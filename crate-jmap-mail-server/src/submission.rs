@@ -214,7 +214,9 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
         None | Some(Value::Null) => None,
         Some(Value::String(s)) => Some(Id::from(s.as_str())),
         Some(_) => {
-            return Err(JmapError::invalid_arguments("upToId must be a string Id or null"))
+            return Err(JmapError::invalid_arguments(
+                "upToId must be a string Id or null",
+            ))
         }
     };
 

@@ -1342,6 +1342,57 @@ async fn identity_set_destroy_may_delete_false_is_forbidden() {
     );
 }
 
+/// Oracle: Identity/set create with malformed replyTo returns invalidProperties.
+///
+/// RFC 8621 §6.3 — replyTo is EmailAddress[]. Providing a plain string is
+/// invalid and must be rejected, not silently ignored.
+#[tokio::test]
+async fn identity_set_create_malformed_reply_to_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "email": "user@example.com",
+                "replyTo": "not-an-array"
+            }
+        }
+    });
+
+    let (set_resp, _) = handle_identity_set(&backend, set_args)
+        .await
+        .expect("Identity/set must not fail at the method level");
+
+    assert!(
+        set_resp["created"].is_null(),
+        "created must be null; got: {:?}",
+        set_resp["created"]
+    );
+    let not_created = &set_resp["notCreated"]["c0"];
+    assert!(
+        !not_created.is_null(),
+        "c0 must appear in notCreated; response: {set_resp:?}"
+    );
+    assert_eq!(
+        not_created["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got: {not_created:?}"
+    );
+    let empty = vec![];
+    let props: Vec<&str> = not_created["properties"]
+        .as_array()
+        .unwrap_or(&empty)
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        props.contains(&"replyTo"),
+        "properties must name replyTo; got: {props:?}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // EmailSubmission/* handler integration tests
 // ---------------------------------------------------------------------------
@@ -1757,6 +1808,80 @@ async fn email_set_create_and_get() {
     assert!(
         get_resp["notFound"].is_null(),
         "notFound must be null when email is found"
+    );
+}
+
+/// Oracle: Email/set create with a keyword value of false does not store it.
+///
+/// RFC 8621 §5.5.3: "The value for each key in the object MUST be true."
+/// A false-valued keyword means the keyword is absent. The email returned
+/// by Email/get must not contain the false-valued keyword.
+#[tokio::test]
+async fn email_set_create_keyword_false_value_not_stored() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    let mailbox_id = Id::from("mb1");
+
+    // Pre-create a mailbox so the email create succeeds.
+    backend
+        .create_object::<jmap_mail_types::Mailbox>(
+            &account_id,
+            "mb1",
+            jmap_mail_types::Mailbox::new(
+                mailbox_id.clone(),
+                "Inbox".to_owned(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                jmap_mail_types::MailboxRights::default(),
+                true,
+            ),
+        )
+        .await
+        .expect("mailbox create must succeed");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { mailbox_id.as_ref(): true },
+                // $seen: true (stored), $draft: false (must NOT be stored)
+                "keywords": { "$seen": true, "$draft": false }
+            }
+        }
+    });
+
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set must not fail at method level");
+
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("created c0 must have id");
+
+    // Fetch the email back and verify keywords.
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id],
+        "properties": ["keywords"]
+    });
+    let (get_resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get must succeed");
+
+    let keywords = &get_resp["list"][0]["keywords"];
+    assert!(
+        keywords
+            .get("$seen")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        "$seen:true must be stored; keywords: {keywords:?}"
+    );
+    assert!(
+        keywords.get("$draft").is_none(),
+        "$draft:false must NOT be stored; keywords: {keywords:?}"
     );
 }
 

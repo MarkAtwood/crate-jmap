@@ -130,7 +130,8 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 .with_description("VacationResponse is a singleton; use update to modify");
             not_created.insert(
                 create_id.clone(),
-                serde_json::to_value(&err).map_err(|e| JmapError::server_fail(e.to_string()))?,
+                serde_json::to_value(&err)
+                    .expect("SetError derives Serialize and is always serializable"),
             );
         }
     }
@@ -144,7 +145,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 not_updated.insert(
                     id.clone(),
                     serde_json::to_value(&err)
-                        .map_err(|e| JmapError::server_fail(e.to_string()))?,
+                        .expect("SetError derives Serialize and is always serializable"),
                 );
                 continue;
             }
@@ -194,8 +195,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                 Err(BackendSetError::SetError(e)) => {
                                     not_updated.insert(
                                         id.clone(),
-                                        serde_json::to_value(&e)
-                                            .map_err(|e| JmapError::server_fail(e.to_string()))?,
+                                        serde_json::to_value(&e).expect(
+                                            "SetError derives Serialize and is always serializable",
+                                        ),
                                     );
                                 }
                                 Err(BackendSetError::Other(e)) => {
@@ -206,8 +208,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
                         Err(BackendSetError::SetError(e)) => {
                             not_updated.insert(
                                 id.clone(),
-                                serde_json::to_value(&e)
-                                    .map_err(|e| JmapError::server_fail(e.to_string()))?,
+                                serde_json::to_value(&e).expect(
+                                    "SetError derives Serialize and is always serializable",
+                                ),
                             );
                         }
                         Err(BackendSetError::Other(e)) => {
@@ -219,7 +222,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                     not_updated.insert(
                         id.clone(),
                         serde_json::to_value(&e)
-                            .map_err(|e| JmapError::server_fail(e.to_string()))?,
+                            .expect("SetError derives Serialize and is always serializable"),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -240,7 +243,8 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 .with_description("VacationResponse is a singleton; cannot destroy");
             not_destroyed.insert(
                 id.to_string(),
-                serde_json::to_value(&err).map_err(|e| JmapError::server_fail(e.to_string()))?,
+                serde_json::to_value(&err)
+                    .expect("SetError derives Serialize and is always serializable"),
             );
         }
     }

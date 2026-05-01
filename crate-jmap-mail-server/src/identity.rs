@@ -171,12 +171,36 @@ pub async fn handle_identity_set<B: MailBackend>(
             }
             if let Some(rt) = obj_val.get("replyTo") {
                 if !rt.is_null() {
-                    identity.reply_to = serde_json::from_value(rt.clone()).ok();
+                    match serde_json::from_value(rt.clone()) {
+                        Ok(v) => identity.reply_to = v,
+                        Err(_) => {
+                            not_created.insert(
+                                create_id.clone(),
+                                json!({
+                                    "type": "invalidProperties",
+                                    "properties": ["replyTo"],
+                                }),
+                            );
+                            continue;
+                        }
+                    }
                 }
             }
             if let Some(bcc) = obj_val.get("bcc") {
                 if !bcc.is_null() {
-                    identity.bcc = serde_json::from_value(bcc.clone()).ok();
+                    match serde_json::from_value(bcc.clone()) {
+                        Ok(v) => identity.bcc = v,
+                        Err(_) => {
+                            not_created.insert(
+                                create_id.clone(),
+                                json!({
+                                    "type": "invalidProperties",
+                                    "properties": ["bcc"],
+                                }),
+                            );
+                            continue;
+                        }
+                    }
                 }
             }
 

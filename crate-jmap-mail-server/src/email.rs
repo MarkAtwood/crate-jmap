@@ -228,12 +228,11 @@ pub async fn handle_email_query<B: MailBackend>(
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
         // If the fetch was capped, the collapsed total is a lower bound, not the true
         // total. Return None so calculateTotal=true still gets an honest answer.
-        let thread_total: Option<u64> =
-            if fetched_count < COLLAPSE_THREADS_MAX_EMAILS as usize {
-                Some(all_collapsed.len() as u64)
-            } else {
-                None
-            };
+        let thread_total: Option<u64> = if fetched_count < COLLAPSE_THREADS_MAX_EMAILS as usize {
+            Some(all_collapsed.len() as u64)
+        } else {
+            None
+        };
         // RFC 8620 §5.5: negative position is relative to the end of the result set.
         let start = if position >= 0 {
             (position as usize).min(all_collapsed.len())
@@ -341,7 +340,9 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         None | Some(Value::Null) => None,
         Some(Value::String(s)) => Some(Id::from(s.as_str())),
         Some(_) => {
-            return Err(JmapError::invalid_arguments("upToId must be a string Id or null"))
+            return Err(JmapError::invalid_arguments(
+                "upToId must be a string Id or null",
+            ))
         }
     };
 
@@ -688,12 +689,15 @@ async fn build_email_from_create<B: MailBackend>(
         .and_then(|v| serde_json::from_value(v.clone()).ok())
         .unwrap_or_default();
 
-    // keywords: optional; reject malformed values (same as Email/import).
-    let keywords: HashMap<Keyword, bool> = match obj_val.get("keywords") {
+    // keywords: optional; reject malformed values, filter to true entries only.
+    // RFC 8621 §5.5.3: "The value for each key MUST be true." False values mean
+    // the keyword is absent — store only the true entries, same as Email/import.
+    let keywords_map: HashMap<Keyword, bool> = match obj_val.get("keywords") {
         None | Some(Value::Null) => HashMap::new(),
         Some(v) => serde_json::from_value(v.clone())
             .map_err(|_| "keywords: invalid keyword or format".to_string())?,
     };
+    let keywords: HashMap<Keyword, bool> = keywords_map.into_iter().filter(|(_, v)| *v).collect();
 
     // Subject, inReplyTo, references — used for thread assignment.
     let subject: Option<String> = obj_val
