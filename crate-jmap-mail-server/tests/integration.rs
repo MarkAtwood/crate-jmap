@@ -12,8 +12,8 @@ use common::{FaultyBackend, MemoryBackend};
 use jmap_mail_server::{
     handle_email_changes, handle_email_get, handle_email_import, handle_email_query,
     handle_email_query_changes, handle_email_set, handle_identity_get, handle_identity_set,
-    handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes, handle_mailbox_set,
-    handle_search_snippet_get, handle_submission_get, handle_submission_query,
+    handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes,
+    handle_mailbox_set, handle_search_snippet_get, handle_submission_get, handle_submission_query,
     handle_submission_set, handle_thread_changes, handle_thread_get, handle_vacation_get,
     handle_vacation_set, JmapObject, MailBackend, SetErrorType,
 };
@@ -2881,7 +2881,9 @@ async fn mailbox_set_role_swap_succeeds_in_single_request() {
         .await
         .expect("Mailbox/set must return a response");
 
-    let updated = resp["updated"].as_object().expect("updated must be an object");
+    let updated = resp["updated"]
+        .as_object()
+        .expect("updated must be an object");
     let not_updated = resp.get("notUpdated").and_then(|v| v.as_object());
 
     assert!(
@@ -3176,7 +3178,10 @@ async fn mailbox_set_create_backend_other_goes_to_not_created() {
         "create": { "c1": { "name": "Inbox" } }
     });
     let (resp, _) = handle_mailbox_set(&backend, args).await.unwrap();
-    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    assert!(
+        resp["created"].is_null(),
+        "created must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notCreated"]["c1"]["type"].as_str(),
         Some("serverFail"),
@@ -3213,7 +3218,10 @@ async fn mailbox_set_update_backend_other_goes_to_not_updated() {
         "update": { mbox_id.as_ref(): { "name": "Updated" } }
     });
     let (resp, _) = handle_mailbox_set(&backend, args).await.unwrap();
-    assert!(resp["updated"].is_null(), "updated must be null; resp: {resp}");
+    assert!(
+        resp["updated"].is_null(),
+        "updated must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notUpdated"][mbox_id.as_ref()]["type"].as_str(),
         Some("serverFail"),
@@ -3249,7 +3257,10 @@ async fn mailbox_set_destroy_backend_other_goes_to_not_destroyed() {
         "destroy": [mbox_id.as_ref()]
     });
     let (resp, _) = handle_mailbox_set(&backend, args).await.unwrap();
-    assert!(resp["destroyed"].is_null(), "destroyed must be null; resp: {resp}");
+    assert!(
+        resp["destroyed"].is_null(),
+        "destroyed must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notDestroyed"][mbox_id.as_ref()]["type"].as_str(),
         Some("serverFail"),
@@ -3269,7 +3280,10 @@ async fn email_set_create_backend_other_goes_to_not_created() {
         }
     });
     let (resp, _) = handle_email_set(&backend, args).await.unwrap();
-    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    assert!(
+        resp["created"].is_null(),
+        "created must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notCreated"]["e1"]["type"].as_str(),
         Some("serverFail"),
@@ -3303,7 +3317,10 @@ async fn email_set_update_backend_other_goes_to_not_updated() {
         "update": { email_id.as_ref(): { "keywords/$seen": true } }
     });
     let (resp, _) = handle_email_set(&backend, args).await.unwrap();
-    assert!(resp["updated"].is_null(), "updated must be null; resp: {resp}");
+    assert!(
+        resp["updated"].is_null(),
+        "updated must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notUpdated"][email_id.as_ref()]["type"].as_str(),
         Some("serverFail"),
@@ -3337,7 +3354,10 @@ async fn email_set_destroy_backend_other_goes_to_not_destroyed() {
         "destroy": [email_id.as_ref()]
     });
     let (resp, _) = handle_email_set(&backend, args).await.unwrap();
-    assert!(resp["destroyed"].is_null(), "destroyed must be null; resp: {resp}");
+    assert!(
+        resp["destroyed"].is_null(),
+        "destroyed must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notDestroyed"][email_id.as_ref()]["type"].as_str(),
         Some("serverFail"),
@@ -3362,7 +3382,10 @@ async fn email_import_backend_other_goes_to_not_created() {
         }
     });
     let (resp, _) = handle_email_import(&backend, args).await.unwrap();
-    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    assert!(
+        resp["created"].is_null(),
+        "created must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notCreated"]["i1"]["type"].as_str(),
         Some("serverFail"),
@@ -3419,8 +3442,13 @@ async fn submission_set_create_backend_other_goes_to_not_created() {
             }
         }
     });
-    let (resp, _) = handle_submission_set(&backend, args, "call1").await.unwrap();
-    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    let (resp, _) = handle_submission_set(&backend, args, "call1")
+        .await
+        .unwrap();
+    assert!(
+        resp["created"].is_null(),
+        "created must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notCreated"]["s1"]["type"].as_str(),
         Some("serverFail"),
@@ -3438,7 +3466,10 @@ async fn identity_set_create_backend_other_goes_to_not_created() {
         "create": { "id1": { "email": "user@example.com" } }
     });
     let (resp, _) = handle_identity_set(&backend, args).await.unwrap();
-    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    assert!(
+        resp["created"].is_null(),
+        "created must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notCreated"]["id1"]["type"].as_str(),
         Some("serverFail"),
@@ -3464,7 +3495,10 @@ async fn identity_set_update_backend_other_goes_to_not_updated() {
         "update": { id.as_ref(): { "name": "Updated Name" } }
     });
     let (resp, _) = handle_identity_set(&backend, args).await.unwrap();
-    assert!(resp["updated"].is_null(), "updated must be null; resp: {resp}");
+    assert!(
+        resp["updated"].is_null(),
+        "updated must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notUpdated"][id.as_ref()]["type"].as_str(),
         Some("serverFail"),
@@ -3495,7 +3529,10 @@ async fn identity_set_destroy_backend_other_goes_to_not_destroyed() {
         "destroy": [id.as_ref()]
     });
     let (resp, _) = handle_identity_set(&backend, args).await.unwrap();
-    assert!(resp["destroyed"].is_null(), "destroyed must be null; resp: {resp}");
+    assert!(
+        resp["destroyed"].is_null(),
+        "destroyed must be null; resp: {resp}"
+    );
     assert_eq!(
         resp["notDestroyed"][id.as_ref()]["type"].as_str(),
         Some("serverFail"),
@@ -3774,7 +3811,11 @@ async fn mailbox_query_anchor_resolves_position() {
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
-    assert_eq!(got, [all_ids[2].as_str()], "must return only the anchored mailbox");
+    assert_eq!(
+        got,
+        [all_ids[2].as_str()],
+        "must return only the anchored mailbox"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -3832,7 +3873,10 @@ async fn identity_set_update_rejects_server_set_fields() {
         .await
         .expect("handler must not return protocol error");
     let not_updated = &r1["notUpdated"][&iid];
-    assert!(!not_updated.is_null(), "mayDelete patch must be rejected; resp: {r1}");
+    assert!(
+        !not_updated.is_null(),
+        "mayDelete patch must be rejected; resp: {r1}"
+    );
     assert_eq!(not_updated["type"].as_str(), Some("invalidProperties"));
     let props: Vec<&str> = not_updated["properties"]
         .as_array()
@@ -3854,7 +3898,10 @@ async fn identity_set_update_rejects_server_set_fields() {
         .await
         .expect("handler must not return protocol error");
     let not_updated2 = &r2["notUpdated"][&iid];
-    assert!(!not_updated2.is_null(), "id patch must be rejected; resp: {r2}");
+    assert!(
+        !not_updated2.is_null(),
+        "id patch must be rejected; resp: {r2}"
+    );
     let props2: Vec<&str> = not_updated2["properties"]
         .as_array()
         .expect("properties array")

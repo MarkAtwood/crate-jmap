@@ -116,11 +116,9 @@ pub async fn handle_email_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => Some(
-            v.as_u64()
-                .filter(|&n| n > 0)
-                .ok_or_else(|| JmapError::invalid_arguments("maxChanges must be a positive integer"))?,
-        ),
+        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let result = backend
@@ -217,9 +215,7 @@ pub async fn handle_email_query<B: MailBackend>(
     let anchor_offset: i64 = match args.remove("anchorOffset") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!(
-                "anchorOffset: expected an integer, got {v}"
-            ))
+            JmapError::invalid_arguments(format!("anchorOffset: expected an integer, got {v}"))
         })?,
     };
 
@@ -275,7 +271,11 @@ pub async fn handle_email_query<B: MailBackend>(
                 all_ids.len().saturating_sub(neg)
             };
 
-            let page: Vec<Id> = all_ids.into_iter().skip(start).take(limit as usize).collect();
+            let page: Vec<Id> = all_ids
+                .into_iter()
+                .skip(start)
+                .take(limit as usize)
+                .collect();
             (page, total, qs, ccc, start as i64)
         } else {
             let result = backend
@@ -359,11 +359,9 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.remove("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => Some(
-            v.as_u64()
-                .filter(|&n| n > 0)
-                .ok_or_else(|| JmapError::invalid_arguments("maxChanges must be a positive integer"))?,
-        ),
+        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let up_to_id: Option<Id> = match args.remove("upToId") {
@@ -724,9 +722,10 @@ pub(crate) fn find_immutable_patch_key(patch: &Value) -> Option<&'static str> {
 /// Build an [`Email`] from a creation payload (`obj_val`).
 ///
 /// Extracts `mailboxIds`, `keywords`, and optional header fields from the
-/// creation object. Assigns a `blobId` equal to the email's id (a MemoryBackend
-/// convention), and assigns a thread id by searching existing emails for
-/// matching `inReplyTo`/`references`.
+/// creation object. Sets `blobId` to a placeholder (`"placeholder-blob"`);
+/// per RFC 8621 §5.5 `blobId` is server-set, so the backend replaces it with
+/// the real value inside `create_object`. Assigns a thread id by searching
+/// existing emails for matching `inReplyTo`/`references`.
 async fn build_email_from_create<B: MailBackend>(
     obj_val: &Value,
     account_id: &Id,
@@ -1070,7 +1069,10 @@ pub async fn handle_email_import<B: MailBackend>(
 /// Handle an `Email/parse` method call (RFC 8621 §5.8).
 ///
 /// Parses the blobs identified by `blobIds` and returns Email objects without
-/// storing them. Blobs not found → `notParsable`.
+/// storing them (RFC 8621 §5.8).
+///
+/// Blobs that exist but cannot be parsed → `notParsable`.
+/// Blobs that do not exist → `notFound`.
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_parse<B: MailBackend>(
@@ -1431,11 +1433,7 @@ pub async fn handle_email_copy<B: MailBackend>(
             "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
             "notDestroyed": if email_not_destroyed.is_empty() { Value::Null } else { Value::Object(email_not_destroyed) },
         });
-        extra.push((
-            "Email/set".to_owned(),
-            set_resp,
-            call_id.to_owned(),
-        ));
+        extra.push(("Email/set".to_owned(), set_resp, call_id.to_owned()));
     }
 
     Ok((resp, extra))

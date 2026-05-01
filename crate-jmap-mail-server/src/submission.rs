@@ -102,11 +102,9 @@ pub async fn handle_submission_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => Some(
-            v.as_u64()
-                .filter(|&n| n > 0)
-                .ok_or_else(|| JmapError::invalid_arguments("maxChanges must be a positive integer"))?,
-        ),
+        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let result = backend
@@ -177,9 +175,7 @@ pub async fn handle_submission_query<B: MailBackend>(
     let anchor_offset: i64 = match args.get("anchorOffset") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!(
-                "anchorOffset: expected an integer, got {v}"
-            ))
+            JmapError::invalid_arguments(format!("anchorOffset: expected an integer, got {v}"))
         })?,
     };
 
@@ -199,9 +195,20 @@ pub async fn handle_submission_query<B: MailBackend>(
             let raw = anchor_idx as i64 + anchor_offset;
             let start = raw.max(0).min(all.ids.len() as i64) as usize;
             let effective_limit = limit.map_or(usize::MAX, |n| n as usize);
-            let page: Vec<Id> = all.ids.into_iter().skip(start).take(effective_limit).collect();
+            let page: Vec<Id> = all
+                .ids
+                .into_iter()
+                .skip(start)
+                .take(effective_limit)
+                .collect();
             let total = all.total;
-            (page, total, all.query_state, all.can_calculate_changes, start as i64)
+            (
+                page,
+                total,
+                all.query_state,
+                all.can_calculate_changes,
+                start as i64,
+            )
         } else {
             let result = backend
                 .query_objects::<EmailSubmission>(&account_id, None, None, limit, position)
@@ -209,7 +216,13 @@ pub async fn handle_submission_query<B: MailBackend>(
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             let pos = result.position;
             let total = result.total;
-            (result.ids, total, result.query_state, result.can_calculate_changes, pos)
+            (
+                result.ids,
+                total,
+                result.query_state,
+                result.can_calculate_changes,
+                pos,
+            )
         };
 
     // RFC 8620 §5.5: total MUST be omitted when calculateTotal is false (default).
@@ -249,11 +262,9 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => Some(
-            v.as_u64()
-                .filter(|&n| n > 0)
-                .ok_or_else(|| JmapError::invalid_arguments("maxChanges must be a positive integer"))?,
-        ),
+        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let up_to_id: Option<Id> = match args.get("upToId") {
@@ -609,11 +620,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
             "notDestroyed": if email_not_destroyed.is_empty() { Value::Null } else { Value::Object(email_not_destroyed) },
         });
-        extra_invocations.push((
-            "Email/set".to_string(),
-            email_set_resp,
-            call_id.to_owned(),
-        ));
+        extra_invocations.push(("Email/set".to_string(), email_set_resp, call_id.to_owned()));
     }
 
     Ok((resp, extra_invocations))

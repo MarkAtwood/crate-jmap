@@ -90,11 +90,9 @@ pub async fn handle_mailbox_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => Some(
-            v.as_u64()
-                .filter(|&n| n > 0)
-                .ok_or_else(|| JmapError::invalid_arguments("maxChanges must be a positive integer"))?,
-        ),
+        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let result = backend
@@ -167,9 +165,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     let anchor_offset: i64 = match args.get("anchorOffset") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!(
-                "anchorOffset: expected an integer, got {v}"
-            ))
+            JmapError::invalid_arguments(format!("anchorOffset: expected an integer, got {v}"))
         })?,
     };
 
@@ -185,10 +181,18 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     // RFC 8621 §2.3: sortAsTree and filterAsTree change result semantics.
     // This implementation does not support tree-mode traversal; reject rather
     // than returning silently wrong results.
-    if args.get("sortAsTree").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if args
+        .get("sortAsTree")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         return Err(JmapError::unsupported_sort());
     }
-    if args.get("filterAsTree").and_then(|v| v.as_bool()).unwrap_or(false) {
+    if args
+        .get("filterAsTree")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+    {
         return Err(JmapError::unsupported_filter());
     }
 
@@ -334,11 +338,9 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => Some(
-            v.as_u64()
-                .filter(|&n| n > 0)
-                .ok_or_else(|| JmapError::invalid_arguments("maxChanges must be a positive integer"))?,
-        ),
+        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let up_to_id: Option<Id> = match args.get("upToId") {
@@ -452,8 +454,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 not_created.insert(
                     create_id.clone(),
                     serde_json::to_value(
-                        SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(["name"]),
+                        SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
                     )
                     .expect("SetError derives Serialize and is always serializable"),
                 );
@@ -463,9 +464,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             // Role uniqueness check.
             if let Some(role_val) = props.get("role").filter(|v| !v.is_null()) {
                 if let Some(role_str) = role_val.as_str() {
-                    let role_taken = all_mailboxes.iter().any(|m| {
-                        m.role.as_ref().is_some_and(|r| r.to_string() == role_str)
-                    });
+                    let role_taken = all_mailboxes
+                        .iter()
+                        .any(|m| m.role.as_ref().is_some_and(|r| r.to_string() == role_str));
                     // Also check what we already successfully created in this request.
                     let role_just_created = created
                         .values()
@@ -723,6 +724,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             .await
                         {
                             Ok(()) => {}
+                            // Semantic error (e.g. already deleted by a concurrent request).
+                            // Best-effort cascade: the email is gone or unreachable, so
+                            // proceed with mailbox destruction rather than aborting.
                             Err(BackendSetError::SetError(_)) => {}
                             Err(BackendSetError::Other(e)) => {
                                 return Err(JmapError::server_fail(e.to_string()));
@@ -738,6 +742,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             .await
                         {
                             Ok(_) => {}
+                            // Semantic error (e.g. email deleted concurrently). Best-effort:
+                            // proceed with mailbox destruction.
                             Err(BackendSetError::SetError(_)) => {}
                             Err(BackendSetError::Other(e)) => {
                                 return Err(JmapError::server_fail(e.to_string()));
@@ -834,8 +840,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
         Some(s) => s.to_owned(),
         None => {
             return Err(serde_json::to_value(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(["name"]),
+                SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
             )
             .expect("SetError derives Serialize and is always serializable"));
         }
@@ -885,8 +890,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
             let role: jmap_mail_types::MailboxRole =
                 serde_json::from_value(Value::String(s.to_owned())).map_err(|_| {
                     serde_json::to_value(
-                        SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(["role"]),
+                        SetError::new(SetErrorType::InvalidProperties).with_properties(["role"]),
                     )
                     .expect("SetError derives Serialize and is always serializable")
                 })?;
