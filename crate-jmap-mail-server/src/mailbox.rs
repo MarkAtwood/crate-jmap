@@ -578,14 +578,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 )
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
-            let (fetched, _) = if query_result.ids.is_empty() {
-                (vec![], vec![])
-            } else {
-                backend
-                    .get_objects::<Email>(&account_id, Some(&query_result.ids), None)
-                    .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?
-            };
+            let (fetched, _) = backend
+                .get_objects::<Email>(&account_id, Some(&query_result.ids), None)
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
             let emails_in_mailbox: Vec<Email> = fetched
                 .into_iter()
                 .filter(|e| e.mailbox_ids.contains_key(&id))
