@@ -81,7 +81,9 @@ pub async fn handle_thread_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => v.as_u64(),
+        Some(v) => Some(v.as_u64().ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let result = backend

@@ -99,7 +99,9 @@ pub async fn handle_submission_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => v.as_u64(),
+        Some(v) => Some(v.as_u64().ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let result = backend
@@ -178,7 +180,9 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => v.as_u64(),
+        Some(v) => Some(v.as_u64().ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let up_to_id: Option<Id> = match args.get("upToId") {
@@ -235,6 +239,12 @@ pub async fn handle_submission_set<B: MailBackend>(
         .get_state::<EmailSubmission>(&account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
+        if if_in_state != old_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();

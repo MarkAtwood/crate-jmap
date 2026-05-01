@@ -87,7 +87,9 @@ pub async fn handle_mailbox_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => v.as_u64(),
+        Some(v) => Some(v.as_u64().ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let result = backend
@@ -260,7 +262,9 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => v.as_u64(),
+        Some(v) => Some(v.as_u64().ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let up_to_id: Option<Id> = args.get("upToId").and_then(|v| v.as_str()).map(Id::from);
@@ -424,6 +428,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 
     let mut updated: serde_json::Map<String, Value> = serde_json::Map::new();
     let mut not_updated = serde_json::Map::new();
+    // Track roles assigned by earlier updates in this same request for uniqueness.
+    let mut roles_updated_this_request: std::collections::HashSet<String> =
+        std::collections::HashSet::new();
 
     // Server-set fields that may not appear in a patch.
     const SERVER_SET: &[&str] = &[
@@ -458,7 +465,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     continue;
                 }
 
-                // Role uniqueness on update.
+                // Role uniqueness on update: check against pre-request state and
+                // any role already assigned by an earlier update in this request.
                 if let Some(role_val) = obj.get("role").filter(|v| !v.is_null()) {
                     if let Some(role_str) = role_val.as_str() {
                         let role_taken = all_mailboxes.iter().any(|m| {
@@ -466,7 +474,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                 && m.role.as_ref().map(|r| r.to_string())
                                     == Some(role_str.to_owned())
                         });
-                        if role_taken {
+                        let role_just_updated = roles_updated_this_request.contains(role_str);
+                        if role_taken || role_just_updated {
                             not_updated.insert(
                                 id_str.clone(),
                                 serde_json::to_value(
@@ -477,6 +486,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             );
                             continue;
                         }
+                        roles_updated_this_request.insert(role_str.to_string());
                     }
                 }
             }

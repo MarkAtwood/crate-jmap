@@ -106,7 +106,9 @@ pub async fn handle_email_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => v.as_u64(),
+        Some(v) => Some(v.as_u64().ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let result = backend
@@ -181,7 +183,9 @@ pub async fn handle_email_query<B: MailBackend>(
             .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, None, 0)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
-        let all_collapsed = collapse_by_thread(backend, &account_id, all.ids).await;
+        let all_collapsed = collapse_by_thread(backend, &account_id, all.ids)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
         let thread_total = all_collapsed.len() as u64;
         // RFC 8620 §5.5: negative position is relative to the end of the result set.
         let start = if position >= 0 {
@@ -266,7 +270,9 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 
     let max_changes: Option<u64> = match args.get("maxChanges") {
         None | Some(Value::Null) => None,
-        Some(v) => v.as_u64(),
+        Some(v) => Some(v.as_u64().ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
     };
 
     let up_to_id: Option<Id> = match args.get("upToId") {
@@ -637,7 +643,8 @@ async fn build_email_from_create<B: MailBackend>(
         in_reply_to.as_deref().unwrap_or(&[]),
         references.as_deref().unwrap_or(&[]),
     )
-    .await;
+    .await
+    .map_err(|e| e.to_string())?;
 
     // Size: use provided value or 0 (MemoryBackend does not parse raw bytes here).
     let size: u64 = obj_val.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -647,7 +654,7 @@ async fn build_email_from_create<B: MailBackend>(
         .get("receivedAt")
         .and_then(|v| v.as_str())
         .map(UTCDate::from)
-        .unwrap_or_else(|| UTCDate::from("1970-01-01T00:00:00Z"));
+        .unwrap_or_else(|| UTCDate::from(crate::helpers::now_utc_string().as_str()));
 
     // blobId: use provided value or a placeholder; MemoryBackend will inject
     // the real id after create_object assigns it.
@@ -678,15 +685,16 @@ async fn build_email_from_create<B: MailBackend>(
 ///
 /// Calls [`MailBackend::find_thread_by_message_ids`] with the union of
 /// `in_reply_to` and `references` tokens. Returns the matching thread id if
-/// found, or a freshly generated id if no existing email references these tokens.
+/// found, a freshly generated id if no existing email references these tokens,
+/// or propagates the backend error so the caller can surface it.
 async fn assign_thread<B: MailBackend>(
     backend: &B,
     account_id: &Id,
     in_reply_to: &[String],
     references: &[String],
-) -> Id {
+) -> Result<Id, B::Error> {
     if in_reply_to.is_empty() && references.is_empty() {
-        return next_id();
+        return Ok(next_id());
     }
 
     let refs: Vec<&str> = in_reply_to
@@ -695,11 +703,13 @@ async fn assign_thread<B: MailBackend>(
         .map(|s| s.as_str())
         .collect();
 
-    if let Ok(Some(thread_id)) = backend.find_thread_by_message_ids(account_id, &refs).await {
-        return thread_id;
+    match backend
+        .find_thread_by_message_ids(account_id, &refs)
+        .await?
+    {
+        Some(thread_id) => Ok(thread_id),
+        None => Ok(next_id()),
     }
-
-    next_id()
 }
 
 /// Generate a unique opaque Id using an atomic counter.
@@ -712,20 +722,21 @@ fn next_id() -> Id {
 
 /// Deduplicate `ids` by `threadId`, keeping only the first email per thread.
 ///
-/// Fetches all emails from the backend to read their thread ids. Emails that
-/// cannot be fetched are kept as-is (safe fallback).
-async fn collapse_by_thread<B: MailBackend>(backend: &B, account_id: &Id, ids: Vec<Id>) -> Vec<Id> {
+/// Fetches the query-result emails from the backend to read their thread ids.
+/// Propagates backend errors to the caller.
+async fn collapse_by_thread<B: MailBackend>(
+    backend: &B,
+    account_id: &Id,
+    ids: Vec<Id>,
+) -> Result<Vec<Id>, B::Error> {
     // Fetch only the query-result emails (not all emails) to get their thread ids.
-    let thread_map: HashMap<Id, Id> = match backend
+    let (emails, _) = backend
         .get_objects::<Email>(account_id, Some(&ids), None)
-        .await
-    {
-        Ok((emails, _)) => emails
-            .into_iter()
-            .map(|e| (e.id.clone(), e.thread_id.clone()))
-            .collect(),
-        Err(_) => HashMap::new(),
-    };
+        .await?;
+    let thread_map: HashMap<Id, Id> = emails
+        .into_iter()
+        .map(|e| (e.id.clone(), e.thread_id.clone()))
+        .collect();
 
     let mut seen_threads: HashSet<Id> = HashSet::new();
     let mut result = Vec::with_capacity(ids.len());
@@ -744,7 +755,7 @@ async fn collapse_by_thread<B: MailBackend>(backend: &B, account_id: &Id, ids: V
         }
     }
 
-    result
+    Ok(result)
 }
 
 // ---------------------------------------------------------------------------
@@ -772,6 +783,12 @@ pub async fn handle_email_import<B: MailBackend>(
         .get_state::<Email>(&account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
+        if if_in_state != old_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
@@ -965,15 +982,28 @@ pub async fn handle_email_copy<B: MailBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let on_success_update_original: Option<serde_json::Map<String, Value>> = args
-        .get("onSuccessUpdateOriginal")
-        .and_then(|v| v.as_object())
-        .cloned();
+    // ifFromInState: check source account state (RFC 8620 §5.4).
+    if let Some(if_from_in_state) = args.get("ifFromInState").and_then(|v| v.as_str()) {
+        let from_state = backend
+            .get_state::<Email>(&from_account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        if if_from_in_state != from_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
 
     let old_state = backend
         .get_state::<Email>(&account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    // ifInState: check destination account state (RFC 8620 §5.4).
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
+        if if_in_state != old_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
@@ -1059,44 +1089,20 @@ pub async fn handle_email_copy<B: MailBackend>(
     // Generate extra invocations for onSuccess* fields (RFC 8620 §6.3).
     let mut extra: Vec<Invocation> = Vec::new();
 
-    if !copied_source_ids.is_empty() {
-        if on_success_destroy_original {
-            let destroy_ids: Vec<Value> = copied_source_ids
-                .iter()
-                .map(|(_, src)| Value::String(src.as_ref().to_string()))
-                .collect();
-            let set_args = json!({
-                "accountId": from_account_id.as_ref(),
-                "destroy": destroy_ids,
-            });
-            extra.push((
-                "Email/set".to_owned(),
-                set_args,
-                format!("{call_id}-destroy"),
-            ));
-        }
-
-        if let Some(update_map) = on_success_update_original {
-            if !update_map.is_empty() {
-                let mut update = serde_json::Map::new();
-                for (_, src_id) in &copied_source_ids {
-                    if let Some(patch) = update_map.get(src_id.as_ref()) {
-                        update.insert(src_id.as_ref().to_string(), patch.clone());
-                    }
-                }
-                if !update.is_empty() {
-                    let set_args = json!({
-                        "accountId": from_account_id.as_ref(),
-                        "update": update,
-                    });
-                    extra.push((
-                        "Email/set".to_owned(),
-                        set_args,
-                        format!("{call_id}-update"),
-                    ));
-                }
-            }
-        }
+    if !copied_source_ids.is_empty() && on_success_destroy_original {
+        let destroy_ids: Vec<Value> = copied_source_ids
+            .iter()
+            .map(|(_, src)| Value::String(src.as_ref().to_string()))
+            .collect();
+        let set_args = json!({
+            "accountId": from_account_id.as_ref(),
+            "destroy": destroy_ids,
+        });
+        extra.push((
+            "Email/set".to_owned(),
+            set_args,
+            format!("{call_id}-destroy"),
+        ));
     }
 
     Ok((resp, extra))
