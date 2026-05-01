@@ -721,9 +721,12 @@ async fn build_email_from_create<B: MailBackend>(
     backend: &B,
 ) -> Result<Email, String> {
     // mailboxIds: required (already validated non-empty by caller).
+    // RFC 8621 §5.5.3: values MUST be true; false means absent — filter out false entries,
+    // same as keywords, so the stored object never has false mailboxId entries.
     let mailbox_ids: HashMap<Id, bool> = obj_val
         .get("mailboxIds")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .and_then(|v| serde_json::from_value::<HashMap<Id, bool>>(v.clone()).ok())
+        .map(|m| m.into_iter().filter(|(_, v)| *v).collect())
         .unwrap_or_default();
 
     // keywords: optional; reject malformed values, filter to true entries only.
@@ -769,8 +772,9 @@ async fn build_email_from_create<B: MailBackend>(
     .await
     .map_err(|e| e.to_string())?;
 
-    // Size: use provided value or 0 (MemoryBackend does not parse raw bytes here).
-    let size: u64 = obj_val.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
+    // size is server-set per RFC 8621 §5.5.3 — the backend assigns the real value in
+    // create_object. Always use 0 as the placeholder; never read it from the client.
+    let size: u64 = 0;
 
     // receivedAt: use provided value or now (RFC 8621 §5.5.3).
     let received_at: UTCDate = obj_val

@@ -1756,6 +1756,10 @@ async fn email_set_create_and_get() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
 
+    // RFC 8621 §5.5.3: size is server-set and must not be sent by the client.
+    // We intentionally omit size from the create payload to verify it is not
+    // accepted from the client. MemoryBackend sets size=0 (placeholder; a real
+    // backend would compute it from the raw blob bytes).
     let set_args = serde_json::json!({
         "accountId": account_id.as_ref(),
         "create": {
@@ -1763,7 +1767,6 @@ async fn email_set_create_and_get() {
                 "mailboxIds": { "inbox": true },
                 "keywords": { "$seen": true },
                 "subject": "Test email",
-                "size": 42,
             }
         }
     });
@@ -1784,7 +1787,8 @@ async fn email_set_create_and_get() {
         c0["threadId"].as_str().is_some(),
         "created entry must have threadId"
     );
-    assert_eq!(c0["size"].as_u64(), Some(42), "size must match");
+    // size is server-set; MemoryBackend returns 0 as the placeholder.
+    assert_eq!(c0["size"].as_u64(), Some(0), "size must be server-set (0 from MemoryBackend)");
 
     let email_id = c0["id"].as_str().unwrap().to_owned();
 
@@ -1955,7 +1959,6 @@ async fn email_get_with_property_filter() {
             "c0": {
                 "mailboxIds": { "inbox": true },
                 "subject": "Filtered subject",
-                "size": 10,
             }
         }
     });
