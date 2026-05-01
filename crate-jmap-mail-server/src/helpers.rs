@@ -3,6 +3,22 @@
 use jmap_types::{Id, JmapError};
 use serde_json::Value;
 
+/// Convert a slice of [`Id`]s to a JSON `notFound` value.
+///
+/// Returns `Value::Null` when the slice is empty (omits the field per RFC 8620
+/// §5.1), or `Value::Array` of string ids when non-empty.
+pub(crate) fn not_found_json(ids: &[Id]) -> Value {
+    if ids.is_empty() {
+        Value::Null
+    } else {
+        Value::Array(
+            ids.iter()
+                .map(|id| Value::String(id.as_ref().to_owned()))
+                .collect(),
+        )
+    }
+}
+
 /// Extract `accountId` from a JMAP method arguments object.
 pub(crate) fn extract_account_id(args: &Value) -> Result<Id, JmapError> {
     match args.get("accountId").and_then(|v| v.as_str()) {

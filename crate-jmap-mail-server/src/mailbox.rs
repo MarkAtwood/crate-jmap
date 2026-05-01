@@ -5,7 +5,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::extract_account_id;
+use crate::helpers::{extract_account_id, not_found_json};
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)
@@ -47,23 +47,12 @@ pub async fn handle_mailbox_get<B: MailBackend>(
         })
         .collect();
 
-    let not_found_json: Option<Vec<Value>> = if not_found.is_empty() {
-        None
-    } else {
-        Some(
-            not_found
-                .iter()
-                .map(|id| Value::String(id.as_ref().to_owned()))
-                .collect(),
-        )
-    };
-
     Ok((
         json!({
             "accountId": account_id.as_ref(),
             "state": state.as_ref(),
             "list": list_json,
-            "notFound": not_found_json,
+            "notFound": not_found_json(&not_found),
         }),
         vec![],
     ))

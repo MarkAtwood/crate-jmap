@@ -4,7 +4,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetErrorType};
-use crate::helpers::extract_account_id;
+use crate::helpers::{extract_account_id, not_found_json};
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
 ///
@@ -42,22 +42,11 @@ pub async fn handle_identity_get<B: MailBackend>(
         })
         .collect();
 
-    let not_found_json: Option<Vec<Value>> = if not_found.is_empty() {
-        None
-    } else {
-        Some(
-            not_found
-                .iter()
-                .map(|id| Value::String(id.as_ref().to_owned()))
-                .collect(),
-        )
-    };
-
     let resp = json!({
         "accountId": account_id.as_ref(),
         "state": state.as_ref(),
         "list": list_json,
-        "notFound": not_found_json,
+        "notFound": not_found_json(&not_found),
     });
 
     Ok((resp, vec![]))
@@ -207,22 +196,15 @@ pub async fn handle_identity_set<B: MailBackend>(
                 .create_object::<jmap_mail_types::Identity>(&account_id, create_id, identity)
                 .await
             {
-                Ok((server_id, created_obj)) => {
+                Ok((_server_id, created_obj)) => {
                     mutated = true;
+                    // create_object guarantees created_obj.id == server_id;
+                    // serialize the full object (id is already correct).
                     created.insert(
                         create_id.clone(),
                         serde_json::to_value(&created_obj)
                             .expect("type derives Serialize and is always serializable"),
                     );
-                    // Also inject the id under the create_id key for result reference resolution.
-                    if let Some(obj) = created.get_mut(create_id) {
-                        if let Some(map) = obj.as_object_mut() {
-                            map.insert(
-                                "id".to_owned(),
-                                Value::String(server_id.as_ref().to_owned()),
-                            );
-                        }
-                    }
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_created.insert(
