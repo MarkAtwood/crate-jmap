@@ -182,6 +182,16 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         }
     }
 
+    // RFC 8621 §2.3: sortAsTree and filterAsTree change result semantics.
+    // This implementation does not support tree-mode traversal; reject rather
+    // than returning silently wrong results.
+    if args.get("sortAsTree").and_then(|v| v.as_bool()).unwrap_or(false) {
+        return Err(JmapError::unsupported_sort());
+    }
+    if args.get("filterAsTree").and_then(|v| v.as_bool()).unwrap_or(false) {
+        return Err(JmapError::unsupported_filter());
+    }
+
     // Fetch all mailboxes and filter in-process.
     let (all_mailboxes, _) = backend
         .get_objects::<Mailbox>(&account_id, None, None)

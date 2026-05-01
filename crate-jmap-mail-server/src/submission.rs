@@ -596,7 +596,8 @@ pub async fn handle_submission_set<B: MailBackend>(
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
         // RFC 8621 §7.5: a single implicit Email/set response is appended after
-        // the EmailSubmission/set response. Call-id is "#<parent-call-id>".
+        // the EmailSubmission/set response. Call-id is the same as the originating
+        // EmailSubmission/set call (RFC 8620 §3.2).
         let email_set_resp = json!({
             "accountId": account_id.as_ref(),
             "oldState": email_old_state.as_ref(),
