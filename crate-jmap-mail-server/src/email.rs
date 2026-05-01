@@ -656,13 +656,11 @@ async fn build_email_from_create<B: MailBackend>(
         .map(UTCDate::from)
         .unwrap_or_else(|| UTCDate::from(crate::helpers::now_utc_string().as_str()));
 
-    // blobId: use provided value or a placeholder; MemoryBackend will inject
-    // the real id after create_object assigns it.
-    let blob_id: Id = obj_val
-        .get("blobId")
-        .and_then(|v| v.as_str())
-        .map(Id::from)
-        .unwrap_or_else(|| Id::from("placeholder-blob"));
+    // blobId: always use a placeholder. Per RFC 8621 §5.5, blobId is server-set
+    // and must not be accepted from the client on Email/set create (accepting it
+    // would allow clients to reference blobs they do not own). The backend
+    // assigns the real blobId in create_object.
+    let blob_id: Id = Id::from("placeholder-blob");
 
     // Use a placeholder id; create_object assigns the real one.
     let mut email = Email::new(
@@ -712,11 +710,33 @@ async fn assign_thread<B: MailBackend>(
     }
 }
 
-/// Generate a unique opaque Id using an atomic counter.
+/// Generate a unique opaque Id using an atomic counter seeded from the system clock.
+///
+/// The counter base is initialized to the current nanoseconds since the Unix epoch
+/// on the first call. This makes IDs generated in separate process lifetimes
+/// extremely unlikely to collide, which matters for persistent backends that store
+/// thread IDs across restarts.
+///
+/// # Caveats
+///
+/// This is best-effort, not collision-proof. Persistent backends should override
+/// [`MailBackend::find_thread_by_message_ids`] to supply thread IDs from their own
+/// durable storage rather than relying on this counter.
 fn next_id() -> Id {
     use std::sync::atomic::{AtomicU64, Ordering};
-    static COUNTER: AtomicU64 = AtomicU64::new(1);
-    let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+    use std::sync::OnceLock;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+    static BASE: OnceLock<u64> = OnceLock::new();
+
+    let base = *BASE.get_or_init(|| {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_nanos() as u64)
+            .unwrap_or(1_000_000_000)
+    });
+    let n = base.wrapping_add(COUNTER.fetch_add(1, Ordering::Relaxed));
     Id::from(format!("{n:016x}"))
 }
 
@@ -815,6 +835,14 @@ pub async fn handle_email_import<B: MailBackend>(
                 continue;
             }
         };
+        if mailbox_ids.is_empty() {
+            not_created.insert(
+                import_id.clone(),
+                json!({"type": "invalidProperties", "properties": ["mailboxIds"],
+                       "description": "at least one mailboxId is required (RFC 8621 §5.7)"}),
+            );
+            continue;
+        }
 
         let keywords: Vec<jmap_mail_types::Keyword> = entry
             .get("keywords")
@@ -960,7 +988,7 @@ pub async fn handle_email_parse<B: MailBackend>(
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are
 /// generated when `onSuccessDestroyOriginal: true` or `onSuccessUpdateOriginal`
-/// is set, per RFC 8620 §6.3.
+/// is non-null, per RFC 8620 §6.3.
 pub async fn handle_email_copy<B: MailBackend>(
     backend: &B,
     args: Value,
@@ -1103,6 +1131,32 @@ pub async fn handle_email_copy<B: MailBackend>(
             set_args,
             format!("{call_id}-destroy"),
         ));
+    }
+
+    // onSuccessUpdateOriginal: for each successfully copied email whose copy_id
+    // appears in the map, apply the specified patch to the original in from_account_id
+    // (RFC 8620 §6.3).
+    if let Some(on_success_update) = args
+        .get("onSuccessUpdateOriginal")
+        .and_then(|v| v.as_object())
+    {
+        let mut update_map = serde_json::Map::new();
+        for (copy_id, source_id) in &copied_source_ids {
+            if let Some(patch) = on_success_update.get(copy_id) {
+                update_map.insert(source_id.as_ref().to_string(), patch.clone());
+            }
+        }
+        if !update_map.is_empty() {
+            let set_args = json!({
+                "accountId": from_account_id.as_ref(),
+                "update": Value::Object(update_map),
+            });
+            extra.push((
+                "Email/set".to_owned(),
+                set_args,
+                format!("{call_id}-update"),
+            ));
+        }
     }
 
     Ok((resp, extra))

@@ -164,6 +164,14 @@ pub async fn handle_vacation_set<B: MailBackend>(
                     // Singleton does not exist yet — upsert: build a default
                     // VacationResponse, then create it so it is stored under
                     // the "singleton" key.
+                    //
+                    // Concurrency note: two concurrent requests can both reach
+                    // this branch and attempt to create the singleton. Backends
+                    // that receive concurrent requests MUST make create_object
+                    // idempotent for the singleton key (e.g. via a unique
+                    // constraint or a compare-and-swap) to avoid duplicate
+                    // creation. The handler layer cannot add locking here
+                    // because it holds no shared state.
                     let base = VacationResponse::new(Id::from(SINGLETON_ID), false);
                     match backend
                         .create_object::<VacationResponse>(&account_id, SINGLETON_ID, base)

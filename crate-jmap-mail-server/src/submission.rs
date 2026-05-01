@@ -397,7 +397,12 @@ pub async fn handle_submission_set<B: MailBackend>(
             "notDestroyed": {},
         });
 
-        extra_invocations.push(("Email/set".to_string(), email_set_resp, call_id.to_string()));
+        // RFC 8621 §7.5: the implicit call's call-id is "#<call-id-of-EmailSubmission/set>".
+        extra_invocations.push((
+            "Email/set".to_string(),
+            email_set_resp,
+            format!("#{call_id}"),
+        ));
     }
 
     Ok((resp, extra_invocations))
@@ -581,6 +586,23 @@ async fn process_update<B: MailBackend>(
     id: &Id,
     patch: &Value,
 ) -> Result<(), Value> {
+    // RFC 8621 §7.5: only undoStatus may be changed in an update patch.
+    if let Some(obj) = patch.as_object() {
+        let bad: Vec<&str> = obj
+            .keys()
+            .filter(|k| k.as_str() != "undoStatus")
+            .map(|k| k.as_str())
+            .collect();
+        if !bad.is_empty() {
+            return Err(serde_json::to_value(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(bad.iter().map(|s| s.to_string()).collect())
+                    .with_description("only undoStatus may be changed on an EmailSubmission"),
+            )
+            .expect("SetError is always serializable"));
+        }
+    }
+
     // Look up existing submission to check undoStatus.
     let (existing, not_found) = backend
         .get_objects::<EmailSubmission>(account_id, Some(std::slice::from_ref(id)), None)

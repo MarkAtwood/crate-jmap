@@ -152,33 +152,12 @@ pub enum SetErrorType {
 
 impl std::fmt::Display for SetErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Wire-format camelCase names per RFC 8620 §5.3 and RFC 8621.
-        let s = match self {
-            Self::Forbidden => "forbidden",
-            Self::OverQuota => "overQuota",
-            Self::TooLarge => "tooLarge",
-            Self::RateLimit => "rateLimit",
-            Self::NotFound => "notFound",
-            Self::InvalidPatch => "invalidPatch",
-            Self::WillDestroy => "willDestroy",
-            Self::InvalidProperties => "invalidProperties",
-            Self::Singleton => "singleton",
-            Self::MailboxHasChild => "mailboxHasChild",
-            Self::MailboxHasEmail => "mailboxHasEmail",
-            Self::AlreadyExists => "alreadyExists",
-            Self::TooManyKeywords => "tooManyKeywords",
-            Self::TooManyMailboxes => "tooManyMailboxes",
-            Self::BlobNotFound => "blobNotFound",
-            Self::ForbiddenFrom => "forbiddenFrom",
-            Self::InvalidEmail => "invalidEmail",
-            Self::TooManyRecipients => "tooManyRecipients",
-            Self::NoRecipients => "noRecipients",
-            Self::InvalidRecipients => "invalidRecipients",
-            Self::ForbiddenMailFrom => "forbiddenMailFrom",
-            Self::ForbiddenToSend => "forbiddenToSend",
-            Self::CannotUnsend => "cannotUnsend",
-        };
-        f.write_str(s)
+        // Delegate to serde's camelCase rename_all mapping so the wire-format
+        // string is defined in exactly one place.
+        match serde_json::to_value(self) {
+            Ok(serde_json::Value::String(s)) => f.write_str(&s),
+            _ => f.write_str("unknown"),
+        }
     }
 }
 

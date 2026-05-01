@@ -1509,9 +1509,10 @@ async fn submission_set_on_success_update_email() {
     );
     let (method, email_set_resp, extra_call_id) = &extra[0];
     assert_eq!(method, "Email/set", "extra invocation must be Email/set");
+    // RFC 8621 §7.5: implicit call-id is "#<call-id-of-EmailSubmission/set>".
     assert_eq!(
-        extra_call_id, "call2",
-        "extra invocation must carry original call_id"
+        extra_call_id, "#call2",
+        "extra invocation call_id must be '#' + original call_id (RFC 8621 §7.5)"
     );
 
     // Oracle: email_id appears in "updated" of the extra Email/set response.
@@ -1936,5 +1937,209 @@ async fn email_query_by_mailbox() {
         query_resp["total"].as_u64(),
         Some(3),
         "total must reflect all created emails"
+    );
+}
+
+/// Oracle: Email/import with mailboxIds:{} (empty) returns notCreated with
+/// invalidProperties referencing mailboxIds.
+///
+/// RFC 8621 §5.7 — at least one mailbox MUST be given. An empty mailboxIds
+/// object must be rejected before calling the backend.
+#[tokio::test]
+async fn email_import_empty_mailbox_ids_rejected() {
+    use jmap_mail_server::handle_email_import;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let msg = b"Subject: test\r\n\r\nbody";
+    let blob_id = Id::from("blob-empty-mb");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "emails": {
+            "imp1": {
+                "blobId": blob_id.as_ref(),
+                "mailboxIds": {},
+            }
+        }
+    });
+
+    let (resp, extra) = handle_email_import(&backend, args)
+        .await
+        .expect("Email/import must not return a JmapError");
+    assert!(extra.is_empty());
+
+    // Oracle: imp1 must appear in notCreated, not in created.
+    assert!(resp["created"].is_null(), "created must be null");
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object");
+    assert!(
+        not_created.contains_key("imp1"),
+        "imp1 must be in notCreated"
+    );
+    assert_eq!(
+        not_created["imp1"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties"
+    );
+    let props = not_created["imp1"]["properties"]
+        .as_array()
+        .expect("properties must be an array");
+    assert!(
+        props.iter().any(|v| v.as_str() == Some("mailboxIds")),
+        "properties must mention mailboxIds; got: {props:?}"
+    );
+}
+
+/// Oracle: EmailSubmission/set update that patches a field other than undoStatus
+/// is rejected with invalidProperties.
+///
+/// RFC 8621 §7.5 — only the undoStatus property may be changed.
+#[tokio::test]
+async fn submission_set_update_only_undo_status_allowed() {
+    use jmap_mail_types::Identity;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create an Identity and email, then a submission.
+    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let (identity_id, _) = backend
+        .create_object::<Identity>(&account_id, "i0", identity)
+        .await
+        .expect("create Identity");
+
+    let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nBody.";
+    let blob_id = Id::from("blob-sub-patch");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+    let (email_id, _) = backend
+        .import_email(&account_id, &blob_id, &[Id::from("sent")], &[], None)
+        .await
+        .expect("import_email");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "s0": {
+                "identityId": identity_id.as_ref(),
+                "emailId": email_id.as_ref(),
+            }
+        }
+    });
+    let (set_resp, _) = handle_submission_set(&backend, set_args, "c1")
+        .await
+        .expect("create submission");
+    let submission_id = set_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    // Try to update a field other than undoStatus.
+    let update_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "update": {
+            submission_id.clone(): {
+                "emailId": email_id.as_ref(),
+            }
+        }
+    });
+    let (upd_resp, _) = handle_submission_set(&backend, update_args, "c2")
+        .await
+        .expect("set must not return JmapError");
+
+    // Oracle: submission must appear in notUpdated with invalidProperties.
+    let not_updated = upd_resp["notUpdated"]
+        .as_object()
+        .expect("notUpdated must be an object");
+    assert!(
+        not_updated.contains_key(&submission_id),
+        "submission must be in notUpdated; got: {upd_resp:?}"
+    );
+    assert_eq!(
+        not_updated[&submission_id]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties"
+    );
+
+    // Oracle: updated map must be empty.
+    assert!(
+        upd_resp["updated"]
+            .as_object()
+            .map_or(true, |m| m.is_empty()),
+        "updated must be empty when non-undoStatus field is patched"
+    );
+}
+
+/// Oracle: Mailbox/set create+destroy in the same request correctly detects
+/// the newly-created child mailbox when deciding whether the parent can be destroyed.
+///
+/// RFC 8621 §2.5 — destroying a mailbox that has children must return
+/// mailboxHasChild, even when the child was created in the same request.
+#[tokio::test]
+async fn mailbox_set_create_child_then_destroy_parent_blocked() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+
+    // First create the parent mailbox.
+    let (parent_id, _) = backend
+        .create_object::<jmap_mail_types::Mailbox>(
+            &account_id,
+            "p0",
+            jmap_mail_types::Mailbox::new(
+                Id::from("placeholder"),
+                "Parent",
+                0,
+                0,
+                0,
+                0,
+                0,
+                jmap_mail_types::MailboxRights::default(),
+                false,
+            ),
+        )
+        .await
+        .expect("create parent mailbox");
+
+    // In one Mailbox/set request: create a child of parent AND try to destroy parent.
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "child1": {
+                "name": "Child",
+                "parentId": parent_id.as_ref(),
+            }
+        },
+        "destroy": [parent_id.as_ref()],
+    });
+
+    let (resp, _) = handle_mailbox_set(&backend, args)
+        .await
+        .expect("Mailbox/set must not return JmapError");
+
+    // Oracle: child create must succeed.
+    let created = resp["created"].as_object().expect("created must be object");
+    assert!(
+        created.contains_key("child1"),
+        "child create must succeed; notCreated={:?}",
+        resp["notCreated"]
+    );
+
+    // Oracle: parent destroy must fail with mailboxHasChild.
+    let not_destroyed = resp["notDestroyed"]
+        .as_object()
+        .expect("notDestroyed must be an object");
+    assert!(
+        not_destroyed.contains_key(parent_id.as_ref()),
+        "parent must be in notDestroyed; resp={resp:?}"
+    );
+    assert_eq!(
+        not_destroyed[parent_id.as_ref()]["type"]
+            .as_str()
+            .unwrap_or(""),
+        "mailboxHasChild",
+        "error must be mailboxHasChild when child was just created"
     );
 }

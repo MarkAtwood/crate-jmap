@@ -149,6 +149,16 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
+    // Reject unknown filter condition keys (RFC 8620 §5.5 requires unsupportedFilter).
+    const KNOWN_FILTER_KEYS: &[&str] = &["parentId", "name", "role", "hasAnyRole", "isSubscribed"];
+    if let Some(filter_obj) = args.get("filter").and_then(|v| v.as_object()) {
+        for key in filter_obj.keys() {
+            if !KNOWN_FILTER_KEYS.contains(&key.as_str()) {
+                return Err(JmapError::unsupported_filter());
+            }
+        }
+    }
+
     // Extract mailbox-specific filter fields from args.
     let filter_parent_id: Option<Option<Id>> = match args.get("filter") {
         Some(f) => match f.get("parentId") {
@@ -526,6 +536,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
+        // Re-fetch mailboxes after the create loop so that any newly-created
+        // child mailboxes are visible to the parent-check below. Using the
+        // pre-create snapshot would allow destroying a parent that just got a
+        // new child in the same request.
+        let (mailboxes_after_creates, _) = backend
+            .get_objects::<Mailbox>(&account_id, None, None)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
         for id_val in destroy_ids {
             let id_str = match id_val.as_str() {
                 Some(s) => s,
@@ -533,8 +552,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             };
             let id = Id::from(id_str);
 
-            // Check for child mailboxes.
-            let has_child = all_mailboxes
+            // Check for child mailboxes using the post-create snapshot.
+            let has_child = mailboxes_after_creates
                 .iter()
                 .any(|m| m.parent_id.as_ref() == Some(&id));
             if has_child {
