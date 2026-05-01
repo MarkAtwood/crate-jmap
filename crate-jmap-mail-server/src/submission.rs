@@ -195,7 +195,7 @@ pub async fn handle_submission_query<B: MailBackend>(
                 .ids
                 .iter()
                 .position(|id| id == anchor_id)
-                .ok_or_else(|| JmapError::anchor_not_found())?;
+                .ok_or_else(JmapError::anchor_not_found)?;
             let raw = anchor_idx as i64 + anchor_offset;
             let start = raw.max(0).min(all.ids.len() as i64) as usize;
             let effective_limit = limit.map_or(usize::MAX, |n| n as usize);

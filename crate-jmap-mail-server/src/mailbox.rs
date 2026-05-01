@@ -283,7 +283,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         let anchor_idx = matching
             .iter()
             .position(|id| id == anchor_id)
-            .ok_or_else(|| JmapError::anchor_not_found())?;
+            .ok_or_else(JmapError::anchor_not_found)?;
         // RFC 8620 §5.5: clamp effective position to [0, len].
         let raw = anchor_idx as i64 + anchor_offset;
         raw.max(0).min(matching.len() as i64) as usize
@@ -464,7 +464,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             if let Some(role_val) = props.get("role").filter(|v| !v.is_null()) {
                 if let Some(role_str) = role_val.as_str() {
                     let role_taken = all_mailboxes.iter().any(|m| {
-                        m.role.as_ref().map_or(false, |r| r.to_string() == role_str)
+                        m.role.as_ref().is_some_and(|r| r.to_string() == role_str)
                     });
                     // Also check what we already successfully created in this request.
                     let role_just_created = created
@@ -568,7 +568,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     if let Some(role_str) = role_val.as_str() {
                         let role_taken = all_mailboxes.iter().any(|m| {
                             m.id != id
-                                && m.role.as_ref().map_or(false, |r| r.to_string() == role_str)
+                                && m.role.as_ref().is_some_and(|r| r.to_string() == role_str)
                         });
                         let role_just_updated = roles_updated_this_request.contains(role_str);
                         let role_just_created = created

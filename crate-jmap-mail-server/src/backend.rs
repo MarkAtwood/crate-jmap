@@ -468,6 +468,11 @@ pub trait MailBackend: Send + Sync + 'static {
     // -----------------------------------------------------------------------
 
     /// Execute a `/query` and return a page of matching ids.
+    ///
+    /// `position` may be negative — negative values are relative to the end of
+    /// the result set per RFC 8620 §5.5 (e.g. -1 means the last result).
+    /// Backends MUST handle negative positions; they are passed through from the
+    /// client unchanged on the non-`collapseThreads` path.
     fn query_objects<O: QueryObject + Send + Sync>(
         &self,
         account_id: &jmap_types::Id,
@@ -481,6 +486,7 @@ pub trait MailBackend: Send + Sync + 'static {
     ///
     /// `collapse_threads` is only meaningful for `Email/queryChanges` (RFC 8621 §4.5).
     /// Pass `false` for all other object types.
+    #[allow(clippy::too_many_arguments)]
     fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         account_id: &jmap_types::Id,

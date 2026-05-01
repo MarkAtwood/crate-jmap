@@ -263,7 +263,7 @@ pub async fn handle_email_query<B: MailBackend>(
                 let anchor_idx = all_ids
                     .iter()
                     .position(|id| id == anchor_id)
-                    .ok_or_else(|| JmapError::anchor_not_found())?;
+                    .ok_or_else(JmapError::anchor_not_found)?;
                 // RFC 8620 §5.5: clamp effective position to [0, len].
                 let raw = anchor_idx as i64 + anchor_offset;
                 raw.max(0).min(all_ids.len() as i64) as usize
