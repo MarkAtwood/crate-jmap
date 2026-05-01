@@ -119,7 +119,6 @@ pub async fn handle_submission_changes<B: MailBackend>(
         "oldState": since_state.as_ref(),
         "newState": result.new_state.as_ref(),
         "hasMoreChanges": result.has_more_changes,
-        "updatedProperties": Value::Null,
         "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
@@ -716,15 +715,23 @@ async fn process_create<B: MailBackend>(
     }
 
     // --- SMTP injection defense (RFC 8621 §7.5) ---
-    if !check_no_crlf(&envelope.mail_from.email) {
-        return Err(json!({ "type": "invalidRecipients",
-                           "description": "mailFrom.email contains CR or LF" }));
-    }
-    for rcpt in &envelope.rcpt_to {
-        if !check_no_crlf(&rcpt.email) {
-            return Err(json!({ "type": "invalidRecipients",
-                               "description": format!("rcptTo address {:?} contains CR or LF",
-                                                      rcpt.email) }));
+    // Collect *all* invalid addresses; RFC 8621 §7.5 requires the complete list.
+    {
+        let mut invalid: Vec<&str> = Vec::new();
+        if !check_no_crlf(&envelope.mail_from.email) {
+            invalid.push(&envelope.mail_from.email);
+        }
+        for rcpt in &envelope.rcpt_to {
+            if !check_no_crlf(&rcpt.email) {
+                invalid.push(&rcpt.email);
+            }
+        }
+        if !invalid.is_empty() {
+            return Err(json!({
+                "type": "invalidRecipients",
+                "invalidRecipients": invalid,
+                "description": "one or more addresses contain CR or LF",
+            }));
         }
     }
 

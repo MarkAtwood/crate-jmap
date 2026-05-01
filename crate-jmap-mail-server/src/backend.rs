@@ -65,6 +65,12 @@ pub struct SetError {
     /// The existing object id (for `alreadyExists` — RFC 8621 §5.7).
     #[serde(rename = "existingId", skip_serializing_if = "Option::is_none")]
     pub existing_id: Option<jmap_types::Id>,
+    /// Maximum recipients allowed (for `tooManyRecipients` — RFC 8621 §7.5).
+    #[serde(rename = "maxRecipients", skip_serializing_if = "Option::is_none")]
+    pub max_recipients: Option<u64>,
+    /// Invalid recipient addresses (for `invalidRecipients` — RFC 8621 §7.5).
+    #[serde(rename = "invalidRecipients", skip_serializing_if = "Option::is_none")]
+    pub invalid_recipients: Option<Vec<String>>,
 }
 
 impl SetError {
@@ -75,6 +81,8 @@ impl SetError {
             description: None,
             properties: None,
             existing_id: None,
+            max_recipients: None,
+            invalid_recipients: None,
         }
     }
 
@@ -97,6 +105,22 @@ impl SetError {
     /// Set the existing object id (used with `alreadyExists`).
     pub fn with_existing_id(mut self, id: jmap_types::Id) -> Self {
         self.existing_id = Some(id);
+        self
+    }
+
+    /// Set the maximum recipients (used with `tooManyRecipients` — RFC 8621 §7.5).
+    pub fn with_max_recipients(mut self, n: u64) -> Self {
+        self.max_recipients = Some(n);
+        self
+    }
+
+    /// Set the invalid recipient addresses (used with `invalidRecipients` — RFC 8621 §7.5).
+    pub fn with_invalid_recipients<I, S>(mut self, addrs: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.invalid_recipients = Some(addrs.into_iter().map(|s| s.into()).collect());
         self
     }
 }

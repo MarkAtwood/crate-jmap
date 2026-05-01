@@ -128,7 +128,6 @@ pub async fn handle_email_changes<B: MailBackend>(
         .await
         .map_err(JmapError::from)?;
 
-    // RFC 8621 §5.2: updatedProperties — null for MemoryBackend (no partial-update tracking).
     let resp = json!({
         "accountId": account_id.as_ref(),
         "oldState": since_state.as_ref(),
@@ -137,7 +136,6 @@ pub async fn handle_email_changes<B: MailBackend>(
         "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-        "updatedProperties": Value::Null,
     });
 
     Ok((resp, vec![]))
@@ -176,12 +174,11 @@ pub async fn handle_email_query<B: MailBackend>(
     };
 
     // limit is always a concrete u64 after parsing (default 256 when absent).
-    // We never pass None to the backend from this handler — None would mean
-    // "no limit", but we always impose at least 256.
-    let limit: u64 = match args.remove("limit") {
-        None | Some(Value::Null) => 256,
+    // Track whether the client specified a limit so we know when to echo it back.
+    let (limit, client_limit): (u64, Option<u64>) = match args.remove("limit") {
+        None | Some(Value::Null) => (256, None),
         Some(v) => match v.as_u64() {
-            Some(n) => n,
+            Some(n) => (n, Some(n)),
             None => {
                 return Err(JmapError::invalid_arguments(format!(
                     "limit: expected a non-negative integer, got {v}"
@@ -314,6 +311,10 @@ pub async fn handle_email_query<B: MailBackend>(
         if let Some(t) = total {
             resp["total"] = json!(t);
         }
+    }
+    // RFC 8620 §5.5: return limit if server applied a cap different from what the client sent.
+    if client_limit != Some(limit) {
+        resp["limit"] = json!(limit);
     }
 
     Ok((resp, vec![]))
@@ -1157,6 +1158,13 @@ pub async fn handle_email_copy<B: MailBackend>(
         Some(s) => Id::from(s),
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
     };
+
+    // RFC 8620 §5.4: fromAccountId MUST differ from accountId.
+    if from_account_id == account_id {
+        return Err(JmapError::invalid_arguments(
+            "fromAccountId must be different from accountId",
+        ));
+    }
 
     let create = match args.get("create").and_then(|v| v.as_object()) {
         Some(m) => m.clone(),

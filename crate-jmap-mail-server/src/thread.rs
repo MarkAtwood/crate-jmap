@@ -98,9 +98,6 @@ pub async fn handle_thread_changes<B: MailBackend>(
         "oldState": since_state.as_ref(),
         "newState": result.new_state.as_ref(),
         "hasMoreChanges": result.has_more_changes,
-        // RFC 8621 §3.2: SHOULD return ["emailIds"] when threads are updated —
-        // emailIds is the only property that changes after creation.
-        "updatedProperties": if result.updated.is_empty() { Value::Null } else { json!(["emailIds"]) },
         "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
