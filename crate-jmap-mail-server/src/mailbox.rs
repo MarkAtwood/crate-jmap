@@ -152,6 +152,25 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         })?,
     };
 
+    // RFC 8620 §5.5: anchor-based pagination overrides position.
+    let anchor: Option<jmap_types::Id> = match args.get("anchor") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(jmap_types::Id::from(s.as_str())),
+        Some(v) => {
+            return Err(JmapError::invalid_arguments(format!(
+                "anchor: expected an Id string or null, got {v}"
+            )))
+        }
+    };
+    let anchor_offset: i64 = match args.get("anchorOffset") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!(
+                "anchorOffset: expected an integer, got {v}"
+            ))
+        })?,
+    };
+
     // Reject any client-supplied sort request: Mailbox/query is implemented
     // in-process and cannot honour RFC 8621 §2.3 comparators. RFC 8620 §5.5
     // requires an unsupportedSort error rather than silently ignoring sort.
@@ -246,7 +265,17 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     matching.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
 
     let total = matching.len() as u64;
-    let start = if position >= 0 {
+
+    // Resolve start position: anchor overrides position.
+    let start = if let Some(ref anchor_id) = anchor {
+        let anchor_idx = matching
+            .iter()
+            .position(|id| id == anchor_id)
+            .ok_or_else(|| JmapError::anchor_not_found())?;
+        // RFC 8620 §5.5: clamp effective position to [0, len].
+        let raw = anchor_idx as i64 + anchor_offset;
+        raw.max(0).min(matching.len() as i64) as usize
+    } else if position >= 0 {
         (position as usize).min(matching.len())
     } else {
         // saturating_neg() avoids i64::MIN overflow (i64::MIN.saturating_neg() = i64::MAX).
@@ -308,6 +337,11 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
         }
     };
 
+    let calculate_total: bool = args
+        .get("calculateTotal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let result = backend
         .query_changes::<Mailbox>(
             &account_id,
@@ -316,6 +350,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
             None,
             max_changes,
             up_to_id.as_ref(),
+            false, // collapseThreads does not apply to Mailbox
         )
         .await
         .map_err(JmapError::from)?;
@@ -332,17 +367,21 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
         })
         .collect();
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "oldQueryState": result.old_query_state.as_ref(),
-            "newQueryState": result.new_query_state.as_ref(),
-            "total": result.total,
-            "removed": removed,
-            "added": added,
-        }),
-        vec![],
-    ))
+    // RFC 8620 §5.6: total MUST be omitted unless calculateTotal is true.
+    let mut resp = json!({
+        "accountId": account_id.as_ref(),
+        "oldQueryState": result.old_query_state.as_ref(),
+        "newQueryState": result.new_query_state.as_ref(),
+        "removed": removed,
+        "added": added,
+    });
+    if calculate_total {
+        if let Some(t) = result.total {
+            resp["total"] = json!(t);
+        }
+    }
+
+    Ok((resp, vec![]))
 }
 
 // ---------------------------------------------------------------------------
@@ -400,7 +439,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     create_id.clone(),
                     serde_json::to_value(
                         SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(vec!["name".to_owned()]),
+                            .with_properties(["name"]),
                     )
                     .expect("SetError derives Serialize and is always serializable"),
                 );
@@ -411,7 +450,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             if let Some(role_val) = props.get("role").filter(|v| !v.is_null()) {
                 if let Some(role_str) = role_val.as_str() {
                     let role_taken = all_mailboxes.iter().any(|m| {
-                        m.role.as_ref().map(|r| r.to_string()) == Some(role_str.to_owned())
+                        m.role.as_ref().map_or(false, |r| r.to_string() == role_str)
                     });
                     // Also check what we already successfully created in this request.
                     let role_just_created = created
@@ -422,7 +461,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             create_id.clone(),
                             serde_json::to_value(
                                 SetError::new(SetErrorType::InvalidProperties)
-                                    .with_properties(vec!["role".to_owned()]),
+                                    .with_properties(["role"]),
                             )
                             .expect("SetError derives Serialize and is always serializable"),
                         );
@@ -515,8 +554,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     if let Some(role_str) = role_val.as_str() {
                         let role_taken = all_mailboxes.iter().any(|m| {
                             m.id != id
-                                && m.role.as_ref().map(|r| r.to_string())
-                                    == Some(role_str.to_owned())
+                                && m.role.as_ref().map_or(false, |r| r.to_string() == role_str)
                         });
                         let role_just_updated = roles_updated_this_request.contains(role_str);
                         let role_just_created = created
@@ -527,7 +565,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                 id_str.clone(),
                                 serde_json::to_value(
                                     SetError::new(SetErrorType::InvalidProperties)
-                                        .with_properties(vec!["role".to_owned()]),
+                                        .with_properties(["role"]),
                                 )
                                 .expect("SetError derives Serialize and is always serializable"),
                             );
@@ -753,7 +791,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
         None => {
             return Err(serde_json::to_value(
                 SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(vec!["name".to_owned()]),
+                    .with_properties(["name"]),
             )
             .expect("SetError derives Serialize and is always serializable"));
         }
@@ -766,7 +804,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
             _ => {
                 return Err(serde_json::to_value(
                     SetError::new(SetErrorType::InvalidProperties)
-                        .with_properties(vec!["sortOrder".to_owned()])
+                        .with_properties(["sortOrder"])
                         .with_description("sortOrder must be a non-negative integer ≤ 4294967295"),
                 )
                 .expect("SetError is always serializable"));
@@ -804,7 +842,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
                 serde_json::from_value(Value::String(s.to_owned())).map_err(|_| {
                     serde_json::to_value(
                         SetError::new(SetErrorType::InvalidProperties)
-                            .with_properties(vec!["role".to_owned()]),
+                            .with_properties(["role"]),
                     )
                     .expect("SetError derives Serialize and is always serializable")
                 })?;

@@ -470,6 +470,7 @@ impl MailBackend for MemoryBackend {
         _sort: Option<&[O::Comparator]>,
         _max_changes: Option<u64>,
         _up_to_id: Option<&Id>,
+        _collapse_threads: bool,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         // MemoryBackend does not track per-query result sets. Return the full
         // current id list as "added" when since_query_state == "0"; otherwise
@@ -1231,6 +1232,7 @@ impl MailBackend for FaultyBackend {
         sort: Option<&[O::Comparator]>,
         max_changes: Option<u64>,
         up_to_id: Option<&Id>,
+        collapse_threads: bool,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         self.inner
             .query_changes::<O>(
@@ -1240,6 +1242,7 @@ impl MailBackend for FaultyBackend {
                 sort,
                 max_changes,
                 up_to_id,
+                collapse_threads,
             )
             .await
     }

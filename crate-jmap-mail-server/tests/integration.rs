@@ -555,6 +555,7 @@ async fn search_snippet_get_capability_gated() {
             sort: Option<&[O::Comparator]>,
             max_changes: Option<u64>,
             up_to_id: Option<&Id>,
+            collapse_threads: bool,
         ) -> Result<
             jmap_mail_server::QueryChangesResult,
             jmap_mail_server::BackendChangesError<Self::Error>,
@@ -567,6 +568,7 @@ async fn search_snippet_get_capability_gated() {
                     sort,
                     max_changes,
                     up_to_id,
+                    collapse_threads,
                 )
                 .await
         }
@@ -3466,5 +3468,323 @@ async fn mailbox_set_sort_order_overflow_rejected() {
     assert!(
         props.iter().any(|p| p.as_str() == Some("sortOrder")),
         "sortOrder must be in invalid properties list; props: {props:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-2qp.7: Email/import created response — 4 server-set fields only
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/import 'created' entries contain exactly the four fields
+/// specified in RFC 8621 §4.8: id, blobId, threadId, size. No other Email
+/// properties (mailboxIds, keywords, subject, etc.) may appear.
+#[tokio::test]
+async fn email_import_created_response_has_four_server_set_fields() {
+    let backend = MemoryBackend::new();
+    let blob_id = Id::from("blob-4f");
+    backend.store_blob(blob_id.clone(), b"Subject: test\r\n\r\nbody".to_vec());
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "emails": {
+            "imp1": {
+                "blobId": blob_id.as_ref(),
+                "mailboxIds": { "inbox": true },
+                "keywords": { "$seen": true },
+            }
+        }
+    });
+    let (resp, _) = handle_email_import(&backend, args)
+        .await
+        .expect("import must succeed");
+
+    let created = resp["created"]["imp1"]
+        .as_object()
+        .expect("imp1 must be in created");
+
+    // Required fields present.
+    assert!(created.contains_key("id"), "id must be present");
+    assert!(created.contains_key("blobId"), "blobId must be present");
+    assert!(created.contains_key("threadId"), "threadId must be present");
+    assert!(created.contains_key("size"), "size must be present");
+
+    // No extra fields (mailboxIds, keywords, subject, etc.) must leak out.
+    let extra: Vec<&String> = created
+        .keys()
+        .filter(|k| !["id", "blobId", "threadId", "size"].contains(&k.as_str()))
+        .collect();
+    assert!(
+        extra.is_empty(),
+        "created entry must have only 4 server-set fields; found extra: {extra:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-2qp.1: queryChanges total field must be gated on calculateTotal
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/queryChanges must omit 'total' when calculateTotal is absent
+/// or false (RFC 8620 §5.6 — total MUST be omitted by default).
+#[tokio::test]
+async fn email_query_changes_omits_total_by_default() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "sinceQueryState": "0",
+    });
+    let (resp, _) = handle_email_query_changes(&backend, args)
+        .await
+        .expect("handler must succeed");
+    assert!(
+        resp.get("total").is_none(),
+        "total must be absent when calculateTotal not sent; resp: {resp}"
+    );
+}
+
+/// Oracle: Mailbox/queryChanges must omit 'total' when calculateTotal is absent
+/// or false (RFC 8620 §5.6).
+#[tokio::test]
+async fn mailbox_query_changes_omits_total_by_default() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "sinceQueryState": "0",
+    });
+    let (resp, _) = handle_mailbox_query_changes(&backend, args)
+        .await
+        .expect("handler must succeed");
+    assert!(
+        resp.get("total").is_none(),
+        "total must be absent when calculateTotal not sent; resp: {resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-2qp.2: anchor/anchorOffset support in query handlers
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/query with anchor= returns the page starting at the anchor's
+/// 0-based position in the sorted result list (RFC 8620 §5.5).
+#[tokio::test]
+async fn email_query_anchor_resolves_position() {
+    let backend = MemoryBackend::new();
+    let account_id = "acct1";
+
+    // Create 3 emails.
+    let set_args = serde_json::json!({
+        "accountId": account_id,
+        "create": {
+            "c0": { "mailboxIds": { "inbox": true } },
+            "c1": { "mailboxIds": { "inbox": true } },
+            "c2": { "mailboxIds": { "inbox": true } },
+        }
+    });
+    handle_email_set(&backend, set_args)
+        .await
+        .expect("email create must succeed");
+
+    // First query: get all IDs in sorted order.
+    let q1 = serde_json::json!({ "accountId": account_id });
+    let (q1_resp, _) = handle_email_query(&backend, q1)
+        .await
+        .expect("first query must succeed");
+    let all_ids: Vec<String> = q1_resp["ids"]
+        .as_array()
+        .expect("ids must be present")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(all_ids.len(), 3, "must have 3 emails");
+
+    // Anchor at index 1 (middle email), limit=2 → expect [index1, index2].
+    let anchor = all_ids[1].clone();
+    let q2 = serde_json::json!({
+        "accountId": account_id,
+        "anchor": anchor,
+        "limit": 2,
+    });
+    let (q2_resp, _) = handle_email_query(&backend, q2)
+        .await
+        .expect("anchor query must succeed");
+
+    assert_eq!(
+        q2_resp["position"].as_i64(),
+        Some(1),
+        "reported position must be the anchor index; resp: {q2_resp}"
+    );
+    let got: Vec<&str> = q2_resp["ids"]
+        .as_array()
+        .expect("ids must be present")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(
+        got,
+        [all_ids[1].as_str(), all_ids[2].as_str()],
+        "result must start at anchor position"
+    );
+}
+
+/// Oracle: Email/query with an anchor that is not in the result set MUST return
+/// an anchorNotFound error (RFC 8620 §5.5).
+#[tokio::test]
+async fn email_query_anchor_not_found_returns_error() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "anchor": "does-not-exist",
+    });
+    let result = handle_email_query(&backend, args).await;
+    assert!(result.is_err(), "nonexistent anchor must return an error");
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type.as_str(),
+        "anchorNotFound",
+        "error type must be anchorNotFound; got: {:?}",
+        err.error_type
+    );
+}
+
+/// Oracle: Mailbox/query with anchor= returns the page starting at the anchor's
+/// position (RFC 8620 §5.5).
+#[tokio::test]
+async fn mailbox_query_anchor_resolves_position() {
+    let backend = MemoryBackend::new();
+    let account_id = "acct1";
+
+    // Create 3 mailboxes.
+    let set_args = serde_json::json!({
+        "accountId": account_id,
+        "create": {
+            "m0": { "name": "Alpha" },
+            "m1": { "name": "Beta" },
+            "m2": { "name": "Gamma" },
+        }
+    });
+    handle_mailbox_set(&backend, set_args)
+        .await
+        .expect("mailbox create must succeed");
+
+    // First query: get all IDs in sorted order.
+    let q1 = serde_json::json!({ "accountId": account_id });
+    let (q1_resp, _) = handle_mailbox_query(&backend, q1)
+        .await
+        .expect("first query must succeed");
+    let all_ids: Vec<String> = q1_resp["ids"]
+        .as_array()
+        .expect("ids must be present")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(all_ids.len(), 3, "must have 3 mailboxes");
+
+    // Anchor at the last mailbox (index 2) → expect only that one.
+    let anchor = all_ids[2].clone();
+    let q2 = serde_json::json!({ "accountId": account_id, "anchor": anchor });
+    let (q2_resp, _) = handle_mailbox_query(&backend, q2)
+        .await
+        .expect("anchor query must succeed");
+
+    assert_eq!(
+        q2_resp["position"].as_i64(),
+        Some(2),
+        "position must equal anchor index 2; resp: {q2_resp}"
+    );
+    let got: Vec<&str> = q2_resp["ids"]
+        .as_array()
+        .expect("ids must be present")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert_eq!(got, [all_ids[2].as_str()], "must return only the anchored mailbox");
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-2qp.3: Email/queryChanges accepts collapseThreads
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/queryChanges with collapseThreads=true must be accepted without
+/// error (RFC 8621 §4.5 — collapseThreads is a required argument to pass through).
+#[tokio::test]
+async fn email_query_changes_accepts_collapse_threads() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "sinceQueryState": "0",
+        "collapseThreads": true,
+    });
+    let result = handle_email_query_changes(&backend, args).await;
+    assert!(
+        result.is_ok(),
+        "collapseThreads=true must not error; got: {:?}",
+        result.err()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-2qp.8: Identity/set update rejects server-set fields
+// ---------------------------------------------------------------------------
+
+/// Oracle: Identity/set update patches containing server-set fields (id, mayDelete)
+/// are rejected with invalidProperties (RFC 8621 §6.3).
+/// Previously only the immutable 'email' field was guarded.
+#[tokio::test]
+async fn identity_set_update_rejects_server_set_fields() {
+    let backend = MemoryBackend::new();
+    let account_id = "acct1";
+
+    let create_args = serde_json::json!({
+        "accountId": account_id,
+        "create": { "c0": { "name": "Alice", "email": "alice@example.com" } }
+    });
+    let (create_resp, _) = handle_identity_set(&backend, create_args)
+        .await
+        .expect("create must succeed");
+    let iid = create_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get created id")
+        .to_string();
+
+    // Patching the server-set 'mayDelete' field must be rejected.
+    let upd1 = serde_json::json!({
+        "accountId": account_id,
+        "update": { iid.clone(): { "mayDelete": false } }
+    });
+    let (r1, _) = handle_identity_set(&backend, upd1)
+        .await
+        .expect("handler must not return protocol error");
+    let not_updated = &r1["notUpdated"][&iid];
+    assert!(!not_updated.is_null(), "mayDelete patch must be rejected; resp: {r1}");
+    assert_eq!(not_updated["type"].as_str(), Some("invalidProperties"));
+    let props: Vec<&str> = not_updated["properties"]
+        .as_array()
+        .expect("properties array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        props.contains(&"mayDelete"),
+        "mayDelete must be in rejected properties; got: {props:?}"
+    );
+
+    // Patching the server-set 'id' field must also be rejected.
+    let upd2 = serde_json::json!({
+        "accountId": account_id,
+        "update": { iid.clone(): { "id": "some-new-id" } }
+    });
+    let (r2, _) = handle_identity_set(&backend, upd2)
+        .await
+        .expect("handler must not return protocol error");
+    let not_updated2 = &r2["notUpdated"][&iid];
+    assert!(!not_updated2.is_null(), "id patch must be rejected; resp: {r2}");
+    let props2: Vec<&str> = not_updated2["properties"]
+        .as_array()
+        .expect("properties array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        props2.contains(&"id"),
+        "id must be in rejected properties; got: {props2:?}"
     );
 }

@@ -205,75 +205,100 @@ pub async fn handle_email_query<B: MailBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+    // RFC 8620 §5.5: anchor-based pagination overrides position.
+    let anchor: Option<Id> = match args.remove("anchor") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(v) => {
+            return Err(JmapError::invalid_arguments(format!(
+                "anchor: expected an Id string or null, got {v}"
+            )))
+        }
+    };
+    let anchor_offset: i64 = match args.remove("anchorOffset") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!(
+                "anchorOffset: expected an integer, got {v}"
+            ))
+        })?,
+    };
+
     let sort_slice = sort.as_deref();
 
-    // When collapseThreads is set, fetch all matching emails (no limit) to compute the
-    // correct total (= unique thread count across the full result set), then paginate
-    // the collapsed list ourselves. Without collapseThreads, delegate limit/position to
-    // the backend and use the backend's authoritative total.
-    let (ids, total, query_state, can_calculate_changes, reported_position) = if collapse_threads {
-        let all = backend
-            .query_objects::<Email>(
-                &account_id,
-                filter.as_ref(),
-                sort_slice,
-                Some(COLLAPSE_THREADS_MAX_EMAILS),
-                0,
-            )
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
-        let fetched_count = all.ids.len();
-        let all_collapsed = collapse_by_thread(backend, &account_id, all.ids)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
-        // If the fetch was capped, the collapsed total is a lower bound, not the true
-        // total. Return None so calculateTotal=true still gets an honest answer.
-        let thread_total: Option<u64> = if fetched_count < COLLAPSE_THREADS_MAX_EMAILS as usize {
-            Some(all_collapsed.len() as u64)
+    // When collapseThreads or anchor is set we need the full result set in-process.
+    // Without either, delegate limit/position directly to the backend.
+    let (ids, total, query_state, can_calculate_changes, reported_position) =
+        if collapse_threads || anchor.is_some() {
+            let all = backend
+                .query_objects::<Email>(
+                    &account_id,
+                    filter.as_ref(),
+                    sort_slice,
+                    Some(COLLAPSE_THREADS_MAX_EMAILS),
+                    0,
+                )
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            let fetched_count = all.ids.len();
+            let qs = all.query_state.clone();
+            let ccc = all.can_calculate_changes;
+
+            let all_ids = if collapse_threads {
+                collapse_by_thread(backend, &account_id, all.ids)
+                    .await
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?
+            } else {
+                all.ids
+            };
+
+            // Total is only honest when the fetch was not capped.
+            let total: Option<u64> = if fetched_count < COLLAPSE_THREADS_MAX_EMAILS as usize {
+                Some(all_ids.len() as u64)
+            } else {
+                None
+            };
+
+            // Resolve start position: anchor overrides position.
+            let start = if let Some(ref anchor_id) = anchor {
+                let anchor_idx = all_ids
+                    .iter()
+                    .position(|id| id == anchor_id)
+                    .ok_or_else(|| JmapError::anchor_not_found())?;
+                // RFC 8620 §5.5: clamp effective position to [0, len].
+                let raw = anchor_idx as i64 + anchor_offset;
+                raw.max(0).min(all_ids.len() as i64) as usize
+            } else if position >= 0 {
+                (position as usize).min(all_ids.len())
+            } else {
+                // saturating_neg() avoids i64::MIN overflow.
+                let neg = position.saturating_neg() as usize;
+                all_ids.len().saturating_sub(neg)
+            };
+
+            let page: Vec<Id> = all_ids.into_iter().skip(start).take(limit as usize).collect();
+            (page, total, qs, ccc, start as i64)
         } else {
-            None
-        };
-        // RFC 8620 §5.5: negative position is relative to the end of the result set.
-        let start = if position >= 0 {
-            (position as usize).min(all_collapsed.len())
-        } else {
-            // saturating_neg() avoids i64::MIN overflow (i64::MIN.saturating_neg() = i64::MAX).
-            let neg = position.saturating_neg() as usize;
-            all_collapsed.len().saturating_sub(neg)
-        };
-        let page: Vec<Id> = all_collapsed
-            .into_iter()
-            .skip(start)
-            .take(limit as usize)
-            .collect();
-        (
-            page,
-            thread_total,
-            all.query_state,
-            all.can_calculate_changes,
-            start as i64,
-        )
-    } else {
-        let result = backend
-            .query_objects::<Email>(
-                &account_id,
-                filter.as_ref(),
-                sort_slice,
-                Some(limit),
-                position,
+            let result = backend
+                .query_objects::<Email>(
+                    &account_id,
+                    filter.as_ref(),
+                    sort_slice,
+                    Some(limit),
+                    position,
+                )
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            let pos = result.position;
+            let total = result.total;
+            (
+                result.ids,
+                total,
+                result.query_state,
+                result.can_calculate_changes,
+                pos,
             )
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
-        let pos = result.position;
-        let total = result.total;
-        (
-            result.ids,
-            total,
-            result.query_state,
-            result.can_calculate_changes,
-            pos,
-        )
-    };
+        };
 
     // RFC 8620 §5.5: total MUST be omitted when calculateTotal is false (default).
     let mut resp = json!({
@@ -346,6 +371,19 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         }
     };
 
+    // RFC 8621 §4.5: collapseThreads mirrors the argument from the original
+    // Email/query that produced the sinceQueryState. Backends that track
+    // per-query result sets use it to return thread-collapsed deltas.
+    let collapse_threads: bool = args
+        .remove("collapseThreads")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let calculate_total: bool = args
+        .remove("calculateTotal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let sort_slice = sort.as_deref();
     let result = backend
         .query_changes::<Email>(
@@ -355,6 +393,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
             sort_slice,
             max_changes,
             up_to_id.as_ref(),
+            collapse_threads,
         )
         .await
         .map_err(JmapError::from)?;
@@ -376,14 +415,19 @@ pub async fn handle_email_query_changes<B: MailBackend>(
         .map(|id| Value::String(id.as_ref().to_string()))
         .collect();
 
-    let resp = json!({
+    // RFC 8620 §5.6: total MUST be omitted unless calculateTotal is true.
+    let mut resp = json!({
         "accountId": account_id.as_ref(),
         "oldQueryState": result.old_query_state.as_ref(),
         "newQueryState": result.new_query_state.as_ref(),
-        "total": result.total,
         "removed": removed_json,
         "added": added_json,
     });
+    if calculate_total {
+        if let Some(t) = result.total {
+            resp["total"] = json!(t);
+        }
+    }
 
     Ok((resp, vec![]))
 }
@@ -653,7 +697,7 @@ fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value {
 ///
 /// A patch key violates immutability if it equals an immutable field name, or
 /// starts with `"<field>/"` (JSON Merge Patch sub-path syntax).
-pub(crate) fn find_immutable_patch_key(patch: &Value) -> Option<String> {
+pub(crate) fn find_immutable_patch_key(patch: &Value) -> Option<&'static str> {
     let map = patch.as_object()?;
     for key in map.keys() {
         for &field in IMMUTABLE_EMAIL_FIELDS {
@@ -665,7 +709,7 @@ pub(crate) fn find_immutable_patch_key(patch: &Value) -> Option<String> {
             if key == field
                 || (key.starts_with(field) && key.as_bytes().get(field.len()) == Some(&b'/'))
             {
-                return Some(field.to_string());
+                return Some(field);
             }
         }
     }
@@ -973,14 +1017,13 @@ pub async fn handle_email_import<B: MailBackend>(
             .await
         {
             Ok((server_id, email)) => {
-                let mut obj = serde_json::to_value(&email)
-                    .expect("type derives Serialize and is always serializable");
-                if let Value::Object(ref mut map) = obj {
-                    map.insert(
-                        "id".to_owned(),
-                        Value::String(server_id.as_ref().to_string()),
-                    );
-                }
+                // RFC 8621 §4.8: created entries contain only these 4 server-set fields.
+                let obj = json!({
+                    "id": server_id.as_ref(),
+                    "blobId": email.blob_id.as_ref(),
+                    "threadId": email.thread_id.as_ref(),
+                    "size": email.size,
+                });
                 created.insert(import_id.clone(), obj);
             }
             Err(BackendSetError::SetError(set_err)) => {

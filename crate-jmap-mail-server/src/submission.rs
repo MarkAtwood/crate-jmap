@@ -163,21 +163,64 @@ pub async fn handle_submission_query<B: MailBackend>(
         })?,
     };
 
-    let result = backend
-        .query_objects::<EmailSubmission>(&account_id, None, None, limit, position)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+    // RFC 8620 §5.5: anchor-based pagination overrides position.
+    let anchor: Option<Id> = match args.get("anchor") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(v) => {
+            return Err(JmapError::invalid_arguments(format!(
+                "anchor: expected an Id string or null, got {v}"
+            )))
+        }
+    };
+    let anchor_offset: i64 = match args.get("anchorOffset") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!(
+                "anchorOffset: expected an integer, got {v}"
+            ))
+        })?,
+    };
+
+    // When anchor is present, fetch the full result set to resolve it.
+    // Otherwise, delegate limit/position directly to the backend.
+    let (ids, total, query_state, can_calculate_changes, reported_position) =
+        if let Some(ref anchor_id) = anchor {
+            let all = backend
+                .query_objects::<EmailSubmission>(&account_id, None, None, None, 0)
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            let anchor_idx = all
+                .ids
+                .iter()
+                .position(|id| id == anchor_id)
+                .ok_or_else(|| JmapError::anchor_not_found())?;
+            let raw = anchor_idx as i64 + anchor_offset;
+            let start = raw.max(0).min(all.ids.len() as i64) as usize;
+            let effective_limit = limit.map_or(usize::MAX, |n| n as usize);
+            let page: Vec<Id> = all.ids.into_iter().skip(start).take(effective_limit).collect();
+            let total = all.total;
+            (page, total, all.query_state, all.can_calculate_changes, start as i64)
+        } else {
+            let result = backend
+                .query_objects::<EmailSubmission>(&account_id, None, None, limit, position)
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            let pos = result.position;
+            let total = result.total;
+            (result.ids, total, result.query_state, result.can_calculate_changes, pos)
+        };
 
     // RFC 8620 §5.5: total MUST be omitted when calculateTotal is false (default).
     let mut resp = json!({
         "accountId": account_id.as_ref(),
-        "queryState": result.query_state.as_ref(),
-        "canCalculateChanges": result.can_calculate_changes,
-        "position": result.position,
-        "ids": result.ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "queryState": query_state.as_ref(),
+        "canCalculateChanges": can_calculate_changes,
+        "position": reported_position,
+        "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
     if calculate_total {
-        if let Some(t) = result.total {
+        if let Some(t) = total {
             resp["total"] = json!(t);
         }
     }
@@ -220,6 +263,11 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
         }
     };
 
+    let calculate_total: bool = args
+        .get("calculateTotal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let result = backend
         .query_changes::<EmailSubmission>(
             &account_id,
@@ -228,6 +276,7 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
             None,
             max_changes,
             up_to_id.as_ref(),
+            false, // collapseThreads does not apply to EmailSubmission
         )
         .await
         .map_err(JmapError::from)?;
@@ -238,14 +287,19 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
         .map(|item| json!({ "id": item.id.as_ref(), "index": item.index }))
         .collect();
 
-    let resp = json!({
+    // RFC 8620 §5.6: total MUST be omitted unless calculateTotal is true.
+    let mut resp = json!({
         "accountId": account_id.as_ref(),
         "oldQueryState": result.old_query_state.as_ref(),
         "newQueryState": result.new_query_state.as_ref(),
-        "total": result.total,
         "removed": result.removed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "added": added,
     });
+    if calculate_total {
+        if let Some(t) = result.total {
+            resp["total"] = json!(t);
+        }
+    }
 
     Ok((resp, vec![]))
 }
@@ -752,7 +806,7 @@ async fn process_update<B: MailBackend>(
         if !bad.is_empty() {
             return Err(serde_json::to_value(
                 SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(bad.iter().map(|s| s.to_string()).collect())
+                    .with_properties(bad)
                     .with_description("only undoStatus may be changed on an EmailSubmission"),
             )
             .expect("SetError is always serializable"));

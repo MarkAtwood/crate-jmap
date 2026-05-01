@@ -85,8 +85,12 @@ impl SetError {
     }
 
     /// Set the list of property names that caused the error.
-    pub fn with_properties(mut self, props: Vec<String>) -> Self {
-        self.properties = Some(props);
+    pub fn with_properties<I, S>(mut self, props: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.properties = Some(props.into_iter().map(|s| s.into()).collect());
         self
     }
 
@@ -440,6 +444,9 @@ pub trait MailBackend: Send + Sync + 'static {
     ) -> impl std::future::Future<Output = Result<QueryResult, Self::Error>> + Send;
 
     /// Execute a `/queryChanges` and return deltas since `since_query_state`.
+    ///
+    /// `collapse_threads` is only meaningful for `Email/queryChanges` (RFC 8621 §4.5).
+    /// Pass `false` for all other object types.
     fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         account_id: &jmap_types::Id,
@@ -448,6 +455,7 @@ pub trait MailBackend: Send + Sync + 'static {
         sort: Option<&[O::Comparator]>,
         max_changes: Option<u64>,
         up_to_id: Option<&jmap_types::Id>,
+        collapse_threads: bool,
     ) -> impl std::future::Future<
         Output = Result<QueryChangesResult, BackendChangesError<Self::Error>>,
     > + Send;

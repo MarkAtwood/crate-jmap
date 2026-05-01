@@ -249,13 +249,20 @@ pub async fn handle_identity_set<B: MailBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
-            // Reject patches that include "email" (immutable field).
-            if patch_val.get("email").is_some() {
+            // Reject patches that include immutable or server-set fields.
+            // RFC 8621 §6.3: email is immutable; id and mayDelete are server-set.
+            const IDENTITY_READONLY: &[&str] = &["email", "id", "mayDelete"];
+            let bad_props: Vec<&str> = IDENTITY_READONLY
+                .iter()
+                .copied()
+                .filter(|&field| patch_val.get(field).is_some())
+                .collect();
+            if !bad_props.is_empty() {
                 not_updated.insert(
                     id_str.clone(),
                     json!({
                         "type": "invalidProperties",
-                        "properties": ["email"],
+                        "properties": bad_props,
                     }),
                 );
                 continue;
