@@ -8,11 +8,11 @@
 
 mod common;
 
-use common::MemoryBackend;
+use common::{FaultyBackend, MemoryBackend};
 use jmap_mail_server::{
-    handle_email_changes, handle_email_get, handle_email_query, handle_email_query_changes,
-    handle_email_set, handle_identity_get, handle_identity_set, handle_mailbox_get,
-    handle_mailbox_query, handle_mailbox_query_changes, handle_mailbox_set,
+    handle_email_changes, handle_email_get, handle_email_import, handle_email_query,
+    handle_email_query_changes, handle_email_set, handle_identity_get, handle_identity_set,
+    handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes, handle_mailbox_set,
     handle_search_snippet_get, handle_submission_get, handle_submission_query,
     handle_submission_set, handle_thread_changes, handle_thread_get, handle_vacation_get,
     handle_vacation_set, JmapObject, MailBackend, SetErrorType,
@@ -3076,6 +3076,351 @@ async fn email_query_collapse_threads_position_i64_min_does_not_panic() {
     // Oracle: empty account → empty ids list.
     let ids = resp["ids"].as_array().expect("ids must be an array");
     assert!(ids.is_empty(), "expected empty ids; got: {ids:?}");
+}
+
+// ---------------------------------------------------------------------------
+// BackendSetError::Other routing tests (JMAP-z0g)
+//
+// Each test verifies that a BackendSetError::Other from the storage layer is
+// surfaced as { "type": "serverFail" } in the appropriate not_* map, not
+// silently swallowed or converted to a JmapError that aborts the whole call.
+// ---------------------------------------------------------------------------
+
+/// Oracle: Mailbox/set — backend Other on create → item in notCreated["serverFail"].
+#[tokio::test]
+async fn mailbox_set_create_backend_other_goes_to_not_created() {
+    let backend = FaultyBackend::new();
+    backend.inject("Mailbox", "create");
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": { "c1": { "name": "Inbox" } }
+    });
+    let (resp, _) = handle_mailbox_set(&backend, args).await.unwrap();
+    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    assert_eq!(
+        resp["notCreated"]["c1"]["type"].as_str(),
+        Some("serverFail"),
+        "notCreated[c1] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: Mailbox/set — backend Other on update → item in notUpdated["serverFail"].
+#[tokio::test]
+async fn mailbox_set_update_backend_other_goes_to_not_updated() {
+    let backend = FaultyBackend::new();
+    let account = Id::from("acct1");
+    // Pre-create a mailbox via the inner backend so the update has a target.
+    let mailbox = jmap_mail_types::Mailbox::new(
+        Id::from("placeholder"),
+        "Inbox",
+        0,
+        0,
+        0,
+        0,
+        0,
+        jmap_mail_types::MailboxRights::default(),
+        true,
+    );
+    let (mbox_id, _) = backend
+        .inner
+        .create_object::<Mailbox>(&account, "c0", mailbox)
+        .await
+        .unwrap();
+
+    backend.inject("Mailbox", "update");
+    let args = serde_json::json!({
+        "accountId": account.as_ref(),
+        "update": { mbox_id.as_ref(): { "name": "Updated" } }
+    });
+    let (resp, _) = handle_mailbox_set(&backend, args).await.unwrap();
+    assert!(resp["updated"].is_null(), "updated must be null; resp: {resp}");
+    assert_eq!(
+        resp["notUpdated"][mbox_id.as_ref()]["type"].as_str(),
+        Some("serverFail"),
+        "notUpdated[id] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: Mailbox/set — backend Other on destroy → item in notDestroyed["serverFail"].
+#[tokio::test]
+async fn mailbox_set_destroy_backend_other_goes_to_not_destroyed() {
+    let backend = FaultyBackend::new();
+    let account = Id::from("acct1");
+    let mailbox = jmap_mail_types::Mailbox::new(
+        Id::from("placeholder"),
+        "Inbox",
+        0,
+        0,
+        0,
+        0,
+        0,
+        jmap_mail_types::MailboxRights::default(),
+        true,
+    );
+    let (mbox_id, _) = backend
+        .inner
+        .create_object::<Mailbox>(&account, "c0", mailbox)
+        .await
+        .unwrap();
+
+    backend.inject("Mailbox", "destroy");
+    let args = serde_json::json!({
+        "accountId": account.as_ref(),
+        "destroy": [mbox_id.as_ref()]
+    });
+    let (resp, _) = handle_mailbox_set(&backend, args).await.unwrap();
+    assert!(resp["destroyed"].is_null(), "destroyed must be null; resp: {resp}");
+    assert_eq!(
+        resp["notDestroyed"][mbox_id.as_ref()]["type"].as_str(),
+        Some("serverFail"),
+        "notDestroyed[id] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: Email/set — backend Other on create → item in notCreated["serverFail"].
+#[tokio::test]
+async fn email_set_create_backend_other_goes_to_not_created() {
+    let backend = FaultyBackend::new();
+    backend.inject("Email", "create");
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "e1": { "mailboxIds": { "mbox1": true } }
+        }
+    });
+    let (resp, _) = handle_email_set(&backend, args).await.unwrap();
+    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    assert_eq!(
+        resp["notCreated"]["e1"]["type"].as_str(),
+        Some("serverFail"),
+        "notCreated[e1] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: Email/set — backend Other on update → item in notUpdated["serverFail"].
+#[tokio::test]
+async fn email_set_update_backend_other_goes_to_not_updated() {
+    use std::collections::HashMap;
+    let backend = FaultyBackend::new();
+    let account = Id::from("acct1");
+    let email = jmap_mail_types::Email::new(
+        Id::from("placeholder"),
+        Id::from("blob1"),
+        Id::from("t1"),
+        HashMap::from([(Id::from("mbox1"), true)]),
+        0,
+        jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
+    );
+    let (email_id, _) = backend
+        .inner
+        .create_object::<jmap_mail_types::Email>(&account, "e0", email)
+        .await
+        .unwrap();
+
+    backend.inject("Email", "update");
+    let args = serde_json::json!({
+        "accountId": account.as_ref(),
+        "update": { email_id.as_ref(): { "keywords/$seen": true } }
+    });
+    let (resp, _) = handle_email_set(&backend, args).await.unwrap();
+    assert!(resp["updated"].is_null(), "updated must be null; resp: {resp}");
+    assert_eq!(
+        resp["notUpdated"][email_id.as_ref()]["type"].as_str(),
+        Some("serverFail"),
+        "notUpdated[id] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: Email/set — backend Other on destroy → item in notDestroyed["serverFail"].
+#[tokio::test]
+async fn email_set_destroy_backend_other_goes_to_not_destroyed() {
+    use std::collections::HashMap;
+    let backend = FaultyBackend::new();
+    let account = Id::from("acct1");
+    let email = jmap_mail_types::Email::new(
+        Id::from("placeholder"),
+        Id::from("blob1"),
+        Id::from("t1"),
+        HashMap::from([(Id::from("mbox1"), true)]),
+        0,
+        jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
+    );
+    let (email_id, _) = backend
+        .inner
+        .create_object::<jmap_mail_types::Email>(&account, "e0", email)
+        .await
+        .unwrap();
+
+    backend.inject("Email", "destroy");
+    let args = serde_json::json!({
+        "accountId": account.as_ref(),
+        "destroy": [email_id.as_ref()]
+    });
+    let (resp, _) = handle_email_set(&backend, args).await.unwrap();
+    assert!(resp["destroyed"].is_null(), "destroyed must be null; resp: {resp}");
+    assert_eq!(
+        resp["notDestroyed"][email_id.as_ref()]["type"].as_str(),
+        Some("serverFail"),
+        "notDestroyed[id] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: Email/import — backend Other on import_email → item in notCreated["serverFail"].
+#[tokio::test]
+async fn email_import_backend_other_goes_to_not_created() {
+    let backend = FaultyBackend::new();
+    backend.inject("Email", "import");
+    // The handler validates blobId and mailboxIds before calling import_email;
+    // supply both so the injection path is reached.
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "emails": {
+            "i1": {
+                "blobId": "blob1",
+                "mailboxIds": { "mbox1": true }
+            }
+        }
+    });
+    let (resp, _) = handle_email_import(&backend, args).await.unwrap();
+    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    assert_eq!(
+        resp["notCreated"]["i1"]["type"].as_str(),
+        Some("serverFail"),
+        "notCreated[i1] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: EmailSubmission/set — backend Other on create → item in notCreated["serverFail"].
+#[tokio::test]
+async fn submission_set_create_backend_other_goes_to_not_created() {
+    use std::collections::HashMap;
+    let backend = FaultyBackend::new();
+    let account = Id::from("acct1");
+
+    // Create an Identity so identityId validation passes.
+    let identity = jmap_mail_types::Identity::new(
+        Id::from("placeholder"),
+        "from@example.com".to_owned(),
+        true,
+    );
+    let (identity_id, _) = backend
+        .inner
+        .create_object::<Identity>(&account, "id1", identity)
+        .await
+        .unwrap();
+
+    // Create an Email so emailId validation passes.
+    let email = jmap_mail_types::Email::new(
+        Id::from("placeholder"),
+        Id::from("blob1"),
+        Id::from("t1"),
+        HashMap::from([(Id::from("mbox1"), true)]),
+        0,
+        jmap_types::UTCDate::from("2024-01-01T00:00:00Z"),
+    );
+    let (email_id, _) = backend
+        .inner
+        .create_object::<jmap_mail_types::Email>(&account, "e1", email)
+        .await
+        .unwrap();
+
+    backend.inject("EmailSubmission", "create");
+    let args = serde_json::json!({
+        "accountId": account.as_ref(),
+        "create": {
+            "s1": {
+                "identityId": identity_id.as_ref(),
+                "emailId": email_id.as_ref(),
+                // Supply explicit envelope so the noRecipients check is bypassed.
+                "envelope": {
+                    "mailFrom": { "email": "from@example.com" },
+                    "rcptTo": [{ "email": "to@example.com" }]
+                }
+            }
+        }
+    });
+    let (resp, _) = handle_submission_set(&backend, args, "call1").await.unwrap();
+    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    assert_eq!(
+        resp["notCreated"]["s1"]["type"].as_str(),
+        Some("serverFail"),
+        "notCreated[s1] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: Identity/set — backend Other on create → item in notCreated["serverFail"].
+#[tokio::test]
+async fn identity_set_create_backend_other_goes_to_not_created() {
+    let backend = FaultyBackend::new();
+    backend.inject("Identity", "create");
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": { "id1": { "email": "user@example.com" } }
+    });
+    let (resp, _) = handle_identity_set(&backend, args).await.unwrap();
+    assert!(resp["created"].is_null(), "created must be null; resp: {resp}");
+    assert_eq!(
+        resp["notCreated"]["id1"]["type"].as_str(),
+        Some("serverFail"),
+        "notCreated[id1] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: Identity/set — backend Other on update → item in notUpdated["serverFail"].
+#[tokio::test]
+async fn identity_set_update_backend_other_goes_to_not_updated() {
+    let backend = FaultyBackend::new();
+    let account = Id::from("acct1");
+    let identity = Identity::new(Id::from("placeholder"), "user@example.com".to_owned(), true);
+    let (id, _) = backend
+        .inner
+        .create_object::<Identity>(&account, "id1", identity)
+        .await
+        .unwrap();
+
+    backend.inject("Identity", "update");
+    let args = serde_json::json!({
+        "accountId": account.as_ref(),
+        "update": { id.as_ref(): { "name": "Updated Name" } }
+    });
+    let (resp, _) = handle_identity_set(&backend, args).await.unwrap();
+    assert!(resp["updated"].is_null(), "updated must be null; resp: {resp}");
+    assert_eq!(
+        resp["notUpdated"][id.as_ref()]["type"].as_str(),
+        Some("serverFail"),
+        "notUpdated[id] must have type serverFail; resp: {resp}"
+    );
+}
+
+/// Oracle: Identity/set — backend Other on destroy → item in notDestroyed["serverFail"].
+///
+/// The handler fetches the identity first to check mayDelete before calling
+/// destroy_object. The injection must fire on destroy_object, not on the
+/// get_objects pre-fetch, so the error is routed to notDestroyed.
+#[tokio::test]
+async fn identity_set_destroy_backend_other_goes_to_not_destroyed() {
+    let backend = FaultyBackend::new();
+    let account = Id::from("acct1");
+    // mayDelete = true so the handler proceeds to call destroy_object.
+    let identity = Identity::new(Id::from("placeholder"), "user@example.com".to_owned(), true);
+    let (id, _) = backend
+        .inner
+        .create_object::<Identity>(&account, "id1", identity)
+        .await
+        .unwrap();
+
+    backend.inject("Identity", "destroy");
+    let args = serde_json::json!({
+        "accountId": account.as_ref(),
+        "destroy": [id.as_ref()]
+    });
+    let (resp, _) = handle_identity_set(&backend, args).await.unwrap();
+    assert!(resp["destroyed"].is_null(), "destroyed must be null; resp: {resp}");
+    assert_eq!(
+        resp["notDestroyed"][id.as_ref()]["type"].as_str(),
+        Some("serverFail"),
+        "notDestroyed[id] must have type serverFail; resp: {resp}"
+    );
 }
 
 /// Oracle: Mailbox/set create with sortOrder > u32::MAX must return notCreated

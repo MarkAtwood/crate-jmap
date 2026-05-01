@@ -1101,3 +1101,220 @@ fn html_escape(s: &str) -> String {
         .replace('<', "&lt;")
         .replace('>', "&gt;")
 }
+
+// ---------------------------------------------------------------------------
+// FaultyBackend — injects BackendSetError::Other on demand
+// ---------------------------------------------------------------------------
+
+/// A thin wrapper around [`MemoryBackend`] that can inject
+/// `BackendSetError::Other` for specific `(type_name, operation)` pairs.
+///
+/// Call [`FaultyBackend::inject`] before the operation under test. The first
+/// matching call returns `BackendSetError::Other(MemoryError("injected …"))`;
+/// the flag is cleared so subsequent calls go to the inner backend normally.
+///
+/// Valid `op` strings: `"create"`, `"update"`, `"destroy"`, `"import"`.
+pub struct FaultyBackend {
+    pub inner: MemoryBackend,
+    failures: std::sync::Arc<
+        std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>,
+    >,
+}
+
+impl FaultyBackend {
+    pub fn new() -> Self {
+        Self {
+            inner: MemoryBackend::new(),
+            failures: Default::default(),
+        }
+    }
+
+    /// Schedule a `BackendSetError::Other` for the next call to `op` on `type_name`.
+    pub fn inject(&self, type_name: &'static str, op: &'static str) {
+        self.failures.lock().unwrap().insert((type_name, op));
+    }
+
+    fn check(&self, type_name: &'static str, op: &'static str) -> bool {
+        self.failures.lock().unwrap().remove(&(type_name, op))
+    }
+}
+
+impl MailBackend for FaultyBackend {
+    type Error = MemoryError;
+
+    async fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        properties: Option<&[O::Property]>,
+    ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+        self.inner.get_objects::<O>(account_id, ids, properties).await
+    }
+
+    async fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        create_id: &str,
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        if self.check(O::TYPE_NAME, "create") {
+            return Err(BackendSetError::Other(MemoryError(
+                "injected create error".to_owned(),
+            )));
+        }
+        self.inner.create_object::<O>(account_id, create_id, obj).await
+    }
+
+    async fn update_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        if self.check(O::TYPE_NAME, "update") {
+            return Err(BackendSetError::Other(MemoryError(
+                "injected update error".to_owned(),
+            )));
+        }
+        self.inner.update_object::<O>(account_id, id, patch).await
+    }
+
+    async fn destroy_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        if self.check(O::TYPE_NAME, "destroy") {
+            return Err(BackendSetError::Other(MemoryError(
+                "injected destroy error".to_owned(),
+            )));
+        }
+        self.inner.destroy_object::<O>(account_id, id).await
+    }
+
+    async fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+    ) -> Result<State, Self::Error> {
+        self.inner.get_state::<O>(account_id).await
+    }
+
+    async fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        self.inner
+            .get_changes::<O>(account_id, since_state, max_changes)
+            .await
+    }
+
+    async fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        limit: Option<u64>,
+        position: i64,
+    ) -> Result<QueryResult, Self::Error> {
+        self.inner
+            .query_objects::<O>(account_id, filter, sort, limit, position)
+            .await
+    }
+
+    async fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        since_query_state: &State,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        max_changes: Option<u64>,
+        up_to_id: Option<&Id>,
+    ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        self.inner
+            .query_changes::<O>(
+                account_id,
+                since_query_state,
+                filter,
+                sort,
+                max_changes,
+                up_to_id,
+            )
+            .await
+    }
+
+    async fn import_email(
+        &self,
+        account_id: &Id,
+        blob_id: &Id,
+        mailbox_ids: &[Id],
+        keywords: &[jmap_mail_types::Keyword],
+        received_at: Option<&jmap_types::UTCDate>,
+    ) -> Result<(Id, jmap_mail_types::Email), BackendSetError<Self::Error>> {
+        if self.check("Email", "import") {
+            return Err(BackendSetError::Other(MemoryError(
+                "injected import error".to_owned(),
+            )));
+        }
+        self.inner
+            .import_email(account_id, blob_id, mailbox_ids, keywords, received_at)
+            .await
+    }
+
+    async fn find_thread_by_message_ids(
+        &self,
+        account_id: &Id,
+        message_ids: &[&str],
+    ) -> Result<Option<Id>, Self::Error> {
+        self.inner
+            .find_thread_by_message_ids(account_id, message_ids)
+            .await
+    }
+
+    async fn blob_exists(&self, account_id: &Id, blob_id: &Id) -> bool {
+        self.inner.blob_exists(account_id, blob_id).await
+    }
+
+    async fn parse_email(
+        &self,
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<jmap_mail_types::Email, Self::Error> {
+        self.inner.parse_email(account_id, blob_id).await
+    }
+
+    async fn copy_email(
+        &self,
+        from_account_id: &Id,
+        email_id: &Id,
+        to_account_id: &Id,
+        mailbox_ids: &[Id],
+        keywords: &[jmap_mail_types::Keyword],
+    ) -> Result<(Id, jmap_mail_types::Email), BackendSetError<Self::Error>> {
+        self.inner
+            .copy_email(
+                from_account_id,
+                email_id,
+                to_account_id,
+                mailbox_ids,
+                keywords,
+            )
+            .await
+    }
+
+    async fn search_snippets(
+        &self,
+        account_id: &Id,
+        email_ids: &[Id],
+        filter: Option<&jmap_mail_types::EmailFilterCondition>,
+    ) -> Result<Vec<jmap_mail_types::SearchSnippet>, Self::Error> {
+        self.inner
+            .search_snippets(account_id, email_ids, filter)
+            .await
+    }
+
+    fn supports_type<O: JmapObject>(&self) -> bool {
+        self.inner.supports_type::<O>()
+    }
+}
