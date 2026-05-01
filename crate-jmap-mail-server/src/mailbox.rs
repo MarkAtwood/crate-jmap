@@ -757,11 +757,20 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
         }
     };
 
-    let sort_order: u32 = props
-        .get("sortOrder")
-        .and_then(|v| v.as_u64())
-        .map(|n| n as u32)
-        .unwrap_or(0);
+    let sort_order: u32 = match props.get("sortOrder") {
+        None | Some(Value::Null) => 0,
+        Some(v) => match v.as_u64() {
+            Some(n) if n <= u32::MAX as u64 => n as u32,
+            _ => {
+                return Err(serde_json::to_value(
+                    SetError::new(SetErrorType::InvalidProperties)
+                        .with_properties(vec!["sortOrder".to_owned()])
+                        .with_description("sortOrder must be a non-negative integer ≤ 4294967295"),
+                )
+                .expect("SetError is always serializable"));
+            }
+        },
+    };
 
     let is_subscribed: bool = props
         .get("isSubscribed")

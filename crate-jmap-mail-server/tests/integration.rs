@@ -2901,3 +2901,49 @@ async fn email_query_collapse_threads_position_i64_min_does_not_panic() {
     let ids = resp["ids"].as_array().expect("ids must be an array");
     assert!(ids.is_empty(), "expected empty ids; got: {ids:?}");
 }
+
+/// Oracle: Mailbox/set create with sortOrder > u32::MAX must return notCreated
+/// with type=invalidProperties, not silently truncate the value.
+///
+/// Reference: RFC 8621 §2.1 defines sortOrder as UInt32; u64→u32 truncation
+/// would corrupt data without error.
+#[tokio::test]
+async fn mailbox_set_sort_order_overflow_rejected() {
+    let backend = MemoryBackend::new();
+    // 5_000_000_000 exceeds u32::MAX (4_294_967_295). Without the fix, this
+    // would silently become 705_032_704 (5e9 mod 2^32).
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "c0": { "name": "Box", "sortOrder": 5_000_000_000u64 }
+        }
+    });
+    let (resp, _) = handle_mailbox_set(&backend, args)
+        .await
+        .expect("handler must not return a JmapError");
+
+    // The request must fail for c0.
+    assert!(
+        resp["created"].is_null() || resp["created"]["c0"].is_null(),
+        "c0 must not appear in created; resp: {resp}"
+    );
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object");
+    assert!(
+        not_created.contains_key("c0"),
+        "c0 must be in notCreated; resp: {resp}"
+    );
+    assert_eq!(
+        not_created["c0"]["type"].as_str(),
+        Some("invalidProperties"),
+        "error type must be invalidProperties; resp: {resp}"
+    );
+    let props = not_created["c0"]["properties"]
+        .as_array()
+        .expect("properties must be an array");
+    assert!(
+        props.iter().any(|p| p.as_str() == Some("sortOrder")),
+        "sortOrder must be in invalid properties list; props: {props:?}"
+    );
+}
