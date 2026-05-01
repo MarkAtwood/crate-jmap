@@ -2135,9 +2135,8 @@ async fn email_set_update_keywords() {
 /// Oracle: Email/query response has the correct shape (queryState, ids, total, position).
 ///
 /// RFC 8621 §4.4 — Email/query must return queryState, canCalculateChanges,
-/// position, ids, and total. MemoryBackend returns all emails regardless of filter
-/// (filter application is a backend responsibility); the handler's oracle is the
-/// response structure.
+/// position, ids, and total. With `inMailbox` filter, only the 2 inbox emails
+/// are returned (not the sent email).
 #[tokio::test]
 async fn email_query_by_mailbox() {
     let backend = MemoryBackend::new();
@@ -2195,11 +2194,15 @@ async fn email_query_by_mailbox() {
         "position must be present"
     );
     let ids = query_resp["ids"].as_array().unwrap();
-    assert_eq!(ids.len(), 3, "MemoryBackend returns all 3 emails");
+    assert_eq!(
+        ids.len(),
+        2,
+        "inMailbox=inbox must return only the 2 inbox emails"
+    );
     assert_eq!(
         query_resp["total"].as_u64(),
-        Some(3),
-        "total must reflect all created emails"
+        Some(2),
+        "total must reflect only the filtered emails"
     );
 }
 
@@ -3737,6 +3740,61 @@ async fn email_query_anchor_resolves_position() {
         got,
         [all_ids[1].as_str(), all_ids[2].as_str()],
         "result must start at anchor position"
+    );
+}
+
+/// Oracle: Email/query with `inMailbox` filter returns only emails in that mailbox
+/// (RFC 8621 §4.4.1). Verifies that MemoryBackend::query_objects applies the
+/// filter rather than returning all emails.
+#[tokio::test]
+async fn email_query_in_mailbox_filter() {
+    let backend = MemoryBackend::new();
+    let account_id = "acct1";
+
+    // Create two emails in "inbox" and one in "trash".
+    let set_args = serde_json::json!({
+        "accountId": account_id,
+        "create": {
+            "i1": { "mailboxIds": { "inbox": true } },
+            "i2": { "mailboxIds": { "inbox": true } },
+            "t1": { "mailboxIds": { "trash": true } },
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("email create must succeed");
+    assert!(set_resp["notCreated"].is_null(), "all creates must succeed");
+
+    // Query with inMailbox = "inbox" — expect only the 2 inbox emails.
+    let q_args = serde_json::json!({
+        "accountId": account_id,
+        "filter": { "inMailbox": "inbox" },
+    });
+    let (resp, _) = handle_email_query(&backend, q_args)
+        .await
+        .expect("Email/query with inMailbox filter must succeed");
+
+    let ids = resp["ids"].as_array().expect("ids must be an array");
+    assert_eq!(
+        ids.len(),
+        2,
+        "inMailbox=inbox must return exactly 2 emails; got: {ids:?}"
+    );
+
+    // Query with inMailbox = "trash" — expect only the 1 trash email.
+    let q_args2 = serde_json::json!({
+        "accountId": account_id,
+        "filter": { "inMailbox": "trash" },
+    });
+    let (resp2, _) = handle_email_query(&backend, q_args2)
+        .await
+        .expect("Email/query with inMailbox=trash filter must succeed");
+
+    let ids2 = resp2["ids"].as_array().expect("ids must be an array");
+    assert_eq!(
+        ids2.len(),
+        1,
+        "inMailbox=trash must return exactly 1 email; got: {ids2:?}"
     );
 }
 

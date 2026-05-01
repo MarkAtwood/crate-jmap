@@ -36,9 +36,13 @@ pub trait SetObject: JmapObject {
 /// Marker for object types that support `query` and `queryChanges` operations.
 pub trait QueryObject: JmapObject {
     /// The filter condition type (e.g. [`jmap_mail_types::EmailFilterCondition`]).
-    type Filter: serde::de::DeserializeOwned + Send + Sync + 'static;
+    ///
+    /// Must implement both `Serialize` and `DeserializeOwned` so that backends
+    /// can inspect or forward the filter (e.g. for logging or test harnesses
+    /// that need to apply it in-process).
+    type Filter: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
     /// The comparator type (e.g. [`jmap_mail_types::EmailComparator`]).
-    type Comparator: serde::de::DeserializeOwned + Send + Sync + 'static;
+    type Comparator: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
 }
 
 // ---------------------------------------------------------------------------

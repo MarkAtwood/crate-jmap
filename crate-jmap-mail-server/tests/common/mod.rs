@@ -12,7 +12,10 @@ use jmap_mail_server::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapObject,
     MailBackend, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
-use jmap_mail_types::{Email, EmailAddress, EmailFilterCondition, Keyword, SearchSnippet};
+use jmap_mail_types::{
+    query::{EmailFilter, Filter, Operator},
+    Email, EmailAddress, EmailFilterCondition, Keyword, SearchSnippet,
+};
 use jmap_types::{Id, State, UTCDate};
 
 // ---------------------------------------------------------------------------
@@ -417,18 +420,49 @@ impl MailBackend for MemoryBackend {
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
         account_id: &Id,
-        _filter: Option<&O::Filter>,
+        filter: Option<&O::Filter>,
         _sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
     ) -> Result<QueryResult, Self::Error> {
         // Collect and sort IDs outside the lock for deterministic ordering.
+        // For Email objects, apply filter conditions in-process using a JSON
+        // roundtrip (since O::Filter: Serialize, we can recover the typed filter).
+        let email_filter: Option<EmailFilter> = if O::TYPE_NAME == "Email" {
+            filter.and_then(|f| {
+                serde_json::to_value(f)
+                    .ok()
+                    .and_then(|v| serde_json::from_value(v).ok())
+            })
+        } else {
+            None
+        };
+
         let (mut all_ids, state_n) = {
             let inner = self.inner.lock().unwrap();
-            let ids: Vec<Id> = inner
-                .objects_ref(O::TYPE_NAME, account_id.as_ref())
-                .map(|s| s.keys().cloned().collect())
-                .unwrap_or_default();
+            let ids: Vec<Id> = if let Some(ref ef) = email_filter {
+                // Apply email filter: deserialize each stored object and check.
+                inner
+                    .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                    .map(|map| {
+                        map.iter()
+                            .filter_map(|(id, val)| {
+                                let email: Email = serde_json::from_value(val.clone()).ok()?;
+                                if email_matches_filter(&email, ef) {
+                                    Some(id.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            } else {
+                inner
+                    .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                    .map(|s| s.keys().cloned().collect())
+                    .unwrap_or_default()
+            };
             let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
             (ids, state_n)
         };
@@ -1400,5 +1434,61 @@ impl MailBackend for FaultyBackend {
 
     fn supports_type<O: JmapObject>(&self) -> bool {
         self.inner.supports_type::<O>()
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Email filter helpers (used by MemoryBackend::query_objects)
+// ---------------------------------------------------------------------------
+
+/// Apply a single `EmailFilterCondition` to an `Email`.
+///
+/// Only the fields most relevant for integration tests are implemented.
+/// Unimplemented fields are silently treated as "no constraint" (always pass),
+/// consistent with the note in RFC 8621 §4.4.1 that unspecified fields are
+/// ignored.
+fn email_matches_condition(email: &Email, cond: &EmailFilterCondition) -> bool {
+    if let Some(ref mbox_id) = cond.in_mailbox {
+        if !email.mailbox_ids.contains_key(mbox_id) {
+            return false;
+        }
+    }
+    if let Some(ref excluded) = cond.in_mailbox_other_than {
+        // Email must be in at least one mailbox NOT in this list.
+        let in_other = email.mailbox_ids.keys().any(|id| !excluded.contains(id));
+        if !in_other {
+            return false;
+        }
+    }
+    if let Some(ref kw) = cond.has_keyword {
+        if !email.keywords.contains_key(kw) {
+            return false;
+        }
+    }
+    if let Some(ref kw) = cond.not_keyword {
+        if email.keywords.contains_key(kw) {
+            return false;
+        }
+    }
+    if let Some(want_attach) = cond.has_attachment {
+        if email.has_attachment != want_attach {
+            return false;
+        }
+    }
+    // All specified conditions pass.
+    true
+}
+
+/// Evaluate a full `EmailFilter` (which may be a logical combination of conditions).
+fn email_matches_filter(email: &Email, filter: &EmailFilter) -> bool {
+    match filter {
+        Filter::Condition(cond) => email_matches_condition(email, cond),
+        Filter::Operator(op) => match op.operator {
+            Operator::And => op.conditions.iter().all(|f| email_matches_filter(email, f)),
+            Operator::Or => op.conditions.iter().any(|f| email_matches_filter(email, f)),
+            Operator::Not => !op.conditions.iter().any(|f| email_matches_filter(email, f)),
+            _ => true, // unknown operator: no constraint
+        },
+        _ => true, // non_exhaustive: unknown variant, no constraint
     }
 }
