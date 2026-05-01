@@ -5,8 +5,9 @@ use serde_json::Value;
 
 /// Convert a slice of [`Id`]s to a JSON `notFound` value.
 ///
-/// Returns `Value::Null` when the slice is empty (omits the field per RFC 8620
-/// §5.1), or `Value::Array` of string ids when non-empty.
+/// Returns `Value::Null` when the slice is empty (the `notFound` field will be
+/// JSON `null`, which RFC 8620 §5.1 specifies when no ids are not-found), or
+/// `Value::Array` of string ids when non-empty.
 pub(crate) fn not_found_json(ids: &[Id]) -> Value {
     if ids.is_empty() {
         Value::Null

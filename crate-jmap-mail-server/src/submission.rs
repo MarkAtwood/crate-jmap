@@ -800,7 +800,7 @@ async fn process_create<B: MailBackend>(
         Some(delivery_status)
     };
 
-    let (server_id, created_obj) = backend
+    let (_server_id, created_obj) = backend
         .create_object::<EmailSubmission>(account_id, create_id, submission)
         .await
         .map_err(|e| match e {
@@ -808,19 +808,8 @@ async fn process_create<B: MailBackend>(
             BackendSetError::Other(inner) => CreateError::Server(inner.to_string()),
         })?;
 
-    // SetError is always serializable; a failure here is a programming error.
-    let mut obj_json =
-        serde_json::to_value(&created_obj).expect("EmailSubmission is always serializable");
-
-    // Ensure the assigned id is in the response.
-    if let Value::Object(ref mut map) = obj_json {
-        map.insert(
-            "id".to_owned(),
-            Value::String(server_id.as_ref().to_owned()),
-        );
-    }
-
-    Ok(obj_json)
+    // create_object guarantees created_obj.id == server_id; serialize as-is.
+    Ok(serde_json::to_value(&created_obj).expect("EmailSubmission is always serializable"))
 }
 
 /// Process a single update entry in an `EmailSubmission/set` request.
