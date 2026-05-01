@@ -1426,7 +1426,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         extra.push((
             "Email/set".to_owned(),
             set_resp,
-            format!("{call_id}-implicit"),
+            call_id.to_owned(),
         ));
     }
 

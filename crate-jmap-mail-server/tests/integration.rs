@@ -1567,10 +1567,10 @@ async fn submission_set_on_success_update_email() {
     );
     let (method, email_set_resp, extra_call_id) = &extra[0];
     assert_eq!(method, "Email/set", "extra invocation must be Email/set");
-    // RFC 8621 §7.5: implicit call-id is "#<call-id-of-EmailSubmission/set>".
+    // RFC 8620 §3.2: all responses from a single method call share the same call-id.
     assert_eq!(
-        extra_call_id, "#call2",
-        "extra invocation call_id must be '#' + original call_id (RFC 8621 §7.5)"
+        extra_call_id, "call2",
+        "implicit Email/set must have the same call-id as the originating EmailSubmission/set"
     );
 
     // Oracle: email_id appears in "updated" of the extra Email/set response.

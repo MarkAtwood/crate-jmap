@@ -612,7 +612,7 @@ pub async fn handle_submission_set<B: MailBackend>(
         extra_invocations.push((
             "Email/set".to_string(),
             email_set_resp,
-            format!("#{call_id}"),
+            call_id.to_owned(),
         ));
     }
 
