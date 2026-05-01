@@ -223,7 +223,8 @@ pub async fn handle_email_query<B: MailBackend>(
         let start = if position >= 0 {
             (position as usize).min(all_collapsed.len())
         } else {
-            let neg = (-position) as usize;
+            // saturating_neg() avoids i64::MIN overflow (i64::MIN.saturating_neg() = i64::MAX).
+            let neg = position.saturating_neg() as usize;
             all_collapsed.len().saturating_sub(neg)
         };
         let page: Vec<Id> = all_collapsed

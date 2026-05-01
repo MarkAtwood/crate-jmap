@@ -2232,3 +2232,160 @@ async fn submission_query_invalid_limit_rejected() {
         "error type must be invalidArguments; got: {err:?}"
     );
 }
+
+/// Oracle: EmailSubmission/set create fails with noRecipients when the email has no
+/// To, Cc, or Bcc addresses and no explicit envelope is provided.
+///
+/// RFC 8621 §7.5: "noRecipients: The envelope.rcptTo is empty."
+#[tokio::test]
+async fn submission_set_create_no_recipients_fails() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create an Identity.
+    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let (identity_id, _) = backend
+        .create_object::<Identity>(&account_id, "i0", identity)
+        .await
+        .expect("create Identity");
+
+    // Import an email with no To, Cc, or Bcc headers.
+    let msg = b"Subject: Test\r\nFrom: alice@example.com\r\n\r\nBody.";
+    let blob_id = Id::from("blob-norcpt");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+    let (email_id, _) = backend
+        .import_email(&account_id, &blob_id, &[Id::from("sent")], &[], None)
+        .await
+        .expect("import_email");
+
+    // EmailSubmission/set create — no envelope provided, so rcptTo is derived.
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "s0": {
+                "identityId": identity_id.as_ref(),
+                "emailId": email_id.as_ref(),
+            }
+        }
+    });
+
+    let (resp, _) = handle_submission_set(&backend, args, "call1")
+        .await
+        .expect("EmailSubmission/set must return a response (not a protocol error)");
+
+    // Oracle: "s0" must be in notCreated with type "noRecipients".
+    assert!(
+        resp["created"].is_null(),
+        "created must be null; got: {:?}",
+        resp["created"]
+    );
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object");
+    assert!(
+        not_created.contains_key("s0"),
+        "s0 must be in notCreated; got: {resp:?}"
+    );
+    assert_eq!(
+        not_created["s0"]["type"].as_str().unwrap_or(""),
+        "noRecipients",
+        "error type must be noRecipients; got: {:?}",
+        not_created["s0"]
+    );
+}
+
+/// Oracle: Mailbox/set — a create and an update in the same request cannot both
+/// claim the same role. The update must fail with invalidProperties even though
+/// no pre-existing mailbox held the role before the request.
+///
+/// RFC 8621 §2.5: role must be unique per account.
+#[tokio::test]
+async fn mailbox_set_role_uniqueness_create_then_update() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create a mailbox with no role that we will try to assign a role to via update.
+    let mbox = Mailbox::new(
+        Id::from("placeholder"),
+        "Updates".to_string(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        jmap_mail_types::MailboxRights::default(),
+        false,
+    );
+    let (existing_id, _) = backend
+        .create_object::<Mailbox>(&account_id, "pre0", mbox)
+        .await
+        .expect("create mailbox");
+
+    // Single Mailbox/set request: create "c0" with role "inbox", update existing_id with role "inbox".
+    // Creates run before updates, so the create claims "inbox" first.
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": { "name": "Inbox", "role": "inbox" }
+        },
+        "update": {
+            existing_id.as_ref(): { "role": "inbox" }
+        }
+    });
+
+    let (resp, _) = handle_mailbox_set(&backend, args)
+        .await
+        .expect("Mailbox/set must return a response");
+
+    // Oracle: create succeeds.
+    let created = resp["created"]
+        .as_object()
+        .expect("created must be an object");
+    assert!(
+        created.contains_key("c0"),
+        "c0 must succeed; notCreated = {:?}",
+        resp["notCreated"]
+    );
+
+    // Oracle: update fails — "inbox" was claimed by the create in the same request.
+    let not_updated = resp["notUpdated"]
+        .as_object()
+        .expect("notUpdated must be an object");
+    assert!(
+        not_updated.contains_key(existing_id.as_ref()),
+        "update of existing_id must fail; updated = {:?}",
+        resp["updated"]
+    );
+    assert_eq!(
+        not_updated[existing_id.as_ref()]["type"]
+            .as_str()
+            .unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got: {:?}",
+        not_updated[existing_id.as_ref()]
+    );
+}
+
+/// Oracle: Email/query with collapseThreads=true and position=i64::MIN must not
+/// panic and must return a valid (empty) result on an empty account.
+///
+/// i64::MIN negation overflows if not handled; we use saturating_neg().
+#[tokio::test]
+async fn email_query_collapse_threads_position_i64_min_does_not_panic() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "collapseThreads": true,
+        "position": i64::MIN,
+    });
+
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query must not panic or error with position=i64::MIN");
+
+    // Oracle: empty account → empty ids list.
+    let ids = resp["ids"].as_array().expect("ids must be an array");
+    assert!(ids.is_empty(), "expected empty ids; got: {ids:?}");
+}

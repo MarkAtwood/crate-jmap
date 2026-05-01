@@ -619,6 +619,15 @@ async fn process_create<B: MailBackend>(
         })?,
     };
 
+    // --- noRecipients check (RFC 8621 §7.5) ---
+    // Applies whether the envelope was derived or supplied by the client.
+    if envelope.rcpt_to.is_empty() {
+        return Err(
+            serde_json::to_value(SetError::new(SetErrorType::NoRecipients))
+                .expect("SetError is always serializable"),
+        );
+    }
+
     // --- SMTP injection defense (RFC 8621 §7.5) ---
     if check_no_crlf(&envelope.mail_from.email).is_err() {
         return Err(json!({ "type": "invalidRecipients",

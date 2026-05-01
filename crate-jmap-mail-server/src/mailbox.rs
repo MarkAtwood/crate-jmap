@@ -239,7 +239,8 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     let start = if position >= 0 {
         (position as usize).min(matching.len())
     } else {
-        let neg = (-position) as usize;
+        // saturating_neg() avoids i64::MIN overflow (i64::MIN.saturating_neg() = i64::MAX).
+        let neg = position.saturating_neg() as usize;
         matching.len().saturating_sub(neg)
     };
 
@@ -483,8 +484,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     continue;
                 }
 
-                // Role uniqueness on update: check against pre-request state and
-                // any role already assigned by an earlier update in this request.
+                // Role uniqueness on update: check against pre-request state,
+                // any role already assigned by an earlier update in this request,
+                // and any role assigned by the create loop earlier in this request.
                 if let Some(role_val) = obj.get("role").filter(|v| !v.is_null()) {
                     if let Some(role_str) = role_val.as_str() {
                         let role_taken = all_mailboxes.iter().any(|m| {
@@ -493,7 +495,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                     == Some(role_str.to_owned())
                         });
                         let role_just_updated = roles_updated_this_request.contains(role_str);
-                        if role_taken || role_just_updated {
+                        let role_just_created = created
+                            .values()
+                            .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
+                        if role_taken || role_just_updated || role_just_created {
                             not_updated.insert(
                                 id_str.clone(),
                                 serde_json::to_value(
