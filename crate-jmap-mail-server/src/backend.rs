@@ -486,8 +486,14 @@ pub trait MailBackend: Send + Sync + 'static {
 
     /// Apply a partial update (patch) to an existing object.
     ///
-    /// Returns the updated object if the backend wants to report server-set
-    /// properties, or `None` if the client's patch was applied verbatim.
+    /// Returns `Some(updated_object)` if the backend modified any properties
+    /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
+    /// or `None` if the patch was applied verbatim. When `Some` is returned,
+    /// the handler is expected to include the server-changed properties in the
+    /// `updated` map entry for this id. The current handler implementations
+    /// always return `null` for the updated entry and therefore only benefit
+    /// from `None`; backends that need to echo server-set properties should
+    /// ensure their consumers upgrade the handlers accordingly.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         account_id: &jmap_types::Id,

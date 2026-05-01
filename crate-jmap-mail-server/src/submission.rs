@@ -425,8 +425,17 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Ok(()) => {
                     updated.insert(id_str.clone(), Value::Null);
                 }
-                Err(err_json) => {
-                    not_updated.insert(id_str.clone(), err_json);
+                Err(BackendSetError::SetError(se)) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        ser(&se).unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
+                    );
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
                 }
             }
         }
@@ -819,7 +828,7 @@ async fn process_update<B: MailBackend>(
     account_id: &Id,
     id: &Id,
     patch: &Value,
-) -> Result<(), Value> {
+) -> Result<(), BackendSetError<B::Error>> {
     // RFC 8621 §7.5: only undoStatus may be changed in an update patch.
     if let Some(obj) = patch.as_object() {
         let bad: Vec<&str> = obj
@@ -828,12 +837,11 @@ async fn process_update<B: MailBackend>(
             .map(|k| k.as_str())
             .collect();
         if !bad.is_empty() {
-            return Err(serde_json::to_value(
+            return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(bad)
                     .with_description("only undoStatus may be changed on an EmailSubmission"),
-            )
-            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })));
+            ));
         }
     }
 
@@ -841,22 +849,20 @@ async fn process_update<B: MailBackend>(
     let (existing, not_found) = backend
         .get_objects::<EmailSubmission>(account_id, Some(std::slice::from_ref(id)), None)
         .await
-        .map_err(|e| json!({ "type": "serverFail", "description": e.to_string() }))?;
+        .map_err(BackendSetError::Other)?;
 
     if !not_found.is_empty() || existing.is_empty() {
-        return Err(serde_json::to_value(SetError::new(SetErrorType::NotFound))
-            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })));
+        return Err(BackendSetError::SetError(SetError::new(SetErrorType::NotFound)));
     }
 
     let current = &existing[0];
 
     // Only allow updating undoStatus; if the submission is already final, reject.
     if current.undo_status == UndoStatus::Final {
-        return Err(serde_json::to_value(
+        return Err(BackendSetError::SetError(
             SetError::new(SetErrorType::CannotUnsend)
                 .with_description("Submission is already in final state and cannot be undone"),
-        )
-        .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })));
+        ));
     }
 
     // Apply the patch via the backend.
@@ -864,12 +870,4 @@ async fn process_update<B: MailBackend>(
         .update_object::<EmailSubmission>(account_id, id, patch.clone())
         .await
         .map(|_| ())
-        .map_err(|e| match e {
-            BackendSetError::SetError(set_err) => {
-                serde_json::to_value(&set_err).unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }))
-            }
-            BackendSetError::Other(inner) => {
-                json!({ "type": "serverFail", "description": inner.to_string() })
-            }
-        })
 }
