@@ -4,7 +4,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::MailBackend;
-use crate::helpers::{extract_account_id, not_found_json};
+use crate::helpers::{extract_account_id, not_found_json, ser};
 
 /// Handle a `Thread/get` method call (RFC 8621 §3.1).
 ///
@@ -38,10 +38,8 @@ pub async fn handle_thread_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|t| {
-            serde_json::to_value(t).expect("type derives Serialize and is always serializable")
-        })
-        .collect();
+        .map(ser)
+        .collect::<Result<Vec<_>, _>>()?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),

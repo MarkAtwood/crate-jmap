@@ -3,6 +3,14 @@
 use jmap_types::{Id, JmapError};
 use serde_json::Value;
 
+/// Serialize any [`serde::Serialize`] type to a [`serde_json::Value`],
+/// mapping serialization errors to [`JmapError::server_fail`].
+///
+/// Use this instead of `serde_json::to_value(x).expect(...)` in handler code.
+pub(crate) fn ser<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> {
+    serde_json::to_value(val).map_err(|e| JmapError::server_fail(e.to_string()))
+}
+
 /// Convert a slice of [`Id`]s to a JSON `notFound` value.
 ///
 /// Returns `Value::Null` when the slice is empty (the `notFound` field will be

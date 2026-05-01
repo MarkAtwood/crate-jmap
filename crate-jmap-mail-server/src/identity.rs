@@ -4,7 +4,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json};
+use crate::helpers::{extract_account_id, not_found_json, ser};
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
 ///
@@ -37,10 +37,8 @@ pub async fn handle_identity_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|i| {
-            serde_json::to_value(i).expect("type derives Serialize and is always serializable")
-        })
-        .collect();
+        .map(ser)
+        .collect::<Result<Vec<_>, _>>()?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),
@@ -203,14 +201,14 @@ pub async fn handle_identity_set<B: MailBackend>(
                     created.insert(
                         create_id.clone(),
                         serde_json::to_value(&created_obj)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_created.insert(
                         create_id.clone(),
                         serde_json::to_value(&set_err)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -261,7 +259,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                     not_updated.insert(
                         id_str.clone(),
                         serde_json::to_value(&set_err)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {

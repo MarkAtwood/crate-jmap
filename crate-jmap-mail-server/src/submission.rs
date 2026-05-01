@@ -17,7 +17,7 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json, now_utc_string};
+use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser};
 
 // ---------------------------------------------------------------------------
 // EmailSubmission/get
@@ -56,10 +56,8 @@ pub async fn handle_submission_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|s| {
-            serde_json::to_value(s).expect("type derives Serialize and is always serializable")
-        })
-        .collect();
+        .map(ser)
+        .collect::<Result<Vec<_>, _>>()?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),
@@ -404,7 +402,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Err(err) => {
                     let err_json = match err {
                         CreateError::SetError(se) => {
-                            serde_json::to_value(se).expect("SetError is always serializable")
+                            serde_json::to_value(se).unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }))
                         }
                         CreateError::Server(msg) => {
                             json!({ "type": "serverFail", "description": msg })
@@ -456,7 +454,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     not_destroyed.insert(
                         id_str.to_owned(),
                         serde_json::to_value(&set_err)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -550,7 +548,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                         email_not_updated.insert(
                             email_id.as_ref().to_owned(),
                             serde_json::to_value(&set_err)
-                                .expect("SetError is always serializable"),
+                                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                         );
                     }
                     Err(BackendSetError::Other(e)) => {
@@ -585,7 +583,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                         email_not_destroyed.insert(
                             email_id.as_ref().to_owned(),
                             serde_json::to_value(&set_err)
-                                .expect("SetError is always serializable"),
+                                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                         );
                     }
                     Err(BackendSetError::Other(e)) => {
@@ -809,7 +807,7 @@ async fn process_create<B: MailBackend>(
         })?;
 
     // create_object guarantees created_obj.id == server_id; serialize as-is.
-    Ok(serde_json::to_value(&created_obj).expect("EmailSubmission is always serializable"))
+    Ok(serde_json::to_value(&created_obj).unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })))
 }
 
 /// Process a single update entry in an `EmailSubmission/set` request.
@@ -835,7 +833,7 @@ async fn process_update<B: MailBackend>(
                     .with_properties(bad)
                     .with_description("only undoStatus may be changed on an EmailSubmission"),
             )
-            .expect("SetError is always serializable"));
+            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })));
         }
     }
 
@@ -847,7 +845,7 @@ async fn process_update<B: MailBackend>(
 
     if !not_found.is_empty() || existing.is_empty() {
         return Err(serde_json::to_value(SetError::new(SetErrorType::NotFound))
-            .expect("SetError is always serializable"));
+            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })));
     }
 
     let current = &existing[0];
@@ -858,7 +856,7 @@ async fn process_update<B: MailBackend>(
             SetError::new(SetErrorType::CannotUnsend)
                 .with_description("Submission is already in final state and cannot be undone"),
         )
-        .expect("SetError is always serializable"));
+        .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })));
     }
 
     // Apply the patch via the backend.
@@ -868,7 +866,7 @@ async fn process_update<B: MailBackend>(
         .map(|_| ())
         .map_err(|e| match e {
             BackendSetError::SetError(set_err) => {
-                serde_json::to_value(&set_err).expect("SetError is always serializable")
+                serde_json::to_value(&set_err).unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }))
             }
             BackendSetError::Other(inner) => {
                 json!({ "type": "serverFail", "description": inner.to_string() })

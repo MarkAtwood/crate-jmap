@@ -8,7 +8,7 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, EmailProperty, MailBackend};
-use crate::helpers::{extract_account_id, not_found_json};
+use crate::helpers::{extract_account_id, not_found_json, ser};
 
 /// Server-enforced ceiling on the number of email IDs fetched when
 /// `collapseThreads=true`. Without this, a hostile client could trigger OOM
@@ -66,14 +66,13 @@ pub async fn handle_email_get<B: MailBackend>(
     let list_json: Vec<Value> = list
         .iter()
         .map(|email| {
-            let val = serde_json::to_value(email)
-                .expect("type derives Serialize and is always serializable");
-            match &prop_set {
+            let val = ser(email)?;
+            Ok(match &prop_set {
                 Some(set) => filter_properties(&val, set),
                 None => val,
-            }
+            })
         })
-        .collect();
+        .collect::<Result<Vec<_>, JmapError>>()?;
 
     let resp = json!({
         "accountId": account_id.as_ref(),
@@ -546,7 +545,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     not_created.insert(
                         create_id.clone(),
                         serde_json::to_value(&set_err)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -590,7 +589,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     not_updated.insert(
                         id_str.clone(),
                         serde_json::to_value(&set_err)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -623,7 +622,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     not_destroyed.insert(
                         id_str.to_owned(),
                         serde_json::to_value(&set_err)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -1027,7 +1026,7 @@ pub async fn handle_email_import<B: MailBackend>(
                 not_created.insert(
                     import_id.clone(),
                     serde_json::to_value(&set_err)
-                        .expect("type derives Serialize and is always serializable"),
+                        .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                 );
             }
             Err(BackendSetError::Other(e)) => {
@@ -1103,7 +1102,7 @@ pub async fn handle_email_parse<B: MailBackend>(
         match backend.parse_email(&account_id, blob_id).await {
             Ok(email) => {
                 let val = serde_json::to_value(&email)
-                    .expect("type derives Serialize and is always serializable");
+                    .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }));
                 let val = match &prop_set {
                     Some(set) => filter_properties(&val, set),
                     None => val,
@@ -1286,7 +1285,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                 not_created.insert(
                     copy_id.clone(),
                     serde_json::to_value(&set_err)
-                        .expect("type derives Serialize and is always serializable"),
+                        .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                 );
             }
             Err(BackendSetError::Other(e)) => {
@@ -1351,7 +1350,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                         email_not_destroyed.insert(
                             source_id.as_ref().to_owned(),
                             serde_json::to_value(&set_err)
-                                .expect("SetError is always serializable"),
+                                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                         );
                     }
                     Err(BackendSetError::Other(e)) => {
@@ -1394,7 +1393,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                             email_not_updated.insert(
                                 source_id.as_ref().to_owned(),
                                 serde_json::to_value(&set_err)
-                                    .expect("SetError is always serializable"),
+                                    .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                             );
                         }
                         Err(BackendSetError::Other(e)) => {

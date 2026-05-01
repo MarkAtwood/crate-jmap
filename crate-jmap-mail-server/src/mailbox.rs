@@ -5,7 +5,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json};
+use crate::helpers::{extract_account_id, not_found_json, ser};
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)
@@ -42,10 +42,8 @@ pub async fn handle_mailbox_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|m| {
-            serde_json::to_value(m).expect("type derives Serialize and is always serializable")
-        })
-        .collect();
+        .map(ser)
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok((
         json!({
@@ -445,7 +443,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     serde_json::to_value(
                         SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
                     )
-                    .expect("SetError derives Serialize and is always serializable"),
+                    .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                 );
                 continue;
             }
@@ -467,7 +465,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                 SetError::new(SetErrorType::InvalidProperties)
                                     .with_properties(["role"]),
                             )
-                            .expect("SetError derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                         );
                         continue;
                     }
@@ -486,14 +484,14 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     {
                         Ok((_id, obj)) => {
                             let obj_val = serde_json::to_value(&obj)
-                                .expect("type derives Serialize and is always serializable");
+                                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }));
                             created.insert(create_id.clone(), obj_val);
                         }
                         Err(BackendSetError::SetError(se)) => {
                             not_created.insert(
                                 create_id.clone(),
                                 serde_json::to_value(se)
-                                    .expect("type derives Serialize and is always serializable"),
+                                    .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                             );
                         }
                         Err(BackendSetError::Other(e)) => {
@@ -569,7 +567,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(bad_props),
                         )
-                        .expect("SetError derives Serialize and is always serializable"),
+                        .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                     continue;
                 }
@@ -597,7 +595,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     not_updated.insert(
                         id_str.clone(),
                         serde_json::to_value(se)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -627,7 +625,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(bad_props),
                         )
-                        .expect("SetError derives Serialize and is always serializable"),
+                        .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                     continue;
                 }
@@ -654,7 +652,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                     SetError::new(SetErrorType::InvalidProperties)
                                         .with_properties(["role"]),
                                 )
-                                .expect("SetError derives Serialize and is always serializable"),
+                                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                             );
                             continue;
                         }
@@ -674,7 +672,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     not_updated.insert(
                         id_str.clone(),
                         serde_json::to_value(se)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -717,7 +715,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 not_destroyed.insert(
                     id_str.to_owned(),
                     serde_json::to_value(SetError::new(SetErrorType::MailboxHasChild))
-                        .expect("SetError derives Serialize and is always serializable"),
+                        .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                 );
                 continue;
             }
@@ -752,7 +750,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     not_destroyed.insert(
                         id_str.to_owned(),
                         serde_json::to_value(SetError::new(SetErrorType::MailboxHasEmail))
-                            .expect("SetError derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                     continue;
                 }
@@ -804,7 +802,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     not_destroyed.insert(
                         id_str.to_owned(),
                         serde_json::to_value(se)
-                            .expect("type derives Serialize and is always serializable"),
+                            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -884,7 +882,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
             return Err(serde_json::to_value(
                 SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
             )
-            .expect("SetError derives Serialize and is always serializable"));
+            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })));
         }
     };
 
@@ -898,7 +896,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
                         .with_properties(["sortOrder"])
                         .with_description("sortOrder must be a non-negative integer ≤ 4294967295"),
                 )
-                .expect("SetError is always serializable"));
+                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })));
             }
         },
     };
@@ -934,7 +932,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
                     serde_json::to_value(
                         SetError::new(SetErrorType::InvalidProperties).with_properties(["role"]),
                     )
-                    .expect("SetError derives Serialize and is always serializable")
+                    .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }))
                 })?;
             mailbox.role = Some(role);
         }
