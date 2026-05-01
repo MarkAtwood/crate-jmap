@@ -602,6 +602,7 @@ async fn search_snippet_get_capability_gated() {
             to_account_id: &Id,
             mailbox_ids: &[Id],
             keywords: &[jmap_mail_types::Keyword],
+            received_at: Option<&jmap_types::UTCDate>,
         ) -> Result<(Id, jmap_mail_types::Email), jmap_mail_server::BackendSetError<Self::Error>>
         {
             self.0
@@ -611,6 +612,7 @@ async fn search_snippet_get_capability_gated() {
                     to_account_id,
                     mailbox_ids,
                     keywords,
+                    received_at,
                 )
                 .await
         }

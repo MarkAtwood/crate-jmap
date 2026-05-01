@@ -527,6 +527,7 @@ pub trait MailBackend: Send + Sync + 'static {
         to_account_id: &jmap_types::Id,
         mailbox_ids: &[jmap_types::Id],
         keywords: &[jmap_mail_types::Keyword],
+        received_at: Option<&jmap_types::UTCDate>,
     ) -> impl std::future::Future<
         Output = Result<(jmap_types::Id, jmap_mail_types::Email), BackendSetError<Self::Error>>,
     > + Send;

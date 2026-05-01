@@ -734,6 +734,7 @@ impl MailBackend for MemoryBackend {
         to_account_id: &Id,
         mailbox_ids: &[Id],
         keywords: &[Keyword],
+        received_at: Option<&UTCDate>,
     ) -> Result<(Id, Email), BackendSetError<Self::Error>> {
         // Look up source email.
         let src_val = {
@@ -771,7 +772,7 @@ impl MailBackend for MemoryBackend {
             thread_id.clone(),
             mailbox_map,
             src_email.size,
-            src_email.received_at.clone(),
+            received_at.cloned().unwrap_or_else(|| src_email.received_at.clone()),
         );
         new_email.keywords = kw_map;
         new_email.subject = src_email.subject.clone();
@@ -1084,19 +1085,41 @@ fn highlight(haystack: &str, needle: &str) -> String {
     if needle.is_empty() {
         return html_escape(haystack);
     }
-    let lower_hay = haystack.to_lowercase();
     let lower_needle = needle.to_lowercase();
+    let needle_char_count = lower_needle.chars().count();
     let mut result = String::with_capacity(haystack.len() + 32);
-    let mut pos = 0;
-    while let Some(idx) = lower_hay[pos..].find(&lower_needle) {
-        let abs = pos + idx;
-        result.push_str(&html_escape(&haystack[pos..abs]));
-        result.push_str("<mark>");
-        result.push_str(&html_escape(&haystack[abs..abs + lower_needle.len()]));
-        result.push_str("</mark>");
-        pos = abs + lower_needle.len();
+    // Iterate over haystack character by character, keeping parallel position in lower_hay.
+    // We re-lowercase the remaining slice each iteration to avoid byte-offset mismatches
+    // that occur when Unicode chars change byte length on lowercasing (e.g., Ω → ω).
+    let mut remaining = haystack;
+    loop {
+        let lower_remaining = remaining.to_lowercase();
+        match lower_remaining.find(&lower_needle) {
+            None => {
+                result.push_str(&html_escape(remaining));
+                break;
+            }
+            Some(lower_idx) => {
+                // lower_idx is a byte offset in lower_remaining. Convert to a char count
+                // so we can find the corresponding byte offset in remaining (whose chars
+                // may have different byte widths after lowercasing).
+                let chars_before = lower_remaining[..lower_idx].chars().count();
+                let (match_start, _) = remaining
+                    .char_indices()
+                    .nth(chars_before)
+                    .unwrap_or((remaining.len(), ' '));
+                let (match_end, _) = remaining
+                    .char_indices()
+                    .nth(chars_before + needle_char_count)
+                    .unwrap_or((remaining.len(), ' '));
+                result.push_str(&html_escape(&remaining[..match_start]));
+                result.push_str("<mark>");
+                result.push_str(&html_escape(&remaining[match_start..match_end]));
+                result.push_str("</mark>");
+                remaining = &remaining[match_end..];
+            }
+        }
     }
-    result.push_str(&html_escape(&haystack[pos..]));
     result
 }
 
@@ -1298,6 +1321,7 @@ impl MailBackend for FaultyBackend {
         to_account_id: &Id,
         mailbox_ids: &[Id],
         keywords: &[jmap_mail_types::Keyword],
+        received_at: Option<&UTCDate>,
     ) -> Result<(Id, jmap_mail_types::Email), BackendSetError<Self::Error>> {
         self.inner
             .copy_email(
@@ -1306,6 +1330,7 @@ impl MailBackend for FaultyBackend {
                 to_account_id,
                 mailbox_ids,
                 keywords,
+                received_at,
             )
             .await
     }

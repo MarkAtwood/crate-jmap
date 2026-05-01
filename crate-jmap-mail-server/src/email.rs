@@ -1251,6 +1251,12 @@ pub async fn handle_email_copy<B: MailBackend>(
             .map(|(k, _)| k)
             .collect();
 
+        // receivedAt may be overridden during copy (RFC 8621 §4.7).
+        let received_at: Option<UTCDate> = entry
+            .get("receivedAt")
+            .and_then(|v| v.as_str())
+            .map(UTCDate::from);
+
         match backend
             .copy_email(
                 &from_account_id,
@@ -1258,15 +1264,18 @@ pub async fn handle_email_copy<B: MailBackend>(
                 &account_id,
                 &mailbox_ids,
                 &keywords,
+                received_at.as_ref(),
             )
             .await
         {
             Ok((new_id, new_email)) => {
-                let mut obj = serde_json::to_value(&new_email)
-                    .expect("type derives Serialize and is always serializable");
-                if let Value::Object(ref mut map) = obj {
-                    map.insert("id".to_owned(), Value::String(new_id.as_ref().to_string()));
-                }
+                // RFC 8621 §4.7: created entries contain only these 4 server-set fields.
+                let obj = json!({
+                    "id": new_id.as_ref(),
+                    "blobId": new_email.blob_id.as_ref(),
+                    "threadId": new_email.thread_id.as_ref(),
+                    "size": new_email.size,
+                });
                 created.insert(copy_id.clone(), obj);
                 copied_source_ids.push((copy_id.clone(), source_id));
             }
