@@ -63,7 +63,7 @@ pub use email::{
 };
 pub use identity::Identity;
 pub use keyword::Keyword;
-pub use mailbox::{Mailbox, MailboxRights, MailboxRole};
+pub use mailbox::{Mailbox, MailboxFilterCondition, MailboxRights, MailboxRole};
 pub use query::{
     ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmissionFilter,
     Filter, FilterOperator, Operator,

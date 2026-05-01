@@ -48,3 +48,50 @@ fn civil_from_days(z: i64) -> (i32, u8, u8) {
     let yr = if mo <= 2 { y + 1 } else { y };
     (yr as i32, mo as u8, d as u8)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{civil_from_days, now_utc_string};
+
+    /// Test vectors derived independently with Python's `datetime.date` module.
+    /// `days` is the count of days since 1970-01-01.
+    #[test]
+    fn civil_from_days_known_dates() {
+        let cases: &[(i64, (i32, u8, u8))] = &[
+            (0, (1970, 1, 1)),       // Unix epoch
+            (365, (1971, 1, 1)),     // one year later (1970 is not a leap year)
+            (10957, (2000, 1, 1)),   // Y2K
+            (11016, (2000, 2, 29)),  // leap day in a century-divisible leap year
+            (11017, (2000, 3, 1)),   // day after the leap day (era boundary in algorithm)
+            (19358, (2023, 1, 1)),   // a recent non-leap year start
+            (19722, (2023, 12, 31)), // end of 2023
+            (19782, (2024, 2, 29)),  // leap day in 2024
+            (19783, (2024, 3, 1)),   // day after 2024 leap day
+        ];
+
+        for &(days, expected) in cases {
+            assert_eq!(
+                civil_from_days(days),
+                expected,
+                "civil_from_days({days}) mismatch"
+            );
+        }
+    }
+
+    #[test]
+    fn now_utc_string_format() {
+        let s = now_utc_string();
+        // Must match YYYY-MM-DDTHH:MM:SSZ
+        assert_eq!(s.len(), 20, "unexpected length: {s}");
+        assert!(s.ends_with('Z'), "must end with Z: {s}");
+        assert_eq!(&s[4..5], "-", "missing year-month separator: {s}");
+        assert_eq!(&s[7..8], "-", "missing month-day separator: {s}");
+        assert_eq!(&s[10..11], "T", "missing date-time separator: {s}");
+        assert_eq!(&s[13..14], ":", "missing hour-minute separator: {s}");
+        assert_eq!(&s[16..17], ":", "missing minute-second separator: {s}");
+        assert!(
+            s.starts_with("20"),
+            "year should start with 20 in 21st century: {s}"
+        );
+    }
+}

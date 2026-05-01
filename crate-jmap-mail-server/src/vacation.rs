@@ -232,7 +232,10 @@ pub async fn handle_vacation_set<B: MailBackend>(
     // destroy — always forbidden for singletons.
     if let Some(destroy) = args.get("destroy").and_then(|v| v.as_array()) {
         for id_val in destroy {
-            let id = id_val.as_str().unwrap_or("");
+            let id = match id_val.as_str() {
+                Some(s) => s,
+                None => continue,
+            };
             let err = SetError::new(SetErrorType::Singleton)
                 .with_description("VacationResponse is a singleton; cannot destroy");
             not_destroyed.insert(
@@ -256,12 +259,12 @@ pub async fn handle_vacation_set<B: MailBackend>(
             "accountId": account_id.as_ref(),
             "oldState": old_state.as_ref(),
             "newState": new_state.as_ref(),
-            "created": {},
-            "updated": Value::Object(updated),
-            "destroyed": [],
-            "notCreated": Value::Object(not_created),
-            "notUpdated": Value::Object(not_updated),
-            "notDestroyed": Value::Object(not_destroyed),
+            "created": Value::Null,
+            "updated": if updated.is_empty() { Value::Null } else { Value::Object(updated) },
+            "destroyed": Value::Null,
+            "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
+            "notUpdated": if not_updated.is_empty() { Value::Null } else { Value::Object(not_updated) },
+            "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
         }),
         vec![],
     ))

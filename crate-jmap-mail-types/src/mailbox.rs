@@ -153,3 +153,44 @@ impl Mailbox {
         }
     }
 }
+
+/// Filter condition for `Mailbox/query` (RFC 8621 §2.3).
+///
+/// All fields are optional; a condition with no fields set matches every Mailbox.
+///
+/// ## `parentId` semantics
+///
+/// The `parentId` field has three distinct states that must be preserved:
+/// - **absent** (`None`) — do not filter by parent; return mailboxes at any level.
+/// - **`null`** (`Some(serde_json::Value::Null)`) — return only top-level mailboxes
+///   (those with no parent).
+/// - **`"<id>"`** (`Some(serde_json::Value::String(...))`) — return only mailboxes
+///   whose `parentId` equals the given `Id`.
+///
+/// `Option<serde_json::Value>` (with `#[serde(default)]`) preserves this three-way
+/// distinction without a custom deserializer: absent fields deserialize as `None`,
+/// and `null` deserializes as `Some(Value::Null)`.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MailboxFilterCondition {
+    /// See type-level docs for three-way semantics.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_id: Option<serde_json::Value>,
+
+    /// Mailbox name must contain this string (case-sensitive substring match).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+
+    /// Mailbox role must equal this string (e.g. `"inbox"`, `"trash"`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub role: Option<String>,
+
+    /// If `true`, only mailboxes with a non-null role are returned.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_any_role: Option<bool>,
+
+    /// If `true`, only subscribed mailboxes are returned.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_subscribed: Option<bool>,
+}

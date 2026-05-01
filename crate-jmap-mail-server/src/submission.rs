@@ -256,6 +256,54 @@ pub async fn handle_submission_set<B: MailBackend>(
     let mut destroyed: Vec<Value> = Vec::new();
     let mut not_destroyed = serde_json::Map::new();
 
+    // Pre-fetch email IDs for non-creation-reference submission IDs in onSuccess* args.
+    // This must happen before the destroy loop so that email IDs are available
+    // even for submissions that will be destroyed in this request.
+    // Creation references (keys starting with '#') are populated after the create loop.
+    let mut submission_email_id_map: HashMap<String, Id> = HashMap::new();
+    {
+        let has_on_success = args
+            .get("onSuccessUpdateEmail")
+            .filter(|v| !v.is_null())
+            .is_some()
+            || args
+                .get("onSuccessDestroyEmail")
+                .filter(|v| !v.is_null())
+                .is_some();
+        if has_on_success {
+            let mut non_ref_ids: Vec<Id> = Vec::new();
+            if let Some(m) = args.get("onSuccessUpdateEmail").and_then(|v| v.as_object()) {
+                for key in m.keys() {
+                    if !key.starts_with('#') {
+                        non_ref_ids.push(Id::from(key.as_str()));
+                    }
+                }
+            }
+            if let Some(arr) = args.get("onSuccessDestroyEmail").and_then(|v| v.as_array()) {
+                for item in arr {
+                    if let Some(s) = item.as_str() {
+                        if !s.starts_with('#') {
+                            non_ref_ids.push(Id::from(s));
+                        }
+                    }
+                }
+            }
+            // Deduplicate before the batch fetch.
+            non_ref_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+            non_ref_ids.dedup_by(|a, b| a.as_ref() == b.as_ref());
+            if !non_ref_ids.is_empty() {
+                let (subs, _) = backend
+                    .get_objects::<EmailSubmission>(&account_id, Some(&non_ref_ids), None)
+                    .await
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                for sub in subs {
+                    submission_email_id_map
+                        .insert(sub.id.as_ref().to_string(), sub.email_id.clone());
+                }
+            }
+        }
+    }
+
     // -----------------------------------------------------------------------
     // create
     // -----------------------------------------------------------------------
@@ -264,6 +312,10 @@ pub async fn handle_submission_set<B: MailBackend>(
         for (create_id, create_args) in create_map {
             match process_create(backend, &account_id, create_id, create_args).await {
                 Ok(obj_json) => {
+                    // Populate submission → email_id map for onSuccess* processing.
+                    if let Some(eid) = obj_json.get("emailId").and_then(|v| v.as_str()) {
+                        submission_email_id_map.insert(format!("#{create_id}"), Id::from(eid));
+                    }
                     created.insert(create_id.clone(), obj_json);
                 }
                 Err(err_json) => {
@@ -335,50 +387,106 @@ pub async fn handle_submission_set<B: MailBackend>(
         "accountId": account_id.as_ref(),
         "oldState": old_state.as_ref(),
         "newState": new_state.as_ref(),
-        "created": Value::Object(created),
-        "updated": Value::Object(updated),
-        "destroyed": Value::Array(destroyed),
-        "notCreated": Value::Object(not_created),
-        "notUpdated": Value::Object(not_updated),
-        "notDestroyed": Value::Object(not_destroyed),
+        "created": if created.is_empty() { Value::Null } else { Value::Object(created) },
+        "updated": if updated.is_empty() { Value::Null } else { Value::Object(updated) },
+        "destroyed": if destroyed.is_empty() { Value::Null } else { Value::Array(destroyed) },
+        "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
+        "notUpdated": if not_updated.is_empty() { Value::Null } else { Value::Object(not_updated) },
+        "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
     });
 
     // -----------------------------------------------------------------------
-    // onSuccessUpdateEmail
+    // onSuccessUpdateEmail / onSuccessDestroyEmail (RFC 8621 §7.5)
+    //
+    // Keys are EmailSubmission IDs or creation references ("#<create_id>").
+    // Only apply the side effect if the referenced operation succeeded, i.e.
+    // the key is present in submission_email_id_map.
     // -----------------------------------------------------------------------
 
     let mut extra_invocations: Vec<Invocation> = Vec::new();
 
-    if let Some(updates) = args.get("onSuccessUpdateEmail").and_then(|v| v.as_object()) {
-        let mut email_updated = serde_json::Map::new();
-        let mut email_not_updated = serde_json::Map::new();
+    let has_on_success = args
+        .get("onSuccessUpdateEmail")
+        .filter(|v| !v.is_null())
+        .is_some()
+        || args
+            .get("onSuccessDestroyEmail")
+            .filter(|v| !v.is_null())
+            .is_some();
 
+    if has_on_success {
         let email_old_state = backend
             .get_state::<Email>(&account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-        for (email_id_str, patch) in updates {
-            let email_id = Id::from(email_id_str.as_str());
-            match backend
-                .update_object::<Email>(&account_id, &email_id, patch.clone())
-                .await
-            {
-                Ok(_) => {
-                    email_updated.insert(email_id_str.clone(), Value::Null);
+        let mut email_updated = serde_json::Map::new();
+        let mut email_not_updated = serde_json::Map::new();
+        let mut email_destroyed: Vec<Value> = Vec::new();
+        let mut email_not_destroyed = serde_json::Map::new();
+
+        // onSuccessUpdateEmail
+        if let Some(update_patches) = args.get("onSuccessUpdateEmail").and_then(|v| v.as_object()) {
+            for (sub_key, patch) in update_patches {
+                let email_id = match submission_email_id_map.get(sub_key.as_str()) {
+                    Some(id) => id.clone(),
+                    None => continue, // Referenced operation did not succeed; skip.
+                };
+                match backend
+                    .update_object::<Email>(&account_id, &email_id, patch.clone())
+                    .await
+                {
+                    Ok(_) => {
+                        email_updated.insert(email_id.as_ref().to_string(), Value::Null);
+                    }
+                    Err(BackendSetError::SetError(set_err)) => {
+                        email_not_updated.insert(
+                            email_id.as_ref().to_string(),
+                            serde_json::to_value(&set_err)
+                                .expect("SetError is always serializable"),
+                        );
+                    }
+                    Err(BackendSetError::Other(e)) => {
+                        email_not_updated.insert(
+                            email_id.as_ref().to_string(),
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                    }
                 }
-                Err(BackendSetError::SetError(set_err)) => {
-                    email_not_updated.insert(
-                        email_id_str.clone(),
-                        serde_json::to_value(&set_err)
-                            .expect("type derives Serialize and is always serializable"),
-                    );
-                }
-                Err(BackendSetError::Other(e)) => {
-                    email_not_updated.insert(
-                        email_id_str.clone(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+            }
+        }
+
+        // onSuccessDestroyEmail
+        if let Some(destroy_keys) = args.get("onSuccessDestroyEmail").and_then(|v| v.as_array()) {
+            for key_val in destroy_keys {
+                let sub_key = match key_val.as_str() {
+                    Some(s) => s,
+                    None => continue,
+                };
+                let email_id = match submission_email_id_map.get(sub_key) {
+                    Some(id) => id.clone(),
+                    None => continue, // Referenced operation did not succeed; skip.
+                };
+                match backend
+                    .destroy_object::<Email>(&account_id, &email_id)
+                    .await
+                {
+                    Ok(()) => {
+                        email_destroyed.push(Value::String(email_id.as_ref().to_string()));
+                    }
+                    Err(BackendSetError::SetError(set_err)) => {
+                        email_not_destroyed.insert(
+                            email_id.as_ref().to_string(),
+                            serde_json::to_value(&set_err)
+                                .expect("SetError is always serializable"),
+                        );
+                    }
+                    Err(BackendSetError::Other(e)) => {
+                        email_not_destroyed.insert(
+                            email_id.as_ref().to_string(),
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                    }
                 }
             }
         }
@@ -388,19 +496,19 @@ pub async fn handle_submission_set<B: MailBackend>(
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
+        // RFC 8621 §7.5: a single implicit Email/set response is appended after
+        // the EmailSubmission/set response. Call-id is "#<parent-call-id>".
         let email_set_resp = json!({
             "accountId": account_id.as_ref(),
             "oldState": email_old_state.as_ref(),
             "newState": email_new_state.as_ref(),
-            "created": {},
-            "updated": Value::Object(email_updated),
-            "destroyed": [],
-            "notCreated": {},
-            "notUpdated": Value::Object(email_not_updated),
-            "notDestroyed": {},
+            "created": Value::Null,
+            "updated": if email_updated.is_empty() { Value::Null } else { Value::Object(email_updated) },
+            "destroyed": if email_destroyed.is_empty() { Value::Null } else { Value::Array(email_destroyed) },
+            "notCreated": Value::Null,
+            "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
+            "notDestroyed": if email_not_destroyed.is_empty() { Value::Null } else { Value::Object(email_not_destroyed) },
         });
-
-        // RFC 8621 §7.5: the implicit call's call-id is "#<call-id-of-EmailSubmission/set>".
         extra_invocations.push((
             "Email/set".to_string(),
             email_set_resp,

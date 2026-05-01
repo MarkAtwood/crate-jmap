@@ -744,11 +744,12 @@ async fn vacation_set_create_returns_singleton_error() {
         "error type must be 'singleton'; got: {err_type:?}"
     );
 
-    // Oracle: no object must have been created.
-    let created = resp["created"]
-        .as_object()
-        .expect("created must be an object");
-    assert!(created.is_empty(), "created map must be empty");
+    // Oracle: RFC 8620 §5.3 — created MUST be null when nothing was created.
+    assert!(
+        resp["created"].is_null(),
+        "created must be null when empty; got: {:?}",
+        resp["created"]
+    );
 }
 
 /// Oracle: VacationResponse/set update of "singleton" persists and is
@@ -848,11 +849,12 @@ async fn vacation_set_destroy_returns_singleton_error() {
         "error type must be 'singleton'; got: {err_type:?}"
     );
 
-    // Oracle: no object must have been destroyed.
-    let destroyed = resp["destroyed"]
-        .as_array()
-        .expect("destroyed must be an array");
-    assert!(destroyed.is_empty(), "destroyed list must be empty");
+    // Oracle: RFC 8620 §5.3 — destroyed MUST be null when nothing was destroyed.
+    assert!(
+        resp["destroyed"].is_null(),
+        "destroyed must be null when empty; got: {:?}",
+        resp["destroyed"]
+    );
 
     // Verify the SetErrorType round-trips correctly through serde.
     let deserialized: jmap_mail_server::SetError =
@@ -1320,13 +1322,11 @@ async fn identity_set_destroy_may_delete_false_is_forbidden() {
         .await
         .expect("Identity/set must not return a protocol-level error");
 
-    // Oracle: the id must appear in notDestroyed with type "forbidden".
-    let destroyed = destroy_resp["destroyed"]
-        .as_array()
-        .expect("destroyed must be an array");
+    // Oracle: RFC 8620 §5.3 — destroyed MUST be null when nothing was destroyed.
     assert!(
-        destroyed.is_empty(),
-        "destroyed list must be empty; got: {destroyed:?}"
+        destroy_resp["destroyed"].is_null(),
+        "destroyed must be null when empty; got: {:?}",
+        destroy_resp["destroyed"]
     );
 
     let not_destroyed = &destroy_resp["notDestroyed"][identity_id.as_ref()];
@@ -1480,8 +1480,10 @@ async fn submission_set_on_success_update_email() {
                 "emailId": email_id.as_ref(),
             }
         },
+        // RFC 8621 §7.5: keys are EmailSubmission IDs or creation references.
+        // "#s0" is a creation reference for the submission created as "s0".
         "onSuccessUpdateEmail": {
-            email_id.as_ref(): {
+            "#s0": {
                 "keywords": {}
             }
         }

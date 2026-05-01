@@ -349,12 +349,12 @@ pub async fn handle_identity_set<B: MailBackend>(
         "accountId": account_id.as_ref(),
         "oldState": old_state.as_ref(),
         "newState": new_state.as_ref(),
-        "created": Value::Object(created),
-        "updated": Value::Object(updated),
-        "destroyed": destroyed_list,
-        "notCreated": Value::Object(not_created),
-        "notUpdated": Value::Object(not_updated),
-        "notDestroyed": Value::Object(not_destroyed),
+        "created": if created.is_empty() { Value::Null } else { Value::Object(created) },
+        "updated": if updated.is_empty() { Value::Null } else { Value::Object(updated) },
+        "destroyed": if destroyed_list.is_empty() { Value::Null } else { Value::Array(destroyed_list) },
+        "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
+        "notUpdated": if not_updated.is_empty() { Value::Null } else { Value::Object(not_updated) },
+        "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
     });
 
     Ok((resp, vec![]))

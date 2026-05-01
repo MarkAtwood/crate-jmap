@@ -49,6 +49,7 @@ pub trait QueryObject: JmapObject {
 /// `notDestroyed` maps) (RFC 8620 §5.3).
 ///
 /// Construct with [`SetError::new`] and chain the builder methods as needed.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetError {
@@ -152,12 +153,32 @@ pub enum SetErrorType {
 
 impl std::fmt::Display for SetErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // Delegate to serde's camelCase rename_all mapping so the wire-format
-        // string is defined in exactly one place.
-        match serde_json::to_value(self) {
-            Ok(serde_json::Value::String(s)) => f.write_str(&s),
-            _ => f.write_str("unknown"),
-        }
+        let s = match self {
+            Self::Forbidden => "forbidden",
+            Self::OverQuota => "overQuota",
+            Self::TooLarge => "tooLarge",
+            Self::RateLimit => "rateLimit",
+            Self::NotFound => "notFound",
+            Self::InvalidPatch => "invalidPatch",
+            Self::WillDestroy => "willDestroy",
+            Self::InvalidProperties => "invalidProperties",
+            Self::Singleton => "singleton",
+            Self::MailboxHasChild => "mailboxHasChild",
+            Self::MailboxHasEmail => "mailboxHasEmail",
+            Self::AlreadyExists => "alreadyExists",
+            Self::TooManyKeywords => "tooManyKeywords",
+            Self::TooManyMailboxes => "tooManyMailboxes",
+            Self::BlobNotFound => "blobNotFound",
+            Self::ForbiddenFrom => "forbiddenFrom",
+            Self::InvalidEmail => "invalidEmail",
+            Self::TooManyRecipients => "tooManyRecipients",
+            Self::NoRecipients => "noRecipients",
+            Self::InvalidRecipients => "invalidRecipients",
+            Self::ForbiddenMailFrom => "forbiddenMailFrom",
+            Self::ForbiddenToSend => "forbiddenToSend",
+            Self::CannotUnsend => "cannotUnsend",
+        };
+        f.write_str(s)
     }
 }
 
@@ -636,9 +657,8 @@ impl SetObject for jmap_mail_types::Mailbox {
 }
 
 impl QueryObject for jmap_mail_types::Mailbox {
-    /// RFC 8621 §2.3 — Mailbox/query has no defined filter condition object;
-    /// reuse [`jmap_mail_types::EmailFilter`] as the closest available type.
-    type Filter = jmap_mail_types::EmailFilter;
+    /// RFC 8621 §2.3 defines five filter fields for Mailbox/query.
+    type Filter = jmap_mail_types::MailboxFilterCondition;
     type Comparator = serde_json::Value;
 }
 

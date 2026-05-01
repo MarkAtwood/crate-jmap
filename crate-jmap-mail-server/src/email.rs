@@ -10,6 +10,13 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, EmailProperty, MailBackend};
 use crate::helpers::extract_account_id;
 
+/// Server-enforced ceiling on the number of email IDs fetched when
+/// `collapseThreads=true`. Without this, a hostile client could trigger OOM
+/// by querying a large account with no filter. 65 536 IDs × ~32 bytes each
+/// is ~2 MiB of ID data — acceptable. Anything beyond this is truncated;
+/// the reported total reflects only the fetched slice.
+const COLLAPSE_THREADS_MAX_EMAILS: u64 = 65_536;
+
 // ---------------------------------------------------------------------------
 // Email/get (RFC 8621 §5.1)
 // ---------------------------------------------------------------------------
@@ -168,7 +175,14 @@ pub async fn handle_email_query<B: MailBackend>(
 
     let limit: Option<u64> = match args.remove("limit") {
         None | Some(Value::Null) => Some(256),
-        Some(v) => v.as_u64(),
+        Some(v) => match v.as_u64() {
+            Some(n) => Some(n),
+            None => {
+                return Err(JmapError::invalid_arguments(format!(
+                    "limit: expected a non-negative integer, got {v}"
+                )));
+            }
+        },
     };
 
     let position: i64 = args
@@ -189,7 +203,13 @@ pub async fn handle_email_query<B: MailBackend>(
     // the backend and use the backend's authoritative total.
     let (ids, total, query_state, can_calculate_changes, reported_position) = if collapse_threads {
         let all = backend
-            .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, None, 0)
+            .query_objects::<Email>(
+                &account_id,
+                filter.as_ref(),
+                sort_slice,
+                Some(COLLAPSE_THREADS_MAX_EMAILS),
+                0,
+            )
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
         let all_collapsed = collapse_by_thread(backend, &account_id, all.ids)
@@ -560,12 +580,12 @@ pub async fn handle_email_set<B: MailBackend>(
         "accountId": account_id.as_ref(),
         "oldState": old_state.as_ref(),
         "newState": new_state.as_ref(),
-        "created": Value::Object(created),
-        "updated": Value::Object(updated),
-        "destroyed": destroyed_list,
-        "notCreated": Value::Object(not_created),
-        "notUpdated": Value::Object(not_updated),
-        "notDestroyed": Value::Object(not_destroyed),
+        "created": if created.is_empty() { Value::Null } else { Value::Object(created) },
+        "updated": if updated.is_empty() { Value::Null } else { Value::Object(updated) },
+        "destroyed": if destroyed_list.is_empty() { Value::Null } else { Value::Array(destroyed_list) },
+        "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
+        "notUpdated": if not_updated.is_empty() { Value::Null } else { Value::Object(not_updated) },
+        "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
     });
 
     Ok((resp, vec![]))
@@ -601,6 +621,11 @@ fn find_immutable_patch_key(patch: &Value) -> Option<String> {
     let map = patch.as_object()?;
     for key in map.keys() {
         for &field in IMMUTABLE_EMAIL_FIELDS {
+            // The byte-index check distinguishes three cases for `field = "messageId"`:
+            //   "messageId"    → exact match (blocked)
+            //   "messageId/0"  → sub-path match (blocked)
+            //   "messageIdX"   → prefix but not a path segment (allowed)
+            // A simple `starts_with` would incorrectly block the third case.
             if key == field
                 || (key.starts_with(field) && key.as_bytes().get(field.len()) == Some(&b'/'))
             {
@@ -771,10 +796,7 @@ async fn collapse_by_thread<B: MailBackend>(
             Some(&[EmailProperty::Id, EmailProperty::ThreadId]),
         )
         .await?;
-    let thread_map: HashMap<Id, Id> = emails
-        .into_iter()
-        .map(|e| (e.id.clone(), e.thread_id.clone()))
-        .collect();
+    let thread_map: HashMap<Id, Id> = emails.into_iter().map(|e| (e.id, e.thread_id)).collect();
 
     let mut seen_threads: HashSet<Id> = HashSet::new();
     let mut result = Vec::with_capacity(ids.len());
@@ -862,10 +884,19 @@ pub async fn handle_email_import<B: MailBackend>(
             continue;
         }
 
-        let keywords: Vec<jmap_mail_types::Keyword> = entry
-            .get("keywords")
-            .and_then(|v| serde_json::from_value(v.clone()).ok())
-            .unwrap_or_default();
+        let keywords: Vec<jmap_mail_types::Keyword> = match entry.get("keywords") {
+            None | Some(Value::Null) => vec![],
+            Some(v) => match serde_json::from_value(v.clone()) {
+                Ok(kws) => kws,
+                Err(_) => {
+                    not_created.insert(
+                        import_id.clone(),
+                        json!({"type": "invalidProperties", "properties": ["keywords"]}),
+                    );
+                    continue;
+                }
+            },
+        };
 
         let received_at: Option<UTCDate> = entry
             .get("receivedAt")
@@ -1081,10 +1112,19 @@ pub async fn handle_email_copy<B: MailBackend>(
             }
         };
 
-        let keywords: Vec<Keyword> = entry
-            .get("keywords")
-            .and_then(|v| serde_json::from_value(v.clone()).ok())
-            .unwrap_or_default();
+        let keywords: Vec<Keyword> = match entry.get("keywords") {
+            None | Some(Value::Null) => vec![],
+            Some(v) => match serde_json::from_value(v.clone()) {
+                Ok(kws) => kws,
+                Err(_) => {
+                    not_created.insert(
+                        copy_id.clone(),
+                        json!({"type": "invalidProperties", "properties": ["keywords"]}),
+                    );
+                    continue;
+                }
+            },
+        };
 
         match backend
             .copy_email(
@@ -1135,49 +1175,114 @@ pub async fn handle_email_copy<B: MailBackend>(
         "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
     });
 
-    // Generate extra invocations for onSuccess* fields (RFC 8620 §6.3).
+    // Execute onSuccess* side effects and build a single implicit Email/set
+    // response (RFC 8620 §6.3).
+    //
+    // The dispatcher appends extra invocations verbatim to methodResponses, so
+    // we must build the full response object here — not request args.
     let mut extra: Vec<Invocation> = Vec::new();
 
-    if !copied_source_ids.is_empty() && on_success_destroy_original {
-        let destroy_ids: Vec<Value> = copied_source_ids
-            .iter()
-            .map(|(_, src)| Value::String(src.as_ref().to_string()))
-            .collect();
-        let set_args = json!({
+    let has_on_success_destroy = on_success_destroy_original && !copied_source_ids.is_empty();
+    let has_on_success_update = args
+        .get("onSuccessUpdateOriginal")
+        .filter(|v| !v.is_null())
+        .is_some()
+        && !copied_source_ids.is_empty();
+
+    if has_on_success_destroy || has_on_success_update {
+        let email_old_state = backend
+            .get_state::<Email>(&from_account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+        let mut email_destroyed: Vec<Value> = Vec::new();
+        let mut email_not_destroyed = serde_json::Map::new();
+        let mut email_updated = serde_json::Map::new();
+        let mut email_not_updated = serde_json::Map::new();
+
+        // onSuccessDestroyOriginal: destroy each successfully copied source email.
+        if on_success_destroy_original {
+            for (_, source_id) in &copied_source_ids {
+                match backend
+                    .destroy_object::<Email>(&from_account_id, source_id)
+                    .await
+                {
+                    Ok(()) => {
+                        email_destroyed.push(Value::String(source_id.as_ref().to_string()));
+                    }
+                    Err(BackendSetError::SetError(set_err)) => {
+                        email_not_destroyed.insert(
+                            source_id.as_ref().to_string(),
+                            serde_json::to_value(&set_err)
+                                .expect("SetError is always serializable"),
+                        );
+                    }
+                    Err(BackendSetError::Other(e)) => {
+                        email_not_destroyed.insert(
+                            source_id.as_ref().to_string(),
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                    }
+                }
+            }
+        }
+
+        // onSuccessUpdateOriginal: for each successfully copied email whose copy_id
+        // appears in the map, apply the specified patch to the original.
+        if let Some(on_success_update) = args
+            .get("onSuccessUpdateOriginal")
+            .and_then(|v| v.as_object())
+        {
+            for (copy_id, source_id) in &copied_source_ids {
+                if let Some(patch) = on_success_update.get(copy_id) {
+                    match backend
+                        .update_object::<Email>(&from_account_id, source_id, patch.clone())
+                        .await
+                    {
+                        Ok(_) => {
+                            email_updated.insert(source_id.as_ref().to_string(), Value::Null);
+                        }
+                        Err(BackendSetError::SetError(set_err)) => {
+                            email_not_updated.insert(
+                                source_id.as_ref().to_string(),
+                                serde_json::to_value(&set_err)
+                                    .expect("SetError is always serializable"),
+                            );
+                        }
+                        Err(BackendSetError::Other(e)) => {
+                            email_not_updated.insert(
+                                source_id.as_ref().to_string(),
+                                json!({ "type": "serverFail", "description": e.to_string() }),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
+        let email_new_state = backend
+            .get_state::<Email>(&from_account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+        // RFC 8620 §6.3: a single implicit Email/set response appended after
+        // the Email/copy response.
+        let set_resp = json!({
             "accountId": from_account_id.as_ref(),
-            "destroy": destroy_ids,
+            "oldState": email_old_state.as_ref(),
+            "newState": email_new_state.as_ref(),
+            "created": Value::Null,
+            "updated": if email_updated.is_empty() { Value::Null } else { Value::Object(email_updated) },
+            "destroyed": if email_destroyed.is_empty() { Value::Null } else { Value::Array(email_destroyed) },
+            "notCreated": Value::Null,
+            "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
+            "notDestroyed": if email_not_destroyed.is_empty() { Value::Null } else { Value::Object(email_not_destroyed) },
         });
         extra.push((
             "Email/set".to_owned(),
-            set_args,
-            format!("{call_id}-destroy"),
+            set_resp,
+            format!("{call_id}-implicit"),
         ));
-    }
-
-    // onSuccessUpdateOriginal: for each successfully copied email whose copy_id
-    // appears in the map, apply the specified patch to the original in from_account_id
-    // (RFC 8620 §6.3).
-    if let Some(on_success_update) = args
-        .get("onSuccessUpdateOriginal")
-        .and_then(|v| v.as_object())
-    {
-        let mut update_map = serde_json::Map::new();
-        for (copy_id, source_id) in &copied_source_ids {
-            if let Some(patch) = on_success_update.get(copy_id) {
-                update_map.insert(source_id.as_ref().to_string(), patch.clone());
-            }
-        }
-        if !update_map.is_empty() {
-            let set_args = json!({
-                "accountId": from_account_id.as_ref(),
-                "update": Value::Object(update_map),
-            });
-            extra.push((
-                "Email/set".to_owned(),
-                set_args,
-                format!("{call_id}-update"),
-            ));
-        }
     }
 
     Ok((resp, extra))
