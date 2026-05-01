@@ -139,24 +139,19 @@ pub async fn handle_identity_set<B: MailBackend>(
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
             // Validate: email must be present and non-empty.
-            let email_present = obj_val
-                .get("email")
-                .and_then(|v| v.as_str())
-                .map(|s| !s.is_empty())
-                .unwrap_or(false);
-            if !email_present {
-                not_created.insert(
-                    create_id.clone(),
-                    json!({
-                        "type": "invalidProperties",
-                        "properties": ["email"],
-                    }),
-                );
-                continue;
-            }
-
-            // Extract the email (already validated as present and non-empty above).
-            let email = obj_val["email"].as_str().unwrap_or("").to_string();
+            let email = match obj_val.get("email").and_then(|v| v.as_str()) {
+                Some(s) if !s.is_empty() => s.to_string(),
+                _ => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["email"],
+                        }),
+                    );
+                    continue;
+                }
+            };
 
             // Build identity using the constructor (supplies all defaults), then
             // overlay optional client-supplied fields.

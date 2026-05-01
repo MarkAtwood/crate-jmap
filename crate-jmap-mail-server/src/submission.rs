@@ -139,6 +139,11 @@ pub async fn handle_submission_query<B: MailBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
+    let calculate_total: bool = args
+        .get("calculateTotal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let limit: Option<u64> = match args.get("limit") {
         None | Some(Value::Null) => None,
         Some(v) => match v.as_u64() {
@@ -163,14 +168,19 @@ pub async fn handle_submission_query<B: MailBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    let resp = json!({
+    // RFC 8620 §5.5: total MUST be omitted when calculateTotal is false (default).
+    let mut resp = json!({
         "accountId": account_id.as_ref(),
         "queryState": result.query_state.as_ref(),
         "canCalculateChanges": result.can_calculate_changes,
         "position": result.position,
-        "total": result.total,
         "ids": result.ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
     });
+    if calculate_total {
+        if let Some(t) = result.total {
+            resp["total"] = json!(t);
+        }
+    }
 
     Ok((resp, vec![]))
 }
@@ -283,11 +293,12 @@ pub async fn handle_submission_set<B: MailBackend>(
                 .filter(|v| !v.is_null())
                 .is_some();
         if has_on_success {
-            let mut non_ref_ids: Vec<Id> = Vec::new();
+            let mut non_ref_id_set: std::collections::HashSet<Id> =
+                std::collections::HashSet::new();
             if let Some(m) = args.get("onSuccessUpdateEmail").and_then(|v| v.as_object()) {
                 for key in m.keys() {
                     if !key.starts_with('#') {
-                        non_ref_ids.push(Id::from(key.as_str()));
+                        non_ref_id_set.insert(Id::from(key.as_str()));
                     }
                 }
             }
@@ -295,14 +306,12 @@ pub async fn handle_submission_set<B: MailBackend>(
                 for item in arr {
                     if let Some(s) = item.as_str() {
                         if !s.starts_with('#') {
-                            non_ref_ids.push(Id::from(s));
+                            non_ref_id_set.insert(Id::from(s));
                         }
                     }
                 }
             }
-            // Deduplicate before the batch fetch.
-            non_ref_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-            non_ref_ids.dedup_by(|a, b| a.as_ref() == b.as_ref());
+            let non_ref_ids: Vec<Id> = non_ref_id_set.into_iter().collect();
             if !non_ref_ids.is_empty() {
                 let (subs, _) = backend
                     .get_objects::<EmailSubmission>(&account_id, Some(&non_ref_ids), None)

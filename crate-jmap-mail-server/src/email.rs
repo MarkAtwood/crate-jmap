@@ -200,6 +200,11 @@ pub async fn handle_email_query<B: MailBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+    let calculate_total: bool = args
+        .remove("calculateTotal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let sort_slice = sort.as_deref();
 
     // When collapseThreads is set, fetch all matching emails (no limit) to compute the
@@ -217,10 +222,18 @@ pub async fn handle_email_query<B: MailBackend>(
             )
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        let fetched_count = all.ids.len();
         let all_collapsed = collapse_by_thread(backend, &account_id, all.ids)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
-        let thread_total = all_collapsed.len() as u64;
+        // If the fetch was capped, the collapsed total is a lower bound, not the true
+        // total. Return None so calculateTotal=true still gets an honest answer.
+        let thread_total: Option<u64> =
+            if fetched_count < COLLAPSE_THREADS_MAX_EMAILS as usize {
+                Some(all_collapsed.len() as u64)
+            } else {
+                None
+            };
         // RFC 8620 §5.5: negative position is relative to the end of the result set.
         let start = if position >= 0 {
             (position as usize).min(all_collapsed.len())
@@ -236,7 +249,7 @@ pub async fn handle_email_query<B: MailBackend>(
             .collect();
         (
             page,
-            Some(thread_total),
+            thread_total,
             all.query_state,
             all.can_calculate_changes,
             start as i64,
@@ -263,14 +276,19 @@ pub async fn handle_email_query<B: MailBackend>(
         )
     };
 
-    let resp = json!({
+    // RFC 8620 §5.5: total MUST be omitted when calculateTotal is false (default).
+    let mut resp = json!({
         "accountId": account_id.as_ref(),
         "queryState": query_state.as_ref(),
         "canCalculateChanges": can_calculate_changes,
         "position": reported_position,
         "ids": ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-        "total": total,
     });
+    if calculate_total {
+        if let Some(t) = total {
+            resp["total"] = json!(t);
+        }
+    }
 
     Ok((resp, vec![]))
 }
@@ -322,7 +340,9 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     let up_to_id: Option<Id> = match args.remove("upToId") {
         None | Some(Value::Null) => None,
         Some(Value::String(s)) => Some(Id::from(s.as_str())),
-        Some(_) => None,
+        Some(_) => {
+            return Err(JmapError::invalid_arguments("upToId must be a string Id or null"))
+        }
     };
 
     let sort_slice = sort.as_deref();
@@ -681,13 +701,21 @@ async fn build_email_from_create<B: MailBackend>(
         .and_then(|v| v.as_str())
         .map(|s| s.to_owned());
 
-    let in_reply_to: Option<Vec<String>> = obj_val
-        .get("inReplyTo")
-        .and_then(|v| serde_json::from_value(v.clone()).ok());
+    let in_reply_to: Option<Vec<String>> = match obj_val.get("inReplyTo") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|_| "inReplyTo: must be an array of strings".to_string())?,
+        ),
+    };
 
-    let references: Option<Vec<String>> = obj_val
-        .get("references")
-        .and_then(|v| serde_json::from_value(v.clone()).ok());
+    let references: Option<Vec<String>> = match obj_val.get("references") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|_| "references: must be an array of strings".to_string())?,
+        ),
+    };
 
     // Thread assignment: look for an existing email whose messageId matches
     // any of the inReplyTo/references tokens.

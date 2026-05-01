@@ -129,6 +129,11 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
+    let calculate_total: bool = args
+        .get("calculateTotal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let limit: Option<u64> = match args.get("limit") {
         None | Some(Value::Null) => None,
         Some(v) => match v.as_u64() {
@@ -255,17 +260,19 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         .map(|id| id.as_ref())
         .collect();
 
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "queryState": query_state.as_ref(),
-            "canCalculateChanges": true,
-            "position": start as i64,
-            "ids": page,
-            "total": total,
-        }),
-        vec![],
-    ))
+    // RFC 8620 §5.5: total MUST be omitted when calculateTotal is false (default).
+    let mut resp = json!({
+        "accountId": account_id.as_ref(),
+        "queryState": query_state.as_ref(),
+        "canCalculateChanges": true,
+        "position": start as i64,
+        "ids": page,
+    });
+    if calculate_total {
+        resp["total"] = json!(total);
+    }
+
+    Ok((resp, vec![]))
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +298,13 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
         })?),
     };
 
-    let up_to_id: Option<Id> = args.get("upToId").and_then(|v| v.as_str()).map(Id::from);
+    let up_to_id: Option<Id> = match args.get("upToId") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(_) => {
+            return Err(JmapError::invalid_arguments("upToId must be a string Id or null"))
+        }
+    };
 
     let result = backend
         .query_changes::<Mailbox>(
@@ -439,7 +452,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             );
                         }
                         Err(BackendSetError::Other(e)) => {
-                            return Err(JmapError::server_fail(e.to_string()));
+                            not_created.insert(
+                                create_id.clone(),
+                                json!({ "type": "serverFail", "description": e.to_string() }),
+                            );
                         }
                     }
                 }
@@ -535,7 +551,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
-                    return Err(JmapError::server_fail(e.to_string()));
+                    not_updated.insert(
+                        id_str.clone(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
                 }
             }
         }
@@ -657,7 +676,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
-                    return Err(JmapError::server_fail(e.to_string()));
+                    not_destroyed.insert(
+                        id_str.to_owned(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
                 }
             }
         }
