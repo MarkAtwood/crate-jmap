@@ -11,7 +11,7 @@ license = "MIT OR Apache-2.0"
 [dependencies]
 jmap-types      = { path = "../crate-jmap-types", version = "0.1.0" }
 jmap-mail-types = { path = "../crate-jmap-mail-types", version = "0.1.0" }
-jmap-client     = { path = "../crate-jmap-client", version = "0.1.0" }
+jmap-base-client = { path = "../crate-jmap-base-client", version = "0.1.0" }
 serde_json      = "1"
 thiserror       = "2"
 

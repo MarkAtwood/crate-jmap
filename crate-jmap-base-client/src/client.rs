@@ -348,7 +348,7 @@ impl JmapClient {
     /// [`expand_url_template`](crate::expand_url_template):
     ///
     /// ```rust,ignore
-    /// let url = jmap_client::expand_url_template(
+    /// let url = jmap_base_client::expand_url_template(
     ///     &session.event_source_url,
     ///     &[("types", "*"), ("closeafter", "no"), ("ping", "0")],
     /// )?;

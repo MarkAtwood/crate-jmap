@@ -6,9 +6,9 @@ Auth-agnostic JMAP Chat HTTP client with WebSocket and SSE support.
 
 ```
 jmap-types
-    ├── jmap-client              base HTTP client (auth, session, blob, SSE, WebSocket)
+    ├── jmap-base-client              base HTTP client (auth, session, blob, SSE, WebSocket)
     └── jmap-chat-types
-            └── jmap-chat-client  ← this crate (will depend on jmap-client once it exists)
+            └── jmap-chat-client  ← this crate (will depend on jmap-base-client once it exists)
 ```
 
 ## What This Crate Is
@@ -72,12 +72,12 @@ for types now supplied by `jmap-chat-types`).
 ## Extension Trait Pattern
 
 Cross-crate inherent impls are not valid Rust (orphan rule: only the crate that defines
-a type may add inherent methods to it). When `jmap-client` is adopted as the base
+a type may add inherent methods to it). When `jmap-base-client` is adopted as the base
 transport (see Key Design Decision 3 below), Chat methods will be added to `JmapClient`
 via an extension trait — not via `impl JmapClient`:
 
 ```rust
-use jmap_client::{ClientError, JmapClient};
+use jmap_base_client::{ClientError, JmapClient};
 
 /// Extension trait adding JMAP Chat methods to [`JmapClient`].
 ///
@@ -101,7 +101,7 @@ Rust 1.75 AFIT (async fn in trait, via RPITIT) is used — no `async-trait` crat
 for the common non-dyn case. If `dyn JmapChatExt` is ever required, add `async-trait 0.1`
 at that time.
 
-During the skeleton stage (before `jmap-client` is ready), `JmapChatClient` is a
+During the skeleton stage (before `jmap-base-client` is ready), `JmapChatClient` is a
 standalone struct in `src/client.rs`. The trait-based API is the target end state.
 
 ## Key Design Decisions vs. jmapchat-client
@@ -114,8 +114,8 @@ standalone struct in `src/client.rs`. The trait-based API is the target end stat
    come from `jmap-chat-types`. The `src/types.rs` re-export layer in `jmapchat-client`
    may be eliminable or significantly thinned.
 
-3. **Auth, transport, session, SSE, WebSocket, blob belong in `jmap-client`** — once
-   `jmap-client` is implemented, add it as a dependency and remove the corresponding
+3. **Auth, transport, session, SSE, WebSocket, blob belong in `jmap-base-client`** — once
+   `jmap-base-client` is implemented, add it as a dependency and remove the corresponding
    modules from this crate (`auth.rs`, `blob.rs`, `client.rs`, `error.rs`, `sse.rs`,
    `ws/`). For now (skeleton stage), duplicate them here from `jmapchat-client` and
    plan the refactor as a follow-up.

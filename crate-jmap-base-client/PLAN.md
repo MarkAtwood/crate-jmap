@@ -1,4 +1,4 @@
-# jmap-client — Implementation Plan
+# jmap-base-client — Implementation Plan
 
 RFC 8620 base JMAP client. Auth-agnostic. Session fetch, JMAP request/response,
 blob upload/download, SSE event stream, WebSocket session.
@@ -10,7 +10,7 @@ and add only their method implementations.
 
 ```
 jmap-types
-    └── jmap-client  ← this crate
+    └── jmap-base-client  ← this crate
             ├── jmap-chat-client   + Chat methods (also depends on jmap-chat-types)
             └── jmap-mail-client   + RFC 8621 methods (also depends on jmap-mail-types)
 ```
@@ -74,11 +74,11 @@ now in `jmap-types` or `jmap-chat-types`.
 
 ## Impact on jmap-chat-client
 
-Once `jmap-client` exists, `jmap-chat-client` should:
-1. Add `jmap-client = { path = "../crate-jmap-client" }` dependency
+Once `jmap-base-client` exists, `jmap-chat-client` should:
+1. Add `jmap-base-client = { path = "../crate-jmap-base-client" }` dependency
 2. Remove `auth.rs`, `blob.rs`, `client.rs`, `error.rs`, `sse.rs`, `ws/`, `utils.rs`
    (or keep only chat-specific utils)
-3. Re-export `JmapClient`, auth providers, `ClientError` etc. from `jmap-client`
+3. Re-export `JmapClient`, auth providers, `ClientError` etc. from `jmap-base-client`
 4. Retain only `methods/` and Chat-specific type re-exports
 
 ## Module Layout

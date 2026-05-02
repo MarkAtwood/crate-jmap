@@ -11,7 +11,7 @@ the JMAP Chat extension). All crates live in `crate-jmap-*/` subdirectories.
 | `crate-jmap-mail-types/` | `jmap-mail-types` | RFC 8621 data types, no async |
 | `crate-jmap-chat-types/` | `jmap-chat-types` | JMAP Chat extension types, no async |
 | `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers |
-| `crate-jmap-client/` | `jmap-client` | RFC 8620 base client: auth, session, blob, SSE, WebSocket |
+| `crate-jmap-base-client/` | `jmap-base-client` | RFC 8620 base client: auth, session, blob, SSE, WebSocket |
 | `crate-jmap-mime/` | `jmap-mime` | MIME adapter: mime-tree → jmap-mail-types (greenfield) |
 | `crate-jmap-mail-server/` | `jmap-mail-server` | RFC 8621 method handlers (greenfield) |
 | `crate-jmap-mail-client/` | `jmap-mail-client` | RFC 8621 client methods (greenfield) |
@@ -31,7 +31,7 @@ modify them without explicit per-change user approval:
 | `jmap-types` | `crate-jmap-types/` |
 | `jmap-mail-types` | `crate-jmap-mail-types/` |
 | `jmap-chat-types` | `crate-jmap-chat-types/` |
-| `jmap-client` | `crate-jmap-client/` |
+| `jmap-base-client` | `crate-jmap-base-client/` |
 | `jmap-mail-server` | `crate-jmap-mail-server/` |
 
 Each crate's `AGENTS.md` lists the full restriction. When in doubt: stop and ask.

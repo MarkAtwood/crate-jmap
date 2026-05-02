@@ -83,7 +83,7 @@ Cargo workspace containing the full `jmap-*` crate family (RFC 8620 + RFC 8621 +
 ```
 jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference, JmapError. No async.
     ├── jmap-server     — dispatcher, parse_request, ResultReference resolution, HTTP helpers.
-    ├── jmap-client     — RFC 8620 base client: auth, session fetch, blob, SSE, WebSocket.
+    ├── jmap-base-client — RFC 8620 base client: auth, session fetch, blob, SSE, WebSocket.
     │       ├── jmap-chat-client   — JMAP Chat method implementations.
     │       └── jmap-mail-client   — RFC 8621 method implementations.
     ├── jmap-mail-types — RFC 8621 data types: Email, Mailbox, Thread, etc. No async.

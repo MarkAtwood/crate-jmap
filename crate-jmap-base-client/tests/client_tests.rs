@@ -2,9 +2,9 @@
 // Oracle: RFC 8620 §2 (Session), §3.3 (making requests), §6 (blobs), §7 (push)
 // Fixtures: tests/fixtures/jmap/*.json (hand-written from RFC 8620 examples)
 
-use jmap_client::auth::NoneAuth;
-use jmap_client::client::JmapClient;
-use jmap_client::error::ClientError;
+use jmap_base_client::auth::NoneAuth;
+use jmap_base_client::client::JmapClient;
+use jmap_base_client::error::ClientError;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -49,10 +49,10 @@ fn minimal_request() -> jmap_types::JmapRequest {
 #[test]
 fn test_new_rejects_empty_url() {
     let result = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         "",
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .map(|_| ());
     assert!(
@@ -65,10 +65,10 @@ fn test_new_rejects_empty_url() {
 #[test]
 fn test_new_rejects_ftp_scheme() {
     let result = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         "ftp://example.com",
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .map(|_| ());
     assert!(
@@ -81,10 +81,10 @@ fn test_new_rejects_ftp_scheme() {
 #[test]
 fn test_new_rejects_url_with_path() {
     let result = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         "https://example.com/jmap",
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .map(|_| ());
     assert!(
@@ -97,10 +97,10 @@ fn test_new_rejects_url_with_path() {
 #[test]
 fn test_new_accepts_https_origin() {
     let result = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         "https://example.com",
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .map(|_| ());
     assert!(result.is_ok(), "valid https origin must be accepted");
@@ -111,10 +111,10 @@ fn test_new_accepts_https_origin() {
 /// others as "instant timeout". Reject explicitly to eliminate this footgun.
 #[test]
 fn test_new_rejects_zero_request_timeout() {
-    let mut config = jmap_client::client::ClientConfig::default();
+    let mut config = jmap_base_client::client::ClientConfig::default();
     config.request_timeout = std::time::Duration::ZERO;
     let result = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         "https://example.com",
         config,
@@ -129,10 +129,10 @@ fn test_new_rejects_zero_request_timeout() {
 /// Oracle: config validation — max_call_body == 0 must be rejected with InvalidArgument.
 #[test]
 fn test_new_rejects_zero_max_call_body() {
-    let mut config = jmap_client::client::ClientConfig::default();
+    let mut config = jmap_base_client::client::ClientConfig::default();
     config.max_call_body = 0;
     let result = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         "https://example.com",
         config,
@@ -162,10 +162,10 @@ async fn test_fetch_session_returns_session() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -210,10 +210,10 @@ async fn test_fetch_session_size_cap() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -240,10 +240,10 @@ async fn test_fetch_session_401_returns_auth_failed() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -270,10 +270,10 @@ async fn test_fetch_session_rejects_non_http_api_url() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -306,10 +306,10 @@ async fn test_fetch_session_rejects_non_http_other_urls() {
             .await;
 
         let client = JmapClient::new(
-            jmap_client::auth::DefaultTransport,
+            jmap_base_client::auth::DefaultTransport,
             NoneAuth,
             &server.uri(),
-            jmap_client::client::ClientConfig::default(),
+            jmap_base_client::client::ClientConfig::default(),
         )
         .expect("client construction must succeed");
 
@@ -341,10 +341,10 @@ async fn test_call_round_trip() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -375,10 +375,10 @@ async fn test_call_size_cap() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -406,10 +406,10 @@ async fn test_call_401_returns_auth_failed() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -442,10 +442,10 @@ async fn test_upload_blob_response_size_cap() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -483,10 +483,10 @@ async fn test_download_blob_size_cap() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -495,7 +495,7 @@ async fn test_download_blob_size_cap() {
         server.uri()
     );
     let err = client
-        .download_blob(jmap_client::DownloadBlobParams {
+        .download_blob(jmap_base_client::DownloadBlobParams {
             download_url_template: &template,
             account_id: "account1",
             blob_id: "blob-abc",
@@ -523,7 +523,7 @@ async fn test_download_blob_size_cap() {
 #[tokio::test]
 async fn test_subscribe_events_crlf_line_endings() {
     use futures::StreamExt as _;
-    use jmap_client::sse::SseEvent;
+    use jmap_base_client::sse::SseEvent;
 
     // CRLF-terminated SSE block ending in the double-CRLF frame delimiter.
     let crlf_body = "event: state\r\ndata: {\"changed\":{}}\r\n\r\n";
@@ -540,10 +540,10 @@ async fn test_subscribe_events_crlf_line_endings() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -573,7 +573,7 @@ async fn test_subscribe_events_crlf_line_endings() {
 #[tokio::test]
 async fn test_subscribe_events_lf_crlf_frame_delimiter() {
     use futures::StreamExt as _;
-    use jmap_client::sse::SseEvent;
+    use jmap_base_client::sse::SseEvent;
 
     // LF-terminated field lines, CRLF-terminated blank line: \n\r\n delimiter.
     let body = "event: state\ndata: {\"changed\":{}}\n\r\n";
@@ -590,10 +590,10 @@ async fn test_subscribe_events_lf_crlf_frame_delimiter() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -622,7 +622,7 @@ async fn test_subscribe_events_lf_crlf_frame_delimiter() {
 #[tokio::test]
 async fn test_subscribe_events_cr_line_endings() {
     use futures::StreamExt as _;
-    use jmap_client::sse::SseEvent;
+    use jmap_base_client::sse::SseEvent;
 
     // CR-only-terminated SSE block ending in the double-CR frame delimiter.
     let cr_body = "event: state\rdata: {\"changed\":{}}\r\r";
@@ -639,10 +639,10 @@ async fn test_subscribe_events_cr_line_endings() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -683,10 +683,10 @@ async fn test_subscribe_events_rejects_wrong_content_type() {
         .await;
 
     let client = JmapClient::new(
-        jmap_client::auth::DefaultTransport,
+        jmap_base_client::auth::DefaultTransport,
         NoneAuth,
         &server.uri(),
-        jmap_client::client::ClientConfig::default(),
+        jmap_base_client::client::ClientConfig::default(),
     )
     .expect("client construction must succeed");
 
@@ -720,7 +720,7 @@ fn test_extract_response_success() {
         None,
     );
 
-    let val = jmap_client::client::extract_response::<serde_json::Value>(&resp, "r1");
+    let val = jmap_base_client::client::extract_response::<serde_json::Value>(&resp, "r1");
     assert!(val.is_ok(), "extract_response must succeed: {val:?}");
 }
 
@@ -738,7 +738,7 @@ fn test_extract_response_not_found() {
         None,
     );
 
-    let err = jmap_client::client::extract_response::<serde_json::Value>(&resp, "r99")
+    let err = jmap_base_client::client::extract_response::<serde_json::Value>(&resp, "r99")
         .expect_err("wrong call_id must fail");
     assert!(
         matches!(err, ClientError::MethodNotFound(_)),
@@ -760,7 +760,7 @@ fn test_extract_response_method_error() {
         None,
     );
 
-    let err = jmap_client::client::extract_response::<serde_json::Value>(&resp, "r1")
+    let err = jmap_base_client::client::extract_response::<serde_json::Value>(&resp, "r1")
         .expect_err("error invocation must fail");
     assert!(
         matches!(

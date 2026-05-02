@@ -1,6 +1,6 @@
 # jmap-mail-client — Implementation Plan
 
-RFC 8621 (JMAP for Mail) method implementations on top of `jmap-client`.
+RFC 8621 (JMAP for Mail) method implementations on top of `jmap-base-client`.
 
 ## Crate Family Position
 
@@ -8,18 +8,18 @@ RFC 8621 (JMAP for Mail) method implementations on top of `jmap-client`.
 jmap-types
     ├── jmap-mail-types
     │       └── (types used here)
-    └── jmap-client
+    └── jmap-base-client
             └── jmap-mail-client  ← this crate
 ```
 
 ## What This Crate Is
 
-An extension layer over `jmap-client` that adds typed methods for every RFC 8621
+An extension layer over `jmap-base-client` that adds typed methods for every RFC 8621
 operation: `Email/get`, `Email/set`, `Email/query`, `Email/changes`, `Mailbox/get`,
 `Mailbox/set`, `Thread/get`, `Identity/get`, `EmailSubmission/set`, `SearchSnippet/get`.
 
-Consumers call `jmap-client::JmapClient::call()` directly or use the typed helpers
-defined here. No new HTTP machinery — all network operations go through `jmap-client`.
+Consumers call `jmap-base-client::JmapClient::call()` directly or use the typed helpers
+defined here. No new HTTP machinery — all network operations go through `jmap-base-client`.
 
 Known potential consumers: a future CLI mail client, or `stoa` if it ever grows a
 client-side sync path.
@@ -27,7 +27,7 @@ client-side sync path.
 ## What This Crate Is Not
 
 - Not a server-side crate
-- Not a standalone HTTP client (no auth, no transport — that's `jmap-client`)
+- Not a standalone HTTP client (no auth, no transport — that's `jmap-base-client`)
 - Not handling IMAP, SMTP, or other non-JMAP mail protocols
 
 ## Source Material
@@ -44,12 +44,12 @@ Design pattern to follow:
 ```toml
 jmap-types      = { path = "../crate-jmap-types" }
 jmap-mail-types = { path = "../crate-jmap-mail-types" }
-jmap-client     = { path = "../crate-jmap-client" }
+jmap-base-client     = { path = "../crate-jmap-base-client" }
 serde_json      = "1"
 thiserror       = "2"
 ```
 
-No direct reqwest/tokio dependency — all I/O goes through `jmap-client`.
+No direct reqwest/tokio dependency — all I/O goes through `jmap-base-client`.
 
 ## Extension Trait Pattern
 
@@ -76,7 +76,7 @@ wrap with `async-trait 0.1` at that time.
 ## Planned Public API
 
 ```rust
-use jmap_client::{ClientError, JmapClient};
+use jmap_base_client::{ClientError, JmapClient};
 use jmap_mail_types::{Email, Mailbox, Thread, Identity, EmailSubmission, SearchSnippet};
 use jmap_types::{Id, State};
 
@@ -137,7 +137,7 @@ src/
 
 ## Test Strategy
 
-- All tests use `wiremock` via `jmap-client`'s HTTP layer — no live network
+- All tests use `wiremock` via `jmap-base-client`'s HTTP layer — no live network
 - Request serialization tests: construct a typed request, verify JSON matches RFC 8621 examples
 - Response deserialization tests: feed RFC 8621 example JSON, verify typed structs
 - RFC 8621 §1.5 example exchange used as the primary oracle

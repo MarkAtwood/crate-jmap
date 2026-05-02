@@ -703,6 +703,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
+name = "jmap-base-client"
+version = "0.1.0"
+dependencies = [
+ "base64",
+ "bytes",
+ "futures",
+ "http",
+ "jmap-types",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "sha2",
+ "thiserror",
+ "tokio",
+ "tokio-tungstenite",
+ "url",
+ "wiremock",
+]
+
+[[package]]
 name = "jmap-chat-client"
 version = "0.1.0"
 dependencies = [
@@ -741,30 +761,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "jmap-client"
-version = "0.1.0"
-dependencies = [
- "base64",
- "bytes",
- "futures",
- "http",
- "jmap-types",
- "reqwest",
- "serde",
- "serde_json",
- "sha2",
- "thiserror",
- "tokio",
- "tokio-tungstenite",
- "url",
- "wiremock",
-]
-
-[[package]]
 name = "jmap-mail-client"
 version = "0.1.0"
 dependencies = [
- "jmap-client",
+ "jmap-base-client",
  "jmap-mail-types",
  "jmap-types",
  "serde_json",
