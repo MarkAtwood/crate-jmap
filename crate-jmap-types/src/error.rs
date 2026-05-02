@@ -377,7 +377,9 @@ impl JmapError {
     ///
     /// Always prefer [`unknown_capability_with_detail`][Self::unknown_capability_with_detail],
     /// which includes the failing URI so clients can act on it.
-    #[deprecated(note = "always use unknown_capability_with_detail to include the URI in the error")]
+    #[deprecated(
+        note = "always use unknown_capability_with_detail to include the URI in the error"
+    )]
     pub fn unknown_capability() -> Self {
         Self {
             error_type: "unknownCapability".into(),
