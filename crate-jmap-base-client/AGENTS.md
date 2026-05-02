@@ -1,4 +1,4 @@
-# Agent Instructions — jmap-client
+# Agent Instructions — jmap-base-client
 
 ## 🔒 LOCKED CRATE — EXPLICIT PERMISSION REQUIRED BEFORE ANY CHANGE
 
@@ -39,7 +39,7 @@ Extension crates (`jmap-mail-client`, `jmap-chat-client`) build on top of this.
 
 ```
 jmap-types
-    └── jmap-client  ← this crate
+    └── jmap-base-client  ← this crate
             ├── jmap-mail-client
             └── jmap-chat-client
 ```
@@ -49,8 +49,8 @@ jmap-types
 ```bash
 cargo fmt --all
 cargo clippy -- -D warnings
-cargo test -p jmap-client
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p jmap-client
+cargo test -p jmap-base-client
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps -p jmap-base-client
 ```
 
 Run all four before considering any work done.
