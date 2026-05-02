@@ -8,6 +8,9 @@ rust-version = "1.75"
 description = "RFC 8621 JMAP for Mail method handlers — backend-agnostic, plugs into jmap-server Dispatcher"
 license = "MIT OR Apache-2.0"
 
+[features]
+mdn = ["jmap-mail-types/mdn"]
+
 [dependencies]
 jmap-types      = { path = "../crate-jmap-types", version = "0.1.0" }
 jmap-mail-types = { path = "../crate-jmap-mail-types", version = "0.1.0" }
