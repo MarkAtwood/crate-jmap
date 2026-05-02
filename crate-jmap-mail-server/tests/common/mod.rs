@@ -10,6 +10,9 @@ pub mod seed;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+// MIME body parsing (jmap-mime + mime-tree) — used in import_email and parse_email.
+use jmap_mime::message_to_jmap_body;
+
 use jmap_mail_server::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, MailBackend, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
@@ -871,6 +874,25 @@ impl MailBackend for MemoryBackend {
                 email.preview = Some(preview);
             }
 
+            // Populate body structure fields using the MIME parser.
+            if let Ok(parsed_msg) = mime_tree::parse(&bytes) {
+                let part_counter = std::cell::Cell::new(0usize);
+                let blob_id_str = blob_id.to_string();
+                let body_fields = message_to_jmap_body(&parsed_msg, |_part| {
+                    let i = part_counter.get();
+                    part_counter.set(i + 1);
+                    jmap_types::Id::from(format!("{blob_id_str}-part-{i}"))
+                });
+                email.text_body = body_fields.text_body;
+                email.html_body = body_fields.html_body;
+                email.attachments = body_fields.attachments.clone();
+                email.body_structure = Some(body_fields.body_structure);
+                email.has_attachment = !body_fields.attachments.is_empty();
+                if email.preview.is_none() {
+                    email.preview = body_fields.preview;
+                }
+            }
+
             // Ensure the Thread object exists.
             let thread_val = serde_json::json!({
                 "id": thread_id.to_string(),
@@ -1044,6 +1066,25 @@ impl MailBackend for MemoryBackend {
         email.headers = parsed.raw_headers;
         if let Some(preview) = parsed.preview {
             email.preview = Some(preview);
+        }
+
+        // Populate body structure fields using the MIME parser.
+        if let Ok(parsed_msg) = mime_tree::parse(&bytes) {
+            let part_counter = std::cell::Cell::new(0usize);
+            let blob_id_str = blob_id.to_string();
+            let body_fields = message_to_jmap_body(&parsed_msg, |_part| {
+                let i = part_counter.get();
+                part_counter.set(i + 1);
+                jmap_types::Id::from(format!("{blob_id_str}-part-{i}"))
+            });
+            email.text_body = body_fields.text_body;
+            email.html_body = body_fields.html_body;
+            email.attachments = body_fields.attachments.clone();
+            email.body_structure = Some(body_fields.body_structure);
+            email.has_attachment = !body_fields.attachments.is_empty();
+            if email.preview.is_none() {
+                email.preview = body_fields.preview;
+            }
         }
 
         Ok(email)
