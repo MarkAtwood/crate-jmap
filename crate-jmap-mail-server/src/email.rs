@@ -92,8 +92,6 @@ const DEFAULT_BODY_PROPERTIES: &[&str] = &[
 /// Parsed form of one `header:<name>[:<form>][:all]` property request.
 #[derive(Debug, Clone)]
 struct HeaderPropertyRequest {
-    /// Original property name as supplied by client (e.g. `"header:Subject:asText"`).
-    original: String,
     /// Case-folded header field name (e.g. `"subject"`).
     name_lower: String,
     /// Requested form.
@@ -112,6 +110,21 @@ enum HeaderForm {
     AsMessageIds,
     AsDate,
     AsURLs,
+}
+
+impl std::fmt::Display for HeaderForm {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = match self {
+            HeaderForm::Raw => "raw",
+            HeaderForm::AsText => "asText",
+            HeaderForm::AsAddresses => "asAddresses",
+            HeaderForm::AsGroupedAddresses => "asGroupedAddresses",
+            HeaderForm::AsMessageIds => "asMessageIds",
+            HeaderForm::AsDate => "asDate",
+            HeaderForm::AsURLs => "asURLs",
+        };
+        f.write_str(s)
+    }
 }
 
 /// Parse a `header:…` property string into a [`HeaderPropertyRequest`].
@@ -178,7 +191,6 @@ fn parse_header_property(prop: &str) -> Result<HeaderPropertyRequest, String> {
     };
 
     Ok(HeaderPropertyRequest {
-        original: prop.to_string(),
         name_lower: name.to_ascii_lowercase(),
         form,
         all,
@@ -230,19 +242,19 @@ fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Result<(), Strin
         )
     {
         return Err(format!(
-            "form {form:?} is not valid for date header '{name_lower}'"
+            "form {form} is not valid for date header '{name_lower}'"
         ));
     }
     if ADDR_HEADERS.contains(&name_lower) && matches!(form, AsDate | AsMessageIds | AsURLs) {
         return Err(format!(
-            "form {form:?} is not valid for address header '{name_lower}'"
+            "form {form} is not valid for address header '{name_lower}'"
         ));
     }
     if MSGID_HEADERS.contains(&name_lower)
         && matches!(form, AsDate | AsAddresses | AsGroupedAddresses | AsURLs)
     {
         return Err(format!(
-            "form {form:?} is not valid for message-id header '{name_lower}'"
+            "form {form} is not valid for message-id header '{name_lower}'"
         ));
     }
     if URL_HEADERS.contains(&name_lower)
@@ -252,7 +264,7 @@ fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Result<(), Strin
         )
     {
         return Err(format!(
-            "form {form:?} is not valid for URL header '{name_lower}'"
+            "form {form} is not valid for URL header '{name_lower}'"
         ));
     }
     Ok(())
@@ -277,15 +289,15 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
                 .replace("\n\t", " ");
             Value::String(unfolded.trim_start().to_string())
         }
-        // TODO(RFC 8621 §4.1.2): AsAddresses parsing not yet implemented; returning null
+        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
         AsAddresses => Value::Null,
-        // TODO(RFC 8621 §4.1.2): AsGroupedAddresses parsing not yet implemented; returning null
+        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
         AsGroupedAddresses => Value::Null,
-        // TODO(RFC 8621 §4.1.2): AsDate parsing not yet implemented; returning null
+        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
         AsDate => Value::Null,
-        // TODO(RFC 8621 §4.1.2): AsMessageIds parsing not yet implemented; returning null
+        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
         AsMessageIds => Value::Null,
-        // TODO(RFC 8621 §4.1.2): AsURLs parsing not yet implemented; returning null
+        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
         AsURLs => Value::Null,
     }
 }
@@ -400,7 +412,7 @@ pub async fn handle_email_get<B: MailBackend>(
     //
     // Parse and validate each `header:…` property before touching the backend,
     // so we can return `invalidArguments` without issuing any storage queries.
-    let (header_reqs, regular_props): (Vec<&str>, Vec<&str>) = match properties.as_deref() {
+    let (header_props, regular_props): (Vec<&str>, Vec<&str>) = match properties.as_deref() {
         Some(props) => props
             .iter()
             .map(|s| s.as_str())
@@ -410,14 +422,15 @@ pub async fn handle_email_get<B: MailBackend>(
 
     // Parse and validate each header: property.  Collect all errors before
     // returning so the first bad property surfaces immediately.
-    let parsed_header_reqs: Vec<HeaderPropertyRequest> = header_reqs
+    // Each element is (original_prop_string, parsed_request).
+    let parsed_header_reqs: Vec<(&str, HeaderPropertyRequest)> = header_props
         .iter()
         .map(|p| {
             let req = parse_header_property(p)
                 .map_err(|e| JmapError::invalid_arguments(format!("property '{p}': {e}")))?;
             validate_header_form(&req.name_lower, &req.form)
                 .map_err(|e| JmapError::invalid_arguments(format!("property '{p}': {e}")))?;
-            Ok(req)
+            Ok((*p, req))
         })
         .collect::<Result<Vec<_>, JmapError>>()?;
 
@@ -428,7 +441,7 @@ pub async fn handle_email_get<B: MailBackend>(
         Some(props) => props.iter().any(|p| p == "headers"),
         None => false,
     };
-    let need_headers_injected = !parsed_header_reqs.is_empty() && !client_wants_headers;
+    let need_headers_injected = !header_props.is_empty() && !client_wants_headers;
 
     let effective_props: HashSet<&str> = if properties.is_none() {
         DEFAULT_EMAIL_GET_PROPERTIES.iter().copied().collect()
@@ -474,9 +487,9 @@ pub async fn handle_email_get<B: MailBackend>(
             if !parsed_header_reqs.is_empty() {
                 // `val` still holds the full serialised email; use it for extraction.
                 if let Value::Object(ref mut map) = obj {
-                    for req in &parsed_header_reqs {
+                    for (prop, req) in &parsed_header_reqs {
                         let extracted = extract_header_values(&val, req);
-                        map.insert(req.original.clone(), extracted);
+                        map.insert((*prop).to_owned(), extracted);
                     }
                     // Remove the injected "headers" key if the client didn't ask for it.
                     if need_headers_injected {
@@ -1002,7 +1015,14 @@ pub async fn handle_email_set<B: MailBackend>(
                 .update_object::<Email>(&account_id, &id, patch_val.clone())
                 .await
             {
-                Ok(_) => {
+                Ok(Some(obj)) => {
+                    mutated = true;
+                    updated.insert(
+                        id_str.clone(),
+                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                    );
+                }
+                Ok(None) => {
                     mutated = true;
                     updated.insert(id_str.clone(), Value::Null);
                 }
@@ -1229,6 +1249,11 @@ fn apply_body_properties_recursive(node: &mut Value, props: &HashSet<&str>) {
 ///
 /// The caller is responsible for building the `HashSet` once before iterating
 /// over multiple objects, so the set is not rebuilt on every call.
+///
+/// Takes `&Value` and clones surviving entries because the same `val` is used
+/// after this call for header: property extraction in the per-email loop; a
+/// move would prevent that second use. Changing to `Value` by move would
+/// require restructuring the caller so the extraction runs before filtering.
 fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value {
     match obj {
         Value::Object(map) => {
@@ -1253,8 +1278,7 @@ fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value {
 pub(crate) fn find_immutable_patch_key(patch: &Value) -> Option<&'static str> {
     // Build the lookup set once; subsequent calls reuse it.
     static IMMUTABLE_SET: OnceLock<HashSet<&'static str>> = OnceLock::new();
-    let set = IMMUTABLE_SET
-        .get_or_init(|| IMMUTABLE_EMAIL_FIELDS.iter().copied().collect());
+    let set = IMMUTABLE_SET.get_or_init(|| IMMUTABLE_EMAIL_FIELDS.iter().copied().collect());
 
     let map = patch.as_object()?;
     for key in map.keys() {
@@ -1305,29 +1329,27 @@ const MAX_KEYWORD_LEN: usize = 255;
 fn validate_and_normalize_keywords(
     raw: HashMap<String, bool>,
 ) -> Result<HashMap<Keyword, bool>, String> {
-    let mut result = HashMap::new();
-    for (kw, val) in raw {
-        if !val {
-            continue; // false-valued keyword means absent — skip
-        }
-        if kw.is_empty() || kw.len() > MAX_KEYWORD_LEN {
-            return Err(format!(
-                "keyword '{}' has invalid length (must be 1–255 bytes)",
-                kw
-            ));
-        }
-        for b in kw.bytes() {
-            if !(0x21..=0x7e).contains(&b) || FORBIDDEN_KEYWORD_CHARS.contains(&b) {
+    raw.into_iter()
+        .filter(|(_, v)| *v) // false-valued keyword means absent — skip
+        .map(|(kw, _)| {
+            if kw.is_empty() || kw.len() > MAX_KEYWORD_LEN {
+                return Err(format!(
+                    "keyword '{}' has invalid length (must be 1–255 bytes)",
+                    kw
+                ));
+            }
+            if let Some(b) = kw
+                .bytes()
+                .find(|&b| !(0x21..=0x7e).contains(&b) || FORBIDDEN_KEYWORD_CHARS.contains(&b))
+            {
                 return Err(format!(
                     "keyword '{}' contains forbidden character 0x{:02x}",
                     kw, b
                 ));
             }
-        }
-        let normalized = kw.to_ascii_lowercase();
-        result.insert(Keyword::from(normalized), true);
-    }
-    Ok(result)
+            Ok((Keyword::from(kw.to_ascii_lowercase()), true))
+        })
+        .collect()
 }
 
 /// RFC 8621 §4.6 — validate a single EmailBodyPart on creation.
@@ -1659,8 +1681,9 @@ async fn collapse_by_thread<B: MailBackend>(
                 }
             }
             None => {
-                // Email absent from thread map (concurrent delete or race); include it.
-                result.push(id);
+                // Email absent from thread map (concurrent delete). Skip it: without
+                // thread info we cannot safely deduplicate, and including it risks
+                // surfacing two emails from the same thread.
             }
         }
     }
@@ -1809,10 +1832,15 @@ pub async fn handle_email_import<B: MailBackend>(
         }
     }
 
-    let new_state = backend
-        .get_state::<Email>(&account_id)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+    let new_state = if created.is_empty() {
+        // No successful imports: state has not changed.
+        old_state.clone()
+    } else {
+        backend
+            .get_state::<Email>(&account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?
+    };
 
     let resp = json!({
         "accountId": account_id.as_ref(),
@@ -1889,10 +1917,43 @@ pub async fn handle_email_parse<B: MailBackend>(
         })?,
     };
 
+    // --- RFC 8621 §4.1.3: split out dynamic header: properties (mirrors handle_email_get) ---
+    let (header_props, regular_props): (Vec<&str>, Vec<&str>) = match properties.as_deref() {
+        Some(props) => props
+            .iter()
+            .map(|s| s.as_str())
+            .partition(|p| p.starts_with("header:") && p.len() > 7),
+        None => (vec![], vec![]),
+    };
+
+    // Parse and validate each header: property before touching the backend.
+    // Each element is (original_prop_string, parsed_request).
+    let parsed_header_reqs: Vec<(&str, HeaderPropertyRequest)> = header_props
+        .iter()
+        .map(|p| {
+            let req = parse_header_property(p)
+                .map_err(|e| JmapError::invalid_arguments(format!("property '{p}': {e}")))?;
+            validate_header_form(&req.name_lower, &req.form)
+                .map_err(|e| JmapError::invalid_arguments(format!("property '{p}': {e}")))?;
+            Ok((*p, req))
+        })
+        .collect::<Result<Vec<_>, JmapError>>()?;
+
+    let client_wants_headers = match properties.as_deref() {
+        Some(props) => props.iter().any(|p| p == "headers"),
+        None => false,
+    };
+    let need_headers_injected = !header_props.is_empty() && !client_wants_headers;
+
     // When `properties` is null, RFC 8621 §4.9 specifies the default property list.
-    let effective_props: HashSet<&str> = match properties.as_deref() {
-        Some(props) => props.iter().map(|s| s.as_str()).collect(),
-        None => DEFAULT_EMAIL_PARSE_PROPERTIES.iter().copied().collect(),
+    let effective_props: HashSet<&str> = if properties.is_none() {
+        DEFAULT_EMAIL_PARSE_PROPERTIES.iter().copied().collect()
+    } else {
+        let mut set: HashSet<&str> = regular_props.iter().copied().collect();
+        if need_headers_injected {
+            set.insert("headers");
+        }
+        set
     };
 
     // Build the body-properties set once before the per-blob loop so it is
@@ -1917,8 +1978,20 @@ pub async fn handle_email_parse<B: MailBackend>(
                     max_body_value_bytes,
                     &body_prop_set,
                 );
-                let val = filter_properties(&val, &effective_props);
-                parsed.insert(blob_id.as_ref().to_owned(), val);
+                let mut obj = filter_properties(&val, &effective_props);
+                // Inject dynamic header: property results (mirrors handle_email_get).
+                if !parsed_header_reqs.is_empty() {
+                    if let Value::Object(ref mut map) = obj {
+                        for (prop, req) in &parsed_header_reqs {
+                            let extracted = extract_header_values(&val, req);
+                            map.insert((*prop).to_owned(), extracted);
+                        }
+                        if need_headers_injected {
+                            map.remove("headers");
+                        }
+                    }
+                }
+                parsed.insert(blob_id.as_ref().to_owned(), obj);
             }
             Err(_) => {
                 // RFC 8621 §5.8: distinguish "blob not found" from "not parsable".
@@ -2207,7 +2280,13 @@ pub async fn handle_email_copy<B: MailBackend>(
                         .update_object::<Email>(&from_account_id, source_id, patch.clone())
                         .await
                     {
-                        Ok(_) => {
+                        Ok(Some(obj)) => {
+                            email_updated.insert(
+                                source_id.as_ref().to_owned(),
+                                serde_json::to_value(&obj).unwrap_or(Value::Null),
+                            );
+                        }
+                        Ok(None) => {
                             email_updated.insert(source_id.as_ref().to_owned(), Value::Null);
                         }
                         Err(BackendSetError::SetError(set_err)) => {
