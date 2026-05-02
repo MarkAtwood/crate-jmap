@@ -1796,12 +1796,16 @@ impl FaultyBackend {
     }
 
     /// Schedule a `BackendSetError::Other` for the next call to `op` on `type_name`.
+    ///
+    /// Calling `inject` twice for the same `(type_name, op)` pair is a no-op —
+    /// only one fault is queued; the second call is silently ignored.
     pub fn inject(&self, type_name: &'static str, op: &'static str) {
         self.failures.lock().unwrap().insert((type_name, op));
     }
 
     /// Remove and return a previously-injected fault (fire-once).
     /// Returns `true` if the fault was present (and is now consumed).
+    /// A second call for the same pair returns `false` and has no effect.
     fn take_fault(&self, type_name: &'static str, op: &'static str) -> bool {
         self.failures.lock().unwrap().remove(&(type_name, op))
     }
@@ -2025,19 +2029,14 @@ fn email_matches_condition(
             return false;
         }
     }
-    if cond.in_mailbox_other_than.is_some() {
+    if let Some(exclude_ids) = &cond.in_mailbox_other_than {
         // Email must be in at least one mailbox NOT in the exclusion list.
         // Use the pre-built set when available; build on demand otherwise.
         let on_demand: std::collections::HashSet<&Id>;
         let set: &std::collections::HashSet<&Id> = match excluded_set {
             Some(s) => s,
             None => {
-                on_demand = cond
-                    .in_mailbox_other_than
-                    .as_ref()
-                    .unwrap()
-                    .iter()
-                    .collect();
+                on_demand = exclude_ids.iter().collect();
                 &on_demand
             }
         };

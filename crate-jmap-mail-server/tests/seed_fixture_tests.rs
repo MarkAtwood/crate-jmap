@@ -317,7 +317,7 @@ async fn test_email_keywords_custom() {
 
 /// Oracle: very-old
 ///   receivedAt = daysAgo(30) from baseline 2026-01-01T00:00:00Z
-///              = 2025-12-02T00:00:00Z               (seed.rs ts::DAYS_AGO_30)
+///              = 2025-12-02T00:00:00Z               (seed.rs: DAYS_AGO_30)
 #[tokio::test]
 async fn test_email_received_at_very_old() {
     let (backend, seed) = mk().await;
@@ -342,7 +342,7 @@ async fn test_email_received_at_very_old() {
 
 /// Oracle: plain-simple
 ///   receivedAt = daysAgo(10) from baseline 2026-01-01T00:00:00Z
-///              = 2025-12-22T00:00:00Z               (seed.rs ts::DAYS_AGO_10)
+///              = 2025-12-22T00:00:00Z               (seed.rs: DAYS_AGO_10)
 #[tokio::test]
 async fn test_email_received_at_plain_simple() {
     let (backend, seed) = mk().await;
