@@ -10444,3 +10444,60 @@ async fn mailbox_set_destroy_child_then_parent_in_one_request() {
         "notDestroyed must be null when both succeed; resp={resp:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// VacationResponse concurrent-create idempotency test
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn vacation_set_concurrent_creates_are_idempotent() {
+    // Oracle: RFC 8621 §8.2 + MailBackend::create_object contract —
+    // two concurrent upserts must produce exactly one singleton, both succeeding.
+    // MemoryBackend satisfies this via its Mutex<Inner> (serialises writes).
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let update_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "update": {
+            "singleton": { "isEnabled": true, "textBody": "Out of office" }
+        }
+    });
+
+    // Run both upserts concurrently on the same backend.  tokio::join! on a
+    // single-threaded test runtime interleaves the futures cooperatively,
+    // exercising the Mutex-serialised write path.
+    let (r1, r2) = tokio::join!(
+        handle_vacation_set(&backend, update_args.clone()),
+        handle_vacation_set(&backend, update_args.clone())
+    );
+    let (resp1, _) = r1.expect("first upsert must not error at method level");
+    let (resp2, _) = r2.expect("second upsert must not error at method level");
+
+    assert!(
+        resp1["notUpdated"].is_null()
+            || resp1["notUpdated"].as_object().map_or(true, |m| m.is_empty()),
+        "first upsert must not produce notUpdated errors; got: {:?}",
+        resp1["notUpdated"]
+    );
+    assert!(
+        resp2["notUpdated"].is_null()
+            || resp2["notUpdated"].as_object().map_or(true, |m| m.is_empty()),
+        "second upsert must not produce notUpdated errors; got: {:?}",
+        resp2["notUpdated"]
+    );
+
+    // Verify exactly one singleton with the expected state.
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": ["singleton"],
+        "properties": ["isEnabled", "textBody"]
+    });
+    let (get_resp, _) = handle_vacation_get(&backend, get_args)
+        .await
+        .expect("VacationResponse/get must succeed");
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1, "exactly one singleton must exist; got {}", list.len());
+    assert_eq!(list[0]["isEnabled"], serde_json::json!(true));
+    assert_eq!(list[0]["textBody"], serde_json::json!("Out of office"));
+}
