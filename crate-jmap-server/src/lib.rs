@@ -15,8 +15,8 @@ pub mod handlers;
 pub(crate) mod helpers;
 
 pub use backend::{
-    AddedItem, BackendChangesError, ChangesResult, GetObject, JmapBackend, JmapObject,
-    QueryChangesResult, QueryObject, QueryResult, SetObject,
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
 pub use helpers::{extract_account_id, not_found_json, now_utc_string, ser};
