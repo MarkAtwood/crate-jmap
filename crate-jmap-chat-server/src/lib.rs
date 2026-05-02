@@ -77,6 +77,12 @@ pub use space::{
 /// After this call, the dispatcher handles:
 /// `Chat/*`, `Message/*`, `Space/*`, `SpaceBan/*`, `ChatContact/*`,
 /// `ReadPosition/*`, `CustomEmoji/*`, `SpaceInvite/*`, and `PresenceStatus/*`.
+///
+/// **Caller context `C` is not forwarded to handlers.** Each handler closure
+/// receives only `(Arc<B>, call_id, args)`; the `caller: C` value from the
+/// dispatcher is discarded. To act on per-request context (e.g. for
+/// per-tenant auth or rate limiting), implement [`JmapHandler`] directly
+/// rather than using this function.
 pub fn register_chat_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
 where
     B: ChatBackend + 'static,
@@ -241,6 +247,13 @@ where
 type CallFn<B> = dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture + Send + Sync + 'static;
 
 /// Generic wrapper that implements [`JmapHandler`] for any closure.
+///
+/// **Caller context limitation**: the `caller: C` value received in
+/// [`JmapHandler::call`] is not forwarded to the handler closure. The closure
+/// signature `(Arc<B>, String, serde_json::Value) -> HandlerFuture` has no slot
+/// for it. If you need per-request auth or tenant context derived from `C`,
+/// implement [`JmapHandler`] directly on your own type instead of using
+/// [`register_chat_handlers`].
 struct ClosureHandler<B: ChatBackend + 'static> {
     backend: Arc<B>,
     call_fn: Box<CallFn<B>>,
@@ -252,6 +265,9 @@ impl<B: ChatBackend + 'static, C: Clone + Send + 'static> JmapHandler<C> for Clo
         _method: String,
         call_id: String,
         args: serde_json::Value,
+        // The caller context C is received here but cannot be forwarded to
+        // the closure (the closure type has no C slot). See the ClosureHandler
+        // doc comment for guidance on using C for per-request auth.
         _caller: C,
     ) -> HandlerFuture {
         (self.call_fn)(Arc::clone(&self.backend), call_id, args)

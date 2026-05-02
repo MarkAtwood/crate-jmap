@@ -41,6 +41,10 @@ pub fn now_utc_string() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
+        // unwrap_or_default: if the system clock is before Unix epoch (container
+        // start-up clock drift), returns 0 seconds and formats as 1970-01-01T00:00:00Z.
+        // This is a known limitation — callers should not rely on this string being
+        // accurate during the first few seconds of a container boot.
         .unwrap_or_default()
         .as_secs() as i64;
 

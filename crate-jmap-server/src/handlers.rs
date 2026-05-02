@@ -20,9 +20,14 @@ use crate::helpers::{extract_account_id, not_found_json, ser};
 /// returns the standard `get` response shape.
 pub async fn handle_get<O: GetObject, B: JmapBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
     let ids: Option<Vec<Id>> = match args["ids"].take() {
         Value::Null => None,
@@ -69,6 +74,11 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
     let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),
@@ -112,9 +122,14 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 /// delegates to [`JmapBackend::query_objects`].
 pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
     let calculate_total: bool = args
         .get("calculateTotal")
@@ -192,9 +207,14 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
 /// domain-specific handler in jmap-mail-server instead.
 pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),

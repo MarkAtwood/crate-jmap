@@ -433,6 +433,12 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     // role within an account) and in the update loop for the same check. A
     // second fetch after mutations covers the destroy loop's child-mailbox check,
     // because newly created or reparented children must be visible at destroy time.
+    //
+    // RFC 8620 §5.3 requires create/update/destroy to all operate on the
+    // pre-mutation state, so a request that destroys mailbox A (holding role X)
+    // and creates mailbox B (with role X) will correctly reject the create:
+    // the snapshot still shows A holding role X at the time creates are processed.
+    // To swap a role, use two sequential requests.
     let (all_mailboxes, _) = backend
         .get_objects::<Mailbox>(&account_id, None, None)
         .await
