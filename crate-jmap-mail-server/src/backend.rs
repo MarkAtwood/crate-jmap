@@ -407,4 +407,15 @@ pub trait MailBackend: JmapBackend {
     fn max_delayed_send_seconds(&self, _account_id: &jmap_types::Id) -> u64 {
         0 // no delayed send by default
     }
+
+    /// Return `true` if this backend can compute `Mailbox/queryChanges` for
+    /// the given account (RFC 8620 §5.6 — `canCalculateChanges`).
+    ///
+    /// The default is `false` because the in-process query filter in
+    /// `handle_mailbox_query` cannot guarantee that the backend tracks
+    /// per-query result sets. Override to `true` only if the backend
+    /// maintains a stable, query-result-aware change log for Mailbox objects.
+    fn can_calculate_mailbox_query_changes(&self, _account_id: &jmap_types::Id) -> bool {
+        false
+    }
 }

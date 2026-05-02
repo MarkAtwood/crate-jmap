@@ -211,6 +211,13 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         ),
     };
 
+    // Pre-compute the wire-format role string once outside the filter closure to
+    // avoid calling role_to_wire on every mailbox for every iteration.
+    let filter_role_wire: Option<String> = filter
+        .as_ref()
+        .and_then(|f| f.role.as_deref())
+        .map(|s| s.to_owned());
+
     let mut matching: Vec<Id> = all_mailboxes
         .into_iter()
         .filter(|m| {
@@ -236,7 +243,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
                     return false;
                 }
             }
-            if let Some(ref role_str) = f.role {
+            if let Some(ref role_str) = filter_role_wire {
                 match &m.role {
                     Some(r) => {
                         if role_to_wire(r).as_deref() != Some(role_str.as_str()) {
@@ -293,7 +300,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     let mut resp = json!({
         "accountId": account_id.as_ref(),
         "queryState": query_state.as_ref(),
-        "canCalculateChanges": true,
+        "canCalculateChanges": backend.can_calculate_mailbox_query_changes(&account_id),
         "position": start as i64,
         "ids": page,
     });
@@ -418,7 +425,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    // Fetch all existing mailboxes once for role-uniqueness and child checks.
+    // Fetch all existing mailboxes before any mutations. This snapshot is used
+    // in the create loop to check role uniqueness (no two mailboxes may share a
+    // role within an account) and in the update loop for the same check. A
+    // second fetch after mutations covers the destroy loop's child-mailbox check,
+    // because newly created or reparented children must be visible at destroy time.
     let (all_mailboxes, _) = backend
         .get_objects::<Mailbox>(&account_id, None, None)
         .await
@@ -591,8 +602,14 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 .update_object::<Mailbox>(&account_id, &id, patch.clone())
                 .await
             {
-                Ok(_) => {
-                    updated.insert(id_str.clone(), Value::Null);
+                Ok(maybe_obj) => {
+                    // RFC 8620 §5.3: if the backend modified server-set fields
+                    // beyond the patch, echo them in the updated map entry.
+                    let entry = maybe_obj
+                        .as_ref()
+                        .and_then(|o| serde_json::to_value(o).ok())
+                        .unwrap_or(Value::Null);
+                    updated.insert(id_str.clone(), entry);
                     if let Some(role) = current_role {
                         roles_actually_vacated.insert(role);
                     }
@@ -676,8 +693,14 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 .update_object::<Mailbox>(&account_id, &id, patch.clone())
                 .await
             {
-                Ok(_) => {
-                    updated.insert(id_str.clone(), Value::Null);
+                Ok(maybe_obj) => {
+                    // RFC 8620 §5.3: if the backend modified server-set fields
+                    // beyond the patch, echo them in the updated map entry.
+                    let entry = maybe_obj
+                        .as_ref()
+                        .and_then(|o| serde_json::to_value(o).ok())
+                        .unwrap_or(Value::Null);
+                    updated.insert(id_str.clone(), entry);
                 }
                 Err(BackendSetError::SetError(se)) => {
                     not_updated.insert(
@@ -714,8 +737,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             )));
         }
 
-        // Re-fetch mailboxes after creates and updates so that any newly-created
-        // or reparented child mailboxes are visible to the parent-check below.
+        // Second fetch: re-read mailboxes after creates and updates so that any
+        // newly-created or reparented child mailboxes are visible to the
+        // parent-check below. The pre-mutation snapshot (all_mailboxes) cannot be
+        // used here because a create in this same request could make a child of
+        // the mailbox being destroyed.
         let (mailboxes_after_mutations, _) = backend
             .get_objects::<Mailbox>(&account_id, None, None)
             .await
@@ -743,10 +769,12 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 continue;
             }
 
-            // Fetch emails in this mailbox. The inMailbox filter allows backends
-            // with indexes to return only the relevant subset; the in-handler
-            // filter below is a correctness safety net for backends that do not
-            // support the filter.
+            // Fetch emails in this mailbox. The backend MUST respect the
+            // inMailbox filter in query_objects; if it does not, this may fetch
+            // all emails and cause OOM on large accounts. The secondary
+            // .filter() below is a correctness safety net for backends that
+            // return false positives, not a substitute for proper backend
+            // filtering.
             let mut email_filter = EmailFilterCondition::default();
             email_filter.in_mailbox = Some(id.clone());
             let query_result = backend
@@ -781,6 +809,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 }
 
                 // onDestroyRemoveEmails=true: cascade.
+                // RFC 8621 §2.5: MailBackend has no batch destroy/update operations.
+                // N emails in the mailbox = N individual backend calls here, plus the
+                // query_objects + get_objects pair above = N+2 total backend calls per
+                // destroyed mailbox. Future: add batch_destroy_objects and
+                // batch_update_objects to MailBackend to reduce this to O(1) calls.
                 for email in &emails_in_mailbox {
                     if email.mailbox_ids.len() == 1 {
                         // Only mailbox — destroy the email entirely.

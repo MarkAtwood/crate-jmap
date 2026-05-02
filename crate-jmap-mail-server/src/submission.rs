@@ -434,7 +434,13 @@ pub async fn handle_submission_set<B: MailBackend>(
         for (id_str, patch) in update_map {
             let id = Id::from(id_str.as_str());
             match process_update(backend, &account_id, &id, patch).await {
-                Ok(()) => {
+                Ok(Some(obj)) => {
+                    updated.insert(
+                        id_str.clone(),
+                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                    );
+                }
+                Ok(None) => {
                     updated.insert(id_str.clone(), Value::Null);
                 }
                 Err(BackendSetError::SetError(se)) => {
@@ -866,7 +872,7 @@ async fn process_update<B: MailBackend>(
     account_id: &Id,
     id: &Id,
     patch: &Value,
-) -> Result<(), BackendSetError<B::Error>> {
+) -> Result<Option<EmailSubmission>, BackendSetError<B::Error>> {
     // RFC 8621 §7.5: only undoStatus may be changed in an update patch.
     if let Some(obj) = patch.as_object() {
         let bad: Vec<&str> = obj
@@ -909,5 +915,4 @@ async fn process_update<B: MailBackend>(
     backend
         .update_object::<EmailSubmission>(account_id, id, patch.clone())
         .await
-        .map(|_| ())
 }

@@ -74,7 +74,8 @@ pub async fn handle_vacation_get<B: MailBackend>(
     let list_json: Vec<Value> = list
         .iter()
         .map(|v| {
-            serde_json::to_value(v).expect("type derives Serialize and is always serializable")
+            serde_json::to_value(v)
+                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }))
         })
         .collect();
 
@@ -130,8 +131,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 .with_description("VacationResponse is a singleton; use update to modify");
             not_created.insert(
                 create_id.clone(),
-                serde_json::to_value(&err)
-                    .expect("SetError derives Serialize and is always serializable"),
+                serde_json::to_value(&err).unwrap_or_else(
+                    |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                ),
             );
         }
     }
@@ -144,8 +146,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 let err = SetError::new(SetErrorType::NotFound);
                 not_updated.insert(
                     id.clone(),
-                    serde_json::to_value(&err)
-                        .expect("SetError derives Serialize and is always serializable"),
+                    serde_json::to_value(&err).unwrap_or_else(
+                        |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                    ),
                 );
                 continue;
             }
@@ -195,8 +198,8 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                 Err(BackendSetError::SetError(e)) => {
                                     not_updated.insert(
                                         id.clone(),
-                                        serde_json::to_value(&e).expect(
-                                            "SetError derives Serialize and is always serializable",
+                                        serde_json::to_value(&e).unwrap_or_else(
+                                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
                                         ),
                                     );
                                 }
@@ -208,8 +211,8 @@ pub async fn handle_vacation_set<B: MailBackend>(
                         Err(BackendSetError::SetError(e)) => {
                             not_updated.insert(
                                 id.clone(),
-                                serde_json::to_value(&e).expect(
-                                    "SetError derives Serialize and is always serializable",
+                                serde_json::to_value(&e).unwrap_or_else(
+                                    |e| json!({ "type": "serverFail", "description": e.to_string() }),
                                 ),
                             );
                         }
@@ -221,8 +224,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 Err(BackendSetError::SetError(e)) => {
                     not_updated.insert(
                         id.clone(),
-                        serde_json::to_value(&e)
-                            .expect("SetError derives Serialize and is always serializable"),
+                        serde_json::to_value(&e).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
                     );
                 }
                 Err(BackendSetError::Other(e)) => {
@@ -243,8 +247,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 .with_description("VacationResponse is a singleton; cannot destroy");
             not_destroyed.insert(
                 id.to_owned(),
-                serde_json::to_value(&err)
-                    .expect("SetError derives Serialize and is always serializable"),
+                serde_json::to_value(&err).unwrap_or_else(
+                    |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                ),
             );
         }
     }
