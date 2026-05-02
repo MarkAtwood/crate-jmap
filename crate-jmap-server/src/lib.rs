@@ -241,6 +241,41 @@ impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
     }
 }
 
+// ---------------------------------------------------------------------------
+// ClosureHandler — generic backend-wrapping JmapHandler
+// ---------------------------------------------------------------------------
+
+/// Type alias for the closure stored inside [`ClosureHandler`].
+pub type BackendCallFn<B> =
+    dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture + Send + Sync + 'static;
+
+/// Generic wrapper that implements [`JmapHandler`] for any closure over an
+/// `Arc<B>` backend.
+///
+/// Useful for registering method handlers without defining a new struct.
+/// Used internally by `register_mail_handlers` and `register_chat_handlers`.
+///
+/// **Caller context limitation**: the `caller: C` value received in
+/// [`JmapHandler::call`] is not forwarded to the handler closure.  If you need
+/// per-request auth or tenant context, implement [`JmapHandler`] directly on
+/// your own type.
+pub struct ClosureHandler<B: Send + Sync + 'static> {
+    pub backend: Arc<B>,
+    pub call_fn: Box<BackendCallFn<B>>,
+}
+
+impl<B: Send + Sync + 'static, C: Clone + Send + 'static> JmapHandler<C> for ClosureHandler<B> {
+    fn call(
+        &self,
+        _method: String,
+        call_id: String,
+        args: serde_json::Value,
+        _caller: C,
+    ) -> HandlerFuture {
+        (self.call_fn)(Arc::clone(&self.backend), call_id, args)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
