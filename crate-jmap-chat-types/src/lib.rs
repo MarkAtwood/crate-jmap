@@ -64,7 +64,7 @@ pub use ephemeral::{
 };
 pub use message::{
     Attachment, DeliveryReceipt, DeliveryState, Mention, Message, MessageAction, MessageRevision,
-    Reaction, SenderId,
+    Reaction, ReadDisposition, SenderId,
 };
 pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};
