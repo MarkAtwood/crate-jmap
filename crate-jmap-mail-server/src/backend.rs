@@ -255,9 +255,9 @@ impl<E: std::error::Error + 'static> std::error::Error for BackendSetError<E> {
     }
 }
 
-impl<E> From<E> for BackendSetError<E> {
-    fn from(e: E) -> Self {
-        Self::Other(e)
+impl<E> From<SetError> for BackendSetError<E> {
+    fn from(e: SetError) -> Self {
+        Self::SetError(e)
     }
 }
 

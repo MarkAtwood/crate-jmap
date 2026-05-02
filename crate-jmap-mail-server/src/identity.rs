@@ -100,6 +100,10 @@ pub async fn handle_identity_set<B: MailBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
+
     // Fetch old state for ifInState check and response.
     let old_state = backend
         .get_state::<jmap_mail_types::Identity>(&account_id)
@@ -124,14 +128,14 @@ pub async fn handle_identity_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     // create
     // -----------------------------------------------------------------------
-    if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+    if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
             // Validate: email must be present and non-empty.
             let email = match obj_val.get("email").and_then(|v| v.as_str()) {
                 Some(s) if !s.is_empty() => s.to_owned(),
                 _ => {
                     not_created.insert(
-                        create_id.clone(),
+                        create_id,
                         json!({
                             "type": "invalidProperties",
                             "properties": ["email"],
@@ -163,7 +167,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                         Ok(v) => identity.reply_to = v,
                         Err(_) => {
                             not_created.insert(
-                                create_id.clone(),
+                                create_id,
                                 json!({
                                     "type": "invalidProperties",
                                     "properties": ["replyTo"],
@@ -180,7 +184,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                         Ok(v) => identity.bcc = v,
                         Err(_) => {
                             not_created.insert(
-                                create_id.clone(),
+                                create_id,
                                 json!({
                                     "type": "invalidProperties",
                                     "properties": ["bcc"],
@@ -193,7 +197,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             }
 
             match backend
-                .create_object::<jmap_mail_types::Identity>(&account_id, create_id, identity)
+                .create_object::<jmap_mail_types::Identity>(&account_id, &create_id, identity)
                 .await
             {
                 Ok((_server_id, created_obj)) => {
@@ -201,18 +205,18 @@ pub async fn handle_identity_set<B: MailBackend>(
                     // create_object guarantees created_obj.id == server_id;
                     // serialize the full object (id is already correct).
                     created.insert(
-                        create_id.clone(),
+                        create_id,
                         serde_json::to_value(&created_obj).unwrap_or_else(
                             |e| json!({ "type": "serverFail", "description": e.to_string() }),
                         ),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(create_id.clone(), set_error_value(&set_err));
+                    not_created.insert(create_id, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_created.insert(
-                        create_id.clone(),
+                        create_id,
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
@@ -223,7 +227,7 @@ pub async fn handle_identity_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
-    if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
+    if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
@@ -237,7 +241,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                 .collect();
             if !bad_props.is_empty() {
                 not_updated.insert(
-                    id_str.clone(),
+                    id_str,
                     json!({
                         "type": "invalidProperties",
                         "properties": bad_props,
@@ -247,19 +251,23 @@ pub async fn handle_identity_set<B: MailBackend>(
             }
 
             match backend
-                .update_object::<jmap_mail_types::Identity>(&account_id, &id, patch_val.clone())
+                .update_object::<jmap_mail_types::Identity>(&account_id, &id, patch_val)
                 .await
             {
-                Ok(_) => {
+                Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str.clone(), Value::Null);
+                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or(Value::Null));
+                }
+                Ok(None) => {
+                    mutated = true;
+                    updated.insert(id_str, Value::Null);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str.clone(), set_error_value(&set_err));
+                    not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
-                        id_str.clone(),
+                        id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
@@ -270,7 +278,7 @@ pub async fn handle_identity_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     // destroy
     // -----------------------------------------------------------------------
-    if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
+    if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: the destroy array is Id[]. A non-string element is a
         // malformed request; return invalidArguments for the whole request.
         if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
@@ -279,11 +287,11 @@ pub async fn handle_identity_set<B: MailBackend>(
             )));
         }
         for id_val in destroy_arr {
-            let id_str = match id_val.as_str() {
-                Some(s) => s,
-                None => continue, // unreachable: validated above
+            let id_str = match id_val {
+                Value::String(s) => s,
+                _ => continue, // unreachable: validated above
             };
-            let id = Id::from(id_str);
+            let id = Id::from(id_str.as_str());
 
             // Fetch the identity to check mayDelete.
             let fetch_result = backend
@@ -298,7 +306,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             let (found, not_found_ids) = fetch_result;
 
             if !not_found_ids.is_empty() {
-                not_destroyed.insert(id_str.to_owned(), json!({ "type": "notFound" }));
+                not_destroyed.insert(id_str, json!({ "type": "notFound" }));
                 continue;
             }
 
@@ -306,13 +314,13 @@ pub async fn handle_identity_set<B: MailBackend>(
             let identity = match found.into_iter().next() {
                 Some(i) => i,
                 None => {
-                    not_destroyed.insert(id_str.to_owned(), json!({ "type": "notFound" }));
+                    not_destroyed.insert(id_str, json!({ "type": "notFound" }));
                     continue;
                 }
             };
 
             if !identity.may_delete {
-                not_destroyed.insert(id_str.to_owned(), json!({ "type": "forbidden" }));
+                not_destroyed.insert(id_str, json!({ "type": "forbidden" }));
                 continue;
             }
 
@@ -322,14 +330,14 @@ pub async fn handle_identity_set<B: MailBackend>(
             {
                 Ok(()) => {
                     mutated = true;
-                    destroyed_list.push(Value::String(id_str.to_owned()));
+                    destroyed_list.push(Value::String(id_str));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
+                    not_destroyed.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
-                        id_str.to_owned(),
+                        id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }

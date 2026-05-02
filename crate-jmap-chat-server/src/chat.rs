@@ -266,7 +266,7 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 ///   rejected in updates.
 pub async fn handle_chat_set<B: ChatBackend>(
     backend: &B,
-    args: Value,
+    mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
@@ -431,7 +431,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
-    if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
+    if let Some(Value::Object(update_map)) = args.as_object_mut().and_then(|m| m.remove("update")) {
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
@@ -444,33 +444,30 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .collect();
             if !bad_props.is_empty() {
                 not_updated.insert(
-                    id_str.clone(),
+                    id_str,
                     json!({ "type": "invalidProperties", "properties": bad_props }),
                 );
                 continue;
             }
 
             match backend
-                .update_object::<Chat>(&account_id, &id, patch_val.clone())
+                .update_object::<Chat>(&account_id, &id, patch_val)
                 .await
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(&obj).unwrap_or(Value::Null),
-                    );
+                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or(Value::Null));
                 }
                 Ok(None) => {
                     mutated = true;
-                    updated.insert(id_str.clone(), Value::Null);
+                    updated.insert(id_str, Value::Null);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str.clone(), set_error_value(&set_err));
+                    not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
-                        id_str.clone(),
+                        id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
