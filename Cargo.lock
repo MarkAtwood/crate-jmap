@@ -895,8 +895,10 @@ name = "jmap-mail-server"
 version = "0.1.1"
 dependencies = [
  "jmap-mail-types",
+ "jmap-mime",
  "jmap-server",
  "jmap-types",
+ "mime-tree",
  "serde",
  "serde_json",
  "thiserror",
