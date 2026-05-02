@@ -64,6 +64,11 @@ pub trait JmapHandler<CallerCtx>: Send + Sync {
     /// `call_id` is the client-supplied identifier for this invocation (RFC 8620 §3.3).
     /// Handlers may use it for logging or correlation but need not echo it —
     /// the dispatcher echoes it in the response automatically.
+    ///
+    /// Both parameters are `String` (not `&str`) because the returned future is
+    /// `'static` — it must own all data it captures.  Handlers that do not need
+    /// `method`/`call_id` can ignore them; handlers that do (e.g. echo) simply
+    /// capture the owned value.
     fn call(
         &self,
         method: String,

@@ -183,7 +183,8 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         return Err(JmapError::unsupported_filter());
     }
 
-    // Fetch all mailboxes and filter in-process.
+    // O(n): fetches all mailboxes and filters in-process. Acceptable for typical account sizes.
+    // For very large accounts (IMAP migration), push filter/sort into the backend query.
     let (all_mailboxes, _) = backend
         .get_objects::<Mailbox>(&account_id, None, None)
         .await
@@ -784,11 +785,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 }
 
                 // onDestroyRemoveEmails=true: cascade.
-                // RFC 8621 §2.5: MailBackend has no batch destroy/update operations.
-                // N emails in the mailbox = N individual backend calls here, plus the
-                // query_objects + get_objects pair above = N+2 total backend calls per
-                // destroyed mailbox. Future: add batch_destroy_objects and
-                // batch_update_objects to MailBackend to reduce this to O(1) calls.
+                // N+2 backend calls per destroyed mailbox: one query, one get, N email operations.
+                // A batch_destroy_objects / batch_move_emails backend method would reduce this to O(1) calls.
+                // Filed as a MailBackend API gap — acceptable until the trait is extended.
                 for email in &emails_in_mailbox {
                     if email.mailbox_ids.len() == 1 {
                         // Only mailbox — destroy the email entirely.
