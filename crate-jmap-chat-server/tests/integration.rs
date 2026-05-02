@@ -749,6 +749,143 @@ async fn message_set_update_mark_as_read() {
     );
 }
 
+/// Oracle: spec §557 + §1029 — server MUST store "displayed" when readAt is set without readDisposition.
+#[tokio::test]
+async fn message_set_read_at_defaults_disposition() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        json!({ "accountId": "a1", "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+    ).await.expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        json!({ "accountId": "a1", "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z" } } }),
+    ).await.expect("update");
+    assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        json!({ "accountId": "a1", "ids": [msg_id.as_str()] }),
+    )
+    .await
+    .expect("get");
+    let msg = &get_resp["list"][0];
+    assert_eq!(msg["readAt"], "2026-01-05T10:00:00Z");
+    assert_eq!(
+        msg["readDisposition"], "displayed",
+        "server must store \"displayed\" when readDisposition is omitted"
+    );
+}
+
+/// Oracle: spec §1029 — explicit readDisposition is preserved, not overridden to "displayed".
+#[tokio::test]
+async fn message_set_explicit_disposition_preserved() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        json!({ "accountId": "a1", "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+    ).await.expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        json!({ "accountId": "a1", "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "deleted" } } }),
+    ).await.expect("update");
+    assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        json!({ "accountId": "a1", "ids": [msg_id.as_str()] }),
+    )
+    .await
+    .expect("get");
+    let msg = &get_resp["list"][0];
+    assert_eq!(
+        msg["readDisposition"], "deleted",
+        "explicit \"deleted\" disposition must be preserved"
+    );
+}
+
+/// Oracle: spec §335 — unrecognized readDisposition values MUST be stored as-is.
+#[tokio::test]
+async fn message_set_extension_disposition_stored_as_is() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        json!({ "accountId": "a1", "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
+    ).await.expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        json!({ "accountId": "a1", "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "voice-listened" } } }),
+    ).await.expect("update");
+    assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        json!({ "accountId": "a1", "ids": [msg_id.as_str()] }),
+    )
+    .await
+    .expect("get");
+    let msg = &get_resp["list"][0];
+    assert_eq!(
+        msg["readDisposition"], "voice-listened",
+        "unrecognized extension value must be stored as-is per spec §335"
+    );
+}
+
+/// Oracle: spec §557 — readDisposition is absent when readAt is not set.
+#[tokio::test]
+async fn message_set_no_read_at_no_disposition_injected() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        json!({ "accountId": "a1", "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2026-01-01T00:00:00Z" } } }),
+    ).await.expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        json!({ "accountId": "a1", "update": { msg_id.as_str(): { "body": "edited text" } } }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        json!({ "accountId": "a1", "ids": [msg_id.as_str()] }),
+    )
+    .await
+    .expect("get");
+    let msg = &get_resp["list"][0];
+    assert_eq!(msg["body"], "edited text");
+    assert_eq!(
+        msg["readDisposition"],
+        json!(null),
+        "readDisposition must be absent when readAt is not set"
+    );
+}
+
 /// Oracle: Message/set create with replyTo set stores and returns the field.
 #[tokio::test]
 async fn message_set_create_with_reply_to() {
