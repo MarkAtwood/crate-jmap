@@ -15,6 +15,13 @@
 //! register_mail_handlers(&mut dispatcher, Arc::new(backend));
 //! # }
 //! ```
+//!
+//! # `mdn` feature
+//!
+//! Enable the `mdn` feature to add support for the JMAP MDN extension
+//! (draft-ietf-jmap-mdn). This exposes [`register_mdn_handlers`], which wires
+//! two additional method names into the dispatcher: `MDN/send` and `MDN/parse`.
+//! Backends must also implement [`MdnBackend`] in addition to [`MailBackend`].
 
 #![forbid(unsafe_code)]
 
@@ -36,7 +43,11 @@ pub mod email;
 #[cfg(feature = "mdn")]
 pub mod mdn;
 #[cfg(feature = "mdn")]
+pub use jmap_mail_types::mdn::JMAP_MDN_URI;
+#[cfg(feature = "mdn")]
 pub use mdn::MdnBackend;
+#[cfg(feature = "mdn")]
+pub use mdn::{handle_mdn_parse, handle_mdn_send};
 mod helpers;
 pub mod identity;
 pub mod mailbox;
@@ -209,3 +220,42 @@ where
 }
 
 pub use jmap_server::ClosureHandler;
+
+// ---------------------------------------------------------------------------
+// register_mdn_handlers — MDN extension entry point (feature = "mdn")
+// ---------------------------------------------------------------------------
+
+/// Register the 2 JMAP MDN method handlers with `dispatcher`.
+///
+/// Requires the `mdn` Cargo feature. The backend must implement both
+/// [`MailBackend`] and [`MdnBackend`].
+///
+/// After this call, the dispatcher handles: `MDN/send` and `MDN/parse`.
+#[cfg(feature = "mdn")]
+pub fn register_mdn_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+where
+    B: MailBackend + mdn::MdnBackend + 'static,
+    C: Clone + Send + 'static,
+{
+    macro_rules! reg {
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+            let backend_arc: Arc<B> = Arc::clone(&$backend);
+            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+                backend: backend_arc,
+                call_fn: Box::new(move |$b: Arc<B>, $ci: String, $a: serde_json::Value| {
+                    Box::pin(async move { $body }) as HandlerFuture
+                }),
+            });
+            dispatcher.register($method, h);
+        }};
+    }
+
+    reg!("MDN/send", backend, |b, ci, a| mdn::handle_mdn_send(
+        &*b, a, &ci
+    )
+    .await);
+    reg!("MDN/parse", backend, |b, _ci, a| mdn::handle_mdn_parse(
+        &*b, a
+    )
+    .await);
+}
