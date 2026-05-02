@@ -723,6 +723,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-calendars-client"
+version = "0.1.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-calendars-types",
+ "jmap-types",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "jmap-calendars-server"
+version = "0.1.0"
+dependencies = [
+ "jmap-calendars-types",
+ "jmap-server",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "jmap-calendars-types"
+version = "0.1.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-chat-client"
 version = "0.1.0"
 dependencies = [
@@ -753,6 +788,76 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-types"
+version = "0.1.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jmap-contacts-client"
+version = "0.1.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-contacts-types",
+ "jmap-types",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "jmap-contacts-server"
+version = "0.1.0"
+dependencies = [
+ "jmap-contacts-types",
+ "jmap-server",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "jmap-contacts-types"
+version = "0.1.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jmap-filenode-client"
+version = "0.1.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-filenode-types",
+ "jmap-types",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "jmap-filenode-server"
+version = "0.1.0"
+dependencies = [
+ "jmap-filenode-types",
+ "jmap-server",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "jmap-filenode-types"
 version = "0.1.0"
 dependencies = [
  "jmap-types",
@@ -805,6 +910,41 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+]
+
+[[package]]
+name = "jmap-tasks-client"
+version = "0.1.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-tasks-types",
+ "jmap-types",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "jmap-tasks-server"
+version = "0.1.0"
+dependencies = [
+ "jmap-server",
+ "jmap-tasks-types",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "jmap-tasks-types"
+version = "0.1.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
