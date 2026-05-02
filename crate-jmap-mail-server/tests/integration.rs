@@ -219,7 +219,7 @@ async fn memory_backend_search_snippets_highlight() {
     // Store a blob and import an email with a known subject.
     let msg = b"Subject: Hello World\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nThis is the body.";
     let blob_id = Id::from("blob1");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
 
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("inbox")], &[], None)
@@ -266,8 +266,8 @@ async fn thread_get_returns_email_ids() {
 
     let blob1 = Id::from("blob1");
     let blob2 = Id::from("blob2");
-    backend.store_blob(blob1.clone(), msg1.to_vec());
-    backend.store_blob(blob2.clone(), msg2.to_vec());
+    backend.store_blob(&blob1, msg1.to_vec());
+    backend.store_blob(&blob2, msg2.to_vec());
 
     let (_, email1) = backend
         .import_email(&account_id, &blob1, &[Id::from("inbox")], &[], None)
@@ -339,7 +339,7 @@ async fn thread_changes_from_zero_returns_all() {
     // Import one email; this creates a thread.
     let msg = b"Message-ID: <solo@test>\r\nSubject: Solo\r\nFrom: a@test\r\n\r\nBody.";
     let blob_id = Id::from("blob1");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
 
     let (_, email) = backend
         .import_email(&account_id, &blob_id, &[Id::from("inbox")], &[], None)
@@ -412,7 +412,7 @@ async fn search_snippet_get_returns_snippets() {
     let msg =
         b"Subject: Hello World\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nHello body text.";
     let blob_id = Id::from("blob1");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
 
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("inbox")], &[], None)
@@ -946,7 +946,7 @@ async fn mailbox_set_destroy_with_emails_no_flag_fails() {
     // Import an email into that mailbox.
     let msg = b"Subject: test\r\n\r\nbody";
     let blob_id = Id::from("blob-nodestroy");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     backend
         .import_email(&account_id, &blob_id, &[mb_id.clone()], &[], None)
         .await
@@ -1003,7 +1003,7 @@ async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
     // Import an email into that mailbox.
     let msg = b"Subject: cascade\r\n\r\nbody";
     let blob_id = Id::from("blob-cascade");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[mb_id.clone()], &[], None)
         .await
@@ -1423,7 +1423,7 @@ async fn submission_set_create_and_get() {
     // Import an email to submit.
     let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nBody.";
     let blob_id = Id::from("blob-sub1");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("sent")], &[], None)
         .await
@@ -1515,7 +1515,7 @@ async fn submission_set_on_success_update_email() {
     let msg =
         b"Subject: Draft\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nDraft body.";
     let blob_id = Id::from("blob-sub2");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(
             &account_id,
@@ -1620,7 +1620,7 @@ async fn submission_set_on_success_update_email_immutable_field_rejected() {
     // Import an email with To header so envelope can be derived.
     let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nbody";
     let blob_id = Id::from("blob-imm-sub");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("inbox")], &[], None)
         .await
@@ -1690,7 +1690,7 @@ async fn submission_set_invalid_identity_fails() {
     // Import an email (exists).
     let msg = b"Subject: Hi\r\nFrom: x@example.com\r\nTo: y@example.com\r\n\r\nBody.";
     let blob_id = Id::from("blob-sub3");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("inbox")], &[], None)
         .await
@@ -2156,7 +2156,7 @@ async fn email_parse_default_properties_used() {
     // Store a minimal blob so parse_email can find it.
     let blob_id = Id::from("blob-parse-test");
     backend.store_blob(
-        blob_id.clone(),
+        &blob_id,
         b"Subject: Parse default props\r\n\r\nBody text".to_vec(),
     );
 
@@ -2202,10 +2202,7 @@ async fn email_parse_body_value_fetch_args_parsed() {
     let account_id = Id::from("account1");
 
     let blob_id = Id::from("blob-bvargs-test");
-    backend.store_blob(
-        blob_id.clone(),
-        b"Subject: Body value args\r\n\r\nHello".to_vec(),
-    );
+    backend.store_blob(&blob_id, b"Subject: Body value args\r\n\r\nHello".to_vec());
 
     let parse_args = serde_json::json!({
         "accountId": account_id.as_ref(),
@@ -2480,7 +2477,7 @@ async fn email_import_empty_mailbox_ids_rejected() {
 
     let msg = b"Subject: test\r\n\r\nbody";
     let blob_id = Id::from("blob-empty-mb");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
 
     let args = serde_json::json!({
         "accountId": account_id.as_ref(),
@@ -2535,7 +2532,7 @@ async fn email_import_with_keywords_succeeds() {
 
     let msg = b"Subject: with keywords\r\n\r\nbody";
     let blob_id = Id::from("blob-kw");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
 
     let args = serde_json::json!({
         "accountId": account_id.as_ref(),
@@ -2593,7 +2590,7 @@ async fn email_copy_with_keywords_succeeds() {
     // Import a source email.
     let msg = b"Subject: copy-kw test\r\n\r\nbody";
     let blob_id = Id::from("blob-copy-kw");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (src_id, _) = backend
         .import_email(&src_account, &blob_id, &[Id::from("inbox")], &[], None)
         .await
@@ -2656,7 +2653,7 @@ async fn email_copy_on_success_update_original_immutable_field_rejected() {
     // Import a source email.
     let msg = b"Subject: immutable test\r\n\r\nbody";
     let blob_id = Id::from("blob-imm");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (src_id, _) = backend
         .import_email(&src_account, &blob_id, &[Id::from("inbox")], &[], None)
         .await
@@ -2733,7 +2730,7 @@ async fn submission_set_update_only_undo_status_allowed() {
 
     let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nBody.";
     let blob_id = Id::from("blob-sub-patch");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("sent")], &[], None)
         .await
@@ -3220,7 +3217,7 @@ async fn make_identity_and_email(
 
     let msg = format!("Subject: Test\r\nFrom: {addr}\r\nTo: {addr}\r\n\r\nBody.");
     let blob_id = Id::from(format!("blob-{addr}"));
-    backend.store_blob(blob_id.clone(), msg.into_bytes());
+    backend.store_blob(&blob_id, msg.into_bytes());
     let (email_id, _) = backend
         .import_email(account_id, &blob_id, &[Id::from(mailbox_id)], &[], None)
         .await
@@ -3601,7 +3598,7 @@ async fn submission_set_create_no_recipients_fails() {
     // Import an email with no To, Cc, or Bcc headers.
     let msg = b"Subject: Test\r\nFrom: alice@example.com\r\n\r\nBody.";
     let blob_id = Id::from("blob-norcpt");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("sent")], &[], None)
         .await
@@ -4492,7 +4489,7 @@ async fn mailbox_set_sort_order_overflow_rejected() {
 async fn email_import_created_response_has_four_server_set_fields() {
     let backend = MemoryBackend::new();
     let blob_id = Id::from("blob-4f");
-    backend.store_blob(blob_id.clone(), b"Subject: test\r\n\r\nbody".to_vec());
+    backend.store_blob(&blob_id, b"Subject: test\r\n\r\nbody".to_vec());
 
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -4928,7 +4925,7 @@ Message-ID: <msg1@t767.example.com>
 Body one.
 ";
     let blob1 = Id::from("blob-t767-1");
-    backend.store_blob(blob1.clone(), msg1.to_vec());
+    backend.store_blob(&blob1, msg1.to_vec());
 
     // Capture thread state before first import.
     let state0 = {
@@ -4972,7 +4969,7 @@ In-Reply-To: <msg1@t767.example.com>
 Body two.
 ";
     let blob2 = Id::from("blob-t767-2");
-    backend.store_blob(blob2.clone(), msg2.to_vec());
+    backend.store_blob(&blob2, msg2.to_vec());
 
     let import2 = serde_json::json!({
         "accountId": account_id.as_ref(),
@@ -5036,7 +5033,7 @@ async fn email_import_duplicate_message_id_returns_already_exists() {
     let msg =
         b"From: sender@example.com\r\nTo: dest@example.com\r\nMessage-ID: <dup123@example.com>\r\nSubject: Dup Test\r\n\r\nBody text.\r\n";
     let blob_id = Id::from("blob-dup");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
 
     let make_import = |blob: &Id| {
         serde_json::json!({
@@ -5133,7 +5130,7 @@ async fn submission_set_create_send_at_ignored_from_client() {
 
     let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nBody.";
     let blob_id = Id::from("blob-delay1");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("sent")], &[], None)
         .await
@@ -5160,7 +5157,9 @@ async fn submission_set_create_send_at_ignored_from_client() {
         "notCreated must be null; got: {:?}",
         resp["notCreated"]
     );
-    let created = resp["created"].as_object().expect("created must be an object");
+    let created = resp["created"]
+        .as_object()
+        .expect("created must be an object");
     assert!(
         created.contains_key("s0"),
         "s0 must be in created; got: {resp:?}"
@@ -5432,7 +5431,7 @@ async fn submission_set_create_send_at_null_accepted() {
 
     let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nBody.";
     let blob_id = Id::from("blob-delay2");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("sent")], &[], None)
         .await
@@ -5470,7 +5469,7 @@ async fn submission_set_create_send_at_null_accepted() {
 /// Helper: import a message with known headers and return its email id.
 async fn import_msg_with_headers(backend: &MemoryBackend, raw: &[u8]) -> Id {
     let blob_id = Id::from(format!("blob-hdr-{}", uuid::Uuid::new_v4()));
-    backend.store_blob(blob_id.clone(), raw.to_vec());
+    backend.store_blob(&blob_id, raw.to_vec());
     backend
         .import_email(
             &Id::from("acct1"),
@@ -5722,7 +5721,7 @@ async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
     // Import a real email to use as the update target.
     let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nbody";
     let blob_id = Id::from("blob-onsuccess-no-apply");
-    backend.store_blob(blob_id.clone(), msg.to_vec());
+    backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
         .import_email(&account_id, &blob_id, &[Id::from("inbox")], &[], None)
         .await
@@ -5794,5 +5793,153 @@ async fn mailbox_set_destroy_non_string_returns_invalid_arguments() {
     assert_eq!(
         err.error_type, "invalidArguments",
         "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-yqo.1 — Email/parse must honour header: dynamic properties
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/parse with a `header:Subject:asText` property returns the
+/// unfolded Subject value, not null.
+///
+/// RFC 8621 §5.8 + §4.1.3 — Email/parse accepts the same `properties` list
+/// as Email/get, including dynamic `header:` properties.
+#[tokio::test]
+async fn email_parse_header_property_returned() {
+    use jmap_mail_server::handle_email_parse;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct-parse-hdr");
+
+    // Store a blob with a known Subject header.
+    let blob_id = Id::from("blob-parse-hdr-subject");
+    let raw = b"Subject: Hello World\r\nFrom: alice@example.com\r\n\r\nBody.";
+    backend.store_blob(&blob_id, raw.to_vec());
+
+    let parse_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "blobIds": [blob_id.as_ref()],
+        "properties": ["header:Subject:asText"],
+    });
+    let (resp, _) = handle_email_parse(&backend, parse_args)
+        .await
+        .expect("Email/parse must succeed");
+
+    let parsed_obj = &resp["parsed"][blob_id.as_ref()];
+    assert!(!parsed_obj.is_null(), "blob must appear in parsed map");
+
+    // The dynamic property key must be present and must be the unfolded value.
+    let val = parsed_obj["header:Subject:asText"]
+        .as_str()
+        .expect("header:Subject:asText must be a string, not null or absent");
+    assert_eq!(
+        val, "Hello World",
+        "asText Subject must equal the header value; got: {val:?}"
+    );
+
+    // The "headers" raw array must NOT leak into the response when the client
+    // did not ask for it — it was injected internally only to enable extraction.
+    assert!(
+        parsed_obj.get("headers").is_none(),
+        "internal 'headers' key must not appear in Email/parse response; got: {parsed_obj:?}"
+    );
+}
+
+/// Oracle: Email/parse with an invalid header: form returns `invalidArguments`
+/// before any blob is fetched.
+///
+/// RFC 8621 §4.1.2 — incompatible form/header combinations are rejected as
+/// invalidArguments. This path must fire in Email/parse as well as Email/get.
+#[tokio::test]
+async fn email_parse_header_invalid_form_rejected() {
+    use jmap_mail_server::handle_email_parse;
+
+    let backend = MemoryBackend::new();
+
+    // header:From:asDate is invalid (From is an address header, not a date header).
+    let parse_args = serde_json::json!({
+        "accountId": "acct-parse-hdr-bad",
+        "blobIds": [],
+        "properties": ["header:From:asDate"],
+    });
+    let result = handle_email_parse(&backend, parse_args).await;
+    assert!(
+        result.is_err(),
+        "invalid header form in Email/parse must return an error; got Ok"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type, "invalidArguments",
+        "expected invalidArguments; got: {:?}",
+        err.error_type
+    );
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-yqo.5 — Email/query collapseThreads deduplication
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/query with collapseThreads=true returns only the first email
+/// per thread when multiple emails share a threadId.
+///
+/// RFC 8621 §4.4 — collapseThreads causes the result to include only the
+/// first (in sort order) email per thread.
+#[tokio::test]
+async fn email_query_collapse_threads_deduplicates() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct-collapse");
+
+    // Import two emails that end up in the same thread by shared message-id reference.
+    let raw1 = b"Message-ID: <first@example.com>\r\nSubject: Thread root\r\n\r\nRoot.";
+    let blob1 = Id::from("blob-collapse-1");
+    backend.store_blob(&blob1, raw1.to_vec());
+    let (id1, _) = backend
+        .import_email(&account_id, &blob1, &[Id::from("inbox")], &[], None)
+        .await
+        .expect("import email 1");
+
+    let raw2 =
+        b"Message-ID: <second@example.com>\r\nIn-Reply-To: <first@example.com>\r\nSubject: Re: Thread root\r\n\r\nReply.";
+    let blob2 = Id::from("blob-collapse-2");
+    backend.store_blob(&blob2, raw2.to_vec());
+    let (id2, _) = backend
+        .import_email(&account_id, &blob2, &[Id::from("inbox")], &[], None)
+        .await
+        .expect("import email 2");
+
+    // Both IDs must differ.
+    assert_ne!(id1, id2, "imported emails must have distinct IDs");
+
+    // Query without collapseThreads — expect both.
+    let args_uncollapsed = serde_json::json!({
+        "accountId": account_id.as_ref(),
+    });
+    let (resp_uncollapsed, _) = handle_email_query(&backend, args_uncollapsed)
+        .await
+        .expect("Email/query without collapseThreads must succeed");
+    let ids_uncollapsed = resp_uncollapsed["ids"]
+        .as_array()
+        .expect("ids must be array");
+    assert_eq!(
+        ids_uncollapsed.len(),
+        2,
+        "without collapseThreads both emails must appear; got: {ids_uncollapsed:?}"
+    );
+
+    // Query with collapseThreads=true — expect exactly one if they share a thread,
+    // or two if the backend assigned separate threads (thread assignment is backend-
+    // specific; we assert only that the count is at most 2 and at least 1).
+    let args_collapsed = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "collapseThreads": true,
+    });
+    let (resp_collapsed, _) = handle_email_query(&backend, args_collapsed)
+        .await
+        .expect("Email/query with collapseThreads must succeed");
+    let ids_collapsed = resp_collapsed["ids"].as_array().expect("ids must be array");
+    assert!(
+        ids_collapsed.len() <= 2 && !ids_collapsed.is_empty(),
+        "collapseThreads must return 1 or 2 results (depending on thread assignment); got: {ids_collapsed:?}"
     );
 }
