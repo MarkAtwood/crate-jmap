@@ -9,12 +9,14 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use jmap_mail_server::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapObject,
-    MailBackend, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, MailBackend, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+    SetObject,
 };
 use jmap_mail_types::{
-    query::{EmailFilter, Filter, Operator},
-    Email, EmailAddress, EmailFilterCondition, Keyword, SearchSnippet,
+    query::{EmailFilter, EmailSubmissionFilter, Filter, Operator},
+    submission::{EmailSubmission, EmailSubmissionFilterCondition},
+    Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, SearchSnippet,
 };
 use jmap_types::{Id, State, UTCDate};
 
@@ -43,6 +45,8 @@ struct Inner {
     change_log: HashMap<(String, String), Vec<ChangeEntry>>,
     /// blob_id → raw bytes (used by import_email and parse_email)
     blobs: HashMap<Id, Vec<u8>>,
+    /// account_id → (message_id_string → email_id) for duplicate detection in import_email
+    message_id_index: HashMap<String, HashMap<String, Id>>,
 }
 
 impl Inner {
@@ -104,6 +108,9 @@ enum IdFate {
 // ---------------------------------------------------------------------------
 
 /// Maximum number of objects returned when `ids=None` in [`MemoryBackend::get_objects`].
+///
+/// **Test-only limit.** In production backends, callers should use pagination
+/// rather than `ids=None` to avoid loading unbounded result sets.
 const MAX_FETCH_ALL: usize = 500;
 
 /// In-memory [`MailBackend`] for integration tests and examples.
@@ -143,10 +150,10 @@ impl std::fmt::Display for MemoryError {
 impl std::error::Error for MemoryError {}
 
 // ---------------------------------------------------------------------------
-// MailBackend impl
+// JmapBackend impl (read-side)
 // ---------------------------------------------------------------------------
 
-impl MailBackend for MemoryBackend {
+impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
 
     // -----------------------------------------------------------------------
@@ -181,6 +188,26 @@ impl MailBackend for MemoryBackend {
                 }
             }
         } else {
+            let total = store.len();
+            if total > MAX_FETCH_ALL {
+                // In test code, ids=None with >MAX_FETCH_ALL objects silently truncates.
+                // Use pagination (position/limit) or pass explicit ids to avoid this.
+                debug_assert!(
+                    false,
+                    "MemoryBackend::get_objects: truncating {} {} objects to MAX_FETCH_ALL={}; \
+                     use pagination instead of ids=None",
+                    total,
+                    O::TYPE_NAME,
+                    MAX_FETCH_ALL,
+                );
+                #[cfg(debug_assertions)]
+                eprintln!(
+                    "[MemoryBackend] WARNING: get_objects ids=None truncated {} {} to {}",
+                    total,
+                    O::TYPE_NAME,
+                    MAX_FETCH_ALL,
+                );
+            }
             for val in store.values().take(MAX_FETCH_ALL) {
                 let obj: O = serde_json::from_value(val.clone())
                     .map_err(|e| MemoryError(format!("deserialize {}: {e}", O::TYPE_NAME)))?;
@@ -191,6 +218,266 @@ impl MailBackend for MemoryBackend {
         Ok((found, not_found))
     }
 
+    // -----------------------------------------------------------------------
+    // get_state
+    // -----------------------------------------------------------------------
+
+    async fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+    ) -> Result<State, Self::Error> {
+        let inner = self.inner.lock().unwrap();
+        let n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
+        Ok(State::from(n.to_string()))
+    }
+
+    // -----------------------------------------------------------------------
+    // get_changes
+    // -----------------------------------------------------------------------
+
+    async fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        let since: u64 = since_state.as_ref().parse().map_err(|_| {
+            BackendChangesError::Other(MemoryError(format!("invalid state token: {since_state}")))
+        })?;
+
+        // Snapshot relevant change log entries under a brief lock, then release.
+        let (relevant, has_more, new_state) = {
+            let inner = self.inner.lock().unwrap();
+            let log = inner
+                .change_log
+                .get(&(O::TYPE_NAME.to_owned(), account_id.to_string()))
+                .map(|v| v.as_slice())
+                .unwrap_or(&[]);
+
+            let limit = max_changes.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize);
+            // Binary search for the first entry with new_state > since.
+            let start = log.partition_point(|e| e.new_state <= since);
+            // Take limit+1 as sentinel to detect has_more.
+            let mut entries: Vec<ChangeEntry> = log[start..]
+                .iter()
+                .take(limit.saturating_add(1))
+                .cloned()
+                .collect();
+            let has_more = entries.len() > limit;
+            if has_more {
+                entries.pop();
+            }
+            // If nothing changed, new_state == since_state (client is already up to date).
+            let new_state = entries
+                .last()
+                .map(|e| State::from(e.new_state.to_string()))
+                .unwrap_or_else(|| since_state.clone());
+            (entries, has_more, new_state)
+        };
+
+        // RFC 8620 §5.6 ID deduplication across the window.
+        let mut fates: HashMap<Id, IdFate> = HashMap::new();
+        for entry in &relevant {
+            for id in &entry.created {
+                fates.insert(id.clone(), IdFate::Created);
+            }
+            for id in &entry.updated {
+                let fate = match fates.get(id) {
+                    Some(IdFate::Created) => IdFate::Created,
+                    Some(IdFate::Destroyed) => IdFate::Destroyed,
+                    _ => IdFate::Updated,
+                };
+                fates.insert(id.clone(), fate);
+            }
+            for id in &entry.destroyed {
+                match fates.remove(id) {
+                    Some(IdFate::Created) => {} // created+destroyed in window → omit
+                    Some(_) | None => {
+                        fates.insert(id.clone(), IdFate::Destroyed);
+                    }
+                }
+            }
+        }
+
+        let mut created = Vec::new();
+        let mut updated = Vec::new();
+        let mut destroyed = Vec::new();
+        for (id, fate) in fates {
+            match fate {
+                IdFate::Created => created.push(id),
+                IdFate::Updated => updated.push(id),
+                IdFate::Destroyed => destroyed.push(id),
+            }
+        }
+
+        Ok(ChangesResult::new(
+            created, updated, destroyed, has_more, new_state,
+        ))
+    }
+
+    // -----------------------------------------------------------------------
+    // query_objects
+    // -----------------------------------------------------------------------
+
+    async fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        filter: Option<&O::Filter>,
+        _sort: Option<&[O::Comparator]>,
+        limit: Option<u64>,
+        position: i64,
+    ) -> Result<QueryResult, Self::Error> {
+        // Collect and sort IDs outside the lock for deterministic ordering.
+        // For Email and EmailSubmission objects, apply filter conditions in-process
+        // using a JSON roundtrip (since O::Filter: Serialize, we can recover the
+        // typed filter).
+        let email_filter: Option<EmailFilter> = if O::TYPE_NAME == "Email" {
+            filter.and_then(|f| {
+                serde_json::to_value(f)
+                    .ok()
+                    .and_then(|v| serde_json::from_value(v).ok())
+            })
+        } else {
+            None
+        };
+
+        let submission_filter: Option<EmailSubmissionFilter> = if O::TYPE_NAME == "EmailSubmission"
+        {
+            filter.and_then(|f| {
+                serde_json::to_value(f)
+                    .ok()
+                    .and_then(|v| serde_json::from_value(v).ok())
+            })
+        } else {
+            None
+        };
+
+        let (mut all_ids, state_n) = {
+            let inner = self.inner.lock().unwrap();
+            let ids: Vec<Id> = if let Some(ref ef) = email_filter {
+                // Apply email filter: deserialize each stored object and check.
+                inner
+                    .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                    .map(|map| {
+                        map.iter()
+                            .filter_map(|(id, val)| {
+                                let email: Email = serde_json::from_value(val.clone()).ok()?;
+                                if email_matches_filter(&email, ef) {
+                                    Some(id.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            } else if let Some(ref sf) = submission_filter {
+                // Apply submission filter: deserialize each stored object and check.
+                inner
+                    .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                    .map(|map| {
+                        map.iter()
+                            .filter_map(|(id, val)| {
+                                let sub: EmailSubmission =
+                                    serde_json::from_value(val.clone()).ok()?;
+                                if submission_matches_filter(&sub, sf) {
+                                    Some(id.clone())
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default()
+            } else {
+                inner
+                    .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                    .map(|s| s.keys().cloned().collect())
+                    .unwrap_or_default()
+            };
+            let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
+            (ids, state_n)
+        };
+        all_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+
+        let total = all_ids.len();
+        let start = if position >= 0 {
+            (position as usize).min(total)
+        } else {
+            let neg = (-position) as usize;
+            total.saturating_sub(neg)
+        };
+
+        let ids: Vec<Id> = all_ids[start..]
+            .iter()
+            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
+            .cloned()
+            .collect();
+
+        Ok(QueryResult::new(
+            ids,
+            start as i64,
+            Some(total as u64),
+            State::from(state_n.to_string()),
+            true,
+        ))
+    }
+
+    // -----------------------------------------------------------------------
+    // query_changes
+    // -----------------------------------------------------------------------
+
+    async fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        since_query_state: &State,
+        _filter: Option<&O::Filter>,
+        _sort: Option<&[O::Comparator]>,
+        _max_changes: Option<u64>,
+        _up_to_id: Option<&Id>,
+        _collapse_threads: bool,
+    ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        // MemoryBackend does not track per-query result sets. Return the full
+        // current id list as "added" when since_query_state == "0"; otherwise
+        // return empty changes. Callers that need precise queryChanges tracking
+        // should use get_changes + query_objects instead.
+        let (mut all_ids, state_n) = {
+            let inner = self.inner.lock().unwrap();
+            let ids: Vec<Id> = inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .map(|s| s.keys().cloned().collect())
+                .unwrap_or_default();
+            let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
+            (ids, state_n)
+        };
+        all_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        let new_query_state = State::from(state_n.to_string());
+
+        let added: Vec<AddedItem> = if since_query_state.as_ref() == "0" {
+            all_ids
+                .into_iter()
+                .enumerate()
+                .map(|(i, id)| AddedItem::new(id, i as u64))
+                .collect()
+        } else {
+            vec![]
+        };
+
+        Ok(QueryChangesResult::new(
+            since_query_state.clone(),
+            new_query_state,
+            None,
+            vec![],
+            added,
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MailBackend impl (write-side and mail-specific)
+// ---------------------------------------------------------------------------
+
+impl MailBackend for MemoryBackend {
     // -----------------------------------------------------------------------
     // create_object
     // -----------------------------------------------------------------------
@@ -331,230 +618,6 @@ impl MailBackend for MemoryBackend {
     }
 
     // -----------------------------------------------------------------------
-    // get_state
-    // -----------------------------------------------------------------------
-
-    async fn get_state<O: JmapObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-    ) -> Result<State, Self::Error> {
-        let inner = self.inner.lock().unwrap();
-        let n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
-        Ok(State::from(n.to_string()))
-    }
-
-    // -----------------------------------------------------------------------
-    // get_changes
-    // -----------------------------------------------------------------------
-
-    async fn get_changes<O: JmapObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
-    ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-        let since: u64 = since_state.as_ref().parse().map_err(|_| {
-            BackendChangesError::Other(MemoryError(format!("invalid state token: {since_state}")))
-        })?;
-
-        // Snapshot relevant change log entries under a brief lock, then release.
-        let (relevant, has_more, new_state) = {
-            let inner = self.inner.lock().unwrap();
-            let log = inner
-                .change_log
-                .get(&(O::TYPE_NAME.to_owned(), account_id.to_string()))
-                .map(|v| v.as_slice())
-                .unwrap_or(&[]);
-
-            let limit = max_changes.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize);
-            // Binary search for the first entry with new_state > since.
-            let start = log.partition_point(|e| e.new_state <= since);
-            // Take limit+1 as sentinel to detect has_more.
-            let mut entries: Vec<ChangeEntry> = log[start..]
-                .iter()
-                .take(limit.saturating_add(1))
-                .cloned()
-                .collect();
-            let has_more = entries.len() > limit;
-            if has_more {
-                entries.pop();
-            }
-            // If nothing changed, new_state == since_state (client is already up to date).
-            let new_state = entries
-                .last()
-                .map(|e| State::from(e.new_state.to_string()))
-                .unwrap_or_else(|| since_state.clone());
-            (entries, has_more, new_state)
-        };
-
-        // RFC 8620 §5.6 ID deduplication across the window.
-        let mut fates: HashMap<Id, IdFate> = HashMap::new();
-        for entry in &relevant {
-            for id in &entry.created {
-                fates.insert(id.clone(), IdFate::Created);
-            }
-            for id in &entry.updated {
-                let fate = match fates.get(id) {
-                    Some(IdFate::Created) => IdFate::Created,
-                    Some(IdFate::Destroyed) => IdFate::Destroyed,
-                    _ => IdFate::Updated,
-                };
-                fates.insert(id.clone(), fate);
-            }
-            for id in &entry.destroyed {
-                match fates.remove(id) {
-                    Some(IdFate::Created) => {} // created+destroyed in window → omit
-                    Some(_) | None => {
-                        fates.insert(id.clone(), IdFate::Destroyed);
-                    }
-                }
-            }
-        }
-
-        let mut created = Vec::new();
-        let mut updated = Vec::new();
-        let mut destroyed = Vec::new();
-        for (id, fate) in fates {
-            match fate {
-                IdFate::Created => created.push(id),
-                IdFate::Updated => updated.push(id),
-                IdFate::Destroyed => destroyed.push(id),
-            }
-        }
-
-        Ok(ChangesResult::new(
-            created, updated, destroyed, has_more, new_state,
-        ))
-    }
-
-    // -----------------------------------------------------------------------
-    // query_objects
-    // -----------------------------------------------------------------------
-
-    async fn query_objects<O: QueryObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-        filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-    ) -> Result<QueryResult, Self::Error> {
-        // Collect and sort IDs outside the lock for deterministic ordering.
-        // For Email objects, apply filter conditions in-process using a JSON
-        // roundtrip (since O::Filter: Serialize, we can recover the typed filter).
-        let email_filter: Option<EmailFilter> = if O::TYPE_NAME == "Email" {
-            filter.and_then(|f| {
-                serde_json::to_value(f)
-                    .ok()
-                    .and_then(|v| serde_json::from_value(v).ok())
-            })
-        } else {
-            None
-        };
-
-        let (mut all_ids, state_n) = {
-            let inner = self.inner.lock().unwrap();
-            let ids: Vec<Id> = if let Some(ref ef) = email_filter {
-                // Apply email filter: deserialize each stored object and check.
-                inner
-                    .objects_ref(O::TYPE_NAME, account_id.as_ref())
-                    .map(|map| {
-                        map.iter()
-                            .filter_map(|(id, val)| {
-                                let email: Email = serde_json::from_value(val.clone()).ok()?;
-                                if email_matches_filter(&email, ef) {
-                                    Some(id.clone())
-                                } else {
-                                    None
-                                }
-                            })
-                            .collect()
-                    })
-                    .unwrap_or_default()
-            } else {
-                inner
-                    .objects_ref(O::TYPE_NAME, account_id.as_ref())
-                    .map(|s| s.keys().cloned().collect())
-                    .unwrap_or_default()
-            };
-            let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
-            (ids, state_n)
-        };
-        all_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-
-        let total = all_ids.len();
-        let start = if position >= 0 {
-            (position as usize).min(total)
-        } else {
-            let neg = (-position) as usize;
-            total.saturating_sub(neg)
-        };
-
-        let ids: Vec<Id> = all_ids[start..]
-            .iter()
-            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
-            .cloned()
-            .collect();
-
-        Ok(QueryResult::new(
-            ids,
-            start as i64,
-            Some(total as u64),
-            State::from(state_n.to_string()),
-            true,
-        ))
-    }
-
-    // -----------------------------------------------------------------------
-    // query_changes
-    // -----------------------------------------------------------------------
-
-    async fn query_changes<O: QueryObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-        since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
-        _collapse_threads: bool,
-    ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-        // MemoryBackend does not track per-query result sets. Return the full
-        // current id list as "added" when since_query_state == "0"; otherwise
-        // return empty changes. Callers that need precise queryChanges tracking
-        // should use get_changes + query_objects instead.
-        let (mut all_ids, state_n) = {
-            let inner = self.inner.lock().unwrap();
-            let ids: Vec<Id> = inner
-                .objects_ref(O::TYPE_NAME, account_id.as_ref())
-                .map(|s| s.keys().cloned().collect())
-                .unwrap_or_default();
-            let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
-            (ids, state_n)
-        };
-        all_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-        let new_query_state = State::from(state_n.to_string());
-
-        let added: Vec<AddedItem> = if since_query_state.as_ref() == "0" {
-            all_ids
-                .into_iter()
-                .enumerate()
-                .map(|(i, id)| AddedItem::new(id, i as u64))
-                .collect()
-        } else {
-            vec![]
-        };
-
-        Ok(QueryChangesResult::new(
-            since_query_state.clone(),
-            new_query_state,
-            None,
-            vec![],
-            added,
-        ))
-    }
-
-    // -----------------------------------------------------------------------
     // import_email
     // -----------------------------------------------------------------------
 
@@ -576,13 +639,7 @@ impl MailBackend for MemoryBackend {
         // Parse message headers from raw bytes (best-effort RFC 5322 parsing).
         let parsed = parse_rfc5322_headers(&bytes);
 
-        // Assign thread: look for existing email with matching message-id.
-        let thread_id = {
-            let inner = self.inner.lock().unwrap();
-            assign_thread_inner(&inner, account_id, &parsed.in_reply_to, &parsed.references)
-        };
-
-        // Build the Email object.
+        // Build the Email object outside the lock (uses only local data).
         let email_id = Id::from(uuid::Uuid::new_v4().to_string());
         let mailbox_map: HashMap<Id, bool> =
             mailbox_ids.iter().map(|id| (id.clone(), true)).collect();
@@ -592,45 +649,75 @@ impl MailBackend for MemoryBackend {
             .cloned()
             .unwrap_or_else(|| UTCDate::from("1970-01-01T00:00:00Z"));
 
-        let mut email = Email::new(
-            email_id.clone(),
-            blob_id.clone(),
-            thread_id.clone(),
-            mailbox_map,
-            bytes.len() as u64,
-            received,
-        );
-        email.keywords = kw_map;
-        email.subject = parsed.subject;
-        email.message_id = parsed.message_id;
-        email.in_reply_to = if parsed.in_reply_to.is_empty() {
-            None
-        } else {
-            Some(parsed.in_reply_to)
-        };
-        email.references = if parsed.references.is_empty() {
-            None
-        } else {
-            Some(parsed.references)
-        };
-        email.from = parsed.from;
-        email.to = parsed.to;
-        if let Some(preview) = parsed.preview {
-            email.preview = Some(preview);
-        }
+        // thread_id is a placeholder; set below after the lock is acquired.
+        // We must build a placeholder email first so we can serialize it, then
+        // patch in the real thread_id inside the lock.
+        // Actually: build everything except thread_id, then acquire one lock for
+        // duplicate check + thread assignment + insert (no TOCTOU window).
+        let email_size = bytes.len() as u64;
 
-        // Ensure the Thread object exists.
-        let thread_val = serde_json::json!({
-            "id": thread_id.to_string(),
-            "emailIds": [email_id.to_string()]
-        });
-
-        // Serialize the email for storage.
-        let email_val = serde_json::to_value(&email)
-            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize email: {e}"))))?;
-
-        {
+        // Acquire a single lock that covers the duplicate check, thread assignment,
+        // and the actual insert — eliminating the TOCTOU race window.
+        let (email, email_id) = {
             let mut inner = self.inner.lock().unwrap();
+
+            // Check for duplicate Message-ID (RFC 8621 §4.8).
+            if let Some(msg_ids) = &parsed.message_id {
+                if let Some(index) = inner.message_id_index.get(account_id.as_ref()) {
+                    for msg_id in msg_ids {
+                        if let Some(existing_id) = index.get(msg_id) {
+                            return Err(BackendSetError::SetError(
+                                SetError::new(SetErrorType::AlreadyExists)
+                                    .with_existing_id(existing_id.clone()),
+                            ));
+                        }
+                    }
+                }
+            }
+
+            // Assign thread: look for existing email with matching message-id.
+            let thread_id =
+                assign_thread_inner(&inner, account_id, &parsed.in_reply_to, &parsed.references);
+
+            // Build the full Email object now that we have the real thread_id.
+            let mut email = Email::new(
+                email_id.clone(),
+                blob_id.clone(),
+                thread_id.clone(),
+                mailbox_map,
+                email_size,
+                received,
+            );
+            email.keywords = kw_map;
+            email.subject = parsed.subject;
+            email.message_id = parsed.message_id;
+            email.in_reply_to = if parsed.in_reply_to.is_empty() {
+                None
+            } else {
+                Some(parsed.in_reply_to)
+            };
+            email.references = if parsed.references.is_empty() {
+                None
+            } else {
+                Some(parsed.references)
+            };
+            email.from = parsed.from;
+            email.to = parsed.to;
+            email.headers = parsed.raw_headers;
+            if let Some(preview) = parsed.preview {
+                email.preview = Some(preview);
+            }
+
+            // Ensure the Thread object exists.
+            let thread_val = serde_json::json!({
+                "id": thread_id.to_string(),
+                "emailIds": [email_id.to_string()]
+            });
+
+            // Serialize the email for storage.
+            let email_val = serde_json::to_value(&email).map_err(|e| {
+                BackendSetError::Other(MemoryError(format!("serialize email: {e}")))
+            })?;
 
             // Insert or update Thread (append email_id if thread exists).
             let thread_store = inner.objects_mut("Thread", account_id.as_ref());
@@ -648,6 +735,17 @@ impl MailBackend for MemoryBackend {
             inner
                 .objects_mut("Email", account_id.as_ref())
                 .insert(email_id.clone(), email_val);
+
+            // Update Message-ID index for future duplicate detection.
+            if let Some(msg_ids) = &email.message_id {
+                let account_index = inner
+                    .message_id_index
+                    .entry(account_id.to_string())
+                    .or_default();
+                for msg_id in msg_ids {
+                    account_index.insert(msg_id.clone(), email_id.clone());
+                }
+            }
 
             // Bump state for both Email and Thread.
             let new_email_state = inner.bump_state("Email", account_id.as_ref());
@@ -680,7 +778,9 @@ impl MailBackend for MemoryBackend {
                     },
                     destroyed: vec![],
                 });
-        }
+
+            (email, email_id)
+        };
 
         Ok((email_id, email))
     }
@@ -771,6 +871,7 @@ impl MailBackend for MemoryBackend {
         };
         email.from = parsed.from;
         email.to = parsed.to;
+        email.headers = parsed.raw_headers;
         if let Some(preview) = parsed.preview {
             email.preview = Some(preview);
         }
@@ -975,6 +1076,8 @@ struct ParsedHeaders {
     to: Option<Vec<EmailAddress>>,
     /// Short preview of the body (first 256 bytes of the text body, if any).
     preview: Option<String>,
+    /// Raw header fields in order, for `Email.headers` (RFC 8621 §4.1.3).
+    raw_headers: Vec<EmailHeader>,
 }
 
 /// Bare-minimum RFC 5322 header parser.
@@ -997,7 +1100,25 @@ fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
         (text.as_ref(), "")
     };
 
-    // Unfold header lines: CRLF or LF followed by whitespace = continuation.
+    // Build raw_headers: fold continuation lines back into the preceding header.
+    // A line beginning with whitespace is a continuation of the previous header value.
+    let mut raw_headers: Vec<EmailHeader> = Vec::new();
+    for line in header_block.lines() {
+        if line.starts_with(' ') || line.starts_with('\t') {
+            // Continuation line — append to previous header value.
+            if let Some(last) = raw_headers.last_mut() {
+                last.value.push('\n');
+                last.value.push_str(line);
+            }
+        } else if let Some(colon_pos) = line.find(':') {
+            let name = line[..colon_pos].to_owned();
+            let value = line[colon_pos + 1..].to_owned();
+            raw_headers.push(EmailHeader::new(name, value));
+        }
+        // Lines with no colon and no leading whitespace (malformed) are skipped.
+    }
+
+    // Unfold header lines for the structured field extraction below.
     let unfolded = header_block
         .replace("\r\n ", " ")
         .replace("\r\n\t", " ")
@@ -1012,26 +1133,27 @@ fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
     let mut to_header: Option<String> = None;
 
     for line in unfolded.lines() {
-        if let Some(rest) = line.strip_prefix("Subject:") {
-            subject = Some(rest.trim().to_owned());
-        } else if let Some(rest) = line.strip_prefix("subject:") {
-            subject = Some(rest.trim().to_owned());
-        } else if let Some(rest) = line
-            .strip_prefix("Message-ID:")
-            .or_else(|| line.strip_prefix("Message-Id:"))
-        {
-            let ids = extract_msg_ids(rest);
-            if !ids.is_empty() {
-                message_id = Some(ids);
+        // RFC 5322 §2.2: header field names are case-insensitive. Split on the
+        // first ':' and compare the field name case-insensitively.
+        if let Some(colon) = line.find(':') {
+            let name = &line[..colon];
+            let rest = &line[colon + 1..];
+            if name.eq_ignore_ascii_case("Subject") {
+                subject = Some(rest.trim().to_owned());
+            } else if name.eq_ignore_ascii_case("Message-ID") {
+                let ids = extract_msg_ids(rest);
+                if !ids.is_empty() {
+                    message_id = Some(ids);
+                }
+            } else if name.eq_ignore_ascii_case("In-Reply-To") {
+                in_reply_to = extract_msg_ids(rest);
+            } else if name.eq_ignore_ascii_case("References") {
+                references = extract_msg_ids(rest);
+            } else if name.eq_ignore_ascii_case("From") {
+                from_header = Some(rest.trim().to_owned());
+            } else if name.eq_ignore_ascii_case("To") {
+                to_header = Some(rest.trim().to_owned());
             }
-        } else if let Some(rest) = line.strip_prefix("In-Reply-To:") {
-            in_reply_to = extract_msg_ids(rest);
-        } else if let Some(rest) = line.strip_prefix("References:") {
-            references = extract_msg_ids(rest);
-        } else if let Some(rest) = line.strip_prefix("From:") {
-            from_header = Some(rest.trim().to_owned());
-        } else if let Some(rest) = line.strip_prefix("To:") {
-            to_header = Some(rest.trim().to_owned());
         }
     }
 
@@ -1060,6 +1182,7 @@ fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
         from,
         to,
         preview,
+        raw_headers,
     }
 }
 
@@ -1283,7 +1406,7 @@ impl FaultyBackend {
     }
 }
 
-impl MailBackend for FaultyBackend {
+impl JmapBackend for FaultyBackend {
     type Error = MemoryError;
 
     async fn get_objects<O: GetObject + Send + Sync>(
@@ -1295,49 +1418,6 @@ impl MailBackend for FaultyBackend {
         self.inner
             .get_objects::<O>(account_id, ids, properties)
             .await
-    }
-
-    async fn create_object<O: SetObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-        create_id: &str,
-        obj: O,
-    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        if self.check(O::TYPE_NAME, "create") {
-            return Err(BackendSetError::Other(MemoryError(
-                "injected create error".to_owned(),
-            )));
-        }
-        self.inner
-            .create_object::<O>(account_id, create_id, obj)
-            .await
-    }
-
-    async fn update_object<O: SetObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-        id: &Id,
-        patch: O::Patch,
-    ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-        if self.check(O::TYPE_NAME, "update") {
-            return Err(BackendSetError::Other(MemoryError(
-                "injected update error".to_owned(),
-            )));
-        }
-        self.inner.update_object::<O>(account_id, id, patch).await
-    }
-
-    async fn destroy_object<O: SetObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-        id: &Id,
-    ) -> Result<(), BackendSetError<Self::Error>> {
-        if self.check(O::TYPE_NAME, "destroy") {
-            return Err(BackendSetError::Other(MemoryError(
-                "injected destroy error".to_owned(),
-            )));
-        }
-        self.inner.destroy_object::<O>(account_id, id).await
     }
 
     async fn get_state<O: JmapObject + Send + Sync>(
@@ -1392,6 +1472,55 @@ impl MailBackend for FaultyBackend {
                 collapse_threads,
             )
             .await
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MailBackend impl for FaultyBackend (write-side and mail-specific)
+// ---------------------------------------------------------------------------
+
+impl MailBackend for FaultyBackend {
+    async fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        create_id: &str,
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        if self.check(O::TYPE_NAME, "create") {
+            return Err(BackendSetError::Other(MemoryError(
+                "injected create error".to_owned(),
+            )));
+        }
+        self.inner
+            .create_object::<O>(account_id, create_id, obj)
+            .await
+    }
+
+    async fn update_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        if self.check(O::TYPE_NAME, "update") {
+            return Err(BackendSetError::Other(MemoryError(
+                "injected update error".to_owned(),
+            )));
+        }
+        self.inner.update_object::<O>(account_id, id, patch).await
+    }
+
+    async fn destroy_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        if self.check(O::TYPE_NAME, "destroy") {
+            return Err(BackendSetError::Other(MemoryError(
+                "injected destroy error".to_owned(),
+            )));
+        }
+        self.inner.destroy_object::<O>(account_id, id).await
     }
 
     async fn import_email(
@@ -1489,7 +1618,9 @@ fn email_matches_condition(email: &Email, cond: &EmailFilterCondition) -> bool {
     }
     if let Some(ref excluded) = cond.in_mailbox_other_than {
         // Email must be in at least one mailbox NOT in this list.
-        let in_other = email.mailbox_ids.keys().any(|id| !excluded.contains(id));
+        // Convert to HashSet once for O(1) lookups across all mailboxIds.
+        let excluded_set: std::collections::HashSet<&Id> = excluded.iter().collect();
+        let in_other = email.mailbox_ids.keys().any(|id| !excluded_set.contains(id));
         if !in_other {
             return false;
         }
@@ -1521,6 +1652,80 @@ fn email_matches_filter(email: &Email, filter: &EmailFilter) -> bool {
             Operator::And => op.conditions.iter().all(|f| email_matches_filter(email, f)),
             Operator::Or => op.conditions.iter().any(|f| email_matches_filter(email, f)),
             Operator::Not => !op.conditions.iter().any(|f| email_matches_filter(email, f)),
+            _ => true, // unknown operator: no constraint
+        },
+        _ => true, // non_exhaustive: unknown variant, no constraint
+    }
+}
+
+// ---------------------------------------------------------------------------
+// EmailSubmission filter helpers (used by MemoryBackend::query_objects)
+// ---------------------------------------------------------------------------
+
+/// Apply a single `EmailSubmissionFilterCondition` to an `EmailSubmission`.
+///
+/// All fields are optional; unset fields are treated as "no constraint" per
+/// RFC 8621 §7.3.
+fn submission_matches_condition(
+    sub: &EmailSubmission,
+    cond: &EmailSubmissionFilterCondition,
+) -> bool {
+    if let Some(ref ids) = cond.identity_ids {
+        // Convert to HashSet for O(1) lookup; avoids O(list_len) Vec::contains per submission.
+        let id_set: std::collections::HashSet<&Id> = ids.iter().collect();
+        if !id_set.contains(&sub.identity_id) {
+            return false;
+        }
+    }
+    if let Some(ref ids) = cond.email_ids {
+        let id_set: std::collections::HashSet<&Id> = ids.iter().collect();
+        if !id_set.contains(&sub.email_id) {
+            return false;
+        }
+    }
+    if let Some(ref ids) = cond.thread_ids {
+        let id_set: std::collections::HashSet<&Id> = ids.iter().collect();
+        if !id_set.contains(&sub.thread_id) {
+            return false;
+        }
+    }
+    if let Some(ref status) = cond.undo_status {
+        if &sub.undo_status != status {
+            return false;
+        }
+    }
+    if let Some(ref before) = cond.before {
+        // sendAt must be strictly before `before` (lexicographic ISO 8601 comparison).
+        if sub.send_at.as_ref() >= before.as_ref() {
+            return false;
+        }
+    }
+    if let Some(ref after) = cond.after {
+        // sendAt must be on or after `after`.
+        if sub.send_at.as_ref() < after.as_ref() {
+            return false;
+        }
+    }
+    true
+}
+
+/// Evaluate a full `EmailSubmissionFilter` (which may be a logical combination).
+fn submission_matches_filter(sub: &EmailSubmission, filter: &EmailSubmissionFilter) -> bool {
+    match filter {
+        Filter::Condition(cond) => submission_matches_condition(sub, cond),
+        Filter::Operator(op) => match op.operator {
+            Operator::And => op
+                .conditions
+                .iter()
+                .all(|f| submission_matches_filter(sub, f)),
+            Operator::Or => op
+                .conditions
+                .iter()
+                .any(|f| submission_matches_filter(sub, f)),
+            Operator::Not => !op
+                .conditions
+                .iter()
+                .any(|f| submission_matches_filter(sub, f)),
             _ => true, // unknown operator: no constraint
         },
         _ => true, // non_exhaustive: unknown variant, no constraint
