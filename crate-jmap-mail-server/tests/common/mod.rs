@@ -927,6 +927,41 @@ impl MailBackend for MemoryBackend {
                 inner.sort_thread_email_ids(account_id.as_ref(), &thread_id);
             }
 
+            // Update Mailbox aggregate counts (RFC 8621 §2).
+            let is_unread = !keywords.iter().any(|k| k.as_ref() == "$seen");
+            for mbox_id in mailbox_ids {
+                if let Some(v) = inner
+                    .objects_mut("Mailbox", account_id.as_ref())
+                    .get_mut(mbox_id)
+                {
+                    if let Some(obj) = v.as_object_mut() {
+                        let te = obj.get("totalEmails").and_then(|x| x.as_u64()).unwrap_or(0);
+                        obj.insert("totalEmails".to_owned(), (te + 1).into());
+                        if is_unread {
+                            let ue = obj
+                                .get("unreadEmails")
+                                .and_then(|x| x.as_u64())
+                                .unwrap_or(0);
+                            obj.insert("unreadEmails".to_owned(), (ue + 1).into());
+                        }
+                        if !thread_existed {
+                            let tt = obj
+                                .get("totalThreads")
+                                .and_then(|x| x.as_u64())
+                                .unwrap_or(0);
+                            obj.insert("totalThreads".to_owned(), (tt + 1).into());
+                            if is_unread {
+                                let ut = obj
+                                    .get("unreadThreads")
+                                    .and_then(|x| x.as_u64())
+                                    .unwrap_or(0);
+                                obj.insert("unreadThreads".to_owned(), (ut + 1).into());
+                            }
+                        }
+                    }
+                }
+            }
+
             // Update Message-ID index for future duplicate detection.
             if let Some(msg_ids) = &email.message_id {
                 let account_index = inner

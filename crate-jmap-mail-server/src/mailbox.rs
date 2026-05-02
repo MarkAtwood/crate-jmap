@@ -146,14 +146,38 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         })?,
     };
 
-    // Reject any client-supplied sort request: Mailbox/query is implemented
-    // in-process and cannot honour RFC 8621 §2.3 comparators. RFC 8620 §5.5
-    // requires an unsupportedSort error rather than silently ignoring sort.
-    if let Some(sort) = args.get("sort") {
-        if !sort.is_null() && sort.as_array().map(|a| !a.is_empty()).unwrap_or(true) {
-            return Err(JmapError::unsupported_sort());
+    // Parse sort comparators. RFC 8621 §2.3 defines "name" and "sortOrder" as valid
+    // Mailbox comparator properties. Reject unknown properties with unsupportedSort
+    // (RFC 8620 §5.5). Each entry is (property, is_ascending).
+    let sort_comparators: Vec<(String, bool)> = match args.get("sort") {
+        None | Some(Value::Null) => vec![],
+        Some(Value::Array(arr)) => {
+            let mut comps = Vec::with_capacity(arr.len());
+            for comp in arr {
+                let prop = comp
+                    .get("property")
+                    .and_then(|v| v.as_str())
+                    .ok_or_else(|| {
+                        JmapError::invalid_arguments("sort comparator missing 'property'")
+                    })?;
+                match prop {
+                    "name" | "sortOrder" => {}
+                    _ => return Err(JmapError::unsupported_sort()),
+                }
+                let asc = comp
+                    .get("isAscending")
+                    .and_then(|v| v.as_bool())
+                    .unwrap_or(true);
+                comps.push((prop.to_owned(), asc));
+            }
+            comps
         }
-    }
+        _ => {
+            return Err(JmapError::invalid_arguments(
+                "sort must be an array or null",
+            ))
+        }
+    };
 
     // RFC 8621 §2.3: sortAsTree and filterAsTree change result semantics.
     // This implementation does not support tree-mode traversal; reject rather
@@ -201,6 +225,14 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         }
     }
 
+    // Extract parentId from raw filter JSON to preserve three-way semantics
+    // (absent / null / string). Serde cannot distinguish absent from null for
+    // Option<T>, so we extract before consuming the filter value.
+    let filter_parent_id: Option<Value> = args
+        .get("filter")
+        .and_then(|v| v.as_object())
+        .and_then(|obj| obj.get("parentId").cloned());
+
     // Parse filter into MailboxFilterCondition so the struct fields drive the
     // in-process filter directly, eliminating a duplicate field list.
     let filter: Option<MailboxFilterCondition> = match args.remove("filter") {
@@ -215,12 +247,11 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     // avoid calling to_wire_str on every mailbox for every iteration.
     let filter_role_wire: Option<&str> = filter.as_ref().and_then(|f| f.role.as_deref());
 
-    let mut matching: Vec<Id> = all_mailboxes
+    let mut matching: Vec<Mailbox> = all_mailboxes
         .into_iter()
         .filter(|m| {
-            let Some(ref f) = filter else { return true };
             // parentId: three-way — absent = no filter; null = top-level only; string = specific parent.
-            if let Some(ref pv) = f.parent_id {
+            if let Some(ref pv) = filter_parent_id {
                 match pv {
                     Value::Null => {
                         if m.parent_id.is_some() {
@@ -235,6 +266,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
                     _ => {}
                 }
             }
+            let Some(ref f) = filter else { return true };
             if let Some(ref name_substr) = f.name {
                 if !m.name.contains(name_substr.as_str()) {
                     return false;
@@ -262,11 +294,29 @@ pub async fn handle_mailbox_query<B: MailBackend>(
             }
             true
         })
-        .map(|m| m.id.clone())
         .collect();
 
-    // Sort deterministically by id string for stable pagination.
-    matching.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+    // Sort by client comparators, falling back to id for stable pagination.
+    matching.sort_by(|a, b| {
+        let mut ord = std::cmp::Ordering::Equal;
+        for (prop, asc) in &sort_comparators {
+            if ord != std::cmp::Ordering::Equal {
+                break;
+            }
+            let cmp = match prop.as_str() {
+                "name" => a.name.cmp(&b.name),
+                "sortOrder" => a.sort_order.cmp(&b.sort_order),
+                _ => std::cmp::Ordering::Equal,
+            };
+            ord = if *asc { cmp } else { cmp.reverse() };
+        }
+        if ord == std::cmp::Ordering::Equal {
+            a.id.as_ref().cmp(b.id.as_ref())
+        } else {
+            ord
+        }
+    });
+    let matching: Vec<Id> = matching.into_iter().map(|m| m.id).collect();
 
     let total = matching.len() as u64;
 
