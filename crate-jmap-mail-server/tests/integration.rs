@@ -10365,3 +10365,82 @@ async fn email_set_create_size_is_nonzero() {
         "Email/set create must return size > 0 (backend must not fossilize placeholder 0); got size={size}"
     );
 }
+
+/// Oracle: RFC 8620 §5.3 — destroys apply sequentially within one request.
+/// Destroying [child, parent] in a single Mailbox/set call must succeed for
+/// both: after the child is destroyed, the parent is no longer "has child".
+///
+/// JMAP-1vdc.21 regression guard.
+#[tokio::test]
+async fn mailbox_set_destroy_child_then_parent_in_one_request() {
+    use jmap_mail_types::MailboxRights;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+
+    // Create parent.
+    let parent_mbox = jmap_mail_types::Mailbox::new(
+        Id::from("placeholder"),
+        "Parent".to_owned(),
+        0,
+        0,
+        0,
+        0,
+        0,
+        MailboxRights::default(),
+        false,
+    );
+    let (parent_id, _) = backend
+        .create_object::<jmap_mail_types::Mailbox>(&account_id, "p0", parent_mbox)
+        .await
+        .expect("create parent");
+
+    // Create child under parent.
+    let create_child = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "name": "Child",
+                "parentId": parent_id.as_ref(),
+            }
+        },
+    });
+    let (child_resp, _) = handle_mailbox_set(&backend, create_child)
+        .await
+        .expect("create child must not error");
+    let child_id_str = child_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("child id must be a string")
+        .to_owned();
+
+    // Destroy [child, parent] in a single request.
+    // RFC 8620 §5.3: destroys are applied sequentially; after the child is
+    // removed from the snapshot, the parent no longer has a child.
+    let destroy_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "destroy": [child_id_str.as_str(), parent_id.as_ref()],
+    });
+    let (resp, _) = handle_mailbox_set(&backend, destroy_args)
+        .await
+        .expect("Mailbox/set destroy must not return JmapError");
+
+    let destroyed = resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be an array");
+    assert!(
+        destroyed
+            .iter()
+            .any(|v| v.as_str() == Some(child_id_str.as_str())),
+        "child must be in destroyed; resp={resp:?}"
+    );
+    assert!(
+        destroyed
+            .iter()
+            .any(|v| v.as_str() == Some(parent_id.as_ref())),
+        "parent must be in destroyed (snapshot updated after child destroy); resp={resp:?}"
+    );
+    assert!(
+        resp["notDestroyed"].is_null(),
+        "notDestroyed must be null when both succeed; resp={resp:?}"
+    );
+}

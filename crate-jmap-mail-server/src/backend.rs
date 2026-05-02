@@ -43,6 +43,31 @@ pub trait MailBackend: JmapBackend {
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
     ///
+    /// # Sentinel fields the backend MUST replace
+    ///
+    /// The method handlers in this crate pass partially-constructed objects
+    /// with sentinel values that the backend MUST replace with real values
+    /// before storing:
+    ///
+    /// - **`id`**: The `id` field in the input object is always set to
+    ///   `"placeholder"`. The backend MUST replace it with a real, unique,
+    ///   account-scoped ID and return that ID as the first element of the
+    ///   result tuple.
+    ///
+    /// - **`blob_id`** (Email only): The `blob_id` field is set to
+    ///   `"placeholder-blob"`. The backend MUST replace it with the real
+    ///   blob ID that corresponds to the stored message bytes. For backends
+    ///   that do not store raw bytes on the `Email/set` create path (e.g.,
+    ///   `MemoryBackend`), any stable unique ID derived from the stored object
+    ///   is acceptable.
+    ///
+    /// - **`size`** (Email only): Set to `0`. The backend MUST update this
+    ///   to the actual byte size of the stored blob (or the serialized object
+    ///   size as a proxy) before returning.
+    ///
+    /// Failing to replace these sentinels will cause the client to receive
+    /// invalid wire values (`"placeholder"` / `"placeholder-blob"` / `0`).
+    ///
     /// # Singleton types
     ///
     /// For types where only one instance may exist per account (e.g.,

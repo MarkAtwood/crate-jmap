@@ -209,6 +209,38 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                     mutated = true;
                                 }
                                 Err(BackendSetError::SetError(e)) => {
+                                    // update_object failed after create_object succeeded.
+                                    // Roll back the create so the backend is not left with
+                                    // a default-state singleton that the client never asked
+                                    // for (compensating transaction). Without this, the next
+                                    // request would attempt to update a singleton whose state
+                                    // is inconsistent with what the client expects.
+                                    //
+                                    // Production backends should perform the create+update
+                                    // atomically (e.g. in a transaction) to avoid the window
+                                    // between these two calls entirely.
+                                    match backend
+                                        .destroy_object::<VacationResponse>(
+                                            &account_id,
+                                            &singleton_id,
+                                        )
+                                        .await
+                                    {
+                                        Ok(()) => {}
+                                        Err(rollback_err) => {
+                                            // Rollback failed: the backend now holds an
+                                            // orphaned default singleton. Log a warning so
+                                            // operators can detect and repair the state.
+                                            // This is acceptable for a test/reference backend
+                                            // but production backends should use atomic writes.
+                                            eprintln!(
+                                                "WARN: VacationResponse upsert rollback failed \
+                                                 (orphaned singleton in account {:?}): {:?}",
+                                                account_id.as_ref(),
+                                                rollback_err,
+                                            );
+                                        }
+                                    }
                                     not_updated.insert(id.clone(), set_error_value(&e));
                                 }
                                 Err(BackendSetError::Other(e)) => {

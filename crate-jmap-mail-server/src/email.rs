@@ -659,9 +659,28 @@ pub async fn handle_email_query<B: MailBackend>(
     // Without either, delegate limit/position directly to the backend.
     let (ids, total, query_state, can_calculate_changes, reported_position) =
         if collapse_threads || anchor.is_some() {
+            // Fast path: limit=0 and no total needed — skip the expensive full
+            // fetch; a single zero-limit query gives queryState and canCalculateChanges.
+            if limit == 0 && !calculate_total {
+                let empty = backend
+                    .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, Some(0), 0)
+                    .await
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                return Ok((
+                    serde_json::json!({
+                        "accountId": account_id.as_ref(),
+                        "queryState": empty.query_state.as_ref(),
+                        "canCalculateChanges": empty.can_calculate_changes,
+                        "position": 0i64,
+                        "ids": [],
+                    }),
+                    vec![],
+                ));
+            }
+
             // Fetch cap+1 to detect whether the backend had more results than
             // the cap.  If more than cap items come back the result was
-            // truncated; truncate to cap and report total=None (unknown).
+            // truncated; truncate to cap and report total as an approximation.
             let all = backend
                 .query_objects::<Email>(
                     &account_id,
@@ -694,11 +713,12 @@ pub async fn handle_email_query<B: MailBackend>(
                 ids_for_collapse
             };
 
-            // Total is only honest when the fetch was not capped.
+            // When not capped, total is exact. When capped, use the cap as an
+            // approximate lower bound (the true count is ≥ COLLAPSE_THREADS_MAX_EMAILS).
             let total: Option<u64> = if !was_capped {
                 Some(all_ids.len() as u64)
             } else {
-                None
+                Some(COLLAPSE_THREADS_MAX_EMAILS)
             };
 
             // Resolve start position: anchor overrides position.
@@ -1345,6 +1365,17 @@ async fn build_email_from_create<B: MailBackend>(
     account_id: &Id,
     backend: &B,
 ) -> Result<Email, String> {
+    // NOTE: The following fields are validated (body structure / envelope
+    // rules are checked) but are NOT yet stored in the returned Email object:
+    //   Envelope: from, to, cc, bcc, sender, replyTo, messageId
+    //   Body:     textBody, htmlBody, attachments, bodyStructure, bodyValues
+    // Wiring these fields into the stored Email requires jmap-mime integration
+    // (tracked in JMAP-wgbh). Until then, clients that read back a created
+    // Email will not see these fields even if they were supplied on create.
+    //
+    // Sentinel values: id="placeholder" and blob_id="placeholder-blob" are
+    // set below. The backend MUST replace them — see MailBackend::create_object.
+
     // mailboxIds: required (already validated non-empty by caller).
     // RFC 8621 §5.5.3: values MUST be true; false means absent — filter out false entries,
     // same as keywords, so the stored object never has false mailboxId entries.
