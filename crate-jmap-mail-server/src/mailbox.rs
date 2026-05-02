@@ -179,9 +179,11 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         }
     };
 
-    // RFC 8621 §2.3: sortAsTree and filterAsTree change result semantics.
-    // This implementation does not support tree-mode traversal; reject rather
-    // than returning silently wrong results.
+    // sortAsTree=true changes result ordering semantics (RFC 8621 §2.3):
+    // children must immediately follow their parent in the result list.
+    // Reject explicitly rather than silently ignoring — silently returning flat
+    // results would produce semantically wrong data for clients relying on
+    // tree-mode ordering.
     if args
         .get("sortAsTree")
         .and_then(|v| v.as_bool())
@@ -189,6 +191,11 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     {
         return Err(JmapError::unsupported_sort());
     }
+    // filterAsTree=true changes child-mailbox inclusion semantics (RFC 8621 §2.3):
+    // a mailbox passes the filter only if it or one of its ancestors matches.
+    // Reject explicitly rather than silently ignoring — filterAsTree affects which
+    // mailboxes appear in the result, so silently returning flat results would
+    // produce semantically wrong data for clients relying on tree-mode semantics.
     if args
         .get("filterAsTree")
         .and_then(|v| v.as_bool())
@@ -674,15 +681,26 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     ];
 
     if let Some(Value::Object(updates)) = args.remove("update") {
-        // Two-pass update loop.
+        // Two-pass update loop — do NOT collapse into a single pass.
+        //
+        // Two invariants govern the role-swap logic across the whole update loop:
+        //
+        //   roles_successfully_vacated — roles freed by pass-1 updates that
+        //     actually succeeded. Only a successful vacate releases the role;
+        //     a backend error on the vacate keeps the role occupied so that
+        //     any same-request claim against it is correctly rejected.
+        //
+        //   roles_claimed_this_request — roles claimed by pass-2 updates so
+        //     far, preventing two non-vacating updates in the same request
+        //     from both claiming the same role.
         //
         // Pass 1 runs every patch that sets role: null (vacating a role).
         // Pass 2 runs everything else (including role-claiming patches).
         //
-        // This means a same-request swap — A vacates "inbox", B claims
-        // "inbox" — always succeeds regardless of map iteration order, while
-        // a failed vacate (BackendSetError::Other) does NOT release the role,
-        // so B's claim is correctly rejected.
+        // Two-pass: vacating patches (role: null) run first so that a single
+        // request can atomically swap roles — e.g. A vacates inbox, B claims
+        // inbox. Without the two passes, HashMap iteration order is undefined
+        // so either pass could run first and reject the claim. RFC 8621 §2.5.
         let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates.into_iter().partition(|(_, v)| {
             v.as_object()
                 .and_then(|o| o.get("role"))
@@ -849,11 +867,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             )));
         }
 
-        // Second fetch: re-read mailboxes after creates and updates so that any
-        // newly-created or reparented child mailboxes are visible to the
-        // parent-check below. The pre-mutation snapshot (all_mailboxes) cannot be
-        // used here because a create in this same request could make a child of
-        // the mailbox being destroyed.
+        // Re-fetch mailboxes after create/update: RFC 8620 §5.3 requires
+        // create/update/destroy to operate in sequence, so a mailbox created
+        // earlier in this request could be a child of the mailbox being
+        // destroyed. Using the pre-mutation snapshot (all_mailboxes) would miss
+        // that child.
         let (mut mailboxes_after_mutations, _) = backend
             .get_objects::<Mailbox>(&account_id, None, None)
             .await
