@@ -1718,12 +1718,12 @@ pub async fn handle_email_import<B: MailBackend>(
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
 
-    for (import_id, entry) in &emails {
+    for (import_id, entry) in emails {
         let blob_id: Id = match entry.get("blobId").and_then(|v| v.as_str()) {
             Some(s) => Id::from(s),
             None => {
                 not_created.insert(
-                    import_id.clone(),
+                    import_id,
                     json!({"type": "invalidProperties", "properties": ["blobId"]}),
                 );
                 continue;
@@ -1739,7 +1739,7 @@ pub async fn handle_email_import<B: MailBackend>(
                 .collect(),
             None => {
                 not_created.insert(
-                    import_id.clone(),
+                    import_id,
                     json!({"type": "invalidProperties", "properties": ["mailboxIds"]}),
                 );
                 continue;
@@ -1747,7 +1747,7 @@ pub async fn handle_email_import<B: MailBackend>(
         };
         if mailbox_ids.is_empty() {
             not_created.insert(
-                import_id.clone(),
+                import_id,
                 json!({"type": "invalidProperties", "properties": ["mailboxIds"],
                        "description": "at least one mailboxId is required (RFC 8621 §5.7)"}),
             );
@@ -1762,7 +1762,7 @@ pub async fn handle_email_import<B: MailBackend>(
                 Ok(kws) => kws,
                 Err(_) => {
                     not_created.insert(
-                        import_id.clone(),
+                        import_id,
                         json!({"type": "invalidProperties", "properties": ["keywords"]}),
                     );
                     continue;
@@ -1773,7 +1773,7 @@ pub async fn handle_email_import<B: MailBackend>(
             Ok(kws) => kws,
             Err(desc) => {
                 not_created.insert(
-                    import_id.clone(),
+                    import_id,
                     json!({"type": "invalidProperties", "properties": ["keywords"],
                            "description": desc}),
                 );
@@ -1805,14 +1805,14 @@ pub async fn handle_email_import<B: MailBackend>(
                     "threadId": email.thread_id.as_ref(),
                     "size": email.size,
                 });
-                created.insert(import_id.clone(), obj);
+                created.insert(import_id, obj);
             }
             Err(BackendSetError::SetError(set_err)) => {
-                not_created.insert(import_id.clone(), set_error_value(&set_err));
+                not_created.insert(import_id, set_error_value(&set_err));
             }
             Err(BackendSetError::Other(e)) => {
                 not_created.insert(
-                    import_id.clone(),
+                    import_id,
                     json!({ "type": "serverFail", "description": e.to_string() }),
                 );
             }
@@ -2034,9 +2034,9 @@ pub async fn handle_email_copy<B: MailBackend>(
         ));
     }
 
-    let create = match args.get("create").and_then(|v| v.as_object()) {
-        Some(m) => m.clone(),
-        None => return Err(JmapError::invalid_arguments("create is required")),
+    let create = match args.remove("create") {
+        Some(Value::Object(m)) => m,
+        _ => return Err(JmapError::invalid_arguments("create is required")),
     };
 
     let on_success_destroy_original: bool = args
@@ -2071,12 +2071,12 @@ pub async fn handle_email_copy<B: MailBackend>(
     let mut not_created = serde_json::Map::new();
     let mut copied_source_ids: Vec<(String, Id)> = Vec::new(); // (copy_id, source_id)
 
-    for (copy_id, entry) in &create {
+    for (copy_id, entry) in create {
         let source_id: Id = match entry.get("id").and_then(|v| v.as_str()) {
             Some(s) => Id::from(s),
             None => {
                 not_created.insert(
-                    copy_id.clone(),
+                    copy_id,
                     json!({"type": "invalidProperties", "properties": ["id"]}),
                 );
                 continue;
@@ -2092,7 +2092,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                 .collect(),
             None => {
                 not_created.insert(
-                    copy_id.clone(),
+                    copy_id,
                     json!({"type": "invalidProperties", "properties": ["mailboxIds"]}),
                 );
                 continue;
@@ -2100,7 +2100,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         };
         if mailbox_ids.is_empty() {
             not_created.insert(
-                copy_id.clone(),
+                copy_id,
                 json!({"type": "invalidProperties", "properties": ["mailboxIds"],
                        "description": "at least one mailboxId is required (RFC 8621 §6.1)"}),
             );
@@ -2115,7 +2115,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                 Ok(kws) => kws,
                 Err(_) => {
                     not_created.insert(
-                        copy_id.clone(),
+                        copy_id,
                         json!({"type": "invalidProperties", "properties": ["keywords"]}),
                     );
                     continue;
@@ -2126,7 +2126,7 @@ pub async fn handle_email_copy<B: MailBackend>(
             Ok(kws) => kws,
             Err(desc) => {
                 not_created.insert(
-                    copy_id.clone(),
+                    copy_id,
                     json!({"type": "invalidProperties", "properties": ["keywords"],
                            "description": desc}),
                 );
@@ -2161,14 +2161,14 @@ pub async fn handle_email_copy<B: MailBackend>(
                     "size": new_email.size,
                 });
                 created.insert(copy_id.clone(), obj);
-                copied_source_ids.push((copy_id.clone(), source_id));
+                copied_source_ids.push((copy_id, source_id));
             }
             Err(BackendSetError::SetError(set_err)) => {
-                not_created.insert(copy_id.clone(), set_error_value(&set_err));
+                not_created.insert(copy_id, set_error_value(&set_err));
             }
             Err(BackendSetError::Other(e)) => {
                 not_created.insert(
-                    copy_id.clone(),
+                    copy_id,
                     json!({ "type": "serverFail", "description": e.to_string() }),
                 );
             }
