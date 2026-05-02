@@ -5775,3 +5775,24 @@ async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
         emails[0].keywords
     );
 }
+
+/// Oracle: Mailbox/set with a non-string element in `destroy` returns
+/// `invalidArguments` for the whole method call (RFC 8620 §5.3).
+#[tokio::test]
+async fn mailbox_set_destroy_non_string_returns_invalid_arguments() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "destroy": [42],
+    });
+    let result = handle_mailbox_set(&backend, args).await;
+    assert!(
+        result.is_err(),
+        "non-string destroy element must return an error; got Ok"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type, "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
+    );
+}
