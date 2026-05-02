@@ -36,7 +36,7 @@ pub struct SeedData {
 
 /// Pre-computed UTC timestamps.  The baseline is 2026-01-01T00:00:00Z.
 /// `days_ago(n)` = baseline minus exactly n × 86400 seconds.
-/// `hours_ago_from_days_ago_1` = days_ago(1) minus 1 hour.
+/// `DAYS_AGO_1_MINUS_1H` = days_ago(1) minus 1 hour.
 mod ts {
     pub const DAYS_AGO_30: &str = "2025-12-02T00:00:00Z";
     pub const DAYS_AGO_10: &str = "2025-12-22T00:00:00Z";
@@ -712,8 +712,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 14: sort-test-1
-    // Folder B, $seen, Subject "Alpha sort test", small body (100 bytes) —
-    // smallest of three sort-test emails; supports subject/size sort tests.
+    // Folder B, $seen, Subject "Alpha sort test", 100-byte body —
+    // mid-range size of the three sort-test emails; supports subject/size sort tests.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -776,8 +776,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 16: sort-test-3
-    // Folder B, unread, Subject "Gamma sort test", tiny body (50 bytes) —
-    // smallest body in Folder B; completes the triple for multi-key sort tests.
+    // Folder B, unread, Subject "Gamma sort test", 50-byte body —
+    // smallest of the three sort-test emails; completes the triple for multi-key sort tests.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
