@@ -495,14 +495,14 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     // Pre-compute roles that will be vacated by updates in this request.
     //
     // The create loop runs before the update loop (RFC 8620 §5.3 ordering), so
-    // `roles_actually_vacated` is not yet populated when create role-uniqueness
+    // `roles_successfully_vacated` is not yet populated when create role-uniqueness
     // is checked. To allow a single request that clears a role via update and
     // then assigns it via create, we scan the update patches up-front and build
     // the set of role strings that are being set to null.  We only include a
     // role if the patch actually targets an existing mailbox that currently
     // holds that role.
     // -----------------------------------------------------------------------
-    let roles_vacated_by_updates: std::collections::HashSet<String> = {
+    let roles_intended_to_vacate: std::collections::HashSet<String> = {
         let mut vacated = std::collections::HashSet::new();
         if let Some(Value::Object(updates)) = args.get("update") {
             for (id_str, patch) in updates {
@@ -551,7 +551,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if let Some(role_str) = role_val.as_str() {
                     // Exclude roles that are being vacated by an update in this
                     // same request (pre-computed above).
-                    let role_taken = !roles_vacated_by_updates.contains(role_str)
+                    let role_taken = !roles_intended_to_vacate.contains(role_str)
                         && all_mailboxes
                             .iter()
                             .any(|m| m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str));
@@ -654,7 +654,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     // Roles freed by successful vacating updates (pass 1).  Built only from
     // updates that actually succeeded, so a failed vacate does NOT release
     // the role and a same-request claim against it is correctly rejected.
-    let mut roles_actually_vacated: std::collections::HashSet<String> =
+    let mut roles_successfully_vacated: std::collections::HashSet<String> =
         std::collections::HashSet::new();
 
     // Server-set fields that may not appear in a Mailbox/set update patch.
@@ -735,7 +735,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .unwrap_or(Value::Null);
                     updated.insert(id_str, entry);
                     if let Some(role) = current_role {
-                        roles_actually_vacated.insert(role);
+                        roles_successfully_vacated.insert(role);
                     }
                 }
                 Err(BackendSetError::SetError(se)) => {
@@ -780,7 +780,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     if let Some(role_str) = role_val.as_str() {
                         let role_taken = all_mailboxes.iter().any(|m| {
                             m.id != id
-                                && !roles_actually_vacated.contains(role_str)
+                                && !roles_successfully_vacated.contains(role_str)
                                 && m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str)
                         });
                         let role_just_claimed = roles_claimed_this_request.contains(role_str);

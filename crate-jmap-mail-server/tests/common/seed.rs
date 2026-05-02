@@ -284,6 +284,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 1: plain-simple
+    // Plain text, $seen, Inbox — baseline for Email/get and basic Email/query.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -314,6 +315,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 2: html-attachment
+    // HTML + PDF attachment, $seen + $flagged, Cc header — exercises hasAttachment,
+    // $flagged queries, and Cc address filtering.
     // -----------------------------------------------------------------------
 
     let pdf_b64 =
@@ -349,6 +352,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 3: thread-starter
+    // First of a 3-email thread (thread-alpha), $seen, Folder A — exercises
+    // Thread/get, collapseThreads, and per-thread emailId ordering.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -378,6 +383,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 4: thread-reply-1
+    // Second of thread-alpha, unread (no $seen), Inbox — exercises unread
+    // count tracking and thread ordering (must sort after thread-starter).
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -407,6 +414,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 5: thread-reply-2
+    // Third of thread-alpha, $answered, Inbox — exercises $answered filter
+    // and correct chronological ordering as newest member of thread-alpha.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -439,6 +448,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 6: multi-mailbox
+    // Filed in Inbox AND Folder A, $seen — exercises inMailbox, inMailboxOtherThan,
+    // and mailboxIds multi-value serialization.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -469,6 +480,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 7: large-email
+    // >10 KB body, unread, Folder B — exercises minSize/maxSize filter and
+    // provides a distinct large-size value for size-based ordering tests.
     // -----------------------------------------------------------------------
 
     let large_body = {
@@ -504,6 +517,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 8: html-only
+    // multipart/alternative (text + HTML), $seen, Inbox — exercises text_body
+    // / html_body MIME parsing and body-part get in Email/get.
     // -----------------------------------------------------------------------
 
     let bytes = multipart_alternative(
@@ -535,6 +550,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 9: no-subject
+    // Empty Subject header, $seen, Inbox — exercises subject=null handling
+    // and subject-sort ordering (empty/null subjects sort before non-empty).
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -565,6 +582,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 10: custom-keywords
+    // $seen + $forwarded + custom_label, Inbox — exercises hasKeyword/notKeyword
+    // with both standard ($forwarded) and user-defined (custom_label) keywords.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -595,6 +614,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 11: very-old
+    // Received 30 days before baseline (ts::DAYS_AGO_30), $seen, Folder A —
+    // exercises before/after date filters and receivedAt sort ordering.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -625,6 +646,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 12: special-headers
+    // Has List-Post and X-Custom-Header, $seen, Inbox — exercises
+    // header:name and header:name:all property fetching in Email/get.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -657,6 +680,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 13: child-mailbox-email
+    // Filed in child1 (a child of Folder A), $seen — exercises inMailbox filter
+    // on nested mailboxes and totalEmails counts on parent vs. child.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -687,6 +712,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 14: sort-test-1
+    // Folder B, $seen, Subject "Alpha sort test", small body (100 bytes) —
+    // smallest of three sort-test emails; supports subject/size sort tests.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -717,6 +744,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 15: sort-test-2
+    // Folder B, $seen + $flagged, Subject "Beta sort test", medium body (500 bytes) —
+    // exercises $flagged filter and medium-size value in sort/filter tests.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(
@@ -747,6 +776,8 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
 
     // -----------------------------------------------------------------------
     // Email 16: sort-test-3
+    // Folder B, unread, Subject "Gamma sort test", tiny body (50 bytes) —
+    // smallest body in Folder B; completes the triple for multi-key sort tests.
     // -----------------------------------------------------------------------
 
     let bytes = plain_message(

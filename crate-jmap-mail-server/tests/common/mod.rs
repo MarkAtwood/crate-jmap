@@ -112,6 +112,11 @@ impl Inner {
             None => return,
         };
 
+        // Nothing to sort for zero or one email.
+        if email_ids.len() <= 1 {
+            return;
+        }
+
         // Look up receivedAt for each email id from the Email store.
         let mut id_and_date: Vec<(String, i64)> = email_ids
             .into_iter()
@@ -1795,7 +1800,9 @@ impl FaultyBackend {
         self.failures.lock().unwrap().insert((type_name, op));
     }
 
-    fn check(&self, type_name: &'static str, op: &'static str) -> bool {
+    /// Remove and return a previously-injected fault (fire-once).
+    /// Returns `true` if the fault was present (and is now consumed).
+    fn take_fault(&self, type_name: &'static str, op: &'static str) -> bool {
         self.failures.lock().unwrap().remove(&(type_name, op))
     }
 }
@@ -1880,7 +1887,7 @@ impl MailBackend for FaultyBackend {
         create_id: &str,
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        if self.check(O::TYPE_NAME, "create") {
+        if self.take_fault(O::TYPE_NAME, "create") {
             return Err(BackendSetError::Other(MemoryError(
                 "injected create error".to_owned(),
             )));
@@ -1896,7 +1903,7 @@ impl MailBackend for FaultyBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-        if self.check(O::TYPE_NAME, "update") {
+        if self.take_fault(O::TYPE_NAME, "update") {
             return Err(BackendSetError::Other(MemoryError(
                 "injected update error".to_owned(),
             )));
@@ -1909,7 +1916,7 @@ impl MailBackend for FaultyBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
-        if self.check(O::TYPE_NAME, "destroy") {
+        if self.take_fault(O::TYPE_NAME, "destroy") {
             return Err(BackendSetError::Other(MemoryError(
                 "injected destroy error".to_owned(),
             )));
@@ -1925,7 +1932,7 @@ impl MailBackend for FaultyBackend {
         keywords: &[jmap_mail_types::Keyword],
         received_at: Option<&jmap_types::UTCDate>,
     ) -> Result<(Id, jmap_mail_types::Email), BackendSetError<Self::Error>> {
-        if self.check("Email", "import") {
+        if self.take_fault("Email", "import") {
             return Err(BackendSetError::Other(MemoryError(
                 "injected import error".to_owned(),
             )));
@@ -2021,18 +2028,17 @@ fn email_matches_condition(
     if cond.in_mailbox_other_than.is_some() {
         // Email must be in at least one mailbox NOT in the exclusion list.
         // Use the pre-built set when available; build on demand otherwise.
-        let owned: Option<std::collections::HashSet<&Id>>;
+        let on_demand: std::collections::HashSet<&Id>;
         let set: &std::collections::HashSet<&Id> = match excluded_set {
             Some(s) => s,
             None => {
-                owned = Some(
-                    cond.in_mailbox_other_than
-                        .as_ref()
-                        .unwrap()
-                        .iter()
-                        .collect(),
-                );
-                owned.as_ref().unwrap()
+                on_demand = cond
+                    .in_mailbox_other_than
+                    .as_ref()
+                    .unwrap()
+                    .iter()
+                    .collect();
+                &on_demand
             }
         };
         let in_other = email.mailbox_ids.keys().any(|id| !set.contains(id));
