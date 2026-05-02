@@ -202,37 +202,4 @@ where
     });
 }
 
-// ---------------------------------------------------------------------------
-// Internal handler wrapper — not part of the public API
-// ---------------------------------------------------------------------------
-
-/// Type alias for the closure stored inside [`ClosureHandler`].
-type CallFn<B> = dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture + Send + Sync + 'static;
-
-/// Generic wrapper that implements [`JmapHandler`] for any closure.
-///
-/// **Caller context limitation**: the `caller: C` value received in
-/// [`JmapHandler::call`] is not forwarded to the handler closure. The closure
-/// signature `(Arc<B>, String, serde_json::Value) -> HandlerFuture` has no slot
-/// for it. If you need per-request auth or tenant context derived from `C`,
-/// implement [`JmapHandler`] directly on your own type instead of using
-/// [`register_mail_handlers`].
-struct ClosureHandler<B: MailBackend + 'static> {
-    backend: Arc<B>,
-    call_fn: Box<CallFn<B>>,
-}
-
-impl<B: MailBackend + 'static, C: Clone + Send + 'static> JmapHandler<C> for ClosureHandler<B> {
-    fn call(
-        &self,
-        _method: String,
-        call_id: String,
-        args: serde_json::Value,
-        // The caller context C is received here but cannot be forwarded to
-        // the closure (the closure type has no C slot). See the ClosureHandler
-        // doc comment for guidance on using C for per-request auth.
-        _caller: C,
-    ) -> HandlerFuture {
-        (self.call_fn)(Arc::clone(&self.backend), call_id, args)
-    }
-}
+pub use jmap_server::ClosureHandler;
