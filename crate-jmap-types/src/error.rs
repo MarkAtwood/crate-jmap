@@ -383,6 +383,18 @@ impl JmapError {
         }
     }
 
+    /// RFC 8620 §3.6.1 — "unknownCapability" with the failing URI in the description.
+    ///
+    /// Use this in preference to [`unknown_capability()`][Self::unknown_capability] when the URI is known.
+    pub fn unknown_capability_with_detail(uri: impl Into<String>) -> Self {
+        Self {
+            error_type: "unknownCapability".into(),
+            description: Some(uri.into()),
+            existing_id: None,
+            limit: None,
+        }
+    }
+
     /// Create a `JmapError` with a custom or extension error type string.
     ///
     /// Use this when propagating a server error whose `type` value is not one of
@@ -671,6 +683,14 @@ mod tests {
         let json = serde_json::to_string(&e).unwrap();
         assert!(json.contains("\"unknownCapability\""));
         assert!(!json.contains("\"description\""));
+    }
+
+    // Oracle: RFC 8620 §3.6.1 — unknownCapability with detail includes the URI.
+    #[test]
+    fn unknown_capability_with_detail_includes_uri() {
+        let e = JmapError::unknown_capability_with_detail("urn:example:unknown");
+        assert_eq!(e.error_type, "unknownCapability");
+        assert_eq!(e.description.as_deref(), Some("urn:example:unknown"));
     }
 
     #[test]

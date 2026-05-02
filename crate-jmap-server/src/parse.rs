@@ -54,13 +54,30 @@ pub fn parse_request(body: Value, max_calls: usize) -> Result<JmapRequest, JmapE
 ///
 /// # Errors
 ///
-/// Returns [`JmapError::unknown_capability()`] for the first URI in
+/// Returns [`JmapError::unknown_capability_with_detail`] for the first URI in
 /// `req.using` that is not present in `known`.  If all URIs are known,
 /// returns `Ok(())`.
-pub fn check_known_capabilities(req: &JmapRequest, known: &[&str]) -> Result<(), JmapError> {
+///
+/// # Example
+///
+/// ```rust
+/// # use jmap_server::check_known_capabilities;
+/// # use jmap_types::JmapRequest;
+/// let req = JmapRequest::new(
+///     vec!["urn:ietf:params:jmap:core".into()],
+///     vec![],
+///     None,
+/// );
+/// let known = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
+/// check_known_capabilities(&req, known).expect("all known");
+/// ```
+pub fn check_known_capabilities<S: AsRef<str>>(
+    req: &JmapRequest,
+    known: &[S],
+) -> Result<(), JmapError> {
     for uri in &req.using {
-        if !known.contains(&uri.as_str()) {
-            return Err(JmapError::unknown_capability());
+        if !known.iter().any(|k| k.as_ref() == uri.as_str()) {
+            return Err(JmapError::unknown_capability_with_detail(uri));
         }
     }
     Ok(())
@@ -641,6 +658,11 @@ mod tests {
             err.error_type, "unknownCapability",
             "unrecognised URI must produce unknownCapability per RFC 8620 §3.3"
         );
+        assert_eq!(
+            err.description.as_deref(),
+            Some("urn:example:unknown"),
+            "unknownCapability error must name the unrecognised URI in description"
+        );
     }
 
     // Oracle: RFC 8620 §3.3 — all known URIs accepted.
@@ -655,16 +677,15 @@ mod tests {
             None,
         );
         let known = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
-        check_known_capabilities(&req, known)
-            .expect("all URIs are in known — must return Ok");
+        check_known_capabilities(&req, known).expect("all URIs are in known — must return Ok");
     }
 
     // Oracle: boundary — empty using[] with any known set returns Ok.
     #[test]
     fn check_known_capabilities_empty_using_is_ok() {
         let req = JmapRequest::new(vec![], vec![], None);
-        let known: &[&str] = &[];
+        let known = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
         check_known_capabilities(&req, known)
-            .expect("empty using with empty known must return Ok");
+            .expect("empty using[] must return Ok even when known is non-empty");
     }
 }
