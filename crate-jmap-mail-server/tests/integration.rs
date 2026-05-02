@@ -7584,8 +7584,8 @@ async fn conformance_mailbox_query_filter_role() {
 
     // SEED CONTRACT: seed data has no mailbox with role="trash".
     // If setup_seed_data ever adds a Trash mailbox, update this assertion
-    // to assert `ids` does not contain the inbox ID (verifying role filtering
-    // is specific), rather than asserting empty.
+    // to assert ids contains exactly the Trash mailbox ID — not merely that
+    // it excludes the inbox (which would pass even if role filtering were broken).
     let args_no_match = serde_json::json!({
         "accountId": "acct1",
         "filter": { "role": "trash" },

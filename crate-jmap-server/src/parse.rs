@@ -69,7 +69,7 @@ pub fn parse_request(body: Value, max_calls: usize) -> Result<JmapRequest, JmapE
 ///     None,
 /// );
 /// let known = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
-/// check_known_capabilities(&req, known).expect("all known");
+/// check_known_capabilities(&req, known).expect("all URIs in known — Ok(()) expected (doctest)");
 /// ```
 pub fn check_known_capabilities<S: AsRef<str>>(
     req: &JmapRequest,
