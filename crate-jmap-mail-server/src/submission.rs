@@ -650,8 +650,8 @@ pub async fn handle_submission_set<B: MailBackend>(
 // ---------------------------------------------------------------------------
 
 /// Validate that an email address string contains no CR or LF characters.
-fn check_no_crlf(email: &str) -> bool {
-    !email.contains('\r') && !email.contains('\n')
+pub(crate) fn check_no_crlf(s: &str) -> bool {
+    !s.contains('\r') && !s.contains('\n')
 }
 
 /// Typed error for [`process_create`] — avoids `Result<Value, Value>`.
