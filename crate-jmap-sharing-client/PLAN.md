@@ -1,40 +1,258 @@
 # jmap-sharing-client — Implementation Plan
 
-JMAP Sharing method implementations on top of `jmap-base-client`.
-
-## Spec
-
-- `~/PROJECT/jmap-chat-spec/references/rfc9670.txt` — normative
+RFC 9670 (JMAP Sharing) method implementations on top of `jmap-base-client`.
 
 ## Crate Family Position
 
 ```
 jmap-types
+    ├── jmap-sharing-types
+    │       └── (types used here)
     └── jmap-base-client
             └── jmap-sharing-client  ← this crate
 ```
 
 ## What This Crate Is
 
-Extension trait `JmapSharingExt` over `jmap_base_client::JmapClient` that adds typed
-methods for `Principal/*` and `ShareNotification/*`.
+An extension layer over `jmap-base-client` that adds typed methods for every
+RFC 9670 operation: `Principal/get`, `Principal/changes`, `Principal/set`,
+`Principal/query`, `Principal/queryChanges`, `ShareNotification/get`,
+`ShareNotification/changes`, `ShareNotification/set`,
+`ShareNotification/query`, `ShareNotification/queryChanges`.
+
+Consumers call `jmap-base-client::JmapClient::call()` directly or use the
+typed helpers defined here. No new HTTP machinery — all network operations
+go through `jmap-base-client`.
+
+## What This Crate Is Not
+
+- Not a server-side crate
+- Not a standalone HTTP client (no auth, no transport — that's
+  `jmap-base-client`)
+- Not defining `shareWith` methods on domain types — those belong in the
+  domain client crates (e.g., `jmap-mail-client`). A `Mailbox/set` call
+  that modifies `shareWith` is issued through `JmapMailExt::mailbox_set`,
+  not through this crate.
+
+## What This Crate Explicitly Excludes
+
+The `shareWith` property appears on `Mailbox` (via
+`draft-ietf-jmap-mail-sharing-00`), and on future Calendar, AddressBook,
+and FileNode types. This crate does NOT provide methods to set or modify
+`shareWith` on those types. Each domain client crate handles its own
+`shareWith` operations via its own extension trait, because:
+
+1. The rights type (`MailboxRights`, `CalendarRights`, etc.) is defined in
+   the domain types crate, not here.
+2. The method call (`Mailbox/set`, `Calendar/set`, etc.) belongs to the
+   domain crate.
+3. This crate's sole responsibility is `Principal/*` and
+   `ShareNotification/*`.
+
+## Source Material
+
+This is **greenfield** — no existing Rust implementation to extract from.
+
+Design pattern to follow:
+- `~/PROJECT/JMAP/crate-jmap-mail-client/` — identical extension trait
+  pattern, identical `JmapMailExt` structure
+- `~/PROJECT/crate-jmapchat-client/src/methods/` — how method
+  inputs/outputs are structured and how `JmapRequestBuilder` is used
+- `~/PROJECT/jmap-chat-spec/references/rfc9670.txt` — normative spec
+
+## Dependencies
+
+```toml
+jmap-types         = { path = "../crate-jmap-types" }
+jmap-sharing-types = { path = "../crate-jmap-sharing-types" }
+jmap-base-client   = { path = "../crate-jmap-base-client" }
+serde_json         = "1"
+thiserror          = "2"
+# No direct reqwest/tokio dependency — all I/O goes through jmap-base-client
+```
+
+## Extension Trait Pattern
+
+Cross-crate inherent impls are not valid Rust (orphan rule). To add methods
+to `JmapClient` from this crate, an **extension trait** is used — the same
+pattern as `JmapMailExt` in `jmap-mail-client`:
+
+```rust
+pub trait JmapSharingExt {
+    async fn principal_get(...) -> Result<...>;
+    // ...
+}
+
+impl JmapSharingExt for JmapClient {
+    async fn principal_get(...) -> Result<...> { ... }
+    // ...
+}
+```
+
+Callers must bring the trait into scope: `use jmap_sharing_client::JmapSharingExt;`
+
+Rust 1.75 AFIT (async fn in trait, via RPITIT) is used — no `async-trait`
+crate needed. This works because we do not need `dyn JmapSharingExt`. If
+dyn dispatch is ever required, wrap with `async-trait 0.1` at that time.
 
 ## Planned Public API
 
 ```rust
+use jmap_base_client::{ClientError, JmapClient};
+use jmap_sharing_types::{Principal, ShareNotification};
+use jmap_types::{Id, State};
+
+/// Extension trait adding RFC 9670 (JMAP Sharing) methods to [`JmapClient`].
+///
+/// Import this trait to use: `use jmap_sharing_client::JmapSharingExt;`
 pub trait JmapSharingExt {
-    async fn principal_get(&self, account_id: &Id, ids: Option<&[Id]>)
-        -> Result<GetResponse<Principal>, ClientError>;
-    async fn principal_query(&self, account_id: &Id, req: PrincipalQueryRequest)
-        -> Result<QueryResponse, ClientError>;
-    async fn share_notification_get(&self, account_id: &Id, ids: Option<&[Id]>)
-        -> Result<GetResponse<ShareNotification>, ClientError>;
-    async fn share_notification_set(&self, account_id: &Id, req: SetRequest<ShareNotification>)
-        -> Result<SetResponse<ShareNotification>, ClientError>;
-    // ... all Principal and ShareNotification methods
+    // ── Principal ───────────────────────────────────────────────────────────
+
+    /// Principal/get (RFC 9670 §2.1).
+    ///
+    /// Pass `ids: None` to fetch all principals in the account.
+    async fn principal_get(
+        &self,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        properties: Option<&[&str]>,
+    ) -> Result<GetResponse<Principal>, ClientError>;
+
+    /// Principal/changes (RFC 9670 §2.2).
+    ///
+    /// May return `cannotCalculateChanges` if the server is backed by an
+    /// external directory with no change tracking.
+    async fn principal_changes(
+        &self,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResponse, ClientError>;
+
+    /// Principal/set (RFC 9670 §2.3).
+    ///
+    /// Servers may reject creates/updates with `forbidden`. Only
+    /// `name`, `description`, and `timeZone` on the caller's own Principal
+    /// are guaranteed to be settable (if the server supports it at all).
+    async fn principal_set(
+        &self,
+        account_id: &Id,
+        req: SetRequest<Principal>,
+    ) -> Result<SetResponse<Principal>, ClientError>;
+
+    /// Principal/query (RFC 9670 §2.4).
+    async fn principal_query(
+        &self,
+        account_id: &Id,
+        req: PrincipalQueryRequest,
+    ) -> Result<QueryResponse, ClientError>;
+
+    /// Principal/queryChanges (RFC 9670 §2.5).
+    async fn principal_query_changes(
+        &self,
+        account_id: &Id,
+        req: QueryChangesRequest,
+    ) -> Result<QueryChangesResponse, ClientError>;
+
+    // ── ShareNotification ───────────────────────────────────────────────────
+
+    /// ShareNotification/get (RFC 9670 §3.1).
+    async fn share_notification_get(
+        &self,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        properties: Option<&[&str]>,
+    ) -> Result<GetResponse<ShareNotification>, ClientError>;
+
+    /// ShareNotification/changes (RFC 9670 §3.2).
+    async fn share_notification_changes(
+        &self,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResponse, ClientError>;
+
+    /// ShareNotification/set (RFC 9670 §3.3).
+    ///
+    /// Only `destroy` is supported by the server. Passing `create` or
+    /// `update` entries will result in `forbidden` SetErrors for those
+    /// entries. Use `destroy` to dismiss notifications.
+    async fn share_notification_set(
+        &self,
+        account_id: &Id,
+        destroy: &[Id],
+    ) -> Result<SetResponse<ShareNotification>, ClientError>;
+
+    /// ShareNotification/query (RFC 9670 §3.4).
+    async fn share_notification_query(
+        &self,
+        account_id: &Id,
+        req: ShareNotificationQueryRequest,
+    ) -> Result<QueryResponse, ClientError>;
+
+    /// ShareNotification/queryChanges (RFC 9670 §3.5).
+    async fn share_notification_query_changes(
+        &self,
+        account_id: &Id,
+        req: QueryChangesRequest,
+    ) -> Result<QueryChangesResponse, ClientError>;
+}
+
+impl JmapSharingExt for JmapClient {
+    // implementations in principal.rs, notification.rs
 }
 ```
 
-## Pattern to Follow
+### Request types defined in this crate
 
-`~/PROJECT/JMAP/crate-jmap-mail-client/` — identical extension trait pattern.
+`PrincipalQueryRequest` — wraps `PrincipalFilterCondition` and sort/limit
+parameters for `Principal/query`.
+
+`ShareNotificationQueryRequest` — wraps `ShareNotificationFilterCondition`
+and sort/limit parameters for `ShareNotification/query`. The `created`
+comparator property MUST be supported.
+
+`QueryChangesRequest` — generic query-changes request (since_query_state,
+filter, sort, max_changes, up_to_id). May be shared between Principal and
+ShareNotification.
+
+These are thin wrappers over the `jmap-types` generic request/response
+primitives. They exist to give callers a typed API rather than raw
+`serde_json::Value` arguments.
+
+### `share_notification_set` API note
+
+Because `ShareNotification/set` only supports `destroy`, the method
+signature accepts `&[Id]` directly rather than a full `SetRequest<T>`. This
+makes the common case (dismissing notifications) ergonomic and prevents
+callers from accidentally constructing create/update payloads that the
+server will reject.
+
+Internally, the implementation builds the `SetRequest` JSON with only the
+`destroy` field populated.
+
+## Module Layout
+
+```
+src/
+  lib.rs             pub trait JmapSharingExt; impl JmapSharingExt for JmapClient;
+                     re-exports of request/response types
+  principal.rs       Principal/get, /changes, /set, /query, /queryChanges —
+                     request structs + JmapSharingExt method bodies
+  notification.rs    ShareNotification/get, /changes, /set, /query, /queryChanges —
+                     request structs + JmapSharingExt method bodies
+```
+
+## Test Strategy
+
+- All tests use `wiremock` via `jmap-base-client`'s HTTP layer — no live network
+- Request serialization tests: construct a typed request, verify the emitted
+  JSON matches the RFC 9670 example in §4.1
+- Response deserialization tests: feed RFC 9670 example JSON, verify typed
+  structs (`Principal`, `ShareNotification`) deserialize correctly
+- `share_notification_set` test: verify that calling with `destroy: &[id]`
+  emits JSON with only the `destroy` key (no `create`, no `update`)
+
+Primary oracle: RFC 9670 §4.1 `Principal/get` request/response pair —
+copy-paste from the spec as `serde_json::json!({...})` literals and assert
+equality. Never derive expected values from the implementation under test.
