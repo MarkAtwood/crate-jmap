@@ -431,7 +431,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or(Value::Null));
+                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })));
                 }
                 Ok(None) => {
                     mutated = true;

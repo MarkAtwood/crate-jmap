@@ -600,7 +600,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     // beyond the patch, echo them in the updated map entry.
                     let entry = maybe_obj
                         .as_ref()
-                        .and_then(|o| serde_json::to_value(o).ok())
+                        .map(|o| serde_json::to_value(o).unwrap_or_else(
+                            |e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })
+                        ))
                         .unwrap_or(Value::Null);
                     updated.insert(id_str, entry);
                     if let Some(role) = current_role {
@@ -680,7 +682,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     // beyond the patch, echo them in the updated map entry.
                     let entry = maybe_obj
                         .as_ref()
-                        .and_then(|o| serde_json::to_value(o).ok())
+                        .map(|o| serde_json::to_value(o).unwrap_or_else(
+                            |e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })
+                        ))
                         .unwrap_or(Value::Null);
                     updated.insert(id_str, entry);
                 }
