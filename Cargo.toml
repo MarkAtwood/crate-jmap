@@ -7,6 +7,7 @@ members = [
     "crate-jmap-calendars-types",
     "crate-jmap-tasks-types",
     "crate-jmap-filenode-types",
+    "crate-jmap-sharing-types",
     "crate-jmap-server",
     "crate-jmap-mail-server",
     "crate-jmap-chat-server",
@@ -14,6 +15,7 @@ members = [
     "crate-jmap-calendars-server",
     "crate-jmap-tasks-server",
     "crate-jmap-filenode-server",
+    "crate-jmap-sharing-server",
     "crate-jmap-base-client",
     "crate-jmap-chat-client",
     "crate-jmap-mail-client",
@@ -21,6 +23,7 @@ members = [
     "crate-jmap-calendars-client",
     "crate-jmap-tasks-client",
     "crate-jmap-filenode-client",
+    "crate-jmap-sharing-client",
 ]
 resolver = "2"
 
