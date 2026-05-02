@@ -189,11 +189,10 @@ pub enum SetErrorType {
 
 impl std::fmt::Display for SetErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // The wildcard arm catches any variant added in the future before this
-        // match is updated; `#[allow(unreachable_patterns)]` suppresses the
-        // compiler warning that arises because all current variants are already
-        // covered (required by the #[non_exhaustive] enum contract).
-        #[allow(unreachable_patterns)]
+        // `SetErrorType` is defined in this crate. Within the defining crate,
+        // `#[non_exhaustive]` does NOT prevent exhaustive matching, so this
+        // match is truly exhaustive — adding a variant without updating it is
+        // a compile error.
         let s = match self {
             Self::Forbidden => "forbidden",
             Self::OverQuota => "overQuota",
@@ -218,7 +217,6 @@ impl std::fmt::Display for SetErrorType {
             Self::ForbiddenMailFrom => "forbiddenMailFrom",
             Self::ForbiddenToSend => "forbiddenToSend",
             Self::CannotUnsend => "cannotUnsend",
-            _ => return write!(f, "{:?}", self),
         };
         f.write_str(s)
     }
@@ -257,9 +255,9 @@ impl<E: std::error::Error + 'static> std::error::Error for BackendSetError<E> {
     }
 }
 
-impl<E> From<SetError> for BackendSetError<E> {
-    fn from(e: SetError) -> Self {
-        Self::SetError(e)
+impl<E> From<E> for BackendSetError<E> {
+    fn from(e: E) -> Self {
+        Self::Other(e)
     }
 }
 

@@ -80,6 +80,7 @@ pub async fn handle_thread_changes<B: MailBackend>(
         "oldState": since_state.as_ref(),
         "newState": result.new_state.as_ref(),
         "hasMoreChanges": result.has_more_changes,
+        "updatedProperties": Value::Null,
         "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),

@@ -215,7 +215,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     };
 
     // Pre-compute the wire-format role string once outside the filter closure to
-    // avoid calling role_to_wire on every mailbox for every iteration.
+    // avoid calling to_wire_str on every mailbox for every iteration.
     let filter_role_wire: Option<&str> = filter.as_ref().and_then(|f| f.role.as_deref());
 
     let mut matching: Vec<Id> = all_mailboxes
@@ -246,7 +246,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
             if let Some(role_str) = filter_role_wire {
                 match &m.role {
                     Some(r) => {
-                        if role_to_wire(r) != role_str {
+                        if r.to_wire_str() != role_str {
                             return false;
                         }
                     }
@@ -407,6 +407,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
     // Check ifInState.
     let current_state = backend
@@ -460,7 +463,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if let Some(role_str) = role_val.as_str() {
                     let role_taken = all_mailboxes
                         .iter()
-                        .any(|m| m.role.as_ref().is_some_and(|r| role_to_wire(r) == role_str));
+                        .any(|m| m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str));
                     // Also check what we already successfully created in this request.
                     let role_just_created = created
                         .values()
@@ -535,7 +538,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         "id",
     ];
 
-    if let Some(Value::Object(updates)) = args.get("update") {
+    if let Some(Value::Object(updates)) = args.remove("update") {
         // Two-pass update loop.
         //
         // Pass 1 runs every patch that sets role: null (vacating a role).
@@ -545,9 +548,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // "inbox" — always succeeds regardless of map iteration order, while
         // a failed vacate (BackendSetError::Other) does NOT release the role,
         // so B's claim is correctly rejected.
-        let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates.iter().partition(|item| {
-            item.1
-                .as_object()
+        let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates.into_iter().partition(|(_, v)| {
+            v.as_object()
                 .and_then(|o| o.get("role"))
                 .is_some_and(|v| v.is_null())
         });
@@ -565,7 +567,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     .collect();
                 if !bad_props.is_empty() {
                     not_updated.insert(
-                        id_str.clone(),
+                        id_str,
                         set_error_value(
                             &SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(bad_props),
@@ -581,10 +583,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 .iter()
                 .find(|m| m.id == id)
                 .and_then(|m| m.role.as_ref())
-                .map(|r| role_to_wire(r).to_owned());
+                .map(|r| r.to_wire_str().to_owned());
 
             match backend
-                .update_object::<Mailbox>(&account_id, &id, patch.clone())
+                .update_object::<Mailbox>(&account_id, &id, patch)
                 .await
             {
                 Ok(maybe_obj) => {
@@ -594,17 +596,17 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .as_ref()
                         .and_then(|o| serde_json::to_value(o).ok())
                         .unwrap_or(Value::Null);
-                    updated.insert(id_str.clone(), entry);
+                    updated.insert(id_str, entry);
                     if let Some(role) = current_role {
                         roles_actually_vacated.insert(role);
                     }
                 }
                 Err(BackendSetError::SetError(se)) => {
-                    not_updated.insert(id_str.clone(), set_error_value(&se));
+                    not_updated.insert(id_str, set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
-                        id_str.clone(),
+                        id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
@@ -624,7 +626,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     .collect();
                 if !bad_props.is_empty() {
                     not_updated.insert(
-                        id_str.clone(),
+                        id_str,
                         set_error_value(
                             &SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(bad_props),
@@ -642,7 +644,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         let role_taken = all_mailboxes.iter().any(|m| {
                             m.id != id
                                 && !roles_actually_vacated.contains(role_str)
-                                && m.role.as_ref().is_some_and(|r| role_to_wire(r) == role_str)
+                                && m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str)
                         });
                         let role_just_claimed = roles_claimed_this_request.contains(role_str);
                         let role_just_created = created
@@ -650,7 +652,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
                         if role_taken || role_just_claimed || role_just_created {
                             not_updated.insert(
-                                id_str.clone(),
+                                id_str,
                                 set_error_value(
                                     &SetError::new(SetErrorType::InvalidProperties)
                                         .with_properties(["role"]),
@@ -664,7 +666,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             }
 
             match backend
-                .update_object::<Mailbox>(&account_id, &id, patch.clone())
+                .update_object::<Mailbox>(&account_id, &id, patch)
                 .await
             {
                 Ok(maybe_obj) => {
@@ -674,14 +676,14 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .as_ref()
                         .and_then(|o| serde_json::to_value(o).ok())
                         .unwrap_or(Value::Null);
-                    updated.insert(id_str.clone(), entry);
+                    updated.insert(id_str, entry);
                 }
                 Err(BackendSetError::SetError(se)) => {
-                    not_updated.insert(id_str.clone(), set_error_value(&se));
+                    not_updated.insert(id_str, set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
-                        id_str.clone(),
+                        id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
@@ -953,28 +955,4 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
     }
 
     Ok(mailbox)
-}
-
-/// Serialize a [`MailboxRole`] to its RFC 8621 wire-format string.
-///
-/// Returns a `&'static str` for known variants and `&str` into the inner
-/// string for `Other(s)`, avoiding any allocation.
-fn role_to_wire(role: &jmap_mail_types::MailboxRole) -> &str {
-    use jmap_mail_types::MailboxRole;
-    match role {
-        MailboxRole::Inbox => "inbox",
-        MailboxRole::Trash => "trash",
-        MailboxRole::Sent => "sent",
-        MailboxRole::Drafts => "drafts",
-        MailboxRole::Junk => "junk",
-        MailboxRole::Archive => "archive",
-        MailboxRole::Flagged => "flagged",
-        MailboxRole::Important => "important",
-        MailboxRole::All => "all",
-        MailboxRole::Other(s) => s.as_str(),
-        // `MailboxRole` is #[non_exhaustive]; this arm is unreachable with the
-        // current variant set.  If a new named variant is added it must be
-        // listed above — the panic here makes that omission loud.
-        _ => unreachable!("unhandled MailboxRole variant; update role_to_wire"),
-    }
 }

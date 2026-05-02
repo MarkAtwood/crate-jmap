@@ -9,7 +9,7 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend};
-use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser};
+use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser, set_error_value};
 
 // ---------------------------------------------------------------------------
 // SpaceBan/get
@@ -18,14 +18,14 @@ use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser};
 /// Handle a `SpaceBan/get` method call.
 pub async fn handle_ban_get<B: ChatBackend>(
     backend: &B,
-    args: Value,
+    mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
-    let ids: Option<Vec<Id>> = match args.get("ids") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v.clone())
+    let ids: Option<Vec<Id>> = match args["ids"].take() {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
     };
@@ -201,12 +201,7 @@ pub async fn handle_ban_set<B: ChatBackend>(
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_created.insert(create_id.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_created.insert(
@@ -259,17 +254,19 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 .update_object::<SpaceBan>(&account_id, &id, Value::Object(clean_patch))
                 .await
             {
-                Ok(_) => {
+                Ok(Some(obj)) => {
+                    mutated = true;
+                    updated.insert(
+                        id_str.clone(),
+                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                    );
+                }
+                Ok(None) => {
                     mutated = true;
                     updated.insert(id_str.clone(), Value::Null);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_updated.insert(id_str.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
@@ -298,12 +295,7 @@ pub async fn handle_ban_set<B: ChatBackend>(
                     destroyed_list.push(Value::String(id_str.to_owned()));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
