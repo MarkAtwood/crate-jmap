@@ -389,7 +389,7 @@ impl JmapError {
 
     /// "unknownCapability" with the failing URI surfaced to the client.
     ///
-    /// Use this in preference to [`unknown_capability()`][Self::unknown_capability] when the URI is known.
+    /// Always use this instead of [`unknown_capability()`][Self::unknown_capability].
     ///
     /// The URI is stored in [`description`][JmapError::description].  The HTTP layer
     /// (`jmap-server::RequestError`) reads `description` to populate the `"detail"` field
