@@ -18,6 +18,15 @@
 
 #![forbid(unsafe_code)]
 
+/// Capability URI for JMAP Mail (RFC 8621 §1.3).
+pub const JMAP_MAIL_URI: &str = "urn:ietf:params:jmap:mail";
+
+/// Capability URI for JMAP Mail Submission (RFC 8621 §1.3).
+pub const JMAP_SUBMISSION_URI: &str = "urn:ietf:params:jmap:submission";
+
+/// Capability URI for JMAP Vacation Response (RFC 8621 §1.3).
+pub const JMAP_VACATION_RESPONSE_URI: &str = "urn:ietf:params:jmap:vacationresponse";
+
 use std::sync::Arc;
 
 use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
@@ -33,8 +42,10 @@ pub mod thread;
 pub mod vacation;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapObject,
-    MailBackend, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, EmailProperty,
+    EmailSubmissionProperty, GetObject, IdentityProperty, JmapBackend, JmapObject, MailBackend,
+    MailboxProperty, QueryChangesResult, QueryObject, QueryResult, SearchSnippetProperty, SetError,
+    SetErrorType, SetObject, ThreadProperty, VacationResponseProperty,
 };
 pub use email::{
     handle_email_changes, handle_email_copy, handle_email_get, handle_email_import,
@@ -66,6 +77,12 @@ pub use vacation::{handle_vacation_get, handle_vacation_set};
 /// After this call, the dispatcher handles:
 /// `Mailbox/*`, `Thread/*`, `Email/*`, `SearchSnippet/get`,
 /// `Identity/*`, `EmailSubmission/*`, and `VacationResponse/*`.
+///
+/// **Caller context `C` is not forwarded to handlers.** Each handler closure
+/// receives only `(Arc<B>, call_id, args)`; the `caller: C` value from the
+/// dispatcher is discarded. To act on per-request context (e.g. for
+/// per-tenant auth or rate limiting), implement [`JmapHandler`] directly
+/// rather than using this function.
 pub fn register_mail_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
 where
     B: MailBackend + 'static,
@@ -193,6 +210,13 @@ where
 type CallFn<B> = dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture + Send + Sync + 'static;
 
 /// Generic wrapper that implements [`JmapHandler`] for any closure.
+///
+/// **Caller context limitation**: the `caller: C` value received in
+/// [`JmapHandler::call`] is not forwarded to the handler closure. The closure
+/// signature `(Arc<B>, String, serde_json::Value) -> HandlerFuture` has no slot
+/// for it. If you need per-request auth or tenant context derived from `C`,
+/// implement [`JmapHandler`] directly on your own type instead of using
+/// [`register_mail_handlers`].
 struct ClosureHandler<B: MailBackend + 'static> {
     backend: Arc<B>,
     call_fn: Box<CallFn<B>>,
@@ -204,6 +228,9 @@ impl<B: MailBackend + 'static, C: Clone + Send + 'static> JmapHandler<C> for Clo
         _method: String,
         call_id: String,
         args: serde_json::Value,
+        // The caller context C is received here but cannot be forwarded to
+        // the closure (the closure type has no C slot). See the ClosureHandler
+        // doc comment for guidance on using C for per-request auth.
         _caller: C,
     ) -> HandlerFuture {
         (self.call_fn)(Arc::clone(&self.backend), call_id, args)
