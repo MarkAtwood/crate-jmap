@@ -260,7 +260,7 @@ pub type BackendCallFn<B> =
 ///
 /// The closure receives `(args: Value, ctx: C)` where `C` is the caller
 /// context (e.g. auth identity). However, the closures registered via
-/// [`register_mail_handlers`] / [`register_chat_handlers`] capture the
+/// `register_mail_handlers` / `register_chat_handlers` capture the
 /// backend via `Arc` and ignore `ctx` entirely — they do not forward the
 /// auth context to the handler.
 ///
