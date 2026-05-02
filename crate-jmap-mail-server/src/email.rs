@@ -8,7 +8,9 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
-use crate::helpers::{extract_account_id, find_immutable_patch_key, not_found_json, ser, set_error_value};
+use crate::helpers::{
+    extract_account_id, find_immutable_patch_key, not_found_json, ser, set_error_value,
+};
 
 /// Server-enforced ceiling on the number of email IDs fetched when
 /// `collapseThreads=true`. Without this, a hostile client could trigger OOM
@@ -823,7 +825,6 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 // Email/set (RFC 8621 §5.5)
 // ---------------------------------------------------------------------------
 
-
 /// Handle an `Email/set` method call (RFC 8621 §5.5).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
@@ -1193,7 +1194,6 @@ fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value {
         _ => obj.clone(),
     }
 }
-
 
 /// Build an [`Email`] from a creation payload (`obj_val`).
 ///

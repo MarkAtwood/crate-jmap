@@ -246,6 +246,11 @@ impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
 // ---------------------------------------------------------------------------
 
 /// Type alias for the closure stored inside [`ClosureHandler`].
+///
+/// The `String` argument is the `call_id` (the client-supplied correlation
+/// identifier from RFC 8620 §3.3), not the method name.  If you need the
+/// method name inside the closure, register the handler with
+/// [`Dispatcher::register`] and use [`JmapHandler`] directly instead.
 pub type BackendCallFn<B> =
     dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture + Send + Sync + 'static;
 
