@@ -186,6 +186,12 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     // Reject unknown filter condition keys (RFC 8620 §5.5 requires unsupportedFilter).
+    //
+    // MAINTENANCE: This list must match all fields of MailboxFilterCondition
+    // (jmap-mail-types). If a new field is added to MailboxFilterCondition,
+    // add its wire name here. Drift causes filter conditions to be rejected
+    // with unsupportedFilter instead of being applied — protocol misbehavior
+    // that is not a compile error.
     const KNOWN_FILTER_KEYS: &[&str] = &["parentId", "name", "role", "hasAnyRole", "isSubscribed"];
     if let Some(filter_obj) = args.get("filter").and_then(|v| v.as_object()) {
         for key in filter_obj.keys() {
@@ -601,7 +607,13 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     let mut roles_actually_vacated: std::collections::HashSet<String> =
         std::collections::HashSet::new();
 
-    // Server-set fields that may not appear in a patch.
+    // Server-set fields that may not appear in a Mailbox/set update patch.
+    //
+    // MAINTENANCE: This list must match all server-set fields of the Mailbox
+    // struct (jmap-mail-types) as defined in RFC 8621 §2.1. If a new
+    // server-set field is added to Mailbox, add its wire name here. Drift
+    // allows clients to overwrite server-managed fields — protocol misbehavior
+    // that is not a compile error.
     const SERVER_SET: &[&str] = &[
         "totalEmails",
         "unreadEmails",
@@ -792,7 +804,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // parent-check below. The pre-mutation snapshot (all_mailboxes) cannot be
         // used here because a create in this same request could make a child of
         // the mailbox being destroyed.
-        let (mailboxes_after_mutations, _) = backend
+        let (mut mailboxes_after_mutations, _) = backend
             .get_objects::<Mailbox>(&account_id, None, None)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
@@ -897,6 +909,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             match backend.destroy_object::<Mailbox>(&account_id, &id).await {
                 Ok(()) => {
                     destroyed.push(id_str.to_owned());
+                    // RFC 8620 §5.3: each destroy takes effect sequentially.
+                    // Remove the just-destroyed mailbox from the snapshot so
+                    // subsequent has_child checks do not see it as a child.
+                    mailboxes_after_mutations.retain(|m| m.id != id);
                 }
                 Err(BackendSetError::SetError(se)) => {
                     not_destroyed.insert(id_str.to_owned(), set_error_value(&se));

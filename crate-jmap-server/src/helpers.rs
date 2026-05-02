@@ -143,11 +143,14 @@ mod tests {
         for _ in 0..10 {
             seen.insert(now_utc_string());
         }
-        // Under normal circumstances at least the nanosecond counter differs;
-        // this assertion is probabilistic — it would only fail if all 10 calls
-        // complete within the same millisecond AND the clock returns the same
-        // value repeatedly (pathological environment).
-        // We accept this test as documentation, not a hard guarantee.
-        let _ = seen; // used only to verify compilation; see assertion above
+        // Under normal circumstances at least the nanosecond counter differs
+        // across 10 calls; this would only fail if all 10 calls complete within
+        // the same millisecond AND the clock returns the same value each time
+        // (a pathological environment like a frozen test clock).
+        assert!(
+            seen.len() > 1,
+            "expected multiple distinct timestamps but got only: {:?}",
+            seen
+        );
     }
 }

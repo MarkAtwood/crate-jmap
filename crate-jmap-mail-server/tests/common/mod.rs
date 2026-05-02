@@ -113,13 +113,12 @@ impl Inner {
         let mut id_and_date: Vec<(String, i64)> = email_ids
             .into_iter()
             .map(|eid| {
-                let received_at = self
+                let epoch = self
                     .objects_ref("Email", account_id)
                     .and_then(|s| s.get(eid.as_str()))
                     .and_then(|v| v["receivedAt"].as_str())
-                    .unwrap_or("")
-                    .to_owned();
-                let epoch = rfc3339_to_epoch_secs(&received_at);
+                    .map(rfc3339_to_epoch_secs)
+                    .unwrap_or(0);
                 (eid, epoch)
             })
             .collect();
@@ -433,6 +432,14 @@ impl JmapBackend for MemoryBackend {
                     })
                     .unwrap_or_default()
             } else if let Some(ref sf) = submission_filter {
+                // Pre-build per-condition sets once before the per-submission loop so
+                // that HashSet allocation is O(1) per filter, not O(N) per submission.
+                let top_level_sub_sets: Option<SubmissionConditionSets<'_>> =
+                    if let Filter::Condition(cond) = sf {
+                        Some(SubmissionConditionSets::from_condition(cond))
+                    } else {
+                        None
+                    };
                 // Apply submission filter: deserialize each stored object and check.
                 inner
                     .objects_ref(O::TYPE_NAME, account_id.as_ref())
@@ -441,7 +448,13 @@ impl JmapBackend for MemoryBackend {
                             .filter_map(|(id, val)| {
                                 let sub: EmailSubmission =
                                     serde_json::from_value(val.clone()).ok()?;
-                                if submission_matches_filter(&sub, sf) {
+                                let matches = match (sf, &top_level_sub_sets) {
+                                    (Filter::Condition(cond), Some(sets)) => {
+                                        submission_matches_condition(&sub, cond, sets)
+                                    }
+                                    _ => submission_matches_filter(&sub, sf),
+                                };
+                                if matches {
                                     Some((id.clone(), String::new()))
                                 } else {
                                     None
@@ -471,9 +484,10 @@ impl JmapBackend for MemoryBackend {
             (pairs, state_n)
         };
 
-        // Apply sort. When a receivedAt comparator is present, sort by the
-        // collected receivedAt string (ISO 8601 strings sort lexicographically).
-        // Fall back to id-string sort for deterministic tie-breaking.
+        // Apply sort. When a receivedAt comparator is present, sort by epoch seconds
+        // so that sub-second timestamps (e.g. "T00:00:00.123Z") sort correctly relative
+        // to whole-second timestamps (e.g. "T00:00:00Z") — lexicographic order is wrong
+        // because '.' (0x2E) < 'Z' (0x5A).  Ties broken by id string for stable ordering.
         let received_at_sort = email_sort.as_deref().and_then(|s| {
             s.iter()
                 .find(|c| c.property == ComparatorProperty::ReceivedAt)
@@ -481,7 +495,9 @@ impl JmapBackend for MemoryBackend {
         if let Some(cmp) = received_at_sort {
             let ascending = cmp.is_ascending;
             id_date_pairs.sort_by(|(id_a, date_a), (id_b, date_b)| {
-                let ord = date_a.cmp(date_b);
+                let epoch_a = rfc3339_to_epoch_secs(date_a);
+                let epoch_b = rfc3339_to_epoch_secs(date_b);
+                let ord = epoch_a.cmp(&epoch_b);
                 let ord = if ascending { ord } else { ord.reverse() };
                 ord.then_with(|| id_a.as_ref().cmp(id_b.as_ref()))
             });
@@ -1882,14 +1898,19 @@ fn email_matches_condition(
         }
     }
     if let Some(ref before) = cond.before {
-        // receivedAt must be strictly before `before` (lexicographic ISO 8601 comparison).
-        if email.received_at.as_ref() >= before.as_ref() {
+        // receivedAt must be strictly before `before` (epoch-seconds comparison avoids
+        // the lexicographic trap where "T00:00:00.123Z" < "T00:00:00Z" despite .123 being later).
+        let recv_epoch = rfc3339_to_epoch_secs(email.received_at.as_ref());
+        let before_epoch = try_rfc3339_to_epoch_secs(before.as_ref()).unwrap_or(i64::MAX);
+        if recv_epoch >= before_epoch {
             return false;
         }
     }
     if let Some(ref after) = cond.after {
-        // receivedAt must be on or after `after`.
-        if email.received_at.as_ref() < after.as_ref() {
+        // receivedAt must be strictly after `after`.
+        let recv_epoch = rfc3339_to_epoch_secs(email.received_at.as_ref());
+        let after_epoch = try_rfc3339_to_epoch_secs(after.as_ref()).unwrap_or(i64::MIN);
+        if recv_epoch <= after_epoch {
             return false;
         }
     }
@@ -1936,29 +1957,50 @@ fn email_matches_filter(
 // EmailSubmission filter helpers (used by MemoryBackend::query_objects)
 // ---------------------------------------------------------------------------
 
+/// Pre-built lookup sets for a single `EmailSubmissionFilterCondition`.
+///
+/// Constructed once per filter (not once per submission) so that the
+/// `identityIds`, `emailIds`, and `threadIds` HashSets are not re-allocated
+/// on every iteration of the per-submission loop.
+struct SubmissionConditionSets<'a> {
+    identity_ids: Option<std::collections::HashSet<&'a Id>>,
+    email_ids: Option<std::collections::HashSet<&'a Id>>,
+    thread_ids: Option<std::collections::HashSet<&'a Id>>,
+}
+
+impl<'a> SubmissionConditionSets<'a> {
+    fn from_condition(cond: &'a EmailSubmissionFilterCondition) -> Self {
+        Self {
+            identity_ids: cond.identity_ids.as_ref().map(|v| v.iter().collect()),
+            email_ids: cond.email_ids.as_ref().map(|v| v.iter().collect()),
+            thread_ids: cond.thread_ids.as_ref().map(|v| v.iter().collect()),
+        }
+    }
+}
+
 /// Apply a single `EmailSubmissionFilterCondition` to an `EmailSubmission`.
 ///
 /// All fields are optional; unset fields are treated as "no constraint" per
 /// RFC 8621 §7.3.
+///
+/// `sets` must be pre-built from the same `cond` via
+/// `SubmissionConditionSets::from_condition` before the per-submission loop.
 fn submission_matches_condition(
     sub: &EmailSubmission,
     cond: &EmailSubmissionFilterCondition,
+    sets: &SubmissionConditionSets<'_>,
 ) -> bool {
-    if let Some(ref ids) = cond.identity_ids {
-        // Convert to HashSet for O(1) lookup; avoids O(list_len) Vec::contains per submission.
-        let id_set: std::collections::HashSet<&Id> = ids.iter().collect();
+    if let Some(ref id_set) = sets.identity_ids {
         if !id_set.contains(&sub.identity_id) {
             return false;
         }
     }
-    if let Some(ref ids) = cond.email_ids {
-        let id_set: std::collections::HashSet<&Id> = ids.iter().collect();
+    if let Some(ref id_set) = sets.email_ids {
         if !id_set.contains(&sub.email_id) {
             return false;
         }
     }
-    if let Some(ref ids) = cond.thread_ids {
-        let id_set: std::collections::HashSet<&Id> = ids.iter().collect();
+    if let Some(ref id_set) = sets.thread_ids {
         if !id_set.contains(&sub.thread_id) {
             return false;
         }
@@ -1984,9 +2026,17 @@ fn submission_matches_condition(
 }
 
 /// Evaluate a full `EmailSubmissionFilter` (which may be a logical combination).
+///
+/// For `Filter::Condition`, the caller is responsible for pre-building
+/// `SubmissionConditionSets` before the per-submission loop and passing it here
+/// via the inner helper; for operator nodes the sets are built on demand per
+/// nested condition (the operator case is uncommon in tests).
 fn submission_matches_filter(sub: &EmailSubmission, filter: &EmailSubmissionFilter) -> bool {
     match filter {
-        Filter::Condition(cond) => submission_matches_condition(sub, cond),
+        Filter::Condition(cond) => {
+            let sets = SubmissionConditionSets::from_condition(cond);
+            submission_matches_condition(sub, cond, &sets)
+        }
         Filter::Operator(op) => match op.operator {
             Operator::And => op
                 .conditions
