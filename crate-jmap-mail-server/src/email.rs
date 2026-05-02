@@ -13,17 +13,6 @@ use crate::helpers::{
     set_error_value,
 };
 
-/// Server-enforced ceiling on the number of email IDs fetched when
-/// `collapseThreads=true`. Without this, a hostile client could trigger OOM
-/// by querying a large account with no filter. 65 536 IDs × ~32 bytes each
-/// is ~2 MiB of ID data — acceptable. Anything beyond this is truncated;
-/// the reported total reflects only the fetched slice.
-///
-/// Note: Production implementations should add per-connection or per-account
-/// rate limiting; this cap alone is insufficient to prevent memory exhaustion
-/// under adversarial load.
-const COLLAPSE_THREADS_MAX_EMAILS: u64 = 65_536;
-
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
 const DEFAULT_EMAIL_GET_PROPERTIES: &[&str] = &[
     "id",
@@ -681,12 +670,13 @@ pub async fn handle_email_query<B: MailBackend>(
             // Fetch cap+1 to detect whether the backend had more results than
             // the cap.  If more than cap items come back the result was
             // truncated; truncate to cap and report total as an approximation.
+            let collapse_cap = backend.max_collapse_threads_emails(&account_id);
             let all = backend
                 .query_objects::<Email>(
                     &account_id,
                     filter.as_ref(),
                     sort_slice,
-                    Some(COLLAPSE_THREADS_MAX_EMAILS + 1),
+                    Some(collapse_cap as u64 + 1),
                     0,
                 )
                 .await
@@ -695,12 +685,9 @@ pub async fn handle_email_query<B: MailBackend>(
             let qs = all.query_state.clone();
             let ccc = all.can_calculate_changes;
 
-            let was_capped = fetched_count > COLLAPSE_THREADS_MAX_EMAILS as usize;
+            let was_capped = fetched_count > collapse_cap;
             let ids_for_collapse: Vec<Id> = if was_capped {
-                all.ids
-                    .into_iter()
-                    .take(COLLAPSE_THREADS_MAX_EMAILS as usize)
-                    .collect()
+                all.ids.into_iter().take(collapse_cap).collect()
             } else {
                 all.ids
             };
@@ -714,11 +701,11 @@ pub async fn handle_email_query<B: MailBackend>(
             };
 
             // When not capped, total is exact. When capped, use the cap as an
-            // approximate lower bound (the true count is ≥ COLLAPSE_THREADS_MAX_EMAILS).
+            // approximate lower bound (the true count is ≥ collapse_cap).
             let total: Option<u64> = if !was_capped {
                 Some(all_ids.len() as u64)
             } else {
-                Some(COLLAPSE_THREADS_MAX_EMAILS)
+                Some(collapse_cap as u64)
             };
 
             // Resolve start position: anchor overrides position.

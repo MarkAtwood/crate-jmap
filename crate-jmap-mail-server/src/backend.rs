@@ -199,6 +199,17 @@ pub trait MailBackend: JmapBackend {
     /// types unconditionally can return `true` always.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
+    /// Maximum number of email IDs to fetch from the backend when
+    /// `collapseThreads=true`. Fetching stops at this limit; the response
+    /// will omit `total` when this limit is reached.
+    ///
+    /// Default: 65536. Override to lower the per-account limit, e.g. for
+    /// multi-tenant deployments where adversarial clients could otherwise
+    /// trigger large in-memory scans.
+    fn max_collapse_threads_emails(&self, _account_id: &jmap_types::Id) -> usize {
+        65_536
+    }
+
     /// Maximum bytes of body value text to return per `EmailBodyPart`.
     ///
     /// A value of `0` means unlimited. Used with `maxBodyValueBytes` in
