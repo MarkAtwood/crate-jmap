@@ -28,12 +28,14 @@
 
 #![forbid(unsafe_code)]
 
+pub mod backend;
 pub mod error;
 pub mod id;
 pub mod query;
 pub mod resultref;
 pub mod wire;
 
+pub use backend::{GetObject, JmapObject, QueryObject, SetObject};
 pub use error::JmapError;
 pub use id::{Date, Id, State, UTCDate};
 pub use query::{Filter, FilterOperator, Operator};

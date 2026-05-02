@@ -1,0 +1,33 @@
+PHASE 1 COMPLETE — JMAP-x09 — 2026-05-01
+
+Research agents: INVENTORY, API-SHAPE, SPEC, INTEGRATION, SECURITY — all reported.
+
+Key findings:
+- Types CustomEmoji, SpaceInvite, SpaceBan, PresenceStatus already exist in jmap-chat-types (structs only)
+- Missing: property enums + JmapObject/GetObject/SetObject/QueryObject impls + re-exports
+- MemoryBackend requires NO changes (generic by TYPE_NAME)
+- SpaceInvite/SpaceBan/PresenceStatus have NO /query per spec
+- PresenceStatus is a singleton (no create/destroy, only update)
+- SpaceInvite has no /update (forbidden per spec)
+- Chat/typing and Space/join are custom action methods with no stored state
+
+New bead created: JMAP-x09.1 (backend.rs prep, P1) — blocks JMAP-5oi, JMAP-7s1, JMAP-bqp, JMAP-j1q
+
+Dependencies set:
+- JMAP-7r7 blocked by JMAP-j1q
+- JMAP-9xe blocked by JMAP-qkw
+- JMAP-5oi, JMAP-7s1, JMAP-bqp, JMAP-j1q all blocked by JMAP-x09.1
+
+Implementation waves:
+  Wave 0 (parallel, no blockers): JMAP-01h, JMAP-pcq, JMAP-92u, JMAP-mqf, JMAP-dye
+  Wave 1 (parallel, after Wave 0 confirms green): JMAP-qkw, JMAP-0m2, JMAP-x09.1 (prep), then JMAP-j1q, JMAP-5oi, JMAP-7s1, JMAP-bqp
+  Wave 2 (after Wave 1): JMAP-7r7, JMAP-9xe, JMAP-qg8
+  Wave 3 (final): JMAP-eh7, JMAP-n7v
+
+Security must-haves in initial implementation:
+- JMAP-j1q: createdBy set server-side
+- JMAP-7s1: bannedBy set server-side
+- JMAP-5oi: name must match /^[a-z0-9_-]+$/
+- JMAP-mqf: sender identity from accountId only
+- JMAP-bqp: updatedAt set server-side
+- JMAP-7r7: invite maxUses/expiresAt checked atomically

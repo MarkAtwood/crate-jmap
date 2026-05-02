@@ -1,14 +1,25 @@
 //! Backend-agnostic JMAP server framework (RFC 8620).
 //!
 //! Provides request parsing, ResultReference resolution, HTTP response helpers,
-//! and the [`Dispatcher`] machinery. No opinion on authentication, method sets,
-//! capability URIs, or storage.
+//! the [`Dispatcher`] machinery, shared backend infrastructure, and generic
+//! JMAP method handlers.
 
 #![forbid(unsafe_code)]
 
 pub use jmap_types::{
     Argument, Id, Invocation, JmapError, JmapRequest, JmapResponse, ResultReference, State, UTCDate,
 };
+
+pub mod backend;
+pub mod handlers;
+pub(crate) mod helpers;
+
+pub use backend::{
+    AddedItem, BackendChangesError, ChangesResult, GetObject, JmapBackend, JmapObject,
+    QueryChangesResult, QueryObject, QueryResult, SetObject,
+};
+pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
+pub use helpers::{extract_account_id, not_found_json, now_utc_string, ser};
 
 mod parse;
 mod response;

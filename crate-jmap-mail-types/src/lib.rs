@@ -48,6 +48,7 @@
 #[macro_use]
 mod string_enum;
 
+pub mod backend;
 pub mod email;
 pub mod identity;
 pub mod keyword;
@@ -58,6 +59,10 @@ pub mod submission;
 pub mod thread;
 pub mod vacation;
 
+pub use backend::{
+    EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
+    SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
+};
 pub use email::{
     Email, EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue, EmailHeader,
 };
