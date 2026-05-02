@@ -577,103 +577,103 @@ pub async fn handle_space_join<B: ChatBackend>(
     // (for the invite path) the pending invite-uses increment deferred until after
     // the already_member check.  Each branch produces
     // (space_id: Id, current_members: Vec<Value>, invite_update: Option<(Id, u64)>).
-    let (space_id, current_members, invite_update): (Id, Vec<Value>, Option<(Id, u64)>) = match (
-        invite_code,
-        space_id_str,
-    ) {
-        (Some(_), Some(_)) | (None, None) => {
-            return Err(JmapError::invalid_arguments(
-                "exactly one of inviteCode or spaceId must be provided",
-            ));
-        }
-        (Some(code), None) => {
-            // NOTE: The MemoryBackend stores objects per-account, so invite code lookup
-            // works only when the caller's account created the invite. A production backend
-            // must maintain a global invite code index. This is a known architectural
-            // limitation of the test backend.
-
-            // Invite code path: scan all invites for matching code.
-            let (invites, _) = backend
-                .get_objects::<SpaceInvite>(&account_id, None, None)
-                .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
-            let invite = invites
-                .into_iter()
-                .find(|inv| inv.code == code)
-                .ok_or_else(|| JmapError::invalid_arguments("invite code not found"))?;
-
-            // Check expiry using second-precision prefix (see iso8601_before).
-            // Pure lexicographic comparison on the full string is incorrect for
-            // fractional-second timestamps ('.' < 'Z' in ASCII).
-            if let Some(expires_at) = &invite.expires_at {
-                let now = now_utc_string();
-                if !iso8601_before(now.as_str(), expires_at.as_ref()) {
-                    return Err(JmapError::invalid_arguments("invite has expired"));
-                }
+    let (space_id, current_members, invite_update): (Id, Vec<Value>, Option<(Id, u64)>) =
+        match (invite_code, space_id_str) {
+            (Some(_), Some(_)) | (None, None) => {
+                return Err(JmapError::invalid_arguments(
+                    "exactly one of inviteCode or spaceId must be provided",
+                ));
             }
+            (Some(code), None) => {
+                // NOTE: The MemoryBackend stores objects per-account, so invite code lookup
+                // works only when the caller's account created the invite. A production backend
+                // must maintain a global invite code index. This is a known architectural
+                // limitation of the test backend.
 
-            // Check maxUses: if set, uses must be strictly less.
-            if let Some(max) = invite.max_uses {
-                if invite.uses >= max {
-                    return Err(JmapError::invalid_arguments(
-                        "invite has reached its maximum number of uses",
-                    ));
+                // Invite code path: scan all invites for matching code.
+                let (invites, _) = backend
+                    .get_objects::<SpaceInvite>(&account_id, None, None)
+                    .await
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+                let invite = invites
+                    .into_iter()
+                    .find(|inv| inv.code == code)
+                    .ok_or_else(|| JmapError::invalid_arguments("invite code not found"))?;
+
+                // Check expiry using second-precision prefix (see iso8601_before).
+                // Pure lexicographic comparison on the full string is incorrect for
+                // fractional-second timestamps ('.' < 'Z' in ASCII).
+                if let Some(expires_at) = &invite.expires_at {
+                    let now = now_utc_string();
+                    if !iso8601_before(now.as_str(), expires_at.as_ref()) {
+                        return Err(JmapError::invalid_arguments("invite has expired"));
+                    }
                 }
-            }
 
-            let invite_id = invite.id.clone();
-            let new_uses = invite.uses + 1;
-            let space_id = invite.space_id.clone();
+                // Check maxUses: if set, uses must be strictly less.
+                if let Some(max) = invite.max_uses {
+                    if invite.uses >= max {
+                        return Err(JmapError::invalid_arguments(
+                            "invite has reached its maximum number of uses",
+                        ));
+                    }
+                }
 
-            // Do NOT increment uses yet — defer until after the already_member check
-            // so that a failed rejoin attempt does not silently exhaust invite uses.
+                let invite_id = invite.id.clone();
+                let new_uses = invite.uses.saturating_add(1);
+                let space_id = invite.space_id.clone();
 
-            // Fetch the space to get the current members list.
-            let (spaces, _) = backend
-                .get_objects::<Space>(&account_id, Some(std::slice::from_ref(&space_id)), None)
-                .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
-            let members = spaces
+                // Do NOT increment uses yet — defer until after the already_member check
+                // so that a failed rejoin attempt does not silently exhaust invite uses.
+
+                // Fetch the space to get the current members list.
+                let (spaces, _) = backend
+                    .get_objects::<Space>(&account_id, Some(std::slice::from_ref(&space_id)), None)
+                    .await
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                let members: Vec<Value> = spaces
                     .into_iter()
                     .next()
                     .map(|s| {
                         s.members
                             .into_iter()
-                            .map(|m| serde_json::to_value(m).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })))
-                            .collect()
+                            .map(serde_json::to_value)
+                            .collect::<Result<Vec<_>, _>>()
                     })
-                    .unwrap_or_default();
+                    .unwrap_or(Ok(vec![]))
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-            (space_id, members, Some((invite_id, new_uses)))
-        }
-        (None, Some(sid)) => {
-            // Public space path: fetch the space by id and verify is_public.
-            // The spec requires notPermitted when the space is not found or isPublic is false.
-            // JmapError has no notPermitted constructor; forbidden() is the closest standard
-            // equivalent and is what the existing tests expect.
-            let space_id_typed = Id::from(sid.as_str());
-            let (spaces, _) = backend
-                .get_objects::<Space>(&account_id, Some(&[space_id_typed]), None)
-                .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                (space_id, members, Some((invite_id, new_uses)))
+            }
+            (None, Some(sid)) => {
+                // Public space path: fetch the space by id and verify is_public.
+                // The spec requires notPermitted when the space is not found or isPublic is false.
+                // JmapError has no notPermitted constructor; forbidden() is the closest standard
+                // equivalent and is what the existing tests expect.
+                let space_id_typed = Id::from(sid.as_str());
+                let (spaces, _) = backend
+                    .get_objects::<Space>(&account_id, Some(&[space_id_typed]), None)
+                    .await
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-            let space = spaces
-                .into_iter()
-                .next()
-                .filter(|s| s.is_public)
-                .ok_or_else(JmapError::forbidden)?;
+                let space = spaces
+                    .into_iter()
+                    .next()
+                    .filter(|s| s.is_public)
+                    .ok_or_else(JmapError::forbidden)?;
 
-            let space_id = space.id.clone();
-            let members: Vec<Value> = space
+                let space_id = space.id.clone();
+                let members: Vec<Value> = space
                     .members
                     .into_iter()
-                    .map(|m| serde_json::to_value(m).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })))
-                    .collect();
+                    .map(serde_json::to_value)
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-            (space_id, members, None)
-        }
-    };
+                (space_id, members, None)
+            }
+        };
 
     // Add the calling account as a Space member.
     // This bypasses the SPACE_READONLY guard in handle_space_set — Space/join calling
