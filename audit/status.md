@@ -76,3 +76,5 @@
 [06:31:06] COORDINATOR: wave 1 complete — JMAP-0c9/4ii.10 dedup, JMAP-287.2 CSPRNG, JMAP-4ii.17/23/27/29 docs; 89 tests pass, clippy clean
 [06:44:13] COORDINATOR: wave 2+3 complete — SetError/ClosureHandler/changes delegation/find_immutable/register docs/properties; all tests pass, clippy clean
 [06:44:34] COORDINATOR: review round 1, epic JMAP-63k
+[06:54:03] COORDINATOR: round 1 fixes all closed; P0=0 P1=0 P2=0; starting round 2
+[06:54:09] COORDINATOR: review round 2, epic JMAP-avb
