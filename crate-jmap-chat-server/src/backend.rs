@@ -216,10 +216,10 @@ pub trait ChatBackend: JmapBackend {
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
-    /// Return `true` if this backend supports the given JMAP object type.
-    ///
-    /// Return `false` to disable the corresponding method group for this
-    /// backend instance.
+    /// Returns true if this account supports the given JMAP object type.
+    /// Called by the server consumer (e.g. the session capability builder) —
+    /// NOT called internally by the handler library. Backends that support all
+    /// types unconditionally can return `true` always.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
     /// Generate a cryptographically random invite code.

@@ -410,7 +410,10 @@ pub trait MailBackend: JmapBackend {
         filter: Option<&jmap_mail_types::EmailFilterCondition>,
     ) -> impl std::future::Future<Output = Result<Vec<jmap_mail_types::SearchSnippet>, Self::Error>> + Send;
 
-    /// Return `true` if this backend supports the given JMAP object type.
+    /// Returns true if this account supports the given JMAP object type.
+    /// Called by the server consumer (e.g. the session capability builder) —
+    /// NOT called internally by the handler library. Backends that support all
+    /// types unconditionally can return `true` always.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
     /// Maximum bytes of body value text to return per `EmailBodyPart`.
