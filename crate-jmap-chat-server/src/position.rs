@@ -109,9 +109,14 @@ pub async fn handle_position_changes<B: ChatBackend>(
 /// - `id` and `chatId` are server-set/immutable and rejected in updates.
 pub async fn handle_position_set<B: ChatBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
     let old_state = backend
         .get_state::<ReadPosition>(&account_id)
@@ -186,7 +191,7 @@ pub async fn handle_position_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
-    if let Some(Value::Object(update_map)) = args.as_object_mut().and_then(|m| m.remove("update")) {
+    if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 

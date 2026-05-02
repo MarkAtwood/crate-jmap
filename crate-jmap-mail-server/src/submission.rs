@@ -556,6 +556,10 @@ pub async fn handle_submission_set<B: MailBackend>(
         let mut email_not_destroyed = serde_json::Map::new();
 
         // onSuccessUpdateEmail
+        // patch.clone() is required here: args is borrowed as &Value throughout
+        // handle_submission_set (used in multiple subsequent blocks), so we cannot
+        // take ownership of the nested map via remove(). The clone is bounded to
+        // the patch object, not the full args.
         if let Some(update_patches) = args.get("onSuccessUpdateEmail").and_then(|v| v.as_object()) {
             for (sub_key, patch) in update_patches {
                 let email_id = match submission_email_id_map.get(sub_key.as_str()) {

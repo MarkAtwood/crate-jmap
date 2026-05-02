@@ -112,6 +112,11 @@ pub async fn handle_invite_set<B: ChatBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
     let old_state = backend
         .get_state::<SpaceInvite>(&account_id)
@@ -226,10 +231,10 @@ pub async fn handle_invite_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     // update — forbidden: SpaceInvite objects are write-once per spec
     // -----------------------------------------------------------------------
-    if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
-        for id_str in update_map.keys() {
+    if let Some(Value::Object(update_map)) = args.remove("update") {
+        for (id_str, _) in update_map {
             not_updated.insert(
-                id_str.clone(),
+                id_str,
                 set_error_value(&SetError::new(SetErrorType::Forbidden)),
             );
         }

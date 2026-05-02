@@ -265,6 +265,11 @@ pub async fn handle_emoji_set<B: ChatBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
     let old_state = backend
         .get_state::<CustomEmoji>(&account_id)
@@ -378,7 +383,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
-    if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
+    if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
@@ -392,22 +397,29 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 .collect();
             if !bad_props.is_empty() {
                 not_updated.insert(
-                    id_str.clone(),
+                    id_str,
                     json!({ "type": "invalidProperties", "properties": bad_props }),
                 );
                 continue;
             }
 
             const EMOJI_UPDATE_ALLOWED: &[&str] = &["name", "blobId"];
+            let Value::Object(mut patch_map) = patch_val else {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
+                );
+                continue;
+            };
             let mut clean_patch = serde_json::Map::new();
             for &field in EMOJI_UPDATE_ALLOWED {
-                if let Some(v) = patch_val.get(field) {
-                    clean_patch.insert(field.to_owned(), v.clone());
+                if let Some(v) = patch_map.remove(field) {
+                    clean_patch.insert(field.to_owned(), v);
                 }
             }
             if clean_patch.is_empty() {
                 not_updated.insert(
-                    id_str.clone(),
+                    id_str,
                     json!({ "type": "invalidPatch", "description": "no updatable fields in patch" }),
                 );
                 continue;
@@ -419,21 +431,18 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(&obj).unwrap_or(Value::Null),
-                    );
+                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or(Value::Null));
                 }
                 Ok(None) => {
                     mutated = true;
-                    updated.insert(id_str.clone(), Value::Null);
+                    updated.insert(id_str, Value::Null);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str.clone(), set_error_value(&set_err));
+                    not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
-                        id_str.clone(),
+                        id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
