@@ -577,7 +577,13 @@ pub async fn handle_submission_set<B: MailBackend>(
                     .update_object::<Email>(&account_id, &email_id, patch.clone())
                     .await
                 {
-                    Ok(_) => {
+                    Ok(Some(obj)) => {
+                        email_updated.insert(
+                            email_id.as_ref().to_owned(),
+                            serde_json::to_value(&obj).unwrap_or(Value::Null),
+                        );
+                    }
+                    Ok(None) => {
                         email_updated.insert(email_id.as_ref().to_owned(), Value::Null);
                     }
                     Err(BackendSetError::SetError(set_err)) => {
