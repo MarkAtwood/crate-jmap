@@ -291,16 +291,61 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
                 .replace("\n\t", " ");
             Value::String(unfolded.trim_start().to_owned())
         }
-        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
-        AsAddresses => Value::Null,
-        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
-        AsGroupedAddresses => Value::Null,
-        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
-        AsDate => Value::Null,
-        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
-        AsMessageIds => Value::Null,
-        // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
-        AsURLs => Value::Null,
+        // NOT IMPLEMENTED (JMAP-bx3z.3): AsAddresses structured parsing is not yet
+        // implemented. Returns null; callers cannot distinguish "header absent" from
+        // "not implemented". When implementing, replace this arm with real RFC 5322
+        // address-list parsing and remove this comment.
+        AsAddresses => {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "[jmap-mail-server] header form AsAddresses not yet implemented                  — returning null (JMAP-bx3z.3)"
+            );
+            Value::Null
+        }
+        // NOT IMPLEMENTED (JMAP-bx3z.3): AsGroupedAddresses structured parsing is not yet
+        // implemented. Returns null; callers cannot distinguish "header absent" from
+        // "not implemented". When implementing, replace this arm with real RFC 5322
+        // group address parsing and remove this comment.
+        AsGroupedAddresses => {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "[jmap-mail-server] header form AsGroupedAddresses not yet implemented                  — returning null (JMAP-bx3z.3)"
+            );
+            Value::Null
+        }
+        // NOT IMPLEMENTED (JMAP-bx3z.3): AsDate structured parsing is not yet
+        // implemented. Returns null; callers cannot distinguish "header absent" from
+        // "not implemented". When implementing, replace this arm with real RFC 5322
+        // date parsing and remove this comment.
+        AsDate => {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "[jmap-mail-server] header form AsDate not yet implemented                  — returning null (JMAP-bx3z.3)"
+            );
+            Value::Null
+        }
+        // NOT IMPLEMENTED (JMAP-bx3z.3): AsMessageIds structured parsing is not yet
+        // implemented. Returns null; callers cannot distinguish "header absent" from
+        // "not implemented". When implementing, replace this arm with real RFC 5322
+        // message-id parsing and remove this comment.
+        AsMessageIds => {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "[jmap-mail-server] header form AsMessageIds not yet implemented                  — returning null (JMAP-bx3z.3)"
+            );
+            Value::Null
+        }
+        // NOT IMPLEMENTED (JMAP-bx3z.3): AsURLs structured parsing is not yet
+        // implemented. Returns null; callers cannot distinguish "header absent" from
+        // "not implemented". When implementing, replace this arm with real URL-list
+        // parsing and remove this comment.
+        AsURLs => {
+            #[cfg(debug_assertions)]
+            eprintln!(
+                "[jmap-mail-server] header form AsURLs not yet implemented                  — returning null (JMAP-bx3z.3)"
+            );
+            Value::Null
+        }
     }
 }
 
@@ -449,6 +494,8 @@ pub async fn handle_email_get<B: MailBackend>(
         DEFAULT_EMAIL_GET_PROPERTIES.iter().copied().collect()
     } else {
         let mut set: HashSet<&str> = regular_props.iter().copied().collect();
+        // RFC 8620 §5.1: `id` MUST always be present in /get responses.
+        set.insert("id");
         if need_headers_injected {
             set.insert("headers");
         }
@@ -612,12 +659,15 @@ pub async fn handle_email_query<B: MailBackend>(
     // Without either, delegate limit/position directly to the backend.
     let (ids, total, query_state, can_calculate_changes, reported_position) =
         if collapse_threads || anchor.is_some() {
+            // Fetch cap+1 to detect whether the backend had more results than
+            // the cap.  If more than cap items come back the result was
+            // truncated; truncate to cap and report total=None (unknown).
             let all = backend
                 .query_objects::<Email>(
                     &account_id,
                     filter.as_ref(),
                     sort_slice,
-                    Some(COLLAPSE_THREADS_MAX_EMAILS),
+                    Some(COLLAPSE_THREADS_MAX_EMAILS + 1),
                     0,
                 )
                 .await
@@ -626,16 +676,26 @@ pub async fn handle_email_query<B: MailBackend>(
             let qs = all.query_state.clone();
             let ccc = all.can_calculate_changes;
 
-            let all_ids = if collapse_threads {
-                collapse_by_thread(backend, &account_id, all.ids)
-                    .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?
+            let was_capped = fetched_count > COLLAPSE_THREADS_MAX_EMAILS as usize;
+            let ids_for_collapse: Vec<Id> = if was_capped {
+                all.ids
+                    .into_iter()
+                    .take(COLLAPSE_THREADS_MAX_EMAILS as usize)
+                    .collect()
             } else {
                 all.ids
             };
 
+            let all_ids = if collapse_threads {
+                collapse_by_thread(backend, &account_id, ids_for_collapse)
+                    .await
+                    .map_err(|e| JmapError::server_fail(e.to_string()))?
+            } else {
+                ids_for_collapse
+            };
+
             // Total is only honest when the fetch was not capped.
-            let total: Option<u64> = if fetched_count < COLLAPSE_THREADS_MAX_EMAILS as usize {
+            let total: Option<u64> = if !was_capped {
                 Some(all_ids.len() as u64)
             } else {
                 None
@@ -1337,8 +1397,11 @@ async fn build_email_from_create<B: MailBackend>(
     .await
     .map_err(|e| e.to_string())?;
 
-    // size is server-set per RFC 8621 §5.5.3 — the backend assigns the real value in
-    // create_object. Always use 0 as the placeholder; never read it from the client.
+    // size is server-set per RFC 8621 §5.5.3 — this handler always sets size=0 as a
+    // placeholder. The backend MUST update this field to the actual blob size before
+    // returning the created object from create_object. Backends that do not store raw
+    // bytes on the Email/set create path (e.g. MemoryBackend) should use the length
+    // of the serialized email JSON as a proxy. Never read size from the client.
     let size: u64 = 0;
 
     // receivedAt: use provided value or now (RFC 8621 §5.5.3).
@@ -1813,6 +1876,8 @@ pub async fn handle_email_parse<B: MailBackend>(
         DEFAULT_EMAIL_PARSE_PROPERTIES.iter().copied().collect()
     } else {
         let mut set: HashSet<&str> = regular_props.iter().copied().collect();
+        // RFC 8620 §5.1: `id` MUST always be present in /get responses.
+        set.insert("id");
         if need_headers_injected {
             set.insert("headers");
         }

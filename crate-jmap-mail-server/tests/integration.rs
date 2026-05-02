@@ -1800,11 +1800,12 @@ async fn email_set_create_and_get() {
         c0["threadId"].as_str().is_some(),
         "created entry must have threadId"
     );
-    // size is server-set; MemoryBackend returns 0 as the placeholder.
-    assert_eq!(
-        c0["size"].as_u64(),
-        Some(0),
-        "size must be server-set (0 from MemoryBackend)"
+    // size is server-set; MemoryBackend must assign the real blob size (> 0),
+    // not leave the placeholder 0 that email.rs sets before calling create_object.
+    assert!(
+        c0["size"].as_u64().unwrap_or(0) > 0,
+        "size must be server-set and > 0; got: {:?}",
+        c0["size"]
     );
     // blobId must be present and must NOT be the internal placeholder.
     let blob_id_str = c0["blobId"]
@@ -10303,5 +10304,64 @@ Subject: Re: Project Alpha Discussion\r\n\r\nAnother reply.\r\n";
     assert!(
         !created.contains(&alpha_thread_id.as_ref()),
         "alpha thread must NOT appear in created (it pre-existed); got: {created:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Fix JMAP-bx3z.40 regression guard: Email/set create size must be > 0
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/set create must echo back size > 0.
+///
+/// RFC 8621 §5.5.3 — size is server-set. The backend must assign the real blob
+/// size, not leave the placeholder 0 that email.rs places in the object before
+/// calling create_object. This test guards against the placeholder fossilizing.
+#[tokio::test]
+async fn email_set_create_size_is_nonzero() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create a mailbox first (required so mailboxIds is valid).
+    use jmap_mail_types::MailboxRights;
+    let mbox = jmap_mail_types::Mailbox::new(
+        Id::from("placeholder"),
+        "Inbox",
+        0,
+        0,
+        0,
+        0,
+        0,
+        MailboxRights::default(),
+        true,
+    );
+    let (mbox_id, _) = backend
+        .create_object::<jmap_mail_types::Mailbox>(&account_id, "c0", mbox)
+        .await
+        .expect("create mailbox");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "new1": {
+                "mailboxIds": { mbox_id.as_ref(): true },
+                "subject": "Test email for size check"
+            }
+        }
+    });
+
+    let (resp, _extra) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must succeed");
+
+    let created = resp["created"]
+        .as_object()
+        .expect("created must be an object");
+    assert!(!created.is_empty(), "new1 must appear in created");
+
+    let new1 = &created["new1"];
+    let size = new1["size"].as_u64().expect("size must be a u64");
+    assert!(
+        size > 0,
+        "Email/set create must return size > 0 (backend must not fossilize placeholder 0); got size={size}"
     );
 }
