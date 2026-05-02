@@ -33,6 +33,12 @@ impl_string_enum!(DeliveryState, "a delivery state string",
 ///
 /// `Other` preserves any unrecognized value for round-trip fidelity.
 /// Servers MUST NOT reject messages carrying unknown values.
+///
+/// # MAINTENANCE
+/// When adding a new variant: (1) add it to the enum below, (2) add the
+/// corresponding `"wire-name" => Variant` arm in `impl_string_enum!` below.
+/// Both must stay in sync — a variant absent from the macro falls through to
+/// `Other(String)` on deserialize and serializes incorrectly.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ReadDisposition {
