@@ -3,59 +3,23 @@
 use std::collections::HashSet;
 
 use jmap_chat_types::{Chat, ChatKind};
-use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser, set_error_value};
+use crate::helpers::{extract_account_id, now_utc_string, set_error_value};
 
 // ---------------------------------------------------------------------------
 // Chat/get
 // ---------------------------------------------------------------------------
 
 /// Handle a `Chat/get` method call.
+// NOTE: properties forwarded via handle_get
 pub async fn handle_chat_get<B: ChatBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
-
-    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
-            serde_json::from_value(v)
-                .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
-        ),
-    };
-
-    let ids_slice = ids.as_deref();
-    let (list, not_found) = backend
-        .get_objects::<Chat>(&account_id, ids_slice, None)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
-    let state = backend
-        .get_state::<Chat>(&account_id)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
-    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
-
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "state": state.as_ref(),
-            "list": list_json,
-            "notFound": not_found_json(&not_found),
-        }),
-        vec![],
-    ))
+    jmap_server::handlers::handle_get::<Chat, B>(backend, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -162,74 +126,7 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
-        Some(s) => State::from(s),
-        None => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
-    };
-
-    let max_changes: Option<u64> = match args.get("maxChanges") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
-            JmapError::invalid_arguments("maxChanges must be a positive integer")
-        })?),
-    };
-
-    let up_to_id: Option<Id> = match args.get("upToId") {
-        None | Some(Value::Null) => None,
-        Some(Value::String(s)) => Some(Id::from(s.as_str())),
-        Some(_) => {
-            return Err(JmapError::invalid_arguments(
-                "upToId must be a string Id or null",
-            ))
-        }
-    };
-
-    let calculate_total: bool = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let result = backend
-        .query_changes::<Chat>(
-            &account_id,
-            &since_query_state,
-            None,
-            None,
-            max_changes,
-            up_to_id.as_ref(),
-            false,
-        )
-        .await
-        .map_err(JmapError::from)?;
-
-    let removed: Vec<&str> = result.removed.iter().map(|id| id.as_ref()).collect();
-    let added: Vec<Value> = result
-        .added
-        .iter()
-        .map(|item| {
-            json!({
-                "id": item.id.as_ref(),
-                "index": item.index,
-            })
-        })
-        .collect();
-
-    let mut resp = json!({
-        "accountId": account_id.as_ref(),
-        "oldQueryState": result.old_query_state.as_ref(),
-        "newQueryState": result.new_query_state.as_ref(),
-        "removed": removed,
-        "added": added,
-    });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
-    }
-
-    Ok((resp, vec![]))
+    jmap_server::handlers::handle_query_changes::<Chat, B>(backend, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -351,7 +248,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                             .get_objects::<Chat>(&account_id, None, None)
                             .await
                             .map_err(|e| JmapError::server_fail(e.to_string()))?;
-                        let canonical_id = current_chats
+                        let canonical_id = match current_chats
                             .iter()
                             .filter(|c| {
                                 c.kind == ChatKind::Direct
@@ -360,7 +257,19 @@ pub async fn handle_chat_set<B: ChatBackend>(
                             })
                             .min_by(|a, b| a.id.as_ref().cmp(b.id.as_ref()))
                             .map(|c| c.id.clone())
-                            .unwrap_or_else(|| Id::from("unknown"));
+                        {
+                            Some(id) => id,
+                            None => {
+                                not_created.insert(
+                                    create_id.clone(),
+                                    json!({
+                                        "type": "serverFail",
+                                        "description": "direct chat for contact not found after concurrent operation; retry"
+                                    }),
+                                );
+                                continue;
+                            }
+                        };
                         not_created.insert(
                             create_id.clone(),
                             serde_json::to_value(
@@ -467,11 +376,29 @@ pub async fn handle_chat_set<B: ChatBackend>(
                                 .map(Id::from)
                                 .unwrap_or_else(|| new_id.clone());
                             if new_id != canonical_id {
-                                // We lost the race: destroy our copy and report
-                                // alreadyExists pointing to the canonical one.
-                                let _ = backend
+                                // We lost the race: destroy our copy.
+                                if let Err(e) = backend
                                     .destroy_object::<Chat>(&account_id, &new_id)
-                                    .await;
+                                    .await
+                                {
+                                    // Cleanup failed — the duplicate is still
+                                    // live. Return a retryable server error
+                                    // rather than alreadyExists with a
+                                    // potentially inconsistent state.
+                                    not_created.insert(
+                                        create_id.clone(),
+                                        json!({
+                                            "type": "serverFail",
+                                            "description": format!(
+                                                "failed to clean up duplicate Direct chat; retry ({})",
+                                                e
+                                            )
+                                        }),
+                                    );
+                                    continue;
+                                }
+                                // Cleanup succeeded: report alreadyExists
+                                // pointing to the canonical winner.
                                 not_created.insert(
                                     create_id.clone(),
                                     serde_json::to_value(
@@ -520,6 +447,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
             let id = Id::from(id_str.as_str());
 
             // Reject patches that include server-set fields.
+            // Server-set fields that clients may not patch via Chat/set.
+            // INVARIANT: this list must include every field on jmap_chat_types::Chat that
+            // is set by the server rather than the client. Add new server-set fields here
+            // at the same time as adding them to the Chat struct.
             const CHAT_READONLY: &[&str] = &["id", "createdAt", "unreadCount", "pinnedMessageIds"];
             let bad_props: Vec<&str> = CHAT_READONLY
                 .iter()
