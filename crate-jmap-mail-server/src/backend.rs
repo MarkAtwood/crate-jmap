@@ -2,48 +2,22 @@
 //!
 //! Consumers implement [`MailBackend`] for their storage system. The method
 //! handlers in sibling modules call into the backend through this trait.
+//!
+//! The read-side operations (`get_objects`, `get_state`, `get_changes`,
+//! `query_objects`, `query_changes`) are defined on the [`jmap_server::JmapBackend`]
+//! supertrait. Only write operations and mail-specific operations are here.
+//!
+//! Marker traits and property selector enums live in `jmap-types` and
+//! `jmap-mail-types` respectively; they are re-exported here for convenience.
 
-// ---------------------------------------------------------------------------
-// Marker traits
-// ---------------------------------------------------------------------------
-
-/// Marker trait for all JMAP object types.
-///
-/// All types passed as type parameters to [`MailBackend`] methods must implement
-/// this trait. The [`TYPE_NAME`](JmapObject::TYPE_NAME) constant is used in
-/// error messages and capability checks.
-pub trait JmapObject:
-    serde::Serialize + for<'de> serde::Deserialize<'de> + Send + Sync + 'static
-{
-    /// The JMAP type name string (e.g. `"Email"`, `"Mailbox"`).
-    const TYPE_NAME: &'static str;
-    /// The property selector enum for this type (server-side only, no serde).
-    type Property: Send + Sync + 'static;
-}
-
-/// Marker for object types that support `get` and `changes` operations.
-pub trait GetObject: JmapObject {}
-
-/// Marker for object types that support `set` (create/update/destroy) operations.
-pub trait SetObject: JmapObject {
-    /// The patch type for update operations.
-    ///
-    /// Typically [`serde_json::Value`] for open-ended JSON Merge Patch, or a
-    /// typed struct if the backend wants structured patching.
-    type Patch: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
-}
-
-/// Marker for object types that support `query` and `queryChanges` operations.
-pub trait QueryObject: JmapObject {
-    /// The filter condition type (e.g. [`jmap_mail_types::EmailFilterCondition`]).
-    ///
-    /// Must implement both `Serialize` and `DeserializeOwned` so that backends
-    /// can inspect or forward the filter (e.g. for logging or test harnesses
-    /// that need to apply it in-process).
-    type Filter: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
-    /// The comparator type (e.g. [`jmap_mail_types::EmailComparator`]).
-    type Comparator: serde::Serialize + serde::de::DeserializeOwned + Send + Sync + 'static;
-}
+pub use jmap_mail_types::backend::{
+    EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
+    SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
+};
+pub use jmap_server::{
+    AddedItem, BackendChangesError, ChangesResult, GetObject, JmapBackend, JmapObject,
+    QueryChangesResult, QueryObject, QueryResult, SetObject,
+};
 
 // ---------------------------------------------------------------------------
 // SetError and SetErrorType
@@ -195,6 +169,11 @@ pub enum SetErrorType {
 
 impl std::fmt::Display for SetErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The wildcard arm catches any variant added in the future before this
+        // match is updated; `#[allow(unreachable_patterns)]` suppresses the
+        // compiler warning that arises because all current variants are already
+        // covered (required by the #[non_exhaustive] enum contract).
+        #[allow(unreachable_patterns)]
         let s = match self {
             Self::Forbidden => "forbidden",
             Self::OverQuota => "overQuota",
@@ -219,68 +198,15 @@ impl std::fmt::Display for SetErrorType {
             Self::ForbiddenMailFrom => "forbiddenMailFrom",
             Self::ForbiddenToSend => "forbiddenToSend",
             Self::CannotUnsend => "cannotUnsend",
+            _ => return write!(f, "{:?}", self),
         };
         f.write_str(s)
     }
 }
 
 // ---------------------------------------------------------------------------
-// Backend error envelopes
+// BackendSetError
 // ---------------------------------------------------------------------------
-
-/// Error type returned by [`MailBackend::get_changes`] and
-/// [`MailBackend::query_changes`].
-#[non_exhaustive]
-#[derive(Debug)]
-pub enum BackendChangesError<E> {
-    /// The `sinceState` is too old or the server cannot calculate the full set
-    /// of intermediate states. Maps to `tooManyChanges` in the response with
-    /// the given suggested limit.
-    TooManyChanges { limit: u64 },
-    /// An unexpected storage-layer error.
-    Other(E),
-}
-
-impl<E: std::fmt::Display> std::fmt::Display for BackendChangesError<E> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::TooManyChanges { limit: 0 } => write!(f, "cannot calculate changes"),
-            Self::TooManyChanges { limit } => write!(f, "too many changes (limit: {limit})"),
-            Self::Other(e) => write!(f, "{e}"),
-        }
-    }
-}
-
-impl<E: std::error::Error + 'static> std::error::Error for BackendChangesError<E> {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Other(e) => Some(e),
-            _ => None,
-        }
-    }
-}
-
-impl<E> From<E> for BackendChangesError<E> {
-    fn from(e: E) -> Self {
-        Self::Other(e)
-    }
-}
-
-impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapError {
-    fn from(e: BackendChangesError<E>) -> Self {
-        match e {
-            BackendChangesError::TooManyChanges { limit: 0 } => {
-                jmap_types::JmapError::cannot_calculate_changes()
-            }
-            BackendChangesError::TooManyChanges { limit } => {
-                jmap_types::JmapError::too_many_changes_with_limit(limit)
-            }
-            BackendChangesError::Other(inner) => {
-                jmap_types::JmapError::server_fail(inner.to_string())
-            }
-        }
-    }
-}
 
 /// Error type returned by create/update/destroy backend methods.
 #[non_exhaustive]
@@ -318,132 +244,6 @@ impl<E> From<SetError> for BackendSetError<E> {
 }
 
 // ---------------------------------------------------------------------------
-// Result types
-// ---------------------------------------------------------------------------
-
-/// Result of a `/changes` call (RFC 8620 §5.2).
-#[derive(Debug)]
-#[non_exhaustive]
-pub struct ChangesResult {
-    /// Ids of objects that were created since `sinceState`.
-    pub created: Vec<jmap_types::Id>,
-    /// Ids of objects that were updated since `sinceState`.
-    pub updated: Vec<jmap_types::Id>,
-    /// Ids of objects that were destroyed since `sinceState`.
-    pub destroyed: Vec<jmap_types::Id>,
-    /// `true` if there are more changes beyond this batch.
-    pub has_more_changes: bool,
-    /// The current state token after applying all reported changes.
-    pub new_state: jmap_types::State,
-}
-
-impl ChangesResult {
-    /// Construct a [`ChangesResult`].
-    pub fn new(
-        created: Vec<jmap_types::Id>,
-        updated: Vec<jmap_types::Id>,
-        destroyed: Vec<jmap_types::Id>,
-        has_more_changes: bool,
-        new_state: jmap_types::State,
-    ) -> Self {
-        Self {
-            created,
-            updated,
-            destroyed,
-            has_more_changes,
-            new_state,
-        }
-    }
-}
-
-/// Result of a `/query` call (RFC 8620 §5.5).
-#[derive(Debug)]
-#[non_exhaustive]
-pub struct QueryResult {
-    /// The ordered list of matching object ids.
-    pub ids: Vec<jmap_types::Id>,
-    /// The 0-based index of the first returned id in the complete result list.
-    pub position: i64,
-    /// Total number of results, if the backend can calculate it.
-    pub total: Option<u64>,
-    /// Opaque query state token for subsequent `/queryChanges` calls.
-    pub query_state: jmap_types::State,
-    /// Whether the backend supports `/queryChanges` for this query.
-    pub can_calculate_changes: bool,
-}
-
-impl QueryResult {
-    /// Construct a [`QueryResult`].
-    pub fn new(
-        ids: Vec<jmap_types::Id>,
-        position: i64,
-        total: Option<u64>,
-        query_state: jmap_types::State,
-        can_calculate_changes: bool,
-    ) -> Self {
-        Self {
-            ids,
-            position,
-            total,
-            query_state,
-            can_calculate_changes,
-        }
-    }
-}
-
-/// One entry in the `added` list of a `/queryChanges` response (RFC 8620 §5.6).
-#[derive(Debug)]
-#[non_exhaustive]
-pub struct AddedItem {
-    /// The id of the newly-added object.
-    pub id: jmap_types::Id,
-    /// Its 0-based position in the result list after applying all changes.
-    pub index: u64,
-}
-
-impl AddedItem {
-    /// Construct an [`AddedItem`].
-    pub fn new(id: jmap_types::Id, index: u64) -> Self {
-        Self { id, index }
-    }
-}
-
-/// Result of a `/queryChanges` call (RFC 8620 §5.6).
-#[derive(Debug)]
-#[non_exhaustive]
-pub struct QueryChangesResult {
-    /// The query state token supplied by the client in `sinceQueryState`.
-    pub old_query_state: jmap_types::State,
-    /// The current query state token.
-    pub new_query_state: jmap_types::State,
-    /// Total number of results in the new query, if the backend can calculate it.
-    pub total: Option<u64>,
-    /// Ids removed from the result set since `oldQueryState`.
-    pub removed: Vec<jmap_types::Id>,
-    /// Ids added to the result set since `oldQueryState`, with their positions.
-    pub added: Vec<AddedItem>,
-}
-
-impl QueryChangesResult {
-    /// Construct a [`QueryChangesResult`].
-    pub fn new(
-        old_query_state: jmap_types::State,
-        new_query_state: jmap_types::State,
-        total: Option<u64>,
-        removed: Vec<jmap_types::Id>,
-        added: Vec<AddedItem>,
-    ) -> Self {
-        Self {
-            old_query_state,
-            new_query_state,
-            total,
-            removed,
-            added,
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------
 // MailBackend trait
 // ---------------------------------------------------------------------------
 
@@ -452,25 +252,15 @@ impl QueryChangesResult {
 /// Implementors provide the actual data access; the method handler modules
 /// in this crate translate between JMAP wire protocol and backend calls.
 ///
+/// Read-side operations (`get_objects`, `get_state`, `get_changes`,
+/// `query_objects`, `query_changes`) are inherited from [`JmapBackend`].
+///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl MailBackend>` when sharing across tasks.
-pub trait MailBackend: Send + Sync + 'static {
-    /// The error type returned by storage operations.
-    type Error: std::error::Error + Send + Sync + 'static;
-
+pub trait MailBackend: JmapBackend {
     // -----------------------------------------------------------------------
-    // Generic CRUD
+    // Write operations
     // -----------------------------------------------------------------------
-
-    /// Fetch objects by id (or all objects when `ids` is `None`).
-    ///
-    /// Returns `(found, not_found)` — objects that exist and ids that do not.
-    fn get_objects<O: GetObject + Send + Sync>(
-        &self,
-        account_id: &jmap_types::Id,
-        ids: Option<&[jmap_types::Id]>,
-        properties: Option<&[<O as JmapObject>::Property]>,
-    ) -> impl std::future::Future<Output = Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error>> + Send;
 
     /// Create a new object.
     ///
@@ -488,12 +278,15 @@ pub trait MailBackend: Send + Sync + 'static {
     ///
     /// Returns `Some(updated_object)` if the backend modified any properties
     /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
-    /// or `None` if the patch was applied verbatim. When `Some` is returned,
-    /// the handler is expected to include the server-changed properties in the
-    /// `updated` map entry for this id. The current handler implementations
-    /// always return `null` for the updated entry and therefore only benefit
-    /// from `None`; backends that need to echo server-set properties should
-    /// ensure their consumers upgrade the handlers accordingly.
+    /// or `None` if the patch was applied verbatim.
+    ///
+    /// **Callers must handle the `Some` case.** When the return value is
+    /// `Some(O)`, the handler should serialize the updated object and include
+    /// the server-modified fields in the `updated` map of the `/set` response
+    /// (RFC 8620 §5.3). Discarding the return value causes server-modified
+    /// fields to be silently omitted from the response. To use per-request
+    /// auth context in an update handler, implement [`JmapHandler`] directly
+    /// rather than using `register_mail_handlers`.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         account_id: &jmap_types::Id,
@@ -507,57 +300,6 @@ pub trait MailBackend: Send + Sync + 'static {
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
-
-    /// Return the current state token for an object type in the given account.
-    fn get_state<O: JmapObject + Send + Sync>(
-        &self,
-        account_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<jmap_types::State, Self::Error>> + Send;
-
-    /// Return changes since `since_state`, up to `max_changes` entries.
-    fn get_changes<O: JmapObject + Send + Sync>(
-        &self,
-        account_id: &jmap_types::Id,
-        since_state: &jmap_types::State,
-        max_changes: Option<u64>,
-    ) -> impl std::future::Future<Output = Result<ChangesResult, BackendChangesError<Self::Error>>> + Send;
-
-    // -----------------------------------------------------------------------
-    // Query
-    // -----------------------------------------------------------------------
-
-    /// Execute a `/query` and return a page of matching ids.
-    ///
-    /// `position` may be negative — negative values are relative to the end of
-    /// the result set per RFC 8620 §5.5 (e.g. -1 means the last result).
-    /// Backends MUST handle negative positions; they are passed through from the
-    /// client unchanged on the non-`collapseThreads` path.
-    fn query_objects<O: QueryObject + Send + Sync>(
-        &self,
-        account_id: &jmap_types::Id,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        limit: Option<u64>,
-        position: i64,
-    ) -> impl std::future::Future<Output = Result<QueryResult, Self::Error>> + Send;
-
-    /// Execute a `/queryChanges` and return deltas since `since_query_state`.
-    ///
-    /// `collapse_threads` is only meaningful for `Email/queryChanges` (RFC 8621 §4.5).
-    /// Pass `false` for all other object types.
-    #[allow(clippy::too_many_arguments)]
-    fn query_changes<O: QueryObject + Send + Sync>(
-        &self,
-        account_id: &jmap_types::Id,
-        since_query_state: &jmap_types::State,
-        filter: Option<&O::Filter>,
-        sort: Option<&[O::Comparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&jmap_types::Id>,
-        collapse_threads: bool,
-    ) -> impl std::future::Future<
-        Output = Result<QueryChangesResult, BackendChangesError<Self::Error>>,
-    > + Send;
 
     // -----------------------------------------------------------------------
     // Mail-specific methods
@@ -581,11 +323,14 @@ pub trait MailBackend: Send + Sync + 'static {
     /// Return the thread id of the first stored [`Email`](jmap_mail_types::Email) whose
     /// `messageId` list intersects `message_ids`, or `None` if no match exists.
     ///
-    /// Used by the `Email/set` create path to assign new emails to an existing
-    /// thread when they reply to or reference a known message. Backends should
-    /// maintain a message-id index to answer this in O(1); the default
-    /// implementation performs a full scan and is provided only as a fallback
-    /// for backends that do not yet have an index.
+    /// **Persistent backends MUST override this method.** The default `next_id`
+    /// generator used when this returns `None` is seeded from system-clock
+    /// nanoseconds at process startup. Two processes that start within the same
+    /// nanosecond (common in containers and test harnesses) will produce
+    /// identical ID sequences, silently corrupting thread graphs across
+    /// restarts. A persistent backend must derive thread IDs from durable
+    /// storage — for example, by looking up a content-addressed hash of the
+    /// message-id header — so that thread identity survives process boundaries.
     fn find_thread_by_message_ids(
         &self,
         account_id: &jmap_types::Id,
@@ -594,18 +339,21 @@ pub trait MailBackend: Send + Sync + 'static {
 
     /// Return `true` if `blob_id` exists in `account_id`'s blob store.
     ///
-    /// Used by `Email/parse` to distinguish RFC 8621 §5.8 error categories:
-    /// a blob that exists but cannot be parsed → `notParsable`; one that does
-    /// not exist → `notFound`. The default returns `true`, which preserves the
-    /// pre-existing behaviour of routing all parse failures to `notParsable`.
-    /// Backends should override this for correct RFC conformance.
+    /// Used by `Email/parse` to distinguish `notFound` (blob absent) from
+    /// `notParsable` (blob present but uninterpretable as a message).
+    ///
+    /// **Override this in every backend that stores blobs.** The default
+    /// returns `false`, so every blob lookup will be reported as `notFound`.
+    /// The default exists only to satisfy the trait bound for backends that
+    /// do not implement blob storage; it does not represent a meaningful
+    /// runtime value.
     fn blob_exists(
         &self,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send {
         let _ = (account_id, blob_id);
-        std::future::ready(true)
+        std::future::ready(false)
     }
 
     /// Parse a raw message blob and return an Email object without storing it
@@ -632,12 +380,6 @@ pub trait MailBackend: Send + Sync + 'static {
     > + Send;
 
     /// Return search snippets for the given Email ids (RFC 8621 §5.9 — `SearchSnippet/get`).
-    ///
-    /// For every id in `email_ids` that exists in the account, return a
-    /// [`SearchSnippet`](jmap_mail_types::SearchSnippet) object in the result
-    /// vector (its `subject` and `preview` fields may be `None` if the email
-    /// does not match the filter). **Omit only ids that do not exist in the
-    /// account.** The caller maps absent ids to the `notFound` array.
     fn search_snippets(
         &self,
         account_id: &jmap_types::Id,
@@ -646,238 +388,23 @@ pub trait MailBackend: Send + Sync + 'static {
     ) -> impl std::future::Future<Output = Result<Vec<jmap_mail_types::SearchSnippet>, Self::Error>> + Send;
 
     /// Return `true` if this backend supports the given JMAP object type.
-    ///
-    /// Return `false` for [`jmap_mail_types::SearchSnippet`] to disable
-    /// `SearchSnippet/get` for this backend instance.
     fn supports_type<O: JmapObject>(&self) -> bool;
-}
 
-// ---------------------------------------------------------------------------
-// Property selector enums (server-side; no serde required)
-// ---------------------------------------------------------------------------
-
-/// Property selector for [`jmap_mail_types::Mailbox`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum MailboxProperty {
-    Id,
-    Name,
-    ParentId,
-    Role,
-    SortOrder,
-    TotalEmails,
-    UnreadEmails,
-    TotalThreads,
-    UnreadThreads,
-    MyRights,
-    IsSubscribed,
-}
-
-/// Property selector for [`jmap_mail_types::Thread`] `/get`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum ThreadProperty {
-    Id,
-    EmailIds,
-}
-
-/// Property selector for [`jmap_mail_types::Email`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum EmailProperty {
-    Id,
-    BlobId,
-    ThreadId,
-    MailboxIds,
-    Keywords,
-    Size,
-    ReceivedAt,
-    MessageId,
-    InReplyTo,
-    References,
-    Subject,
-    From,
-    To,
-    Cc,
-    Bcc,
-    ReplyTo,
-    Sender,
-    SentAt,
-    HasAttachment,
-    Preview,
-    BodyStructure,
-    TextBody,
-    HtmlBody,
-    Attachments,
-    BodyValues,
-    Headers,
-}
-
-/// Property selector for [`jmap_mail_types::Identity`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum IdentityProperty {
-    Id,
-    Name,
-    Email,
-    ReplyTo,
-    Bcc,
-    TextSignature,
-    HtmlSignature,
-    MayDelete,
-}
-
-/// Property selector for [`jmap_mail_types::EmailSubmission`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum EmailSubmissionProperty {
-    Id,
-    IdentityId,
-    EmailId,
-    ThreadId,
-    Envelope,
-    SendAt,
-    UndoStatus,
-    DeliveryStatus,
-    DsnBlobIds,
-    MdnBlobIds,
-}
-
-/// Property selector for [`jmap_mail_types::VacationResponse`] `/get` and `/set`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum VacationResponseProperty {
-    Id,
-    IsEnabled,
-    FromDate,
-    ToDate,
-    Subject,
-    TextBody,
-    HtmlBody,
-}
-
-/// Property selector for [`jmap_mail_types::SearchSnippet`] `/get`.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum SearchSnippetProperty {
-    EmailId,
-    Subject,
-    Preview,
-}
-
-// ---------------------------------------------------------------------------
-// JmapObject impls for all RFC 8621 mail types
-// ---------------------------------------------------------------------------
-
-impl JmapObject for jmap_mail_types::Mailbox {
-    const TYPE_NAME: &'static str = "Mailbox";
-    type Property = MailboxProperty;
-}
-
-impl GetObject for jmap_mail_types::Mailbox {}
-
-impl SetObject for jmap_mail_types::Mailbox {
-    type Patch = serde_json::Value;
-}
-
-impl QueryObject for jmap_mail_types::Mailbox {
-    /// RFC 8621 §2.3 defines five filter fields for Mailbox/query.
-    type Filter = jmap_mail_types::MailboxFilterCondition;
-    type Comparator = serde_json::Value;
-}
-
-impl JmapObject for jmap_mail_types::Thread {
-    const TYPE_NAME: &'static str = "Thread";
-    type Property = ThreadProperty;
-}
-
-impl GetObject for jmap_mail_types::Thread {}
-
-impl JmapObject for jmap_mail_types::Email {
-    const TYPE_NAME: &'static str = "Email";
-    type Property = EmailProperty;
-}
-
-impl GetObject for jmap_mail_types::Email {}
-
-impl SetObject for jmap_mail_types::Email {
-    type Patch = serde_json::Value;
-}
-
-impl QueryObject for jmap_mail_types::Email {
-    type Filter = jmap_mail_types::EmailFilter;
-    type Comparator = jmap_mail_types::EmailComparator;
-}
-
-impl JmapObject for jmap_mail_types::Identity {
-    const TYPE_NAME: &'static str = "Identity";
-    type Property = IdentityProperty;
-}
-
-impl GetObject for jmap_mail_types::Identity {}
-
-impl SetObject for jmap_mail_types::Identity {
-    type Patch = serde_json::Value;
-}
-
-impl JmapObject for jmap_mail_types::EmailSubmission {
-    const TYPE_NAME: &'static str = "EmailSubmission";
-    type Property = EmailSubmissionProperty;
-}
-
-impl GetObject for jmap_mail_types::EmailSubmission {}
-
-impl SetObject for jmap_mail_types::EmailSubmission {
-    type Patch = serde_json::Value;
-}
-
-impl QueryObject for jmap_mail_types::EmailSubmission {
-    type Filter = jmap_mail_types::EmailSubmissionFilter;
-    type Comparator = serde_json::Value;
-}
-
-impl JmapObject for jmap_mail_types::VacationResponse {
-    const TYPE_NAME: &'static str = "VacationResponse";
-    type Property = VacationResponseProperty;
-}
-
-impl GetObject for jmap_mail_types::VacationResponse {}
-
-impl SetObject for jmap_mail_types::VacationResponse {
-    type Patch = serde_json::Value;
-}
-
-impl JmapObject for jmap_mail_types::SearchSnippet {
-    const TYPE_NAME: &'static str = "SearchSnippet";
-    type Property = SearchSnippetProperty;
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Oracle: BackendChangesError::TooManyChanges { limit: 0 } must map to
-    /// cannotCalculateChanges (RFC 8620 §5.6), not tooManyChanges with limit 0.
+    /// Maximum bytes of body value text to return per `EmailBodyPart`.
     ///
-    /// PLAN.md line 167: limit=0 is the convention for "cannot calculate".
-    #[test]
-    fn backend_changes_error_limit_zero_maps_to_cannot_calculate() {
-        let err = jmap_types::JmapError::from(
-            BackendChangesError::<std::convert::Infallible>::TooManyChanges { limit: 0 },
-        );
-        assert_eq!(
-            err.error_type.as_str(),
-            "cannotCalculateChanges",
-            "limit=0 must produce cannotCalculateChanges; got: {:?}",
-            err.error_type
-        );
+    /// A value of `0` means unlimited. Used with `maxBodyValueBytes` in
+    /// `Email/get` and `Email/parse`. Override in your implementation to
+    /// enforce per-account limits.
+    fn max_body_value_bytes(&self, _account_id: &jmap_types::Id) -> u64 {
+        0 // unlimited by default
     }
 
-    /// Oracle: BackendChangesError::TooManyChanges { limit: N } (N > 0) maps to
-    /// tooManyChanges with the suggested limit.
-    #[test]
-    fn backend_changes_error_nonzero_limit_maps_to_too_many_changes() {
-        let err = jmap_types::JmapError::from(
-            BackendChangesError::<std::convert::Infallible>::TooManyChanges { limit: 50 },
-        );
-        assert_eq!(
-            err.error_type.as_str(),
-            "tooManyChanges",
-            "limit=50 must produce tooManyChanges; got: {:?}",
-            err.error_type
-        );
+    /// Maximum seconds in the future that `sendAt` may be in an `EmailSubmission`.
+    ///
+    /// A value of `0` means no delayed send support. Used to validate `sendAt`
+    /// in `EmailSubmission/set`. Override in your implementation to advertise
+    /// this server capability.
+    fn max_delayed_send_seconds(&self, _account_id: &jmap_types::Id) -> u64 {
+        0 // no delayed send by default
     }
 }
