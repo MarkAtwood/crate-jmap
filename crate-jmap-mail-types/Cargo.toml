@@ -10,6 +10,9 @@ license = "MIT OR Apache-2.0"
 keywords = ["jmap", "email", "mail", "types", "rfc8621"]
 categories = ["email", "encoding"]
 
+[features]
+mdn = []
+
 [dependencies]
 jmap-types = { path = "../crate-jmap-types", version = "0.1.0" }
 serde = { version = "1", features = ["derive"] }

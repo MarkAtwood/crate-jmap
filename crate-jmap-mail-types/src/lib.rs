@@ -59,6 +59,9 @@ pub mod submission;
 pub mod thread;
 pub mod vacation;
 
+#[cfg(feature = "mdn")]
+pub mod mdn;
+
 pub use backend::{
     EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
     SearchSnippetProperty, ThreadProperty, VacationResponseProperty,

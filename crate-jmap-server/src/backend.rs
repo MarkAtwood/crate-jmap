@@ -172,6 +172,8 @@ pub enum SetErrorType {
     ForbiddenToSend,
     /// RFC 8621 §7.5 — The submission cannot be undone.
     CannotUnsend,
+    /// An MDN for this message has already been sent (`$mdnsent` keyword is set).
+    MdnAlreadySent,
 }
 
 impl std::fmt::Display for SetErrorType {
@@ -200,6 +202,7 @@ impl std::fmt::Display for SetErrorType {
             Self::ForbiddenMailFrom => "forbiddenMailFrom",
             Self::ForbiddenToSend => "forbiddenToSend",
             Self::CannotUnsend => "cannotUnsend",
+            Self::MdnAlreadySent => "mdnAlreadySent",
         };
         f.write_str(s)
     }
