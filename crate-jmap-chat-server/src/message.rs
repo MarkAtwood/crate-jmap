@@ -404,18 +404,12 @@ pub async fn handle_message_set<B: ChatBackend>(
                 DeliveryState::Pending,
             );
 
-            if let Some(id) = reply_to {
-                msg.reply_to = Some(id);
-            }
-            if let Some(id) = thread_root_id {
-                msg.thread_root_id = Some(id);
-            }
+            msg.reply_to = reply_to;
+            msg.thread_root_id = thread_root_id;
             if let Some(s) = sender_expires_at {
                 msg.sender_expires_at = Some(UTCDate::from(s.as_str()));
             }
-            if let Some(b) = burn_on_read {
-                msg.burn_on_read = Some(b);
-            }
+            msg.burn_on_read = burn_on_read;
 
             match backend
                 .create_object::<Message>(&account_id, create_id, msg)

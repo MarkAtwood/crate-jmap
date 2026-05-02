@@ -895,6 +895,9 @@ pub async fn handle_email_set<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
     let old_state = backend
         .get_state::<Email>(&account_id)
@@ -991,12 +994,12 @@ pub async fn handle_email_set<B: MailBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
-    if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
+    if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
             // Check for immutable field violations in the patch keys.
-            if let Some(bad_field) = find_immutable_patch_key(patch_val) {
+            if let Some(bad_field) = find_immutable_patch_key(&patch_val) {
                 not_updated.insert(
                     id_str.clone(),
                     json!({
@@ -1008,7 +1011,7 @@ pub async fn handle_email_set<B: MailBackend>(
             }
 
             match backend
-                .update_object::<Email>(&account_id, &id, patch_val.clone())
+                .update_object::<Email>(&account_id, &id, patch_val)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -1692,10 +1695,13 @@ pub async fn handle_email_import<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
-    let emails = match args.get("emails").and_then(|v| v.as_object()) {
-        Some(m) => m.clone(),
-        None => return Err(JmapError::invalid_arguments("emails is required")),
+    let emails = match args.remove("emails") {
+        Some(Value::Object(m)) => m,
+        _ => return Err(JmapError::invalid_arguments("emails is required")),
     };
 
     let old_state = backend
@@ -2013,6 +2019,9 @@ pub async fn handle_email_copy<B: MailBackend>(
     call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::from(s),
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
@@ -2191,12 +2200,16 @@ pub async fn handle_email_copy<B: MailBackend>(
     // we must build the full response object here — not request args.
     let mut extra: Vec<Invocation> = Vec::new();
 
+    let on_success_update_original: Option<serde_json::Map<String, Value>> =
+        match args.remove("onSuccessUpdateOriginal") {
+            Some(Value::Object(m)) => Some(m),
+            Some(Value::Null) | None => None,
+            _ => None,
+        };
+
     let has_on_success_destroy = on_success_destroy_original && !copied_source_ids.is_empty();
-    let has_on_success_update = args
-        .get("onSuccessUpdateOriginal")
-        .filter(|v| !v.is_null())
-        .is_some()
-        && !copied_source_ids.is_empty();
+    let has_on_success_update =
+        on_success_update_original.is_some() && !copied_source_ids.is_empty();
 
     if has_on_success_destroy || has_on_success_update {
         let email_old_state = backend
@@ -2235,14 +2248,11 @@ pub async fn handle_email_copy<B: MailBackend>(
 
         // onSuccessUpdateOriginal: for each successfully copied email whose copy_id
         // appears in the map, apply the specified patch to the original.
-        if let Some(on_success_update) = args
-            .get("onSuccessUpdateOriginal")
-            .and_then(|v| v.as_object())
-        {
+        if let Some(mut on_success_update) = on_success_update_original {
             for (copy_id, source_id) in &copied_source_ids {
-                if let Some(patch) = on_success_update.get(copy_id) {
+                if let Some(patch) = on_success_update.remove(copy_id) {
                     // Apply same immutable-field guard as handle_email_set patches.
-                    if let Some(bad_field) = find_immutable_patch_key(patch) {
+                    if let Some(bad_field) = find_immutable_patch_key(&patch) {
                         email_not_updated.insert(
                             source_id.as_ref().to_owned(),
                             json!({
@@ -2253,7 +2263,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                         continue;
                     }
                     match backend
-                        .update_object::<Email>(&from_account_id, source_id, patch.clone())
+                        .update_object::<Email>(&from_account_id, source_id, patch)
                         .await
                     {
                         Ok(Some(obj)) => {

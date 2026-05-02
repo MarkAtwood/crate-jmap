@@ -107,6 +107,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
     // ifInState check.
     let old_state = backend
@@ -135,7 +138,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
 
     // update — only "singleton" is a valid id.
     let mut updated = serde_json::Map::new();
-    if let Some(update) = args.get("update").and_then(|v| v.as_object()) {
+    if let Some(Value::Object(update)) = args.remove("update") {
         for (id, patch) in update {
             if id != SINGLETON_ID {
                 let err = SetError::new(SetErrorType::NotFound);
@@ -184,7 +187,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                 .update_object::<VacationResponse>(
                                     &account_id,
                                     &singleton_id,
-                                    patch.clone(),
+                                    patch,
                                 )
                                 .await
                             {

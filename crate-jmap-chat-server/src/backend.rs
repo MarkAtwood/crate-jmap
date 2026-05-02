@@ -78,6 +78,16 @@ impl SetError {
     }
 }
 
+impl std::fmt::Display for SetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error_type)?;
+        if let Some(ref desc) = self.description {
+            write!(f, ": {desc}")?;
+        }
+        Ok(())
+    }
+}
+
 /// The machine-readable type for a [`SetError`] (RFC 8620 §5.3).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
@@ -138,7 +148,7 @@ pub enum BackendSetError<E> {
 impl<E: std::fmt::Display> std::fmt::Display for BackendSetError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::SetError(se) => write!(f, "set error: {}", se.error_type),
+            Self::SetError(se) => write!(f, "set error: {se}"),
             Self::Other(e) => write!(f, "{e}"),
         }
     }

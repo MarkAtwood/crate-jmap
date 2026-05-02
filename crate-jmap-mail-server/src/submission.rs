@@ -332,6 +332,9 @@ pub async fn handle_submission_set<B: MailBackend>(
     call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
     let old_state = backend
         .get_state::<EmailSubmission>(&account_id)
@@ -429,7 +432,7 @@ pub async fn handle_submission_set<B: MailBackend>(
     // update
     // -----------------------------------------------------------------------
 
-    if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
+    if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch) in update_map {
             let id = Id::from(id_str.as_str());
             match process_update(backend, &account_id, &id, patch).await {
@@ -862,7 +865,7 @@ async fn process_update<B: MailBackend>(
     backend: &B,
     account_id: &Id,
     id: &Id,
-    patch: &Value,
+    patch: Value,
 ) -> Result<Option<EmailSubmission>, BackendSetError<B::Error>> {
     // RFC 8621 §7.5: only undoStatus may be changed in an update patch.
     if let Some(obj) = patch.as_object() {
@@ -904,6 +907,6 @@ async fn process_update<B: MailBackend>(
 
     // Apply the patch via the backend.
     backend
-        .update_object::<EmailSubmission>(account_id, id, patch.clone())
+        .update_object::<EmailSubmission>(account_id, id, patch)
         .await
 }
