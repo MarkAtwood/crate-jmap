@@ -1,6 +1,29 @@
 //! Private helper utilities shared across handler modules.
 
+use std::collections::HashSet;
+
 pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string, ser};
+
+/// Keep only the keys listed in `prop_set` (plus `"id"` which callers add).
+///
+/// Used by `/get` handlers to respect the RFC 8620 §5.1 `properties` field.
+/// Pre-build the `prop_set` once per request; call this once per object.
+pub(crate) fn filter_properties(
+    obj: &serde_json::Value,
+    prop_set: &HashSet<&str>,
+) -> serde_json::Value {
+    match obj {
+        serde_json::Value::Object(map) => {
+            let filtered: serde_json::Map<String, serde_json::Value> = map
+                .iter()
+                .filter(|(k, _)| prop_set.contains(k.as_str()))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            serde_json::Value::Object(filtered)
+        }
+        _ => obj.clone(),
+    }
+}
 
 /// Returns `true` if RFC 3339 UTC timestamp `a` is strictly before `b`.
 ///

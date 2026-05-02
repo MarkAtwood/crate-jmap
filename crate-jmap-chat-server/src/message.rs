@@ -5,8 +5,11 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend};
+use std::collections::HashSet;
+
 use crate::helpers::{
-    extract_account_id, iso8601_before, not_found_json, now_utc_string, ser, set_error_value,
+    extract_account_id, filter_properties, iso8601_before, not_found_json, now_utc_string, ser,
+    set_error_value,
 };
 
 // ---------------------------------------------------------------------------
@@ -34,9 +37,19 @@ pub async fn handle_message_get<B: ChatBackend>(
         ),
     };
 
+    // RFC 8620 §5.1: when `properties` is specified, return only those fields
+    // (plus `id` which is always included). `None` means return all fields.
+    let properties: Option<Vec<String>> = match args.remove("properties").unwrap_or(Value::Null) {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
+                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
+        ),
+    };
+
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<Message>(&account_id, ids_slice, None)
+        .get_objects::<Message>(&account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -45,7 +58,18 @@ pub async fn handle_message_get<B: ChatBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
+    let list_json: Vec<Value> = if let Some(ref props) = properties {
+        let mut prop_set: HashSet<&str> = props.iter().map(|s| s.as_str()).collect();
+        prop_set.insert("id");
+        list.iter()
+            .map(|obj| {
+                let val = ser(obj)?;
+                Ok(filter_properties(&val, &prop_set))
+            })
+            .collect::<Result<Vec<_>, JmapError>>()?
+    } else {
+        list.iter().map(ser).collect::<Result<Vec<_>, _>>()?
+    };
 
     Ok((
         json!({
@@ -426,6 +450,9 @@ pub async fn handle_message_set<B: ChatBackend>(
             let id = Id::from(id_str.as_str());
 
             // Reject patches that include server-set fields.
+            // MAINTENANCE: when adding a server-set field to Message in
+            // jmap-chat-types, add its wire name here too.  A missing entry
+            // silently allows clients to overwrite server-managed state.
             const MESSAGE_READONLY: &[&str] = &[
                 "id",
                 "senderMsgId",
