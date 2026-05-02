@@ -109,9 +109,14 @@ pub async fn handle_presence_changes<B: ChatBackend>(
 /// server-side and MUST NOT be accepted from the client body.
 pub async fn handle_presence_set<B: ChatBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
     let old_state = backend
         .get_state::<PresenceStatus>(&account_id)
@@ -147,7 +152,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
-    if let Some(Value::Object(update_map)) = args.as_object_mut().and_then(|m| m.remove("update")) {
+    if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
