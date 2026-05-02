@@ -37,9 +37,17 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
         ),
     };
 
+    let properties: Option<Vec<String>> = match args.remove("properties").unwrap_or(Value::Null) {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
+                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
+        ),
+    };
+
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<O>(&account_id, ids_slice, None)
+        .get_objects::<O>(&account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 

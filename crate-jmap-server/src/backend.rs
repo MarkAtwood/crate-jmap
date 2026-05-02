@@ -365,12 +365,18 @@ pub trait JmapBackend: Send + Sync + 'static {
 
     /// Fetch objects by id (or all objects when `ids` is `None`).
     ///
+    /// `properties` is the list of property names requested by the client
+    /// (RFC 8620 §5.1). `None` means the client did not send a `properties`
+    /// field; the backend should return all properties. When `Some`, the backend
+    /// MAY filter the response to only the named properties, but is not required
+    /// to — implementations that always return all properties are correct.
+    ///
     /// Returns `(found, not_found)` — objects that exist and ids that do not.
     fn get_objects<O: GetObject + Send + Sync>(
         &self,
         account_id: &jmap_types::Id,
         ids: Option<&[jmap_types::Id]>,
-        properties: Option<&[<O as JmapObject>::Property]>,
+        properties: Option<&[String]>,
     ) -> impl std::future::Future<Output = Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error>> + Send;
 
     /// Return the current state token for an object type in the given account.

@@ -7,7 +7,7 @@ use jmap_mail_types::{Email, Keyword};
 use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, EmailProperty, MailBackend};
+use crate::backend::{BackendSetError, MailBackend};
 use crate::helpers::{extract_account_id, find_immutable_patch_key, not_found_json, ser, set_error_value};
 
 /// Server-enforced ceiling on the number of email IDs fetched when
@@ -1551,12 +1551,9 @@ async fn collapse_by_thread<B: MailBackend>(
 ) -> Result<Vec<Id>, B::Error> {
     // Fetch only the query-result emails (not all emails) to get their thread ids.
     // Pass a properties hint so backends with column stores can skip body data.
+    let thread_props = vec!["id".to_owned(), "threadId".to_owned()];
     let (emails, _) = backend
-        .get_objects::<Email>(
-            account_id,
-            Some(&ids),
-            Some(&[EmailProperty::Id, EmailProperty::ThreadId]),
-        )
+        .get_objects::<Email>(account_id, Some(&ids), Some(&thread_props))
         .await?;
     let thread_map: HashMap<Id, Id> = emails.into_iter().map(|e| (e.id, e.thread_id)).collect();
 

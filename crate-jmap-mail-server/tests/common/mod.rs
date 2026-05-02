@@ -164,7 +164,7 @@ impl JmapBackend for MemoryBackend {
         &self,
         account_id: &Id,
         ids: Option<&[Id]>,
-        _properties: Option<&[O::Property]>,
+        _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
         let inner = self.inner.lock().unwrap();
         let store = match inner.objects_ref(O::TYPE_NAME, account_id.as_ref()) {
@@ -1413,7 +1413,7 @@ impl JmapBackend for FaultyBackend {
         &self,
         account_id: &Id,
         ids: Option<&[Id]>,
-        properties: Option<&[O::Property]>,
+        properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
         self.inner
             .get_objects::<O>(account_id, ids, properties)

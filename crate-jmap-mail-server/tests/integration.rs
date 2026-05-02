@@ -482,7 +482,7 @@ async fn search_snippet_get_capability_gated() {
             &self,
             account_id: &Id,
             ids: Option<&[Id]>,
-            properties: Option<&[O::Property]>,
+            properties: Option<&[String]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
             self.0.get_objects(account_id, ids, properties).await
         }
