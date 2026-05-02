@@ -5659,6 +5659,76 @@ async fn email_get_header_empty_name_rejected() {
     );
 }
 
+/// Oracle: unimplemented header forms return `null`, not an error.
+///
+/// RFC 8621 §4.1.2 defines structured forms (asAddresses, asGroupedAddresses,
+/// asDate, asMessageIds, asURLs). These are not yet parsed by this server;
+/// `apply_header_form` returns `Value::Null` for all of them. This test
+/// documents that behavior so future contributors know it is intentional and
+/// do not accidentally break it when the forms are eventually implemented.
+///
+/// The form/header combinations chosen here are all *valid* per the
+/// validation table in `validate_header_form` (no `invalidArguments` error is
+/// expected); only the structured parse step is missing.
+#[tokio::test]
+async fn email_get_unimplemented_header_forms_return_null() {
+    let backend = MemoryBackend::new();
+
+    // A message with headers that exercise every unimplemented form.
+    //   From      → asAddresses, asGroupedAddresses
+    //   Date      → asDate
+    //   Message-ID → asMessageIds
+    //   List-Post  → asURLs
+    let raw = b"From: alice@example.com\r\n\
+Date: Mon, 01 Jan 2024 00:00:00 +0000\r\n\
+Message-ID: <abc@example.com>\r\n\
+List-Post: <mailto:list@example.com>\r\n\
+Subject: Test\r\n\
+\r\n\
+Body.";
+    let email_id = import_msg_with_headers(&backend, raw).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id.as_ref()],
+        "properties": [
+            "id",
+            "header:From:asAddresses",
+            "header:From:asGroupedAddresses",
+            "header:Date:asDate",
+            "header:Message-ID:asMessageIds",
+            "header:List-Post:asURLs",
+        ],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed — valid form/header pairs must not return an error");
+
+    let list = resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1, "must find exactly one email");
+    let obj = &list[0];
+
+    // Each unimplemented form must be present in the response as JSON null,
+    // not absent and not a string/object.
+    for key in &[
+        "header:From:asAddresses",
+        "header:From:asGroupedAddresses",
+        "header:Date:asDate",
+        "header:Message-ID:asMessageIds",
+        "header:List-Post:asURLs",
+    ] {
+        assert!(
+            obj.get(*key).is_some(),
+            "property {key:?} must be present in response (as null); got: {obj:?}"
+        );
+        assert!(
+            obj[*key].is_null(),
+            "property {key:?} must be null (not yet implemented); got: {:?}",
+            obj[*key]
+        );
+    }
+}
+
 /// Oracle: Email/set with a non-string element in `destroy` returns
 /// `invalidArguments` for the whole method call (RFC 8620 §5.3).
 #[tokio::test]

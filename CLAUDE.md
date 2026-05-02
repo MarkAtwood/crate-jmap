@@ -87,6 +87,8 @@ jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference
     │       ├── jmap-chat-client   — JMAP Chat method implementations.
     │       └── jmap-mail-client   — RFC 8621 method implementations.
     ├── jmap-mail-types — RFC 8621 data types: Email, Mailbox, Thread, etc. No async.
+    │       ├── jmap-mime        — MIME parser adapter: mime-tree → jmap-mail-types. No async.
+    │       │                      Also depends on mime-tree (~/PROJECT/MIME/, published standalone).
     │       ├── jmap-mail-server   — RFC 8621 method handlers, MailBackend trait.
     │       └── (jmap-mail-client also depends on this)
     └── jmap-chat-types — JMAP Chat extension types: Chat, Message, Space, etc. No async.

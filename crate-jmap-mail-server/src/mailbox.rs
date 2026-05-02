@@ -5,7 +5,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json, ser};
+use crate::helpers::{extract_account_id, not_found_json, ser, set_error_value};
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)
@@ -112,6 +112,9 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
 
     let calculate_total: bool = args
         .get("calculateTotal")
@@ -203,20 +206,17 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 
     // Parse filter into MailboxFilterCondition so the struct fields drive the
     // in-process filter directly, eliminating a duplicate field list.
-    let filter: Option<MailboxFilterCondition> = match args.get("filter") {
+    let filter: Option<MailboxFilterCondition> = match args.remove("filter") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            serde_json::from_value(v)
                 .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
         ),
     };
 
     // Pre-compute the wire-format role string once outside the filter closure to
     // avoid calling role_to_wire on every mailbox for every iteration.
-    let filter_role_wire: Option<String> = filter
-        .as_ref()
-        .and_then(|f| f.role.as_deref())
-        .map(|s| s.to_owned());
+    let filter_role_wire: Option<&str> = filter.as_ref().and_then(|f| f.role.as_deref());
 
     let mut matching: Vec<Id> = all_mailboxes
         .into_iter()
@@ -243,10 +243,10 @@ pub async fn handle_mailbox_query<B: MailBackend>(
                     return false;
                 }
             }
-            if let Some(ref role_str) = filter_role_wire {
+            if let Some(role_str) = filter_role_wire {
                 match &m.role {
                     Some(r) => {
-                        if role_to_wire(r).as_deref() != Some(role_str.as_str()) {
+                        if role_to_wire(r) != role_str {
                             return false;
                         }
                     }
@@ -448,11 +448,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             if props.get("name").and_then(|v| v.as_str()).is_none() {
                 not_created.insert(
                     create_id.clone(),
-                    serde_json::to_value(
-                        SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
-                    )
-                    .unwrap_or_else(
-                        |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                    set_error_value(
+                        &SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
                     ),
                 );
                 continue;
@@ -461,11 +458,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             // Role uniqueness check.
             if let Some(role_val) = props.get("role").filter(|v| !v.is_null()) {
                 if let Some(role_str) = role_val.as_str() {
-                    let role_taken = all_mailboxes.iter().any(|m| {
-                        m.role
-                            .as_ref()
-                            .is_some_and(|r| role_to_wire(r).as_deref() == Some(role_str))
-                    });
+                    let role_taken = all_mailboxes
+                        .iter()
+                        .any(|m| m.role.as_ref().is_some_and(|r| role_to_wire(r) == role_str));
                     // Also check what we already successfully created in this request.
                     let role_just_created = created
                         .values()
@@ -473,12 +468,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     if role_taken || role_just_created {
                         not_created.insert(
                             create_id.clone(),
-                            serde_json::to_value(
-                                SetError::new(SetErrorType::InvalidProperties)
+                            set_error_value(
+                                &SetError::new(SetErrorType::InvalidProperties)
                                     .with_properties(["role"]),
-                            )
-                            .unwrap_or_else(
-                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
                             ),
                         );
                         continue;
@@ -503,11 +495,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             created.insert(create_id.clone(), obj_val);
                         }
                         Err(BackendSetError::SetError(se)) => {
-                            not_created.insert(
-                                create_id.clone(),
-                                serde_json::to_value(se)
-                                    .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
-                            );
+                            not_created.insert(create_id.clone(), set_error_value(&se));
                         }
                         Err(BackendSetError::Other(e)) => {
                             not_created.insert(
@@ -578,12 +566,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if !bad_props.is_empty() {
                     not_updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(
-                            SetError::new(SetErrorType::InvalidProperties)
+                        set_error_value(
+                            &SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(bad_props),
-                        )
-                        .unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
                         ),
                     );
                     continue;
@@ -596,7 +581,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 .iter()
                 .find(|m| m.id == id)
                 .and_then(|m| m.role.as_ref())
-                .and_then(role_to_wire);
+                .map(|r| role_to_wire(r).to_owned());
 
             match backend
                 .update_object::<Mailbox>(&account_id, &id, patch.clone())
@@ -615,12 +600,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     }
                 }
                 Err(BackendSetError::SetError(se)) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(se).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_updated.insert(id_str.clone(), set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
@@ -645,12 +625,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if !bad_props.is_empty() {
                     not_updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(
-                            SetError::new(SetErrorType::InvalidProperties)
+                        set_error_value(
+                            &SetError::new(SetErrorType::InvalidProperties)
                                 .with_properties(bad_props),
-                        )
-                        .unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
                         ),
                     );
                     continue;
@@ -665,9 +642,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         let role_taken = all_mailboxes.iter().any(|m| {
                             m.id != id
                                 && !roles_actually_vacated.contains(role_str)
-                                && m.role
-                                    .as_ref()
-                                    .is_some_and(|r| role_to_wire(r).as_deref() == Some(role_str))
+                                && m.role.as_ref().is_some_and(|r| role_to_wire(r) == role_str)
                         });
                         let role_just_claimed = roles_claimed_this_request.contains(role_str);
                         let role_just_created = created
@@ -676,11 +651,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         if role_taken || role_just_claimed || role_just_created {
                             not_updated.insert(
                                 id_str.clone(),
-                                serde_json::to_value(
-                                    SetError::new(SetErrorType::InvalidProperties)
+                                set_error_value(
+                                    &SetError::new(SetErrorType::InvalidProperties)
                                         .with_properties(["role"]),
-                                )
-                                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
+                                ),
                             );
                             continue;
                         }
@@ -703,12 +677,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     updated.insert(id_str.clone(), entry);
                 }
                 Err(BackendSetError::SetError(se)) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(se).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_updated.insert(id_str.clone(), set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
@@ -761,10 +730,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             if has_child {
                 not_destroyed.insert(
                     id_str.to_owned(),
-                    serde_json::to_value(SetError::new(SetErrorType::MailboxHasChild))
-                        .unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                    set_error_value(&SetError::new(SetErrorType::MailboxHasChild)),
                 );
                 continue;
             }
@@ -800,10 +766,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 if !on_destroy_remove_emails {
                     not_destroyed.insert(
                         id_str.to_owned(),
-                        serde_json::to_value(SetError::new(SetErrorType::MailboxHasEmail))
-                            .unwrap_or_else(
-                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                            ),
+                        set_error_value(&SetError::new(SetErrorType::MailboxHasEmail)),
                     );
                     continue;
                 }
@@ -857,12 +820,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     destroyed.push(id_str.to_owned());
                 }
                 Err(BackendSetError::SetError(se)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        serde_json::to_value(se).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
@@ -938,10 +896,9 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
     let name = match props.get("name").and_then(|v| v.as_str()) {
         Some(s) => s.to_owned(),
         None => {
-            return Err(serde_json::to_value(
-                SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
-            )
-            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })));
+            return Err(set_error_value(
+                &SetError::new(SetErrorType::InvalidProperties).with_properties(["name"]),
+            ));
         }
     };
 
@@ -950,13 +907,10 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
         Some(v) => match v.as_u64() {
             Some(n) if n <= u32::MAX as u64 => n as u32,
             _ => {
-                return Err(serde_json::to_value(
-                    SetError::new(SetErrorType::InvalidProperties)
+                return Err(set_error_value(
+                    &SetError::new(SetErrorType::InvalidProperties)
                         .with_properties(["sortOrder"])
                         .with_description("sortOrder must be a non-negative integer ≤ 4294967295"),
-                )
-                .unwrap_or_else(
-                    |e| json!({ "type": "serverFail", "description": e.to_string() }),
                 ));
             }
         },
@@ -990,11 +944,8 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
         if let Some(s) = role_val.as_str() {
             let role: jmap_mail_types::MailboxRole =
                 serde_json::from_value(Value::String(s.to_owned())).map_err(|_| {
-                    serde_json::to_value(
-                        SetError::new(SetErrorType::InvalidProperties).with_properties(["role"]),
-                    )
-                    .unwrap_or_else(
-                        |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                    set_error_value(
+                        &SetError::new(SetErrorType::InvalidProperties).with_properties(["role"]),
                     )
                 })?;
             mailbox.role = Some(role);
@@ -1006,15 +957,24 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
 
 /// Serialize a [`MailboxRole`] to its RFC 8621 wire-format string.
 ///
-/// Uses serde rather than `Display` to guarantee the output is the canonical
-/// JSON wire format even if the `Display` impl ever diverges from the serde
-/// representation.
-fn role_to_wire(role: &jmap_mail_types::MailboxRole) -> Option<String> {
-    serde_json::to_value(role).ok().and_then(|v| {
-        if let Value::String(s) = v {
-            Some(s)
-        } else {
-            None
-        }
-    })
+/// Returns a `&'static str` for known variants and `&str` into the inner
+/// string for `Other(s)`, avoiding any allocation.
+fn role_to_wire(role: &jmap_mail_types::MailboxRole) -> &str {
+    use jmap_mail_types::MailboxRole;
+    match role {
+        MailboxRole::Inbox => "inbox",
+        MailboxRole::Trash => "trash",
+        MailboxRole::Sent => "sent",
+        MailboxRole::Drafts => "drafts",
+        MailboxRole::Junk => "junk",
+        MailboxRole::Archive => "archive",
+        MailboxRole::Flagged => "flagged",
+        MailboxRole::Important => "important",
+        MailboxRole::All => "all",
+        MailboxRole::Other(s) => s.as_str(),
+        // `MailboxRole` is #[non_exhaustive]; this arm is unreachable with the
+        // current variant set.  If a new named variant is added it must be
+        // listed above — the panic here makes that omission loud.
+        _ => unreachable!("unhandled MailboxRole variant; update role_to_wire"),
+    }
 }

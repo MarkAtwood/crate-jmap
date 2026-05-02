@@ -49,6 +49,9 @@ pub struct SetError {
     /// Invalid recipient addresses (for `invalidRecipients` — RFC 8621 §7.5).
     #[serde(rename = "invalidRecipients", skip_serializing_if = "Option::is_none")]
     pub invalid_recipients: Option<Vec<String>>,
+    /// Missing blob IDs (for `blobNotFound` — RFC 8621 §5.5).
+    #[serde(rename = "notFound", skip_serializing_if = "Option::is_none")]
+    pub not_found: Option<Vec<jmap_types::Id>>,
     /// Maximum message size in octets (for `tooLarge` on EmailSubmission — RFC 8621 §7.5).
     #[serde(rename = "maxSize", skip_serializing_if = "Option::is_none")]
     pub max_size: Option<u64>,
@@ -64,6 +67,7 @@ impl SetError {
             existing_id: None,
             max_recipients: None,
             invalid_recipients: None,
+            not_found: None,
             max_size: None,
         }
     }
@@ -106,10 +110,26 @@ impl SetError {
         self
     }
 
+    /// Set the missing blob IDs (used with `blobNotFound` — RFC 8621 §5.5).
+    pub fn with_not_found(mut self, ids: Vec<jmap_types::Id>) -> Self {
+        self.not_found = Some(ids);
+        self
+    }
+
     /// Set the maximum message size in octets (used with `tooLarge` on EmailSubmission — RFC 8621 §7.5).
     pub fn with_max_size(mut self, n: u64) -> Self {
         self.max_size = Some(n);
         self
+    }
+}
+
+impl std::fmt::Display for SetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.error_type)?;
+        if let Some(ref desc) = self.description {
+            write!(f, ": {desc}")?;
+        }
+        Ok(())
     }
 }
 
@@ -285,7 +305,7 @@ pub trait MailBackend: JmapBackend {
     /// the server-modified fields in the `updated` map of the `/set` response
     /// (RFC 8620 §5.3). Discarding the return value causes server-modified
     /// fields to be silently omitted from the response. To use per-request
-    /// auth context in an update handler, implement [`JmapHandler`] directly
+    /// auth context in an update handler, implement [`jmap_server::JmapHandler`] directly
     /// rather than using `register_mail_handlers`.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
