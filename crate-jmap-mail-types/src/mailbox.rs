@@ -55,6 +55,28 @@ impl_string_enum!(MailboxRole, "a JMAP Mailbox role string",
     "all"       => All,
 );
 
+impl MailboxRole {
+    /// Return the RFC 8621 wire-format string for this role.
+    ///
+    /// Because this method is defined inside the crate that owns `MailboxRole`,
+    /// the match is exhaustive even though the enum is `#[non_exhaustive]`.
+    /// Adding a new variant without updating this method is a compile error.
+    pub fn to_wire_str(&self) -> &str {
+        match self {
+            Self::Inbox => "inbox",
+            Self::Trash => "trash",
+            Self::Sent => "sent",
+            Self::Drafts => "drafts",
+            Self::Junk => "junk",
+            Self::Archive => "archive",
+            Self::Flagged => "flagged",
+            Self::Important => "important",
+            Self::All => "all",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
 /// Access control rights the authenticated user holds for a Mailbox (RFC 8621 §2).
 ///
 /// Backwards compatible with IMAP ACLs (RFC 4314).

@@ -20,14 +20,14 @@ use crate::helpers::{extract_account_id, not_found_json, ser};
 /// returns the standard `get` response shape.
 pub async fn handle_get<O: GetObject, B: JmapBackend>(
     backend: &B,
-    args: Value,
+    mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
-    let ids: Option<Vec<Id>> = match args.get("ids") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v.clone())
+    let ids: Option<Vec<Id>> = match args["ids"].take() {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
     };
@@ -112,7 +112,7 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 /// delegates to [`JmapBackend::query_objects`].
 pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     backend: &B,
-    args: Value,
+    mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
@@ -140,17 +140,15 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
         })?,
     };
 
-    let filter: Option<O::Filter> = match args.get("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => {
-            Some(serde_json::from_value(v.clone()).map_err(|_| JmapError::unsupported_filter())?)
-        }
+    let filter: Option<O::Filter> = match args["filter"].take() {
+        Value::Null => None,
+        v => Some(serde_json::from_value(v).map_err(|_| JmapError::unsupported_filter())?),
     };
 
-    let sort: Option<Vec<O::Comparator>> = match args.get("sort") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v.clone())
+    let sort: Option<Vec<O::Comparator>> = match args["sort"].take() {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
         ),
     };
@@ -194,7 +192,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
 /// domain-specific handler in jmap-mail-server instead.
 pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     backend: &B,
-    args: Value,
+    mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
@@ -225,17 +223,15 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let filter: Option<O::Filter> = match args.get("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => {
-            Some(serde_json::from_value(v.clone()).map_err(|_| JmapError::unsupported_filter())?)
-        }
+    let filter: Option<O::Filter> = match args["filter"].take() {
+        Value::Null => None,
+        v => Some(serde_json::from_value(v).map_err(|_| JmapError::unsupported_filter())?),
     };
 
-    let sort: Option<Vec<O::Comparator>> = match args.get("sort") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v.clone())
+    let sort: Option<Vec<O::Comparator>> = match args["sort"].take() {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
         ),
     };

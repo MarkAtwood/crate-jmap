@@ -3,7 +3,7 @@
 use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, MailBackend, SetErrorType};
+use crate::backend::{BackendSetError, MailBackend};
 use crate::helpers::{extract_account_id, not_found_json, ser, set_error_value};
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
@@ -11,12 +11,16 @@ use crate::helpers::{extract_account_id, not_found_json, ser, set_error_value};
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_identity_get<B: MailBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments("args must be an object"));
+    };
+
     // ids: absent or null means "return all"; Some([]) means "return nothing".
-    let ids: Option<Vec<Id>> = match args["ids"].take() {
+    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(
             serde_json::from_value(v)
@@ -78,6 +82,7 @@ pub async fn handle_identity_changes<B: MailBackend>(
         "oldState": since_state.as_ref(),
         "newState": result.new_state.as_ref(),
         "hasMoreChanges": result.has_more_changes,
+        "updatedProperties": Value::Null,
         "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
         "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
@@ -266,10 +271,17 @@ pub async fn handle_identity_set<B: MailBackend>(
     // destroy
     // -----------------------------------------------------------------------
     if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
+        // RFC 8620 §5.3: the destroy array is Id[]. A non-string element is a
+        // malformed request; return invalidArguments for the whole request.
+        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
+            return Err(JmapError::invalid_arguments(format!(
+                "destroy array must contain only Id strings; got: {bad}"
+            )));
+        }
         for id_val in destroy_arr {
             let id_str = match id_val.as_str() {
                 Some(s) => s,
-                None => continue,
+                None => continue, // unreachable: validated above
             };
             let id = Id::from(id_str);
 
@@ -313,12 +325,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                     destroyed_list.push(Value::String(id_str.to_owned()));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    let type_str = match set_err.error_type {
-                        SetErrorType::NotFound => "notFound",
-                        SetErrorType::Forbidden => "forbidden",
-                        _ => "serverFail",
-                    };
-                    not_destroyed.insert(id_str.to_owned(), json!({ "type": type_str }));
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(

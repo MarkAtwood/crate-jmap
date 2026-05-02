@@ -5,7 +5,7 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser};
+use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser, set_error_value};
 
 // ---------------------------------------------------------------------------
 // Space/get
@@ -14,14 +14,14 @@ use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser};
 /// Handle a `Space/get` method call.
 pub async fn handle_space_get<B: ChatBackend>(
     backend: &B,
-    args: Value,
+    mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
-    let ids: Option<Vec<Id>> = match args.get("ids") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v.clone())
+    let ids: Option<Vec<Id>> = match args["ids"].take() {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
     };
@@ -84,6 +84,7 @@ pub async fn handle_space_changes<B: ChatBackend>(
             "oldState": since_state.as_ref(),
             "newState": result.new_state.as_ref(),
             "hasMoreChanges": result.has_more_changes,
+            "updatedProperties": Value::Null,
             "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
             "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
             "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
@@ -101,7 +102,7 @@ pub async fn handle_space_changes<B: ChatBackend>(
 /// Filter and sort are passed through to the backend unchanged.
 pub async fn handle_space_query<B: ChatBackend>(
     backend: &B,
-    args: Value,
+    mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
@@ -110,9 +111,9 @@ pub async fn handle_space_query<B: ChatBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let limit: Option<u64> = match args.get("limit") {
-        None | Some(Value::Null) => None,
-        Some(v) => match v.as_u64() {
+    let limit: Option<u64> = match args["limit"].take() {
+        Value::Null => None,
+        v => match v.as_u64() {
             Some(n) => Some(n),
             None => {
                 return Err(JmapError::invalid_arguments(format!(
@@ -122,22 +123,22 @@ pub async fn handle_space_query<B: ChatBackend>(
         },
     };
 
-    let position: i64 = match args.get("position") {
-        None | Some(Value::Null) => 0,
-        Some(v) => v.as_i64().ok_or_else(|| {
+    let position: i64 = match args["position"].take() {
+        Value::Null => 0,
+        v => v.as_i64().ok_or_else(|| {
             JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
         })?,
     };
 
-    let filter: Option<serde_json::Value> = match args.get("filter") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.clone()),
+    let filter: Option<serde_json::Value> = match args["filter"].take() {
+        Value::Null => None,
+        v => Some(v),
     };
 
-    let sort: Option<Vec<serde_json::Value>> = match args.get("sort") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v.clone())
+    let sort: Option<Vec<serde_json::Value>> = match args["sort"].take() {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
         ),
     };
@@ -348,12 +349,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_created.insert(create_id.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_created.insert(
@@ -422,12 +418,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                 let err = SetError::new(SetErrorType::Forbidden).with_description(
                     "Role, member, and channel mutations are not yet implemented",
                 );
-                not_updated.insert(
-                    id_str.clone(),
-                    serde_json::to_value(&err).unwrap_or_else(
-                        |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                    ),
-                );
+                not_updated.insert(id_str.clone(), set_error_value(&err));
                 continue;
             }
 
@@ -458,17 +449,19 @@ pub async fn handle_space_set<B: ChatBackend>(
                 .update_object::<Space>(&account_id, &id, Value::Object(clean_patch))
                 .await
             {
-                Ok(_) => {
+                Ok(Some(obj)) => {
+                    mutated = true;
+                    updated.insert(
+                        id_str.clone(),
+                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                    );
+                }
+                Ok(None) => {
                     mutated = true;
                     updated.insert(id_str.clone(), Value::Null);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_updated.insert(id_str.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
@@ -497,12 +490,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                     destroyed_list.push(Value::String(id_str.to_owned()));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
@@ -562,105 +550,103 @@ pub async fn handle_space_join<B: ChatBackend>(
         .and_then(|v| v.as_str())
         .map(|s| s.to_owned());
 
-    match (&invite_code, &space_id_str) {
+    // Validate the invite or space and collect the space_id + current members.
+    // Each branch produces (space_id: Id, current_members: Vec<Value>).
+    let (space_id, current_members): (Id, Vec<Value>) = match (invite_code, space_id_str) {
         (Some(_), Some(_)) | (None, None) => {
             return Err(JmapError::invalid_arguments(
                 "exactly one of inviteCode or spaceId must be provided",
             ));
         }
-        _ => {}
-    }
+        (Some(code), None) => {
+            // NOTE: The MemoryBackend stores objects per-account, so invite code lookup
+            // works only when the caller's account created the invite. A production backend
+            // must maintain a global invite code index. This is a known architectural
+            // limitation of the test backend.
 
-    // Validate the invite or space and collect the space_id + current members.
-    // Each branch produces (space_id: Id, current_members: Vec<Value>).
-    let (space_id, current_members): (Id, Vec<Value>) = if let Some(code) = invite_code {
-        // NOTE: The MemoryBackend stores objects per-account, so invite code lookup
-        // works only when the caller's account created the invite. A production backend
-        // must maintain a global invite code index. This is a known architectural
-        // limitation of the test backend.
+            // Invite code path: scan all invites for matching code.
+            let (invites, _) = backend
+                .get_objects::<SpaceInvite>(&account_id, None, None)
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-        // Invite code path: scan all invites for matching code.
-        let (invites, _) = backend
-            .get_objects::<SpaceInvite>(&account_id, None, None)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            let invite = invites
+                .into_iter()
+                .find(|inv| inv.code == code)
+                .ok_or_else(|| JmapError::invalid_arguments("invite code not found"))?;
 
-        let invite = invites
-            .into_iter()
-            .find(|inv| inv.code == code)
-            .ok_or_else(|| JmapError::invalid_arguments("invite code not found"))?;
-
-        // Check expiry: expiresAt is an ISO 8601 UTC string; lexicographic
-        // comparison is correct because the format sorts in time order.
-        if let Some(expires_at) = &invite.expires_at {
-            let now = now_utc_string();
-            if expires_at.as_ref() <= now.as_str() {
-                return Err(JmapError::invalid_arguments("invite has expired"));
+            // Check expiry: expiresAt is an ISO 8601 UTC string; lexicographic
+            // comparison is correct because the format sorts in time order.
+            if let Some(expires_at) = &invite.expires_at {
+                let now = now_utc_string();
+                if expires_at.as_ref() <= now.as_str() {
+                    return Err(JmapError::invalid_arguments("invite has expired"));
+                }
             }
-        }
 
-        // Check maxUses: if set, uses must be strictly less.
-        if let Some(max) = invite.max_uses {
-            if invite.uses >= max {
-                return Err(JmapError::invalid_arguments(
-                    "invite has reached its maximum number of uses",
-                ));
+            // Check maxUses: if set, uses must be strictly less.
+            if let Some(max) = invite.max_uses {
+                if invite.uses >= max {
+                    return Err(JmapError::invalid_arguments(
+                        "invite has reached its maximum number of uses",
+                    ));
+                }
             }
+
+            let invite_id = invite.id.clone();
+            let new_uses = invite.uses + 1;
+            let space_id = invite.space_id.clone();
+
+            // Increment uses on the invite now that it has been redeemed.
+            backend
+                .update_object::<SpaceInvite>(&account_id, &invite_id, json!({"uses": new_uses}))
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+            // Fetch the space to get the current members list.
+            let (spaces, _) = backend
+                .get_objects::<Space>(&account_id, Some(std::slice::from_ref(&space_id)), None)
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            let members = spaces
+                .into_iter()
+                .next()
+                .map(|s| {
+                    s.members
+                        .into_iter()
+                        .map(|m| serde_json::to_value(m).unwrap_or(Value::Null))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            (space_id, members)
         }
+        (None, Some(sid)) => {
+            // Public space path: fetch the space by id and verify is_public.
+            // The spec requires notPermitted when the space is not found or isPublic is false.
+            // JmapError has no notPermitted constructor; forbidden() is the closest standard
+            // equivalent and is what the existing tests expect.
+            let space_id_typed = Id::from(sid.as_str());
+            let (spaces, _) = backend
+                .get_objects::<Space>(&account_id, Some(&[space_id_typed]), None)
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-        let invite_id = invite.id.clone();
-        let new_uses = invite.uses + 1;
-        let space_id = invite.space_id.clone();
+            let space = spaces
+                .into_iter()
+                .next()
+                .filter(|s| s.is_public)
+                .ok_or_else(JmapError::forbidden)?;
 
-        // Increment uses on the invite now that it has been redeemed.
-        backend
-            .update_object::<SpaceInvite>(&account_id, &invite_id, json!({"uses": new_uses}))
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            let space_id = space.id.clone();
+            let members: Vec<Value> = space
+                .members
+                .into_iter()
+                .map(|m| serde_json::to_value(m).unwrap_or(Value::Null))
+                .collect();
 
-        // Fetch the space to get the current members list.
-        let (spaces, _) = backend
-            .get_objects::<Space>(&account_id, Some(std::slice::from_ref(&space_id)), None)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
-        let members = spaces
-            .into_iter()
-            .next()
-            .map(|s| {
-                s.members
-                    .into_iter()
-                    .map(|m| serde_json::to_value(m).unwrap_or(Value::Null))
-                    .collect()
-            })
-            .unwrap_or_default();
-
-        (space_id, members)
-    } else {
-        // Public space path: fetch the space by id and verify is_public.
-        // The spec requires notPermitted when the space is not found or isPublic is false.
-        // JmapError has no notPermitted constructor; forbidden() is the closest standard
-        // equivalent and is what the existing tests expect.
-        let sid = space_id_str.unwrap();
-        let space_id_typed = Id::from(sid.as_str());
-        let (spaces, _) = backend
-            .get_objects::<Space>(&account_id, Some(&[space_id_typed]), None)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
-        let space = spaces
-            .into_iter()
-            .next()
-            .filter(|s| s.is_public)
-            .ok_or_else(JmapError::forbidden)?;
-
-        let space_id = space.id.clone();
-        let members: Vec<Value> = space
-            .members
-            .into_iter()
-            .map(|m| serde_json::to_value(m).unwrap_or(Value::Null))
-            .collect();
-
-        (space_id, members)
+            (space_id, members)
+        }
     };
 
     // Add the calling account as a Space member.
