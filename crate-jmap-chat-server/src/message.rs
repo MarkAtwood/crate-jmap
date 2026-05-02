@@ -460,6 +460,12 @@ pub async fn handle_message_set<B: ChatBackend>(
                     obj.insert("deletedAt".to_owned(), json!(now_utc_string()));
                 }
             }
+            // Spec §557 + §1029: when readAt is set without readDisposition, default to "displayed".
+            if let Some(obj) = augmented.as_object_mut() {
+                if obj.contains_key("readAt") && !obj.contains_key("readDisposition") {
+                    obj.insert("readDisposition".to_owned(), json!("displayed"));
+                }
+            }
 
             match backend
                 .update_object::<Message>(&account_id, &id, augmented)
