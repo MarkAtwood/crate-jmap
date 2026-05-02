@@ -154,7 +154,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 Ok(Some(obj)) => {
                     updated.insert(
                         id.clone(),
-                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                        serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                     mutated = true;
                 }
@@ -194,7 +194,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                 Ok(Some(obj)) => {
                                     updated.insert(
                                         id.clone(),
-                                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                                        serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
                                     );
                                     mutated = true;
                                 }

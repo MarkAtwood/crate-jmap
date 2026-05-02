@@ -439,7 +439,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Ok(Some(obj)) => {
                     updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                        serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Ok(None) => {
@@ -587,7 +587,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Ok(Some(obj)) => {
                         email_updated.insert(
                             email_id.as_ref().to_owned(),
-                            serde_json::to_value(&obj).unwrap_or(Value::Null),
+                            serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
                         );
                     }
                     Ok(None) => {

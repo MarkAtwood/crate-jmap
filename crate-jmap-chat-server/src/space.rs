@@ -465,7 +465,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or(Value::Null));
+                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })));
                 }
                 Ok(None) => {
                     mutated = true;
@@ -626,7 +626,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                 .map(|s| {
                     s.members
                         .into_iter()
-                        .map(|m| serde_json::to_value(m).unwrap_or(Value::Null))
+                        .map(|m| serde_json::to_value(m).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })))
                         .collect()
                 })
                 .unwrap_or_default();
@@ -654,7 +654,7 @@ pub async fn handle_space_join<B: ChatBackend>(
             let members: Vec<Value> = space
                 .members
                 .into_iter()
-                .map(|m| serde_json::to_value(m).unwrap_or(Value::Null))
+                .map(|m| serde_json::to_value(m).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })))
                 .collect();
 
             (space_id, members)

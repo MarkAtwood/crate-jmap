@@ -129,7 +129,7 @@ pub async fn handle_identity_set<B: MailBackend>(
     // create
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj_val) in create_map {
+        for (create_id, mut obj_val) in create_map {
             // Validate: email must be present and non-empty.
             let email = match obj_val.get("email").and_then(|v| v.as_str()) {
                 Some(s) if !s.is_empty() => s.to_owned(),
@@ -161,37 +161,41 @@ pub async fn handle_identity_set<B: MailBackend>(
             if let Some(hs) = obj_val.get("htmlSignature").and_then(|v| v.as_str()) {
                 identity.html_signature = hs.to_owned();
             }
-            if let Some(rt) = obj_val.get("replyTo") {
-                if !rt.is_null() {
-                    match serde_json::from_value(rt.clone()) {
-                        Ok(v) => identity.reply_to = v,
-                        Err(_) => {
-                            not_created.insert(
-                                create_id,
-                                json!({
-                                    "type": "invalidProperties",
-                                    "properties": ["replyTo"],
-                                }),
-                            );
-                            continue;
-                        }
+            if let Some(rt) = obj_val
+                .get_mut("replyTo")
+                .map(|v| v.take())
+                .filter(|v| !v.is_null())
+            {
+                match serde_json::from_value(rt) {
+                    Ok(v) => identity.reply_to = v,
+                    Err(_) => {
+                        not_created.insert(
+                            create_id,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["replyTo"],
+                            }),
+                        );
+                        continue;
                     }
                 }
             }
-            if let Some(bcc) = obj_val.get("bcc") {
-                if !bcc.is_null() {
-                    match serde_json::from_value(bcc.clone()) {
-                        Ok(v) => identity.bcc = v,
-                        Err(_) => {
-                            not_created.insert(
-                                create_id,
-                                json!({
-                                    "type": "invalidProperties",
-                                    "properties": ["bcc"],
-                                }),
-                            );
-                            continue;
-                        }
+            if let Some(bcc) = obj_val
+                .get_mut("bcc")
+                .map(|v| v.take())
+                .filter(|v| !v.is_null())
+            {
+                match serde_json::from_value(bcc) {
+                    Ok(v) => identity.bcc = v,
+                    Err(_) => {
+                        not_created.insert(
+                            create_id,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["bcc"],
+                            }),
+                        );
+                        continue;
                     }
                 }
             }
@@ -256,7 +260,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or(Value::Null));
+                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })));
                 }
                 Ok(None) => {
                     mutated = true;

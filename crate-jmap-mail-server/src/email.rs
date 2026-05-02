@@ -1018,7 +1018,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     mutated = true;
                     updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                        serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
                     );
                 }
                 Ok(None) => {
@@ -2269,7 +2269,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                         Ok(Some(obj)) => {
                             email_updated.insert(
                                 source_id.as_ref().to_owned(),
-                                serde_json::to_value(&obj).unwrap_or(Value::Null),
+                                serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
                             );
                         }
                         Ok(None) => {
