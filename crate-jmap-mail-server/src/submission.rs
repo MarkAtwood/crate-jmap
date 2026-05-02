@@ -724,14 +724,13 @@ async fn process_create<B: MailBackend>(
         .await
         .map_err(|e| CreateError::Server(e.to_string()))?;
 
-    if identities.is_empty() {
-        return Err(CreateError::SetError(
+    let identity = identities.into_iter().next().ok_or_else(|| {
+        CreateError::SetError(
             SetError::new(SetErrorType::InvalidProperties)
                 .with_properties(["identityId"])
                 .with_description("identityId does not reference an existing Identity"),
-        ));
-    }
-    let identity = &identities[0];
+        )
+    })?;
 
     // --- emailId ---
     let email_id_str = create_args
@@ -752,14 +751,13 @@ async fn process_create<B: MailBackend>(
         .await
         .map_err(|e| CreateError::Server(e.to_string()))?;
 
-    if emails.is_empty() {
-        return Err(CreateError::SetError(
+    let email = emails.into_iter().next().ok_or_else(|| {
+        CreateError::SetError(
             SetError::new(SetErrorType::InvalidProperties)
                 .with_properties(["emailId"])
                 .with_description("emailId does not reference an existing Email"),
-        ));
-    }
-    let email = &emails[0];
+        )
+    })?;
     let thread_id = email.thread_id.clone();
 
     // --- envelope (derive if null/absent) ---

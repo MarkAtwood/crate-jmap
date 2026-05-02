@@ -573,9 +573,14 @@ pub async fn handle_space_join<B: ChatBackend>(
         .and_then(|v| v.as_str())
         .map(|s| s.to_owned());
 
-    // Validate the invite or space and collect the space_id + current members.
-    // Each branch produces (space_id: Id, current_members: Vec<Value>).
-    let (space_id, current_members): (Id, Vec<Value>) = match (invite_code, space_id_str) {
+    // Validate the invite or space and collect the space_id, current members, and
+    // (for the invite path) the pending invite-uses increment deferred until after
+    // the already_member check.  Each branch produces
+    // (space_id: Id, current_members: Vec<Value>, invite_update: Option<(Id, u64)>).
+    let (space_id, current_members, invite_update): (Id, Vec<Value>, Option<(Id, u64)>) = match (
+        invite_code,
+        space_id_str,
+    ) {
         (Some(_), Some(_)) | (None, None) => {
             return Err(JmapError::invalid_arguments(
                 "exactly one of inviteCode or spaceId must be provided",
@@ -621,11 +626,8 @@ pub async fn handle_space_join<B: ChatBackend>(
             let new_uses = invite.uses + 1;
             let space_id = invite.space_id.clone();
 
-            // Increment uses on the invite now that it has been redeemed.
-            backend
-                .update_object::<SpaceInvite>(&account_id, &invite_id, json!({"uses": new_uses}))
-                .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            // Do NOT increment uses yet — defer until after the already_member check
+            // so that a failed rejoin attempt does not silently exhaust invite uses.
 
             // Fetch the space to get the current members list.
             let (spaces, _) = backend
@@ -633,17 +635,17 @@ pub async fn handle_space_join<B: ChatBackend>(
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             let members = spaces
-                .into_iter()
-                .next()
-                .map(|s| {
-                    s.members
-                        .into_iter()
-                        .map(|m| serde_json::to_value(m).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })))
-                        .collect()
-                })
-                .unwrap_or_default();
+                    .into_iter()
+                    .next()
+                    .map(|s| {
+                        s.members
+                            .into_iter()
+                            .map(|m| serde_json::to_value(m).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })))
+                            .collect()
+                    })
+                    .unwrap_or_default();
 
-            (space_id, members)
+            (space_id, members, Some((invite_id, new_uses)))
         }
         (None, Some(sid)) => {
             // Public space path: fetch the space by id and verify is_public.
@@ -664,12 +666,12 @@ pub async fn handle_space_join<B: ChatBackend>(
 
             let space_id = space.id.clone();
             let members: Vec<Value> = space
-                .members
-                .into_iter()
-                .map(|m| serde_json::to_value(m).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })))
-                .collect();
+                    .members
+                    .into_iter()
+                    .map(|m| serde_json::to_value(m).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })))
+                    .collect();
 
-            (space_id, members)
+            (space_id, members, None)
         }
     };
 
@@ -689,11 +691,24 @@ pub async fn handle_space_join<B: ChatBackend>(
         ));
     }
 
+    // Apply the deferred invite uses increment now that we know the join will succeed.
+    if let Some((invite_id, new_uses)) = invite_update {
+        backend
+            .update_object::<SpaceInvite>(&account_id, &invite_id, json!({"uses": new_uses}))
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+    }
+
     new_members.push(json!({
         "id": account_id.as_ref(),
         "roleIds": [],
         "joinedAt": now_str,
     }));
+    // Concurrency note: this is a read-modify-write on the members array.
+    // Two concurrent Space/join calls for different accounts can both read
+    // the same stale members list and overwrite each other. Production backends
+    // MUST implement this as an atomic array-append (e.g. via a transaction or
+    // compare-and-swap) to prevent membership loss.
     backend
         .update_object::<Space>(&account_id, &space_id, json!({"members": new_members}))
         .await
