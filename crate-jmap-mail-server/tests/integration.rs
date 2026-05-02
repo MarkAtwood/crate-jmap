@@ -15,7 +15,7 @@ use jmap_mail_server::{
     handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes,
     handle_mailbox_set, handle_search_snippet_get, handle_submission_get, handle_submission_query,
     handle_submission_set, handle_thread_changes, handle_thread_get, handle_vacation_get,
-    handle_vacation_set, JmapObject, MailBackend, SetErrorType,
+    handle_vacation_set, JmapBackend, JmapObject, MailBackend, SetErrorType,
 };
 use jmap_mail_types::{Identity, Mailbox};
 use jmap_types::Id;
@@ -475,7 +475,7 @@ async fn search_snippet_get_capability_gated() {
     // A thin wrapper around MemoryBackend that returns false for SearchSnippet.
     struct NoSnippetBackend(MemoryBackend);
 
-    impl MailBackend for NoSnippetBackend {
+    impl JmapBackend for NoSnippetBackend {
         type Error = common::MemoryError;
 
         async fn get_objects<O: jmap_mail_server::GetObject + Send + Sync>(
@@ -485,32 +485,6 @@ async fn search_snippet_get_capability_gated() {
             properties: Option<&[O::Property]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
             self.0.get_objects(account_id, ids, properties).await
-        }
-
-        async fn create_object<O: jmap_mail_server::SetObject + Send + Sync>(
-            &self,
-            account_id: &Id,
-            create_id: &str,
-            obj: O,
-        ) -> Result<(Id, O), jmap_mail_server::BackendSetError<Self::Error>> {
-            self.0.create_object(account_id, create_id, obj).await
-        }
-
-        async fn update_object<O: jmap_mail_server::SetObject + Send + Sync>(
-            &self,
-            account_id: &Id,
-            id: &Id,
-            patch: O::Patch,
-        ) -> Result<Option<O>, jmap_mail_server::BackendSetError<Self::Error>> {
-            self.0.update_object(account_id, id, patch).await
-        }
-
-        async fn destroy_object<O: jmap_mail_server::SetObject + Send + Sync>(
-            &self,
-            account_id: &Id,
-            id: &Id,
-        ) -> Result<(), jmap_mail_server::BackendSetError<Self::Error>> {
-            self.0.destroy_object::<O>(account_id, id).await
         }
 
         async fn get_state<O: JmapObject + Send + Sync>(
@@ -571,6 +545,34 @@ async fn search_snippet_get_capability_gated() {
                     collapse_threads,
                 )
                 .await
+        }
+    }
+
+    impl MailBackend for NoSnippetBackend {
+        async fn create_object<O: jmap_mail_server::SetObject + Send + Sync>(
+            &self,
+            account_id: &Id,
+            create_id: &str,
+            obj: O,
+        ) -> Result<(Id, O), jmap_mail_server::BackendSetError<Self::Error>> {
+            self.0.create_object(account_id, create_id, obj).await
+        }
+
+        async fn update_object<O: jmap_mail_server::SetObject + Send + Sync>(
+            &self,
+            account_id: &Id,
+            id: &Id,
+            patch: O::Patch,
+        ) -> Result<Option<O>, jmap_mail_server::BackendSetError<Self::Error>> {
+            self.0.update_object(account_id, id, patch).await
+        }
+
+        async fn destroy_object<O: jmap_mail_server::SetObject + Send + Sync>(
+            &self,
+            account_id: &Id,
+            id: &Id,
+        ) -> Result<(), jmap_mail_server::BackendSetError<Self::Error>> {
+            self.0.destroy_object::<O>(account_id, id).await
         }
 
         async fn import_email(
@@ -2006,6 +2008,249 @@ async fn email_get_with_property_filter() {
     );
 }
 
+/// Oracle: Email/get with no `properties` arg returns RFC 8621 §4.2 default list only.
+///
+/// The default list includes "id" and "subject" but NOT "headers" or "bodyStructure".
+/// This verifies the handler enforces the spec-mandated default rather than returning all fields.
+#[tokio::test]
+async fn email_get_default_properties_excludes_headers() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "subject": "Default props test",
+            }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("id must be present")
+        .to_owned();
+
+    // No `properties` key — handler must apply RFC 8621 §4.2 default list.
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id],
+    });
+    let (get_resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get");
+
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1);
+    let obj = &list[0];
+
+    // Fields in the RFC 8621 §4.2 default list must be present (or at least not stripped).
+    assert!(obj.get("id").is_some(), "id must be in default response");
+    assert!(
+        obj.get("subject").is_some(),
+        "subject must be in default response"
+    );
+    assert!(
+        obj.get("mailboxIds").is_some(),
+        "mailboxIds must be in default response"
+    );
+
+    // "headers" and "bodyStructure" are NOT in the §4.2 default list.
+    assert!(
+        obj.get("headers").is_none(),
+        "headers must be absent from default response; got: {obj:?}"
+    );
+    assert!(
+        obj.get("bodyStructure").is_none(),
+        "bodyStructure must be absent from default response; got: {obj:?}"
+    );
+}
+
+/// Oracle: Email/get accepts body-value fetch args without error.
+///
+/// RFC 8621 §4.2 — `fetchTextBodyValues=true` and `maxBodyValueBytes=10` must be
+/// parsed without returning an `invalidArguments` error.
+#[tokio::test]
+async fn email_get_body_value_fetch_args_parsed() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": { "mailboxIds": { "inbox": true }, "subject": "Body fetch test" }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id],
+        "fetchTextBodyValues": true,
+        "maxBodyValueBytes": 10,
+    });
+    // Must not return an error — the args are well-formed.
+    let (get_resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get with body-value fetch args must not fail");
+
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1, "one email must be returned");
+}
+
+/// Oracle: Email/get accepts `maxBodyValueBytes=0` (unlimited).
+///
+/// RFC 8621 §4.2 — `maxBodyValueBytes` of 0 means unlimited; must not be rejected.
+#[tokio::test]
+async fn email_get_max_body_value_bytes_zero_accepted() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": { "mailboxIds": { "inbox": true }, "subject": "Zero limit test" }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id],
+        "maxBodyValueBytes": 0,
+    });
+    let (get_resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("maxBodyValueBytes=0 must be accepted");
+
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1);
+}
+
+/// Oracle: Email/parse with no `properties` uses RFC 8621 §4.9 default list.
+///
+/// The §4.9 default list does NOT include "id" (unlike the §4.2 Email/get default).
+/// This verifies that the two handlers use separate default lists.
+#[tokio::test]
+async fn email_parse_default_properties_used() {
+    use jmap_mail_server::handle_email_parse;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Store a minimal blob so parse_email can find it.
+    let blob_id = Id::from("blob-parse-test");
+    backend.store_blob(
+        blob_id.clone(),
+        b"Subject: Parse default props\r\n\r\nBody text".to_vec(),
+    );
+
+    let parse_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "blobIds": [blob_id.as_ref()],
+        // No `properties` — must use DEFAULT_EMAIL_PARSE_PROPERTIES.
+    });
+    let (parse_resp, _) = handle_email_parse(&backend, parse_args)
+        .await
+        .expect("Email/parse must not fail");
+
+    let parsed_obj = &parse_resp["parsed"][blob_id.as_ref()];
+    assert!(!parsed_obj.is_null(), "blob must be in parsed map");
+
+    // "subject" is in DEFAULT_EMAIL_PARSE_PROPERTIES — must appear.
+    assert!(
+        parsed_obj.get("subject").is_some(),
+        "subject must be in parse default response; got: {parsed_obj:?}"
+    );
+
+    // "id" is in Email/get defaults but NOT in Email/parse defaults (RFC 8621 §4.9).
+    assert!(
+        parsed_obj.get("id").is_none(),
+        "id must be absent from Email/parse default response; got: {parsed_obj:?}"
+    );
+
+    // "headers" is not in the parse default list either.
+    assert!(
+        parsed_obj.get("headers").is_none(),
+        "headers must be absent from Email/parse default response; got: {parsed_obj:?}"
+    );
+}
+
+/// Oracle: Email/parse accepts fetchTextBodyValues=true and maxBodyValueBytes=0 without error.
+///
+/// RFC 8621 §4.9 — these args have valid defaults and must not cause invalidArguments.
+#[tokio::test]
+async fn email_parse_body_value_fetch_args_parsed() {
+    use jmap_mail_server::handle_email_parse;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let blob_id = Id::from("blob-bvargs-test");
+    backend.store_blob(
+        blob_id.clone(),
+        b"Subject: Body value args\r\n\r\nHello".to_vec(),
+    );
+
+    let parse_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "blobIds": [blob_id.as_ref()],
+        "fetchTextBodyValues": true,
+        "fetchHTMLBodyValues": false,
+        "fetchAllBodyValues": false,
+        "maxBodyValueBytes": 0,
+    });
+    let result = handle_email_parse(&backend, parse_args).await;
+    assert!(
+        result.is_ok(),
+        "valid body-value args must not return an error; got: {result:?}"
+    );
+}
+
+/// Oracle: Email/parse with maxBodyValueBytes set to a non-integer returns invalidArguments.
+///
+/// RFC 8621 §4.9 — maxBodyValueBytes must be a non-negative integer.
+#[tokio::test]
+async fn email_parse_invalid_max_body_value_bytes() {
+    use jmap_mail_server::handle_email_parse;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let parse_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "blobIds": [],
+        "maxBodyValueBytes": "not a number",
+    });
+    let result = handle_email_parse(&backend, parse_args).await;
+    assert!(
+        result.is_err(),
+        "non-integer maxBodyValueBytes must return an error; got Ok"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type.as_str(),
+        "invalidArguments",
+        "expected invalidArguments; got: {:?}",
+        err.error_type
+    );
+}
+
 /// Oracle: Email/set update with an immutable field is rejected with invalidProperties.
 ///
 /// RFC 8621 §5.5.4 — the parsed header convenience properties (from, to, cc, etc.)
@@ -2658,6 +2903,253 @@ async fn email_set_create_malformed_keywords_rejected() {
     );
 }
 
+/// Oracle: Email/set create with a 256-byte keyword is rejected (max is 255).
+///
+/// RFC 8621 §4.1.1: keywords must be 1–255 bytes long.
+#[tokio::test]
+async fn keyword_256_chars_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    let kw_256: String = "a".repeat(256);
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "keywords": { kw_256: true },
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must not return a JmapError");
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be present");
+    assert!(not_created.contains_key("c0"), "c0 must be in notCreated");
+    assert_eq!(
+        not_created["c0"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "256-byte keyword must yield invalidProperties"
+    );
+}
+
+/// Oracle: Email/set create with a 255-byte keyword is accepted.
+///
+/// RFC 8621 §4.1.1: keywords must be 1–255 bytes long; 255 is the maximum valid length.
+#[tokio::test]
+async fn keyword_255_chars_accepted() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    let kw_255: String = "a".repeat(255);
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "keywords": { kw_255: true },
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must not return a JmapError");
+    assert!(
+        resp["notCreated"].is_null()
+            || resp["notCreated"]
+                .as_object()
+                .map_or(true, |m| m.is_empty()),
+        "255-byte keyword must be accepted; notCreated: {:?}",
+        resp["notCreated"]
+    );
+    assert!(
+        resp["created"].get("c0").is_some(),
+        "c0 must appear in created"
+    );
+}
+
+/// Oracle: Email/set create with a keyword containing `(` is rejected.
+///
+/// RFC 8621 §4.1.1: keywords must not contain `( ) { ] % * " \`.
+#[tokio::test]
+async fn keyword_forbidden_char_open_paren_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "keywords": { "abc(def": true },
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must not return a JmapError");
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be present");
+    assert!(not_created.contains_key("c0"), "c0 must be in notCreated");
+    assert_eq!(
+        not_created["c0"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "keyword with '(' must yield invalidProperties"
+    );
+}
+
+/// Oracle: Email/set create with a mixed-case keyword stores it as lowercase.
+///
+/// RFC 8621 §4.1.1: keywords MUST be stored and returned in lowercase.
+#[tokio::test]
+async fn keyword_normalized_to_lowercase() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let create_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "keywords": { "SEEN": true },
+            }
+        }
+    });
+
+    let (create_resp, _) = handle_email_set(&backend, create_args)
+        .await
+        .expect("Email/set must not return a JmapError");
+    let email_id = create_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("c0 must be in created");
+
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id],
+        "properties": ["keywords"],
+    });
+    let (get_resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get must not return a JmapError");
+    let keywords = &get_resp["list"][0]["keywords"];
+    assert!(
+        keywords.get("seen").is_some(),
+        "keyword 'SEEN' must be stored as 'seen'; got: {keywords:?}"
+    );
+    assert!(
+        keywords.get("SEEN").is_none(),
+        "uppercase 'SEEN' must not appear; got: {keywords:?}"
+    );
+}
+
+/// Oracle: Email/set create with an empty-string keyword is rejected.
+///
+/// RFC 8621 §4.1.1: keywords must be 1–255 bytes; empty string is invalid.
+#[tokio::test]
+async fn keyword_empty_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "keywords": { "": true },
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must not return a JmapError");
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be present");
+    assert!(not_created.contains_key("c0"), "c0 must be in notCreated");
+    assert_eq!(
+        not_created["c0"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "empty keyword must yield invalidProperties"
+    );
+}
+
+/// Oracle: Email/set create with keyword `~` (0x7e, the highest valid byte) is accepted.
+///
+/// RFC 8621 §4.1.1: printable ASCII range is 0x21–0x7e inclusive; `~` is at the top.
+#[tokio::test]
+async fn keyword_tilde_accepted() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "keywords": { "~": true },
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must not return a JmapError");
+    assert!(
+        resp["notCreated"].is_null()
+            || resp["notCreated"]
+                .as_object()
+                .map_or(true, |m| m.is_empty()),
+        "keyword '~' must be accepted; notCreated: {:?}",
+        resp["notCreated"]
+    );
+    assert!(
+        resp["created"].get("c0").is_some(),
+        "c0 must appear in created"
+    );
+}
+
+/// Oracle: Email/set create with keyword `$seen` (dollar sign, 0x24) is accepted.
+///
+/// RFC 8621 §4.1.1: `$` (0x24) is in the printable ASCII range and not forbidden.
+#[tokio::test]
+async fn keyword_dollar_sign_accepted() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "keywords": { "$seen": true },
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must not return a JmapError");
+    assert!(
+        resp["notCreated"].is_null()
+            || resp["notCreated"]
+                .as_object()
+                .map_or(true, |m| m.is_empty()),
+        "keyword '$seen' must be accepted; notCreated: {:?}",
+        resp["notCreated"]
+    );
+    assert!(
+        resp["created"].get("c0").is_some(),
+        "c0 must appear in created"
+    );
+}
+
 /// Oracle: Mailbox/query with a non-integer limit returns invalidArguments.
 ///
 /// RFC 8620 §5.5: limit must be a UnsignedInt. Passing a string must be rejected,
@@ -2698,6 +3190,391 @@ async fn submission_query_invalid_limit_rejected() {
     let err = handle_submission_query(&backend, args)
         .await
         .expect_err("EmailSubmission/query must fail with invalidArguments");
+    assert_eq!(
+        err.error_type.as_str(),
+        "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// EmailSubmission/query FilterCondition tests (RFC 8621 §7.3)
+// ---------------------------------------------------------------------------
+
+/// Helper: create an Identity and a simple email in `account_id`, returning both IDs.
+///
+/// The email is imported with a To address so that the derived envelope has at least
+/// one recipient (needed for EmailSubmission/set create to succeed).
+async fn make_identity_and_email(
+    backend: &MemoryBackend,
+    account_id: &Id,
+    addr: &str,
+    mailbox_id: &str,
+) -> (Id, Id) {
+    use jmap_mail_types::Identity;
+    let identity = Identity::new(Id::from("placeholder"), addr, true);
+    let (identity_id, _) = backend
+        .create_object::<Identity>(account_id, "i", identity)
+        .await
+        .expect("create Identity");
+
+    let msg = format!("Subject: Test\r\nFrom: {addr}\r\nTo: {addr}\r\n\r\nBody.");
+    let blob_id = Id::from(format!("blob-{addr}"));
+    backend.store_blob(blob_id.clone(), msg.into_bytes());
+    let (email_id, _) = backend
+        .import_email(account_id, &blob_id, &[Id::from(mailbox_id)], &[], None)
+        .await
+        .expect("import_email");
+
+    (identity_id, email_id)
+}
+
+/// Oracle: EmailSubmission/query with `identityIds` filter returns only submissions
+/// for the specified identity (RFC 8621 §7.3).
+#[tokio::test]
+async fn submission_query_filter_by_identity_id() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create two identities and one email each.
+    let (identity_a, email_a) =
+        make_identity_and_email(&backend, &account_id, "alice@example.com", "sentA").await;
+    let (identity_b, email_b) =
+        make_identity_and_email(&backend, &account_id, "bob@example.com", "sentB").await;
+
+    // Create a submission for identity_a.
+    let (set_resp_a, _) = handle_submission_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": { "sA": { "identityId": identity_a.as_ref(), "emailId": email_a.as_ref() } }
+        }),
+        "c1",
+    )
+    .await
+    .expect("set A");
+    let sub_a_id = set_resp_a["created"]["sA"]["id"]
+        .as_str()
+        .expect("sA created")
+        .to_owned();
+
+    // Create a submission for identity_b.
+    let (set_resp_b, _) = handle_submission_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": { "sB": { "identityId": identity_b.as_ref(), "emailId": email_b.as_ref() } }
+        }),
+        "c2",
+    )
+    .await
+    .expect("set B");
+    let sub_b_id = set_resp_b["created"]["sB"]["id"]
+        .as_str()
+        .expect("sB created")
+        .to_owned();
+
+    // Query filtered to identity_a only.
+    let (qresp, _) = handle_submission_query(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "filter": { "identityIds": [identity_a.as_ref()] },
+        }),
+    )
+    .await
+    .expect("query");
+
+    let ids: Vec<&str> = qresp["ids"]
+        .as_array()
+        .expect("ids array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+
+    assert!(
+        ids.contains(&sub_a_id.as_str()),
+        "identity_a submission must be present; got {ids:?}"
+    );
+    assert!(
+        !ids.contains(&sub_b_id.as_str()),
+        "identity_b submission must be absent; got {ids:?}"
+    );
+}
+
+/// Oracle: EmailSubmission/query with `before` filter excludes submissions whose
+/// `sendAt` is >= the given date-time (RFC 8621 §7.3).
+///
+/// sendAt is server-set (RFC 8621 §7.2), so filters are derived relative to
+/// the stored value using epoch/far-future sentinel dates.
+#[tokio::test]
+async fn submission_query_filter_by_before() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let (identity_id, email_id) =
+        make_identity_and_email(&backend, &account_id, "alice@example.com", "sent").await;
+
+    // Create a submission; sendAt is server-set to ~now.
+    let (set_resp, _) = handle_submission_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "s0": {
+                    "identityId": identity_id.as_ref(),
+                    "emailId": email_id.as_ref(),
+                }
+            }
+        }),
+        "c1",
+    )
+    .await
+    .expect("set");
+    let sub_id = set_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("s0 created")
+        .to_owned();
+
+    // before=far-future must include the submission (sendAt < 9999-12-31).
+    let (qresp_in, _) = handle_submission_query(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "filter": { "before": "9999-12-31T23:59:59Z" },
+        }),
+    )
+    .await
+    .expect("query in");
+
+    let ids_in: Vec<&str> = qresp_in["ids"]
+        .as_array()
+        .expect("ids")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        ids_in.contains(&sub_id.as_str()),
+        "submission must be included when sendAt < before; got {ids_in:?}"
+    );
+
+    // before=epoch must exclude the submission (sendAt >= 2000-01-01).
+    let (qresp_out, _) = handle_submission_query(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "filter": { "before": "2000-01-01T00:00:00Z" },
+        }),
+    )
+    .await
+    .expect("query out");
+
+    let ids_out: Vec<&str> = qresp_out["ids"]
+        .as_array()
+        .expect("ids")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        !ids_out.contains(&sub_id.as_str()),
+        "submission must be excluded when sendAt >= before; got {ids_out:?}"
+    );
+}
+
+/// Oracle: EmailSubmission/query with `after` filter excludes submissions whose
+/// `sendAt` is < the given date-time (RFC 8621 §7.3).
+///
+/// sendAt is server-set (RFC 8621 §7.2), so filters are derived relative to
+/// the stored value using epoch/far-future sentinel dates.
+#[tokio::test]
+async fn submission_query_filter_by_after() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let (identity_id, email_id) =
+        make_identity_and_email(&backend, &account_id, "alice@example.com", "sent").await;
+
+    // Create a submission; sendAt is server-set to ~now.
+    let (set_resp, _) = handle_submission_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "s0": {
+                    "identityId": identity_id.as_ref(),
+                    "emailId": email_id.as_ref(),
+                }
+            }
+        }),
+        "c1",
+    )
+    .await
+    .expect("set");
+    let sub_id = set_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("s0 created")
+        .to_owned();
+
+    // after=epoch must include the submission (sendAt >= 2000-01-01).
+    let (qresp_in, _) = handle_submission_query(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "filter": { "after": "2000-01-01T00:00:00Z" },
+        }),
+    )
+    .await
+    .expect("query in");
+
+    let ids_in: Vec<&str> = qresp_in["ids"]
+        .as_array()
+        .expect("ids")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        ids_in.contains(&sub_id.as_str()),
+        "submission must be included when sendAt >= after; got {ids_in:?}"
+    );
+
+    // after=far-future must exclude the submission (sendAt < 9999-12-31).
+    let (qresp_out, _) = handle_submission_query(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "filter": { "after": "9999-12-31T23:59:59Z" },
+        }),
+    )
+    .await
+    .expect("query out");
+
+    let ids_out: Vec<&str> = qresp_out["ids"]
+        .as_array()
+        .expect("ids")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        !ids_out.contains(&sub_id.as_str()),
+        "submission must be excluded when sendAt < after; got {ids_out:?}"
+    );
+}
+
+/// Oracle: EmailSubmission/query with `undoStatus` filter returns only submissions
+/// whose `undoStatus` matches (RFC 8621 §7.3).
+///
+/// EmailSubmission/set create always sets `undoStatus: "final"` in the test harness.
+/// Submission B is created directly via the backend with `undoStatus: "pending"`.
+#[tokio::test]
+async fn submission_query_filter_by_undo_status() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let (identity_a, email_a) =
+        make_identity_and_email(&backend, &account_id, "alice@example.com", "sentA").await;
+    let (identity_b, email_b) =
+        make_identity_and_email(&backend, &account_id, "bob@example.com", "sentB").await;
+
+    // Create submission A via the handler (undoStatus = "final").
+    let (set_resp_a, _) = handle_submission_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": { "sA": { "identityId": identity_a.as_ref(), "emailId": email_a.as_ref() } }
+        }),
+        "c1",
+    )
+    .await
+    .expect("set A");
+    let sub_a_id = set_resp_a["created"]["sA"]["id"]
+        .as_str()
+        .expect("sA created")
+        .to_owned();
+
+    // Create submission B directly via backend with undoStatus = "pending".
+    use jmap_mail_types::{submission::UndoStatus, EmailSubmission};
+    let sub_b = EmailSubmission::new(
+        Id::from("placeholder"),
+        identity_b.clone(),
+        email_b.clone(),
+        Id::from("thread-b"),
+        jmap_types::UTCDate::from("2025-01-01T00:00:00Z"),
+        UndoStatus::Pending,
+    );
+    let (sub_b_id, _) = backend
+        .create_object::<EmailSubmission>(&account_id, "sB", sub_b)
+        .await
+        .expect("create submission B");
+
+    // Query filtered to undoStatus = "final" — should return sub_a, not sub_b.
+    let (qresp_final, _) = handle_submission_query(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "filter": { "undoStatus": "final" },
+        }),
+    )
+    .await
+    .expect("query final");
+
+    let ids_final: Vec<&str> = qresp_final["ids"]
+        .as_array()
+        .expect("ids")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        ids_final.contains(&sub_a_id.as_str()),
+        "final submission must be present; got {ids_final:?}"
+    );
+    assert!(
+        !ids_final.contains(&sub_b_id.as_ref()),
+        "pending submission must be absent from final query; got {ids_final:?}"
+    );
+
+    // Query filtered to undoStatus = "pending" — should return sub_b, not sub_a.
+    let (qresp_pending, _) = handle_submission_query(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "filter": { "undoStatus": "pending" },
+        }),
+    )
+    .await
+    .expect("query pending");
+
+    let ids_pending: Vec<&str> = qresp_pending["ids"]
+        .as_array()
+        .expect("ids")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        ids_pending.contains(&sub_b_id.as_ref()),
+        "pending submission must be present; got {ids_pending:?}"
+    );
+    assert!(
+        !ids_pending.contains(&sub_a_id.as_str()),
+        "final submission must be absent from pending query; got {ids_pending:?}"
+    );
+}
+
+/// Oracle: EmailSubmission/query with a non-object `filter` value returns
+/// invalidArguments (RFC 8620 §5.5 — filter must be a FilterCondition or
+/// FilterOperator object, not a scalar).
+#[tokio::test]
+async fn submission_query_invalid_filter_json() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "filter": 42,
+    });
+
+    let err = handle_submission_query(&backend, args)
+        .await
+        .expect_err("must fail with invalidArguments");
     assert_eq!(
         err.error_type.as_str(),
         "invalidArguments",
@@ -4055,7 +4932,7 @@ Body one.
 
     // Capture thread state before first import.
     let state0 = {
-        use jmap_mail_server::backend::MailBackend;
+        use jmap_mail_server::JmapBackend;
         backend
             .get_state::<jmap_mail_types::Thread>(&account_id)
             .await
@@ -4078,7 +4955,7 @@ Body one.
 
     // Capture thread state after first import.
     let state1 = {
-        use jmap_mail_server::backend::MailBackend;
+        use jmap_mail_server::JmapBackend;
         backend
             .get_state::<jmap_mail_types::Thread>(&account_id)
             .await
@@ -4143,5 +5020,758 @@ Body two.
     assert!(
         !created0.is_empty(),
         "first import must appear as created from initial state; got: {created0:?}"
+    );
+}
+
+/// Oracle: RFC 8621 §4.8 — importing an email with a duplicate Message-ID must
+/// return an `alreadyExists` SetError with `existingId` set to the first email's id.
+#[tokio::test]
+async fn email_import_duplicate_message_id_returns_already_exists() {
+    use jmap_mail_server::handle_email_import;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Raw RFC 5322 message with a known Message-ID.
+    let msg =
+        b"From: sender@example.com\r\nTo: dest@example.com\r\nMessage-ID: <dup123@example.com>\r\nSubject: Dup Test\r\n\r\nBody text.\r\n";
+    let blob_id = Id::from("blob-dup");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+
+    let make_import = |blob: &Id| {
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "emails": {
+                "imp1": {
+                    "blobId": blob.as_ref(),
+                    "mailboxIds": { "inbox": true },
+                }
+            }
+        })
+    };
+
+    // First import must succeed.
+    let (resp1, _) = handle_email_import(&backend, make_import(&blob_id))
+        .await
+        .expect("first import must not return a JmapError");
+    assert!(
+        resp1["notCreated"].is_null(),
+        "first import: notCreated must be null; got: {}",
+        resp1["notCreated"]
+    );
+    let created1 = resp1["created"]
+        .as_object()
+        .expect("first import: created must be an object");
+    let email_id_1 = created1["imp1"]["id"]
+        .as_str()
+        .expect("first import: id must be a string")
+        .to_owned();
+
+    // Second import of the same blob (same Message-ID) must fail with alreadyExists.
+    let (resp2, _) = handle_email_import(&backend, make_import(&blob_id))
+        .await
+        .expect("second import must not return a JmapError");
+    assert!(
+        resp2["created"].is_null(),
+        "second import: created must be null; got: {}",
+        resp2["created"]
+    );
+    let not_created = resp2["notCreated"]
+        .as_object()
+        .expect("second import: notCreated must be an object");
+    assert!(
+        not_created.contains_key("imp1"),
+        "second import: imp1 must be in notCreated"
+    );
+    assert_eq!(
+        not_created["imp1"]["type"].as_str().unwrap_or(""),
+        "alreadyExists",
+        "second import: error type must be alreadyExists; got: {}",
+        not_created["imp1"]["type"]
+    );
+    assert_eq!(
+        not_created["imp1"]["existingId"].as_str().unwrap_or(""),
+        email_id_1,
+        "second import: existingId must equal the first email's id"
+    );
+}
+
+#[test]
+fn capability_uri_mail_matches_rfc() {
+    assert_eq!(jmap_mail_server::JMAP_MAIL_URI, "urn:ietf:params:jmap:mail");
+}
+
+#[test]
+fn capability_uri_submission_matches_rfc() {
+    assert_eq!(
+        jmap_mail_server::JMAP_SUBMISSION_URI,
+        "urn:ietf:params:jmap:submission"
+    );
+}
+
+#[test]
+fn capability_uri_vacation_response_matches_rfc() {
+    assert_eq!(
+        jmap_mail_server::JMAP_VACATION_RESPONSE_URI,
+        "urn:ietf:params:jmap:vacationresponse"
+    );
+}
+
+/// Oracle: EmailSubmission/set create with a future sendAt is rejected when
+/// Oracle: sendAt is server-set (RFC 8621 §7.2); a client-supplied sendAt is
+/// silently ignored and the submission succeeds with server-assigned sendAt.
+#[tokio::test]
+async fn submission_set_create_send_at_ignored_from_client() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let (identity_id, _) = backend
+        .create_object::<jmap_mail_types::Identity>(&account_id, "i0", identity)
+        .await
+        .expect("create Identity");
+
+    let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nBody.";
+    let blob_id = Id::from("blob-delay1");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+    let (email_id, _) = backend
+        .import_email(&account_id, &blob_id, &[Id::from("sent")], &[], None)
+        .await
+        .expect("import_email");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "s0": {
+                "identityId": identity_id.as_ref(),
+                "emailId": email_id.as_ref(),
+                "sendAt": "2099-01-01T00:00:00Z",
+            }
+        }
+    });
+
+    let (resp, _) = handle_submission_set(&backend, args, "call-delay1")
+        .await
+        .expect("EmailSubmission/set must return a response (not a protocol error)");
+
+    // Oracle: "s0" must be created successfully; client-supplied sendAt is ignored.
+    assert!(
+        resp["notCreated"].is_null(),
+        "notCreated must be null; got: {:?}",
+        resp["notCreated"]
+    );
+    let created = resp["created"].as_object().expect("created must be an object");
+    assert!(
+        created.contains_key("s0"),
+        "s0 must be in created; got: {resp:?}"
+    );
+    // sendAt in the response must be the server-set time (not the client-supplied 2099 value).
+    let stored_send_at = created["s0"]["sendAt"].as_str().expect("sendAt in created");
+    assert!(
+        stored_send_at < "2099-01-01",
+        "server-set sendAt must not equal the client-supplied future value; got: {stored_send_at}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// RFC 8621 §4.6 — Email/set create body structure validation
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/set create with bodyStructure and textBody present must be
+/// rejected with invalidProperties.
+///
+/// RFC 8621 §4.6: bodyStructure is mutually exclusive with textBody, htmlBody,
+/// and attachments.
+#[tokio::test]
+async fn email_set_create_body_structure_with_text_body_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "e1": {
+                "mailboxIds": { "inbox": true },
+                "bodyStructure": {
+                    "type": "text/plain",
+                    "partId": "1"
+                },
+                "textBody": [{ "partId": "1", "type": "text/plain" }],
+                "bodyValues": {
+                    "1": { "value": "Hello" }
+                }
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must return a response");
+
+    assert!(
+        resp["notCreated"]["e1"].is_object(),
+        "e1 must be in notCreated; got resp={resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got resp={resp}"
+    );
+}
+
+/// Oracle: Email/set create with textBody containing a part of type text/html
+/// must be rejected with invalidProperties.
+///
+/// RFC 8621 §4.6: textBody must contain exactly one part of type text/plain.
+#[tokio::test]
+async fn email_set_create_text_body_wrong_type_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "e1": {
+                "mailboxIds": { "inbox": true },
+                "textBody": [{ "partId": "1", "type": "text/html" }],
+                "bodyValues": {
+                    "1": { "value": "<p>Hello</p>" }
+                }
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must return a response");
+
+    assert!(
+        resp["notCreated"]["e1"].is_object(),
+        "e1 must be in notCreated; got resp={resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got resp={resp}"
+    );
+}
+
+/// Oracle: Email/set create with textBody containing two parts must be rejected
+/// with invalidProperties.
+///
+/// RFC 8621 §4.6: textBody must contain exactly one body part.
+#[tokio::test]
+async fn email_set_create_text_body_multiple_parts_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "e1": {
+                "mailboxIds": { "inbox": true },
+                "textBody": [
+                    { "partId": "1", "type": "text/plain" },
+                    { "partId": "2", "type": "text/plain" }
+                ],
+                "bodyValues": {
+                    "1": { "value": "Hello" },
+                    "2": { "value": "World" }
+                }
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must return a response");
+
+    assert!(
+        resp["notCreated"]["e1"].is_object(),
+        "e1 must be in notCreated; got resp={resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got resp={resp}"
+    );
+}
+
+/// Oracle: Email/set create with an EmailBodyPart specifying both partId and
+/// blobId must be rejected with invalidProperties.
+///
+/// RFC 8621 §4.6: a body part must have partId OR blobId, not both.
+#[tokio::test]
+async fn email_set_create_body_part_both_part_id_and_blob_id_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "e1": {
+                "mailboxIds": { "inbox": true },
+                "textBody": [{
+                    "partId": "1",
+                    "blobId": "some-blob-id",
+                    "type": "text/plain"
+                }],
+                "bodyValues": {
+                    "1": { "value": "Hello" }
+                }
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must return a response");
+
+    assert!(
+        resp["notCreated"]["e1"].is_object(),
+        "e1 must be in notCreated; got resp={resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got resp={resp}"
+    );
+}
+
+/// Oracle: Email/set create where a body part's partId has no matching entry in
+/// bodyValues must be rejected with invalidProperties.
+///
+/// RFC 8621 §4.6: if partId is specified, that partId MUST exist as a key in
+/// the bodyValues map.
+#[tokio::test]
+async fn email_set_create_body_values_missing_for_part_id_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "e1": {
+                "mailboxIds": { "inbox": true },
+                "textBody": [{ "partId": "1", "type": "text/plain" }]
+                // bodyValues intentionally absent
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must return a response");
+
+    assert!(
+        resp["notCreated"]["e1"].is_object(),
+        "e1 must be in notCreated; got resp={resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got resp={resp}"
+    );
+}
+
+/// Oracle: Email/set create with bodyValues[id].isTruncated=true must be
+/// rejected with invalidProperties.
+///
+/// RFC 8621 §4.6: isTruncated and isEncodingProblem MUST be false or absent on
+/// create.
+#[tokio::test]
+async fn email_set_create_body_value_is_truncated_true_rejected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "e1": {
+                "mailboxIds": { "inbox": true },
+                "textBody": [{ "partId": "1", "type": "text/plain" }],
+                "bodyValues": {
+                    "1": {
+                        "value": "Hello",
+                        "isTruncated": true
+                    }
+                }
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_set(&backend, args)
+        .await
+        .expect("Email/set must return a response");
+
+    assert!(
+        resp["notCreated"]["e1"].is_object(),
+        "e1 must be in notCreated; got resp={resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["e1"]["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got resp={resp}"
+    );
+}
+
+/// Oracle: EmailSubmission/set create with sendAt absent (null) succeeds even
+/// when maxDelayedSend is 0 — the handler substitutes the current time.
+///
+/// RFC 8621 §7.5 — sendAt is optional; omitting it is always valid.
+#[tokio::test]
+async fn submission_set_create_send_at_null_accepted() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let (identity_id, _) = backend
+        .create_object::<jmap_mail_types::Identity>(&account_id, "i0", identity)
+        .await
+        .expect("create Identity");
+
+    let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nBody.";
+    let blob_id = Id::from("blob-delay2");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+    let (email_id, _) = backend
+        .import_email(&account_id, &blob_id, &[Id::from("sent")], &[], None)
+        .await
+        .expect("import_email");
+
+    // sendAt is explicitly null — handler must substitute current time and succeed.
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "s0": {
+                "identityId": identity_id.as_ref(),
+                "emailId": email_id.as_ref(),
+                "sendAt": null,
+            }
+        }
+    });
+
+    let (resp, _) = handle_submission_set(&backend, args, "call-delay2")
+        .await
+        .expect("EmailSubmission/set must return a response (not a protocol error)");
+
+    // Oracle: "s0" must appear in "created".
+    let created = resp["created"].as_object().expect("created must be object");
+    assert!(
+        created.contains_key("s0"),
+        "s0 must be in created; notCreated = {:?}",
+        resp["notCreated"]
+    );
+}
+
+// ---------------------------------------------------------------------------
+// RFC 8621 §4.1.3 — dynamic header: property tests
+// ---------------------------------------------------------------------------
+
+/// Helper: import a message with known headers and return its email id.
+async fn import_msg_with_headers(backend: &MemoryBackend, raw: &[u8]) -> Id {
+    let blob_id = Id::from(format!("blob-hdr-{}", uuid::Uuid::new_v4()));
+    backend.store_blob(blob_id.clone(), raw.to_vec());
+    backend
+        .import_email(
+            &Id::from("acct1"),
+            &blob_id,
+            &[Id::from("inbox")],
+            &[],
+            None,
+        )
+        .await
+        .expect("import_email")
+        .0
+}
+
+/// Oracle: `header:Subject` (Raw form) returns the raw Subject header value.
+///
+/// RFC 8621 §4.1.3 — Raw form replaces CRLF with LF; leading whitespace is
+/// preserved (not trimmed in Raw form).
+#[tokio::test]
+async fn email_get_header_subject_raw() {
+    let backend = MemoryBackend::new();
+    let raw = b"Subject: Hello World\r\nFrom: alice@example.com\r\n\r\nBody.";
+    let email_id = import_msg_with_headers(&backend, raw).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "header:Subject"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list");
+    assert_eq!(list.len(), 1);
+    let obj = &list[0];
+
+    // Raw form: CRLF → LF; value is " Hello World" (space preserved from wire format).
+    let raw_subject = obj["header:Subject"]
+        .as_str()
+        .expect("header:Subject must be a string");
+    assert_eq!(
+        raw_subject, " Hello World",
+        "Raw Subject must include leading space; got: {raw_subject:?}"
+    );
+
+    // "headers" must not leak into the response (client did not request it).
+    assert!(
+        obj.get("headers").is_none(),
+        "headers must not appear in response when not requested; got: {obj:?}"
+    );
+}
+
+/// Oracle: `header:Subject:asText` returns the unfolded, leading-whitespace-trimmed value.
+///
+/// RFC 8621 §4.1.3 asText form: unfold, then trim leading whitespace.
+#[tokio::test]
+async fn email_get_header_subject_as_text() {
+    let backend = MemoryBackend::new();
+    // Folded Subject header (continuation line starts with a space).
+    let raw = b"Subject: Hello\r\n World\r\nFrom: alice@example.com\r\n\r\nBody.";
+    let email_id = import_msg_with_headers(&backend, raw).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id.as_ref()],
+        "properties": ["header:Subject:asText"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list");
+    let obj = &list[0];
+
+    let val = obj["header:Subject:asText"]
+        .as_str()
+        .expect("header:Subject:asText must be a string");
+    // asText: unfolded ("Hello World" with inner space from unfolding) and leading WS trimmed.
+    assert_eq!(
+        val, "Hello World",
+        "asText Subject must be unfolded and trimmed; got: {val:?}"
+    );
+}
+
+/// Oracle: `header:From:asDate` is rejected with `invalidArguments`.
+///
+/// RFC 8621 §4.1.2 — From is an address header; asDate is incompatible.
+#[tokio::test]
+async fn email_get_header_from_as_date_rejected() {
+    let backend = MemoryBackend::new();
+    // The error must fire before any backend query, so no email is needed.
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [],
+        "properties": ["header:From:asDate"],
+    });
+    let result = handle_email_get(&backend, args).await;
+    assert!(
+        result.is_err(),
+        "header:From:asDate must return invalidArguments; got Ok"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type, "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
+/// Oracle: `header:Subject:all` returns an array of all Subject header values.
+///
+/// RFC 8621 §4.1.3 — without `:all` only the last value is returned; with
+/// `:all` the full ordered array is returned.
+#[tokio::test]
+async fn email_get_header_all_form() {
+    let backend = MemoryBackend::new();
+    // Two Subject headers (unusual but syntactically valid for testing :all).
+    let raw = b"Subject: First\r\nSubject: Second\r\nFrom: alice@example.com\r\n\r\nBody.";
+    let email_id = import_msg_with_headers(&backend, raw).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id.as_ref()],
+        "properties": ["header:Subject:all"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list");
+    let obj = &list[0];
+
+    let arr = obj["header:Subject:all"]
+        .as_array()
+        .expect("header:Subject:all must be an array");
+    assert_eq!(
+        arr.len(),
+        2,
+        "must return both Subject values; got: {arr:?}"
+    );
+    assert_eq!(arr[0].as_str().unwrap_or(""), " First");
+    assert_eq!(arr[1].as_str().unwrap_or(""), " Second");
+}
+
+/// Oracle: `header:Subject:asWhatever` is rejected with `invalidArguments`.
+///
+/// RFC 8621 §4.1.3 — only the six defined form names are valid.
+#[tokio::test]
+async fn email_get_header_unknown_form_rejected() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [],
+        "properties": ["header:Subject:asWhatever"],
+    });
+    let result = handle_email_get(&backend, args).await;
+    assert!(
+        result.is_err(),
+        "unknown form must return invalidArguments; got Ok"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type, "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
+/// Oracle: `header::asText` (empty name) is rejected with `invalidArguments`.
+///
+/// RFC 8621 §4.1.3 — the header name part must not be empty.
+#[tokio::test]
+async fn email_get_header_empty_name_rejected() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [],
+        "properties": ["header::asText"],
+    });
+    let result = handle_email_get(&backend, args).await;
+    assert!(
+        result.is_err(),
+        "empty header name must return invalidArguments; got Ok"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type, "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
+/// Oracle: Email/set with a non-string element in `destroy` returns
+/// `invalidArguments` for the whole method call (RFC 8620 §5.3).
+#[tokio::test]
+async fn email_set_destroy_non_string_returns_invalid_arguments() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "destroy": [123],
+    });
+    let result = handle_email_set(&backend, args).await;
+    assert!(
+        result.is_err(),
+        "non-string destroy element must return an error; got Ok"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type, "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
+/// Oracle: EmailSubmission/set with a non-string element in `destroy` returns
+/// `invalidArguments` for the whole method call (RFC 8620 §5.3).
+#[tokio::test]
+async fn submission_set_destroy_non_string_returns_invalid_arguments() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "destroy": [true],
+    });
+    let result = handle_submission_set(&backend, args, "call-sub-invalid").await;
+    assert!(
+        result.is_err(),
+        "non-string destroy element must return an error; got Ok"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type, "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
+/// Oracle: EmailSubmission/set — when the `create` entry fails (non-existent
+/// emailId), `onSuccessUpdateEmail` for that creation reference MUST NOT be
+/// applied (RFC 8621 §7.5: onSuccess only fires for successful creates).
+#[tokio::test]
+async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
+    use jmap_mail_types::keyword;
+
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct-onsuccess-no-apply");
+
+    // Create an Identity so the submission handler can validate it.
+    let identity = Identity::new(Id::from("placeholder"), "alice@example.com", true);
+    let (identity_id, _) = backend
+        .create_object::<Identity>(&account_id, "i0", identity)
+        .await
+        .expect("create Identity");
+
+    // Import a real email to use as the update target.
+    let msg = b"Subject: Test\r\nFrom: alice@example.com\r\nTo: bob@example.com\r\n\r\nbody";
+    let blob_id = Id::from("blob-onsuccess-no-apply");
+    backend.store_blob(blob_id.clone(), msg.to_vec());
+    let (email_id, _) = backend
+        .import_email(&account_id, &blob_id, &[Id::from("inbox")], &[], None)
+        .await
+        .expect("import_email");
+
+    // EmailSubmission/set: create references a non-existent emailId so it
+    // must fail, and the onSuccessUpdateEmail must therefore be skipped.
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "s0": {
+                "identityId": identity_id.as_ref(),
+                "emailId": "non-existent-email-id",
+            }
+        },
+        "onSuccessUpdateEmail": {
+            "#s0": { "keywords/$seen": true }
+        }
+    });
+
+    let (resp, extra) = handle_submission_set(&backend, args, "call-onsuccess-no-apply")
+        .await
+        .expect("EmailSubmission/set must not return a top-level JmapError");
+
+    // Oracle 1: the create failed — "s0" must be in notCreated.
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object");
+    assert!(
+        not_created.contains_key("s0"),
+        "s0 must be in notCreated; got: {:?}",
+        resp["notCreated"]
+    );
+
+    // Oracle 2: no extra invocations — onSuccessUpdateEmail was not applied.
+    assert!(
+        extra.is_empty(),
+        "no extra invocations expected when create fails; got: {extra:?}"
+    );
+
+    // Oracle 3: the email's keywords are unchanged (no $seen keyword added).
+    let (emails, _) = backend
+        .get_objects::<jmap_mail_types::Email>(&account_id, Some(&[email_id.clone()]), None)
+        .await
+        .expect("get_objects must not fail");
+    assert_eq!(emails.len(), 1, "email must still exist");
+    assert!(
+        !emails[0].keywords.contains_key(keyword::SEEN),
+        "email must NOT have $seen keyword; onSuccess must not have fired; keywords: {:?}",
+        emails[0].keywords
     );
 }

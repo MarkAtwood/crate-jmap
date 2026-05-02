@@ -705,6 +705,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     let mut not_destroyed = serde_json::Map::new();
 
     if let Some(Value::Array(destroy_ids)) = args.get("destroy") {
+        // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
+        // Reject the whole request if any element is non-string rather than
+        // silently skipping it, which would produce a misleading response.
+        if let Some(bad) = destroy_ids.iter().find(|v| !v.is_string()) {
+            return Err(JmapError::invalid_arguments(format!(
+                "destroy: every element must be a string Id; got {bad}"
+            )));
+        }
+
         // Re-fetch mailboxes after creates and updates so that any newly-created
         // or reparented child mailboxes are visible to the parent-check below.
         let (mailboxes_after_mutations, _) = backend
@@ -715,7 +724,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         for id_val in destroy_ids {
             let id_str = match id_val.as_str() {
                 Some(s) => s,
-                None => continue,
+                None => continue, // unreachable: validated above
             };
             let id = Id::from(id_str);
 

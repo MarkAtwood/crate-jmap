@@ -10,6 +10,7 @@
 use std::collections::HashMap;
 
 use jmap_mail_types::{
+    query::EmailSubmissionFilter,
     submission::{Address, Delivered, DeliveryStatus, Displayed, Envelope, UndoStatus},
     Email, EmailSubmission, Identity,
 };
@@ -163,12 +164,20 @@ pub async fn handle_submission_query<B: MailBackend>(
         })?,
     };
 
+    let filter: Option<EmailSubmissionFilter> = match args.get("filter") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|e| JmapError::invalid_arguments(e.to_string()))?,
+        ),
+    };
+
     // When anchor is present, fetch the full result set to resolve it.
     // Otherwise, delegate limit/position directly to the backend.
     let (ids, total, query_state, can_calculate_changes, reported_position) =
         if let Some(ref anchor_id) = anchor {
             let all = backend
-                .query_objects::<EmailSubmission>(&account_id, None, None, None, 0)
+                .query_objects::<EmailSubmission>(&account_id, filter.as_ref(), None, None, 0)
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             let anchor_idx = all
@@ -195,7 +204,13 @@ pub async fn handle_submission_query<B: MailBackend>(
             )
         } else {
             let result = backend
-                .query_objects::<EmailSubmission>(&account_id, None, None, limit, position)
+                .query_objects::<EmailSubmission>(
+                    &account_id,
+                    filter.as_ref(),
+                    None,
+                    limit,
+                    position,
+                )
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             let pos = result.position;
@@ -439,16 +454,28 @@ pub async fn handle_submission_set<B: MailBackend>(
             }
         }
     }
+    // e53.46: remove failed updates from the onSuccess map so their side
+    // effects are not applied.
+    for id_str in not_updated.keys() {
+        submission_email_id_map.remove(id_str);
+    }
 
     // -----------------------------------------------------------------------
     // destroy
     // -----------------------------------------------------------------------
 
     if let Some(destroy_ids) = args.get("destroy").and_then(|v| v.as_array()) {
+        // RFC 8620 §5.3: the destroy array is Id[]. A non-string element is a
+        // malformed request; return invalidArguments for the whole request.
+        if let Some(bad) = destroy_ids.iter().find(|v| !v.is_string()) {
+            return Err(JmapError::invalid_arguments(format!(
+                "destroy array must contain only Id strings; got: {bad}"
+            )));
+        }
         for id_val in destroy_ids {
             let id_str = match id_val.as_str() {
                 Some(s) => s,
-                None => continue,
+                None => continue, // unreachable: validated above
             };
             let id = Id::from(id_str);
             match backend
@@ -473,6 +500,11 @@ pub async fn handle_submission_set<B: MailBackend>(
                     );
                 }
             }
+        }
+        // e53.46: remove failed destroys from the onSuccess map so their side
+        // effects are not applied.
+        for id_str in not_destroyed.keys() {
+            submission_email_id_map.remove(id_str);
         }
     }
 
@@ -607,26 +639,36 @@ pub async fn handle_submission_set<B: MailBackend>(
             }
         }
 
-        let email_new_state = backend
-            .get_state::<Email>(&account_id)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        // RFC 8621 §7.5: only emit the implicit Email/set if at least one
+        // email operation was attempted. If all referenced creates failed, the
+        // map is empty and there is nothing to report.
+        let any_email_ops = !email_updated.is_empty()
+            || !email_not_updated.is_empty()
+            || !email_destroyed.is_empty()
+            || !email_not_destroyed.is_empty();
 
-        // RFC 8621 §7.5: a single implicit Email/set response is appended after
-        // the EmailSubmission/set response. Call-id is the same as the originating
-        // EmailSubmission/set call (RFC 8620 §3.2).
-        let email_set_resp = json!({
-            "accountId": account_id.as_ref(),
-            "oldState": email_old_state.as_ref(),
-            "newState": email_new_state.as_ref(),
-            "created": Value::Null,
-            "updated": if email_updated.is_empty() { Value::Null } else { Value::Object(email_updated) },
-            "destroyed": if email_destroyed.is_empty() { Value::Null } else { Value::Array(email_destroyed) },
-            "notCreated": Value::Null,
-            "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
-            "notDestroyed": if email_not_destroyed.is_empty() { Value::Null } else { Value::Object(email_not_destroyed) },
-        });
-        extra_invocations.push(("Email/set".to_owned(), email_set_resp, call_id.to_owned()));
+        if any_email_ops {
+            let email_new_state = backend
+                .get_state::<Email>(&account_id)
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+            // RFC 8621 §7.5: a single implicit Email/set response is appended
+            // after the EmailSubmission/set response. Call-id is the same as
+            // the originating EmailSubmission/set call (RFC 8620 §3.2).
+            let email_set_resp = json!({
+                "accountId": account_id.as_ref(),
+                "oldState": email_old_state.as_ref(),
+                "newState": email_new_state.as_ref(),
+                "created": Value::Null,
+                "updated": if email_updated.is_empty() { Value::Null } else { Value::Object(email_updated) },
+                "destroyed": if email_destroyed.is_empty() { Value::Null } else { Value::Array(email_destroyed) },
+                "notCreated": Value::Null,
+                "notUpdated": if email_not_updated.is_empty() { Value::Null } else { Value::Object(email_not_updated) },
+                "notDestroyed": if email_not_destroyed.is_empty() { Value::Null } else { Value::Object(email_not_destroyed) },
+            });
+            extra_invocations.push(("Email/set".to_owned(), email_set_resp, call_id.to_owned()));
+        }
     }
 
     Ok((resp, extra_invocations))
@@ -771,24 +813,17 @@ async fn process_create<B: MailBackend>(
         }
     }
 
-    // --- sendAt (current time if null/absent) ---
-    let send_at: UTCDate = match create_args.get("sendAt") {
-        None | Some(Value::Null) => UTCDate::from(now_utc_string().as_str()),
-        Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
-            CreateError::SetError(
-                SetError::new(SetErrorType::InvalidProperties)
-                    .with_properties(["sendAt"])
-                    .with_description(e.to_string()),
-            )
-        })?,
-    };
+    // --- sendAt is server-set (RFC 8621 §7.2: sendAt is set by the server) ---
+    // Any client-supplied sendAt is ignored.
+    let send_at: UTCDate = UTCDate::from(now_utc_string().as_str());
 
     // --- Build delivery status for each rcptTo ---
+    // Delivery has not yet occurred; reflect queued state.
     let mut delivery_status: HashMap<String, DeliveryStatus> = HashMap::new();
     for rcpt in &envelope.rcpt_to {
         delivery_status.insert(
             rcpt.email.clone(),
-            DeliveryStatus::new("250 OK", Delivered::Yes, Displayed::Unknown),
+            DeliveryStatus::new("queued", Delivered::Queued, Displayed::Unknown),
         );
     }
 
