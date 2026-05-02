@@ -650,7 +650,10 @@ pub async fn handle_space_join<B: ChatBackend>(
     let now_str = now_utc_string();
     let mut new_members = current_members;
 
-    // Check if already a member
+    // Pre-check: reject if already a member. This check is NOT atomic with the
+    // write below — two concurrent requests can both pass and create duplicate
+    // member entries. The post-write duplicate detection below catches this in
+    // the common case. Storage-layer unique constraints are the authoritative guard.
     let already_member = new_members
         .iter()
         .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()));
@@ -682,6 +685,57 @@ pub async fn handle_space_join<B: ChatBackend>(
         .update_object::<Space>(&account_id, &space_id, json!({"members": new_members}))
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    // TOCTOU guard: re-read members after write and detect duplicate entries.
+    // Two concurrent join requests can both pass the pre-check above and both
+    // succeed at the write layer. If that happened, exactly one racer must
+    // undo its write. We detect the duplicate here and return an error;
+    // the storage layer SHOULD enforce a unique constraint on (space_id, user_id)
+    // as the authoritative guard — this code is best-effort self-healing.
+    let (post_spaces, _) = backend
+        .get_objects::<Space>(&account_id, Some(std::slice::from_ref(&space_id)), None)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+    let post_members: Vec<Value> = post_spaces
+        .into_iter()
+        .next()
+        .map(|s| {
+            s.members
+                .into_iter()
+                .map(serde_json::to_value)
+                .collect::<Result<Vec<_>, _>>()
+        })
+        .unwrap_or(Ok(vec![]))
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+    let duplicate_count = post_members
+        .iter()
+        .filter(|m| m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()))
+        .count();
+    if duplicate_count > 1 {
+        // We lost the race — undo our write by removing one copy of our entry.
+        let deduped: Vec<Value> = {
+            let mut removed_one = false;
+            post_members
+                .into_iter()
+                .filter(|m| {
+                    if !removed_one
+                        && m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref())
+                    {
+                        removed_one = true;
+                        false
+                    } else {
+                        true
+                    }
+                })
+                .collect()
+        };
+        let _ = backend
+            .update_object::<Space>(&account_id, &space_id, json!({"members": deduped}))
+            .await;
+        return Err(JmapError::server_fail(
+            "concurrent join detected; please retry",
+        ));
+    }
 
     Ok((
         json!({ "accountId": account_id.as_ref(), "spaceId": space_id.as_ref() }),
