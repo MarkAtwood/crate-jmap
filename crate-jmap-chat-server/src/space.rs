@@ -16,11 +16,17 @@ use crate::helpers::{
 /// Handle a `Space/get` method call.
 pub async fn handle_space_get<B: ChatBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
-    let ids: Option<Vec<Id>> = match args["ids"].take() {
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
+
+    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(
             serde_json::from_value(v)
@@ -104,16 +110,22 @@ pub async fn handle_space_changes<B: ChatBackend>(
 /// Filter and sort are passed through to the backend unchanged.
 pub async fn handle_space_query<B: ChatBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
     let calculate_total: bool = args
         .get("calculateTotal")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let limit: Option<u64> = match args["limit"].take() {
+    let limit: Option<u64> = match args.remove("limit").unwrap_or(Value::Null) {
         Value::Null => None,
         v => match v.as_u64() {
             Some(n) => Some(n),
@@ -125,19 +137,19 @@ pub async fn handle_space_query<B: ChatBackend>(
         },
     };
 
-    let position: i64 = match args["position"].take() {
+    let position: i64 = match args.remove("position").unwrap_or(Value::Null) {
         Value::Null => 0,
         v => v.as_i64().ok_or_else(|| {
             JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
         })?,
     };
 
-    let filter: Option<serde_json::Value> = match args["filter"].take() {
+    let filter: Option<serde_json::Value> = match args.remove("filter").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(v),
     };
 
-    let sort: Option<Vec<serde_json::Value>> = match args["sort"].take() {
+    let sort: Option<Vec<serde_json::Value>> = match args.remove("sort").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(
             serde_json::from_value(v)

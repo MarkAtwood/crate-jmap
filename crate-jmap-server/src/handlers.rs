@@ -29,7 +29,7 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
         ));
     };
 
-    let ids: Option<Vec<Id>> = match args["ids"].take() {
+    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(
             serde_json::from_value(v)
@@ -155,12 +155,12 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
         })?,
     };
 
-    let filter: Option<O::Filter> = match args["filter"].take() {
+    let filter: Option<O::Filter> = match args.remove("filter").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(serde_json::from_value(v).map_err(|_| JmapError::unsupported_filter())?),
     };
 
-    let sort: Option<Vec<O::Comparator>> = match args["sort"].take() {
+    let sort: Option<Vec<O::Comparator>> = match args.remove("sort").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(
             serde_json::from_value(v)
@@ -243,12 +243,12 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let filter: Option<O::Filter> = match args["filter"].take() {
+    let filter: Option<O::Filter> = match args.remove("filter").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(serde_json::from_value(v).map_err(|_| JmapError::unsupported_filter())?),
     };
 
-    let sort: Option<Vec<O::Comparator>> = match args["sort"].take() {
+    let sort: Option<Vec<O::Comparator>> = match args.remove("sort").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(
             serde_json::from_value(v)

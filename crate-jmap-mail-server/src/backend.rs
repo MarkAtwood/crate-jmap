@@ -369,19 +369,15 @@ pub trait MailBackend: JmapBackend {
     /// Used by `Email/parse` to distinguish `notFound` (blob absent) from
     /// `notParsable` (blob present but uninterpretable as a message).
     ///
-    /// **Override this in every backend that stores blobs.** The default
-    /// returns `false`, so every blob lookup will be reported as `notFound`.
-    /// The default exists only to satisfy the trait bound for backends that
-    /// do not implement blob storage; it does not represent a meaningful
-    /// runtime value.
+    /// Backends that do not store blobs (e.g. pass-through parsers) must still
+    /// implement this method and return `false`.  There is no default because a
+    /// silently wrong default would cause every parse error to be misreported
+    /// as `notFound` rather than `notParsable`.
     fn blob_exists(
         &self,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = bool> + Send {
-        let _ = (account_id, blob_id);
-        std::future::ready(false)
-    }
+    ) -> impl std::future::Future<Output = bool> + Send;
 
     /// Parse a raw message blob and return an Email object without storing it
     /// (RFC 8621 §5.8 — `Email/parse`).

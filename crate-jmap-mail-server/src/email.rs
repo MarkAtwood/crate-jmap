@@ -287,7 +287,7 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
                 .replace("\r\n\t", " ")
                 .replace("\n ", " ")
                 .replace("\n\t", " ");
-            Value::String(unfolded.trim_start().to_string())
+            Value::String(unfolded.trim_start().to_owned())
         }
         // RFC 8621 §4.1.2 structured form not yet implemented; returns null.
         AsAddresses => Value::Null,

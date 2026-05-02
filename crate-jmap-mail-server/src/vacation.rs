@@ -24,11 +24,17 @@ const SINGLETON_ID: &str = "singleton";
 /// other than `"singleton"` is placed in `notFound`.
 pub async fn handle_vacation_get<B: MailBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
-    let requested_ids: Option<Vec<String>> = match args["ids"].take() {
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
+
+    let requested_ids: Option<Vec<String>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(
             serde_json::from_value(v)
