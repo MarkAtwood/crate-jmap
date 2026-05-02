@@ -226,6 +226,10 @@ fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Result<(), Strin
         "list-archive",
     ];
 
+    // RFC 8621 §4.1.2 requires invalidArguments when a recognised header is
+    // requested in an incompatible form (e.g. Date as asAddresses). Silently
+    // returning null would violate the spec and allow clients to receive wrong
+    // data without error.
     if DATE_HEADERS.contains(&name_lower)
         && matches!(
             form,
@@ -1178,9 +1182,11 @@ fn apply_body_value_args(
                     let limit = max_body_value_bytes as usize;
                     if text.len() > limit {
                         // Truncate at the last UTF-8 char boundary at or before `limit`
-                        // bytes so the output is AT MOST `limit` bytes. Walking back
-                        // from `limit` is O(1) because multi-byte sequences are at most
-                        // 4 bytes, so we iterate at most 3 times.
+                        // bytes so the output is AT MOST `limit` bytes. A direct slice
+                        // at `limit` would panic if `limit` falls in the middle of a
+                        // multi-byte sequence. Walking back from `limit` is O(1) because
+                        // multi-byte sequences are at most 4 bytes, so we iterate at most
+                        // 3 times.
                         let mut end = limit.min(text.len());
                         while !text.is_char_boundary(end) {
                             end -= 1;

@@ -174,6 +174,10 @@ enum IdFate {
 ///
 /// **Known limitation**: the internal change log grows without bound. This is
 /// intentional for unit tests (which are short-lived).
+///
+/// Note: `query_changes` is a stub — it ignores filter, sort, max_changes,
+/// up_to_id, and collapse_threads. Do not write tests that rely on these
+/// parameters with MemoryBackend.
 #[derive(Clone, Default)]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
@@ -328,6 +332,9 @@ impl JmapBackend for MemoryBackend {
             }
             for id in &entry.destroyed {
                 match fates.remove(id) {
+                    // RFC 8620 §5.2: if an object is created and destroyed within a
+                    // single /changes window, it must be omitted from both 'created'
+                    // and 'destroyed' lists — the client never knew about it.
                     Some(IdFate::Created) => {} // created+destroyed in window → omit
                     Some(_) | None => {
                         fates.insert(id.clone(), IdFate::Destroyed);
@@ -368,6 +375,10 @@ impl JmapBackend for MemoryBackend {
         // For Email and EmailSubmission objects, apply filter conditions in-process
         // using a JSON roundtrip (since O::Filter: Serialize, we can recover the
         // typed filter).
+        //
+        // O::TYPE_NAME is a const so the dispatch below is zero-cost at runtime.
+        // Trait-based dispatch would require additional trait machinery not yet
+        // worth the complexity. Each arm is an explicit case.
         let email_filter: Option<EmailFilter> = if O::TYPE_NAME == "Email" {
             filter.and_then(|f| {
                 serde_json::to_value(f)
@@ -827,7 +838,9 @@ impl MailBackend for MemoryBackend {
         let email_size = bytes.len() as u64;
 
         // Acquire a single lock that covers the duplicate check, thread assignment,
-        // and the actual insert — eliminating the TOCTOU race window.
+        // and the actual insert — eliminating the TOCTOU race window. A split lock
+        // would allow two concurrent imports of the same Message-ID to both pass
+        // the duplicate check before either inserts, resulting in duplicates.
         let (email, email_id) = {
             let mut inner = self.inner.lock().unwrap();
 
@@ -1591,6 +1604,11 @@ fn highlight(haystack: &str, needle: &str) -> String {
                                // Build a parallel char-index table: lower_char_starts[i] = byte offset of
                                // the i-th char in lower_haystack; orig_char_starts[i] = byte offset of
                                // the i-th char in haystack.
+                               //
+                               // Unicode lowercasing can change a character's byte length, so a byte
+                               // offset into the lowercased string is not a valid byte offset into the
+                               // original. The char-index tables map match positions in the lowercased
+                               // string back to the original correctly regardless of Unicode expansion.
     let lower_chars: Vec<usize> = lower_haystack.char_indices().map(|(i, _)| i).collect();
     let orig_chars: Vec<usize> = haystack.char_indices().map(|(i, _)| i).collect();
     // char_pos tracks which char index lower_pos corresponds to.
