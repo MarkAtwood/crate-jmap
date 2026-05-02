@@ -374,6 +374,10 @@ impl JmapError {
     /// RFC 8620 §3.6.1 — "unknownCapability" (request-level error)
     ///
     /// The request used a capability URI not recognized by this server.
+    ///
+    /// Prefer [`unknown_capability_with_detail`][Self::unknown_capability_with_detail]
+    /// when the offending URI is available.
+    #[deprecated(note = "use unknown_capability_with_detail when the URI is known")]
     pub fn unknown_capability() -> Self {
         Self {
             error_type: "unknownCapability".into(),
@@ -383,9 +387,19 @@ impl JmapError {
         }
     }
 
-    /// RFC 8620 §3.6.1 — "unknownCapability" with the failing URI in the description.
+    /// "unknownCapability" with the failing URI surfaced to the client.
     ///
     /// Use this in preference to [`unknown_capability()`][Self::unknown_capability] when the URI is known.
+    ///
+    /// The URI is stored in [`description`][JmapError::description].  The HTTP layer
+    /// (`jmap-server::RequestError`) reads `description` to populate the `"detail"` field
+    /// in the RFC 7807 problem-details response body — the same mechanism used by
+    /// [`limit()`][Self::limit] for its limit-name payload.
+    ///
+    /// **Invariant**: always construct unknownCapability errors that carry a URI with this
+    /// function, never by setting `description` manually.  A missing or incorrect description
+    /// means the client never learns which capability it requested that the server does not
+    /// support.
     pub fn unknown_capability_with_detail(uri: impl Into<String>) -> Self {
         Self {
             error_type: "unknownCapability".into(),
@@ -677,6 +691,7 @@ mod tests {
         assert!(json.contains("\"maxCallsInRequest\""));
     }
 
+    #[allow(deprecated)]
     #[test]
     fn unknown_capability_type_string() {
         let e = JmapError::unknown_capability();
