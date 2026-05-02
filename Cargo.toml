@@ -2,6 +2,7 @@
 members = [
     "crate-jmap-types",
     "crate-jmap-mail-types",
+    "crate-jmap-mime",
     "crate-jmap-chat-types",
     "crate-jmap-contacts-types",
     "crate-jmap-calendars-types",
@@ -40,6 +41,7 @@ jmap-server       = { path = "crate-jmap-server" }
 jmap-base-client  = { path = "crate-jmap-base-client" }
 jmap-chat-server  = { path = "crate-jmap-chat-server" }
 jmap-mail-client  = { path = "crate-jmap-mail-client" }
+mime-tree         = "0.1"
 futures           = "0.3"
 serde             = { version = "1", features = ["derive"] }
 serde_json        = "1"
