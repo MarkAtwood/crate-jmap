@@ -1,11 +1,13 @@
 //! Mailbox/* method handlers (RFC 8621 §2).
 
+use std::collections::HashSet;
+
 use jmap_mail_types::{Email, EmailFilter, EmailFilterCondition, Mailbox, MailboxFilterCondition};
 use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json, ser, set_error_value};
+use crate::helpers::{extract_account_id, filter_properties, not_found_json, ser, set_error_value};
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)
@@ -29,9 +31,19 @@ pub async fn handle_mailbox_get<B: MailBackend>(
         ),
     };
 
+    // RFC 8620 §5.1: when `properties` is specified return only those fields
+    // (plus `id` which is always included). `None` means return all fields.
+    let properties: Option<Vec<String>> = match args.remove("properties") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v)
+                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
+        ),
+    };
+
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<Mailbox>(&account_id, ids_slice, None)
+        .get_objects::<Mailbox>(&account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -40,7 +52,19 @@ pub async fn handle_mailbox_get<B: MailBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
+    let list_json: Vec<Value> = if let Some(ref props) = properties {
+        // Build the effective property set once; always include "id" per RFC 8620 §5.1.
+        let mut prop_set: HashSet<&str> = props.iter().map(|s| s.as_str()).collect();
+        prop_set.insert("id");
+        list.iter()
+            .map(|obj| {
+                let val = ser(obj)?;
+                Ok(filter_properties(&val, &prop_set))
+            })
+            .collect::<Result<Vec<_>, JmapError>>()?
+    } else {
+        list.iter().map(ser).collect::<Result<Vec<_>, _>>()?
+    };
 
     Ok((
         json!({
@@ -451,6 +475,42 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         );
                         continue;
                     }
+                }
+            }
+
+            // Duplicate name+parentId check (RFC 8621 §2.5 — alreadyExists).
+            //
+            // Two mailboxes under the same parent may not share a name. The
+            // parentId is compared so that null (top-level) and absent (also
+            // top-level) are treated identically.
+            //
+            // The check also covers mailboxes created earlier in this same
+            // request: `created` already holds successfully-created entries
+            // whose serialised form includes the assigned name and parentId.
+            if let Some(proposed_name) = props.get("name").and_then(|v| v.as_str()) {
+                // Normalise the proposed parentId: absent/null → None, string → Some(str).
+                let proposed_parent: Option<&str> = match props.get("parentId") {
+                    Some(serde_json::Value::String(s)) => Some(s.as_str()),
+                    _ => None,
+                };
+
+                let name_taken_existing = all_mailboxes.iter().any(|m| {
+                    m.name == proposed_name
+                        && m.parent_id.as_ref().map(|p| p.as_ref()) == proposed_parent
+                });
+
+                // Also check mailboxes created earlier in this same request.
+                let name_taken_this_request = created.values().any(|v| {
+                    v.get("name").and_then(|n| n.as_str()) == Some(proposed_name)
+                        && v.get("parentId").and_then(|p| p.as_str()) == proposed_parent
+                });
+
+                if name_taken_existing || name_taken_this_request {
+                    not_created.insert(
+                        create_id.clone(),
+                        set_error_value(&SetError::new(SetErrorType::AlreadyExists)),
+                    );
+                    continue;
                 }
             }
 

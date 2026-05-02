@@ -82,7 +82,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
         json!({
             "accountId": account_id.as_ref(),
             "list": list_json,
-            "notFound": if not_found.is_empty() { Value::Null } else { Value::Array(not_found) },
+            "notFound": Value::Array(not_found),
         }),
         vec![],
     ))

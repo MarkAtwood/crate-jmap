@@ -152,8 +152,7 @@ pub fn message_to_jmap_body(
         .map(|p| part_to_jmap_inner(p, blob_id_for))
         .collect();
 
-    let mut body_value_part_ids =
-        Vec::with_capacity(msg.text_body.len() + msg.html_body.len());
+    let mut body_value_part_ids = Vec::with_capacity(msg.text_body.len() + msg.html_body.len());
     body_value_part_ids.extend(msg.text_body.iter().cloned());
     body_value_part_ids.extend(msg.html_body.iter().cloned());
 
@@ -232,7 +231,10 @@ mod tests {
     fn part_to_jmap_plain_size_nonzero() {
         let msg = parse(PLAIN_MSG).unwrap();
         let jpart = part_to_jmap(&msg.part_index, |p| Id::from(p.part_id.clone()));
-        assert!(jpart.size.unwrap_or(0) > 0, "size must be nonzero for non-empty body");
+        assert!(
+            jpart.size.unwrap_or(0) > 0,
+            "size must be nonzero for non-empty body"
+        );
     }
 
     // --- part_to_jmap: multipart message ---
@@ -257,8 +259,14 @@ mod tests {
         let jpart = part_to_jmap(&msg.part_index, |p| Id::from(p.part_id.clone()));
 
         // Root is multipart — no partId, no blobId, no size.
-        assert!(jpart.part_id.is_none(), "multipart root must have no partId");
-        assert!(jpart.blob_id.is_none(), "multipart root must have no blobId");
+        assert!(
+            jpart.part_id.is_none(),
+            "multipart root must have no partId"
+        );
+        assert!(
+            jpart.blob_id.is_none(),
+            "multipart root must have no blobId"
+        );
         assert!(jpart.size.is_none(), "multipart root must have no size");
     }
 
@@ -267,7 +275,10 @@ mod tests {
         let msg = parse(ALT_MSG).unwrap();
         let jpart = part_to_jmap(&msg.part_index, |p| Id::from(p.part_id.clone()));
 
-        let subs = jpart.sub_parts.as_ref().expect("multipart must have sub_parts");
+        let subs = jpart
+            .sub_parts
+            .as_ref()
+            .expect("multipart must have sub_parts");
         assert_eq!(subs.len(), 2, "two child parts expected");
         assert_eq!(subs[0].type_.as_deref(), Some("text/plain"));
         assert_eq!(subs[1].type_.as_deref(), Some("text/html"));
@@ -307,7 +318,10 @@ mod tests {
             "plain text message should have a preview"
         );
         let preview = fields.preview.unwrap();
-        assert!(preview.contains("Hello"), "preview should contain body text");
+        assert!(
+            preview.contains("Hello"),
+            "preview should contain body text"
+        );
     }
 
     #[test]
@@ -321,7 +335,10 @@ mod tests {
             "plain text must have at least one body value part ID"
         );
         for id in &fields.text_body {
-            let pid = id.part_id.as_deref().expect("text_body part must have partId");
+            let pid = id
+                .part_id
+                .as_deref()
+                .expect("text_body part must have partId");
             assert!(
                 fields.body_value_part_ids.contains(&pid.to_owned()),
                 "text_body partId {pid} must appear in body_value_part_ids"
@@ -380,7 +397,10 @@ mod tests {
         let decoded = decode_body_value(PLAIN_MSG, part, Some(5)).unwrap();
         let jval = body_value_to_jmap(decoded);
 
-        assert!(jval.is_truncated, "value must be marked truncated when max_bytes hit");
+        assert!(
+            jval.is_truncated,
+            "value must be marked truncated when max_bytes hit"
+        );
         assert!(jval.value.len() <= 5);
     }
 
@@ -416,10 +436,7 @@ mod tests {
             fields.attachments[0].disposition.as_deref(),
             Some("attachment")
         );
-        assert_eq!(
-            fields.attachments[0].name.as_deref(),
-            Some("file.bin")
-        );
+        assert_eq!(fields.attachments[0].name.as_deref(), Some("file.bin"));
     }
 
     #[test]

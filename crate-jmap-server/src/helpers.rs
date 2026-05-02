@@ -11,19 +11,14 @@ pub fn ser<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> 
 
 /// Convert a slice of [`Id`]s to a JSON `notFound` value.
 ///
-/// Returns `Value::Null` when the slice is empty (the `notFound` field will be
-/// JSON `null`, which RFC 8620 §5.1 specifies when no ids are not-found), or
-/// `Value::Array` of string ids when non-empty.
+/// RFC 8620 §5.1 specifies `notFound` as `Id[]` — always an array, never
+/// `null`. Returns an empty array when all requested ids were found.
 pub fn not_found_json(ids: &[Id]) -> Value {
-    if ids.is_empty() {
-        Value::Null
-    } else {
-        Value::Array(
-            ids.iter()
-                .map(|id| Value::String(id.as_ref().to_owned()))
-                .collect(),
-        )
-    }
+    Value::Array(
+        ids.iter()
+            .map(|id| Value::String(id.as_ref().to_owned()))
+            .collect(),
+    )
 }
 
 /// Extract `accountId` from a JMAP method arguments object.

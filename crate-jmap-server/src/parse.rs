@@ -205,7 +205,8 @@ mod tests {
             "using": [],
             "methodCalls": []
         });
-        parse_request(body, 16).expect("empty using must be accepted — unknownMethod is dispatcher's job");
+        parse_request(body, 16)
+            .expect("empty using must be accepted — unknownMethod is dispatcher's job");
     }
 
     #[test]
