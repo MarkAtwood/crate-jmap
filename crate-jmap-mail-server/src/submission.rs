@@ -18,7 +18,7 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser, set_error_value};
+use crate::helpers::{extract_account_id, find_immutable_patch_key, not_found_json, now_utc_string, ser, set_error_value};
 
 // ---------------------------------------------------------------------------
 // EmailSubmission/get
@@ -538,7 +538,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     None => continue, // Referenced operation did not succeed; skip.
                 };
                 // Apply same immutable-field guard as handle_email_set patches.
-                if let Some(bad_field) = crate::email::find_immutable_patch_key(patch) {
+                if let Some(bad_field) = find_immutable_patch_key(patch) {
                     email_not_updated.insert(
                         email_id.as_ref().to_owned(),
                         json!({

@@ -82,7 +82,9 @@ pub use space::{
 /// receives only `(Arc<B>, call_id, args)`; the `caller: C` value from the
 /// dispatcher is discarded. To act on per-request context (e.g. for
 /// per-tenant auth or rate limiting), implement [`JmapHandler`] directly
-/// rather than using this function.
+/// rather than using this function. The closure shape used here is stable for
+/// v0.1; adding `CallerCtx` forwarding would be a breaking change and is
+/// deferred to a future version.
 pub fn register_chat_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
 where
     B: ChatBackend + 'static,
