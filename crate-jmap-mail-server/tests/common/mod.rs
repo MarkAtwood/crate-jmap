@@ -537,43 +537,84 @@ impl JmapBackend for MemoryBackend {
         &self,
         account_id: &Id,
         since_query_state: &State,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
-        _max_changes: Option<u64>,
-        _up_to_id: Option<&Id>,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        max_changes: Option<u64>,
+        up_to_id: Option<&Id>,
         _collapse_threads: bool,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-        // MemoryBackend does not track per-query result sets. Return the full
-        // current id list as "added" when since_query_state == "0"; otherwise
-        // return empty changes. Callers that need precise queryChanges tracking
-        // should use get_changes + query_objects instead.
-        let (mut all_ids, state_n) = {
-            let inner = self.inner.lock().unwrap();
-            let ids: Vec<Id> = inner
-                .objects_ref(O::TYPE_NAME, account_id.as_ref())
-                .map(|s| s.keys().cloned().collect())
-                .unwrap_or_default();
-            let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
-            (ids, state_n)
-        };
-        all_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-        let new_query_state = State::from(state_n.to_string());
+        // Step 1: Validate since_query_state by parsing it as a u64 counter.
+        // An unparseable token means the client supplied a state we never issued;
+        // return cannotCalculateChanges (limit=0) per RFC 8620 §5.6.
+        let _since: u64 = since_query_state
+            .as_ref()
+            .parse()
+            .map_err(|_| BackendChangesError::TooManyChanges { limit: 0 })?;
 
-        let added: Vec<AddedItem> = if since_query_state.as_ref() == "0" {
-            all_ids
-                .into_iter()
-                .enumerate()
-                .map(|(i, id)| AddedItem::new(id, i as u64))
-                .collect()
-        } else {
-            vec![]
-        };
+        // Step 2: Get the raw delta (created/updated/destroyed) since the given state.
+        let changes = self
+            .get_changes::<O>(account_id, since_query_state, None)
+            .await?;
+        let new_query_state = changes.new_state.clone();
+
+        // Step 3: Get the current filtered+sorted result list (no pagination).
+        let query_result = self
+            .query_objects::<O>(account_id, filter, sort, None, 0)
+            .await
+            .map_err(BackendChangesError::Other)?;
+        let current_result: Vec<Id> = query_result.ids;
+
+        // Step 4: Build lookup sets.
+        use std::collections::HashSet;
+        let current_set: HashSet<&Id> = current_result.iter().collect();
+        let created_set: HashSet<&Id> = changes.created.iter().collect();
+        let updated_set: HashSet<&Id> = changes.updated.iter().collect();
+
+        // Step 5: Compute removed — IDs that were destroyed or updated out of the filter.
+        // An updated ID that still passes the filter is NOT removed; it appears in added instead.
+        let mut removed: Vec<Id> = Vec::new();
+        for id in changes.destroyed.iter().chain(changes.updated.iter()) {
+            if !current_set.contains(id) {
+                removed.push(id.clone());
+            }
+        }
+        // Deduplicate removed (an id could appear in both destroyed and updated in theory).
+        removed.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        removed.dedup();
+
+        // Step 6: Compute added — IDs in created ∪ updated that are in the current result.
+        // We iterate current_result (already sorted) to get correct positional indices.
+        // Determine the up_to_id cutoff position in current_result (exclusive upper bound).
+        let up_to_pos: Option<usize> =
+            up_to_id.and_then(|target| current_result.iter().position(|id| id == target));
+
+        let mut added: Vec<AddedItem> = Vec::new();
+        for (pos, id) in current_result.iter().enumerate() {
+            // If up_to_id is set, stop before reaching (and including) its position.
+            if let Some(cutoff) = up_to_pos {
+                if pos >= cutoff {
+                    break;
+                }
+            }
+            if created_set.contains(id) || updated_set.contains(id) {
+                added.push(AddedItem::new(id.clone(), pos as u64));
+            }
+        }
+
+        // Step 7: Apply max_changes — if total changes exceed the limit, return
+        // cannotCalculateChanges (limit=0) per RFC 8620 §5.6.
+        if let Some(max) = max_changes {
+            let total_changes = removed.len() as u64 + added.len() as u64;
+            if total_changes > max {
+                return Err(BackendChangesError::TooManyChanges { limit: 0 });
+            }
+        }
 
         Ok(QueryChangesResult::new(
             since_query_state.clone(),
             new_query_state,
             None,
-            vec![],
+            removed,
             added,
         ))
     }

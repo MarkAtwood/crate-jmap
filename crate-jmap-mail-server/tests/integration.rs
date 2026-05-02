@@ -10476,13 +10476,17 @@ async fn vacation_set_concurrent_creates_are_idempotent() {
 
     assert!(
         resp1["notUpdated"].is_null()
-            || resp1["notUpdated"].as_object().map_or(true, |m| m.is_empty()),
+            || resp1["notUpdated"]
+                .as_object()
+                .map_or(true, |m| m.is_empty()),
         "first upsert must not produce notUpdated errors; got: {:?}",
         resp1["notUpdated"]
     );
     assert!(
         resp2["notUpdated"].is_null()
-            || resp2["notUpdated"].as_object().map_or(true, |m| m.is_empty()),
+            || resp2["notUpdated"]
+                .as_object()
+                .map_or(true, |m| m.is_empty()),
         "second upsert must not produce notUpdated errors; got: {:?}",
         resp2["notUpdated"]
     );
@@ -10497,7 +10501,332 @@ async fn vacation_set_concurrent_creates_are_idempotent() {
         .await
         .expect("VacationResponse/get must succeed");
     let list = get_resp["list"].as_array().expect("list must be array");
-    assert_eq!(list.len(), 1, "exactly one singleton must exist; got {}", list.len());
+    assert_eq!(
+        list.len(),
+        1,
+        "exactly one singleton must exist; got {}",
+        list.len()
+    );
     assert_eq!(list[0]["isEnabled"], serde_json::json!(true));
     assert_eq!(list[0]["textBody"], serde_json::json!("Out of office"));
+}
+
+// ---------------------------------------------------------------------------
+// JMAP-yecd.3: MemoryBackend::query_changes filter/sort/upToId/maxChanges
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/queryChanges with an inMailbox filter returns only the new
+/// email in that mailbox, not emails added to a different mailbox.
+///
+/// RFC 8620 §5.6 — removed/added must reflect the query as if it had been
+/// re-run, meaning the filter must be applied.
+#[tokio::test]
+async fn query_changes_with_filter_returns_filtered_delta() {
+    let backend = MemoryBackend::new();
+    let account_id = "acct1";
+
+    // Create a mailbox for inbox and folderA.
+    let mbox_args = serde_json::json!({
+        "accountId": account_id,
+        "create": {
+            "inbox": { "name": "Inbox" },
+            "folderA": { "name": "FolderA" },
+        }
+    });
+    let (mbox_resp, _) = handle_mailbox_set(&backend, mbox_args)
+        .await
+        .expect("mailbox create must succeed");
+    let inbox_id = mbox_resp["created"]["inbox"]["id"]
+        .as_str()
+        .expect("inbox id")
+        .to_string();
+    let folder_a_id = mbox_resp["created"]["folderA"]["id"]
+        .as_str()
+        .expect("folderA id")
+        .to_string();
+
+    // Create one email in folderA (before the state snapshot).
+    let pre_args = serde_json::json!({
+        "accountId": account_id,
+        "create": {
+            "pre": { "mailboxIds": { folder_a_id.clone(): true } }
+        }
+    });
+    handle_email_set(&backend, pre_args)
+        .await
+        .expect("pre-email create must succeed");
+
+    // Capture the current state S1.
+    let state_args = serde_json::json!({ "accountId": account_id, "sinceQueryState": "0" });
+    let (s1_resp, _) = handle_email_query_changes(&backend, state_args)
+        .await
+        .expect("initial queryChanges must succeed");
+    let s1 = s1_resp["newQueryState"]
+        .as_str()
+        .expect("newQueryState must be present")
+        .to_string();
+
+    // Add one email to inbox and one email to folderA after S1.
+    let add_args = serde_json::json!({
+        "accountId": account_id,
+        "create": {
+            "inbox_new": { "mailboxIds": { inbox_id.clone(): true } },
+            "folder_new": { "mailboxIds": { folder_a_id.clone(): true } },
+        }
+    });
+    let (add_resp, _) = handle_email_set(&backend, add_args)
+        .await
+        .expect("email creates must succeed");
+    let inbox_email_id = add_resp["created"]["inbox_new"]["id"]
+        .as_str()
+        .expect("inbox_new email id")
+        .to_string();
+
+    // Call Email/queryChanges with filter={inMailbox: inbox_id}, since=S1.
+    let qc_args = serde_json::json!({
+        "accountId": account_id,
+        "sinceQueryState": s1,
+        "filter": { "inMailbox": inbox_id },
+    });
+    let (qc_resp, _) = handle_email_query_changes(&backend, qc_args)
+        .await
+        .expect("filtered queryChanges must succeed");
+
+    let added: Vec<String> = qc_resp["added"]
+        .as_array()
+        .expect("added must be array")
+        .iter()
+        .map(|v| v["id"].as_str().expect("added item id").to_string())
+        .collect();
+
+    // The inbox email must appear in added.
+    assert!(
+        added.contains(&inbox_email_id),
+        "inbox email must be in added; got added={added:?}, resp={qc_resp}"
+    );
+    // The folderA email must NOT appear in added (it does not pass the filter).
+    let folder_email_id = add_resp["created"]["folder_new"]["id"]
+        .as_str()
+        .expect("folder_new email id")
+        .to_string();
+    assert!(
+        !added.contains(&folder_email_id),
+        "folderA email must not be in added when filter=inMailbox(inbox); got added={added:?}"
+    );
+}
+
+/// Oracle: Email/queryChanges with upToId truncates added at that position.
+///
+/// RFC 8620 §5.6 — upToId: the server should only return changes up to and
+/// NOT including the item at that position in the current result set.
+#[tokio::test]
+async fn query_changes_up_to_id_truncates_added() {
+    let backend = MemoryBackend::new();
+    let account_id = "acct1";
+
+    // Create 3 emails with distinct receivedAt times so sort order is deterministic.
+    let pre_args = serde_json::json!({
+        "accountId": account_id,
+        "create": {
+            "e0": { "mailboxIds": { "inbox": true }, "receivedAt": "2024-01-01T00:00:00Z" },
+            "e1": { "mailboxIds": { "inbox": true }, "receivedAt": "2024-01-02T00:00:00Z" },
+            "e2": { "mailboxIds": { "inbox": true }, "receivedAt": "2024-01-03T00:00:00Z" },
+        }
+    });
+    handle_email_set(&backend, pre_args)
+        .await
+        .expect("pre-create must succeed");
+
+    // Capture state S1.
+    let s1_resp = {
+        let args = serde_json::json!({ "accountId": account_id, "sinceQueryState": "0" });
+        let (r, _) = handle_email_query_changes(&backend, args)
+            .await
+            .expect("initial queryChanges must succeed");
+        r
+    };
+    let s1 = s1_resp["newQueryState"]
+        .as_str()
+        .expect("newQueryState")
+        .to_string();
+
+    // Add 3 more emails with later dates.
+    let new_args = serde_json::json!({
+        "accountId": account_id,
+        "create": {
+            "n0": { "mailboxIds": { "inbox": true }, "receivedAt": "2024-01-04T00:00:00Z" },
+            "n1": { "mailboxIds": { "inbox": true }, "receivedAt": "2024-01-05T00:00:00Z" },
+            "n2": { "mailboxIds": { "inbox": true }, "receivedAt": "2024-01-06T00:00:00Z" },
+        }
+    });
+    let (new_resp, _) = handle_email_set(&backend, new_args)
+        .await
+        .expect("new creates must succeed");
+
+    // Get sorted IDs to find the position of n1.
+    let sort_args = serde_json::json!({
+        "accountId": account_id,
+        "sort": [{ "property": "receivedAt", "isAscending": true }],
+    });
+    let (sort_resp, _) = handle_email_query(&backend, sort_args)
+        .await
+        .expect("query must succeed");
+    let all_ids: Vec<String> = sort_resp["ids"]
+        .as_array()
+        .expect("ids array")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_owned())
+        .collect();
+    assert_eq!(all_ids.len(), 6, "must have 6 emails total");
+
+    let n1_id = new_resp["created"]["n1"]["id"]
+        .as_str()
+        .expect("n1 id")
+        .to_string();
+    let n1_pos = all_ids
+        .iter()
+        .position(|id| *id == n1_id)
+        .expect("n1 must be in sorted list");
+
+    // queryChanges with upToId=n1, sort by receivedAt ascending.
+    let qc_args = serde_json::json!({
+        "accountId": account_id,
+        "sinceQueryState": s1,
+        "sort": [{ "property": "receivedAt", "isAscending": true }],
+        "upToId": n1_id,
+    });
+    let (qc_resp, _) = handle_email_query_changes(&backend, qc_args)
+        .await
+        .expect("queryChanges with upToId must succeed");
+
+    let added: Vec<String> = qc_resp["added"]
+        .as_array()
+        .expect("added must be array")
+        .iter()
+        .map(|v| v["id"].as_str().expect("id").to_owned())
+        .collect();
+
+    // n1 itself and anything at or after its position must be excluded.
+    assert!(
+        !added.contains(&n1_id),
+        "upToId item itself must not appear in added; added={added:?}"
+    );
+    let n2_id = new_resp["created"]["n2"]["id"]
+        .as_str()
+        .expect("n2 id")
+        .to_string();
+    assert!(
+        !added.contains(&n2_id),
+        "items after upToId must not appear in added; added={added:?}"
+    );
+    // n0 is before n1_pos, so it must be in added.
+    let n0_id = new_resp["created"]["n0"]["id"]
+        .as_str()
+        .expect("n0 id")
+        .to_string();
+    let n0_pos_in_all = all_ids
+        .iter()
+        .position(|id| *id == n0_id)
+        .expect("n0 in sorted list");
+    if n0_pos_in_all < n1_pos {
+        assert!(
+            added.contains(&n0_id),
+            "n0 (before upToId) must be in added; added={added:?}, n0_pos={n0_pos_in_all}, n1_pos={n1_pos}"
+        );
+    }
+}
+
+/// Oracle: Email/queryChanges with maxChanges smaller than the number of changes
+/// must return a cannotCalculateChanges error.
+///
+/// RFC 8620 §5.6 — if the number of changes would exceed maxChanges, the server
+/// MAY return cannotCalculateChanges.
+#[tokio::test]
+async fn query_changes_max_changes_returns_cannot_calculate() {
+    let backend = MemoryBackend::new();
+    let account_id = "acct1";
+
+    // Create 10 emails.
+    let create_map: serde_json::Value = {
+        let mut m = serde_json::Map::new();
+        for i in 0..10usize {
+            m.insert(
+                format!("e{i}"),
+                serde_json::json!({ "mailboxIds": { "inbox": true } }),
+            );
+        }
+        serde_json::Value::Object(m)
+    };
+    handle_email_set(
+        &backend,
+        serde_json::json!({ "accountId": account_id, "create": create_map }),
+    )
+    .await
+    .expect("pre-create must succeed");
+
+    // Capture state S1.
+    let s1 = {
+        let args = serde_json::json!({ "accountId": account_id, "sinceQueryState": "0" });
+        let (r, _) = handle_email_query_changes(&backend, args)
+            .await
+            .expect("initial queryChanges");
+        r["newQueryState"]
+            .as_str()
+            .expect("newQueryState")
+            .to_string()
+    };
+
+    // Create 5 more emails and destroy 5 of the originals — total 10 changes.
+    let (pre_resp, _) =
+        handle_email_query(&backend, serde_json::json!({ "accountId": account_id }))
+            .await
+            .expect("query for destroy ids");
+    let destroy_ids: Vec<serde_json::Value> = pre_resp["ids"]
+        .as_array()
+        .expect("ids")
+        .iter()
+        .take(5)
+        .cloned()
+        .collect();
+
+    let new_create: serde_json::Value = {
+        let mut m = serde_json::Map::new();
+        for i in 0..5usize {
+            m.insert(
+                format!("n{i}"),
+                serde_json::json!({ "mailboxIds": { "inbox": true } }),
+            );
+        }
+        serde_json::Value::Object(m)
+    };
+    handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id,
+            "create": new_create,
+            "destroy": destroy_ids,
+        }),
+    )
+    .await
+    .expect("create+destroy must succeed");
+
+    // Call queryChanges with maxChanges=3 — total changes (5 removed + 5 added = 10) > 3.
+    let qc_args = serde_json::json!({
+        "accountId": account_id,
+        "sinceQueryState": s1,
+        "maxChanges": 3,
+    });
+    let result = handle_email_query_changes(&backend, qc_args).await;
+    assert!(
+        result.is_err(),
+        "maxChanges exceeded must return an error; got Ok: {:?}",
+        result.ok()
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type.as_str(),
+        "cannotCalculateChanges",
+        "error must be cannotCalculateChanges; got: {:?}",
+        err.error_type
+    );
 }
