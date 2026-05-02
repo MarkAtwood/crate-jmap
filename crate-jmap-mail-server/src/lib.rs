@@ -33,6 +33,10 @@ use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod backend;
 pub mod email;
+#[cfg(feature = "mdn")]
+pub mod mdn;
+#[cfg(feature = "mdn")]
+pub use mdn::MdnBackend;
 mod helpers;
 pub mod identity;
 pub mod mailbox;
