@@ -178,7 +178,9 @@ pub async fn handle_chat_set<B: ChatBackend>(
         // Only pay the cost of a full get_objects fetch when the batch contains
         // at least one Direct create (JMAP-63k.4).
         let has_direct_create = create_map.values().any(|v| {
-            v.get("kind").and_then(|k| k.as_str()) == Some("direct")
+            v.get("kind")
+                .and_then(|k| k.as_str())
+                .is_some_and(|s| s.eq_ignore_ascii_case("direct"))
         });
 
         // Fetch all existing chats once before the loop (O(1) fetch instead of
@@ -371,8 +373,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     // expose a filter-by-kind query; a tighter fetch (Direct only)
                     // would be preferable but requires backend support (JMAP-63k.9).
                     if is_direct_create {
-                        let contact_id_str =
-                            direct_contact_id_str.as_deref().unwrap_or_default();
+                        let contact_id_str = direct_contact_id_str.as_deref().unwrap_or_default();
                         let (current_chats, _) = backend
                             .get_objects::<Chat>(&account_id, None, None)
                             .await
@@ -396,9 +397,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                                 .unwrap_or_else(|| new_id.clone());
                             if new_id != canonical_id {
                                 // We lost the race: destroy our copy.
-                                if let Err(e) = backend
-                                    .destroy_object::<Chat>(&account_id, &new_id)
-                                    .await
+                                if let Err(e) =
+                                    backend.destroy_object::<Chat>(&account_id, &new_id).await
                                 {
                                     // Cleanup failed — the duplicate is still
                                     // live. Return a retryable server error

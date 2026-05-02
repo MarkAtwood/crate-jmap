@@ -663,14 +663,6 @@ pub async fn handle_space_join<B: ChatBackend>(
         ));
     }
 
-    // Apply the deferred invite uses increment now that we know the join will succeed.
-    if let Some((invite_id, new_uses)) = invite_update {
-        backend
-            .update_object::<SpaceInvite>(&account_id, &invite_id, json!({"uses": new_uses}))
-            .await
-            .map_err(|e: jmap_server::BackendSetError<_>| JmapError::server_fail(e.to_string()))?;
-    }
-
     new_members.push(json!({
         "id": account_id.as_ref(),
         "roleIds": [],
@@ -712,16 +704,18 @@ pub async fn handle_space_join<B: ChatBackend>(
         .filter(|m| m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()))
         .count();
     if duplicate_count > 1 {
-        // We lost the race — undo our write by removing one copy of our entry.
+        // We lost the race — undo our write by removing the specific entry we added.
+        // Match by both id AND joinedAt so we remove our entry, not the winner's.
         let deduped: Vec<Value> = {
-            let mut removed_one = false;
+            let mut removed_ours = false;
             post_members
                 .into_iter()
                 .filter(|m| {
-                    if !removed_one
+                    if !removed_ours
                         && m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref())
+                        && m.get("joinedAt").and_then(|v| v.as_str()) == Some(now_str.as_str())
                     {
-                        removed_one = true;
+                        removed_ours = true;
                         false
                     } else {
                         true
@@ -735,6 +729,15 @@ pub async fn handle_space_join<B: ChatBackend>(
         return Err(JmapError::server_fail(
             "concurrent join detected; please retry",
         ));
+    }
+
+    // Apply the invite uses increment only on the success path (after TOCTOU check passes).
+    // Deferring here prevents a race-loss from silently consuming an invite use.
+    if let Some((invite_id, new_uses)) = invite_update {
+        backend
+            .update_object::<SpaceInvite>(&account_id, &invite_id, json!({"uses": new_uses}))
+            .await
+            .map_err(|e: jmap_server::BackendSetError<_>| JmapError::server_fail(e.to_string()))?;
     }
 
     Ok((
