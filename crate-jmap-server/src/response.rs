@@ -330,6 +330,7 @@ mod tests {
     /// Oracle: error_invocation depends on JmapError being infallibly serializable.
     /// This test exercises every JmapError constructor to catch any future regression
     /// in jmap-types that breaks the invariant.
+    #[allow(deprecated)]
     #[test]
     fn jmap_error_all_constructors_serialize() {
         let errors = vec![

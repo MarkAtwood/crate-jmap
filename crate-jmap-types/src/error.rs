@@ -375,9 +375,9 @@ impl JmapError {
     ///
     /// The request used a capability URI not recognized by this server.
     ///
-    /// Prefer [`unknown_capability_with_detail`][Self::unknown_capability_with_detail]
-    /// when the offending URI is available.
-    #[deprecated(note = "use unknown_capability_with_detail when the URI is known")]
+    /// Always prefer [`unknown_capability_with_detail`][Self::unknown_capability_with_detail],
+    /// which includes the failing URI so clients can act on it.
+    #[deprecated(note = "always use unknown_capability_with_detail to include the URI in the error")]
     pub fn unknown_capability() -> Self {
         Self {
             error_type: "unknownCapability".into(),
