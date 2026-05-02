@@ -668,7 +668,7 @@ pub async fn handle_space_join<B: ChatBackend>(
         backend
             .update_object::<SpaceInvite>(&account_id, &invite_id, json!({"uses": new_uses}))
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e: jmap_server::BackendSetError<_>| JmapError::server_fail(e.to_string()))?;
     }
 
     new_members.push(json!({
@@ -684,7 +684,7 @@ pub async fn handle_space_join<B: ChatBackend>(
     backend
         .update_object::<Space>(&account_id, &space_id, json!({"members": new_members}))
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e: jmap_server::BackendSetError<_>| JmapError::server_fail(e.to_string()))?;
 
     // TOCTOU guard: re-read members after write and detect duplicate entries.
     // Two concurrent join requests can both pass the pre-check above and both

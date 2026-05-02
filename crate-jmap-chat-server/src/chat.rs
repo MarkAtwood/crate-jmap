@@ -388,7 +388,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         if duplicates.len() > 1 {
                             // Race occurred: pick lexicographically smallest id
                             // as the canonical winner.
-                            let canonical_id = duplicates
+                            let canonical_id: Id = duplicates
                                 .iter()
                                 .map(|c| c.id.as_ref())
                                 .min()
