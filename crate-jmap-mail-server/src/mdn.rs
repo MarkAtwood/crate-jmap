@@ -145,7 +145,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         return Err(JmapError::invalid_arguments("identityId not found"));
     }
 
-    // Step 3: Validate onSuccessUpdateEmail — per draft §2.1 the server MUST
+    // Step 3: Validate onSuccessUpdateEmail — per draft §3.1 the server MUST
     // reject any MDN/send where onSuccessUpdateEmail does not result in setting
     // keywords/$mdnsent: true for each entry in send.
     if !req.send.is_empty() {
@@ -188,6 +188,15 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     let mut send_map: HashMap<Id, jmap_mail_types::mdn::Mdn> = HashMap::new();
 
     for (creation_id, mdn) in req.send {
+        if mdn.for_email_id.is_none() {
+            not_sent.insert(
+                creation_id.clone(),
+                serde_json::json!({"type": "invalidProperties", "properties": ["forEmailId"],
+                                   "description": "forEmailId MUST NOT be null for MDN/send (draft §2)"}),
+            );
+            continue;
+        }
+
         let mut crlf_bad = false;
 
         if let Some(ref s) = mdn.subject {
@@ -224,6 +233,20 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                         crlf_bad = true;
                         break 'outer;
                     }
+                }
+            }
+        }
+        if !crlf_bad {
+            if let Some(ref s) = mdn.mdn_gateway {
+                if !crate::submission::check_no_crlf(s) {
+                    crlf_bad = true;
+                }
+            }
+        }
+        if !crlf_bad {
+            if let Some(ref s) = mdn.original_message_id {
+                if !crate::submission::check_no_crlf(s) {
+                    crlf_bad = true;
                 }
             }
         }
@@ -413,8 +436,9 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 // ---------------------------------------------------------------------------
 
 /// Maximum number of blob IDs accepted in a single `MDN/parse` request.
-///
-/// TODO: make this configurable via MdnBackend trait or server config.
+/// 16 is chosen as a conservative default matching typical email client
+/// batch sizes; there is no spec-mandated limit, so a real backend should
+/// expose this as a configurable server parameter.
 const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
 
 /// Handle an `MDN/parse` method call (draft-ietf-jmap-mdn-17 §3.3).

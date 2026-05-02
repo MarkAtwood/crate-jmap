@@ -2358,12 +2358,31 @@ impl MdnBackend for MemoryBackend {
                 .map(|h| h.value.trim().to_owned());
 
             // final_recipient: fixed test value (no real identity lookup needed).
+            // "rfc822" is the address-type identifier per RFC 8098 §3.2.4 and RFC 3798.
+            // This test value is used consistently in mdn_integration.rs assertions.
             let final_recipient = Some("rfc822; test@example.com".to_owned());
 
             // Step 5: build a minimal RFC 5322 MDN blob.
             let orig_msg_id_line = original_message_id.as_deref().unwrap_or("");
             let subject_line = mdn.subject.as_deref().unwrap_or("");
             let text_body_line = mdn.text_body.as_deref().unwrap_or("");
+
+            // Serialize the disposition enum fields to their JMAP/RFC 8098 wire strings.
+            // RFC 8098 header values are case-insensitive; we use the JMAP kebab-case
+            // values directly (e.g. "manual-action", "mdn-sent-manually", "displayed").
+            let action_mode_str = serde_json::to_value(&mdn.disposition.action_mode)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| "manual-action".to_string());
+            let sending_mode_str = serde_json::to_value(&mdn.disposition.sending_mode)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| "mdn-sent-manually".to_string());
+            let type_str = serde_json::to_value(&mdn.disposition.type_)
+                .ok()
+                .and_then(|v| v.as_str().map(String::from))
+                .unwrap_or_else(|| "displayed".to_string());
+
             let mdn_blob = format!(
                 "From: test@example.com\r\n\
                  To: {dnt_address}\r\n\
@@ -2380,7 +2399,7 @@ impl MdnBackend for MemoryBackend {
                  \r\n\
                  Final-Recipient: rfc822; test@example.com\r\n\
                  Original-Message-ID: {orig_msg_id_line}\r\n\
-                 Disposition: manual-action/MDN-sent-manually; displayed\r\n\
+                 Disposition: {action_mode_str}/{sending_mode_str}; {type_str}\r\n\
                  \r\n\
                  --bound--\r\n"
             );
@@ -2471,11 +2490,11 @@ impl MdnBackend for MemoryBackend {
                 }
                 Some(raw) => {
                     // Minimal heuristic: a blob is parsable as an MDN if it contains
-                    // the ASCII string "Disposition:" (case-sensitive, as emitted by
-                    // MemoryMdnBackend::send_mdns and all RFC-conforming senders).
-                    // A full MIME parser is not used here — this is test infrastructure.
+                    // the ASCII string "disposition:" (case-insensitive; RFC 5322 header
+                    // names are case-insensitive per §2.2). A full MIME parser is not
+                    // used here — this is test infrastructure.
                     let text = String::from_utf8_lossy(&raw);
-                    if !text.contains("Disposition:") {
+                    if !text.to_ascii_lowercase().contains("disposition:") {
                         not_parsable.push(blob_id);
                         continue;
                     }
@@ -2519,13 +2538,23 @@ impl MdnBackend for MemoryBackend {
                     // Build the Mdn via JSON round-trip (Mdn is #[non_exhaustive]
                     // and cannot be constructed with struct literal syntax outside
                     // its defining crate).
+                    // All known Mdn fields are listed explicitly here. When new fields
+                    // are added to Mdn, add them here too — the #[non_exhaustive]
+                    // constraint prevents using struct-literal construction so this
+                    // manual enumeration is required.
                     let mdn_val = serde_json::json!({
                         "forEmailId": for_email_id.as_ref().map(|id| id.as_ref()),
+                        "subject": serde_json::Value::Null,
+                        "textBody": serde_json::Value::Null,
+                        "includeOriginalMessage": false,
                         "reportingUa": reporting_ua,
                         "disposition": disposition_val,
+                        "mdnGateway": serde_json::Value::Null,
                         "originalRecipient": original_recipient,
                         "finalRecipient": final_recipient,
                         "originalMessageId": original_message_id,
+                        "error": serde_json::Value::Null,
+                        "extensionFields": serde_json::Value::Null,
                     });
                     let mdn: Mdn = serde_json::from_value(mdn_val)
                         .map_err(|e| MemoryError(format!("deserialize parsed mdn: {e}")))?;
@@ -2550,6 +2579,11 @@ impl MdnBackend for MemoryBackend {
 ///
 /// Scans line-by-line for the first line beginning with `"Field-Name:"` (case-insensitive)
 /// and returns the trimmed value. Returns `None` if no such line is found.
+///
+/// Note: this parser does not handle RFC 5322 §2.2.3 folded headers (continuation
+/// lines starting with whitespace). MDN messages generated by MUAs typically
+/// do not fold headers, so this is acceptable for the test harness. A production
+/// MDN parser should use a proper RFC 5322 header parser.
 #[cfg(feature = "mdn")]
 fn find_header_value(text: &str, field_name: &str) -> Option<String> {
     let prefix = format!("{field_name}:");
@@ -2594,7 +2628,11 @@ fn parse_disposition_field(value: &str) -> Option<serde_json::Value> {
         "mdn-sent-automatically" => "mdn-sent-automatically",
         _ => return None,
     };
-    let type_wire = match type_part.as_str() {
+
+    // RFC 8098 §3.2.6 allows modifiers after a '/' in the disposition-type token,
+    // e.g. "displayed/error". Extract only the part before the first '/' as the type.
+    let type_base = type_part.splitn(2, '/').next()?.trim();
+    let type_wire = match type_base {
         "deleted" => "deleted",
         "dispatched" => "dispatched",
         "displayed" => "displayed",
