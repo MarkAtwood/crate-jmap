@@ -589,6 +589,10 @@ async fn search_snippet_get_capability_gated() {
                 .await
         }
 
+        async fn blob_exists(&self, account_id: &Id, blob_id: &Id) -> bool {
+            self.0.blob_exists(account_id, blob_id).await
+        }
+
         async fn parse_email(
             &self,
             account_id: &Id,

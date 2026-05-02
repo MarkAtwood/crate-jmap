@@ -12,12 +12,18 @@ use crate::helpers::{extract_account_id, not_found_json, ser};
 /// invocations list is always empty.
 pub async fn handle_thread_get<B: MailBackend>(
     backend: &B,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
+
     // ids: absent or null means "return all"; Some([]) means "return nothing".
-    let ids: Option<Vec<Id>> = match args["ids"].take() {
+    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
         v => Some(
             serde_json::from_value(v)
