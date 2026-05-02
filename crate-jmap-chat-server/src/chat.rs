@@ -1,6 +1,6 @@
 //! Chat/* method handlers (JMAP Chat extension §Chat).
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use jmap_chat_types::{Chat, ChatKind};
 use jmap_types::{Id, Invocation, JmapError, UTCDate};
@@ -175,18 +175,37 @@ pub async fn handle_chat_set<B: ChatBackend>(
     // create
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+        // Only pay the cost of a full get_objects fetch when the batch contains
+        // at least one Direct create (JMAP-63k.4).
+        let has_direct_create = create_map.values().any(|v| {
+            v.get("kind").and_then(|k| k.as_str()) == Some("direct")
+        });
+
         // Fetch all existing chats once before the loop (O(1) fetch instead of
         // O(n) per-create fetches) and build a set of already-known Direct
-        // contactIds for the pre-check.
-        let (existing_chats, _) = backend
-            .get_objects::<Chat>(&account_id, None, None)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
-        let mut known_direct_contact_ids: HashSet<String> = existing_chats
-            .iter()
-            .filter(|c| c.kind == ChatKind::Direct)
-            .filter_map(|c| c.contact_id.as_ref().map(|id| id.as_ref().to_owned()))
-            .collect();
+        // contactIds for the pre-check.  Skipped entirely for non-Direct batches.
+        let existing_chats: Vec<Chat>;
+        let mut known_direct_contact_ids: HashSet<String>;
+        if has_direct_create {
+            let (chats, _) = backend
+                .get_objects::<Chat>(&account_id, None, None)
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            known_direct_contact_ids = chats
+                .iter()
+                .filter(|c| c.kind == ChatKind::Direct)
+                .filter_map(|c| c.contact_id.as_ref().map(|id| id.as_ref().to_owned()))
+                .collect();
+            existing_chats = chats;
+        } else {
+            existing_chats = Vec::new();
+            known_direct_contact_ids = HashSet::new();
+        }
+
+        // Maps contactId -> assigned new_id for Direct chats successfully
+        // created earlier in this batch.  Used to resolve intra-batch duplicates
+        // without a re-fetch (JMAP-63k.12).
+        let mut batch_direct_ids: HashMap<String, Id> = HashMap::new();
 
         for (create_id, obj_val) in create_map {
             // kind is required.
@@ -242,33 +261,30 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         continue;
                     }
                     // Also check contactIds created earlier in this same batch.
+                    // Resolve the canonical id from the hoisted pre-fetch data or
+                    // from the batch map — no re-fetch required (JMAP-63k.12).
                     if known_direct_contact_ids.contains(&contact_id_str) {
-                        // Re-fetch to find the canonical id.
-                        let (current_chats, _) = backend
-                            .get_objects::<Chat>(&account_id, None, None)
-                            .await
-                            .map_err(|e| JmapError::server_fail(e.to_string()))?;
-                        let canonical_id = match current_chats
-                            .iter()
-                            .filter(|c| {
-                                c.kind == ChatKind::Direct
-                                    && c.contact_id.as_ref().map(|id| id.as_ref())
-                                        == Some(contact_id_str.as_str())
-                            })
-                            .min_by(|a, b| a.id.as_ref().cmp(b.id.as_ref()))
-                            .map(|c| c.id.clone())
-                        {
-                            Some(id) => id,
-                            None => {
-                                not_created.insert(
-                                    create_id.clone(),
-                                    json!({
-                                        "type": "serverFail",
-                                        "description": "direct chat for contact not found after concurrent operation; retry"
-                                    }),
-                                );
-                                continue;
-                            }
+                        // Try the pre-fetch snapshot first (pre-existing chat).
+                        let canonical_id = if let Some(c) = existing_chats.iter().find(|c| {
+                            c.kind == ChatKind::Direct
+                                && c.contact_id.as_ref().map(|id| id.as_ref())
+                                    == Some(contact_id_str.as_str())
+                        }) {
+                            c.id.clone()
+                        } else if let Some(id) = batch_direct_ids.get(&contact_id_str) {
+                            // Created earlier in this batch.
+                            id.clone()
+                        } else {
+                            // Should not happen: known_direct_contact_ids is only
+                            // populated from existing_chats and batch_direct_ids.
+                            not_created.insert(
+                                create_id.clone(),
+                                json!({
+                                    "type": "serverFail",
+                                    "description": "direct chat for contact not found after concurrent operation; retry"
+                                }),
+                            );
+                            continue;
                         };
                         not_created.insert(
                             create_id.clone(),
@@ -350,7 +366,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
             {
                 Ok((new_id, created_obj)) => {
                     // For Direct chats: re-fetch to detect a concurrent duplicate
-                    // (optimistic create-then-validate).
+                    // (optimistic create-then-validate, required for JMAP-0c9).
+                    // We fetch all chats because the backend does not currently
+                    // expose a filter-by-kind query; a tighter fetch (Direct only)
+                    // would be preferable but requires backend support (JMAP-63k.9).
                     if is_direct_create {
                         let contact_id_str =
                             direct_contact_id_str.as_deref().unwrap_or_default();
@@ -417,6 +436,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         // Exactly one (or we won): record contactId as known so
                         // subsequent creates in this batch are pre-checked.
                         known_direct_contact_ids.insert(contact_id_str.to_owned());
+                        batch_direct_ids.insert(contact_id_str.to_owned(), new_id.clone());
                     }
                     mutated = true;
                     created.insert(
