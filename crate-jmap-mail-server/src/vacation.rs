@@ -148,7 +148,14 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 .update_object::<VacationResponse>(&account_id, &singleton_id, patch.clone())
                 .await
             {
-                Ok(_) => {
+                Ok(Some(obj)) => {
+                    updated.insert(
+                        id.clone(),
+                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                    );
+                    mutated = true;
+                }
+                Ok(None) => {
                     updated.insert(id.clone(), Value::Null);
                     mutated = true;
                 }
@@ -181,7 +188,14 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                 )
                                 .await
                             {
-                                Ok(_) => {
+                                Ok(Some(obj)) => {
+                                    updated.insert(
+                                        id.clone(),
+                                        serde_json::to_value(&obj).unwrap_or(Value::Null),
+                                    );
+                                    mutated = true;
+                                }
+                                Ok(None) => {
                                     updated.insert(id.clone(), Value::Null);
                                     mutated = true;
                                 }

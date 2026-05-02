@@ -5,7 +5,9 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser, set_error_value};
+use crate::helpers::{
+    extract_account_id, iso8601_before, not_found_json, now_utc_string, ser, set_error_value,
+};
 
 // ---------------------------------------------------------------------------
 // Space/get
@@ -575,11 +577,12 @@ pub async fn handle_space_join<B: ChatBackend>(
                 .find(|inv| inv.code == code)
                 .ok_or_else(|| JmapError::invalid_arguments("invite code not found"))?;
 
-            // Check expiry: expiresAt is an ISO 8601 UTC string; lexicographic
-            // comparison is correct because the format sorts in time order.
+            // Check expiry using second-precision prefix (see iso8601_before).
+            // Pure lexicographic comparison on the full string is incorrect for
+            // fractional-second timestamps ('.' < 'Z' in ASCII).
             if let Some(expires_at) = &invite.expires_at {
                 let now = now_utc_string();
-                if expires_at.as_ref() <= now.as_str() {
+                if !iso8601_before(now.as_str(), expires_at.as_ref()) {
                     return Err(JmapError::invalid_arguments("invite has expired"));
                 }
             }

@@ -211,4 +211,24 @@ pub trait ChatBackend: JmapBackend {
     /// Return `false` to disable the corresponding method group for this
     /// backend instance.
     fn supports_type<O: JmapObject>(&self) -> bool;
+
+    /// Generate a URL-safe invite code string.
+    ///
+    /// The **default implementation** uses nanosecond wall-clock time as a seed
+    /// and is **NOT cryptographically secure**.  It is suitable only for unit
+    /// tests and in-memory backends.  Production backends that accept invite
+    /// codes from untrusted networks MUST override this method and use a
+    /// CSPRNG (e.g. the `getrandom` or `rand` crate).
+    fn generate_invite_code(&self) -> String {
+        // WARNING: nanosecond timestamp — NOT cryptographically random.
+        // Production backends must override this.
+        format!(
+            "{:012x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+                & 0xffff_ffff_ffff,
+        )
+    }
 }
