@@ -284,6 +284,15 @@ pub trait MailBackend: JmapBackend {
     ///
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
+    ///
+    /// # Singleton types
+    ///
+    /// For types where only one instance may exist per account (e.g.,
+    /// `VacationResponse`), `create_object` MUST be idempotent: if an object
+    /// already exists for the given key, the implementation MUST return the
+    /// existing object rather than creating a duplicate. The `vacation.rs`
+    /// handler relies on this guarantee to avoid a TOCTOU race between
+    /// concurrent upsert requests.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         account_id: &jmap_types::Id,

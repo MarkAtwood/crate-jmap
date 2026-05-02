@@ -311,8 +311,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             };
 
-            let kind: ChatKind = serde_json::from_value(Value::String(kind_str.clone()))
-                .unwrap_or(ChatKind::Other(kind_str.clone()));
+            let kind: ChatKind = match serde_json::from_value(Value::String(kind_str.clone())) {
+                Ok(k) => k,
+                Err(_) => ChatKind::Other(kind_str),
+            };
 
             // Validate kind-specific required fields.
             match &kind {
