@@ -238,4 +238,35 @@ pub trait MailBackend: JmapBackend {
     fn can_calculate_mailbox_query_changes(&self, _account_id: &jmap_types::Id) -> bool {
         false
     }
+
+    /// Destroy multiple [`Email`](jmap_mail_types::Email) objects in a single backend operation.
+    ///
+    /// The default implementation calls [`Self::destroy_object::<Email>`] once per ID.
+    /// Override for batch efficiency (e.g., a single SQL `DELETE … IN` or a single
+    /// lock acquire in `MemoryBackend`).
+    ///
+    /// Returns one entry per input ID: `None` means destroyed successfully;
+    /// `Some(e)` means the destroy failed with the given error. The ordering
+    /// matches the input slice.
+    fn batch_destroy_emails(
+        &self,
+        account_id: &jmap_types::Id,
+        email_ids: &[jmap_types::Id],
+    ) -> impl std::future::Future<Output = Vec<(jmap_types::Id, Option<BackendSetError<Self::Error>>)>>
+           + Send
+    where
+        Self: Sized,
+    {
+        async move {
+            let mut results = Vec::with_capacity(email_ids.len());
+            for id in email_ids {
+                let err = self
+                    .destroy_object::<jmap_mail_types::Email>(account_id, id)
+                    .await
+                    .err();
+                results.push((id.clone(), err));
+            }
+            results
+        }
+    }
 }

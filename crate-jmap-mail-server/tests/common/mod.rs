@@ -1189,6 +1189,47 @@ impl MailBackend for MemoryBackend {
     }
 
     // -----------------------------------------------------------------------
+    // batch_destroy_emails
+    // -----------------------------------------------------------------------
+
+    async fn batch_destroy_emails(
+        &self,
+        account_id: &Id,
+        email_ids: &[Id],
+    ) -> Vec<(Id, Option<BackendSetError<Self::Error>>)> {
+        let mut inner = self.inner.lock().unwrap();
+        let account_str = account_id.to_string();
+        let mut results = Vec::with_capacity(email_ids.len());
+        for id in email_ids {
+            let removed = inner
+                .objects
+                .get_mut(&("Email", account_str.clone()))
+                .and_then(|store| store.remove(id))
+                .is_some();
+            let err = if removed {
+                let new_state = inner.bump_state("Email", &account_str);
+                inner
+                    .change_log
+                    .entry(("Email", account_str.clone()))
+                    .or_default()
+                    .push(ChangeEntry {
+                        new_state,
+                        created: vec![],
+                        updated: vec![],
+                        destroyed: vec![id.clone()],
+                    });
+                None
+            } else {
+                Some(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )))
+            };
+            results.push((id.clone(), err));
+        }
+        results
+    }
+
+    // -----------------------------------------------------------------------
     // supports_type
     // -----------------------------------------------------------------------
 

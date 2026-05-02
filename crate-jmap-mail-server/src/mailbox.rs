@@ -865,26 +865,37 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 }
 
                 // onDestroyRemoveEmails=true: cascade.
-                // N+2 backend calls per destroyed mailbox: one query, one get, N email operations.
-                // A batch_destroy_objects / batch_move_emails backend method would reduce this to O(1) calls.
-                // Filed as a MailBackend API gap — acceptable until the trait is extended.
-                for email in &emails_in_mailbox {
-                    if email.mailbox_ids.len() == 1 {
-                        // Only mailbox — destroy the email entirely.
-                        match backend
-                            .destroy_object::<Email>(&account_id, &email.id)
-                            .await
-                        {
-                            Ok(()) => {}
+                // Emails with only this mailbox are batch-destroyed in a single backend call.
+                // Emails in multiple mailboxes still need individual update_object calls to
+                // patch mailboxIds (no batch-update API exists yet).
+                let ids_to_destroy: Vec<Id> = emails_in_mailbox
+                    .iter()
+                    .filter(|e| e.mailbox_ids.len() == 1)
+                    .map(|e| e.id.clone())
+                    .collect();
+
+                if !ids_to_destroy.is_empty() {
+                    let destroy_results = backend
+                        .batch_destroy_emails(&account_id, &ids_to_destroy)
+                        .await;
+                    for (email_id, err) in destroy_results {
+                        match err {
+                            None => {}
                             // Semantic error (e.g. already deleted by a concurrent request).
                             // Best-effort cascade: the email is gone or unreachable, so
                             // proceed with mailbox destruction rather than aborting.
-                            Err(BackendSetError::SetError(_)) => {}
-                            Err(BackendSetError::Other(e)) => {
-                                return Err(JmapError::server_fail(e.to_string()));
+                            Some(BackendSetError::SetError(_)) => {}
+                            Some(BackendSetError::Other(e)) => {
+                                return Err(JmapError::server_fail(format!(
+                                    "batch_destroy_emails {email_id}: {e}"
+                                )));
                             }
                         }
-                    } else {
+                    }
+                }
+
+                for email in &emails_in_mailbox {
+                    if email.mailbox_ids.len() > 1 {
                         // Email is in other mailboxes — remove this mailbox from mailboxIds.
                         let mut patch = serde_json::Map::new();
                         let key = format!("mailboxIds/{}", id.as_ref());
