@@ -87,10 +87,19 @@ pub(crate) fn find_immutable_patch_key(patch: &Value) -> Option<&'static str> {
     for key in map.keys() {
         for &field in IMMUTABLE_EMAIL_FIELDS {
             // Exact match, or sub-path "field/..." — both are immutable.
-            // The byte-index check distinguishes three cases for `field = "messageId"`:
-            //   "messageId"    → exact match (blocked here)
-            //   "messageId/0"  → sub-path match (blocked here)
-            //   "messageIdX"   → prefix but not a path segment (allowed)
+            //
+            // The byte-index check `key.as_bytes().get(field.len()) == Some(&b'/')`
+            // is the correct, zero-allocation way to distinguish three cases
+            // (using `field = "messageId"` as the example):
+            //
+            //   "messageId"    → exact match            → blocked (== check above)
+            //   "messageId/0"  → sub-path               → blocked (starts_with + byte check)
+            //   "messageIdX"   → coincidental prefix    → allowed
+            //
+            // Two simpler-looking alternatives are both wrong:
+            //   `key.starts_with(field)` alone would block "messageIdX" (false positive).
+            //   `key.starts_with(&format!("{field}/"))` is correct but allocates a
+            //   String on every iteration — avoidable given we only need the one byte.
             if key == field
                 || (key.starts_with(field) && key.as_bytes().get(field.len()) == Some(&b'/'))
             {
