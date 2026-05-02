@@ -73,7 +73,8 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     let list_json: Vec<Value> = snippets
         .iter()
         .map(|s| {
-            serde_json::to_value(s).expect("type derives Serialize and is always serializable")
+            serde_json::to_value(s)
+                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }))
         })
         .collect();
 

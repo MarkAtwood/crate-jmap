@@ -38,11 +38,11 @@ struct ChangeEntry {
 #[derive(Default)]
 struct Inner {
     /// `(type_name, account_id)` → `id → serialized object`
-    objects: HashMap<(String, String), HashMap<Id, serde_json::Value>>,
+    objects: HashMap<(&'static str, String), HashMap<Id, serde_json::Value>>,
     /// `(type_name, account_id)` → current state counter
-    states: HashMap<(String, String), u64>,
+    states: HashMap<(&'static str, String), u64>,
     /// `(type_name, account_id)` → ordered change entries
-    change_log: HashMap<(String, String), Vec<ChangeEntry>>,
+    change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,
     /// blob_id → raw bytes (used by import_email and parse_email)
     blobs: HashMap<Id, Vec<u8>>,
     /// account_id → (message_id_string → email_id) for duplicate detection in import_email
@@ -50,17 +50,17 @@ struct Inner {
 }
 
 impl Inner {
-    fn current_state(&self, type_name: &str, account_id: &str) -> u64 {
+    fn current_state(&self, type_name: &'static str, account_id: &str) -> u64 {
         *self
             .states
-            .get(&(type_name.to_owned(), account_id.to_owned()))
+            .get(&(type_name, account_id.to_owned()))
             .unwrap_or(&0)
     }
 
-    fn bump_state(&mut self, type_name: &str, account_id: &str) -> u64 {
+    fn bump_state(&mut self, type_name: &'static str, account_id: &str) -> u64 {
         let entry = self
             .states
-            .entry((type_name.to_owned(), account_id.to_owned()))
+            .entry((type_name, account_id.to_owned()))
             .or_insert(0);
         *entry += 1;
         *entry
@@ -68,21 +68,20 @@ impl Inner {
 
     fn objects_mut(
         &mut self,
-        type_name: &str,
+        type_name: &'static str,
         account_id: &str,
     ) -> &mut HashMap<Id, serde_json::Value> {
         self.objects
-            .entry((type_name.to_owned(), account_id.to_owned()))
+            .entry((type_name, account_id.to_owned()))
             .or_default()
     }
 
     fn objects_ref(
         &self,
-        type_name: &str,
+        type_name: &'static str,
         account_id: &str,
     ) -> Option<&HashMap<Id, serde_json::Value>> {
-        self.objects
-            .get(&(type_name.to_owned(), account_id.to_owned()))
+        self.objects.get(&(type_name, account_id.to_owned()))
     }
 }
 
@@ -128,9 +127,9 @@ impl MemoryBackend {
     }
 
     /// Store a blob so that [`import_email`](MemoryBackend::import_email) can find it.
-    pub fn store_blob(&self, blob_id: Id, bytes: Vec<u8>) {
+    pub fn store_blob(&self, blob_id: &Id, bytes: Vec<u8>) {
         let mut inner = self.inner.lock().unwrap();
-        inner.blobs.insert(blob_id, bytes);
+        inner.blobs.insert(blob_id.clone(), bytes);
     }
 }
 
@@ -250,7 +249,7 @@ impl JmapBackend for MemoryBackend {
             let inner = self.inner.lock().unwrap();
             let log = inner
                 .change_log
-                .get(&(O::TYPE_NAME.to_owned(), account_id.to_string()))
+                .get(&(O::TYPE_NAME, account_id.to_string()))
                 .map(|v| v.as_slice())
                 .unwrap_or(&[]);
 
@@ -531,7 +530,7 @@ impl MailBackend for MemoryBackend {
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .change_log
-            .entry((O::TYPE_NAME.to_owned(), account_id.to_string()))
+            .entry((O::TYPE_NAME, account_id.to_string()))
             .or_default()
             .push(ChangeEntry {
                 new_state,
@@ -577,7 +576,7 @@ impl MailBackend for MemoryBackend {
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .change_log
-            .entry((O::TYPE_NAME.to_owned(), account_id.to_string()))
+            .entry((O::TYPE_NAME, account_id.to_string()))
             .or_default()
             .push(ChangeEntry {
                 new_state,
@@ -606,7 +605,7 @@ impl MailBackend for MemoryBackend {
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .change_log
-            .entry((O::TYPE_NAME.to_owned(), account_id.to_string()))
+            .entry((O::TYPE_NAME, account_id.to_string()))
             .or_default()
             .push(ChangeEntry {
                 new_state,
@@ -751,7 +750,7 @@ impl MailBackend for MemoryBackend {
             let new_email_state = inner.bump_state("Email", account_id.as_ref());
             inner
                 .change_log
-                .entry(("Email".to_owned(), account_id.to_string()))
+                .entry(("Email", account_id.to_string()))
                 .or_default()
                 .push(ChangeEntry {
                     new_state: new_email_state,
@@ -762,7 +761,7 @@ impl MailBackend for MemoryBackend {
             let new_thread_state = inner.bump_state("Thread", account_id.as_ref());
             inner
                 .change_log
-                .entry(("Thread".to_owned(), account_id.to_string()))
+                .entry(("Thread", account_id.to_string()))
                 .or_default()
                 .push(ChangeEntry {
                     new_state: new_thread_state,
@@ -971,7 +970,7 @@ impl MailBackend for MemoryBackend {
             let new_email_state = inner.bump_state("Email", to_account_id.as_ref());
             inner
                 .change_log
-                .entry(("Email".to_owned(), to_account_id.to_string()))
+                .entry(("Email", to_account_id.to_string()))
                 .or_default()
                 .push(ChangeEntry {
                     new_state: new_email_state,
@@ -982,7 +981,7 @@ impl MailBackend for MemoryBackend {
             let new_thread_state = inner.bump_state("Thread", to_account_id.as_ref());
             inner
                 .change_log
-                .entry(("Thread".to_owned(), to_account_id.to_string()))
+                .entry(("Thread", to_account_id.to_string()))
                 .or_default()
                 .push(ChangeEntry {
                     new_state: new_thread_state,
@@ -1620,7 +1619,10 @@ fn email_matches_condition(email: &Email, cond: &EmailFilterCondition) -> bool {
         // Email must be in at least one mailbox NOT in this list.
         // Convert to HashSet once for O(1) lookups across all mailboxIds.
         let excluded_set: std::collections::HashSet<&Id> = excluded.iter().collect();
-        let in_other = email.mailbox_ids.keys().any(|id| !excluded_set.contains(id));
+        let in_other = email
+            .mailbox_ids
+            .keys()
+            .any(|id| !excluded_set.contains(id));
         if !in_other {
             return false;
         }
