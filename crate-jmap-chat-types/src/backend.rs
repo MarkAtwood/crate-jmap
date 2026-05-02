@@ -62,6 +62,7 @@ pub enum MessageProperty {
     DeliveryReceipts,
     DeliveredAt,
     ReadAt,
+    ReadDisposition,
     EditedAt,
     EditHistory,
     DeletedAt,

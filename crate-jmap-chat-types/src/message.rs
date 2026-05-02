@@ -29,6 +29,29 @@ impl_string_enum!(DeliveryState, "a delivery state string",
     "received" => Received,
 );
 
+/// Why a recipient acknowledged a message (RFC-JMAP-Chat §ReadDisposition).
+///
+/// `Other` preserves any unrecognized value for round-trip fidelity.
+/// Servers MUST NOT reject messages carrying unknown values.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ReadDisposition {
+    /// Message content was presented to the user's attention (default).
+    Displayed,
+    /// Message was removed without being displayed.
+    Deleted,
+    /// Message was handled by an automated process.
+    Processed,
+    /// A value not recognized by this version of the library.
+    Other(String),
+}
+
+impl_string_enum!(ReadDisposition, "a read disposition string",
+    "displayed" => Displayed,
+    "deleted"   => Deleted,
+    "processed" => Processed,
+);
+
 /// Identifies who sent a [`Message`] or placed a [`Reaction`].
 ///
 /// The account owner is represented as the wire sentinel `"self"`.
@@ -150,6 +173,8 @@ pub struct DeliveryReceipt {
     pub device_delivered_at: Option<UTCDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_at: Option<UTCDate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_disposition: Option<ReadDisposition>,
 }
 
 /// A single chat message as defined by the JMAP Chat extension.
@@ -189,6 +214,8 @@ pub struct Message {
     pub delivered_at: Option<UTCDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_at: Option<UTCDate>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub read_disposition: Option<ReadDisposition>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edited_at: Option<UTCDate>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -242,6 +269,7 @@ impl Message {
             delivery_receipts: None,
             delivered_at: None,
             read_at: None,
+            read_disposition: None,
             edited_at: None,
             edit_history: None,
             deleted_at: None,
@@ -380,7 +408,8 @@ mod tests {
         let json = r#"{
             "u1": {
                 "deliveredAt": "2026-01-04T08:00:00Z",
-                "readAt": "2026-01-04T08:05:00Z"
+                "readAt": "2026-01-04T08:05:00Z",
+                "readDisposition": "displayed"
             },
             "u2": {}
         }"#;
@@ -396,14 +425,37 @@ mod tests {
             u1.read_at.as_ref().map(|d| d.as_ref()),
             Some("2026-01-04T08:05:00Z")
         );
+        assert_eq!(u1.read_disposition, Some(ReadDisposition::Displayed));
         assert!(u1.device_delivered_at.is_none());
         let u2 = map.get("u2").expect("u2");
         assert!(u2.delivered_at.is_none());
+        assert!(u2.read_disposition.is_none());
 
         let roundtrip = serde_json::to_string(&map).expect("serialize");
         let map2: HashMap<String, DeliveryReceipt> =
             serde_json::from_str(&roundtrip).expect("re-deserialize");
         assert_eq!(map, map2);
+    }
+
+    // Oracle: spec §ReadDisposition wire values (hand-crafted; verified against spec text).
+    #[test]
+    fn read_disposition_roundtrip() {
+        let cases = [
+            ("\"displayed\"", ReadDisposition::Displayed),
+            ("\"deleted\"", ReadDisposition::Deleted),
+            ("\"processed\"", ReadDisposition::Processed),
+            (
+                "\"voice-listened\"",
+                ReadDisposition::Other("voice-listened".to_owned()),
+            ),
+        ];
+        for (json_str, expected) in cases {
+            let got: ReadDisposition =
+                serde_json::from_str(json_str).expect("deserialize ReadDisposition");
+            assert_eq!(got, expected, "deser {json_str}");
+            let back = serde_json::to_string(&got).expect("serialize");
+            assert_eq!(back, json_str, "reser {json_str}");
+        }
     }
 
     // Oracle: hand-crafted MessageRevision JSON; roundtrip must preserve all fields.
