@@ -24,7 +24,7 @@ pub use helpers::{extract_account_id, not_found_json, now_utc_string, ser};
 mod parse;
 mod response;
 
-pub use parse::{parse_request, resolve_args};
+pub use parse::{check_known_capabilities, parse_request, resolve_args};
 pub use response::{error_invocation, error_status, request_error, RequestError};
 
 use std::{collections::HashMap, fmt, future::Future, pin::Pin, sync::Arc};

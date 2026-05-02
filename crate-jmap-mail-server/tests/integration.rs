@@ -7539,6 +7539,80 @@ async fn conformance_mailbox_query_filter_has_any_role() {
     );
 }
 
+/// Oracle: RFC 8621 §2.3 — filter={role: "inbox"} returns only the inbox mailbox.
+///
+/// The seed data has exactly one role-bearing mailbox (inbox). Querying by
+/// role="inbox" must return only that mailbox. Querying by a role that no
+/// mailbox holds (e.g. "trash") must return an empty ids array.
+///
+/// jmap-test-suite: mailbox-query.test.ts "query-filter-by-role"
+#[tokio::test]
+async fn conformance_mailbox_query_filter_role() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    // filter={role: "inbox"} must return exactly the inbox mailbox.
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "filter": { "role": "inbox" },
+        "calculateTotal": true,
+    });
+    let (resp, _) = handle_mailbox_query(&backend, args)
+        .await
+        .expect("Mailbox/query with filter.role=inbox must not error");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+
+    assert_eq!(
+        ids.len(),
+        1,
+        "filter.role=inbox must return exactly 1 mailbox; got ids={:?}",
+        ids
+    );
+    assert_eq!(
+        ids[0],
+        seed.mailbox["inbox"].as_ref(),
+        "the returned mailbox must be the inbox"
+    );
+    assert_eq!(
+        resp["total"], 1,
+        "total must be 1 when calculateTotal=true"
+    );
+
+    // filter={role: "trash"} — no mailbox holds this role in seed data.
+    let args_no_match = serde_json::json!({
+        "accountId": "acct1",
+        "filter": { "role": "trash" },
+        "calculateTotal": true,
+    });
+    let (resp_no_match, _) = handle_mailbox_query(&backend, args_no_match)
+        .await
+        .expect("Mailbox/query with filter.role=trash must not error");
+
+    let ids_no_match: Vec<&str> = resp_no_match["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+
+    assert!(
+        ids_no_match.is_empty(),
+        "filter.role=trash must return no mailboxes; got ids={:?}",
+        ids_no_match
+    );
+    assert_eq!(
+        resp_no_match["total"], 0,
+        "total must be 0 for unmatched role"
+    );
+}
+
 /// Oracle: RFC 8621 §2.3 — Mailbox/query sort by name returns mailboxes in
 /// lexicographic name order.
 /// jmap-test-suite: mailbox-query.test.ts "query-sort-by-name"

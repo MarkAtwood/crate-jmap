@@ -12,7 +12,9 @@ use serde_json::Value;
 /// An empty `using` array is **not** rejected here.  Per the jmap-test-suite
 /// conformance ruling (Q4 / `error-empty-using`), the server must process the
 /// request and return `unknownMethod` for every call — not a 400-level
-/// `notRequest`.  Capability URI checking is the caller's responsibility.
+/// `notRequest`.  Capability URI validation is the caller's responsibility;
+/// call [`check_known_capabilities`] immediately after this function and map
+/// any `Err` to an HTTP 400 response.
 ///
 /// # Caller responsibility: `notJSON`
 ///
@@ -37,6 +39,31 @@ pub fn parse_request(body: Value, max_calls: usize) -> Result<JmapRequest, JmapE
     }
 
     Ok(req)
+}
+
+/// Validate that every capability URI in `req.using` is in the `known` set.
+///
+/// RFC 8620 §3.3 requires the server to return an `unknownCapability` error
+/// (HTTP 400) if the request declares a capability the server does not support.
+/// This library cannot enforce that check because it has no knowledge of which
+/// capabilities a given deployment supports — that is the caller's
+/// responsibility.
+///
+/// Call this immediately after [`parse_request`] and map any `Err` to an HTTP
+/// 400 response using [`crate::request_error`].
+///
+/// # Errors
+///
+/// Returns [`JmapError::unknown_capability()`] for the first URI in
+/// `req.using` that is not present in `known`.  If all URIs are known,
+/// returns `Ok(())`.
+pub fn check_known_capabilities(req: &JmapRequest, known: &[&str]) -> Result<(), JmapError> {
+    for uri in &req.using {
+        if !known.contains(&uri.as_str()) {
+            return Err(JmapError::unknown_capability());
+        }
+    }
+    Ok(())
 }
 
 /// Resolve all `#key` ResultReference fields in `args` against `prior_responses`.
@@ -591,5 +618,53 @@ mod tests {
     fn json_pointer_ext_empty_path_returns_root() {
         let v = json!({"x": 1});
         assert_eq!(json_pointer_ext(&v, ""), Some(v.clone()));
+    }
+
+    // -----------------------------------------------------------------------
+    // check_known_capabilities
+    // -----------------------------------------------------------------------
+
+    // Oracle: RFC 8620 §3.3 — unknown capability URI returns unknownCapability.
+    #[test]
+    fn check_known_capabilities_unknown_uri_is_error() {
+        let req = JmapRequest::new(
+            vec![
+                "urn:ietf:params:jmap:core".into(),
+                "urn:example:unknown".into(),
+            ],
+            vec![],
+            None,
+        );
+        let known = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
+        let err = check_known_capabilities(&req, known).unwrap_err();
+        assert_eq!(
+            err.error_type, "unknownCapability",
+            "unrecognised URI must produce unknownCapability per RFC 8620 §3.3"
+        );
+    }
+
+    // Oracle: RFC 8620 §3.3 — all known URIs accepted.
+    #[test]
+    fn check_known_capabilities_all_known_is_ok() {
+        let req = JmapRequest::new(
+            vec![
+                "urn:ietf:params:jmap:core".into(),
+                "urn:ietf:params:jmap:mail".into(),
+            ],
+            vec![],
+            None,
+        );
+        let known = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
+        check_known_capabilities(&req, known)
+            .expect("all URIs are in known — must return Ok");
+    }
+
+    // Oracle: boundary — empty using[] with any known set returns Ok.
+    #[test]
+    fn check_known_capabilities_empty_using_is_ok() {
+        let req = JmapRequest::new(vec![], vec![], None);
+        let known: &[&str] = &[];
+        check_known_capabilities(&req, known)
+            .expect("empty using with empty known must return Ok");
     }
 }
