@@ -1,0 +1,569 @@
+//! Message/* method handlers (JMAP Chat extension §Message).
+
+use jmap_chat_types::{DeliveryState, Message, SenderId};
+use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
+use serde_json::{json, Value};
+
+use crate::backend::{BackendSetError, ChatBackend};
+use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser};
+
+// ---------------------------------------------------------------------------
+// Message/get
+// ---------------------------------------------------------------------------
+
+/// Handle a `Message/get` method call.
+pub async fn handle_message_get<B: ChatBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let ids: Option<Vec<Id>> = match args.get("ids") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
+        ),
+    };
+
+    let ids_slice = ids.as_deref();
+    let (list, not_found) = backend
+        .get_objects::<Message>(&account_id, ids_slice, None)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let state = backend
+        .get_state::<Message>(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
+
+    Ok((
+        json!({
+            "accountId": account_id.as_ref(),
+            "state": state.as_ref(),
+            "list": list_json,
+            "notFound": not_found_json(&not_found),
+        }),
+        vec![],
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// Message/changes
+// ---------------------------------------------------------------------------
+
+/// Handle a `Message/changes` method call (RFC 8620 §5.2).
+pub async fn handle_message_changes<B: ChatBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
+        Some(s) => State::from(s),
+        None => return Err(JmapError::invalid_arguments("sinceState is required")),
+    };
+
+    let max_changes: Option<u64> = match args.get("maxChanges") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
+    };
+
+    let result = backend
+        .get_changes::<Message>(&account_id, &since_state, max_changes)
+        .await
+        .map_err(JmapError::from)?;
+
+    Ok((
+        json!({
+            "accountId": account_id.as_ref(),
+            "oldState": since_state.as_ref(),
+            "newState": result.new_state.as_ref(),
+            "hasMoreChanges": result.has_more_changes,
+            "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+            "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+            "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        }),
+        vec![],
+    ))
+}
+
+// ---------------------------------------------------------------------------
+// Message/query
+// ---------------------------------------------------------------------------
+
+/// Handle a `Message/query` method call (RFC 8620 §5.5).
+///
+/// Filter and sort are passed through to the backend unchanged.
+pub async fn handle_message_query<B: ChatBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let calculate_total: bool = args
+        .get("calculateTotal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let limit: Option<u64> = match args.get("limit") {
+        None | Some(Value::Null) => None,
+        Some(v) => match v.as_u64() {
+            Some(n) => Some(n),
+            None => {
+                return Err(JmapError::invalid_arguments(format!(
+                    "limit: expected a non-negative integer, got {v}"
+                )))
+            }
+        },
+    };
+
+    let position: i64 = match args.get("position") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
+        })?,
+    };
+
+    let filter: Option<serde_json::Value> = match args.get("filter") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(v.clone()),
+    };
+
+    // JMAP Chat spec §Message — chatId filter is required unless hasMention: true.
+    let has_chat_id = filter
+        .as_ref()
+        .and_then(|f| f.get("chatId"))
+        .map(|v| !v.is_null())
+        .unwrap_or(false);
+    let has_mention_true = filter
+        .as_ref()
+        .and_then(|f| f.get("hasMention"))
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    if !has_chat_id && !has_mention_true {
+        return Err(JmapError::unsupported_filter());
+    }
+
+    let sort: Option<Vec<serde_json::Value>> = match args.get("sort") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
+        ),
+    };
+
+    let result = backend
+        .query_objects::<Message>(
+            &account_id,
+            filter.as_ref(),
+            sort.as_deref(),
+            limit,
+            position,
+        )
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let mut resp = json!({
+        "accountId": account_id.as_ref(),
+        "queryState": result.query_state.as_ref(),
+        "canCalculateChanges": result.can_calculate_changes,
+        "position": result.position,
+        "ids": result.ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+    });
+    if calculate_total {
+        if let Some(t) = result.total {
+            resp["total"] = json!(t);
+        }
+    }
+
+    Ok((resp, vec![]))
+}
+
+// ---------------------------------------------------------------------------
+// Message/queryChanges
+// ---------------------------------------------------------------------------
+
+/// Handle a `Message/queryChanges` method call (RFC 8620 §5.6).
+pub async fn handle_message_query_changes<B: ChatBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
+        Some(s) => State::from(s),
+        None => return Err(JmapError::invalid_arguments("sinceQueryState is required")),
+    };
+
+    let max_changes: Option<u64> = match args.get("maxChanges") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
+    };
+
+    let up_to_id: Option<Id> = match args.get("upToId") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(Id::from(s.as_str())),
+        Some(_) => {
+            return Err(JmapError::invalid_arguments(
+                "upToId must be a string Id or null",
+            ))
+        }
+    };
+
+    let calculate_total: bool = args
+        .get("calculateTotal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let result = backend
+        .query_changes::<Message>(
+            &account_id,
+            &since_query_state,
+            None,
+            None,
+            max_changes,
+            up_to_id.as_ref(),
+            false,
+        )
+        .await
+        .map_err(JmapError::from)?;
+
+    let removed: Vec<&str> = result.removed.iter().map(|id| id.as_ref()).collect();
+    let added: Vec<Value> = result
+        .added
+        .iter()
+        .map(|item| {
+            json!({
+                "id": item.id.as_ref(),
+                "index": item.index,
+            })
+        })
+        .collect();
+
+    let mut resp = json!({
+        "accountId": account_id.as_ref(),
+        "oldQueryState": result.old_query_state.as_ref(),
+        "newQueryState": result.new_query_state.as_ref(),
+        "removed": removed,
+        "added": added,
+    });
+    if calculate_total {
+        if let Some(t) = result.total {
+            resp["total"] = json!(t);
+        }
+    }
+
+    Ok((resp, vec![]))
+}
+
+// ---------------------------------------------------------------------------
+// Message/set
+// ---------------------------------------------------------------------------
+
+/// Handle a `Message/set` method call.
+///
+/// Validation enforced here (not in the backend):
+/// - `chatId` and `body` are required on create.
+/// - `id`, `senderMsgId`, `senderId`, `sentAt`, `receivedAt`, `deliveryState`
+///   are server-set and rejected in updates.
+pub async fn handle_message_set<B: ChatBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    let old_state = backend
+        .get_state::<Message>(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
+        if if_in_state != old_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
+
+    let mut created = serde_json::Map::new();
+    let mut not_created = serde_json::Map::new();
+    let mut updated = serde_json::Map::new();
+    let mut not_updated = serde_json::Map::new();
+    let mut destroyed_list: Vec<Value> = Vec::new();
+    let mut not_destroyed = serde_json::Map::new();
+    let mut mutated = false;
+
+    // -----------------------------------------------------------------------
+    // create
+    // -----------------------------------------------------------------------
+    if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+        for (create_id, obj_val) in create_map {
+            let chat_id = match obj_val.get("chatId").and_then(|v| v.as_str()) {
+                Some(s) => Id::from(s),
+                None => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "invalidProperties", "properties": ["chatId"] }),
+                    );
+                    continue;
+                }
+            };
+
+            let body = match obj_val.get("body").and_then(|v| v.as_str()) {
+                Some(s) => s.to_owned(),
+                None => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "invalidProperties", "properties": ["body"] }),
+                    );
+                    continue;
+                }
+            };
+            if body.len() > 100_000 {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["body"] }),
+                );
+                continue;
+            }
+
+            let sent_at: UTCDate = match obj_val.get("sentAt").and_then(|v| v.as_str()) {
+                Some(s) => UTCDate::from(s),
+                None => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "invalidProperties", "properties": ["sentAt"] }),
+                    );
+                    continue;
+                }
+            };
+
+            let body_type = obj_val
+                .get("bodyType")
+                .and_then(|v| v.as_str())
+                .unwrap_or("text/plain")
+                .to_owned();
+
+            let reply_to: Option<Id> = obj_val
+                .get("replyTo")
+                .and_then(|v| v.as_str())
+                .map(Id::from);
+
+            let thread_root_id: Option<Id> = obj_val
+                .get("threadRootId")
+                .and_then(|v| v.as_str())
+                .map(Id::from);
+
+            let sender_expires_at: Option<String> = obj_val
+                .get("senderExpiresAt")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+
+            let burn_on_read: Option<bool> = obj_val.get("burnOnRead").and_then(|v| v.as_bool());
+
+            if let Some(ref expires_str) = sender_expires_at {
+                let now = now_utc_string();
+                if expires_str.as_str() <= now.as_str() {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "invalidProperties", "properties": ["senderExpiresAt"] }),
+                    );
+                    continue;
+                }
+            }
+
+            let now_str = now_utc_string();
+            let received_at: UTCDate = UTCDate::from(now_str.as_str());
+
+            let mut msg = Message::new(
+                Id::from("placeholder"),
+                Id::from(create_id.as_str()),
+                SenderId::Owner,
+                chat_id,
+                body,
+                body_type,
+                vec![],
+                vec![],
+                vec![],
+                std::collections::HashMap::new(),
+                sent_at,
+                received_at,
+                DeliveryState::Pending,
+            );
+
+            if let Some(id) = reply_to {
+                msg.reply_to = Some(id);
+            }
+            if let Some(id) = thread_root_id {
+                msg.thread_root_id = Some(id);
+            }
+            if let Some(s) = sender_expires_at {
+                msg.sender_expires_at = Some(UTCDate::from(s.as_str()));
+            }
+            if let Some(b) = burn_on_read {
+                msg.burn_on_read = Some(b);
+            }
+
+            match backend
+                .create_object::<Message>(&account_id, create_id, msg)
+                .await
+            {
+                Ok((_server_id, created_obj)) => {
+                    mutated = true;
+                    created.insert(
+                        create_id.clone(),
+                        serde_json::to_value(&created_obj).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
+                    );
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        serde_json::to_value(&set_err).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
+                    );
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // update
+    // -----------------------------------------------------------------------
+    if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
+        for (id_str, patch_val) in update_map {
+            let id = Id::from(id_str.as_str());
+
+            // Reject patches that include server-set fields.
+            const MESSAGE_READONLY: &[&str] = &[
+                "id",
+                "senderMsgId",
+                "senderId",
+                "chatId",
+                "sentAt",
+                "receivedAt",
+                "deliveryState",
+            ];
+            let bad_props: Vec<&str> = MESSAGE_READONLY
+                .iter()
+                .copied()
+                .filter(|&field| patch_val.get(field).is_some())
+                .collect();
+            if !bad_props.is_empty() {
+                not_updated.insert(
+                    id_str.clone(),
+                    json!({ "type": "invalidProperties", "properties": bad_props }),
+                );
+                continue;
+            }
+
+            // Build augmented patch with server-side timestamps.
+            let mut augmented = patch_val.clone();
+            if augmented.get("body").is_some() {
+                if let Some(obj) = augmented.as_object_mut() {
+                    obj.insert("editedAt".to_owned(), json!(now_utc_string()));
+                }
+            }
+            if augmented.get("deletedForAll").and_then(|v| v.as_bool()) == Some(true) {
+                if let Some(obj) = augmented.as_object_mut() {
+                    obj.insert("deletedAt".to_owned(), json!(now_utc_string()));
+                }
+            }
+
+            match backend
+                .update_object::<Message>(&account_id, &id, augmented)
+                .await
+            {
+                Ok(_) => {
+                    mutated = true;
+                    updated.insert(id_str.clone(), Value::Null);
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        serde_json::to_value(&set_err).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
+                    );
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // destroy
+    // -----------------------------------------------------------------------
+    if let Some(destroy_arr) = args.get("destroy").and_then(|v| v.as_array()) {
+        for id_val in destroy_arr {
+            let id_str = match id_val.as_str() {
+                Some(s) => s,
+                None => continue,
+            };
+            let id = Id::from(id_str);
+
+            match backend.destroy_object::<Message>(&account_id, &id).await {
+                Ok(()) => {
+                    mutated = true;
+                    destroyed_list.push(Value::String(id_str.to_owned()));
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_destroyed.insert(
+                        id_str.to_owned(),
+                        serde_json::to_value(&set_err).unwrap_or_else(
+                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                        ),
+                    );
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_destroyed.insert(
+                        id_str.to_owned(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+            }
+        }
+    }
+
+    let new_state = if mutated {
+        backend
+            .get_state::<Message>(&account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?
+    } else {
+        old_state.clone()
+    };
+
+    Ok((
+        json!({
+            "accountId": account_id.as_ref(),
+            "oldState": old_state.as_ref(),
+            "newState": new_state.as_ref(),
+            "created": if created.is_empty() { Value::Null } else { Value::Object(created) },
+            "updated": if updated.is_empty() { Value::Null } else { Value::Object(updated) },
+            "destroyed": if destroyed_list.is_empty() { Value::Null } else { Value::Array(destroyed_list) },
+            "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
+            "notUpdated": if not_updated.is_empty() { Value::Null } else { Value::Object(not_updated) },
+            "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
+        }),
+        vec![],
+    ))
+}

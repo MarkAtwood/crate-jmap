@@ -38,6 +38,7 @@
 #[macro_use]
 mod string_enum;
 
+pub mod backend;
 pub mod chat;
 pub mod clearable;
 pub mod contact;
@@ -49,6 +50,11 @@ pub mod presence;
 pub mod push;
 pub mod space;
 
+pub use backend::{
+    ChatContactProperty, ChatProperty, CustomEmojiProperty, MessageProperty,
+    PresenceStatusProperty, ReadPositionProperty, SpaceBanProperty, SpaceInviteProperty,
+    SpaceProperty,
+};
 pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember};
 pub use clearable::Clearable;
 pub use contact::{ChatContact, Endpoint};

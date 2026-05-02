@@ -79,6 +79,36 @@ pub struct SpaceInvite {
     pub max_uses: Option<u64>,
 }
 
+impl SpaceInvite {
+    /// Construct a [`SpaceInvite`] from its required and optional fields.
+    ///
+    /// `default_channel_id`, `expires_at`, and `max_uses` default to `None`.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: Id,
+        code: impl Into<String>,
+        space_id: Id,
+        created_by: Id,
+        uses: u64,
+        created_at: UTCDate,
+        default_channel_id: Option<Id>,
+        expires_at: Option<UTCDate>,
+        max_uses: Option<u64>,
+    ) -> Self {
+        Self {
+            id,
+            code: code.into(),
+            space_id,
+            created_by,
+            uses,
+            created_at,
+            default_channel_id,
+            expires_at,
+            max_uses,
+        }
+    }
+}
+
 /// A ban preventing a user from accessing a Space.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -93,6 +123,23 @@ pub struct SpaceBan {
     pub reason: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
+}
+
+impl SpaceBan {
+    /// Construct a [`SpaceBan`] from its required server-set and client-provided fields.
+    ///
+    /// `reason` and `expires_at` default to `None`.
+    pub fn new(id: Id, space_id: Id, user_id: Id, banned_by: Id, created_at: UTCDate) -> Self {
+        Self {
+            id,
+            space_id,
+            user_id,
+            banned_by,
+            created_at,
+            reason: None,
+            expires_at: None,
+        }
+    }
 }
 
 impl Space {
