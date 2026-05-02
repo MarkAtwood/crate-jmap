@@ -436,6 +436,41 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     // -----------------------------------------------------------------------
+    // Pre-compute roles that will be vacated by updates in this request.
+    //
+    // The create loop runs before the update loop (RFC 8620 §5.3 ordering), so
+    // `roles_actually_vacated` is not yet populated when create role-uniqueness
+    // is checked. To allow a single request that clears a role via update and
+    // then assigns it via create, we scan the update patches up-front and build
+    // the set of role strings that are being set to null.  We only include a
+    // role if the patch actually targets an existing mailbox that currently
+    // holds that role.
+    // -----------------------------------------------------------------------
+    let roles_vacated_by_updates: std::collections::HashSet<String> = {
+        let mut vacated = std::collections::HashSet::new();
+        if let Some(Value::Object(updates)) = args.get("update") {
+            for (id_str, patch) in updates {
+                let sets_role_null = patch
+                    .as_object()
+                    .and_then(|o| o.get("role"))
+                    .is_some_and(|v| v.is_null());
+                if sets_role_null {
+                    let id = Id::from(id_str.as_str());
+                    if let Some(role) = all_mailboxes
+                        .iter()
+                        .find(|m| m.id == id)
+                        .and_then(|m| m.role.as_ref())
+                        .map(|r| r.to_wire_str().to_owned())
+                    {
+                        vacated.insert(role);
+                    }
+                }
+            }
+        }
+        vacated
+    };
+
+    // -----------------------------------------------------------------------
     // Create
     // -----------------------------------------------------------------------
 
@@ -458,10 +493,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             // Role uniqueness check.
             if let Some(role_val) = props.get("role").filter(|v| !v.is_null()) {
                 if let Some(role_str) = role_val.as_str() {
-                    let role_taken = all_mailboxes
-                        .iter()
-                        .any(|m| m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str));
+                    // Exclude roles that are being vacated by an update in this
+                    // same request (pre-computed above).
+                    let role_taken = !roles_vacated_by_updates.contains(role_str)
+                        && all_mailboxes
+                            .iter()
+                            .any(|m| m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str));
                     // Also check what we already successfully created in this request.
+                    // MailboxRole always serializes as a bare JSON string (via
+                    // impl_string_enum!), so as_str() is always correct here.
                     let role_just_created = created
                         .values()
                         .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
@@ -682,6 +722,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                 && m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str)
                         });
                         let role_just_claimed = roles_claimed_this_request.contains(role_str);
+                        // MailboxRole always serializes as a bare JSON string (via
+                        // impl_string_enum!), so as_str() is always correct here.
                         let role_just_created = created
                             .values()
                             .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));

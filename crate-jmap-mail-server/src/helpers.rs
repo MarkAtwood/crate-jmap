@@ -1,6 +1,5 @@
 //! Private helper utilities — re-exported from jmap_server.
 use std::collections::HashSet;
-use std::sync::OnceLock;
 
 use serde_json::Value;
 
@@ -80,29 +79,21 @@ const IMMUTABLE_EMAIL_FIELDS: &[&str] = &[
 ///
 /// A patch key violates immutability if it equals an immutable field name, or
 /// starts with `"<field>/"` (JSON Merge Patch sub-path syntax).
+///
+/// `IMMUTABLE_EMAIL_FIELDS` has 21 entries; a linear scan is simpler and fast
+/// enough that a static `HashSet` adds no benefit.
 pub(crate) fn find_immutable_patch_key(patch: &Value) -> Option<&'static str> {
-    // Build the lookup set once; subsequent calls reuse it.
-    static IMMUTABLE_SET: OnceLock<HashSet<&'static str>> = OnceLock::new();
-    let set = IMMUTABLE_SET.get_or_init(|| IMMUTABLE_EMAIL_FIELDS.iter().copied().collect());
-
     let map = patch.as_object()?;
     for key in map.keys() {
-        // Check exact match first via the O(1) HashSet lookup.
-        if set.contains(key.as_str()) {
-            // Return the canonical &'static str from the array so callers get a
-            // stable pointer regardless of which spelling the client used.
-            return IMMUTABLE_EMAIL_FIELDS
-                .iter()
-                .copied()
-                .find(|&f| f == key.as_str());
-        }
-        // Then check sub-path matches: "field/..." is also immutable.
-        // The byte-index check distinguishes three cases for `field = "messageId"`:
-        //   "messageId"    → exact match (blocked above)
-        //   "messageId/0"  → sub-path match (blocked here)
-        //   "messageIdX"   → prefix but not a path segment (allowed)
         for &field in IMMUTABLE_EMAIL_FIELDS {
-            if key.starts_with(field) && key.as_bytes().get(field.len()) == Some(&b'/') {
+            // Exact match, or sub-path "field/..." — both are immutable.
+            // The byte-index check distinguishes three cases for `field = "messageId"`:
+            //   "messageId"    → exact match (blocked here)
+            //   "messageId/0"  → sub-path match (blocked here)
+            //   "messageIdX"   → prefix but not a path segment (allowed)
+            if key == field
+                || (key.starts_with(field) && key.as_bytes().get(field.len()) == Some(&b'/'))
+            {
                 return Some(field);
             }
         }

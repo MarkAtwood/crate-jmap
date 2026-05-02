@@ -365,9 +365,9 @@ async fn test_email_received_at_plain_simple() {
     );
 }
 
-/// Oracle: large-email body in seed-data.ts is a repetition of a 72-char
-/// phrase 700 times (~50400 bytes of body alone), easily exceeding 10240.
-/// (seed-data.ts line ~211)
+/// Oracle: large-email body in seed.rs is a 74-char phrase repeated 200 times
+/// (~14800 bytes of body alone), easily exceeding 10240.
+/// (seed.rs: "This is a detailed paragraph...".repeat(200))
 #[tokio::test]
 async fn test_email_size_large() {
     let (backend, seed) = mk().await;

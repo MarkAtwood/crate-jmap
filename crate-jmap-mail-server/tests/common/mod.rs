@@ -110,7 +110,7 @@ impl Inner {
         };
 
         // Look up receivedAt for each email id from the Email store.
-        let mut id_and_date: Vec<(String, String)> = email_ids
+        let mut id_and_date: Vec<(String, i64)> = email_ids
             .into_iter()
             .map(|eid| {
                 let received_at = self
@@ -119,11 +119,12 @@ impl Inner {
                     .and_then(|v| v["receivedAt"].as_str())
                     .unwrap_or("")
                     .to_owned();
-                (eid, received_at)
+                let epoch = rfc3339_to_epoch_secs(&received_at);
+                (eid, epoch)
             })
             .collect();
 
-        // Sort ascending by receivedAt (ISO 8601 Z strings sort lexicographically).
+        // Sort ascending by UTC epoch so non-UTC offsets compare correctly.
         id_and_date.sort_by(|a, b| a.1.cmp(&b.1));
 
         // Write the sorted list back to the Thread object.
@@ -161,12 +162,6 @@ enum IdFate {
 // ---------------------------------------------------------------------------
 // MemoryBackend
 // ---------------------------------------------------------------------------
-
-/// Maximum number of objects returned when `ids=None` in [`MemoryBackend::get_objects`].
-///
-/// **Test-only limit.** In production backends, callers should use pagination
-/// rather than `ids=None` to avoid loading unbounded result sets.
-const MAX_FETCH_ALL: usize = 500;
 
 /// In-memory [`MailBackend`] for integration tests and examples.
 ///
@@ -243,27 +238,7 @@ impl JmapBackend for MemoryBackend {
                 }
             }
         } else {
-            let total = store.len();
-            if total > MAX_FETCH_ALL {
-                // In test code, ids=None with >MAX_FETCH_ALL objects silently truncates.
-                // Use pagination (position/limit) or pass explicit ids to avoid this.
-                debug_assert!(
-                    false,
-                    "MemoryBackend::get_objects: truncating {} {} objects to MAX_FETCH_ALL={}; \
-                     use pagination instead of ids=None",
-                    total,
-                    O::TYPE_NAME,
-                    MAX_FETCH_ALL,
-                );
-                #[cfg(debug_assertions)]
-                eprintln!(
-                    "[MemoryBackend] WARNING: get_objects ids=None truncated {} {} to {}",
-                    total,
-                    O::TYPE_NAME,
-                    MAX_FETCH_ALL,
-                );
-            }
-            for val in store.values().take(MAX_FETCH_ALL) {
+            for val in store.values() {
                 let obj: O = serde_json::from_value(val.clone())
                     .map_err(|e| MemoryError(format!("deserialize {}: {e}", O::TYPE_NAME)))?;
                 found.push(obj);
@@ -418,6 +393,19 @@ impl JmapBackend for MemoryBackend {
             None
         };
 
+        // Pre-build the inMailboxOtherThan exclusion set once for top-level Condition
+        // filters to avoid O(N×k) HashSet allocations inside the per-email loop.
+        let top_level_excluded_set: Option<std::collections::HashSet<&Id>> =
+            email_filter.as_ref().and_then(|ef| {
+                if let Filter::Condition(cond) = ef {
+                    cond.in_mailbox_other_than
+                        .as_ref()
+                        .map(|v| v.iter().collect())
+                } else {
+                    None
+                }
+            });
+
         // Collect (id, receivedAt) pairs so we can sort by receivedAt when requested.
         let (mut id_date_pairs, state_n) = {
             let inner = self.inner.lock().unwrap();
@@ -429,7 +417,8 @@ impl JmapBackend for MemoryBackend {
                         map.iter()
                             .filter_map(|(id, val)| {
                                 let email: Email = serde_json::from_value(val.clone()).ok()?;
-                                if email_matches_filter(&email, ef) {
+                                if email_matches_filter(&email, ef, top_level_excluded_set.as_ref())
+                                {
                                     let received = val
                                         .get("receivedAt")
                                         .and_then(|v| v.as_str())
@@ -618,6 +607,21 @@ impl MailBackend for MemoryBackend {
                 map.insert(
                     "blobId".to_owned(),
                     serde_json::Value::String(blob_uuid.to_string()),
+                );
+            }
+        }
+        // Update size from the serialized JSON length. email.rs sets size=0 as a
+        // placeholder (it has no raw bytes on the Email/set create path); the backend
+        // is responsible for assigning the real value. MemoryBackend uses the
+        // serialized-JSON byte length as a proxy — non-zero and stable within a test.
+        if val.get("size").and_then(|v| v.as_u64()) == Some(0) {
+            if let serde_json::Value::Object(ref mut map) = val {
+                let json_size = serde_json::to_vec(&serde_json::Value::Object(map.clone()))
+                    .map(|b| b.len() as u64)
+                    .unwrap_or(1);
+                map.insert(
+                    "size".to_owned(),
+                    serde_json::Value::Number(json_size.into()),
                 );
             }
         }
@@ -1484,6 +1488,101 @@ fn apply_jmap_patch(
     }
 }
 
+/// Parse an RFC 3339 timestamp string to seconds since the Unix epoch (UTC).
+///
+/// Handles both `Z` suffix and `+HH:MM` / `-HH:MM` offsets so that timestamps
+/// with non-UTC offsets sort correctly by absolute UTC time.
+///
+/// Returns `0` for any string that cannot be parsed (treated as epoch origin
+/// for sorting purposes — keeps the sort stable for malformed inputs).
+///
+/// Limitations (acceptable for test code):
+/// - Does not validate calendar date/time fields (e.g. month 13 is accepted).
+/// - Does not handle leap seconds.
+/// - Year must be in the range 1970–9999.
+fn rfc3339_to_epoch_secs(s: &str) -> i64 {
+    try_rfc3339_to_epoch_secs(s).unwrap_or(0)
+}
+
+/// Inner fallible parser; returns `None` on any parse error.
+fn try_rfc3339_to_epoch_secs(s: &str) -> Option<i64> {
+    // Expected format: YYYY-MM-DDTHH:MM:SS[.fff](Z|+HH:MM|-HH:MM)
+    // Length with Z offset: 20 chars; with millis+Z: 24 chars; with ±HH:MM: 25 chars.
+    let s = s.trim();
+    if s.len() < 20 {
+        return None;
+    }
+
+    let year: i64 = s[0..4].parse().ok()?;
+    if s.as_bytes()[4] != b'-' {
+        return None;
+    }
+    let month: i64 = s[5..7].parse().ok()?;
+    if s.as_bytes()[7] != b'-' {
+        return None;
+    }
+    let day: i64 = s[8..10].parse().ok()?;
+    if !matches!(s.as_bytes()[10], b'T' | b't') {
+        return None;
+    }
+    let hour: i64 = s[11..13].parse().ok()?;
+    if s.as_bytes()[13] != b':' {
+        return None;
+    }
+    let minute: i64 = s[14..16].parse().ok()?;
+    if s.as_bytes()[16] != b':' {
+        return None;
+    }
+    let second: i64 = s[17..19].parse().ok()?;
+
+    // Skip optional fractional seconds (.NNN or .NNNNNN etc.) before the offset.
+    let frac_skip = if s.as_bytes().get(19) == Some(&b'.') {
+        let frac_end = s[20..]
+            .find(|c: char| !c.is_ascii_digit())
+            .map(|i| 20 + i)
+            .unwrap_or(s.len());
+        frac_end - 19
+    } else {
+        0
+    };
+    let offset_start = 19 + frac_skip;
+
+    let offset_str = &s[offset_start..];
+    let offset_secs: i64 = if offset_str.eq_ignore_ascii_case("z") {
+        0
+    } else if offset_str.len() == 6
+        && (offset_str.starts_with('+') || offset_str.starts_with('-'))
+        && offset_str.as_bytes()[3] == b':'
+    {
+        let sign: i64 = if offset_str.starts_with('-') { -1 } else { 1 };
+        let oh: i64 = offset_str[1..3].parse().ok()?;
+        let om: i64 = offset_str[4..6].parse().ok()?;
+        sign * (oh * 3600 + om * 60)
+    } else {
+        return None;
+    };
+
+    // Days-since-epoch calculation using the proleptic Gregorian calendar.
+    // Number of days from 1970-01-01 to year-01-01 (ignoring this year's months/days).
+    let y = year - 1;
+    let leap_days = y / 4 - y / 100 + y / 400;
+    // 477 = number of leap days from year 1 to year 1969 inclusive (1969/4 - 1969/100 + 1969/400).
+    let days_to_year_start = y * 365 + leap_days - (1969 * 365 + 477);
+
+    // Days within the year up to the start of the month.
+    let is_leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
+    const MONTH_DAYS: [i64; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    let mut days_in_year: i64 = 0;
+    for m in 0..(month - 1) as usize {
+        let extra = if m == 1 && is_leap { 1 } else { 0 };
+        days_in_year += MONTH_DAYS[m] + extra;
+    }
+
+    let total_days = days_to_year_start + days_in_year + (day - 1);
+    let utc_secs = total_days * 86400 + hour * 3600 + minute * 60 + second - offset_secs;
+    Some(utc_secs)
+}
+
 /// HTML-escape `&`, `<`, `>`.
 fn html_escape(s: &str) -> String {
     s.replace('&', "&amp;")
@@ -1731,20 +1830,38 @@ impl MailBackend for FaultyBackend {
 /// Unimplemented fields are silently treated as "no constraint" (always pass),
 /// consistent with the note in RFC 8621 §4.4.1 that unspecified fields are
 /// ignored.
-fn email_matches_condition(email: &Email, cond: &EmailFilterCondition) -> bool {
+///
+/// `excluded_set` is a pre-built `HashSet` for the `inMailboxOtherThan` check,
+/// built once before the per-email loop to avoid O(N×k) allocations.
+/// Pass `None` to have the set built on the spot (correct but not optimal).
+fn email_matches_condition(
+    email: &Email,
+    cond: &EmailFilterCondition,
+    excluded_set: Option<&std::collections::HashSet<&Id>>,
+) -> bool {
     if let Some(ref mbox_id) = cond.in_mailbox {
         if !email.mailbox_ids.contains_key(mbox_id) {
             return false;
         }
     }
-    if let Some(ref excluded) = cond.in_mailbox_other_than {
-        // Email must be in at least one mailbox NOT in this list.
-        // Convert to HashSet once for O(1) lookups across all mailboxIds.
-        let excluded_set: std::collections::HashSet<&Id> = excluded.iter().collect();
-        let in_other = email
-            .mailbox_ids
-            .keys()
-            .any(|id| !excluded_set.contains(id));
+    if cond.in_mailbox_other_than.is_some() {
+        // Email must be in at least one mailbox NOT in the exclusion list.
+        // Use the pre-built set when available; build on demand otherwise.
+        let owned: Option<std::collections::HashSet<&Id>>;
+        let set: &std::collections::HashSet<&Id> = match excluded_set {
+            Some(s) => s,
+            None => {
+                owned = Some(
+                    cond.in_mailbox_other_than
+                        .as_ref()
+                        .unwrap()
+                        .iter()
+                        .collect(),
+                );
+                owned.as_ref().unwrap()
+            }
+        };
+        let in_other = email.mailbox_ids.keys().any(|id| !set.contains(id));
         if !in_other {
             return false;
         }
@@ -1786,13 +1903,29 @@ fn email_matches_condition(email: &Email, cond: &EmailFilterCondition) -> bool {
 }
 
 /// Evaluate a full `EmailFilter` (which may be a logical combination of conditions).
-fn email_matches_filter(email: &Email, filter: &EmailFilter) -> bool {
+///
+/// `excluded_set` is a pre-built `HashSet` for `inMailboxOtherThan` in the
+/// top-level condition. Pass `None` for nested conditions.
+fn email_matches_filter(
+    email: &Email,
+    filter: &EmailFilter,
+    excluded_set: Option<&std::collections::HashSet<&Id>>,
+) -> bool {
     match filter {
-        Filter::Condition(cond) => email_matches_condition(email, cond),
+        Filter::Condition(cond) => email_matches_condition(email, cond, excluded_set),
         Filter::Operator(op) => match op.operator {
-            Operator::And => op.conditions.iter().all(|f| email_matches_filter(email, f)),
-            Operator::Or => op.conditions.iter().any(|f| email_matches_filter(email, f)),
-            Operator::Not => !op.conditions.iter().any(|f| email_matches_filter(email, f)),
+            Operator::And => op
+                .conditions
+                .iter()
+                .all(|f| email_matches_filter(email, f, None)),
+            Operator::Or => op
+                .conditions
+                .iter()
+                .any(|f| email_matches_filter(email, f, None)),
+            Operator::Not => !op
+                .conditions
+                .iter()
+                .any(|f| email_matches_filter(email, f, None)),
             _ => true, // unknown operator: no constraint
         },
         _ => true, // non_exhaustive: unknown variant, no constraint

@@ -261,12 +261,20 @@ pub async fn handle_identity_set<B: MailBackend>(
 
             // Reject patches that include immutable or server-set fields.
             // RFC 8621 §6.3: email is immutable; id and mayDelete are server-set.
+            // Use find_immutable_patch_key-style logic: check exact match AND
+            // sub-path prefix ("email/subfield" must be rejected as well as "email").
             const IDENTITY_READONLY: &[&str] = &["email", "id", "mayDelete"];
-            let bad_props: Vec<&str> = IDENTITY_READONLY
-                .iter()
-                .copied()
-                .filter(|&field| patch_val.get(field).is_some())
-                .collect();
+            let bad_props: Vec<&str> = if let Some(obj) = patch_val.as_object() {
+                obj.keys()
+                    .filter_map(|k| {
+                        IDENTITY_READONLY.iter().copied().find(|&f| {
+                            k == f || (k.starts_with(f) && k.as_bytes().get(f.len()) == Some(&b'/'))
+                        })
+                    })
+                    .collect()
+            } else {
+                vec![]
+            };
             if !bad_props.is_empty() {
                 not_updated.insert(
                     id_str,
