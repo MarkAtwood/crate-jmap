@@ -5,7 +5,9 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend};
-use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser, set_error_value};
+use crate::helpers::{
+    extract_account_id, iso8601_before, not_found_json, now_utc_string, ser, set_error_value,
+};
 
 // ---------------------------------------------------------------------------
 // Message/get
@@ -374,7 +376,7 @@ pub async fn handle_message_set<B: ChatBackend>(
 
             if let Some(ref expires_str) = sender_expires_at {
                 let now = now_utc_string();
-                if expires_str.as_str() <= now.as_str() {
+                if !iso8601_before(now.as_str(), expires_str.as_str()) {
                     not_created.insert(
                         create_id.clone(),
                         json!({ "type": "invalidProperties", "properties": ["senderExpiresAt"] }),

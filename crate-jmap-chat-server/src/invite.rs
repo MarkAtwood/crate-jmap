@@ -176,17 +176,11 @@ pub async fn handle_invite_set<B: ChatBackend>(
             let now_str = now_utc_string();
             let now: UTCDate = UTCDate::from(now_str.as_str());
 
-            // Generate a short URL-safe invite code from the current nanosecond
-            // timestamp.  Not cryptographically random but sufficient for a
-            // MemoryBackend / test context.
-            let code = format!(
-                "{:012x}",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_nanos()
-                    & 0xffff_ffff_ffff
-            );
+            // Delegate code generation to the backend so production
+            // implementations can use a CSPRNG.  The default implementation
+            // is nanosecond-seeded and NOT cryptographically secure — see
+            // ChatBackend::generate_invite_code.
+            let code = backend.generate_invite_code();
 
             // Security: createdBy MUST be set server-side from accountId,
             // never accepted from the client body.
