@@ -913,6 +913,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-sharing-client"
+version = "0.1.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-sharing-types",
+ "jmap-types",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
+name = "jmap-sharing-server"
+version = "0.1.0"
+dependencies = [
+ "jmap-server",
+ "jmap-sharing-types",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+]
+
+[[package]]
+name = "jmap-sharing-types"
+version = "0.1.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-tasks-client"
 version = "0.1.0"
 dependencies = [
