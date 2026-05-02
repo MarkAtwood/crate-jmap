@@ -451,6 +451,18 @@ impl ChatBackend for MemoryBackend {
     fn supports_type<O: JmapObject>(&self) -> bool {
         true
     }
+
+    fn generate_invite_code(&self) -> String {
+        // test-only: not a CSPRNG
+        format!(
+            "{:012x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+                & 0xffff_ffff_ffff,
+        )
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -553,6 +565,18 @@ impl ChatBackend for FaultyBackend {
 
     fn supports_type<O: JmapObject>(&self) -> bool {
         false
+    }
+
+    fn generate_invite_code(&self) -> String {
+        // test-only: not a CSPRNG
+        format!(
+            "{:012x}",
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos()
+                & 0xffff_ffff_ffff,
+        )
     }
 }
 
