@@ -25,7 +25,7 @@ use jmap_types::{Id, State, UTCDate};
 // ---------------------------------------------------------------------------
 
 /// A change log entry for one state transition.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct ChangeEntry {
     /// The state counter AFTER this change.
     new_state: u64,
@@ -96,6 +96,7 @@ impl Inner {
 /// - created+destroyed → removed from map (client never knew the object)
 /// - updated+destroyed → Destroyed (client must remove it)
 /// - updated+updated → Updated (deduplicated)
+#[derive(Debug, Clone)]
 enum IdFate {
     Created,
     Updated,

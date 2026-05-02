@@ -9,7 +9,7 @@ use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::extract_account_id;
+use crate::helpers::{extract_account_id, set_error_value};
 
 const SINGLETON_ID: &str = "singleton";
 
@@ -24,14 +24,14 @@ const SINGLETON_ID: &str = "singleton";
 /// other than `"singleton"` is placed in `notFound`.
 pub async fn handle_vacation_get<B: MailBackend>(
     backend: &B,
-    args: Value,
+    mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
 
-    let requested_ids: Option<Vec<String>> = match args.get("ids") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(
-            serde_json::from_value(v.clone())
+    let requested_ids: Option<Vec<String>> = match args["ids"].take() {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be a string array"))?,
         ),
     };
@@ -129,12 +129,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
         for (create_id, _) in create {
             let err = SetError::new(SetErrorType::Singleton)
                 .with_description("VacationResponse is a singleton; use update to modify");
-            not_created.insert(
-                create_id.clone(),
-                serde_json::to_value(&err).unwrap_or_else(
-                    |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                ),
-            );
+            not_created.insert(create_id.clone(), set_error_value(&err));
         }
     }
 
@@ -144,12 +139,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
         for (id, patch) in update {
             if id != SINGLETON_ID {
                 let err = SetError::new(SetErrorType::NotFound);
-                not_updated.insert(
-                    id.clone(),
-                    serde_json::to_value(&err).unwrap_or_else(
-                        |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                    ),
-                );
+                not_updated.insert(id.clone(), set_error_value(&err));
                 continue;
             }
 
@@ -196,12 +186,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                     mutated = true;
                                 }
                                 Err(BackendSetError::SetError(e)) => {
-                                    not_updated.insert(
-                                        id.clone(),
-                                        serde_json::to_value(&e).unwrap_or_else(
-                                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                                        ),
-                                    );
+                                    not_updated.insert(id.clone(), set_error_value(&e));
                                 }
                                 Err(BackendSetError::Other(e)) => {
                                     return Err(JmapError::server_fail(e.to_string()));
@@ -209,12 +194,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                             }
                         }
                         Err(BackendSetError::SetError(e)) => {
-                            not_updated.insert(
-                                id.clone(),
-                                serde_json::to_value(&e).unwrap_or_else(
-                                    |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                                ),
-                            );
+                            not_updated.insert(id.clone(), set_error_value(&e));
                         }
                         Err(BackendSetError::Other(e)) => {
                             return Err(JmapError::server_fail(e.to_string()));
@@ -222,12 +202,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                     }
                 }
                 Err(BackendSetError::SetError(e)) => {
-                    not_updated.insert(
-                        id.clone(),
-                        serde_json::to_value(&e).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_updated.insert(id.clone(), set_error_value(&e));
                 }
                 Err(BackendSetError::Other(e)) => {
                     return Err(JmapError::server_fail(e.to_string()));
@@ -245,12 +220,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
             };
             let err = SetError::new(SetErrorType::Singleton)
                 .with_description("VacationResponse is a singleton; cannot destroy");
-            not_destroyed.insert(
-                id.to_owned(),
-                serde_json::to_value(&err).unwrap_or_else(
-                    |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                ),
-            );
+            not_destroyed.insert(id.to_owned(), set_error_value(&err));
         }
     }
 

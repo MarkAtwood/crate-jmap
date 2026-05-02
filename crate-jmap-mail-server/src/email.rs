@@ -9,7 +9,7 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, EmailProperty, MailBackend};
-use crate::helpers::{extract_account_id, not_found_json, ser};
+use crate::helpers::{extract_account_id, not_found_json, ser, set_error_value};
 
 /// Server-enforced ceiling on the number of email IDs fetched when
 /// `collapseThreads=true`. Without this, a hostile client could trigger OOM
@@ -307,43 +307,43 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
 /// `email_json` must be the serialised Email object as returned by the backend;
 /// its `"headers"` key is an array of `{name, value}` objects.
 fn extract_header_values(email_json: &Value, req: &HeaderPropertyRequest) -> Value {
-    let headers = match email_json.get("headers").and_then(|v| v.as_array()) {
-        Some(h) => h,
+    match email_json.get("headers").and_then(|v| v.as_array()) {
         None => {
-            return if req.all {
+            if req.all {
                 Value::Array(vec![])
             } else {
                 Value::Null
             }
         }
-    };
-
-    // Collect all matching raw values in order (case-insensitive name comparison).
-    let matching: Vec<&str> = headers
-        .iter()
-        .filter_map(|h| {
-            let name = h.get("name")?.as_str()?;
-            let value = h.get("value")?.as_str()?;
-            if name.eq_ignore_ascii_case(&req.name_lower) {
-                Some(value)
-            } else {
-                None
-            }
-        })
-        .collect();
-
-    if req.all {
-        Value::Array(
-            matching
+        Some(headers) => {
+            // Collect all matching raw values in order (case-insensitive name comparison).
+            let matching: Vec<&str> = headers
                 .iter()
-                .map(|v| apply_header_form(v, &req.form))
-                .collect(),
-        )
-    } else {
-        // RFC 8621 §4.1.3: without :all, return the *last* matching instance.
-        match matching.last() {
-            Some(v) => apply_header_form(v, &req.form),
-            None => Value::Null,
+                .filter_map(|h| {
+                    let name = h.get("name")?.as_str()?;
+                    let value = h.get("value")?.as_str()?;
+                    if name.eq_ignore_ascii_case(&req.name_lower) {
+                        Some(value)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            if req.all {
+                Value::Array(
+                    matching
+                        .iter()
+                        .map(|v| apply_header_form(v, &req.form))
+                        .collect(),
+                )
+            } else {
+                // RFC 8621 §4.1.3: without :all, return the *last* matching instance.
+                match matching.last() {
+                    Some(v) => apply_header_form(v, &req.form),
+                    None => Value::Null,
+                }
+            }
         }
     }
 }
@@ -384,7 +384,7 @@ pub async fn handle_email_get<B: MailBackend>(
     let body_properties: Vec<String> = match args.remove("bodyProperties") {
         None | Some(Value::Null) => DEFAULT_BODY_PROPERTIES
             .iter()
-            .map(|s| s.to_string())
+            .map(|&s| s.to_owned())
             .collect(),
         Some(v) => serde_json::from_value(v)
             .map_err(|e| JmapError::invalid_arguments(format!("bodyProperties: {e}")))?,
@@ -975,12 +975,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_created.insert(create_id.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_created.insert(
@@ -1027,12 +1022,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     updated.insert(id_str.clone(), Value::Null);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_updated.insert(id_str.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
@@ -1069,12 +1059,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     destroyed_list.push(Value::String(id_str.to_owned()));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
@@ -1816,12 +1801,7 @@ pub async fn handle_email_import<B: MailBackend>(
                 created.insert(import_id.clone(), obj);
             }
             Err(BackendSetError::SetError(set_err)) => {
-                not_created.insert(
-                    import_id.clone(),
-                    serde_json::to_value(&set_err).unwrap_or_else(
-                        |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                    ),
-                );
+                not_created.insert(import_id.clone(), set_error_value(&set_err));
             }
             Err(BackendSetError::Other(e)) => {
                 not_created.insert(
@@ -1893,7 +1873,7 @@ pub async fn handle_email_parse<B: MailBackend>(
     let body_properties: Vec<String> = match args.remove("bodyProperties") {
         None | Some(Value::Null) => DEFAULT_BODY_PROPERTIES
             .iter()
-            .map(|s| s.to_string())
+            .map(|&s| s.to_owned())
             .collect(),
         Some(v) => serde_json::from_value(v)
             .map_err(|e| JmapError::invalid_arguments(format!("bodyProperties: {e}")))?,
@@ -2174,12 +2154,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                 copied_source_ids.push((copy_id.clone(), source_id));
             }
             Err(BackendSetError::SetError(set_err)) => {
-                not_created.insert(
-                    copy_id.clone(),
-                    serde_json::to_value(&set_err).unwrap_or_else(
-                        |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                    ),
-                );
+                not_created.insert(copy_id.clone(), set_error_value(&set_err));
             }
             Err(BackendSetError::Other(e)) => {
                 not_created.insert(
@@ -2190,10 +2165,14 @@ pub async fn handle_email_copy<B: MailBackend>(
         }
     }
 
-    let new_state = backend
-        .get_state::<Email>(&account_id)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+    let new_state = if created.is_empty() {
+        old_state.clone()
+    } else {
+        backend
+            .get_state::<Email>(&account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?
+    };
 
     let resp = json!({
         "fromAccountId": from_account_id.as_ref(),
@@ -2240,12 +2219,8 @@ pub async fn handle_email_copy<B: MailBackend>(
                         email_destroyed.push(Value::String(source_id.as_ref().to_owned()));
                     }
                     Err(BackendSetError::SetError(set_err)) => {
-                        email_not_destroyed.insert(
-                            source_id.as_ref().to_owned(),
-                            serde_json::to_value(&set_err).unwrap_or_else(
-                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                            ),
-                        );
+                        email_not_destroyed
+                            .insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
                     }
                     Err(BackendSetError::Other(e)) => {
                         email_not_destroyed.insert(
@@ -2290,11 +2265,8 @@ pub async fn handle_email_copy<B: MailBackend>(
                             email_updated.insert(source_id.as_ref().to_owned(), Value::Null);
                         }
                         Err(BackendSetError::SetError(set_err)) => {
-                            email_not_updated.insert(
-                                source_id.as_ref().to_owned(),
-                                serde_json::to_value(&set_err)
-                                    .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })),
-                            );
+                            email_not_updated
+                                .insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
                         }
                         Err(BackendSetError::Other(e)) => {
                             email_not_updated.insert(

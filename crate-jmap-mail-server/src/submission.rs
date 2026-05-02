@@ -18,7 +18,7 @@ use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser};
+use crate::helpers::{extract_account_id, not_found_json, now_utc_string, ser, set_error_value};
 
 // ---------------------------------------------------------------------------
 // EmailSubmission/get
@@ -413,9 +413,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                 }
                 Err(err) => {
                     let err_json = match err {
-                        CreateError::SetError(se) => serde_json::to_value(se).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        CreateError::SetError(se) => set_error_value(&se),
                         CreateError::Server(msg) => {
                             json!({ "type": "serverFail", "description": msg })
                         }
@@ -444,12 +442,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     updated.insert(id_str.clone(), Value::Null);
                 }
                 Err(BackendSetError::SetError(se)) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        ser(&se).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_updated.insert(id_str.clone(), set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
@@ -492,12 +485,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     destroyed.push(Value::String(id_str.to_owned()));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        serde_json::to_value(&set_err).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
@@ -592,12 +580,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                         email_updated.insert(email_id.as_ref().to_owned(), Value::Null);
                     }
                     Err(BackendSetError::SetError(set_err)) => {
-                        email_not_updated.insert(
-                            email_id.as_ref().to_owned(),
-                            serde_json::to_value(&set_err).unwrap_or_else(
-                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                            ),
-                        );
+                        email_not_updated
+                            .insert(email_id.as_ref().to_owned(), set_error_value(&set_err));
                     }
                     Err(BackendSetError::Other(e)) => {
                         email_not_updated.insert(
@@ -628,12 +612,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                         email_destroyed.push(Value::String(email_id.as_ref().to_owned()));
                     }
                     Err(BackendSetError::SetError(set_err)) => {
-                        email_not_destroyed.insert(
-                            email_id.as_ref().to_owned(),
-                            serde_json::to_value(&set_err).unwrap_or_else(
-                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                            ),
-                        );
+                        email_not_destroyed
+                            .insert(email_id.as_ref().to_owned(), set_error_value(&set_err));
                     }
                     Err(BackendSetError::Other(e)) => {
                         email_not_destroyed.insert(
