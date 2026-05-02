@@ -58,45 +58,11 @@ pub async fn handle_mailbox_get<B: MailBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `Mailbox/changes` method call (RFC 8621 §2.2).
-///
-/// Includes `updatedProperties` in the response, always `null` for
-/// MemoryBackend (no partial-property-update tracking).
 pub async fn handle_mailbox_changes<B: MailBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
-        Some(s) => State::from(s),
-        None => return Err(JmapError::invalid_arguments("sinceState is required")),
-    };
-
-    let max_changes: Option<u64> = match args.get("maxChanges") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
-            JmapError::invalid_arguments("maxChanges must be a positive integer")
-        })?),
-    };
-
-    let result = backend
-        .get_changes::<Mailbox>(&account_id, &since_state, max_changes)
-        .await
-        .map_err(JmapError::from)?;
-
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "oldState": since_state.as_ref(),
-            "newState": result.new_state.as_ref(),
-            "hasMoreChanges": result.has_more_changes,
-            "updatedProperties": Value::Null,
-            "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-            "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-            "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-        }),
-        vec![],
-    ))
+    jmap_server::handlers::handle_changes::<Mailbox, B>(backend, args).await
 }
 
 // ---------------------------------------------------------------------------

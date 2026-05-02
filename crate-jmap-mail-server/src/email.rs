@@ -517,43 +517,11 @@ pub async fn handle_email_get<B: MailBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle an `Email/changes` method call (RFC 8620 §5.2).
-///
-/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_changes<B: MailBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
-        Some(s) => State::from(s),
-        None => return Err(JmapError::invalid_arguments("sinceState is required")),
-    };
-
-    let max_changes: Option<u64> = match args.get("maxChanges") {
-        None | Some(Value::Null) => None,
-        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
-            JmapError::invalid_arguments("maxChanges must be a positive integer")
-        })?),
-    };
-
-    let result = backend
-        .get_changes::<Email>(&account_id, &since_state, max_changes)
-        .await
-        .map_err(JmapError::from)?;
-
-    let resp = json!({
-        "accountId": account_id.as_ref(),
-        "oldState": since_state.as_ref(),
-        "newState": result.new_state.as_ref(),
-        "hasMoreChanges": result.has_more_changes,
-        "updatedProperties": Value::Null,
-        "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-        "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-        "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-    });
-
-    Ok((resp, vec![]))
+    jmap_server::handlers::handle_changes::<Email, B>(backend, args).await
 }
 
 // ---------------------------------------------------------------------------
