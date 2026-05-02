@@ -2236,3 +2236,415 @@ fn submission_matches_filter(sub: &EmailSubmission, filter: &EmailSubmissionFilt
         _ => true, // non_exhaustive: unknown variant, no constraint
     }
 }
+
+// ---------------------------------------------------------------------------
+// MdnBackend impl for MemoryBackend (feature = "mdn")
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "mdn")]
+use jmap_mail_server::mdn::{MdnParseResult, MdnSendResult};
+#[cfg(feature = "mdn")]
+use jmap_mail_server::MdnBackend;
+#[cfg(feature = "mdn")]
+use jmap_mail_types::mdn::Mdn;
+
+#[cfg(feature = "mdn")]
+impl MdnBackend for MemoryBackend {
+    type Error = MemoryError;
+
+    // -----------------------------------------------------------------------
+    // get_blob_bytes
+    // -----------------------------------------------------------------------
+
+    fn get_blob_bytes(
+        &self,
+        _account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
+        // test only: mutex is never poisoned in tests
+        let bytes = self.inner.lock().unwrap().blobs.get(blob_id).cloned();
+        async move { Ok(bytes) }
+    }
+
+    // -----------------------------------------------------------------------
+    // send_mdns
+    // -----------------------------------------------------------------------
+
+    async fn send_mdns(
+        &self,
+        account_id: &jmap_types::Id,
+        _identity_id: &jmap_types::Id,
+        send: std::collections::HashMap<jmap_types::Id, jmap_mail_types::mdn::Mdn>,
+    ) -> Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>> {
+        let mut sent: std::collections::HashMap<jmap_types::Id, Mdn> =
+            std::collections::HashMap::new();
+        let mut not_sent: std::collections::HashMap<jmap_types::Id, SetError> =
+            std::collections::HashMap::new();
+
+        for (creation_id, mdn) in send {
+            // Step 1: resolve for_email_id.
+            let for_email_id = match &mdn.for_email_id {
+                None => {
+                    not_sent.insert(
+                        creation_id,
+                        SetError::new(SetErrorType::NotFound)
+                            .with_description("forEmailId is required"),
+                    );
+                    continue;
+                }
+                Some(id) => id.clone(),
+            };
+
+            // Step 2: look up the email from the store.
+            let email_val = {
+                // test only: mutex is never poisoned in tests
+                let inner = self.inner.lock().unwrap();
+                inner
+                    .objects_ref("Email", account_id.as_ref())
+                    .and_then(|s| s.get(&for_email_id))
+                    .cloned()
+            };
+            let email_val = match email_val {
+                None => {
+                    not_sent.insert(creation_id, SetError::new(SetErrorType::NotFound));
+                    continue;
+                }
+                Some(v) => v,
+            };
+
+            let email: jmap_mail_types::Email = match serde_json::from_value(email_val) {
+                Ok(e) => e,
+                Err(e) => {
+                    return Err(jmap_server::backend::BackendSetError::Other(MemoryError(
+                        format!("deserialize email: {e}"),
+                    )));
+                }
+            };
+
+            // Step 3: check for Disposition-Notification-To header.
+            let dnt_address: Option<String> = email
+                .headers
+                .iter()
+                .find(|h| h.name.eq_ignore_ascii_case("Disposition-Notification-To"))
+                .map(|h| h.value.trim().to_owned());
+
+            if dnt_address.is_none() {
+                not_sent.insert(
+                    creation_id,
+                    SetError::new(SetErrorType::NotFound)
+                        .with_description("email has no Disposition-Notification-To header"),
+                );
+                continue;
+            }
+            let dnt_address = dnt_address.unwrap();
+
+            // Step 4: extract server-set fields from the email's headers.
+            let original_message_id: Option<String> = email
+                .headers
+                .iter()
+                .find(|h| h.name.eq_ignore_ascii_case("Message-ID"))
+                .map(|h| {
+                    h.value
+                        .trim()
+                        .trim_matches('<')
+                        .trim_matches('>')
+                        .to_owned()
+                });
+
+            let original_recipient: Option<String> = email
+                .headers
+                .iter()
+                .find(|h| h.name.eq_ignore_ascii_case("Original-Recipient"))
+                .map(|h| h.value.trim().to_owned());
+
+            // final_recipient: fixed test value (no real identity lookup needed).
+            let final_recipient = Some("rfc822; test@example.com".to_owned());
+
+            // Step 5: build a minimal RFC 5322 MDN blob.
+            let orig_msg_id_line = original_message_id.as_deref().unwrap_or("");
+            let subject_line = mdn.subject.as_deref().unwrap_or("");
+            let text_body_line = mdn.text_body.as_deref().unwrap_or("");
+            let mdn_blob = format!(
+                "From: test@example.com\r\n\
+                 To: {dnt_address}\r\n\
+                 Subject: Read receipt for: {subject_line}\r\n\
+                 MIME-Version: 1.0\r\n\
+                 Content-Type: multipart/report; report-type=disposition-notification; boundary=\"bound\"\r\n\
+                 \r\n\
+                 --bound\r\n\
+                 Content-Type: text/plain\r\n\
+                 \r\n\
+                 {text_body_line}\r\n\
+                 --bound\r\n\
+                 Content-Type: message/disposition-notification\r\n\
+                 \r\n\
+                 Final-Recipient: rfc822; test@example.com\r\n\
+                 Original-Message-ID: {orig_msg_id_line}\r\n\
+                 Disposition: manual-action/MDN-sent-manually; displayed\r\n\
+                 \r\n\
+                 --bound--\r\n"
+            );
+
+            // Step 6: store the blob.
+            let blob_id = jmap_types::Id::from(uuid::Uuid::new_v4().to_string());
+            {
+                // test only: mutex is never poisoned in tests
+                let mut inner = self.inner.lock().unwrap();
+                inner.blobs.insert(blob_id, mdn_blob.into_bytes());
+            }
+
+            // Step 7: build the response Mdn with server-set fields.
+            // Mdn is #[non_exhaustive] and defined outside this crate, so we
+            // round-trip through JSON to construct a modified copy.
+            let mut sent_val = serde_json::to_value(&mdn).map_err(|e| {
+                jmap_server::backend::BackendSetError::Other(MemoryError(format!(
+                    "serialize mdn: {e}"
+                )))
+            })?;
+            if let serde_json::Value::Object(ref mut m) = sent_val {
+                m.insert("mdnGateway".to_owned(), serde_json::Value::Null);
+                m.insert("error".to_owned(), serde_json::Value::Null);
+                match &original_recipient {
+                    Some(s) => {
+                        m.insert(
+                            "originalRecipient".to_owned(),
+                            serde_json::Value::String(s.clone()),
+                        );
+                    }
+                    None => {
+                        m.remove("originalRecipient");
+                    }
+                }
+                match &final_recipient {
+                    Some(s) => {
+                        m.insert(
+                            "finalRecipient".to_owned(),
+                            serde_json::Value::String(s.clone()),
+                        );
+                    }
+                    None => {
+                        m.remove("finalRecipient");
+                    }
+                }
+                match &original_message_id {
+                    Some(s) => {
+                        m.insert(
+                            "originalMessageId".to_owned(),
+                            serde_json::Value::String(s.clone()),
+                        );
+                    }
+                    None => {
+                        m.remove("originalMessageId");
+                    }
+                }
+            }
+            let sent_mdn: Mdn = serde_json::from_value(sent_val).map_err(|e| {
+                jmap_server::backend::BackendSetError::Other(MemoryError(format!(
+                    "deserialize sent mdn: {e}"
+                )))
+            })?;
+            sent.insert(creation_id, sent_mdn);
+        }
+
+        Ok(MdnSendResult { sent, not_sent })
+    }
+
+    // -----------------------------------------------------------------------
+    // parse_mdns
+    // -----------------------------------------------------------------------
+
+    async fn parse_mdns(
+        &self,
+        account_id: &jmap_types::Id,
+        blob_ids: Vec<jmap_types::Id>,
+    ) -> Result<MdnParseResult, Self::Error> {
+        let mut parsed: std::collections::HashMap<jmap_types::Id, Mdn> =
+            std::collections::HashMap::new();
+        let mut not_parsable: Vec<jmap_types::Id> = Vec::new();
+        let mut not_found: Vec<jmap_types::Id> = Vec::new();
+
+        for blob_id in blob_ids {
+            let bytes = self.get_blob_bytes(account_id, &blob_id).await?;
+            match bytes {
+                None => {
+                    not_found.push(blob_id);
+                }
+                Some(raw) => {
+                    // Minimal heuristic: a blob is parsable as an MDN if it contains
+                    // the ASCII string "Disposition:" (case-sensitive, as emitted by
+                    // MemoryMdnBackend::send_mdns and all RFC-conforming senders).
+                    // A full MIME parser is not used here — this is test infrastructure.
+                    let text = String::from_utf8_lossy(&raw);
+                    if !text.contains("Disposition:") {
+                        not_parsable.push(blob_id);
+                        continue;
+                    }
+
+                    // Parse fields from the disposition-notification part.
+                    // Each field is extracted from the first matching "Field-Name:" line.
+                    let final_recipient = find_header_value(&text, "Final-Recipient");
+                    let original_message_id = find_header_value(&text, "Original-Message-ID")
+                        .map(|s| s.trim_matches('<').trim_matches('>').to_owned());
+                    let reporting_ua = find_header_value(&text, "Reporting-UA");
+                    let original_recipient = find_header_value(&text, "Original-Recipient");
+
+                    // Parse the Disposition: field.
+                    // Format per RFC 8098: action-mode/sending-mode; disposition-type
+                    let disposition_str = match find_header_value(&text, "Disposition") {
+                        Some(s) => s,
+                        None => {
+                            not_parsable.push(blob_id);
+                            continue;
+                        }
+                    };
+                    let disposition_val = match parse_disposition_field(&disposition_str) {
+                        Some(v) => v,
+                        None => {
+                            not_parsable.push(blob_id);
+                            continue;
+                        }
+                    };
+
+                    // Correlate original_message_id → for_email_id via message_id_index.
+                    let for_email_id = original_message_id.as_ref().and_then(|msg_id| {
+                        // test only: mutex is never poisoned in tests
+                        let inner = self.inner.lock().unwrap();
+                        inner
+                            .message_id_index
+                            .get(account_id.as_ref())
+                            .and_then(|idx| idx.get(msg_id))
+                            .cloned()
+                    });
+
+                    // Build the Mdn via JSON round-trip (Mdn is #[non_exhaustive]
+                    // and cannot be constructed with struct literal syntax outside
+                    // its defining crate).
+                    let mdn_val = serde_json::json!({
+                        "forEmailId": for_email_id.as_ref().map(|id| id.as_ref()),
+                        "reportingUa": reporting_ua,
+                        "disposition": disposition_val,
+                        "originalRecipient": original_recipient,
+                        "finalRecipient": final_recipient,
+                        "originalMessageId": original_message_id,
+                    });
+                    let mdn: Mdn = serde_json::from_value(mdn_val)
+                        .map_err(|e| MemoryError(format!("deserialize parsed mdn: {e}")))?;
+                    parsed.insert(blob_id, mdn);
+                }
+            }
+        }
+
+        Ok(MdnParseResult {
+            parsed,
+            not_parsable,
+            not_found,
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MDN parsing helpers (feature = "mdn")
+// ---------------------------------------------------------------------------
+
+/// Extract the value of a named header field from a raw RFC 5322 message string.
+///
+/// Scans line-by-line for the first line beginning with `"Field-Name:"` (case-insensitive)
+/// and returns the trimmed value. Returns `None` if no such line is found.
+#[cfg(feature = "mdn")]
+fn find_header_value(text: &str, field_name: &str) -> Option<String> {
+    let prefix = format!("{field_name}:");
+    for line in text.lines() {
+        if line.len() > prefix.len() && line[..prefix.len()].eq_ignore_ascii_case(&prefix) {
+            return Some(line[prefix.len()..].trim().to_owned());
+        }
+    }
+    None
+}
+
+/// Parse an RFC 8098 `Disposition:` field value into a JSON value suitable for
+/// deserializing into a [`Disposition`].
+///
+/// Expected format: `action-mode/sending-mode; disposition-type`
+/// e.g. `manual-action/MDN-sent-manually; displayed`
+///
+/// All parts are lowercased before matching (RFC 8098 is case-insensitive;
+/// draft-ietf-jmap-mdn requires lowercase in JMAP wire format).
+///
+/// Returns `None` if the field cannot be parsed into recognized enum variants.
+#[cfg(feature = "mdn")]
+fn parse_disposition_field(value: &str) -> Option<serde_json::Value> {
+    // Split on ';' to separate disposition-mode from disposition-type.
+    let mut parts = value.splitn(2, ';');
+    let mode_part = parts.next()?.trim().to_lowercase();
+    let type_part = parts.next()?.trim().to_lowercase();
+
+    // disposition-mode = action-mode "/" sending-mode
+    let mut mode_iter = mode_part.splitn(2, '/');
+    let action_str = mode_iter.next()?.trim();
+    let sending_str = mode_iter.next()?.trim();
+
+    // Validate against known enum variants (wire values from draft-ietf-jmap-mdn §2).
+    let action_wire = match action_str {
+        "manual-action" => "manual-action",
+        "automatic-action" => "automatic-action",
+        _ => return None,
+    };
+    let sending_wire = match sending_str {
+        "mdn-sent-manually" => "mdn-sent-manually",
+        "mdn-sent-automatically" => "mdn-sent-automatically",
+        _ => return None,
+    };
+    let type_wire = match type_part.as_str() {
+        "deleted" => "deleted",
+        "dispatched" => "dispatched",
+        "displayed" => "displayed",
+        "processed" => "processed",
+        _ => return None,
+    };
+
+    Some(serde_json::json!({
+        "actionMode": action_wire,
+        "sendingMode": sending_wire,
+        "type": type_wire,
+    }))
+}
+
+// ---------------------------------------------------------------------------
+// MDN test fixture constants (feature = "mdn")
+// ---------------------------------------------------------------------------
+
+/// Minimal valid MDN blob for use in MDN/parse tests.
+///
+/// Hand-written from draft-ietf-jmap-mdn-17 §3.3 + RFC 8098 §9 example.
+/// This is the independent oracle for parse tests — do not generate from code under test.
+#[cfg(feature = "mdn")]
+pub const VALID_MDN_BLOB: &[u8] = b"\
+From: Joe Recipient <Joe_Recipient@example.com>\r\n\
+To: Jane Sender <Jane_Sender@example.org>\r\n\
+Subject: Disposition notification\r\n\
+MIME-Version: 1.0\r\n\
+Content-Type: multipart/report; report-type=disposition-notification; boundary=\"RAA14128\"\r\n\
+\r\n\
+--RAA14128\r\n\
+Content-Type: text/plain\r\n\
+\r\n\
+The message has been displayed on your recipient's computer.\r\n\
+\r\n\
+--RAA14128\r\n\
+Content-Type: message/disposition-notification\r\n\
+\r\n\
+Reporting-UA: joes-pc.cs.example.com; Foomail 97.1\r\n\
+Original-Recipient: rfc822;Joe_Recipient@example.com\r\n\
+Final-Recipient: rfc822;Joe_Recipient@example.com\r\n\
+Original-Message-ID: <199509192301.23456@example.org>\r\n\
+Disposition: manual-action/MDN-sent-manually; displayed\r\n\
+\r\n\
+--RAA14128--\r\n\
+";
+
+/// Invalid blob (not a multipart/report MDN) for notParsable tests.
+///
+/// Does not contain a `Disposition:` field — the minimal parsability heuristic
+/// used by `MemoryMdnBackend::parse_mdns` will classify this as notParsable.
+#[cfg(feature = "mdn")]
+pub const INVALID_MDN_BLOB: &[u8] = b"This is just a plain text file, not an MDN.\r\n";
