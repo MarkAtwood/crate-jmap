@@ -27,9 +27,21 @@ pub struct SetError {
     /// Property names that caused the error (for `invalidProperties`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<Vec<String>>,
-    /// The existing object id (for `alreadyExists`).
+    /// The existing object id (for `alreadyExists` — RFC 8621 §5.7).
     #[serde(rename = "existingId", skip_serializing_if = "Option::is_none")]
     pub existing_id: Option<jmap_types::Id>,
+    /// Maximum recipients allowed (for `tooManyRecipients` — RFC 8621 §7.5).
+    #[serde(rename = "maxRecipients", skip_serializing_if = "Option::is_none")]
+    pub max_recipients: Option<u64>,
+    /// Invalid recipient addresses (for `invalidRecipients` — RFC 8621 §7.5).
+    #[serde(rename = "invalidRecipients", skip_serializing_if = "Option::is_none")]
+    pub invalid_recipients: Option<Vec<String>>,
+    /// Missing blob IDs (for `blobNotFound` — RFC 8621 §5.5).
+    #[serde(rename = "notFound", skip_serializing_if = "Option::is_none")]
+    pub not_found: Option<Vec<jmap_types::Id>>,
+    /// Maximum message size in octets (for `tooLarge` on EmailSubmission — RFC 8621 §7.5).
+    #[serde(rename = "maxSize", skip_serializing_if = "Option::is_none")]
+    pub max_size: Option<u64>,
 }
 
 impl SetError {
@@ -40,6 +52,10 @@ impl SetError {
             description: None,
             properties: None,
             existing_id: None,
+            max_recipients: None,
+            invalid_recipients: None,
+            not_found: None,
+            max_size: None,
         }
     }
 
@@ -64,6 +80,34 @@ impl SetError {
         self.existing_id = Some(id);
         self
     }
+
+    /// Set the maximum recipients (used with `tooManyRecipients` — RFC 8621 §7.5).
+    pub fn with_max_recipients(mut self, n: u64) -> Self {
+        self.max_recipients = Some(n);
+        self
+    }
+
+    /// Set the invalid recipient addresses (used with `invalidRecipients` — RFC 8621 §7.5).
+    pub fn with_invalid_recipients<I, S>(mut self, addrs: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.invalid_recipients = Some(addrs.into_iter().map(|s| s.into()).collect());
+        self
+    }
+
+    /// Set the missing blob IDs (used with `blobNotFound` — RFC 8621 §5.5).
+    pub fn with_not_found(mut self, ids: Vec<jmap_types::Id>) -> Self {
+        self.not_found = Some(ids);
+        self
+    }
+
+    /// Set the maximum message size in octets (used with `tooLarge` on EmailSubmission — RFC 8621 §7.5).
+    pub fn with_max_size(mut self, n: u64) -> Self {
+        self.max_size = Some(n);
+        self
+    }
 }
 
 impl std::fmt::Display for SetError {
@@ -76,7 +120,7 @@ impl std::fmt::Display for SetError {
     }
 }
 
-/// The machine-readable type for a [`SetError`] (RFC 8620 §5.3).
+/// The machine-readable type for a [`SetError`] (RFC 8620 §5.3 and RFC 8621).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -102,6 +146,32 @@ pub enum SetErrorType {
     Singleton,
     /// An object with the same unique key already exists.
     AlreadyExists,
+    /// RFC 8621 §2.5 — Mailbox has child mailboxes and cannot be destroyed.
+    MailboxHasChild,
+    /// RFC 8621 §2.5 — Mailbox contains emails and `onDestroyRemoveEmails` is false.
+    MailboxHasEmail,
+    /// RFC 8621 §5.5 — Too many keywords on the Email.
+    TooManyKeywords,
+    /// RFC 8621 §5.5 — Email is in too many mailboxes.
+    TooManyMailboxes,
+    /// RFC 8621 §5.5 — A referenced blob was not found.
+    BlobNotFound,
+    /// RFC 8621 §6.3 — The `from` address is not permitted for this Identity.
+    ForbiddenFrom,
+    /// RFC 8621 §7.5 — The Email is invalid for submission.
+    InvalidEmail,
+    /// RFC 8621 §7.5 — Too many recipients.
+    TooManyRecipients,
+    /// RFC 8621 §7.5 — No recipients specified.
+    NoRecipients,
+    /// RFC 8621 §7.5 — One or more recipient addresses are invalid.
+    InvalidRecipients,
+    /// RFC 8621 §7.5 — The MAIL FROM address is not permitted.
+    ForbiddenMailFrom,
+    /// RFC 8621 §7.5 — The user does not have send permission.
+    ForbiddenToSend,
+    /// RFC 8621 §7.5 — The submission cannot be undone.
+    CannotUnsend,
 }
 
 impl std::fmt::Display for SetErrorType {
@@ -117,6 +187,19 @@ impl std::fmt::Display for SetErrorType {
             Self::InvalidProperties => "invalidProperties",
             Self::Singleton => "singleton",
             Self::AlreadyExists => "alreadyExists",
+            Self::MailboxHasChild => "mailboxHasChild",
+            Self::MailboxHasEmail => "mailboxHasEmail",
+            Self::TooManyKeywords => "tooManyKeywords",
+            Self::TooManyMailboxes => "tooManyMailboxes",
+            Self::BlobNotFound => "blobNotFound",
+            Self::ForbiddenFrom => "forbiddenFrom",
+            Self::InvalidEmail => "invalidEmail",
+            Self::TooManyRecipients => "tooManyRecipients",
+            Self::NoRecipients => "noRecipients",
+            Self::InvalidRecipients => "invalidRecipients",
+            Self::ForbiddenMailFrom => "forbiddenMailFrom",
+            Self::ForbiddenToSend => "forbiddenToSend",
+            Self::CannotUnsend => "cannotUnsend",
         };
         f.write_str(s)
     }

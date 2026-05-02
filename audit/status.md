@@ -72,3 +72,7 @@
 [01:03:39] fix3: sz1.1.2/sz1.1.3/sz1.1.4 complete (116 tests pass)
 [01:03:39] COORDINATOR: round 2 closed; starting round 3
 [01:06:10] REVIEW round 3: CLEAN P0=0 P1=0 P2=0; epic JMAP-sz1 implementation complete; closing epic
+[06:25:07] COORDINATOR: phase0 done for JMAP-39s
+[06:31:06] COORDINATOR: wave 1 complete — JMAP-0c9/4ii.10 dedup, JMAP-287.2 CSPRNG, JMAP-4ii.17/23/27/29 docs; 89 tests pass, clippy clean
+[06:44:13] COORDINATOR: wave 2+3 complete — SetError/ClosureHandler/changes delegation/find_immutable/register docs/properties; all tests pass, clippy clean
+[06:44:34] COORDINATOR: review round 1, epic JMAP-63k
