@@ -62,6 +62,18 @@ const DEFAULT_EMAIL_PARSE_PROPERTIES: &[&str] = &[
     "attachments",
 ];
 
+/// RFC 8621 §4.2 — body-value fetch arguments bundled for a single request.
+///
+/// Passed by reference to [`apply_body_value_args`] so call sites read as named
+/// fields rather than a run of positional booleans.
+#[derive(Debug, Clone)]
+struct BodyFetchArgs {
+    fetch_text: bool,
+    fetch_html: bool,
+    fetch_all: bool,
+    max_bytes: u64,
+}
+
 /// RFC 8621 §4.2 — default `bodyProperties` when the `bodyProperties` arg is null.
 const DEFAULT_BODY_PROPERTIES: &[&str] = &[
     "partId",
@@ -284,59 +296,50 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
                 .replace("\n\t", " ");
             Value::String(unfolded.trim_start().to_owned())
         }
-        // NOT IMPLEMENTED (JMAP-bx3z.3): AsAddresses structured parsing is not yet
-        // implemented. Returns null; callers cannot distinguish "header absent" from
-        // "not implemented". When implementing, replace this arm with real RFC 5322
-        // address-list parsing and remove this comment.
+        // Returns null silently — validate_header_form accepts AsAddresses for address headers,
+        // so clients receive null with no error. Implement RFC 5322 address-list parsing or
+        // change to return an error before production use.
         AsAddresses => {
             #[cfg(debug_assertions)]
             eprintln!(
-                "[jmap-mail-server] header form AsAddresses not yet implemented                  — returning null (JMAP-bx3z.3)"
+                "[jmap-mail-server] header form AsAddresses not yet implemented — returning null"
             );
             Value::Null
         }
-        // NOT IMPLEMENTED (JMAP-bx3z.3): AsGroupedAddresses structured parsing is not yet
-        // implemented. Returns null; callers cannot distinguish "header absent" from
-        // "not implemented". When implementing, replace this arm with real RFC 5322
-        // group address parsing and remove this comment.
+        // Returns null silently — validate_header_form accepts AsGroupedAddresses for address
+        // headers, so clients receive null with no error. Implement RFC 5322 group address
+        // parsing or change to return an error before production use.
         AsGroupedAddresses => {
             #[cfg(debug_assertions)]
             eprintln!(
-                "[jmap-mail-server] header form AsGroupedAddresses not yet implemented                  — returning null (JMAP-bx3z.3)"
+                "[jmap-mail-server] header form AsGroupedAddresses not yet implemented — returning null"
             );
             Value::Null
         }
-        // NOT IMPLEMENTED (JMAP-bx3z.3): AsDate structured parsing is not yet
-        // implemented. Returns null; callers cannot distinguish "header absent" from
-        // "not implemented". When implementing, replace this arm with real RFC 5322
-        // date parsing and remove this comment.
+        // Returns null silently — validate_header_form accepts AsDate for date headers,
+        // so clients receive null with no error. Implement RFC 5322 date parsing or
+        // change to return an error before production use.
         AsDate => {
             #[cfg(debug_assertions)]
-            eprintln!(
-                "[jmap-mail-server] header form AsDate not yet implemented                  — returning null (JMAP-bx3z.3)"
-            );
+            eprintln!("[jmap-mail-server] header form AsDate not yet implemented — returning null");
             Value::Null
         }
-        // NOT IMPLEMENTED (JMAP-bx3z.3): AsMessageIds structured parsing is not yet
-        // implemented. Returns null; callers cannot distinguish "header absent" from
-        // "not implemented". When implementing, replace this arm with real RFC 5322
-        // message-id parsing and remove this comment.
+        // Returns null silently — validate_header_form accepts AsMessageIds for message-id
+        // headers, so clients receive null with no error. Implement RFC 5322 message-id
+        // parsing or change to return an error before production use.
         AsMessageIds => {
             #[cfg(debug_assertions)]
             eprintln!(
-                "[jmap-mail-server] header form AsMessageIds not yet implemented                  — returning null (JMAP-bx3z.3)"
+                "[jmap-mail-server] header form AsMessageIds not yet implemented — returning null"
             );
             Value::Null
         }
-        // NOT IMPLEMENTED (JMAP-bx3z.3): AsURLs structured parsing is not yet
-        // implemented. Returns null; callers cannot distinguish "header absent" from
-        // "not implemented". When implementing, replace this arm with real URL-list
-        // parsing and remove this comment.
+        // Returns null silently — validate_header_form accepts AsURLs for URL-list headers,
+        // so clients receive null with no error. Implement URL-list parsing or change to
+        // return an error before production use.
         AsURLs => {
             #[cfg(debug_assertions)]
-            eprintln!(
-                "[jmap-mail-server] header form AsURLs not yet implemented                  — returning null (JMAP-bx3z.3)"
-            );
+            eprintln!("[jmap-mail-server] header form AsURLs not yet implemented — returning null");
             Value::Null
         }
     }
@@ -481,7 +484,9 @@ pub async fn handle_email_get<B: MailBackend>(
         Some(props) => props.iter().any(|p| p == "headers"),
         None => false,
     };
-    let need_headers_injected = !header_props.is_empty() && !client_wants_headers;
+    // Without this inject-then-strip, header:Name properties would silently return null
+    // because the raw 'headers' array would never be fetched from the backend.
+    let headers_implicit = !header_props.is_empty() && !client_wants_headers;
 
     let effective_props: HashSet<&str> = if properties.is_none() {
         DEFAULT_EMAIL_GET_PROPERTIES.iter().copied().collect()
@@ -489,15 +494,21 @@ pub async fn handle_email_get<B: MailBackend>(
         let mut set: HashSet<&str> = regular_props.iter().copied().collect();
         // RFC 8620 §5.1: `id` MUST always be present in /get responses.
         set.insert("id");
-        if need_headers_injected {
+        if headers_implicit {
             set.insert("headers");
         }
         set
     };
 
     // Build the body-properties set once before the per-email loop so it is
-    // not rebuilt for every email (P2 e53.30).
+    // not rebuilt on every call into apply_body_value_args.
     let body_prop_set: HashSet<&str> = body_properties.iter().map(|s| s.as_str()).collect();
+    let body_fetch_args = BodyFetchArgs {
+        fetch_text: fetch_text_body_values,
+        fetch_html: fetch_html_body_values,
+        fetch_all: fetch_all_body_values,
+        max_bytes: max_body_value_bytes,
+    };
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
@@ -515,14 +526,7 @@ pub async fn handle_email_get<B: MailBackend>(
         .map(|email| {
             let mut val = ser(email)?;
             // Apply body-value filtering and truncation before property filtering.
-            apply_body_value_args(
-                &mut val,
-                fetch_text_body_values,
-                fetch_html_body_values,
-                fetch_all_body_values,
-                max_body_value_bytes,
-                &body_prop_set,
-            );
+            apply_body_value_args(&mut val, &body_fetch_args, &body_prop_set);
             let mut obj = filter_properties(&val, &effective_props);
 
             // Inject dynamic header: property results into the filtered object.
@@ -534,7 +538,7 @@ pub async fn handle_email_get<B: MailBackend>(
                         map.insert((*prop).to_owned(), extracted);
                     }
                     // Remove the injected "headers" key if the client didn't ask for it.
-                    if need_headers_injected {
+                    if headers_implicit {
                         map.remove("headers");
                     }
                 }
@@ -598,9 +602,9 @@ pub async fn handle_email_query<B: MailBackend>(
         ),
     };
 
-    // limit is always a concrete u64 after parsing (default 256 when absent).
-    // Track whether the client specified a limit so we know when to echo it back.
-    let (limit, client_limit): (u64, Option<u64>) = match args.remove("limit") {
+    // effective_limit is always a concrete u64 after parsing (default 256 when absent).
+    // requested_limit tracks what the client sent so we know when to echo limit back.
+    let (effective_limit, requested_limit): (u64, Option<u64>) = match args.remove("limit") {
         None | Some(Value::Null) => (256, None),
         Some(v) => match v.as_u64() {
             Some(n) => (n, Some(n)),
@@ -652,9 +656,9 @@ pub async fn handle_email_query<B: MailBackend>(
     // Without either, delegate limit/position directly to the backend.
     let (ids, total, query_state, can_calculate_changes, reported_position) =
         if collapse_threads || anchor.is_some() {
-            // Fast path: limit=0 and no total needed — skip the expensive full
+            // Fast path: effective_limit=0 and no total needed — skip the expensive full
             // fetch; a single zero-limit query gives queryState and canCalculateChanges.
-            if limit == 0 && !calculate_total {
+            if effective_limit == 0 && !calculate_total {
                 let empty = backend
                     .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, Some(0), 0)
                     .await
@@ -732,7 +736,7 @@ pub async fn handle_email_query<B: MailBackend>(
             let page: Vec<Id> = all_ids
                 .into_iter()
                 .skip(start)
-                .take(limit as usize)
+                .take(effective_limit as usize)
                 .collect();
             (page, total, qs, ccc, start as i64)
         } else {
@@ -741,7 +745,7 @@ pub async fn handle_email_query<B: MailBackend>(
                     &account_id,
                     filter.as_ref(),
                     sort_slice,
-                    Some(limit),
+                    Some(effective_limit),
                     position,
                 )
                 .await
@@ -771,8 +775,8 @@ pub async fn handle_email_query<B: MailBackend>(
         }
     }
     // RFC 8620 §5.5: return limit if server applied a cap different from what the client sent.
-    if client_limit != Some(limit) {
-        resp["limit"] = json!(limit);
+    if requested_limit != Some(effective_limit) {
+        resp["limit"] = json!(effective_limit);
     }
 
     Ok((resp, vec![]))
@@ -1115,31 +1119,23 @@ pub async fn handle_email_set<B: MailBackend>(
 
 /// Apply RFC 8621 §4.2 body-value fetch arguments to a serialized `Email` JSON value.
 ///
-/// - `fetch_text/html/all_body_values`: control which `bodyValues` entries survive. When none
+/// - `args.fetch_text/html/all`: control which `bodyValues` entries survive. When none
 ///   of the three flags are set, `bodyValues` is cleared to an empty object (RFC 8621 §4.2
-///   default: `fetchTextBodyValues=false`, `fetchHTMLBodyValues=false`,
-///   `fetchAllBodyValues=false`).
-/// - `max_body_value_bytes`: truncate each `bodyValue.value` string to at most this many bytes
+///   default: all false).
+/// - `args.max_bytes`: truncate each `bodyValue.value` string to at most this many bytes
 ///   (0 = unlimited). Truncation is on a UTF-8 char boundary to avoid producing invalid JSON.
 /// - `body_prop_set`: pre-built set of property names to keep in each `EmailBodyPart`. The
 ///   caller builds this once before the per-email loop so it is not rebuilt on every call.
 ///
 /// This function operates on the serialized JSON value because the body-value filtering rules
 /// require cross-referencing `textBody`/`htmlBody` part ids against `bodyValues` keys.
-fn apply_body_value_args(
-    val: &mut Value,
-    fetch_text_body_values: bool,
-    fetch_html_body_values: bool,
-    fetch_all_body_values: bool,
-    max_body_value_bytes: u64,
-    body_prop_set: &HashSet<&str>,
-) {
+fn apply_body_value_args(val: &mut Value, args: &BodyFetchArgs, body_prop_set: &HashSet<&str>) {
     let Value::Object(ref mut map) = val else {
         return;
     };
 
     // Collect part ids for text and html body lists so we can filter bodyValues.
-    let text_part_ids: HashSet<String> = if fetch_text_body_values || fetch_all_body_values {
+    let text_part_ids: HashSet<String> = if args.fetch_text || args.fetch_all {
         map.get("textBody")
             .and_then(|v| v.as_array())
             .map(|arr| {
@@ -1151,7 +1147,7 @@ fn apply_body_value_args(
     } else {
         HashSet::new()
     };
-    let html_part_ids: HashSet<String> = if fetch_html_body_values || fetch_all_body_values {
+    let html_part_ids: HashSet<String> = if args.fetch_html || args.fetch_all {
         map.get("htmlBody")
             .and_then(|v| v.as_array())
             .map(|arr| {
@@ -1166,20 +1162,20 @@ fn apply_body_value_args(
 
     // Filter bodyValues: keep only entries whose partId appears in the wanted sets.
     if let Some(Value::Object(ref mut bv_map)) = map.get_mut("bodyValues") {
-        if !fetch_all_body_values {
+        if !args.fetch_all {
             bv_map.retain(|part_id, _| {
                 text_part_ids.contains(part_id) || html_part_ids.contains(part_id)
             });
         }
         // Apply maxBodyValueBytes truncation to each surviving entry.
-        if max_body_value_bytes > 0 {
+        if args.max_bytes > 0 {
             for entry in bv_map.values_mut() {
                 if let Some(text) = entry
                     .as_object_mut()
                     .and_then(|e| e.get_mut("value"))
                     .and_then(|v| v.as_str().map(str::to_owned))
                 {
-                    let limit = max_body_value_bytes as usize;
+                    let limit = args.max_bytes as usize;
                     if text.len() > limit {
                         // Truncate at the last UTF-8 char boundary at or before `limit`
                         // bytes so the output is AT MOST `limit` bytes. A direct slice
@@ -1242,8 +1238,9 @@ fn apply_body_properties_recursive(node: &mut Value, props: &HashSet<&str>) {
     }
     // Then filter this node's own keys.
     *node = apply_body_properties(node, props);
-    // Restore subParts if it survived filtering (it won't be in the default list).
-    // Nothing extra to do — apply_body_properties already kept it if props contains "subParts".
+    // subParts is included in the filtered output only when bodyProperties explicitly lists it;
+    // the default list does not include it so bodyStructure trees are returned as leaf nodes
+    // unless the client asks for subParts.
 }
 
 /// Build an [`Email`] from a creation payload (`obj_val`).
@@ -1253,6 +1250,9 @@ fn apply_body_properties_recursive(node: &mut Value, props: &HashSet<&str>) {
 /// per RFC 8621 §5.5 `blobId` is server-set, so the backend replaces it with
 /// the real value inside `create_object`. Assigns a thread id by searching
 /// existing emails for matching `inReplyTo`/`references`.
+const FORBIDDEN_KEYWORD_CHARS: &[u8] = b"(){]%*\"\\";
+const MAX_KEYWORD_LEN: usize = 255;
+
 /// Validate and normalize a raw keyword map from the wire format.
 ///
 /// RFC 8621 §4.1.1 rules:
@@ -1264,9 +1264,6 @@ fn apply_body_properties_recursive(node: &mut Value, props: &HashSet<&str>) {
 ///
 /// Returns the validated, normalized map or a descriptive error string for
 /// use in an `invalidProperties` SetError.
-const FORBIDDEN_KEYWORD_CHARS: &[u8] = b"(){]%*\"\\";
-const MAX_KEYWORD_LEN: usize = 255;
-
 fn validate_and_normalize_keywords(
     raw: HashMap<String, bool>,
 ) -> Result<HashMap<Keyword, bool>, String> {
@@ -1458,32 +1455,19 @@ async fn build_email_from_create<B: MailBackend>(
     // -----------------------------------------------------------------------
     // RFC 8621 §4.6 — body structure validation
     // -----------------------------------------------------------------------
-    let has_body_structure = obj_val
-        .get("bodyStructure")
-        .map(|v| !v.is_null())
-        .unwrap_or(false);
-    let has_text_body = obj_val
-        .get("textBody")
-        .map(|v| !v.is_null())
-        .unwrap_or(false);
-    let has_html_body = obj_val
-        .get("htmlBody")
-        .map(|v| !v.is_null())
-        .unwrap_or(false);
-    let has_attachments = obj_val
-        .get("attachments")
-        .map(|v| !v.is_null())
-        .unwrap_or(false);
-
     // bodyStructure is mutually exclusive with textBody, htmlBody, and attachments.
-    if has_body_structure && (has_text_body || has_html_body || has_attachments) {
+    if obj_val.get("bodyStructure").is_some_and(|v| !v.is_null())
+        && (obj_val.get("textBody").is_some_and(|v| !v.is_null())
+            || obj_val.get("htmlBody").is_some_and(|v| !v.is_null())
+            || obj_val.get("attachments").is_some_and(|v| !v.is_null()))
+    {
         return Err(
             "bodyStructure is mutually exclusive with textBody, htmlBody, and attachments".into(),
         );
     }
 
     // textBody: must be exactly one part of type text/plain.
-    if has_text_body {
+    if obj_val.get("textBody").is_some_and(|v| !v.is_null()) {
         let text_parts: &Vec<Value> = obj_val["textBody"]
             .as_array()
             .ok_or("textBody must be an array")?;
@@ -1500,7 +1484,7 @@ async fn build_email_from_create<B: MailBackend>(
     }
 
     // htmlBody: must be exactly one part of type text/html.
-    if has_html_body {
+    if obj_val.get("htmlBody").is_some_and(|v| !v.is_null()) {
         let html_parts: &Vec<Value> = obj_val["htmlBody"]
             .as_array()
             .ok_or("htmlBody must be an array")?;
@@ -1893,7 +1877,9 @@ pub async fn handle_email_parse<B: MailBackend>(
         Some(props) => props.iter().any(|p| p == "headers"),
         None => false,
     };
-    let need_headers_injected = !header_props.is_empty() && !client_wants_headers;
+    // Without this inject-then-strip, header:Name properties would silently return null
+    // because the raw 'headers' array would never be fetched from the backend.
+    let headers_implicit = !header_props.is_empty() && !client_wants_headers;
 
     // When `properties` is null, RFC 8621 §4.9 specifies the default property list.
     let effective_props: HashSet<&str> = if properties.is_none() {
@@ -1902,15 +1888,21 @@ pub async fn handle_email_parse<B: MailBackend>(
         let mut set: HashSet<&str> = regular_props.iter().copied().collect();
         // RFC 8620 §5.1: `id` MUST always be present in /get responses.
         set.insert("id");
-        if need_headers_injected {
+        if headers_implicit {
             set.insert("headers");
         }
         set
     };
 
     // Build the body-properties set once before the per-blob loop so it is
-    // not rebuilt for every blob (P2 e53.30).
+    // not rebuilt on every call into apply_body_value_args.
     let body_prop_set: HashSet<&str> = body_properties.iter().map(|s| s.as_str()).collect();
+    let body_fetch_args = BodyFetchArgs {
+        fetch_text: fetch_text_body_values,
+        fetch_html: fetch_html_body_values,
+        fetch_all: fetch_all_body_values,
+        max_bytes: max_body_value_bytes,
+    };
 
     let mut parsed = serde_json::Map::new();
     let mut not_parsable: Vec<Value> = Vec::new();
@@ -1922,14 +1914,7 @@ pub async fn handle_email_parse<B: MailBackend>(
                 let mut val = serde_json::to_value(&email).unwrap_or_else(
                     |e| json!({ "type": "serverFail", "description": e.to_string() }),
                 );
-                apply_body_value_args(
-                    &mut val,
-                    fetch_text_body_values,
-                    fetch_html_body_values,
-                    fetch_all_body_values,
-                    max_body_value_bytes,
-                    &body_prop_set,
-                );
+                apply_body_value_args(&mut val, &body_fetch_args, &body_prop_set);
                 let mut obj = filter_properties(&val, &effective_props);
                 // Inject dynamic header: property results (mirrors handle_email_get).
                 if !parsed_header_reqs.is_empty() {
@@ -1938,7 +1923,7 @@ pub async fn handle_email_parse<B: MailBackend>(
                             let extracted = extract_header_values(&val, req);
                             map.insert((*prop).to_owned(), extracted);
                         }
-                        if need_headers_injected {
+                        if headers_implicit {
                             map.remove("headers");
                         }
                     }
