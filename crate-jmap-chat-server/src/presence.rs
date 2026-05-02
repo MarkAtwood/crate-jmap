@@ -174,7 +174,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
             // Inject server-set updatedAt before forwarding to backend.
             let mut patch = patch_val;
             if let Some(obj) = patch.as_object_mut() {
-                obj.insert("updatedAt".to_string(), json!(now_utc_string()));
+                obj.insert("updatedAt".to_owned(), json!(now_utc_string()));
             }
 
             match backend
