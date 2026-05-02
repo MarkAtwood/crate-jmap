@@ -225,12 +225,18 @@ pub use jmap_server::ClosureHandler;
 // register_mdn_handlers — MDN extension entry point (feature = "mdn")
 // ---------------------------------------------------------------------------
 
-/// Register the 2 JMAP MDN method handlers with `dispatcher`.
+/// Register MDN method handlers with the dispatcher.
 ///
-/// Requires the `mdn` Cargo feature. The backend must implement both
-/// [`MailBackend`] and [`MdnBackend`].
+/// Registers `MDN/send` and `MDN/parse`. Both methods require
+/// `urn:ietf:params:jmap:mdn` in the JMAP request `using` array;
+/// `MDN/send` additionally requires `urn:ietf:params:jmap:mail`
+/// (draft-ietf-jmap-mdn-17 §2.1). Callers MUST ensure
+/// `check_known_capabilities` is called with both URIs listed as known,
+/// so that clients omitting either capability receive an appropriate
+/// error before method dispatch.
 ///
-/// After this call, the dispatcher handles: `MDN/send` and `MDN/parse`.
+/// The handlers themselves do not inspect the `using` field — that
+/// validation is the dispatcher/framework layer's responsibility.
 #[cfg(feature = "mdn")]
 pub fn register_mdn_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
 where

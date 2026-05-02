@@ -536,3 +536,52 @@ async fn mdn_parse_not_parsable() {
         "MDN/parse must produce no extra invocations"
     );
 }
+
+/// Test 9: MDN/send with a null/absent `forEmailId` produces per-entry
+/// `invalidProperties`, not a whole-request error.
+///
+/// Oracle: draft-ietf-jmap-mdn-17 §2 — "forEmailId MUST NOT be null for MDN/send."
+/// A null/absent forEmailId must produce per-entry invalidProperties, not a whole-request error.
+#[tokio::test]
+async fn mdn_send_null_for_email_id() {
+    let backend = MemoryBackend::default();
+    let account_id = Id::from("account1");
+
+    // Identity must exist so the request passes the identity check and reaches
+    // the per-entry forEmailId validation in step 4 of the handler.
+    let identity_id = setup_identity(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "identityId": identity_id.as_ref(),
+        "send": {
+            "k1": {
+                // forEmailId deliberately omitted → None after deserialization
+                "disposition": {
+                    "actionMode": "manual-action",
+                    "sendingMode": "mdn-sent-manually",
+                    "type": "displayed"
+                }
+            }
+        },
+        "onSuccessUpdateEmail": {
+            "#k1": { "keywords/$mdnsent": true }
+        }
+    });
+    let (resp, extra) = handle_mdn_send(&backend, args, "call1")
+        .await
+        .expect("null forEmailId should not cause a whole-request error");
+    // Oracle: per-entry invalidProperties, not a request-level Err
+    assert_eq!(
+        resp["notSent"]["k1"]["type"], "invalidProperties",
+        "null forEmailId must return invalidProperties per draft §2"
+    );
+    assert!(
+        resp["sent"].is_null() || resp["sent"] == serde_json::json!(null),
+        "sent must be null when all entries have errors"
+    );
+    assert!(
+        extra.is_empty(),
+        "no Email/set companion when nothing was sent"
+    );
+}

@@ -124,8 +124,9 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     call_id: &str,
 ) -> Result<(serde_json::Value, Vec<Invocation>), JmapError> {
     // Step 1: Parse request.
-    let req: MdnSendRequest = serde_json::from_value(args)
-        .map_err(|_| JmapError::invalid_arguments("failed to parse MDN/send arguments"))?;
+    let req: MdnSendRequest = serde_json::from_value(args).map_err(|e| {
+        JmapError::invalid_arguments(format!("failed to parse MDN/send arguments: {e}"))
+    })?;
 
     // Step 2: Validate identityId — fetch identity, confirming both account and
     // identity existence in a single round-trip.  An unknown accountId produces
@@ -236,6 +237,10 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 }
             }
         }
+        // mdn_gateway and original_message_id are "server-set" in spec §2,
+        // but the Mdn struct is shared between send and parse: a client CAN
+        // include them. Any client-supplied value that ends up in a generated
+        // RFC 5322 header must be CRLF-clean to prevent header injection.
         if !crlf_bad {
             if let Some(ref s) = mdn.mdn_gateway {
                 if !crate::submission::check_no_crlf(s) {
@@ -450,8 +455,9 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Step 1: deserialize the full request structure.
-    let req: jmap_mail_types::mdn::MdnParseRequest = serde_json::from_value(args)
-        .map_err(|_| JmapError::invalid_arguments("failed to parse MDN/parse arguments"))?;
+    let req: jmap_mail_types::mdn::MdnParseRequest = serde_json::from_value(args).map_err(|e| {
+        JmapError::invalid_arguments(format!("failed to parse MDN/parse arguments: {e}"))
+    })?;
 
     // Step 2: `accountId` presence is enforced by MdnParseRequest deserialization
     // above — a missing field causes Step 1 to fail.  No separate backend
