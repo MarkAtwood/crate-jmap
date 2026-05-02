@@ -6181,7 +6181,7 @@ async fn thread_get_email_ids_sorted_by_received_at() {
 /// The parent and child are created in separate requests so the child
 /// exists in the backend before the destroy request is processed.
 #[tokio::test]
-async fn test_mailbox_set_destroy_with_children() {
+async fn mailbox_set_destroy_with_children() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("acct1");
 
@@ -6260,7 +6260,7 @@ async fn test_mailbox_set_destroy_with_children() {
 ///
 /// Two mailboxes under the same parent may not share a name.
 #[tokio::test]
-async fn test_mailbox_set_create_duplicate_name() {
+async fn mailbox_set_create_duplicate_name() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("acct1");
 
@@ -6711,6 +6711,12 @@ async fn identity_get_properties_filtering_restricts_fields() {
         obj.keys().collect::<Vec<_>>()
     );
 }
+
+// -----------------------------------------------------------------------
+// Conformance tests (conformance_*): derived from jmap-test-suite scenarios,
+// use the seed fixture, and verify RFC 8621 §x.y compliance.
+// Unit tests (bare names): exercise specific edge cases or internal behavior.
+// -----------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
 // Conformance: Email/get basic (RFC 8621 §4.1)

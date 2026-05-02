@@ -203,9 +203,9 @@ async fn test_email_thread_uniqueness() {
 // ---------------------------------------------------------------------------
 
 /// Oracle: plain-simple
-///   subject = "Meeting tomorrow morning"   (seed-data.ts line ~116)
-///   from    = alice@example.com            (seed-data.ts line ~113)
-///   keywords contain $seen                 (seed-data.ts line ~121)
+///   subject = "Meeting tomorrow morning"   (seed-data.ts: plain-simple fixture, subject field)
+///   from    = alice@example.com            (seed-data.ts: plain-simple fixture, from field)
+///   keywords contain $seen                 (seed-data.ts: plain-simple fixture, keywords)
 #[tokio::test]
 async fn test_email_keywords_plain_simple() {
     let (backend, seed) = mk().await;
@@ -245,8 +245,8 @@ async fn test_email_keywords_plain_simple() {
 }
 
 /// Oracle: html-attachment
-///   keywords: $seen AND $flagged              (seed-data.ts line ~140)
-///   cc:       charlie@example.net             (seed-data.ts line ~129)
+///   keywords: $seen AND $flagged              (seed-data.ts: html-attachment fixture, keywords)
+///   cc:       charlie@example.net             (seed-data.ts: html-attachment fixture, cc field)
 #[tokio::test]
 async fn test_email_keywords_html_attachment() {
     let (backend, seed) = mk().await;
@@ -284,7 +284,7 @@ async fn test_email_keywords_html_attachment() {
 }
 
 /// Oracle: custom-keywords
-///   keywords: $seen, $forwarded, custom_label   (seed-data.ts line ~258-259)
+///   keywords: $seen, $forwarded, custom_label   (seed-data.ts: custom-keywords fixture, keywords)
 #[tokio::test]
 async fn test_email_keywords_custom() {
     let (backend, seed) = mk().await;
@@ -392,7 +392,7 @@ async fn test_email_size_large() {
 
 /// Oracle: special-headers
 ///   extraHeaders includes "X-Custom-Header: custom-value-12345"
-///   (seed-data.ts lines ~299-303)
+///   (seed-data.ts: special-headers fixture, extraHeaders array)
 #[tokio::test]
 async fn test_email_special_headers() {
     let (backend, seed) = mk().await;
@@ -429,7 +429,7 @@ async fn test_email_special_headers() {
 // ---------------------------------------------------------------------------
 
 /// Oracle: child-mailbox-email lives in child1 only.
-///   mailboxIds: { [child1]: true }   (seed-data.ts line ~412)
+///   mailboxIds: { [child1]: true }   (seed-data.ts: child-mailbox-email fixture, mailboxIds)
 #[tokio::test]
 async fn test_email_placement_child() {
     let (backend, seed) = mk().await;
@@ -461,7 +461,7 @@ async fn test_email_placement_child() {
 }
 
 /// Oracle: multi-mailbox is in both inbox AND folderA.
-///   mailboxIds: { [inbox]: true, [folderA]: true }   (seed-data.ts line ~199)
+///   mailboxIds: { [inbox]: true, [folderA]: true }   (seed-data.ts: multi-mailbox fixture, mailboxIds)
 #[tokio::test]
 async fn test_email_placement_multi_mailbox() {
     let (backend, seed) = mk().await;
@@ -498,7 +498,8 @@ async fn test_email_placement_multi_mailbox() {
 /// Oracle: inbox contains at least 9 emails.
 ///   plain-simple, html-attachment, thread-reply-1, thread-reply-2,
 ///   multi-mailbox, html-only, no-subject, custom-keywords, special-headers
-///   (seed-data.ts lines ~120, 139, 169, 185, 199, 229, 244, 260, 308)
+///   (seed-data.ts: plain-simple, html-attachment, thread-reply-1, thread-reply-2,
+///    multi-mailbox, html-only, no-subject, custom-keywords, special-headers fixtures, mailboxIds)
 #[tokio::test]
 async fn test_inbox_email_count() {
     let (backend, seed) = mk().await;
@@ -522,7 +523,7 @@ async fn test_inbox_email_count() {
 
 /// Oracle: folderA contains at least 3 emails.
 ///   thread-starter, multi-mailbox, very-old
-///   (seed-data.ts lines ~153, 199, 274)
+///   (seed-data.ts: thread-starter, multi-mailbox, very-old fixtures, mailboxIds)
 #[tokio::test]
 async fn test_folder_a_email_count() {
     let (backend, seed) = mk().await;
@@ -546,7 +547,7 @@ async fn test_folder_a_email_count() {
 
 /// Oracle: folderB contains exactly 4 emails.
 ///   large-email, sort-test-1, sort-test-2, sort-test-3
-///   (seed-data.ts lines ~213, 353, 365, 378)
+///   (seed-data.ts: large-email, sort-test-1, sort-test-2, sort-test-3 fixtures, mailboxIds)
 #[tokio::test]
 async fn test_folder_b_email_count() {
     let (backend, seed) = mk().await;
@@ -569,7 +570,7 @@ async fn test_folder_b_email_count() {
 }
 
 /// Oracle: child1 contains exactly 1 email (child-mailbox-email).
-///   (seed-data.ts line ~412)
+///   (seed-data.ts: child-mailbox-email fixture, mailboxIds)
 #[tokio::test]
 async fn test_child1_email_count() {
     let (backend, seed) = mk().await;
@@ -596,9 +597,9 @@ async fn test_child1_email_count() {
 // ---------------------------------------------------------------------------
 
 /// Oracle: spot-check three email subjects from seed-data.ts.
-///   thread-starter: "Project Alpha Discussion"    (line ~148)
-///   html-only:      "Newsletter: Weekly Digest"   (line ~222)
-///   no-subject:     ""                            (line ~238)
+///   thread-starter: "Project Alpha Discussion"    (seed-data.ts: thread-starter fixture, subject)
+///   html-only:      "Newsletter: Weekly Digest"   (seed-data.ts: html-only fixture, subject)
+///   no-subject:     ""                            (seed-data.ts: no-subject fixture, subject)
 #[tokio::test]
 async fn test_email_subjects() {
     let (backend, seed) = mk().await;
