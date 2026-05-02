@@ -130,7 +130,7 @@ impl JmapBackend for MemoryBackend {
         &self,
         account_id: &Id,
         ids: Option<&[Id]>,
-        _properties: Option<&[O::Property]>,
+        _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
         let inner = self.inner.lock().unwrap();
         let map = inner.objects_ref(O::TYPE_NAME, account_id.as_ref());
@@ -480,7 +480,7 @@ impl JmapBackend for FaultyBackend {
         &self,
         _account_id: &Id,
         _ids: Option<&[Id]>,
-        _properties: Option<&[O::Property]>,
+        _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
         Err(MemoryError("storage unavailable".to_owned()))
     }
