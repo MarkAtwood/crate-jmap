@@ -249,16 +249,20 @@ impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
 pub type BackendCallFn<B> =
     dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture + Send + Sync + 'static;
 
-/// Generic wrapper that implements [`JmapHandler`] for any closure over an
-/// `Arc<B>` backend.
+/// A [`JmapHandler`] that wraps an async closure over a shared backend.
 ///
-/// Useful for registering method handlers without defining a new struct.
-/// Used internally by `register_mail_handlers` and `register_chat_handlers`.
+/// # CallerCtx limitation
 ///
-/// **Caller context limitation**: the `caller: C` value received in
-/// [`JmapHandler::call`] is not forwarded to the handler closure.  If you need
-/// per-request auth or tenant context, implement [`JmapHandler`] directly on
-/// your own type.
+/// The closure receives `(args: Value, ctx: C)` where `C` is the caller
+/// context (e.g. auth identity). However, the closures registered via
+/// [`register_mail_handlers`] / [`register_chat_handlers`] capture the
+/// backend via `Arc` and ignore `ctx` entirely — they do not forward the
+/// auth context to the handler.
+///
+/// If per-request auth context is needed, register handlers individually
+/// via [`Dispatcher::register`] with a closure that explicitly uses `ctx`.
+/// Adding `CallerCtx` forwarding to `ClosureHandler` itself would be a
+/// breaking API change, deferred to a future version.
 pub struct ClosureHandler<B: Send + Sync + 'static> {
     pub backend: Arc<B>,
     pub call_fn: Box<BackendCallFn<B>>,
