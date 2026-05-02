@@ -4,6 +4,9 @@
 //! mailboxes and emails derived from the jmap-test-suite seed-data spec.
 //! All timestamps are relative to the fixed baseline `2026-01-01T00:00:00Z`
 //! so tests are fully deterministic.
+//!
+//! Oracle: `~/GIT/jmap-test-suite/src/setup/seed-data.ts` — these fixtures
+//! mirror that file's structure for cross-validation.
 
 use std::collections::HashMap;
 
@@ -27,6 +30,11 @@ pub struct SeedData {
     /// Logical name → assigned email Id.
     pub email: HashMap<&'static str, Id>,
     /// Logical name → assigned thread Id.
+    ///
+    /// Keyed by logical name. Single-email fixtures get an entry under the
+    /// email's fixture name. Multi-email threads use a separate name
+    /// (`"thread-alpha"`). Follow this convention when adding new thread
+    /// fixtures.
     pub thread: HashMap<&'static str, Id>,
 }
 
@@ -37,6 +45,10 @@ pub struct SeedData {
 /// Pre-computed UTC timestamps.  The baseline is 2026-01-01T00:00:00Z.
 /// `days_ago(n)` = baseline minus exactly n × 86400 seconds.
 /// `DAYS_AGO_1_MINUS_1H` = days_ago(1) minus 1 hour.
+///
+/// Fixed absolute timestamps are intentional — sort-by-date and
+/// filter-by-date tests require deterministic results regardless of when
+/// tests run.
 mod ts {
     pub const DAYS_AGO_30: &str = "2025-12-02T00:00:00Z";
     pub const DAYS_AGO_10: &str = "2025-12-22T00:00:00Z";
@@ -309,9 +321,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import plain-simple");
     emails.insert("plain-simple", email_id);
-    threads
-        .entry("plain-simple")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("plain-simple", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 2: html-attachment
@@ -346,9 +356,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import html-attachment");
     emails.insert("html-attachment", email_id);
-    threads
-        .entry("html-attachment")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("html-attachment", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 3: thread-starter
@@ -474,9 +482,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import multi-mailbox");
     emails.insert("multi-mailbox", email_id);
-    threads
-        .entry("multi-mailbox")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("multi-mailbox", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 7: large-email
@@ -511,9 +517,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import large-email");
     emails.insert("large-email", email_id);
-    threads
-        .entry("large-email")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("large-email", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 8: html-only
@@ -544,9 +548,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import html-only");
     emails.insert("html-only", email_id);
-    threads
-        .entry("html-only")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("html-only", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 9: no-subject
@@ -576,9 +578,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import no-subject");
     emails.insert("no-subject", email_id);
-    threads
-        .entry("no-subject")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("no-subject", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 10: custom-keywords
@@ -608,9 +608,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import custom-keywords");
     emails.insert("custom-keywords", email_id);
-    threads
-        .entry("custom-keywords")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("custom-keywords", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 11: very-old
@@ -640,9 +638,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import very-old");
     emails.insert("very-old", email_id);
-    threads
-        .entry("very-old")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("very-old", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 12: special-headers
@@ -674,9 +670,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import special-headers");
     emails.insert("special-headers", email_id);
-    threads
-        .entry("special-headers")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("special-headers", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 13: child-mailbox-email
@@ -706,9 +700,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import child-mailbox-email");
     emails.insert("child-mailbox-email", email_id);
-    threads
-        .entry("child-mailbox-email")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("child-mailbox-email", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 14: sort-test-1
@@ -738,9 +730,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import sort-test-1");
     emails.insert("sort-test-1", email_id);
-    threads
-        .entry("sort-test-1")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("sort-test-1", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 15: sort-test-2
@@ -770,9 +760,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import sort-test-2");
     emails.insert("sort-test-2", email_id);
-    threads
-        .entry("sort-test-2")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("sort-test-2", email.thread_id.clone());
 
     // -----------------------------------------------------------------------
     // Email 16: sort-test-3
@@ -802,12 +790,11 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .await
         .expect("setup: import sort-test-3");
     emails.insert("sort-test-3", email_id);
-    threads
-        .entry("sort-test-3")
-        .or_insert_with(|| email.thread_id.clone());
+    threads.insert("sort-test-3", email.thread_id.clone());
 
-    // Store the thread-alpha Id captured from the thread-starter email above.
-    // (thread-reply-1 and thread-reply-2 join the same thread.)
+    // Re-insert the canonical 'thread-alpha' key here (after all replies are
+    // imported) to ensure it holds the correct thread ID regardless of
+    // insertion order.
     threads.insert("thread-alpha", alpha_thread_id);
 
     SeedData {
