@@ -7,11 +7,12 @@ use serde_json::Value;
 ///
 /// Validates:
 /// - The body deserializes as a [`JmapRequest`].
-/// - `using` is non-empty (RFC 8620 §3.3).
 /// - The number of method calls does not exceed `max_calls` (RFC 8620 §3.3).
 ///
-/// Capability URI checking is NOT performed here — that is the caller's
-/// responsibility.
+/// An empty `using` array is **not** rejected here.  Per the jmap-test-suite
+/// conformance ruling (Q4 / `error-empty-using`), the server must process the
+/// request and return `unknownMethod` for every call — not a 400-level
+/// `notRequest`.  Capability URI checking is the caller's responsibility.
 ///
 /// # Caller responsibility: `notJSON`
 ///
@@ -25,15 +26,11 @@ use serde_json::Value;
 /// # Errors
 ///
 /// Returns [`JmapError::not_request()`] if the value does not match the
-/// `JmapRequest` schema or if `using` is empty.  Returns
+/// `JmapRequest` schema.  Returns
 /// [`JmapError::limit("maxCallsInRequest")`][JmapError::limit] if the method
 /// call count exceeds `max_calls`.
 pub fn parse_request(body: Value, max_calls: usize) -> Result<JmapRequest, JmapError> {
     let req: JmapRequest = serde_json::from_value(body).map_err(|_| JmapError::not_request())?;
-
-    if req.using.is_empty() {
-        return Err(JmapError::not_request());
-    }
 
     if req.method_calls.len() > max_calls {
         return Err(JmapError::limit("maxCallsInRequest"));
@@ -200,17 +197,15 @@ mod tests {
         assert_eq!(req.method_calls.len(), 1);
     }
 
+    // Oracle: jmap-test-suite Q4 / error-empty-using — empty using[] must be
+    // accepted by parse_request; the dispatcher returns unknownMethod per call.
     #[test]
-    fn parse_request_empty_using_is_error() {
+    fn parse_request_empty_using_is_ok() {
         let body = json!({
             "using": [],
             "methodCalls": []
         });
-        let err = parse_request(body, 16).unwrap_err();
-        assert_eq!(
-            err.error_type, "notRequest",
-            "empty using violates request structure — must be notRequest per RFC 8620 §3.6.1"
-        );
+        parse_request(body, 16).expect("empty using must be accepted — unknownMethod is dispatcher's job");
     }
 
     #[test]
