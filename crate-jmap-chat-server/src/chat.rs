@@ -1,5 +1,7 @@
 //! Chat/* method handlers (JMAP Chat extension §Chat).
 
+use std::collections::HashSet;
+
 use jmap_chat_types::{Chat, ChatKind};
 use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
 use serde_json::{json, Value};
@@ -310,6 +312,19 @@ pub async fn handle_chat_set<B: ChatBackend>(
     // create
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+        // Fetch all existing chats once before the loop (O(1) fetch instead of
+        // O(n) per-create fetches) and build a set of already-known Direct
+        // contactIds for the pre-check.
+        let (existing_chats, _) = backend
+            .get_objects::<Chat>(&account_id, None, None)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        let mut known_direct_contact_ids: HashSet<String> = existing_chats
+            .iter()
+            .filter(|c| c.kind == ChatKind::Direct)
+            .filter_map(|c| c.contact_id.as_ref().map(|id| id.as_ref().to_owned()))
+            .collect();
+
         for (create_id, obj_val) in create_map {
             // kind is required.
             let kind_str = match obj_val.get("kind").and_then(|v| v.as_str()) {
@@ -329,6 +344,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
             };
 
             // Validate kind-specific required fields.
+            let is_direct_create;
+            let direct_contact_id_str: Option<String>;
             match &kind {
                 ChatKind::Direct => {
                     let contact_id_str = match obj_val.get("contactId").and_then(|v| v.as_str()) {
@@ -342,13 +359,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         }
                     };
 
-                    // Deduplication: reject if a direct chat with this contactId already exists.
-                    // Note: MemoryBackend.get_objects returns all objects regardless of the
-                    // filter argument; real backends may optimise this query.
-                    let (existing_chats, _) = backend
-                        .get_objects::<Chat>(&account_id, None, None)
-                        .await
-                        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    // Pre-check: reject if a direct chat with this contactId is
+                    // already known from the hoisted fetch.
                     if let Some(dup) = existing_chats.iter().find(|c| {
                         c.kind == ChatKind::Direct
                             && c.contact_id.as_ref().map(|id| id.as_ref())
@@ -366,6 +378,37 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         );
                         continue;
                     }
+                    // Also check contactIds created earlier in this same batch.
+                    if known_direct_contact_ids.contains(&contact_id_str) {
+                        // Re-fetch to find the canonical id.
+                        let (current_chats, _) = backend
+                            .get_objects::<Chat>(&account_id, None, None)
+                            .await
+                            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                        let canonical_id = current_chats
+                            .iter()
+                            .filter(|c| {
+                                c.kind == ChatKind::Direct
+                                    && c.contact_id.as_ref().map(|id| id.as_ref())
+                                        == Some(contact_id_str.as_str())
+                            })
+                            .min_by(|a, b| a.id.as_ref().cmp(b.id.as_ref()))
+                            .map(|c| c.id.clone())
+                            .unwrap_or_else(|| Id::from("unknown"));
+                        not_created.insert(
+                            create_id.clone(),
+                            serde_json::to_value(
+                                SetError::new(SetErrorType::AlreadyExists)
+                                    .with_existing_id(canonical_id),
+                            )
+                            .unwrap_or_else(
+                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
+                            ),
+                        );
+                        continue;
+                    }
+                    is_direct_create = true;
+                    direct_contact_id_str = Some(contact_id_str);
                 }
                 ChatKind::Channel => {
                     if obj_val.get("spaceId").and_then(|v| v.as_str()).is_none() {
@@ -375,8 +418,13 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         );
                         continue;
                     }
+                    is_direct_create = false;
+                    direct_contact_id_str = None;
                 }
-                _ => {}
+                _ => {
+                    is_direct_create = false;
+                    direct_contact_id_str = None;
+                }
             }
 
             let now_str = now_utc_string();
@@ -425,7 +473,58 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .create_object::<Chat>(&account_id, create_id, chat)
                 .await
             {
-                Ok((_server_id, created_obj)) => {
+                Ok((new_id, created_obj)) => {
+                    // For Direct chats: re-fetch to detect a concurrent duplicate
+                    // (optimistic create-then-validate).
+                    if is_direct_create {
+                        let contact_id_str =
+                            direct_contact_id_str.as_deref().unwrap_or_default();
+                        let (current_chats, _) = backend
+                            .get_objects::<Chat>(&account_id, None, None)
+                            .await
+                            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                        let duplicates: Vec<&Chat> = current_chats
+                            .iter()
+                            .filter(|c| {
+                                c.kind == ChatKind::Direct
+                                    && c.contact_id.as_ref().map(|id| id.as_ref())
+                                        == Some(contact_id_str)
+                            })
+                            .collect();
+                        if duplicates.len() > 1 {
+                            // Race occurred: pick lexicographically smallest id
+                            // as the canonical winner.
+                            let canonical_id = duplicates
+                                .iter()
+                                .map(|c| c.id.as_ref())
+                                .min()
+                                .map(Id::from)
+                                .unwrap_or_else(|| new_id.clone());
+                            if new_id != canonical_id {
+                                // We lost the race: destroy our copy and report
+                                // alreadyExists pointing to the canonical one.
+                                let _ = backend
+                                    .destroy_object::<Chat>(&account_id, &new_id)
+                                    .await;
+                                not_created.insert(
+                                    create_id.clone(),
+                                    serde_json::to_value(
+                                        SetError::new(SetErrorType::AlreadyExists)
+                                            .with_existing_id(canonical_id),
+                                    )
+                                    .unwrap_or_else(|e| {
+                                        json!({ "type": "serverFail", "description": e.to_string() })
+                                    }),
+                                );
+                                continue;
+                            }
+                            // We won the race (our id is canonical): fall through
+                            // to success path below.
+                        }
+                        // Exactly one (or we won): record contactId as known so
+                        // subsequent creates in this batch are pre-checked.
+                        known_direct_contact_ids.insert(contact_id_str.to_owned());
+                    }
                     mutated = true;
                     created.insert(
                         create_id.clone(),
