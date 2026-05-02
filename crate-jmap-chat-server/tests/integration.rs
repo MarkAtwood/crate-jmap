@@ -122,7 +122,7 @@ async fn chat_get_empty() {
     assert_eq!(resp["accountId"], "a1");
     assert_eq!(resp["state"], "0");
     assert_eq!(resp["list"], json!([]));
-    assert_eq!(resp["notFound"], json!(null));
+    assert_eq!(resp["notFound"], json!([]));
 }
 
 /// Oracle: Chat/get with a missing id returns notFound entry.
@@ -1381,7 +1381,7 @@ async fn invite_get_empty() {
     assert!(invocations.is_empty());
     assert_eq!(resp["accountId"], "a1");
     assert_eq!(resp["list"], json!([]));
-    assert_eq!(resp["notFound"], json!(null));
+    assert_eq!(resp["notFound"], json!([]));
 }
 
 /// Oracle: SpaceInvite/set create without spaceId returns notCreated invalidProperties.
@@ -1510,7 +1510,7 @@ async fn emoji_get_empty() {
     assert_eq!(resp["accountId"], "a1");
     assert_eq!(resp["state"], "0");
     assert_eq!(resp["list"], json!([]));
-    assert_eq!(resp["notFound"], json!(null));
+    assert_eq!(resp["notFound"], json!([]));
 }
 
 /// Oracle: CustomEmoji/set create without name is rejected with invalidProperties.
@@ -1609,7 +1609,7 @@ async fn emoji_get_returns_created() {
     assert_eq!(get_resp["list"].as_array().expect("list").len(), 1);
     assert_eq!(get_resp["list"][0]["name"], "rocket");
     assert_eq!(get_resp["list"][0]["blobId"], "b99");
-    assert_eq!(get_resp["notFound"], json!(null));
+    assert_eq!(get_resp["notFound"], json!([]));
 }
 
 // ---------------------------------------------------------------------------
@@ -1627,7 +1627,7 @@ async fn ban_get_empty() {
     assert!(invocations.is_empty());
     assert_eq!(resp["accountId"], "a1");
     assert_eq!(resp["list"], json!([]));
-    assert_eq!(resp["notFound"], json!(null));
+    assert_eq!(resp["notFound"], json!([]));
 }
 
 /// Oracle: SpaceBan/set create without spaceId returns notCreated invalidProperties.
@@ -1722,7 +1722,7 @@ async fn ban_get_returns_created() {
     assert_eq!(get_resp["list"][0]["userId"], "u3");
     assert_eq!(get_resp["list"][0]["reason"], "spam");
     assert_eq!(get_resp["list"][0]["bannedBy"], "a1");
-    assert_eq!(get_resp["notFound"], json!(null));
+    assert_eq!(get_resp["notFound"], json!([]));
 }
 
 // ---------------------------------------------------------------------------
@@ -1742,7 +1742,7 @@ async fn presence_get_empty() {
     assert_eq!(resp["accountId"], "a1");
     assert_eq!(resp["state"], "0");
     assert_eq!(resp["list"], json!([]));
-    assert_eq!(resp["notFound"], json!(null));
+    assert_eq!(resp["notFound"], json!([]));
 }
 
 /// Oracle: PresenceStatus/set create is always rejected with forbidden.

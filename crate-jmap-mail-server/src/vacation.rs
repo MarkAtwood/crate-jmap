@@ -55,7 +55,7 @@ pub async fn handle_vacation_get<B: MailBackend>(
                     "accountId": account_id.as_ref(),
                     "state": state.as_ref(),
                     "list": [],
-                    "notFound": null,
+                    "notFound": [],
                 }),
                 vec![],
             ));
@@ -90,7 +90,7 @@ pub async fn handle_vacation_get<B: MailBackend>(
             "accountId": account_id.as_ref(),
             "state": state.as_ref(),
             "list": list_json,
-            "notFound": if not_found.is_empty() { Value::Null } else { Value::Array(not_found) },
+            "notFound": Value::Array(not_found),
         }),
         vec![],
     ))

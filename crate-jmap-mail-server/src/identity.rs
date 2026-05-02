@@ -1,10 +1,12 @@
 //! Identity/get, Identity/changes, and Identity/set method handlers (RFC 8621 §6).
 
+use std::collections::HashSet;
+
 use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
-use crate::helpers::{extract_account_id, not_found_json, ser, set_error_value};
+use crate::helpers::{extract_account_id, filter_properties, not_found_json, ser, set_error_value};
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
 ///
@@ -28,9 +30,19 @@ pub async fn handle_identity_get<B: MailBackend>(
         ),
     };
 
+    // RFC 8620 §5.1: when `properties` is specified return only those fields
+    // (plus `id` which is always included). `None` means return all fields.
+    let properties: Option<Vec<String>> = match args.remove("properties").unwrap_or(Value::Null) {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
+                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
+        ),
+    };
+
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<jmap_mail_types::Identity>(&account_id, ids_slice, None)
+        .get_objects::<jmap_mail_types::Identity>(&account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -39,7 +51,19 @@ pub async fn handle_identity_get<B: MailBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
+    let list_json: Vec<Value> = if let Some(ref props) = properties {
+        // Build the effective property set once; always include "id" per RFC 8620 §5.1.
+        let mut prop_set: HashSet<&str> = props.iter().map(|s| s.as_str()).collect();
+        prop_set.insert("id");
+        list.iter()
+            .map(|obj| {
+                let val = ser(obj)?;
+                Ok(filter_properties(&val, &prop_set))
+            })
+            .collect::<Result<Vec<_>, JmapError>>()?
+    } else {
+        list.iter().map(ser).collect::<Result<Vec<_>, _>>()?
+    };
 
     let resp = json!({
         "accountId": account_id.as_ref(),

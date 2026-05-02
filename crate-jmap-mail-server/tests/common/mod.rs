@@ -5,6 +5,8 @@
 #![allow(dead_code)]
 #![allow(async_fn_in_trait)]
 
+pub mod seed;
+
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
@@ -14,7 +16,9 @@ use jmap_mail_server::{
     SetObject,
 };
 use jmap_mail_types::{
-    query::{EmailFilter, EmailSubmissionFilter, Filter, Operator},
+    query::{
+        ComparatorProperty, EmailComparator, EmailFilter, EmailSubmissionFilter, Filter, Operator,
+    },
     submission::{EmailSubmission, EmailSubmissionFilterCondition},
     Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, SearchSnippet,
 };
@@ -82,6 +86,57 @@ impl Inner {
         account_id: &str,
     ) -> Option<&HashMap<Id, serde_json::Value>> {
         self.objects.get(&(type_name, account_id.to_owned()))
+    }
+
+    /// Re-sort a Thread's `emailIds` by the `receivedAt` of each member email.
+    ///
+    /// RFC 8621 §3 requires `emailIds` to be sorted oldest-first by `receivedAt`.
+    /// Called after every insertion of a new email into an existing thread.
+    fn sort_thread_email_ids(&mut self, account_id: &str, thread_id: &Id) {
+        // Collect current emailIds from the stored Thread JSON.
+        let email_ids: Vec<String> = match self.objects_ref("Thread", account_id) {
+            Some(store) => match store.get(thread_id) {
+                Some(v) => v["emailIds"]
+                    .as_array()
+                    .map(|arr| {
+                        arr.iter()
+                            .filter_map(|e| e.as_str().map(|s| s.to_owned()))
+                            .collect()
+                    })
+                    .unwrap_or_default(),
+                None => return,
+            },
+            None => return,
+        };
+
+        // Look up receivedAt for each email id from the Email store.
+        let mut id_and_date: Vec<(String, String)> = email_ids
+            .into_iter()
+            .map(|eid| {
+                let received_at = self
+                    .objects_ref("Email", account_id)
+                    .and_then(|s| s.get(eid.as_str()))
+                    .and_then(|v| v["receivedAt"].as_str())
+                    .unwrap_or("")
+                    .to_owned();
+                (eid, received_at)
+            })
+            .collect();
+
+        // Sort ascending by receivedAt (ISO 8601 Z strings sort lexicographically).
+        id_and_date.sort_by(|a, b| a.1.cmp(&b.1));
+
+        // Write the sorted list back to the Thread object.
+        if let Some(store) = self.objects.get_mut(&("Thread", account_id.to_owned())) {
+            if let Some(thread_val) = store.get_mut(thread_id) {
+                if let Some(arr) = thread_val["emailIds"].as_array_mut() {
+                    *arr = id_and_date
+                        .into_iter()
+                        .map(|(eid, _)| serde_json::Value::String(eid))
+                        .collect();
+                }
+            }
+        }
     }
 }
 
@@ -323,7 +378,7 @@ impl JmapBackend for MemoryBackend {
         &self,
         account_id: &Id,
         filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
+        sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
     ) -> Result<QueryResult, Self::Error> {
@@ -334,6 +389,17 @@ impl JmapBackend for MemoryBackend {
         let email_filter: Option<EmailFilter> = if O::TYPE_NAME == "Email" {
             filter.and_then(|f| {
                 serde_json::to_value(f)
+                    .ok()
+                    .and_then(|v| serde_json::from_value(v).ok())
+            })
+        } else {
+            None
+        };
+
+        // Decode EmailComparator list for Email queries (JSON roundtrip via O::Comparator).
+        let email_sort: Option<Vec<EmailComparator>> = if O::TYPE_NAME == "Email" {
+            sort.and_then(|s| {
+                serde_json::to_value(s)
                     .ok()
                     .and_then(|v| serde_json::from_value(v).ok())
             })
@@ -352,9 +418,10 @@ impl JmapBackend for MemoryBackend {
             None
         };
 
-        let (mut all_ids, state_n) = {
+        // Collect (id, receivedAt) pairs so we can sort by receivedAt when requested.
+        let (mut id_date_pairs, state_n) = {
             let inner = self.inner.lock().unwrap();
-            let ids: Vec<Id> = if let Some(ref ef) = email_filter {
+            let pairs: Vec<(Id, String)> = if let Some(ref ef) = email_filter {
                 // Apply email filter: deserialize each stored object and check.
                 inner
                     .objects_ref(O::TYPE_NAME, account_id.as_ref())
@@ -363,7 +430,12 @@ impl JmapBackend for MemoryBackend {
                             .filter_map(|(id, val)| {
                                 let email: Email = serde_json::from_value(val.clone()).ok()?;
                                 if email_matches_filter(&email, ef) {
-                                    Some(id.clone())
+                                    let received = val
+                                        .get("receivedAt")
+                                        .and_then(|v| v.as_str())
+                                        .unwrap_or("")
+                                        .to_owned();
+                                    Some((id.clone(), received))
                                 } else {
                                     None
                                 }
@@ -381,7 +453,7 @@ impl JmapBackend for MemoryBackend {
                                 let sub: EmailSubmission =
                                     serde_json::from_value(val.clone()).ok()?;
                                 if submission_matches_filter(&sub, sf) {
-                                    Some(id.clone())
+                                    Some((id.clone(), String::new()))
                                 } else {
                                     None
                                 }
@@ -392,13 +464,42 @@ impl JmapBackend for MemoryBackend {
             } else {
                 inner
                     .objects_ref(O::TYPE_NAME, account_id.as_ref())
-                    .map(|s| s.keys().cloned().collect())
+                    .map(|s| {
+                        s.iter()
+                            .map(|(id, val)| {
+                                let received = val
+                                    .get("receivedAt")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("")
+                                    .to_owned();
+                                (id.clone(), received)
+                            })
+                            .collect()
+                    })
                     .unwrap_or_default()
             };
             let state_n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
-            (ids, state_n)
+            (pairs, state_n)
         };
-        all_ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+
+        // Apply sort. When a receivedAt comparator is present, sort by the
+        // collected receivedAt string (ISO 8601 strings sort lexicographically).
+        // Fall back to id-string sort for deterministic tie-breaking.
+        let received_at_sort = email_sort.as_deref().and_then(|s| {
+            s.iter()
+                .find(|c| c.property == ComparatorProperty::ReceivedAt)
+        });
+        if let Some(cmp) = received_at_sort {
+            let ascending = cmp.is_ascending;
+            id_date_pairs.sort_by(|(id_a, date_a), (id_b, date_b)| {
+                let ord = date_a.cmp(date_b);
+                let ord = if ascending { ord } else { ord.reverse() };
+                ord.then_with(|| id_a.as_ref().cmp(id_b.as_ref()))
+            });
+        } else {
+            id_date_pairs.sort_by(|(a, _), (b, _)| a.as_ref().cmp(b.as_ref()));
+        }
+        let all_ids: Vec<Id> = id_date_pairs.into_iter().map(|(id, _)| id).collect();
 
         let total = all_ids.len();
         let start = if position >= 0 {
@@ -703,6 +804,7 @@ impl MailBackend for MemoryBackend {
             };
             email.from = parsed.from;
             email.to = parsed.to;
+            email.cc = parsed.cc;
             email.headers = parsed.raw_headers;
             if let Some(preview) = parsed.preview {
                 email.preview = Some(preview);
@@ -735,6 +837,12 @@ impl MailBackend for MemoryBackend {
             inner
                 .objects_mut("Email", account_id.as_ref())
                 .insert(email_id.clone(), email_val);
+
+            // Re-sort the thread's emailIds by receivedAt ascending (RFC 8621 §3).
+            // Only needed when joining an existing thread; new threads have one element.
+            if thread_existed {
+                inner.sort_thread_email_ids(account_id.as_ref(), &thread_id);
+            }
 
             // Update Message-ID index for future duplicate detection.
             if let Some(msg_ids) = &email.message_id {
@@ -871,6 +979,7 @@ impl MailBackend for MemoryBackend {
         };
         email.from = parsed.from;
         email.to = parsed.to;
+        email.cc = parsed.cc;
         email.headers = parsed.raw_headers;
         if let Some(preview) = parsed.preview {
             email.preview = Some(preview);
@@ -939,6 +1048,7 @@ impl MailBackend for MemoryBackend {
         new_email.references = src_email.references.clone();
         new_email.from = src_email.from.clone();
         new_email.to = src_email.to.clone();
+        new_email.cc = src_email.cc.clone();
         new_email.preview = src_email.preview.clone();
 
         let email_val = serde_json::to_value(&new_email).map_err(|e| {
@@ -967,6 +1077,11 @@ impl MailBackend for MemoryBackend {
             inner
                 .objects_mut("Email", to_account_id.as_ref())
                 .insert(new_id.clone(), email_val);
+
+            // Re-sort the thread's emailIds by receivedAt ascending (RFC 8621 §3).
+            if thread_existed {
+                inner.sort_thread_email_ids(to_account_id.as_ref(), &thread_id);
+            }
 
             let new_email_state = inner.bump_state("Email", to_account_id.as_ref());
             inner
@@ -1074,6 +1189,7 @@ struct ParsedHeaders {
     references: Vec<String>,
     from: Option<Vec<EmailAddress>>,
     to: Option<Vec<EmailAddress>>,
+    cc: Option<Vec<EmailAddress>>,
     /// Short preview of the body (first 256 bytes of the text body, if any).
     preview: Option<String>,
     /// Raw header fields in order, for `Email.headers` (RFC 8621 §4.1.3).
@@ -1131,6 +1247,7 @@ fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
     let mut references: Vec<String> = Vec::new();
     let mut from_header: Option<String> = None;
     let mut to_header: Option<String> = None;
+    let mut cc_header: Option<String> = None;
 
     for line in unfolded.lines() {
         // RFC 5322 §2.2: header field names are case-insensitive. Split on the
@@ -1153,12 +1270,15 @@ fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
                 from_header = Some(rest.trim().to_owned());
             } else if name.eq_ignore_ascii_case("To") {
                 to_header = Some(rest.trim().to_owned());
+            } else if name.eq_ignore_ascii_case("Cc") {
+                cc_header = Some(rest.trim().to_owned());
             }
         }
     }
 
     let from = from_header.as_deref().map(parse_address_list);
     let to = to_header.as_deref().map(parse_address_list);
+    let cc = cc_header.as_deref().map(parse_address_list);
 
     // Extract a short preview from the body.
     let preview = if body_block.trim().is_empty() {
@@ -1181,6 +1301,7 @@ fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
         references,
         from,
         to,
+        cc,
         preview,
         raw_headers,
     }
@@ -1640,6 +1761,23 @@ fn email_matches_condition(email: &Email, cond: &EmailFilterCondition) -> bool {
     }
     if let Some(want_attach) = cond.has_attachment {
         if email.has_attachment != want_attach {
+            return false;
+        }
+    }
+    if let Some(ref before) = cond.before {
+        // receivedAt must be strictly before `before` (lexicographic ISO 8601 comparison).
+        if email.received_at.as_ref() >= before.as_ref() {
+            return false;
+        }
+    }
+    if let Some(ref after) = cond.after {
+        // receivedAt must be on or after `after`.
+        if email.received_at.as_ref() < after.as_ref() {
+            return false;
+        }
+    }
+    if let Some(min) = cond.min_size {
+        if email.size < min {
             return false;
         }
     }

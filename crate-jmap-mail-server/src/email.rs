@@ -9,7 +9,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
 use crate::helpers::{
-    extract_account_id, find_immutable_patch_key, not_found_json, ser, set_error_value,
+    extract_account_id, filter_properties, find_immutable_patch_key, not_found_json, ser,
+    set_error_value,
 };
 
 /// Server-enforced ceiling on the number of email IDs fetched when
@@ -1170,29 +1171,6 @@ fn apply_body_properties_recursive(node: &mut Value, props: &HashSet<&str>) {
     *node = apply_body_properties(node, props);
     // Restore subParts if it survived filtering (it won't be in the default list).
     // Nothing extra to do — apply_body_properties already kept it if props contains "subParts".
-}
-
-/// Return only the keys in `prop_set` from the JSON object `obj`.
-///
-/// The caller is responsible for building the `HashSet` once before iterating
-/// over multiple objects, so the set is not rebuilt on every call.
-///
-/// Takes `&Value` and clones surviving entries because the same `val` is used
-/// after this call for header: property extraction in the per-email loop; a
-/// move would prevent that second use. Changing to `Value` by move would
-/// require restructuring the caller so the extraction runs before filtering.
-fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value {
-    match obj {
-        Value::Object(map) => {
-            let filtered: serde_json::Map<String, Value> = map
-                .iter()
-                .filter(|(k, _)| prop_set.contains(k.as_str()))
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect();
-            Value::Object(filtered)
-        }
-        _ => obj.clone(),
-    }
 }
 
 /// Build an [`Email`] from a creation payload (`obj_val`).

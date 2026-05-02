@@ -6,6 +6,31 @@ use serde_json::Value;
 
 pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string, ser};
 
+/// Return only the keys in `prop_set` from the JSON object `obj`.
+///
+/// Used by all `*/get` handlers to enforce the RFC 8620 §5.1 rule that when
+/// `properties` is specified the server MUST return only those fields (plus
+/// `id`, which callers must include in `prop_set` if they want it).
+///
+/// The caller is responsible for building the `HashSet` once before iterating
+/// over multiple objects so the set is not rebuilt on every call.
+///
+/// Takes `&Value` and clones surviving entries because the same `val` may be
+/// needed after this call (e.g. for `header:` extraction in `handle_email_get`).
+pub(crate) fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value {
+    match obj {
+        Value::Object(map) => {
+            let filtered: serde_json::Map<String, Value> = map
+                .iter()
+                .filter(|(k, _)| prop_set.contains(k.as_str()))
+                .map(|(k, v)| (k.clone(), v.clone()))
+                .collect();
+            Value::Object(filtered)
+        }
+        _ => obj.clone(),
+    }
+}
+
 /// Serialize a [`SetError`] to a JSON value for inclusion in
 /// `notCreated`/`notUpdated`/`notDestroyed` maps.
 ///

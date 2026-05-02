@@ -8,7 +8,7 @@
 
 mod common;
 
-use common::{FaultyBackend, MemoryBackend};
+use common::{seed::setup_seed_data, FaultyBackend, MemoryBackend};
 use jmap_mail_server::{
     handle_email_changes, handle_email_get, handle_email_import, handle_email_query,
     handle_email_query_changes, handle_email_set, handle_identity_get, handle_identity_set,
@@ -319,10 +319,11 @@ async fn thread_get_returns_email_ids() {
         .expect("emailIds must be an array");
     assert_eq!(email_ids.len(), 2, "thread must contain both email ids");
 
-    // notFound must be absent (null) since we found the thread.
-    assert!(
-        resp["notFound"].is_null(),
-        "notFound must be null when all ids are found"
+    // RFC 8620 §5.1: notFound must be [] (empty array) when all ids are found.
+    assert_eq!(
+        resp["notFound"].as_array().map(|a| a.len()),
+        Some(0),
+        "notFound must be [] when all ids are found"
     );
 }
 
@@ -444,9 +445,11 @@ async fn search_snippet_get_returns_snippets() {
     // Oracle: one snippet returned, no notFound.
     let list = resp["list"].as_array().expect("list must be an array");
     assert_eq!(list.len(), 1, "must return exactly one snippet");
-    assert!(
-        resp["notFound"].is_null(),
-        "notFound must be null when all ids are found"
+    // RFC 8620 §5.1: notFound must be [] (empty array) when all ids are found.
+    assert_eq!(
+        resp["notFound"].as_array().map(|a| a.len()),
+        Some(0),
+        "notFound must be [] when all ids are found"
     );
 
     // Oracle: RFC 8621 §5.9 — matched text must be wrapped in <mark> tags.
@@ -700,15 +703,17 @@ async fn vacation_get_fresh_account_returns_empty() {
         "VacationResponse/get must not generate extra invocations"
     );
 
-    // Oracle: RFC 8621 §8.1 — list is empty, notFound is null.
+    // Oracle: RFC 8621 §8.1 — list is empty; RFC 8620 §5.1: notFound is [].
     let list = resp["list"].as_array().expect("list must be an array");
     assert!(
         list.is_empty(),
         "fresh account must have empty vacation list"
     );
-    assert!(
-        resp["notFound"].is_null(),
-        "notFound must be null when no ids were requested"
+    // RFC 8620 §5.1: notFound is Id[] — always an array, empty when no ids were requested.
+    assert_eq!(
+        resp["notFound"].as_array().map(|a| a.len()),
+        Some(0),
+        "notFound must be [] when no ids were requested"
     );
     assert_eq!(
         resp["accountId"].as_str().unwrap_or(""),
@@ -1490,9 +1495,11 @@ async fn submission_set_create_and_get() {
         submission_id,
         "returned id must match"
     );
-    assert!(
-        get_resp["notFound"].is_null(),
-        "notFound must be null when id is found"
+    // RFC 8620 §5.1: notFound must be [] (empty array) when all ids are found.
+    assert_eq!(
+        get_resp["notFound"].as_array().map(|a| a.len()),
+        Some(0),
+        "notFound must be [] when id is found"
     );
 }
 
@@ -1831,9 +1838,11 @@ async fn email_set_create_and_get() {
         "Test email",
         "subject must round-trip"
     );
-    assert!(
-        get_resp["notFound"].is_null(),
-        "notFound must be null when email is found"
+    // RFC 8620 §5.1: notFound must be [] (empty array) when all ids are found.
+    assert_eq!(
+        get_resp["notFound"].as_array().map(|a| a.len()),
+        Some(0),
+        "notFound must be [] when email is found"
     );
 }
 
@@ -1959,6 +1968,60 @@ async fn email_set_create_all_false_mailbox_ids_rejected() {
     assert!(
         props.contains(&"mailboxIds"),
         "properties must name mailboxIds; got: {props:?}"
+    );
+}
+
+/// Oracle: Email/get with all-valid ids returns `"notFound": []` (empty array, not null).
+///
+/// RFC 8620 §5.1 mandates `notFound` as `Id[]` — it must always be an array.
+/// When every requested id is found the array is empty, but it must still be
+/// present as `[]`, never as `null` or absent.
+#[tokio::test]
+async fn email_get_not_found_is_empty_array_when_all_found() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create one email so we have a valid id to look up.
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "subject": "notFound wire format test",
+            }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("id must be present")
+        .to_owned();
+
+    // Fetch that email by id — all ids exist, so notFound must be [].
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id],
+    });
+    let (resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get");
+
+    // Verify the list has one entry.
+    let list = resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1, "must return the requested email");
+
+    // RFC 8620 §5.1: notFound MUST be Id[] — an array, never null or absent.
+    assert!(
+        resp["notFound"].is_array(),
+        "notFound must be an array (Id[]), not null or absent; got: {:?}",
+        resp["notFound"]
+    );
+    assert_eq!(
+        resp["notFound"].as_array().map(|a| a.len()),
+        Some(0),
+        "notFound must be [] when all requested ids are found"
     );
 }
 
@@ -6015,5 +6078,4230 @@ async fn email_query_collapse_threads_deduplicates() {
     assert!(
         ids_collapsed.len() <= 2 && !ids_collapsed.is_empty(),
         "collapseThreads must return 1 or 2 results (depending on thread assignment); got: {ids_collapsed:?}"
+    );
+}
+
+/// Oracle: Mailbox/query with an anchor that is not in the result set MUST return
+/// an anchorNotFound error (RFC 8620 §5.5).
+#[tokio::test]
+async fn mailbox_query_anchor_not_found_returns_error() {
+    let backend = MemoryBackend::new();
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "anchor": "does-not-exist",
+    });
+    let result = handle_mailbox_query(&backend, args).await;
+    assert!(result.is_err(), "nonexistent anchor must return an error");
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type.as_str(),
+        "anchorNotFound",
+        "error type must be anchorNotFound; got: {:?}",
+        err.error_type
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Thread/get emailIds ordering
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8621 §3 — Thread.emailIds MUST be sorted oldest-first by receivedAt.
+///
+/// The "thread-alpha" thread has three members imported in chronological order:
+///   thread-starter  receivedAt 2025-12-24T00:00:00Z  (days_ago(8))
+///   thread-reply-1  receivedAt 2025-12-25T00:00:00Z  (days_ago(7))
+///   thread-reply-2  receivedAt 2025-12-26T00:00:00Z  (days_ago(6))
+///
+/// RFC 8621 §3 is the external oracle: "The ids of the Email objects in the
+/// Thread, sorted by date of the message, oldest first."
+#[tokio::test]
+async fn thread_get_email_ids_sorted_by_received_at() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let thread_id = seed
+        .thread
+        .get("thread-alpha")
+        .expect("seed must contain thread-alpha")
+        .clone();
+
+    let expected_order = [
+        seed.email
+            .get("thread-starter")
+            .expect("seed must contain thread-starter")
+            .as_ref(),
+        seed.email
+            .get("thread-reply-1")
+            .expect("seed must contain thread-reply-1")
+            .as_ref(),
+        seed.email
+            .get("thread-reply-2")
+            .expect("seed must contain thread-reply-2")
+            .as_ref(),
+    ];
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [thread_id.as_ref()],
+    });
+
+    let (resp, _extra) = handle_thread_get(&backend, args)
+        .await
+        .expect("Thread/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find exactly one thread");
+
+    let thread_obj = &list[0];
+    let email_ids: Vec<&str> = thread_obj["emailIds"]
+        .as_array()
+        .expect("emailIds must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("emailId must be a string"))
+        .collect();
+
+    assert_eq!(
+        email_ids.len(),
+        3,
+        "thread-alpha must contain exactly 3 emails; got: {email_ids:?}"
+    );
+
+    assert_eq!(
+        email_ids, expected_order,
+        "emailIds must be sorted oldest-first by receivedAt (RFC 8621 §3); \
+         expected [thread-starter, thread-reply-1, thread-reply-2] order"
+    );
+}
+
+/// Oracle: Mailbox/set destroy with pre-existing children MUST return
+/// notDestroyed with type "mailboxHasChild" (RFC 8621 §2.5).
+///
+/// The parent and child are created in separate requests so the child
+/// exists in the backend before the destroy request is processed.
+#[tokio::test]
+async fn test_mailbox_set_destroy_with_children() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+
+    // Create the parent mailbox directly via the backend.
+    let (parent_id, _) = backend
+        .create_object::<jmap_mail_types::Mailbox>(
+            &account_id,
+            "p0",
+            jmap_mail_types::Mailbox::new(
+                Id::from("placeholder"),
+                "Parent",
+                0,
+                0,
+                0,
+                0,
+                0,
+                jmap_mail_types::MailboxRights::default(),
+                false,
+            ),
+        )
+        .await
+        .expect("create parent mailbox");
+
+    // Create a child mailbox under the parent via Mailbox/set (a separate prior request).
+    let create_child_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "child1": {
+                "name": "Child",
+                "parentId": parent_id.as_ref(),
+            }
+        },
+    });
+    let (child_resp, _) = handle_mailbox_set(&backend, create_child_args)
+        .await
+        .expect("create child Mailbox/set must succeed");
+    assert!(
+        child_resp["created"]
+            .as_object()
+            .is_some_and(|m| m.contains_key("child1")),
+        "child create must succeed; resp={child_resp:?}"
+    );
+
+    // Now attempt to destroy the parent in a separate request.
+    let destroy_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "destroy": [parent_id.as_ref()],
+    });
+    let (resp, _) = handle_mailbox_set(&backend, destroy_args)
+        .await
+        .expect("Mailbox/set must not return JmapError");
+
+    // Oracle (RFC 8621 §2.5): parent must be in notDestroyed with type "mailboxHasChild".
+    assert!(
+        resp["destroyed"].is_null(),
+        "destroyed must be null when child exists; resp={resp:?}"
+    );
+    let not_destroyed = resp["notDestroyed"]
+        .as_object()
+        .expect("notDestroyed must be an object");
+    assert!(
+        not_destroyed.contains_key(parent_id.as_ref()),
+        "parent id must be in notDestroyed; resp={resp:?}"
+    );
+    assert_eq!(
+        not_destroyed[parent_id.as_ref()]["type"]
+            .as_str()
+            .unwrap_or(""),
+        "mailboxHasChild",
+        "error type must be mailboxHasChild; not_destroyed={not_destroyed:?}"
+    );
+}
+
+/// Oracle: Mailbox/set create with a duplicate name under the same parent MUST return
+/// notCreated with type "alreadyExists" (RFC 8621 §2.5).
+///
+/// Two mailboxes under the same parent may not share a name.
+#[tokio::test]
+async fn test_mailbox_set_create_duplicate_name() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+
+    // Create a parent mailbox to hold the duplicates.
+    let (parent_id, _) = backend
+        .create_object::<jmap_mail_types::Mailbox>(
+            &account_id,
+            "p0",
+            jmap_mail_types::Mailbox::new(
+                Id::from("placeholder"),
+                "Parent",
+                0,
+                0,
+                0,
+                0,
+                0,
+                jmap_mail_types::MailboxRights::default(),
+                false,
+            ),
+        )
+        .await
+        .expect("create parent mailbox");
+
+    // Create "Dup" under the parent — first one should succeed.
+    let first_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "dup1": {
+                "name": "Dup",
+                "parentId": parent_id.as_ref(),
+            }
+        },
+    });
+    let (first_resp, _) = handle_mailbox_set(&backend, first_args)
+        .await
+        .expect("first Mailbox/set must succeed");
+    assert!(
+        first_resp["created"]
+            .as_object()
+            .is_some_and(|m| m.contains_key("dup1")),
+        "first Dup create must succeed; resp={first_resp:?}"
+    );
+
+    // Attempt to create another "Dup" under the same parent in a second request.
+    let second_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "dup2": {
+                "name": "Dup",
+                "parentId": parent_id.as_ref(),
+            }
+        },
+    });
+    let (second_resp, _) = handle_mailbox_set(&backend, second_args)
+        .await
+        .expect("second Mailbox/set must not return JmapError");
+
+    // Oracle (RFC 8621 §2.5): duplicate must be in notCreated with type "alreadyExists".
+    assert!(
+        second_resp["created"].is_null(),
+        "created must be null for duplicate; resp={second_resp:?}"
+    );
+    let not_created = second_resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object");
+    assert!(
+        not_created.contains_key("dup2"),
+        "dup2 must be in notCreated; resp={second_resp:?}"
+    );
+    assert_eq!(
+        not_created["dup2"]["type"].as_str().unwrap_or(""),
+        "alreadyExists",
+        "error type must be alreadyExists; not_created={not_created:?}"
+    );
+
+    // Also verify: two creates in one request with the same name+parentId.
+    // Exactly one must succeed; the other must be notCreated/alreadyExists.
+    let both_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "a1": { "name": "SameName", "parentId": parent_id.as_ref() },
+            "a2": { "name": "SameName", "parentId": parent_id.as_ref() },
+        },
+    });
+    let (both_resp, _) = handle_mailbox_set(&backend, both_args)
+        .await
+        .expect("combined Mailbox/set must not return JmapError");
+
+    let created_count = both_resp["created"].as_object().map_or(0, |m| m.len());
+    let not_created_map = both_resp["notCreated"].as_object();
+    let not_created_count = not_created_map.map_or(0, |m| m.len());
+    assert_eq!(
+        created_count, 1,
+        "exactly one of a1/a2 must succeed; resp={both_resp:?}"
+    );
+    assert_eq!(
+        not_created_count, 1,
+        "exactly one of a1/a2 must be in notCreated; resp={both_resp:?}"
+    );
+    if let Some(nc) = not_created_map {
+        for (k, v) in nc {
+            assert_eq!(
+                v["type"].as_str().unwrap_or(""),
+                "alreadyExists",
+                "notCreated[{k}].type must be alreadyExists; got {v:?}"
+            );
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// RFC 8620 §5.1 — properties filtering
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8620 §5.1 — when `properties` is specified, Email/get MUST return
+/// only the requested fields (plus `id`, which is always present).
+///
+/// Test vector: client requests `["id", "subject"]`. Response items must contain
+/// exactly those two keys — no `from`, `to`, `mailboxIds`, `blobId`, etc.
+#[tokio::test]
+async fn email_get_properties_filtering_restricts_fields() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let mailbox_id = Id::from("mb1");
+
+    backend
+        .create_object::<jmap_mail_types::Mailbox>(
+            &account_id,
+            "mb1",
+            jmap_mail_types::Mailbox::new(
+                mailbox_id.clone(),
+                "Inbox".to_owned(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                jmap_mail_types::MailboxRights::default(),
+                true,
+            ),
+        )
+        .await
+        .expect("create mailbox");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c1": {
+                "mailboxIds": { mailbox_id.as_ref(): true },
+                "subject": "Hello World",
+                "from": [{"email": "alice@example.com"}],
+                "to":   [{"email": "bob@example.com"}],
+            }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set must succeed");
+    let email_id = set_resp["created"]["c1"]["id"]
+        .as_str()
+        .expect("created id must be present")
+        .to_owned();
+
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id],
+        "properties": ["id", "subject"],
+    });
+    let (resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1, "must find exactly one email");
+    let obj = list[0]
+        .as_object()
+        .expect("list item must be a JSON object");
+
+    // Requested fields must be present with correct values.
+    assert_eq!(obj["id"].as_str().unwrap_or(""), email_id, "id must match");
+    assert_eq!(
+        obj["subject"].as_str().unwrap_or(""),
+        "Hello World",
+        "subject must round-trip"
+    );
+
+    // Non-requested fields must be absent.
+    assert!(!obj.contains_key("from"), "from must be absent");
+    assert!(!obj.contains_key("to"), "to must be absent");
+    assert!(!obj.contains_key("mailboxIds"), "mailboxIds must be absent");
+    assert!(!obj.contains_key("blobId"), "blobId must be absent");
+    assert!(!obj.contains_key("threadId"), "threadId must be absent");
+
+    assert_eq!(
+        obj.len(),
+        2,
+        "list item must have exactly 2 keys (id, subject); got: {:?}",
+        obj.keys().collect::<Vec<_>>()
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — when `properties` is absent, Email/get MUST return the
+/// RFC 8621 §4.2 default field set, which includes many more than 2 fields.
+#[tokio::test]
+async fn email_get_no_properties_returns_default_fields() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let mailbox_id = Id::from("mb1");
+
+    backend
+        .create_object::<jmap_mail_types::Mailbox>(
+            &account_id,
+            "mb1",
+            jmap_mail_types::Mailbox::new(
+                mailbox_id.clone(),
+                "Inbox".to_owned(),
+                0,
+                0,
+                0,
+                0,
+                0,
+                jmap_mail_types::MailboxRights::default(),
+                true,
+            ),
+        )
+        .await
+        .expect("create mailbox");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c1": {
+                "mailboxIds": { mailbox_id.as_ref(): true },
+                "subject": "Default Properties Test",
+            }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set must succeed");
+    let email_id = set_resp["created"]["c1"]["id"]
+        .as_str()
+        .expect("created id must be present")
+        .to_owned();
+
+    // No `properties` key in the request — server must use the default list.
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id],
+    });
+    let (resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1);
+    let obj = list[0]
+        .as_object()
+        .expect("list item must be a JSON object");
+
+    // RFC 8621 §4.2 default set includes at least these fields.
+    assert!(
+        obj.contains_key("id"),
+        "id must be present in default response"
+    );
+    assert!(
+        obj.contains_key("blobId"),
+        "blobId must be present in default response"
+    );
+    assert!(
+        obj.contains_key("threadId"),
+        "threadId must be present in default response"
+    );
+    assert!(
+        obj.contains_key("mailboxIds"),
+        "mailboxIds must be present in default response"
+    );
+    assert!(
+        obj.contains_key("subject"),
+        "subject must be present in default response"
+    );
+
+    // Confirm we are not inadvertently applying any filter.
+    assert!(
+        obj.len() > 2,
+        "default response must contain more than 2 fields; got: {:?}",
+        obj.keys().collect::<Vec<_>>()
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Mailbox/get with `properties: ["id", "name"]` MUST
+/// return only `id` and `name` per list item.
+#[tokio::test]
+async fn mailbox_get_properties_filtering_restricts_fields() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c1": { "name": "My Mailbox", "sortOrder": 10 }
+        }
+    });
+    let (set_resp, _) = handle_mailbox_set(&backend, set_args)
+        .await
+        .expect("Mailbox/set must succeed");
+    let mailbox_id = set_resp["created"]["c1"]["id"]
+        .as_str()
+        .expect("created id must be present")
+        .to_owned();
+
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [mailbox_id],
+        "properties": ["id", "name"],
+    });
+    let (resp, _) = handle_mailbox_get(&backend, get_args)
+        .await
+        .expect("Mailbox/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1);
+    let obj = list[0]
+        .as_object()
+        .expect("list item must be a JSON object");
+
+    assert!(obj.contains_key("id"), "id must be present");
+    assert!(obj.contains_key("name"), "name must be present");
+    assert_eq!(
+        obj["name"].as_str().unwrap_or(""),
+        "My Mailbox",
+        "name must round-trip"
+    );
+
+    assert!(!obj.contains_key("sortOrder"), "sortOrder must be absent");
+    assert!(
+        !obj.contains_key("totalEmails"),
+        "totalEmails must be absent"
+    );
+
+    assert_eq!(
+        obj.len(),
+        2,
+        "list item must have exactly 2 keys (id, name); got: {:?}",
+        obj.keys().collect::<Vec<_>>()
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Thread/get with `properties: ["id", "emailIds"]` MUST
+/// return only those two fields per list item.
+#[tokio::test]
+async fn thread_get_properties_filtering_restricts_fields() {
+    use common::seed;
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed_data = seed::setup_seed_data(&backend, &account_id).await;
+
+    let thread_id = seed_data
+        .thread
+        .get("plain-simple")
+        .expect("seed must contain plain-simple thread")
+        .clone();
+
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [thread_id.as_ref()],
+        "properties": ["id", "emailIds"],
+    });
+    let (resp, _) = handle_thread_get(&backend, get_args)
+        .await
+        .expect("Thread/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1);
+    let obj = list[0]
+        .as_object()
+        .expect("list item must be a JSON object");
+
+    assert!(obj.contains_key("id"), "id must be present");
+    assert!(obj.contains_key("emailIds"), "emailIds must be present");
+
+    assert_eq!(
+        obj.len(),
+        2,
+        "list item must have exactly 2 keys (id, emailIds); got: {:?}",
+        obj.keys().collect::<Vec<_>>()
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Identity/get with `properties: ["id", "email"]` MUST
+/// return only `id` and `email` per list item.
+#[tokio::test]
+async fn identity_get_properties_filtering_restricts_fields() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c1": {
+                "email": "alice@example.com",
+                "name": "Alice",
+                "textSignature": "-- Alice",
+            }
+        }
+    });
+    let (set_resp, _) = handle_identity_set(&backend, set_args)
+        .await
+        .expect("Identity/set must succeed");
+    let identity_id = set_resp["created"]["c1"]["id"]
+        .as_str()
+        .expect("created id must be present")
+        .to_owned();
+
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [identity_id],
+        "properties": ["id", "email"],
+    });
+    let (resp, _) = handle_identity_get(&backend, get_args)
+        .await
+        .expect("Identity/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1);
+    let obj = list[0]
+        .as_object()
+        .expect("list item must be a JSON object");
+
+    assert!(obj.contains_key("id"), "id must be present");
+    assert!(obj.contains_key("email"), "email must be present");
+    assert_eq!(
+        obj["email"].as_str().unwrap_or(""),
+        "alice@example.com",
+        "email must round-trip"
+    );
+
+    assert!(!obj.contains_key("name"), "name must be absent");
+    assert!(
+        !obj.contains_key("textSignature"),
+        "textSignature must be absent"
+    );
+
+    assert_eq!(
+        obj.len(),
+        2,
+        "list item must have exactly 2 keys (id, email); got: {:?}",
+        obj.keys().collect::<Vec<_>>()
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Conformance: Email/get basic (RFC 8621 §4.1)
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8621 §4.1 — Email/get by id returns the email with id,
+/// threadId, blobId, and size all present and non-empty.
+#[tokio::test]
+async fn conformance_email_get_by_id() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "threadId", "blobId", "size"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find exactly one email");
+
+    let obj = &list[0];
+    assert_eq!(
+        obj["id"].as_str().unwrap_or(""),
+        email_id.as_ref(),
+        "returned id must match requested id"
+    );
+    assert!(
+        obj["threadId"]
+            .as_str()
+            .map(|s| !s.is_empty())
+            .unwrap_or(false),
+        "threadId must be a non-empty string; got: {:?}",
+        obj["threadId"]
+    );
+    assert!(
+        obj["blobId"]
+            .as_str()
+            .map(|s| !s.is_empty())
+            .unwrap_or(false),
+        "blobId must be a non-empty string; got: {:?}",
+        obj["blobId"]
+    );
+    assert!(
+        obj["size"].as_u64().map(|n| n > 0).unwrap_or(false),
+        "size must be a positive integer; got: {:?}",
+        obj["size"]
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Email/get with an unknown id returns notFound
+/// containing that id and list=[].
+#[tokio::test]
+async fn conformance_email_get_not_found_is_empty_array() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": ["nonexistent-email-xyz"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert!(
+        list.is_empty(),
+        "list must be [] when all ids are not found; got: {list:?}"
+    );
+
+    let not_found = resp["notFound"]
+        .as_array()
+        .expect("notFound must be an array");
+    assert!(
+        not_found
+            .iter()
+            .any(|v| v.as_str() == Some("nonexistent-email-xyz")),
+        "notFound must contain the requested id; got: {not_found:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Email/get notFound MUST be [] (empty array) when
+/// all requested ids are found.
+#[tokio::test]
+async fn conformance_email_get_not_found_empty_when_all_found() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let not_found = resp["notFound"]
+        .as_array()
+        .expect("notFound must be an array");
+    assert!(
+        not_found.is_empty(),
+        "notFound must be [] when all ids are found; got: {not_found:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Email/get with properties=["id","subject"] MUST
+/// return exactly those two fields per list item; threadId, blobId, mailboxIds
+/// must be absent.
+#[tokio::test]
+async fn conformance_email_get_properties_filter() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "subject"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1);
+    let obj = list[0]
+        .as_object()
+        .expect("list item must be a JSON object");
+
+    assert!(obj.contains_key("id"), "id must be present");
+    assert!(obj.contains_key("subject"), "subject must be present");
+    assert!(
+        !obj.contains_key("threadId"),
+        "threadId must be absent when not requested"
+    );
+    assert!(
+        !obj.contains_key("blobId"),
+        "blobId must be absent when not requested"
+    );
+    assert!(
+        !obj.contains_key("mailboxIds"),
+        "mailboxIds must be absent when not requested"
+    );
+
+    assert_eq!(
+        obj.len(),
+        2,
+        "list item must have exactly 2 keys (id, subject); got: {:?}",
+        obj.keys().collect::<Vec<_>>()
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Email/get response MUST include a "state" string.
+#[tokio::test]
+async fn conformance_email_get_state_returned() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    assert!(
+        resp["state"]
+            .as_str()
+            .map(|s| !s.is_empty())
+            .unwrap_or(false),
+        "state must be a non-empty string; got: {:?}",
+        resp["state"]
+    );
+}
+
+/// Oracle: RFC 8621 §4.1 — hasAttachment MUST be true for the html-attachment
+/// email, which has a multipart/mixed structure with a PDF attachment part.
+#[tokio::test]
+async fn conformance_email_get_has_attachment_true() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["html-attachment"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "hasAttachment"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1);
+    let obj = &list[0];
+
+    assert_eq!(
+        obj["hasAttachment"].as_bool(),
+        Some(true),
+        "hasAttachment must be true for multipart/mixed email with PDF part; got: {:?}",
+        obj["hasAttachment"]
+    );
+}
+
+/// Oracle: RFC 8621 §4.1 — all emails in the same thread MUST share the same
+/// threadId value.  thread-starter, thread-reply-1, and thread-reply-2 are
+/// linked by In-Reply-To / References headers into thread-alpha.
+#[tokio::test]
+async fn conformance_email_get_thread_id_consistent() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let starter_id = seed.email["thread-starter"].clone();
+    let reply1_id = seed.email["thread-reply-1"].clone();
+    let reply2_id = seed.email["thread-reply-2"].clone();
+    let expected_thread_id = seed.thread["thread-alpha"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [
+            starter_id.as_ref(),
+            reply1_id.as_ref(),
+            reply2_id.as_ref(),
+        ],
+        "properties": ["id", "threadId"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 3, "must find all 3 thread emails");
+
+    for item in list {
+        assert_eq!(
+            item["threadId"].as_str().unwrap_or(""),
+            expected_thread_id.as_ref(),
+            "all thread emails must share the same threadId (RFC 8621 §4.1); \
+             email id={:?} got threadId={:?}",
+            item["id"],
+            item["threadId"]
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Conformance: Email/get header properties (RFC 8621 §4.1.2–4.1.3)
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8621 §4.1.2 — Email/get with properties=["id","from"] returns
+/// the From header parsed as an array of EmailAddress objects.  The plain-simple
+/// seed email has From: Alice Sender <alice@example.com>.
+#[tokio::test]
+async fn conformance_email_get_header_from() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "from"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list");
+    assert_eq!(list.len(), 1);
+    let obj = &list[0];
+
+    let from = obj["from"].as_array().expect("from must be an array");
+    assert!(!from.is_empty(), "from must not be empty");
+    assert_eq!(
+        from[0]["email"].as_str().unwrap_or(""),
+        "alice@example.com",
+        "from[0].email must be alice@example.com; got: {:?}",
+        from[0]["email"]
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.2 — Email/get with properties=["id","to"] returns
+/// the To header parsed as an array of EmailAddress objects.
+/// plain-simple has To: testuser@example.com.
+#[tokio::test]
+async fn conformance_email_get_header_to() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "to"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list");
+    assert_eq!(list.len(), 1);
+    let obj = &list[0];
+
+    let to = obj["to"].as_array().expect("to must be an array");
+    assert!(!to.is_empty(), "to must not be empty");
+    assert_eq!(
+        to[0]["email"].as_str().unwrap_or(""),
+        "testuser@example.com",
+        "to[0].email must be testuser@example.com; got: {:?}",
+        to[0]["email"]
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.2 — Email/get with properties=["id","cc"] returns
+/// the Cc header parsed as an array of EmailAddress objects.
+/// html-attachment has Cc: charlie@example.net.
+#[tokio::test]
+async fn conformance_email_get_header_cc() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["html-attachment"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "cc"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list");
+    assert_eq!(list.len(), 1);
+    let obj = &list[0];
+
+    let cc = obj["cc"].as_array().expect("cc must be an array");
+    assert!(!cc.is_empty(), "cc must not be empty");
+    assert!(
+        cc.iter()
+            .any(|a| a["email"].as_str() == Some("charlie@example.net")),
+        "cc must contain charlie@example.net; got: {cc:?}"
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.2 — Email/get subject returns the decoded Subject
+/// header string.  plain-simple has Subject: Meeting tomorrow morning.
+#[tokio::test]
+async fn conformance_email_get_header_subject() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "subject"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list");
+    assert_eq!(list.len(), 1);
+    assert_eq!(
+        list[0]["subject"].as_str().unwrap_or(""),
+        "Meeting tomorrow morning",
+        "subject must match the seed value; got: {:?}",
+        list[0]["subject"]
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.2.5 — Email/get messageId returns an array of
+/// msg-id values with angle brackets and CFWS removed (per spec).
+/// plain-simple has Message-ID: <plain-simple-001@test>, so the returned
+/// value must be "plain-simple-001@test" (no brackets).
+#[tokio::test]
+async fn conformance_email_get_header_message_id() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "messageId"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list");
+    assert_eq!(list.len(), 1);
+    let obj = &list[0];
+
+    let msg_id = obj["messageId"]
+        .as_array()
+        .expect("messageId must be an array");
+    assert!(!msg_id.is_empty(), "messageId must not be empty");
+    // RFC 8621 §4.1.2.5: "CFWS and surrounding angle brackets are removed".
+    assert_eq!(
+        msg_id[0].as_str().unwrap_or(""),
+        "plain-simple-001@test",
+        "messageId[0] must have angle brackets stripped per RFC 8621 §4.1.2.5; got: {:?}",
+        msg_id[0]
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.2.5 — Email/get inReplyTo returns an array of
+/// msg-id values with angle brackets and CFWS removed (per spec).
+/// thread-reply-1 has In-Reply-To: <thread-alpha-001@test>, so the
+/// returned value must be "thread-alpha-001@test" (no brackets).
+#[tokio::test]
+async fn conformance_email_get_header_in_reply_to() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["thread-reply-1"].clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "inReplyTo"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list");
+    assert_eq!(list.len(), 1);
+    let obj = &list[0];
+
+    let in_reply_to = obj["inReplyTo"]
+        .as_array()
+        .expect("inReplyTo must be an array");
+    assert!(!in_reply_to.is_empty(), "inReplyTo must not be empty");
+    // RFC 8621 §4.1.2.5: "CFWS and surrounding angle brackets are removed".
+    assert_eq!(
+        in_reply_to[0].as_str().unwrap_or(""),
+        "thread-alpha-001@test",
+        "inReplyTo[0] must have angle brackets stripped per RFC 8621 §4.1.2.5; got: {:?}",
+        in_reply_to[0]
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mailbox conformance tests (ported from jmap-test-suite)
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8620 §5.1 — Mailbox/get with ids=null returns all mailboxes.
+/// jmap-test-suite: mailbox-get.test.ts "get-all"
+#[tokio::test]
+async fn conformance_mailbox_get_all_ids_null() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": null,
+    });
+    let (resp, _) = handle_mailbox_get(&backend, args)
+        .await
+        .expect("Mailbox/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(
+        list.len(),
+        5,
+        "ids=null must return all 5 mailboxes; got {}",
+        list.len()
+    );
+
+    let not_found = resp["notFound"]
+        .as_array()
+        .expect("notFound must be an array");
+    assert!(
+        not_found.is_empty(),
+        "notFound must be empty; got {:?}",
+        not_found
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Mailbox/get with specific ids returns only those mailboxes.
+/// jmap-test-suite: mailbox-get.test.ts "get-by-ids"
+#[tokio::test]
+async fn conformance_mailbox_get_by_ids() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed.mailbox["inbox"].as_ref().to_owned();
+    let folder_a_id = seed.mailbox["folderA"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [inbox_id, folder_a_id],
+    });
+    let (resp, _) = handle_mailbox_get(&backend, args)
+        .await
+        .expect("Mailbox/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(
+        list.len(),
+        2,
+        "must return exactly 2 mailboxes; got {}",
+        list.len()
+    );
+
+    let returned_ids: Vec<&str> = list.iter().filter_map(|v| v["id"].as_str()).collect();
+    assert!(
+        returned_ids.contains(&seed.mailbox["inbox"].as_ref()),
+        "inbox must be in list"
+    );
+    assert!(
+        returned_ids.contains(&seed.mailbox["folderA"].as_ref()),
+        "folderA must be in list"
+    );
+
+    let not_found = resp["notFound"]
+        .as_array()
+        .expect("notFound must be an array");
+    assert!(
+        not_found.is_empty(),
+        "notFound must be empty; got {:?}",
+        not_found
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Mailbox/get with unknown ids returns notFound list.
+/// jmap-test-suite: mailbox-get.test.ts "get-not-found"
+#[tokio::test]
+async fn conformance_mailbox_get_not_found() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": ["missing-id"],
+    });
+    let (resp, _) = handle_mailbox_get(&backend, args)
+        .await
+        .expect("Mailbox/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert!(
+        list.is_empty(),
+        "list must be empty for unknown id; got {:?}",
+        list
+    );
+
+    let not_found = resp["notFound"]
+        .as_array()
+        .expect("notFound must be an array");
+    assert_eq!(not_found.len(), 1, "notFound must have 1 entry");
+    assert_eq!(
+        not_found[0].as_str(),
+        Some("missing-id"),
+        "notFound must contain the requested id"
+    );
+}
+
+/// Oracle: RFC 8621 §2 — inbox mailbox role field must be "inbox".
+/// jmap-test-suite: mailbox-get.test.ts "get-inbox-exists"
+#[tokio::test]
+async fn conformance_mailbox_get_inbox_has_role() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed.mailbox["inbox"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [inbox_id],
+    });
+    let (resp, _) = handle_mailbox_get(&backend, args)
+        .await
+        .expect("Mailbox/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find inbox");
+    assert_eq!(
+        list[0]["role"].as_str(),
+        Some("inbox"),
+        "inbox role must be \"inbox\"; got: {:?}",
+        list[0]["role"]
+    );
+}
+
+/// Oracle: RFC 8621 §2 — child mailbox parentId must reference the parent mailbox.
+/// jmap-test-suite: mailbox-get.test.ts "get-parent-id-correct"
+#[tokio::test]
+async fn conformance_mailbox_get_child_has_parent_id() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let child1_id = seed.mailbox["child1"].as_ref().to_owned();
+    let folder_a_id = seed.mailbox["folderA"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [child1_id],
+    });
+    let (resp, _) = handle_mailbox_get(&backend, args)
+        .await
+        .expect("Mailbox/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find child1");
+    assert_eq!(
+        list[0]["parentId"].as_str(),
+        Some(folder_a_id.as_str()),
+        "child1 parentId must equal folderA id; got: {:?}",
+        list[0]["parentId"]
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — when properties is specified, only those fields (plus id)
+/// are returned; unrequested fields must be absent.
+/// jmap-test-suite: mailbox-get.test.ts "get-properties-filter"
+#[tokio::test]
+async fn conformance_mailbox_get_properties_filter() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed.mailbox["inbox"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [inbox_id],
+        "properties": ["id", "name"],
+    });
+    let (resp, _) = handle_mailbox_get(&backend, args)
+        .await
+        .expect("Mailbox/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1);
+    let obj = list[0]
+        .as_object()
+        .expect("list item must be a JSON object");
+
+    assert!(obj.contains_key("id"), "id must always be present");
+    assert!(obj.contains_key("name"), "name must be present (requested)");
+    assert!(
+        !obj.contains_key("parentId"),
+        "parentId must be absent (not requested); keys: {:?}",
+        obj.keys().collect::<Vec<_>>()
+    );
+    assert!(
+        !obj.contains_key("role"),
+        "role must be absent (not requested); keys: {:?}",
+        obj.keys().collect::<Vec<_>>()
+    );
+}
+
+/// Oracle: RFC 8621 §2 — totalEmails reflects the count of emails in that mailbox.
+/// folderA has: thread-starter (days_ago_8), very-old (days_ago_30),
+/// and multi-mailbox (days_ago_5), so totalEmails >= 1.
+/// jmap-test-suite: mailbox-get.test.ts "get-total-emails-accurate"
+#[tokio::test]
+async fn conformance_mailbox_get_total_emails() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let folder_a_id = seed.mailbox["folderA"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [folder_a_id],
+    });
+    let (resp, _) = handle_mailbox_get(&backend, args)
+        .await
+        .expect("Mailbox/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find folderA");
+    let total_emails = list[0]["totalEmails"]
+        .as_u64()
+        .expect("totalEmails must be a number");
+    assert!(
+        total_emails >= 1,
+        "folderA must have at least 1 email (thread-starter, very-old, multi-mailbox are in folderA); got totalEmails={}",
+        total_emails
+    );
+}
+
+/// Oracle: RFC 8620 §5.5 — Mailbox/query with no filter returns all mailboxes.
+/// jmap-test-suite: mailbox-query.test.ts "query-all"
+#[tokio::test]
+async fn conformance_mailbox_query_all() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "calculateTotal": true,
+    });
+    let (resp, _) = handle_mailbox_query(&backend, args)
+        .await
+        .expect("Mailbox/query must not error");
+
+    let ids = resp["ids"].as_array().expect("ids must be an array");
+    assert!(
+        ids.len() >= 5,
+        "query with no filter must return at least 5 mailboxes; got {}",
+        ids.len()
+    );
+}
+
+/// Oracle: RFC 8621 §2.3 — filter={parentId: null} returns only top-level mailboxes.
+/// Top-level: inbox, folderA, folderB. Not returned: child1, child2.
+/// jmap-test-suite: mailbox-query.test.ts "query-filter-by-parent-id-null"
+#[tokio::test]
+async fn conformance_mailbox_query_filter_parent_id_null() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "filter": { "parentId": null },
+    });
+    let (resp, _) = handle_mailbox_query(&backend, args)
+        .await
+        .expect("Mailbox/query must not error");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+
+    assert!(
+        ids.contains(&seed.mailbox["inbox"].as_ref()),
+        "inbox (top-level) must be in result"
+    );
+    assert!(
+        ids.contains(&seed.mailbox["folderA"].as_ref()),
+        "folderA (top-level) must be in result"
+    );
+    assert!(
+        ids.contains(&seed.mailbox["folderB"].as_ref()),
+        "folderB (top-level) must be in result"
+    );
+    assert!(
+        !ids.contains(&seed.mailbox["child1"].as_ref()),
+        "child1 must NOT be in top-level result"
+    );
+    assert!(
+        !ids.contains(&seed.mailbox["child2"].as_ref()),
+        "child2 must NOT be in top-level result"
+    );
+}
+
+/// Oracle: RFC 8621 §2.3 — filter={hasAnyRole: true} returns only mailboxes with a role.
+/// Only inbox has a role in the seed data.
+/// jmap-test-suite: mailbox-query.test.ts "query-filter-has-any-role"
+#[tokio::test]
+async fn conformance_mailbox_query_filter_has_any_role() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "filter": { "hasAnyRole": true },
+    });
+    let (resp, _) = handle_mailbox_query(&backend, args)
+        .await
+        .expect("Mailbox/query must not error");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+
+    assert_eq!(
+        ids.len(),
+        1,
+        "hasAnyRole=true must return exactly 1 mailbox (only inbox has a role); got ids={:?}",
+        ids
+    );
+    assert_eq!(
+        ids[0],
+        seed.mailbox["inbox"].as_ref(),
+        "the returned mailbox must be inbox"
+    );
+}
+
+/// Oracle: RFC 8621 §2.3 — Mailbox/query sort by name returns mailboxes in
+/// lexicographic name order.
+/// jmap-test-suite: mailbox-query.test.ts "query-sort-by-name"
+///
+/// NOTE: The current handle_mailbox_query implementation returns unsupportedSort
+/// for any non-empty sort array. If this test fails with unsupportedSort, that
+/// is a conformance bug in the implementation (not in the test).
+#[tokio::test]
+async fn conformance_mailbox_query_sort_by_name() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "sort": [{ "property": "name", "isAscending": true }],
+    });
+    let (resp, _) = handle_mailbox_query(&backend, args)
+        .await
+        .expect("Mailbox/query with sort=[{property:name}] must not error");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(!ids.is_empty(), "sort query must return results");
+
+    // Fetch the names for the returned ids so we can verify ordering.
+    let get_args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": ids,
+        "properties": ["id", "name"],
+    });
+    let (get_resp, _) = handle_mailbox_get(&backend, get_args)
+        .await
+        .expect("Mailbox/get for name verification must succeed");
+
+    let name_map: std::collections::HashMap<&str, &str> = get_resp["list"]
+        .as_array()
+        .expect("list must be an array")
+        .iter()
+        .filter_map(|v| {
+            let id = v["id"].as_str()?;
+            let name = v["name"].as_str()?;
+            Some((id, name))
+        })
+        .collect();
+
+    for window in ids.windows(2) {
+        let prev_name = name_map.get(window[0]).copied().unwrap_or("");
+        let curr_name = name_map.get(window[1]).copied().unwrap_or("");
+        assert!(
+            prev_name <= curr_name,
+            "names must be in ascending order: '{}' > '{}' at positions {:?}",
+            prev_name,
+            curr_name,
+            window
+        );
+    }
+}
+
+/// Oracle: RFC 8620 §5.5 — Mailbox/query with an anchor not in the result set
+/// MUST return an anchorNotFound error.
+/// jmap-test-suite: (implicit from anchorNotFound error type requirement)
+#[tokio::test]
+async fn conformance_mailbox_query_anchor_not_found() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "anchor": "nonexistent",
+    });
+    let result = handle_mailbox_query(&backend, args).await;
+    assert!(result.is_err(), "nonexistent anchor must return an error");
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type.as_str(),
+        "anchorNotFound",
+        "error type must be anchorNotFound; got: {:?}",
+        err.error_type
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Email body conformance tests (ported from jmap-test-suite email-get-body.test.ts)
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8621 §4.1.4 — Email/get with properties=["id","textBody"] on a
+/// plain-text message must return a textBody array with at least one entry whose
+/// type is "text/plain".
+///
+/// jmap-test-suite: email-get-body.test.ts "body-text-body"
+///
+/// GAP: MemoryBackend uses `parse_rfc5322_headers` (header-only parser).  Body
+/// structure fields (textBody, htmlBody, attachments, bodyStructure) are not
+/// populated during import_email.  This test will FAIL until the backend wires
+/// up a MIME body parser (e.g. the jmap-mime crate) to populate these fields.
+#[tokio::test]
+async fn conformance_email_body_plain_text_body() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id],
+        "properties": ["id", "textBody"],
+        "bodyProperties": ["partId", "type"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must return exactly one email");
+
+    let text_body = list[0]["textBody"]
+        .as_array()
+        .expect("textBody must be an array");
+    assert!(
+        !text_body.is_empty(),
+        "textBody must have at least one entry for a plain-text message"
+    );
+    assert_eq!(
+        text_body[0]["type"].as_str().unwrap_or(""),
+        "text/plain",
+        "textBody[0].type must be text/plain; got: {:?}",
+        text_body[0]["type"]
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.4 — Email/get with properties=["id","bodyStructure"] on a
+/// multipart/mixed message must return a bodyStructure whose type contains "multipart".
+///
+/// jmap-test-suite: email-get-body.test.ts "body-structure"
+///
+/// GAP: MemoryBackend does not populate bodyStructure.  This test will FAIL until
+/// body parsing is wired up.
+#[tokio::test]
+async fn conformance_email_body_html_attachment_body_structure() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["html-attachment"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id],
+        "properties": ["id", "bodyStructure"],
+        "bodyProperties": ["partId", "type", "name", "disposition", "size", "subParts"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must return exactly one email");
+
+    let body_structure = &list[0]["bodyStructure"];
+    assert!(
+        !body_structure.is_null(),
+        "bodyStructure must be present for a multipart message"
+    );
+    let bs_type = body_structure["type"].as_str().unwrap_or("");
+    assert!(
+        bs_type.contains("multipart"),
+        "bodyStructure.type must contain \"multipart\" for a multipart/mixed message; got: {:?}",
+        bs_type
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.4 — Email/get with properties=["id","preview"] returns the
+/// preview string.  For plain-simple the body is "Let's meet tomorrow…" so the preview
+/// must start with "Let's meet".
+///
+/// jmap-test-suite: email-get-body.test.ts (indirectly via body-values-text which
+/// checks body content; preview is derived from the same body text).
+#[tokio::test]
+async fn conformance_email_body_preview() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id],
+        "properties": ["id", "preview"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must return exactly one email");
+
+    let preview = list[0]["preview"].as_str().unwrap_or("");
+    assert!(
+        preview.starts_with("Let's meet"),
+        "preview must start with \"Let's meet\"; got: {:?}",
+        preview
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.1 — Email/get with properties=["id","size"] returns a
+/// positive size (byte-count of the raw RFC 5322 message).
+///
+/// jmap-test-suite: email-get-body.test.ts (size is a required Email property per
+/// RFC 8621 §4.1.1).
+#[tokio::test]
+async fn conformance_email_body_size() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["plain-simple"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id],
+        "properties": ["id", "size"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must return exactly one email");
+
+    let size = list[0]["size"]
+        .as_u64()
+        .expect("size must be a non-negative integer");
+    assert!(
+        size > 0,
+        "size must be greater than 0 for a non-empty message; got {size}"
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.4 — for a multipart/alternative message (html-only fixture),
+/// Email/get with properties=["id","textBody","htmlBody"] must return both textBody and
+/// htmlBody as non-empty arrays (one plain-text part and one HTML part respectively).
+///
+/// jmap-test-suite: email-get-body.test.ts "body-multipart-alternative-text-and-html"
+///
+/// GAP: MemoryBackend does not populate textBody or htmlBody.  This test will FAIL until
+/// body parsing is wired up.
+#[tokio::test]
+async fn conformance_email_body_html_only_both_bodies() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["html-only"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id],
+        "properties": ["id", "textBody", "htmlBody"],
+        "bodyProperties": ["partId", "type"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must return exactly one email");
+
+    let text_body = list[0]["textBody"]
+        .as_array()
+        .expect("textBody must be an array");
+    assert!(
+        !text_body.is_empty(),
+        "textBody must be non-empty for multipart/alternative message (RFC 8621 §4.1.4)"
+    );
+
+    let html_body = list[0]["htmlBody"]
+        .as_array()
+        .expect("htmlBody must be an array");
+    assert!(
+        !html_body.is_empty(),
+        "htmlBody must be non-empty for multipart/alternative message (RFC 8621 §4.1.4)"
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.4 — for a multipart/mixed message with a PDF attachment
+/// (html-attachment fixture), Email/get with properties=["id","attachments"] must return
+/// a non-empty attachments array.
+///
+/// jmap-test-suite: email-get-body.test.ts "body-attachments"
+///
+/// GAP: MemoryBackend does not populate the attachments field.  This test will FAIL
+/// until body parsing is wired up.
+#[tokio::test]
+async fn conformance_email_body_attachment_detected() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let email_id = seed.email["html-attachment"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id],
+        "properties": ["id", "attachments"],
+        "bodyProperties": ["partId", "type", "name", "disposition", "size"],
+    });
+    let (resp, _) = handle_email_get(&backend, args)
+        .await
+        .expect("Email/get must not error");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must return exactly one email");
+
+    let attachments = list[0]["attachments"]
+        .as_array()
+        .expect("attachments must be an array");
+    assert!(
+        !attachments.is_empty(),
+        "attachments must be non-empty for a message with a PDF attachment (RFC 8621 §4.1.4)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mailbox/set conformance tests (ported from jmap-test-suite mailbox-set.test.ts)
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8621 §2.5 — Mailbox/set create must assign a server-generated id
+/// and return it in the created map.
+/// jmap-test-suite: mailbox-set.test.ts "set-create-top-level"
+#[tokio::test]
+async fn conformance_mailbox_set_create_basic() {
+    let backend = MemoryBackend::new();
+    let _account_id = Id::from("acct1");
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "c1": { "name": "Test Create", "parentId": null }
+        }
+    });
+
+    let (resp, extra) = handle_mailbox_set(&backend, args)
+        .await
+        .expect("Mailbox/set must succeed");
+
+    assert!(
+        extra.is_empty(),
+        "Mailbox/set must not produce extra invocations"
+    );
+
+    // Oracle: created must contain key "c1" with a server-assigned id.
+    let created = resp["created"]
+        .as_object()
+        .expect("created must be an object");
+    assert!(
+        created.contains_key("c1"),
+        "c1 must appear in created; got: {:?}",
+        resp["created"]
+    );
+    let assigned_id = created["c1"]["id"]
+        .as_str()
+        .expect("created.c1.id must be a string");
+    assert!(!assigned_id.is_empty(), "assigned id must not be empty");
+
+    // Oracle: verify the mailbox name round-trips through a Mailbox/get.
+    let get_args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [assigned_id],
+    });
+    let (get_resp, _) = handle_mailbox_get(&backend, get_args)
+        .await
+        .expect("Mailbox/get must succeed after create");
+    let list = get_resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find created mailbox");
+    assert_eq!(
+        list[0]["name"].as_str(),
+        Some("Test Create"),
+        "name must equal the requested value; got: {:?}",
+        list[0]["name"]
+    );
+}
+
+/// Oracle: RFC 8621 §2.5 — creating a child mailbox must set parentId to the
+/// parent's server-assigned id.
+/// jmap-test-suite: mailbox-set.test.ts "set-create-child"
+#[tokio::test]
+async fn conformance_mailbox_set_create_with_parent() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let folder_a_id = seed.mailbox["folderA"].as_ref().to_owned();
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "child": {
+                "name": "Child Under FolderA",
+                "parentId": folder_a_id
+            }
+        }
+    });
+
+    let (resp, _) = handle_mailbox_set(&backend, args)
+        .await
+        .expect("Mailbox/set create with parent must succeed");
+
+    let created = resp["created"]
+        .as_object()
+        .expect("created must be an object");
+    assert!(
+        created.contains_key("child"),
+        "child must appear in created; got: {:?}",
+        resp["created"]
+    );
+    let child_id = created["child"]["id"]
+        .as_str()
+        .expect("created.child.id must be a string");
+
+    // Oracle: Mailbox/get must echo parentId = folderA.
+    let get_args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [child_id],
+    });
+    let (get_resp, _) = handle_mailbox_get(&backend, get_args)
+        .await
+        .expect("Mailbox/get must succeed");
+    let list = get_resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find child mailbox");
+    assert_eq!(
+        list[0]["parentId"].as_str(),
+        Some(folder_a_id.as_str()),
+        "child parentId must equal folderA id; got: {:?}",
+        list[0]["parentId"]
+    );
+}
+
+/// Oracle: RFC 8621 §2.5 — Mailbox/set update must rename the mailbox; the new
+/// name is visible in a subsequent Mailbox/get.
+/// jmap-test-suite: mailbox-set.test.ts "set-rename"
+#[tokio::test]
+async fn conformance_mailbox_set_update_name() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let folder_b_id = seed.mailbox["folderB"].as_ref().to_owned();
+    let folder_b_id_key = folder_b_id.clone();
+
+    let update_args = serde_json::json!({
+        "accountId": "acct1",
+        "update": {
+            folder_b_id_key: { "name": "Renamed B" }
+        }
+    });
+
+    let (resp, _) = handle_mailbox_set(&backend, update_args)
+        .await
+        .expect("Mailbox/set update must succeed");
+
+    // Oracle: id must appear in updated, not in notUpdated.
+    let not_updated = resp["notUpdated"].as_object();
+    assert!(
+        not_updated.map_or(true, |m| !m.contains_key(folder_b_id.as_str())),
+        "folderB must not be in notUpdated; got: {:?}",
+        resp["notUpdated"]
+    );
+
+    // Oracle: Mailbox/get must return the new name.
+    let get_args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [folder_b_id],
+    });
+    let (get_resp, _) = handle_mailbox_get(&backend, get_args)
+        .await
+        .expect("Mailbox/get must succeed");
+    let list = get_resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find folderB");
+    assert_eq!(
+        list[0]["name"].as_str(),
+        Some("Renamed B"),
+        "name must be the updated value; got: {:?}",
+        list[0]["name"]
+    );
+}
+
+/// Oracle: RFC 8621 §2.5 — a created mailbox can be destroyed; the destroyed id
+/// must appear in the destroyed array and must not be retrievable afterward.
+/// jmap-test-suite: mailbox-set.test.ts "set-destroy-empty"
+#[tokio::test]
+async fn conformance_mailbox_set_destroy() {
+    let backend = MemoryBackend::new();
+    let _account_id = Id::from("acct1");
+
+    // Create a fresh mailbox so we can destroy it cleanly.
+    let create_args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "c1": { "name": "Destroy Me", "parentId": null }
+        }
+    });
+    let (create_resp, _) = handle_mailbox_set(&backend, create_args)
+        .await
+        .expect("Mailbox/set create must succeed");
+    let mb_id = create_resp["created"]["c1"]["id"]
+        .as_str()
+        .expect("created id must be present")
+        .to_owned();
+
+    // Destroy it.
+    let destroy_args = serde_json::json!({
+        "accountId": "acct1",
+        "destroy": [mb_id],
+    });
+    let (destroy_resp, _) = handle_mailbox_set(&backend, destroy_args)
+        .await
+        .expect("Mailbox/set destroy must succeed");
+
+    // Oracle: destroyed array must contain the id.
+    let destroyed = destroy_resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be an array");
+    let destroyed_strs: Vec<&str> = destroyed.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        destroyed_strs.contains(&mb_id.as_str()),
+        "destroyed must contain the mailbox id; got: {:?}",
+        destroyed_strs
+    );
+
+    // Oracle: notDestroyed must not contain the id.
+    let not_destroyed = destroy_resp["notDestroyed"].as_object();
+    assert!(
+        not_destroyed.map_or(true, |m| !m.contains_key(mb_id.as_str())),
+        "id must not appear in notDestroyed; got: {:?}",
+        destroy_resp["notDestroyed"]
+    );
+}
+
+/// Oracle: RFC 8621 §2.5 — attempting to destroy a mailbox that has child mailboxes
+/// MUST be rejected with SetError type "mailboxHasChild".
+/// jmap-test-suite: mailbox-set.test.ts "set-cannot-destroy-with-children"
+#[tokio::test]
+async fn conformance_mailbox_set_destroy_with_children() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    // folderA has child1 and child2 — it must not be destroyable without first
+    // removing the children.
+    let folder_a_id = seed.mailbox["folderA"].as_ref().to_owned();
+
+    let destroy_args = serde_json::json!({
+        "accountId": "acct1",
+        "destroy": [folder_a_id],
+    });
+    let (resp, _) = handle_mailbox_set(&backend, destroy_args)
+        .await
+        .expect("Mailbox/set destroy must return a set response (not a method error)");
+
+    // Oracle: id must be in notDestroyed with type "mailboxHasChild".
+    let not_destroyed = resp["notDestroyed"]
+        .as_object()
+        .expect("notDestroyed must be an object when destroy is rejected");
+    assert!(
+        not_destroyed.contains_key(folder_a_id.as_str()),
+        "folderA must appear in notDestroyed; got: {:?}",
+        resp["notDestroyed"]
+    );
+    assert_eq!(
+        not_destroyed[folder_a_id.as_str()]["type"].as_str(),
+        Some("mailboxHasChild"),
+        "error type must be mailboxHasChild; got: {:?}",
+        not_destroyed[folder_a_id.as_str()]["type"]
+    );
+
+    // Oracle: destroyed must not contain folderA.
+    let destroyed = resp["destroyed"].as_array();
+    let is_in_destroyed = destroyed.map_or(false, |arr| {
+        arr.iter().any(|v| v.as_str() == Some(folder_a_id.as_str()))
+    });
+    assert!(!is_in_destroyed, "folderA must not appear in destroyed");
+}
+
+/// Oracle: RFC 8621 §2.5 — two mailboxes with the same name under the same parent
+/// MUST be rejected; the second create must land in notCreated with type "alreadyExists".
+/// jmap-test-suite: mailbox-set.test.ts "set-duplicate-name-same-parent"
+#[tokio::test]
+async fn conformance_mailbox_set_create_duplicate_name() {
+    let backend = MemoryBackend::new();
+    let _account_id = Id::from("acct1");
+
+    // Create the first mailbox.
+    let create1_args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "dup1": { "name": "Duplicate Name Test", "parentId": null }
+        }
+    });
+    let (resp1, _) = handle_mailbox_set(&backend, create1_args)
+        .await
+        .expect("first Mailbox/set create must succeed");
+    assert!(
+        resp1["created"]["dup1"]["id"].as_str().is_some(),
+        "first create must succeed; got: {:?}",
+        resp1["created"]
+    );
+    let first_id = resp1["created"]["dup1"]["id"].as_str().unwrap().to_owned();
+
+    // Try to create a second with the same name under the same parent (null).
+    let create2_args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "dup2": { "name": "Duplicate Name Test", "parentId": null }
+        }
+    });
+    let (resp2, _) = handle_mailbox_set(&backend, create2_args)
+        .await
+        .expect("second Mailbox/set create must return a set response");
+
+    // Oracle: dup2 must be in notCreated with type "alreadyExists".
+    let not_created = resp2["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object");
+    assert!(
+        not_created.contains_key("dup2"),
+        "dup2 must appear in notCreated; got: {:?}",
+        resp2["notCreated"]
+    );
+    assert_eq!(
+        not_created["dup2"]["type"].as_str(),
+        Some("alreadyExists"),
+        "error type must be alreadyExists; got: {:?}",
+        not_created["dup2"]["type"]
+    );
+
+    // Oracle: created must not contain dup2.
+    assert!(
+        resp2["created"]["dup2"].is_null() || resp2["created"].is_null(),
+        "dup2 must not appear in created; got: {:?}",
+        resp2["created"]
+    );
+
+    // Cleanup: destroy the first mailbox.
+    let _ = handle_mailbox_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "acct1",
+            "destroy": [first_id],
+        }),
+    )
+    .await;
+}
+
+/// Oracle: RFC 8620 §5.3 — a successful Mailbox/set create MUST return an oldState
+/// that differs from newState, reflecting that the state advanced.
+/// jmap-test-suite: mailbox-set.test.ts "set-state-changes"
+#[tokio::test]
+async fn conformance_mailbox_set_state_changes() {
+    let backend = MemoryBackend::new();
+    let _account_id = Id::from("acct1");
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "stateTest": { "name": "State Test", "parentId": null }
+        }
+    });
+
+    let (resp, _) = handle_mailbox_set(&backend, args)
+        .await
+        .expect("Mailbox/set must succeed");
+
+    // Oracle: RFC 8620 §5.3 — oldState and newState must both be present.
+    let old_state = resp["oldState"]
+        .as_str()
+        .expect("oldState must be a string");
+    let new_state = resp["newState"]
+        .as_str()
+        .expect("newState must be a string");
+
+    // Oracle: after a mutation, newState must differ from oldState.
+    assert_ne!(
+        old_state, new_state,
+        "newState must differ from oldState after a create; old={old_state:?} new={new_state:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.3 / RFC 8621 §2.5 — a create request without a name field
+/// MUST be rejected; the create id must appear in notCreated with an error type
+/// indicating the missing required property.
+/// jmap-test-suite: (implicit from RFC 8621 §2 — name is a required server-set property)
+#[tokio::test]
+async fn conformance_mailbox_set_create_missing_name() {
+    let backend = MemoryBackend::new();
+    let _account_id = Id::from("acct1");
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "noName": { "parentId": null }
+        }
+    });
+
+    let (resp, _) = handle_mailbox_set(&backend, args)
+        .await
+        .expect("Mailbox/set must return a set response (not a method error)");
+
+    // Oracle: noName must be in notCreated; created must not contain it.
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object when create is rejected");
+    assert!(
+        not_created.contains_key("noName"),
+        "noName must appear in notCreated; got: {:?}",
+        resp["notCreated"]
+    );
+
+    // The handler uses SetErrorType::InvalidProperties with properties=["name"].
+    assert_eq!(
+        not_created["noName"]["type"].as_str(),
+        Some("invalidProperties"),
+        "error type must be invalidProperties; got: {:?}",
+        not_created["noName"]["type"]
+    );
+
+    assert!(
+        resp["created"]["noName"].is_null() || resp["created"].is_null(),
+        "noName must not appear in created; got: {:?}",
+        resp["created"]
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Mailbox/changes conformance tests (ported from jmap-test-suite mailbox-changes.test.ts)
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8620 §5.2 — Mailbox/changes from state "0" after creating a mailbox
+/// must include the new id in the created array.
+/// jmap-test-suite: mailbox-changes.test.ts "changes-after-create"
+#[tokio::test]
+async fn conformance_mailbox_changes_from_state_zero() {
+    let backend = MemoryBackend::new();
+    let _account_id = Id::from("acct1");
+
+    // Create a mailbox so there is something to report.
+    let set_args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "newMb": { "name": "Changes Test Mailbox", "parentId": null }
+        }
+    });
+    let (set_resp, _) = handle_mailbox_set(&backend, set_args)
+        .await
+        .expect("Mailbox/set must succeed");
+    let new_id = set_resp["created"]["newMb"]["id"]
+        .as_str()
+        .expect("created id must be present")
+        .to_owned();
+
+    // Mailbox/changes from sinceState "0".
+    let changes_args = serde_json::json!({
+        "accountId": "acct1",
+        "sinceState": "0",
+    });
+    let (resp, extra) = handle_mailbox_changes(&backend, changes_args)
+        .await
+        .expect("Mailbox/changes must succeed");
+
+    assert!(
+        extra.is_empty(),
+        "Mailbox/changes must not produce extra invocations"
+    );
+
+    // Oracle: created must contain the new mailbox id.
+    let created = resp["created"]
+        .as_array()
+        .expect("created must be an array");
+    let created_strs: Vec<&str> = created.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        created_strs.contains(&new_id.as_str()),
+        "created must contain the new mailbox id {new_id:?}; got: {created_strs:?}"
+    );
+
+    // Oracle: oldState must echo sinceState.
+    assert_eq!(
+        resp["oldState"].as_str().unwrap_or(""),
+        "0",
+        "oldState must equal sinceState"
+    );
+
+    // Oracle: newState must differ from "0" because a mutation happened.
+    assert_ne!(
+        resp["newState"].as_str().unwrap_or("0"),
+        "0",
+        "newState must advance after a mutation"
+    );
+}
+
+/// Oracle: RFC 8620 §5.2 — Mailbox/changes from the current state must return empty
+/// created, updated, and destroyed arrays and hasMoreChanges=false.
+/// jmap-test-suite: mailbox-changes.test.ts "changes-no-changes"
+#[tokio::test]
+async fn conformance_mailbox_changes_from_current_state() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    // Get the current Mailbox state via Mailbox/get.
+    let get_args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [],
+    });
+    let (get_resp, _) = handle_mailbox_get(&backend, get_args)
+        .await
+        .expect("Mailbox/get must succeed");
+    let current_state = get_resp["state"]
+        .as_str()
+        .expect("state must be a string in Mailbox/get response")
+        .to_owned();
+
+    // Now request changes from that current state — nothing should have changed.
+    let changes_args = serde_json::json!({
+        "accountId": "acct1",
+        "sinceState": current_state,
+    });
+    let (resp, _) = handle_mailbox_changes(&backend, changes_args)
+        .await
+        .expect("Mailbox/changes must succeed");
+
+    // Oracle: all three lists must be empty.
+    let created = resp["created"]
+        .as_array()
+        .expect("created must be an array");
+    let updated = resp["updated"]
+        .as_array()
+        .expect("updated must be an array");
+    let destroyed = resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be an array");
+
+    assert!(
+        created.is_empty(),
+        "created must be empty when sinceState is current; got: {:?}",
+        created
+    );
+    assert!(
+        updated.is_empty(),
+        "updated must be empty when sinceState is current; got: {:?}",
+        updated
+    );
+    assert!(
+        destroyed.is_empty(),
+        "destroyed must be empty when sinceState is current; got: {:?}",
+        destroyed
+    );
+
+    // Oracle: hasMoreChanges must be false.
+    assert_eq!(
+        resp["hasMoreChanges"].as_bool(),
+        Some(false),
+        "hasMoreChanges must be false when no changes; got: {:?}",
+        resp["hasMoreChanges"]
+    );
+}
+
+/// Oracle: RFC 8620 §5.2 — Mailbox/changes with an unrecognised sinceState MUST
+/// return an error (the MemoryBackend uses numeric states; a non-numeric token
+/// is invalid and results in a serverFail method error).
+/// jmap-test-suite: mailbox-changes.test.ts (implicit — invalid state handling)
+#[tokio::test]
+async fn conformance_mailbox_changes_invalid_state() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "sinceState": "invalid-state-token",
+    });
+
+    // Oracle: the handler must return Err(JmapError) rather than an empty-changes
+    // success. The MemoryBackend can only parse numeric state tokens; anything else
+    // results in BackendChangesError::Other → JmapError::server_fail.
+    let result = handle_mailbox_changes(&backend, args).await;
+    assert!(
+        result.is_err(),
+        "invalid sinceState must produce an error, not a success response"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Email/query conformance tests (RFC 8621 §4.4, RFC 8620 §5.5)
+// Ported from jmap-test-suite email-query-filters.test.ts and
+// email-query-paging.test.ts.
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/query with no filter returns all emails in the account.
+/// RFC 8621 §4.4 — absence of filter means no constraints; all emails match.
+/// Seed has 16 emails (multi-mailbox is one object in two mailboxes).
+#[tokio::test]
+async fn conformance_email_query_all() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "calculateTotal": true,
+    });
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query must succeed");
+
+    let total = resp["total"].as_u64().expect("total must be present");
+    assert!(
+        total >= 16,
+        "total must be at least 16 (all seed emails); got {total}"
+    );
+    let ids = resp["ids"].as_array().expect("ids must be an array");
+    assert!(
+        ids.len() >= 16,
+        "ids.len() must be at least 16; got {}",
+        ids.len()
+    );
+}
+
+/// Oracle: Email/query filter inMailbox returns only emails in that mailbox.
+/// RFC 8621 §4.4.1 — inMailbox: only emails whose mailboxIds include the given id.
+/// Inbox has 9 emails: plain-simple, html-attachment, thread-reply-1,
+/// thread-reply-2, multi-mailbox, html-only, no-subject, custom-keywords,
+/// special-headers.
+#[tokio::test]
+async fn conformance_email_query_filter_in_mailbox() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed.mailbox["inbox"].clone();
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "filter": { "inMailbox": inbox_id.as_ref() },
+        "calculateTotal": true,
+    });
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query must succeed");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+
+    assert!(
+        ids.len() >= 9,
+        "inbox must have at least 9 emails; got {}",
+        ids.len()
+    );
+    assert!(
+        ids.contains(&seed.email["plain-simple"].as_ref()),
+        "plain-simple must be in inbox results"
+    );
+    // very-old is only in folderA, not inbox.
+    assert!(
+        !ids.contains(&seed.email["very-old"].as_ref()),
+        "very-old must NOT be in inbox results"
+    );
+}
+
+/// Oracle: Email/query filter hasKeyword="$flagged" returns only flagged emails.
+/// RFC 8621 §4.4.1 — hasKeyword: email must have the keyword.
+/// Only html-attachment and sort-test-2 have $flagged in the seed data.
+#[tokio::test]
+async fn conformance_email_query_filter_has_keyword() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "filter": { "hasKeyword": "$flagged" },
+    });
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query must succeed");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+
+    assert!(
+        ids.contains(&seed.email["html-attachment"].as_ref()),
+        "html-attachment ($flagged) must be in results"
+    );
+    assert!(
+        ids.contains(&seed.email["sort-test-2"].as_ref()),
+        "sort-test-2 ($flagged) must be in results"
+    );
+    // plain-simple has $seen but not $flagged.
+    assert!(
+        !ids.contains(&seed.email["plain-simple"].as_ref()),
+        "plain-simple must NOT be in $flagged results"
+    );
+}
+
+/// Oracle: Email/query filter notKeyword="$seen" excludes emails with $seen.
+/// RFC 8621 §4.4.1 — notKeyword: email must NOT have the keyword.
+/// Unseen emails in seed: thread-reply-1, large-email, sort-test-3.
+#[tokio::test]
+async fn conformance_email_query_filter_not_keyword() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "filter": { "notKeyword": "$seen" },
+    });
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query must succeed");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+
+    assert!(
+        ids.contains(&seed.email["thread-reply-1"].as_ref()),
+        "thread-reply-1 (no $seen) must be in notKeyword=$seen results"
+    );
+    assert!(
+        ids.contains(&seed.email["large-email"].as_ref()),
+        "large-email (no $seen) must be in notKeyword=$seen results"
+    );
+    assert!(
+        ids.contains(&seed.email["sort-test-3"].as_ref()),
+        "sort-test-3 (no $seen) must be in notKeyword=$seen results"
+    );
+    // plain-simple has $seen — must be excluded.
+    assert!(
+        !ids.contains(&seed.email["plain-simple"].as_ref()),
+        "plain-simple ($seen) must NOT be in notKeyword=$seen results"
+    );
+}
+
+/// Oracle: Email/query filter after="2025-12-20T00:00:00Z" returns emails
+/// with receivedAt >= that date.
+/// RFC 8621 §4.4.1 — after: receivedAt must be on or after the given date-time.
+/// very-old (2025-12-02) must be excluded; custom-keywords (2025-12-31) must
+/// be included.
+#[tokio::test]
+async fn conformance_email_query_filter_after() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "filter": { "after": "2025-12-20T00:00:00Z" },
+    });
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query must succeed");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+
+    // plain-simple is at 2025-12-22 — on or after the cutoff.
+    assert!(
+        ids.contains(&seed.email["plain-simple"].as_ref()),
+        "plain-simple (2025-12-22) must be in after=2025-12-20 results"
+    );
+    // custom-keywords is at 2025-12-31 — after the cutoff.
+    assert!(
+        ids.contains(&seed.email["custom-keywords"].as_ref()),
+        "custom-keywords (2025-12-31) must be in after=2025-12-20 results"
+    );
+    // very-old is at 2025-12-02 — before the cutoff.
+    assert!(
+        !ids.contains(&seed.email["very-old"].as_ref()),
+        "very-old (2025-12-02) must NOT be in after=2025-12-20 results"
+    );
+}
+
+/// Oracle: Email/query filter before="2025-12-10T00:00:00Z" returns only
+/// emails with receivedAt strictly before that date.
+/// RFC 8621 §4.4.1 — before: receivedAt must be < the given date-time.
+/// Only very-old (2025-12-02) qualifies.
+#[tokio::test]
+async fn conformance_email_query_filter_before() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "filter": { "before": "2025-12-10T00:00:00Z" },
+    });
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query must succeed");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+
+    // very-old is at 2025-12-02 — before the cutoff.
+    assert!(
+        ids.contains(&seed.email["very-old"].as_ref()),
+        "very-old (2025-12-02) must be in before=2025-12-10 results"
+    );
+    // plain-simple is at 2025-12-22 — after the cutoff.
+    assert!(
+        !ids.contains(&seed.email["plain-simple"].as_ref()),
+        "plain-simple (2025-12-22) must NOT be in before=2025-12-10 results"
+    );
+}
+
+/// Oracle: Email/query filter minSize=10000 returns only emails >= 10 000 bytes.
+/// RFC 8621 §4.4.1 — minSize: size must be >= the given value.
+/// large-email body is ~14 800 bytes; all other seed emails are well under
+/// 10 000 bytes.
+#[tokio::test]
+async fn conformance_email_query_filter_min_size() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "filter": { "minSize": 10000 },
+    });
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query must succeed");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+
+    assert!(
+        ids.contains(&seed.email["large-email"].as_ref()),
+        "large-email (>10 000 bytes) must be in minSize=10000 results"
+    );
+    assert!(
+        !ids.contains(&seed.email["plain-simple"].as_ref()),
+        "plain-simple must NOT be in minSize=10000 results"
+    );
+}
+
+/// Oracle: Email/query with limit=3 returns exactly 3 IDs when more exist.
+/// RFC 8620 §5.5 — limit restricts the number of results returned.
+#[tokio::test]
+async fn conformance_email_query_limit() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "limit": 3,
+        "calculateTotal": true,
+    });
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query must succeed");
+
+    let ids = resp["ids"].as_array().expect("ids must be an array");
+    assert_eq!(
+        ids.len(),
+        3,
+        "limit=3 must return exactly 3 ids; got {}",
+        ids.len()
+    );
+
+    let total = resp["total"].as_u64().expect("total must be present");
+    assert!(
+        total >= 16,
+        "total must reflect all emails (not just the page); got {total}"
+    );
+}
+
+/// Oracle: Email/query with position=1, limit=2 skips 1 result and returns
+/// the next 2.
+/// RFC 8620 §5.5 — position is 0-based; position=1 skips 1 result.
+#[tokio::test]
+async fn conformance_email_query_position() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    // Get all IDs in the default sort order to derive the expected slice.
+    let all_args = serde_json::json!({ "accountId": account_id.as_ref() });
+    let (all_resp, _) = handle_email_query(&backend, all_args)
+        .await
+        .expect("all-email query must succeed");
+    let all_ids: Vec<String> = all_resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_owned())
+        .collect();
+    assert!(all_ids.len() >= 3, "need at least 3 emails for this test");
+
+    let paged_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "position": 1,
+        "limit": 2,
+    });
+    let (paged_resp, _) = handle_email_query(&backend, paged_args)
+        .await
+        .expect("paged query must succeed");
+
+    let paged_ids: Vec<String> = paged_resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_owned())
+        .collect();
+
+    assert_eq!(
+        paged_resp["position"].as_i64(),
+        Some(1),
+        "response position must echo the requested position"
+    );
+    assert_eq!(
+        paged_ids.len(),
+        2,
+        "position=1 limit=2 must return 2 ids; got {}",
+        paged_ids.len()
+    );
+    assert_eq!(
+        paged_ids[0], all_ids[1],
+        "first paged result must be all_ids[1] (position=1 skips index 0)"
+    );
+    assert_eq!(
+        paged_ids[1], all_ids[2],
+        "second paged result must be all_ids[2]"
+    );
+}
+
+/// Oracle: Email/query with anchor set to the 3rd result ID returns results
+/// starting at that anchor.
+/// RFC 8620 §5.5 — anchor identifies the start position by ID, not offset.
+#[tokio::test]
+async fn conformance_email_query_anchor() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    // Get all IDs with a stable sort order so the anchor index is predictable.
+    let all_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sort": [{ "property": "receivedAt", "isAscending": false }],
+    });
+    let (all_resp, _) = handle_email_query(&backend, all_args)
+        .await
+        .expect("all-email query must succeed");
+    let all_ids: Vec<String> = all_resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_owned())
+        .collect();
+    assert!(
+        all_ids.len() >= 3,
+        "need at least 3 emails for anchor test; got {}",
+        all_ids.len()
+    );
+
+    let anchor_id = all_ids[2].clone();
+
+    let anchor_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sort": [{ "property": "receivedAt", "isAscending": false }],
+        "anchor": anchor_id,
+        "limit": 3,
+    });
+    let (anchor_resp, _) = handle_email_query(&backend, anchor_args)
+        .await
+        .expect("anchor query must succeed");
+
+    let anchor_ids: Vec<String> = anchor_resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap().to_owned())
+        .collect();
+
+    assert_eq!(
+        anchor_ids[0], anchor_id,
+        "first result must be the anchor ID itself"
+    );
+    assert_eq!(
+        anchor_resp["position"].as_i64(),
+        Some(2),
+        "reported position must be the anchor's 0-based index (2); resp: {anchor_resp}"
+    );
+}
+
+/// Oracle: Email/query with a nonexistent anchor ID returns anchorNotFound.
+/// RFC 8620 §5.5 — "If an anchor argument was given and the anchor Id was not
+/// found in the results, the server MUST return an anchorNotFound error."
+#[tokio::test]
+async fn conformance_email_query_anchor_not_found() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "anchor": "nonexistent-id",
+    });
+    let result = handle_email_query(&backend, args).await;
+
+    assert!(
+        result.is_err(),
+        "nonexistent anchor must return a JmapError"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type.as_str(),
+        "anchorNotFound",
+        "error type must be anchorNotFound; got: {:?}",
+        err.error_type
+    );
+}
+
+/// Oracle: Email/query sort=[{property:"receivedAt",isAscending:false}] returns
+/// the most-recently received email first.
+/// RFC 8621 §4.4.2 — receivedAt comparator sorts by message receipt time.
+/// The two most-recent seed emails both have receivedAt=2025-12-31T00:00:00Z
+/// (custom-keywords and sort-test-3); either may appear first.
+/// The oldest email (very-old, 2025-12-02) must be last.
+#[tokio::test]
+async fn conformance_email_query_sort_received_at_desc() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sort": [{ "property": "receivedAt", "isAscending": false }],
+    });
+    let (resp, _) = handle_email_query(&backend, args)
+        .await
+        .expect("Email/query with sort must succeed");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+
+    assert!(
+        !ids.is_empty(),
+        "sorted query must return at least one result"
+    );
+
+    // First result must be one of the most-recently received emails.
+    let first_id = ids[0];
+    let is_most_recent = first_id == seed.email["custom-keywords"].as_ref()
+        || first_id == seed.email["sort-test-3"].as_ref();
+    assert!(
+        is_most_recent,
+        "first result of receivedAt desc sort must be custom-keywords or sort-test-3 \
+         (both at 2025-12-31); got {first_id:?}"
+    );
+
+    // Last result must be the oldest email.
+    let last_id = ids[ids.len() - 1];
+    assert_eq!(
+        last_id,
+        seed.email["very-old"].as_ref(),
+        "last result of receivedAt desc sort must be very-old (2025-12-02)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Email/set conformance tests (ported from jmap-test-suite email-set.test.ts)
+// ---------------------------------------------------------------------------
+
+/// Oracle: Email/set create with mailboxIds, keywords, and subject returns a
+/// created entry with a server-assigned id.
+///
+/// RFC 8621 §4.6 — a create object must include at least one mailboxId set to
+/// true. The response's `created` map must contain the creation id key with an
+/// object that includes a server-assigned `id`.
+/// Source: jmap-test-suite email-set-create.test.ts "set-create-plain-text"
+#[tokio::test]
+async fn conformance_email_set_create_basic() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "draft1": {
+                "mailboxIds": { "inbox": true },
+                "keywords": { "$seen": true },
+                "subject": "Plain text creation test",
+            }
+        }
+    });
+    let (resp, extra) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set must not return a protocol error");
+    assert!(
+        extra.is_empty(),
+        "Email/set must not generate extra invocations"
+    );
+
+    // RFC 8621 §4.6: created map must be present and contain the creation id.
+    let created = resp["created"]
+        .as_object()
+        .expect("created must be a non-null object");
+    assert!(
+        created.contains_key("draft1"),
+        "created must contain 'draft1'; resp: {resp:?}"
+    );
+    let entry = &created["draft1"];
+    assert!(
+        entry["id"].as_str().is_some(),
+        "created entry must have a server-assigned id; entry: {entry:?}"
+    );
+    assert!(
+        entry["threadId"].as_str().is_some(),
+        "created entry must have a server-assigned threadId; entry: {entry:?}"
+    );
+    // RFC 8621 §4.6: blobId is server-set and must not be the internal placeholder.
+    let blob_id = entry["blobId"].as_str().expect("blobId must be present");
+    assert_ne!(
+        blob_id, "placeholder-blob",
+        "blobId must be a real server-assigned value"
+    );
+}
+
+/// Oracle: Email/set create advances the state token.
+///
+/// RFC 8620 §5.2 — a successful set response must include `oldState` and
+/// `newState`, and they must differ when objects were created.
+/// Source: jmap-test-suite email-set-create.test.ts "set-create-state-changes"
+#[tokio::test]
+async fn conformance_email_set_create_sets_state() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "stateEmail": {
+                "mailboxIds": { "inbox": true },
+                "subject": "State change test",
+            }
+        }
+    });
+    let (resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set must not return a protocol error");
+
+    // RFC 8620 §5.2: oldState and newState must both be present.
+    let old_state = resp["oldState"].as_str().expect("oldState must be present");
+    let new_state = resp["newState"].as_str().expect("newState must be present");
+
+    // RFC 8620 §5.2: after a successful create, newState must differ from oldState.
+    assert_ne!(
+        old_state, new_state,
+        "newState must differ from oldState after a create; oldState={old_state:?} newState={new_state:?}"
+    );
+}
+
+/// Oracle: Email/set create with $draft and $seen keywords preserves both.
+///
+/// RFC 8621 §4.6 — keywords provided at create time must be stored. A
+/// subsequent Email/get must return the same keyword set.
+/// Source: jmap-test-suite email-set-create.test.ts "set-create-with-keywords"
+#[tokio::test]
+async fn conformance_email_set_create_with_keywords() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "kwDraft": {
+                "mailboxIds": { "inbox": true },
+                "keywords": { "$draft": true, "$seen": true },
+                "subject": "Keywords test",
+            }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set must not return a protocol error");
+
+    let email_id = set_resp["created"]["kwDraft"]["id"]
+        .as_str()
+        .expect("created kwDraft must have id")
+        .to_owned();
+
+    // Verify keywords survive a round-trip via Email/get.
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [email_id],
+        "properties": ["keywords"],
+    });
+    let (get_resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get must succeed");
+
+    let keywords = &get_resp["list"][0]["keywords"];
+    assert_eq!(
+        keywords["$draft"].as_bool(),
+        Some(true),
+        "$draft must be true; keywords: {keywords:?}"
+    );
+    assert_eq!(
+        keywords["$seen"].as_bool(),
+        Some(true),
+        "$seen must be true; keywords: {keywords:?}"
+    );
+}
+
+/// Oracle: Email/set update replacing the keywords map adds $flagged.
+///
+/// RFC 8621 §4.6 / RFC 8620 §5.3 — an update with a full `keywords` replacement
+/// sets exactly those keywords. Email/get must return the new keyword set.
+/// Source: jmap-test-suite email-set-update.test.ts "set-update-replace-keywords"
+#[tokio::test]
+async fn conformance_email_set_update_keywords() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create an email with only $seen.
+    let (set_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "c0": {
+                    "mailboxIds": { "inbox": true },
+                    "keywords": { "$seen": true },
+                    "subject": "Update keywords test",
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set create must succeed");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("c0 must have id")
+        .to_owned();
+
+    // Replace keywords map: set $seen + $flagged.
+    let (upd_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "update": {
+                email_id.clone(): {
+                    "keywords": { "$seen": true, "$flagged": true },
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set update must not return a protocol error");
+
+    let updated = upd_resp["updated"]
+        .as_object()
+        .expect("updated must be an object");
+    assert!(
+        updated.contains_key(&email_id),
+        "email must be in updated; notUpdated={:?}",
+        upd_resp["notUpdated"]
+    );
+
+    // Verify $flagged is present via Email/get.
+    let (get_resp, _) = handle_email_get(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "ids": [email_id],
+            "properties": ["keywords"],
+        }),
+    )
+    .await
+    .expect("Email/get must succeed");
+
+    let keywords = &get_resp["list"][0]["keywords"];
+    assert_eq!(
+        keywords["$flagged"].as_bool(),
+        Some(true),
+        "$flagged must be true after update; keywords: {keywords:?}"
+    );
+    assert_eq!(
+        keywords["$seen"].as_bool(),
+        Some(true),
+        "$seen must be true after update; keywords: {keywords:?}"
+    );
+}
+
+/// Oracle: Email/set update replacing mailboxIds moves the email.
+///
+/// RFC 8620 §5.3 — replacing `mailboxIds` with a new map removes the email from
+/// all prior mailboxes and places it in the new ones. Email/get must return the
+/// updated mailboxIds.
+/// Source: jmap-test-suite email-set-update.test.ts "set-update-move-mailbox"
+#[tokio::test]
+async fn conformance_email_set_update_mailbox_ids() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create in inbox.
+    let (set_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "moveEmail": {
+                    "mailboxIds": { "inbox": true },
+                    "subject": "Move test",
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set create must succeed");
+    let email_id = set_resp["created"]["moveEmail"]["id"]
+        .as_str()
+        .expect("moveEmail must have id")
+        .to_owned();
+
+    // Move to folderA by replacing the mailboxIds map.
+    let (upd_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "update": {
+                email_id.clone(): {
+                    "mailboxIds": { "folderA": true },
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set update must not return a protocol error");
+
+    assert!(
+        upd_resp["updated"]
+            .as_object()
+            .map_or(false, |m| m.contains_key(&email_id)),
+        "email must be in updated; notUpdated={:?}",
+        upd_resp["notUpdated"]
+    );
+
+    // Email must now be in folderA and not in inbox.
+    let (get_resp, _) = handle_email_get(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "ids": [email_id],
+            "properties": ["mailboxIds"],
+        }),
+    )
+    .await
+    .expect("Email/get must succeed");
+
+    let mailbox_ids = &get_resp["list"][0]["mailboxIds"];
+    assert_eq!(
+        mailbox_ids["folderA"].as_bool(),
+        Some(true),
+        "email must be in folderA; mailboxIds: {mailbox_ids:?}"
+    );
+    assert!(
+        mailbox_ids
+            .get("inbox")
+            .map_or(true, |v| !v.as_bool().unwrap_or(false)),
+        "email must no longer be in inbox; mailboxIds: {mailbox_ids:?}"
+    );
+}
+
+/// Oracle: Email/set patch `keywords/$flagged = true` adds the keyword.
+///
+/// RFC 8620 §5.3 — a path-keyed patch sets the specified property within the
+/// target object. After the patch, Email/get must show $flagged = true.
+/// Source: jmap-test-suite email-set-update.test.ts "set-update-add-keyword"
+#[tokio::test]
+async fn conformance_email_set_update_adds_keyword() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create an email without $flagged.
+    let (set_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "c0": {
+                    "mailboxIds": { "inbox": true },
+                    "keywords": { "$seen": true },
+                    "subject": "Add keyword patch test",
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set create must succeed");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("c0 must have id")
+        .to_owned();
+
+    // Patch keywords/$flagged = true.
+    let (upd_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "update": {
+                email_id.clone(): {
+                    "keywords/$flagged": true,
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set update must not return a protocol error");
+
+    assert!(
+        upd_resp["updated"]
+            .as_object()
+            .map_or(false, |m| m.contains_key(&email_id)),
+        "email must be in updated; notUpdated={:?}",
+        upd_resp["notUpdated"]
+    );
+
+    // $flagged must now be true.
+    let (get_resp, _) = handle_email_get(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "ids": [email_id],
+            "properties": ["keywords"],
+        }),
+    )
+    .await
+    .expect("Email/get must succeed");
+
+    let keywords = &get_resp["list"][0]["keywords"];
+    assert_eq!(
+        keywords["$flagged"].as_bool(),
+        Some(true),
+        "$flagged must be true after patch; keywords: {keywords:?}"
+    );
+}
+
+/// Oracle: Email/set patch `keywords/$seen = null` removes the keyword.
+///
+/// RFC 8620 §5.3 — a null value in a path-keyed patch removes the target
+/// property. After the patch, Email/get must not show $seen.
+/// Source: jmap-test-suite email-set-update.test.ts "set-update-remove-keyword"
+#[tokio::test]
+async fn conformance_email_set_update_removes_keyword() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create an email with $seen.
+    let (set_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "c0": {
+                    "mailboxIds": { "inbox": true },
+                    "keywords": { "$seen": true },
+                    "subject": "Remove keyword patch test",
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set create must succeed");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("c0 must have id")
+        .to_owned();
+
+    // Patch keywords/$seen = null (removes the keyword).
+    let (upd_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "update": {
+                email_id.clone(): {
+                    "keywords/$seen": null,
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set update must not return a protocol error");
+
+    assert!(
+        upd_resp["updated"]
+            .as_object()
+            .map_or(false, |m| m.contains_key(&email_id)),
+        "email must be in updated; notUpdated={:?}",
+        upd_resp["notUpdated"]
+    );
+
+    // $seen must now be absent.
+    let (get_resp, _) = handle_email_get(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "ids": [email_id],
+            "properties": ["keywords"],
+        }),
+    )
+    .await
+    .expect("Email/get must succeed");
+
+    let keywords = &get_resp["list"][0]["keywords"];
+    assert!(
+        keywords.get("$seen").is_none() || keywords["$seen"].as_bool() == Some(false),
+        "$seen must be absent after null patch; keywords: {keywords:?}"
+    );
+}
+
+/// Oracle: Email/set destroy removes the email; subsequent Email/get returns it
+/// in notFound.
+///
+/// RFC 8620 §5.2 — the response's `destroyed` array must include the id.
+/// RFC 8621 §4.2 — a subsequent Email/get must return the id in `notFound`.
+/// Source: jmap-test-suite email-set-destroy.test.ts "set-destroy-single"
+#[tokio::test]
+async fn conformance_email_set_destroy_basic() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create an email to destroy.
+    let (set_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "destroyMe": {
+                    "mailboxIds": { "inbox": true },
+                    "subject": "Destroy me",
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set create must succeed");
+    let email_id = set_resp["created"]["destroyMe"]["id"]
+        .as_str()
+        .expect("destroyMe must have id")
+        .to_owned();
+
+    // Destroy it.
+    let (destroy_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "destroy": [email_id.clone()],
+        }),
+    )
+    .await
+    .expect("Email/set destroy must not return a protocol error");
+
+    // RFC 8620 §5.2: destroyed must be an array containing the id.
+    let destroyed = destroy_resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be an array");
+    assert!(
+        destroyed.iter().any(|v| v.as_str() == Some(&email_id)),
+        "destroyed must contain the email id; destroyed: {destroyed:?}"
+    );
+
+    // RFC 8621 §4.2: subsequent Email/get must report the id in notFound.
+    let (get_resp, _) = handle_email_get(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "ids": [email_id.clone()],
+        }),
+    )
+    .await
+    .expect("Email/get must succeed");
+
+    let not_found = get_resp["notFound"]
+        .as_array()
+        .expect("notFound must be an array");
+    assert!(
+        not_found.iter().any(|v| v.as_str() == Some(&email_id)),
+        "notFound must contain the destroyed email id; notFound: {not_found:?}"
+    );
+}
+
+/// Oracle: Email/set destroy advances the state token.
+///
+/// RFC 8620 §5.2 — a successful set response must include `oldState` and
+/// `newState`, and they must differ after a successful destroy.
+/// Source: jmap-test-suite email-set-destroy.test.ts "set-destroy-single" (state assertions)
+#[tokio::test]
+async fn conformance_email_set_destroy_updates_state() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    // Create an email to destroy.
+    let (set_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "create": {
+                "c0": {
+                    "mailboxIds": { "inbox": true },
+                    "subject": "Destroy state test",
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set create must succeed");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("c0 must have id")
+        .to_owned();
+
+    // Destroy and check state advances.
+    let (destroy_resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "destroy": [email_id],
+        }),
+    )
+    .await
+    .expect("Email/set destroy must not return a protocol error");
+
+    let old_state = destroy_resp["oldState"]
+        .as_str()
+        .expect("oldState must be present");
+    let new_state = destroy_resp["newState"]
+        .as_str()
+        .expect("newState must be present");
+
+    assert_ne!(
+        old_state, new_state,
+        "newState must differ from oldState after destroy; oldState={old_state:?} newState={new_state:?}"
+    );
+}
+
+/// Oracle: Email/set update of a non-existent id returns notUpdated with type=notFound.
+///
+/// RFC 8620 §5.3 — if an id in the update map does not exist, the server must
+/// include it in `notUpdated` with a SetError of type "notFound".
+/// Source: jmap-test-suite email-set-update.test.ts "set-update-not-found"
+#[tokio::test]
+async fn conformance_email_set_update_not_found() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let (resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "update": {
+                "nonexistent-email-xyz": {
+                    "keywords/$seen": true,
+                }
+            }
+        }),
+    )
+    .await
+    .expect("Email/set must not return a protocol error");
+
+    // RFC 8620 §5.3: notUpdated must be present and contain the unknown id.
+    let not_updated = resp["notUpdated"]
+        .as_object()
+        .expect("notUpdated must be a non-null object when updating a nonexistent id");
+    assert!(
+        not_updated.contains_key("nonexistent-email-xyz"),
+        "notUpdated must contain the unknown id; notUpdated: {not_updated:?}"
+    );
+    assert_eq!(
+        not_updated["nonexistent-email-xyz"]["type"]
+            .as_str()
+            .unwrap_or(""),
+        "notFound",
+        "error type must be notFound; entry: {:?}",
+        not_updated["nonexistent-email-xyz"]
+    );
+}
+
+/// Oracle: Email/set destroy of a non-existent id returns notDestroyed with type=notFound.
+///
+/// RFC 8620 §5.4 — if an id in the destroy array does not exist, the server must
+/// include it in `notDestroyed` with a SetError of type "notFound".
+/// Source: jmap-test-suite email-set-destroy.test.ts "set-destroy-not-found"
+#[tokio::test]
+async fn conformance_email_set_destroy_not_found() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+
+    let (resp, _) = handle_email_set(
+        &backend,
+        serde_json::json!({
+            "accountId": account_id.as_ref(),
+            "destroy": ["nonexistent-email-xyz"],
+        }),
+    )
+    .await
+    .expect("Email/set must not return a protocol error");
+
+    // RFC 8620 §5.4: notDestroyed must be present and contain the unknown id.
+    let not_destroyed = resp["notDestroyed"]
+        .as_object()
+        .expect("notDestroyed must be a non-null object when destroying a nonexistent id");
+    assert!(
+        not_destroyed.contains_key("nonexistent-email-xyz"),
+        "notDestroyed must contain the unknown id; notDestroyed: {not_destroyed:?}"
+    );
+    assert_eq!(
+        not_destroyed["nonexistent-email-xyz"]["type"]
+            .as_str()
+            .unwrap_or(""),
+        "notFound",
+        "error type must be notFound; entry: {:?}",
+        not_destroyed["nonexistent-email-xyz"]
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Conformance tests ported from jmap-test-suite
+// thread-get.test.ts, email-changes.test.ts, mailbox-changes.test.ts,
+// thread-changes.test.ts
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8621 §3.1 — Thread/get for the alpha thread returns emailIds
+/// with exactly 3 entries (thread-starter, thread-reply-1, thread-reply-2).
+///
+/// jmap-test-suite: thread-get.test.ts "get-thread-by-id"
+#[tokio::test]
+async fn conformance_thread_get_email_ids_present() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let thread_id = seed
+        .thread
+        .get("thread-alpha")
+        .expect("seed must contain thread-alpha")
+        .clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [thread_id.as_ref()],
+    });
+    let (resp, extra) = handle_thread_get(&backend, args)
+        .await
+        .expect("Thread/get must succeed");
+    assert!(
+        extra.is_empty(),
+        "Thread/get must not produce extra invocations"
+    );
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find exactly one thread");
+
+    let email_ids = list[0]["emailIds"]
+        .as_array()
+        .expect("emailIds must be an array");
+    assert_eq!(
+        email_ids.len(),
+        3,
+        "thread-alpha must have 3 emailIds; got: {email_ids:?}"
+    );
+}
+
+/// Oracle: RFC 8621 §3 — emailIds in a Thread MUST be sorted by receivedAt, oldest first.
+///
+/// External oracle: seed timestamps
+///   thread-starter  2025-12-24T00:00:00Z  (days_ago(8))
+///   thread-reply-1  2025-12-25T00:00:00Z  (days_ago(7))
+///   thread-reply-2  2025-12-26T00:00:00Z  (days_ago(6))
+///
+/// jmap-test-suite: thread-get.test.ts "get-thread-email-ids-order"
+#[tokio::test]
+async fn conformance_thread_get_email_ids_ordered() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let thread_id = seed
+        .thread
+        .get("thread-alpha")
+        .expect("seed must contain thread-alpha")
+        .clone();
+
+    // Expected order: oldest receivedAt first (RFC 8621 §3).
+    let expected: [&str; 3] = [
+        seed.email
+            .get("thread-starter")
+            .expect("thread-starter")
+            .as_ref(),
+        seed.email
+            .get("thread-reply-1")
+            .expect("thread-reply-1")
+            .as_ref(),
+        seed.email
+            .get("thread-reply-2")
+            .expect("thread-reply-2")
+            .as_ref(),
+    ];
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [thread_id.as_ref()],
+    });
+    let (resp, _) = handle_thread_get(&backend, args)
+        .await
+        .expect("Thread/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    let email_ids: Vec<&str> = list[0]["emailIds"]
+        .as_array()
+        .expect("emailIds must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("emailId must be a string"))
+        .collect();
+
+    assert_eq!(
+        email_ids, expected,
+        "emailIds must be sorted oldest-first by receivedAt (RFC 8621 §3); \
+         expected [thread-starter, thread-reply-1, thread-reply-2]"
+    );
+}
+
+/// Oracle: RFC 8620 §5.1 — Thread/get with an unknown id must return that id in notFound.
+///
+/// jmap-test-suite: thread-get.test.ts "get-thread-not-found"
+#[tokio::test]
+async fn conformance_thread_get_not_found() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    setup_seed_data(&backend, &account_id).await;
+
+    let bad_id = "bad-thread-id";
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [bad_id],
+    });
+    let (resp, _) = handle_thread_get(&backend, args)
+        .await
+        .expect("Thread/get must succeed even for unknown ids");
+
+    let not_found: Vec<&str> = resp["notFound"]
+        .as_array()
+        .expect("notFound must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("notFound entry must be a string"))
+        .collect();
+
+    assert!(
+        not_found.contains(&bad_id),
+        "notFound must contain the unknown id '{bad_id}'; got: {not_found:?}"
+    );
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert!(
+        list.is_empty(),
+        "list must be empty when only unknown ids are requested; got: {list:?}"
+    );
+}
+
+/// Oracle: RFC 8621 §3.1 — a single-email thread has emailIds with exactly one entry
+/// equal to the email's own id.
+///
+/// plain-simple is imported without In-Reply-To/References, so it starts its own thread.
+///
+/// jmap-test-suite: thread-get.test.ts "get-single-email-thread"
+#[tokio::test]
+async fn conformance_thread_get_single_email() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let thread_id = seed
+        .thread
+        .get("plain-simple")
+        .expect("seed must contain plain-simple thread")
+        .clone();
+    let email_id = seed
+        .email
+        .get("plain-simple")
+        .expect("seed must contain plain-simple email")
+        .clone();
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [thread_id.as_ref()],
+    });
+    let (resp, _) = handle_thread_get(&backend, args)
+        .await
+        .expect("Thread/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1, "must find exactly one thread");
+
+    let email_ids = list[0]["emailIds"]
+        .as_array()
+        .expect("emailIds must be an array");
+    assert_eq!(
+        email_ids.len(),
+        1,
+        "single-email thread must have exactly one emailId; got: {email_ids:?}"
+    );
+    assert_eq!(
+        email_ids[0].as_str().unwrap_or(""),
+        email_id.as_ref(),
+        "the sole emailId must equal the email's id"
+    );
+}
+
+/// Oracle: RFC 8620 §5.4 — Email/changes with sinceState "0" must include every
+/// email id created since the beginning, including one just created.
+///
+/// jmap-test-suite: email-changes.test.ts (changes-after-create-and-destroy, first half)
+#[tokio::test]
+async fn conformance_email_changes_from_zero() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed
+        .mailbox
+        .get("inbox")
+        .expect("seed must have inbox")
+        .clone();
+
+    // Create a new email after seed is loaded.
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { inbox_id.as_ref(): true },
+                "subject": "changes from zero test",
+            }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set must succeed");
+    let new_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("created id must be present")
+        .to_owned();
+
+    // Changes from state "0" must include the new email in created.
+    let changes_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sinceState": "0",
+    });
+    let (chg_resp, _) = handle_email_changes(&backend, changes_args)
+        .await
+        .expect("Email/changes must succeed");
+
+    let created: Vec<&str> = chg_resp["created"]
+        .as_array()
+        .expect("created must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("id must be a string"))
+        .collect();
+
+    assert!(
+        created.contains(&new_id.as_str()),
+        "created must contain the new email id '{new_id}'; got: {created:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.4 — Email/changes with the current state returns empty
+/// created/updated/destroyed arrays and oldState == sinceState.
+///
+/// jmap-test-suite: email-changes.test.ts "changes-no-changes"
+#[tokio::test]
+async fn conformance_email_changes_from_current_state() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    setup_seed_data(&backend, &account_id).await;
+
+    // Obtain the current Email state from Email/get (ids=[]) which echoes state.
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [],
+    });
+    let (get_resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get must succeed");
+    let current_state = get_resp["state"]
+        .as_str()
+        .expect("Email/get response must include state field")
+        .to_owned();
+
+    let changes_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sinceState": current_state,
+    });
+    let (chg_resp, _) = handle_email_changes(&backend, changes_args)
+        .await
+        .expect("Email/changes must succeed");
+
+    assert_eq!(
+        chg_resp["oldState"].as_str().unwrap_or(""),
+        current_state,
+        "oldState must echo sinceState"
+    );
+
+    let created = chg_resp["created"]
+        .as_array()
+        .expect("created must be array");
+    let updated = chg_resp["updated"]
+        .as_array()
+        .expect("updated must be array");
+    let destroyed = chg_resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array");
+
+    assert!(
+        created.is_empty(),
+        "created must be empty when no changes occurred; got: {created:?}"
+    );
+    assert!(
+        updated.is_empty(),
+        "updated must be empty when no changes occurred; got: {updated:?}"
+    );
+    assert!(
+        destroyed.is_empty(),
+        "destroyed must be empty when no changes occurred; got: {destroyed:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.4 — after updating an email's keywords, Email/changes
+/// must include that email's id in the "updated" list.
+///
+/// jmap-test-suite: email-changes.test.ts "changes-after-keyword-change"
+#[tokio::test]
+async fn conformance_email_changes_after_update() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed
+        .mailbox
+        .get("inbox")
+        .expect("seed must have inbox")
+        .clone();
+
+    // Create an email whose keywords will be updated.
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { inbox_id.as_ref(): true },
+                "subject": "update test",
+            }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set create must succeed");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("created id")
+        .to_owned();
+    // Capture state after create so changes since here show only the update.
+    let state_after_create = set_resp["newState"]
+        .as_str()
+        .expect("newState after create")
+        .to_owned();
+
+    // Update a keyword on the email.
+    let upd_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "update": {
+            email_id.clone(): { "keywords/$flagged": true }
+        }
+    });
+    let (upd_resp, _) = handle_email_set(&backend, upd_args)
+        .await
+        .expect("Email/set update must succeed");
+    assert!(
+        upd_resp["notUpdated"]
+            .as_object()
+            .map_or(true, |m| m.is_empty()),
+        "update must succeed; notUpdated must be empty"
+    );
+
+    // Email/changes since state_after_create must show the id in updated.
+    let changes_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sinceState": state_after_create,
+    });
+    let (chg_resp, _) = handle_email_changes(&backend, changes_args)
+        .await
+        .expect("Email/changes must succeed");
+
+    let updated: Vec<&str> = chg_resp["updated"]
+        .as_array()
+        .expect("updated must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("id must be a string"))
+        .collect();
+
+    assert!(
+        updated.contains(&email_id.as_str()),
+        "updated must contain the email id '{email_id}'; got: {updated:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.4 — after destroying an email, Email/changes must include
+/// that email's id in the "destroyed" list.
+///
+/// jmap-test-suite: email-changes.test.ts "changes-after-create-and-destroy"
+#[tokio::test]
+async fn conformance_email_changes_after_destroy() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed
+        .mailbox
+        .get("inbox")
+        .expect("seed must have inbox")
+        .clone();
+
+    // Create an email to be destroyed.
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { inbox_id.as_ref(): true },
+                "subject": "destroy test",
+            }
+        }
+    });
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set create must succeed");
+    let email_id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("created id")
+        .to_owned();
+    let state_after_create = set_resp["newState"]
+        .as_str()
+        .expect("newState after create")
+        .to_owned();
+
+    // Destroy the email.
+    let destroy_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "destroy": [email_id.clone()],
+    });
+    let (destroy_resp, _) = handle_email_set(&backend, destroy_args)
+        .await
+        .expect("Email/set destroy must succeed");
+    let destroyed_list = destroy_resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be an array");
+    assert!(
+        destroyed_list
+            .iter()
+            .any(|v| v.as_str().unwrap_or("") == email_id),
+        "destroy must succeed; email id must appear in destroyed"
+    );
+
+    // Email/changes since state_after_create must show the id in destroyed.
+    let changes_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sinceState": state_after_create,
+    });
+    let (chg_resp, _) = handle_email_changes(&backend, changes_args)
+        .await
+        .expect("Email/changes must succeed");
+
+    let destroyed: Vec<&str> = chg_resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("id must be a string"))
+        .collect();
+
+    assert!(
+        destroyed.contains(&email_id.as_str()),
+        "destroyed must contain the email id '{email_id}'; got: {destroyed:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.4 — after mutating a mailbox property, Mailbox/changes
+/// must include that mailbox's id in the "updated" list.
+///
+/// Note: MemoryBackend does not propagate email imports to Mailbox state
+/// (totalEmails is not server-tracked in the test harness). We trigger a
+/// genuine Mailbox mutation by renaming the inbox, which exercises the same
+/// /changes contract as a totalEmails change would in a real server.
+///
+/// jmap-test-suite: mailbox-changes.test.ts "changes-after-rename" (adapted as
+/// proxy for "changes-after-email-count-change")
+#[tokio::test]
+async fn conformance_mailbox_changes_after_email_count_change() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed
+        .mailbox
+        .get("inbox")
+        .expect("seed must have inbox")
+        .clone();
+
+    // Capture mailbox state before the mutation.
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [],
+    });
+    let (get_resp, _) = handle_mailbox_get(&backend, get_args)
+        .await
+        .expect("Mailbox/get must succeed");
+    let state_before = get_resp["state"]
+        .as_str()
+        .expect("Mailbox/get must include state")
+        .to_owned();
+
+    // Update the inbox name — a genuine Mailbox mutation the backend tracks.
+    let upd_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "update": {
+            inbox_id.as_ref(): { "name": "Inbox (updated)" }
+        }
+    });
+    let (upd_resp, _) = handle_mailbox_set(&backend, upd_args)
+        .await
+        .expect("Mailbox/set update must succeed");
+    assert!(
+        upd_resp["notUpdated"]
+            .as_object()
+            .map_or(true, |m| m.is_empty()),
+        "inbox update must succeed; notUpdated must be empty; resp={upd_resp:?}"
+    );
+
+    // Mailbox/changes since state_before must contain inbox in "updated".
+    let changes_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sinceState": state_before,
+    });
+    let (chg_resp, _) = handle_mailbox_changes(&backend, changes_args)
+        .await
+        .expect("Mailbox/changes must succeed");
+
+    let updated: Vec<&str> = chg_resp["updated"]
+        .as_array()
+        .expect("updated must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("id must be a string"))
+        .collect();
+
+    assert!(
+        updated.contains(&inbox_id.as_ref()),
+        "updated must contain inbox id '{}'; got: {updated:?}",
+        inbox_id.as_ref()
+    );
+}
+
+/// Oracle: RFC 8620 §5.4 — after importing a new email (new thread), Thread/changes
+/// must include the new thread id in the "created" list.
+///
+/// jmap-test-suite: thread-changes.test.ts "changes-after-new-email"
+#[tokio::test]
+async fn conformance_thread_changes_after_new_thread() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed
+        .mailbox
+        .get("inbox")
+        .expect("seed must have inbox")
+        .clone();
+
+    // Capture thread state before the import.
+    let thread_state_before = backend
+        .get_state::<jmap_mail_types::Thread>(&account_id)
+        .await
+        .expect("get_state::<Thread> must succeed");
+
+    // Import a brand-new email (no In-Reply-To) — creates a new thread.
+    let msg = b"From: newthread@example.com\r\nTo: user@example.com\r\n\
+Message-ID: <new-thread-changes-001@test>\r\nSubject: New thread for changes test\r\n\r\nBody.\r\n";
+    let blob_id = Id::from("blob-new-thread-changes");
+    backend.store_blob(&blob_id, msg.to_vec());
+
+    let import_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "emails": {
+            "e1": {
+                "blobId": blob_id.as_ref(),
+                "mailboxIds": { inbox_id.as_ref(): true },
+                "keywords": {},
+            }
+        }
+    });
+    let (import_resp, _) = handle_email_import(&backend, import_args)
+        .await
+        .expect("Email/import must succeed");
+
+    // Retrieve the new thread id from the imported email.
+    let new_email_id = import_resp["created"]["e1"]["id"]
+        .as_str()
+        .expect("created e1 id must be present")
+        .to_owned();
+    let get_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "ids": [new_email_id.clone()],
+        "properties": ["threadId"],
+    });
+    let (get_resp, _) = handle_email_get(&backend, get_args)
+        .await
+        .expect("Email/get must succeed");
+    let new_thread_id = get_resp["list"][0]["threadId"]
+        .as_str()
+        .expect("threadId must be present")
+        .to_owned();
+
+    // Thread/changes since thread_state_before must include new thread in "created".
+    let changes_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sinceState": thread_state_before.as_ref(),
+    });
+    let (chg_resp, _) = handle_thread_changes(&backend, changes_args)
+        .await
+        .expect("Thread/changes must succeed");
+
+    let created: Vec<&str> = chg_resp["created"]
+        .as_array()
+        .expect("created must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("id must be a string"))
+        .collect();
+
+    assert!(
+        created.contains(&new_thread_id.as_str()),
+        "created must contain the new thread id '{new_thread_id}'; got: {created:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.4 — after importing a reply into an existing thread,
+/// Thread/changes must include that thread id in "updated", not in "created".
+///
+/// jmap-test-suite: thread-changes.test.ts "changes-after-new-email" (reply variant)
+#[tokio::test]
+async fn conformance_thread_changes_after_reply() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    let inbox_id = seed
+        .mailbox
+        .get("inbox")
+        .expect("seed must have inbox")
+        .clone();
+    let alpha_thread_id = seed
+        .thread
+        .get("thread-alpha")
+        .expect("seed must contain thread-alpha")
+        .clone();
+
+    // Capture thread state after seed — the alpha thread already exists.
+    let thread_state_before = backend
+        .get_state::<jmap_mail_types::Thread>(&account_id)
+        .await
+        .expect("get_state::<Thread> must succeed");
+
+    // Import a reply to thread-alpha via In-Reply-To the last known message-id.
+    let msg = b"From: reply4@example.com\r\nTo: user@example.com\r\n\
+Message-ID: <thread-alpha-004@test>\r\n\
+In-Reply-To: <thread-alpha-003@test>\r\n\
+References: <thread-alpha-001@test> <thread-alpha-002@test> <thread-alpha-003@test>\r\n\
+Subject: Re: Project Alpha Discussion\r\n\r\nAnother reply.\r\n";
+    let blob_id = Id::from("blob-reply-changes-test");
+    backend.store_blob(&blob_id, msg.to_vec());
+
+    let import_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "emails": {
+            "e1": {
+                "blobId": blob_id.as_ref(),
+                "mailboxIds": { inbox_id.as_ref(): true },
+                "keywords": {},
+            }
+        }
+    });
+    handle_email_import(&backend, import_args)
+        .await
+        .expect("Email/import of reply must succeed");
+
+    // Thread/changes must show alpha thread in "updated", not in "created".
+    let changes_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "sinceState": thread_state_before.as_ref(),
+    });
+    let (chg_resp, _) = handle_thread_changes(&backend, changes_args)
+        .await
+        .expect("Thread/changes must succeed");
+
+    let updated: Vec<&str> = chg_resp["updated"]
+        .as_array()
+        .expect("updated must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("id must be a string"))
+        .collect();
+
+    assert!(
+        updated.contains(&alpha_thread_id.as_ref()),
+        "updated must contain alpha thread id '{}'; got: {updated:?}",
+        alpha_thread_id.as_ref()
+    );
+
+    let created: Vec<&str> = chg_resp["created"]
+        .as_array()
+        .expect("created must be an array")
+        .iter()
+        .map(|v| v.as_str().expect("id must be a string"))
+        .collect();
+
+    assert!(
+        !created.contains(&alpha_thread_id.as_ref()),
+        "alpha thread must NOT appear in created (it pre-existed); got: {created:?}"
     );
 }
