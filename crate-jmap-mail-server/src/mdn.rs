@@ -7,7 +7,7 @@
 use std::collections::HashMap;
 
 use jmap_mail_types::{
-    mdn::{Mdn, MdnSendRequest},
+    mdn::{Mdn, MdnParseRequest, MdnSendRequest},
     Email, Identity,
 };
 use jmap_types::{Id, Invocation, JmapError};
@@ -117,7 +117,7 @@ pub trait MdnBackend: Send + Sync {
         &self,
         account_id: &jmap_types::Id,
         identity_id: &jmap_types::Id,
-        send: std::collections::HashMap<jmap_types::Id, jmap_mail_types::mdn::Mdn>,
+        send: HashMap<Id, Mdn>,
     ) -> impl std::future::Future<
         Output = Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>>,
     > + Send;
@@ -219,7 +219,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     // Step 4: CRLF validation — per-entry, add to notSent rather than rejecting
     // the whole request.
     let mut not_sent: HashMap<String, Value> = HashMap::new();
-    let mut send_map: HashMap<Id, jmap_mail_types::mdn::Mdn> = HashMap::new();
+    let mut send_map: HashMap<Id, Mdn> = HashMap::new();
 
     for (creation_id, mdn) in req.send {
         if mdn.for_email_id.is_none() {
@@ -261,11 +261,11 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         }
         if !crlf_bad {
             if let Some(ref fields) = mdn.extension_fields {
-                'outer: for (k, v) in fields {
+                for (k, v) in fields {
                     if !crate::submission::check_no_crlf(k) || !crate::submission::check_no_crlf(v)
                     {
                         crlf_bad = true;
-                        break 'outer;
+                        break;
                     }
                 }
             }
@@ -299,10 +299,10 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         }
         if !crlf_bad {
             if let Some(ref errors) = mdn.error {
-                'error_crlf: for e in errors {
+                for e in errors {
                     if !crate::submission::check_no_crlf(e) {
                         crlf_bad = true;
-                        break 'error_crlf;
+                        break;
                     }
                 }
             }
@@ -322,7 +322,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     }
 
     // Step 5: Pre-check $mdnsent keyword — skip emails that already have it set.
-    let mut remaining_send: HashMap<Id, jmap_mail_types::mdn::Mdn> = HashMap::new();
+    let mut remaining_send: HashMap<Id, Mdn> = HashMap::new();
     for (creation_id, mdn) in send_map {
         if let Some(ref for_email_id) = mdn.for_email_id {
             let (emails, _) = backend
@@ -507,7 +507,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     max_blob_ids: usize,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Step 1: deserialize the full request structure.
-    let req: jmap_mail_types::mdn::MdnParseRequest = serde_json::from_value(args).map_err(|e| {
+    let req: MdnParseRequest = serde_json::from_value(args).map_err(|e| {
         JmapError::invalid_arguments(format!("failed to parse MDN/parse arguments: {e}"))
     })?;
 
