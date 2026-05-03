@@ -18,6 +18,7 @@ use crate::helpers::{find_immutable_patch_key, set_error_value};
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].
 #[non_exhaustive]
+#[derive(Debug)]
 pub struct MdnSendResult {
     /// Successfully sent MDNs. Key = client creation ID. Value = [`Mdn`]
     /// with server-set fields populated (finalRecipient, originalMessageId, etc.).
@@ -38,6 +39,7 @@ impl MdnSendResult {
 
 /// Per-parse result returned by [`MdnBackend::parse_mdns`].
 #[non_exhaustive]
+#[derive(Debug)]
 pub struct MdnParseResult {
     /// Successfully parsed MDN blobs. Key = blob ID. Value = [`Mdn`].
     pub parsed: HashMap<Id, Mdn>,
@@ -321,20 +323,27 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         }
     }
 
-    // Step 5: Pre-check $mdnsent keyword — skip emails that already have it set.
+    // Step 5: Pre-check $mdnsent keyword — batch-fetch all referenced emails in
+    // one round-trip instead of one call per entry, then check keywords locally.
+    let email_ids: Vec<Id> = send_map
+        .values()
+        .filter_map(|mdn| mdn.for_email_id.clone())
+        .collect();
+
+    let emails_by_id: HashMap<Id, Email> = if email_ids.is_empty() {
+        HashMap::new()
+    } else {
+        let (fetched, _) = backend
+            .get_objects::<Email>(&req.account_id, Some(&email_ids), None)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        fetched.into_iter().map(|e| (e.id.clone(), e)).collect()
+    };
+
     let mut remaining_send: HashMap<Id, Mdn> = HashMap::new();
     for (creation_id, mdn) in send_map {
         if let Some(ref for_email_id) = mdn.for_email_id {
-            let (emails, _) = backend
-                .get_objects::<Email>(
-                    &req.account_id,
-                    Some(std::slice::from_ref(for_email_id)),
-                    None,
-                )
-                .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
-            if let Some(email) = emails.into_iter().next() {
+            if let Some(email) = emails_by_id.get(for_email_id) {
                 if email.keywords.get("$mdnsent") == Some(&true) {
                     not_sent.insert(
                         creation_id.as_ref().to_owned(),
@@ -464,8 +473,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     let sent_value: Value = if sent_mdns.is_empty() {
         Value::Null
     } else {
-        serde_json::to_value(&sent_mdns)
-            .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }))
+        serde_json::to_value(&sent_mdns).map_err(|e| JmapError::server_fail(e.to_string()))?
     };
     let not_sent_value: Value = if not_sent.is_empty() {
         Value::Null

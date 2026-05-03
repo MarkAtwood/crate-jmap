@@ -99,7 +99,7 @@ pub struct Mdn {
     pub include_original_message: bool,
 
     /// Identifying information for the MUA that generated the MDN.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(rename = "reportingUA", skip_serializing_if = "Option::is_none")]
     pub reporting_ua: Option<String>,
 
     /// Disposition describing the action taken on the original message.
@@ -235,7 +235,7 @@ mod tests {
             "forEmailId": "e1",
             "subject": "Read: Hello",
             "textBody": "This is a receipt.",
-            "reportingUa": "Acme Mail 1.0; example.com",
+            "reportingUA": "Acme Mail 1.0; example.com",
             "disposition": {
                 "actionMode": "manual-action",
                 "sendingMode": "mdn-sent-manually",
