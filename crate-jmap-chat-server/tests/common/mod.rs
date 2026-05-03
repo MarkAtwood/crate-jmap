@@ -5,7 +5,7 @@
 #![allow(dead_code)]
 #![allow(async_fn_in_trait)]
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use jmap_chat_server::{
@@ -38,6 +38,8 @@ struct Inner {
     states: HashMap<(String, String), u64>,
     /// `(type_name, account_id)` → ordered change entries
     change_log: HashMap<(String, String), Vec<ChangeEntry>>,
+    /// explicitly registered account ids (accounts may exist with no objects yet)
+    known_accounts: HashSet<String>,
 }
 
 impl Inner {
@@ -62,6 +64,7 @@ impl Inner {
         type_name: &str,
         account_id: &str,
     ) -> &mut HashMap<Id, serde_json::Value> {
+        self.known_accounts.insert(account_id.to_owned());
         self.objects
             .entry((type_name.to_owned(), account_id.to_owned()))
             .or_default()
@@ -102,6 +105,13 @@ impl MemoryBackend {
         Self::default()
     }
 
+    /// Register an account as known even if it has no objects yet.
+    /// Use this in tests that need an empty-but-valid account.
+    pub fn register_account(&self, account_id: &Id) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.known_accounts.insert(account_id.as_ref().to_owned());
+    }
+
     /// Allocate a server-assigned id for a new object.
     fn next_id(inner: &mut Inner, type_name: &str, account_id: &str) -> Id {
         let n = inner
@@ -128,8 +138,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
-        let id = account_id.as_ref();
-        Ok(inner.objects.keys().any(|(_, aid)| aid == id))
+        Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
@@ -365,6 +374,9 @@ impl ChatBackend for MemoryBackend {
         let stored_obj: O = serde_json::from_value(val.clone())
             .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
 
+        inner
+            .known_accounts
+            .insert(account_id.as_ref().to_owned());
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())

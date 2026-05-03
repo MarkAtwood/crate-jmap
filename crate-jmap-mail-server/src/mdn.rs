@@ -464,14 +464,6 @@ pub const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty — `MDN/parse` is a read-only operation with no side effects.
-///
-/// # Account existence
-///
-/// There is no explicit `accountId` existence check here. The `MailBackend`
-/// trait has no account-lookup method; unknown accounts surface naturally as
-/// empty or missing blobs from the storage layer. All other handlers in this
-/// crate follow the same pattern (RFC 8620 §5.1 requires the server to check
-/// the account, but that check belongs in the dispatcher/auth layer, not here).
 pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     backend: &B,
     args: Value,
@@ -482,18 +474,27 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
         JmapError::invalid_arguments(format!("failed to parse MDN/parse arguments: {e}"))
     })?;
 
-    // Step 2: enforce per-request blob count limit.
+    // Step 2: Verify account exists (RFC 8620 §3.6.2 — unknown accountId → accountNotFound).
+    if !backend
+        .account_exists(&req.account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
+    // Step 3: enforce per-request blob count limit.
     if req.blob_ids.len() > max_blob_ids {
         return Err(JmapError::request_too_large());
     }
 
-    // Step 3: delegate to the backend.
+    // Step 4: delegate to the backend.
     let result = backend
         .parse_mdns(&req.account_id, req.blob_ids)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    // Step 4: build the response — omit each collection key when empty per spec §3.3.
+    // Step 5: build the response — omit each collection key when empty per spec §3.3.
     // We build JSON directly rather than constructing MdnParseResponse (which is
     // #[non_exhaustive] and therefore cannot be constructed outside its defining crate).
     let parsed_value: Value = if result.parsed.is_empty() {
@@ -521,6 +522,6 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
         "notFound": not_found_value,
     });
 
-    // Step 5: return with no extra invocations.
+    // Step 6: return with no extra invocations.
     Ok((response_json, vec![]))
 }

@@ -691,6 +691,7 @@ async fn search_snippet_get_capability_gated() {
 #[tokio::test]
 async fn vacation_get_fresh_account_returns_empty() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -732,6 +733,7 @@ async fn vacation_get_fresh_account_returns_empty() {
 #[tokio::test]
 async fn vacation_set_create_returns_singleton_error() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -780,6 +782,7 @@ async fn vacation_set_create_returns_singleton_error() {
 #[tokio::test]
 async fn vacation_set_update_singleton_works() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Update the singleton — it does not exist yet, so the handler upserts it.
@@ -839,6 +842,7 @@ async fn vacation_set_update_singleton_works() {
 #[tokio::test]
 async fn vacation_set_destroy_returns_singleton_error() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -892,6 +896,7 @@ async fn vacation_set_destroy_returns_singleton_error() {
 #[tokio::test]
 async fn mailbox_set_create_and_get() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
 
     // Create a mailbox via Mailbox/set.
     let set_args = serde_json::json!({
@@ -1066,6 +1071,7 @@ async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
 #[tokio::test]
 async fn mailbox_role_uniqueness_enforced() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
 
     // Create first mailbox with role=inbox.
     let first_args = serde_json::json!({
@@ -1123,6 +1129,7 @@ async fn mailbox_role_uniqueness_enforced() {
 #[tokio::test]
 async fn identity_set_create_and_get() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = "account1";
 
     let set_args = serde_json::json!({
@@ -1196,6 +1203,7 @@ async fn identity_set_create_and_get() {
 #[tokio::test]
 async fn identity_set_create_without_email_is_invalid() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
 
     let set_args = serde_json::json!({
         "accountId": "account1",
@@ -1245,6 +1253,7 @@ async fn identity_set_create_without_email_is_invalid() {
 #[tokio::test]
 async fn identity_set_update_email_is_forbidden() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = "account1";
 
     let create_args = serde_json::json!({
@@ -1308,6 +1317,7 @@ async fn identity_set_update_email_is_forbidden() {
 #[tokio::test]
 async fn identity_set_destroy_may_delete_false_is_forbidden() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let create_args = serde_json::json!({
@@ -1368,6 +1378,7 @@ async fn identity_set_destroy_may_delete_false_is_forbidden() {
 #[tokio::test]
 async fn identity_set_create_malformed_reply_to_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -1771,6 +1782,7 @@ async fn submission_set_invalid_identity_fails() {
 #[tokio::test]
 async fn email_set_create_and_get() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // RFC 8621 §5.5.3: size is server-set and must not be sent by the client.
@@ -1932,6 +1944,7 @@ async fn email_set_create_keyword_false_value_not_stored() {
 #[tokio::test]
 async fn email_set_create_all_false_mailbox_ids_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -1984,6 +1997,7 @@ async fn email_set_create_all_false_mailbox_ids_rejected() {
 #[tokio::test]
 async fn email_get_not_found_is_empty_array_when_all_found() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create one email so we have a valid id to look up.
@@ -2037,6 +2051,7 @@ async fn email_get_not_found_is_empty_array_when_all_found() {
 #[tokio::test]
 async fn email_get_with_property_filter() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -2087,6 +2102,7 @@ async fn email_get_with_property_filter() {
 #[tokio::test]
 async fn email_get_default_properties_excludes_headers() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -2148,6 +2164,7 @@ async fn email_get_default_properties_excludes_headers() {
 #[tokio::test]
 async fn email_get_body_value_fetch_args_parsed() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -2185,6 +2202,7 @@ async fn email_get_body_value_fetch_args_parsed() {
 #[tokio::test]
 async fn email_get_max_body_value_bytes_zero_accepted() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -2223,6 +2241,7 @@ async fn email_parse_default_properties_used() {
     use jmap_mail_server::handle_email_parse;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Store a minimal blob so parse_email can find it.
@@ -2271,6 +2290,7 @@ async fn email_parse_body_value_fetch_args_parsed() {
     use jmap_mail_server::handle_email_parse;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let blob_id = Id::from("blob-bvargs-test");
@@ -2299,6 +2319,7 @@ async fn email_parse_invalid_max_body_value_bytes() {
     use jmap_mail_server::handle_email_parse;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let parse_args = serde_json::json!({
@@ -2328,6 +2349,7 @@ async fn email_parse_invalid_max_body_value_bytes() {
 #[tokio::test]
 async fn email_set_update_immutable_field_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -2396,6 +2418,7 @@ async fn email_set_update_immutable_field_rejected() {
 #[tokio::test]
 async fn email_set_update_keywords() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -2469,6 +2492,7 @@ async fn email_set_update_keywords() {
 #[tokio::test]
 async fn email_query_by_mailbox() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     for subject in &["Inbox 1", "Inbox 2"] {
@@ -2545,6 +2569,7 @@ async fn email_import_empty_mailbox_ids_rejected() {
     use jmap_mail_server::handle_email_import;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let msg = b"Subject: test\r\n\r\nbody";
@@ -2600,6 +2625,7 @@ async fn email_import_with_keywords_succeeds() {
     use jmap_mail_types::keyword;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let msg = b"Subject: with keywords\r\n\r\nbody";
@@ -2656,6 +2682,8 @@ async fn email_copy_with_keywords_succeeds() {
     use jmap_mail_types::keyword;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("src"));
+    backend.register_account(&Id::from("dst"));
     let src_account = Id::from("src");
     let dst_account = Id::from("dst");
 
@@ -2719,6 +2747,8 @@ async fn email_copy_on_success_update_original_immutable_field_rejected() {
     use jmap_mail_server::handle_email_copy;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("src-imm"));
+    backend.register_account(&Id::from("dst-imm"));
     let src_account = Id::from("src-imm");
     let dst_account = Id::from("dst-imm");
 
@@ -2940,6 +2970,7 @@ async fn mailbox_set_create_child_then_destroy_parent_blocked() {
 #[tokio::test]
 async fn email_set_create_malformed_keywords_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // "keywords" is a string, not a map — invalid per RFC 8621 §5.5.
@@ -2978,6 +3009,7 @@ async fn email_set_create_malformed_keywords_rejected() {
 #[tokio::test]
 async fn keyword_256_chars_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
     let kw_256: String = "a".repeat(256);
 
@@ -3011,6 +3043,7 @@ async fn keyword_256_chars_rejected() {
 #[tokio::test]
 async fn keyword_255_chars_accepted() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
     let kw_255: String = "a".repeat(255);
 
@@ -3047,6 +3080,7 @@ async fn keyword_255_chars_accepted() {
 #[tokio::test]
 async fn keyword_forbidden_char_open_paren_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -3079,6 +3113,7 @@ async fn keyword_forbidden_char_open_paren_rejected() {
 #[tokio::test]
 async fn keyword_normalized_to_lowercase() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let create_args = serde_json::json!({
@@ -3123,6 +3158,7 @@ async fn keyword_normalized_to_lowercase() {
 #[tokio::test]
 async fn keyword_empty_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -3155,6 +3191,7 @@ async fn keyword_empty_rejected() {
 #[tokio::test]
 async fn keyword_tilde_accepted() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -3190,6 +3227,7 @@ async fn keyword_tilde_accepted() {
 #[tokio::test]
 async fn keyword_dollar_sign_accepted() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -3226,6 +3264,7 @@ async fn keyword_dollar_sign_accepted() {
 #[tokio::test]
 async fn mailbox_query_invalid_limit_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -3249,6 +3288,7 @@ async fn mailbox_query_invalid_limit_rejected() {
 #[tokio::test]
 async fn submission_query_invalid_limit_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -3634,6 +3674,7 @@ async fn submission_query_filter_by_undo_status() {
 #[tokio::test]
 async fn submission_query_invalid_filter_json() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -3870,6 +3911,7 @@ async fn mailbox_set_role_swap_succeeds_in_single_request() {
 #[tokio::test]
 async fn email_set_create_malformed_in_reply_to_returns_error() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // First create a mailbox to put the email in.
@@ -3916,6 +3958,7 @@ async fn email_set_create_malformed_in_reply_to_returns_error() {
 #[tokio::test]
 async fn email_set_create_malformed_references_returns_error() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let mb_args = serde_json::json!({
@@ -3958,6 +4001,7 @@ async fn email_set_create_malformed_references_returns_error() {
 #[tokio::test]
 async fn mailbox_query_calculate_total_controls_total_field() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create a mailbox so there is something to count.
@@ -4017,6 +4061,7 @@ async fn mailbox_query_calculate_total_controls_total_field() {
 #[tokio::test]
 async fn email_query_changes_non_string_up_to_id_returns_error() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -4043,6 +4088,7 @@ async fn email_query_changes_non_string_up_to_id_returns_error() {
 #[tokio::test]
 async fn mailbox_query_changes_non_string_up_to_id_returns_error() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -4071,6 +4117,7 @@ async fn mailbox_query_changes_non_string_up_to_id_returns_error() {
 #[tokio::test]
 async fn email_query_calculate_total_controls_total_field() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Default — total must be absent.
@@ -4107,6 +4154,7 @@ async fn email_query_calculate_total_controls_total_field() {
 #[tokio::test]
 async fn email_query_collapse_threads_position_i64_min_does_not_panic() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -4136,6 +4184,7 @@ async fn email_query_collapse_threads_position_i64_min_does_not_panic() {
 #[tokio::test]
 async fn mailbox_set_create_backend_other_goes_to_not_created() {
     let backend = FaultyBackend::new();
+    backend.inner.register_account(&Id::from("acct1"));
     backend.inject("Mailbox", "create");
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -4236,6 +4285,7 @@ async fn mailbox_set_destroy_backend_other_goes_to_not_destroyed() {
 #[tokio::test]
 async fn email_set_create_backend_other_goes_to_not_created() {
     let backend = FaultyBackend::new();
+    backend.inner.register_account(&Id::from("acct1"));
     backend.inject("Email", "create");
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -4333,6 +4383,7 @@ async fn email_set_destroy_backend_other_goes_to_not_destroyed() {
 #[tokio::test]
 async fn email_import_backend_other_goes_to_not_created() {
     let backend = FaultyBackend::new();
+    backend.inner.register_account(&Id::from("acct1"));
     backend.inject("Email", "import");
     // The handler validates blobId and mailboxIds before calling import_email;
     // supply both so the injection path is reached.
@@ -4424,6 +4475,7 @@ async fn submission_set_create_backend_other_goes_to_not_created() {
 #[tokio::test]
 async fn identity_set_create_backend_other_goes_to_not_created() {
     let backend = FaultyBackend::new();
+    backend.inner.register_account(&Id::from("acct1"));
     backend.inject("Identity", "create");
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -4512,6 +4564,7 @@ async fn identity_set_destroy_backend_other_goes_to_not_destroyed() {
 #[tokio::test]
 async fn mailbox_set_sort_order_overflow_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     // 5_000_000_000 exceeds u32::MAX (4_294_967_295). Without the fix, this
     // would silently become 705_032_704 (5e9 mod 2^32).
     let args = serde_json::json!({
@@ -4560,6 +4613,7 @@ async fn mailbox_set_sort_order_overflow_rejected() {
 #[tokio::test]
 async fn email_import_created_response_has_four_server_set_fields() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let blob_id = Id::from("blob-4f");
     backend.store_blob(&blob_id, b"Subject: test\r\n\r\nbody".to_vec());
 
@@ -4607,6 +4661,7 @@ async fn email_import_created_response_has_four_server_set_fields() {
 #[tokio::test]
 async fn email_query_changes_omits_total_by_default() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "sinceQueryState": "0",
@@ -4625,6 +4680,7 @@ async fn email_query_changes_omits_total_by_default() {
 #[tokio::test]
 async fn mailbox_query_changes_omits_total_by_default() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "sinceQueryState": "0",
@@ -4647,6 +4703,7 @@ async fn mailbox_query_changes_omits_total_by_default() {
 #[tokio::test]
 async fn email_query_anchor_resolves_position() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
     // Create 3 emails.
@@ -4710,6 +4767,7 @@ async fn email_query_anchor_resolves_position() {
 #[tokio::test]
 async fn email_query_in_mailbox_filter() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
     // Create two emails in "inbox" and one in "trash".
@@ -4764,6 +4822,7 @@ async fn email_query_in_mailbox_filter() {
 #[tokio::test]
 async fn email_query_anchor_not_found_returns_error() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "anchor": "does-not-exist",
@@ -4784,6 +4843,7 @@ async fn email_query_anchor_not_found_returns_error() {
 #[tokio::test]
 async fn mailbox_query_anchor_resolves_position() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
     // Create 3 mailboxes.
@@ -4846,6 +4906,7 @@ async fn mailbox_query_anchor_resolves_position() {
 #[tokio::test]
 async fn email_query_changes_accepts_collapse_threads() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "sinceQueryState": "0",
@@ -4869,6 +4930,7 @@ async fn email_query_changes_accepts_collapse_threads() {
 #[tokio::test]
 async fn identity_set_update_rejects_server_set_fields() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
     let create_args = serde_json::json!({
@@ -4940,6 +5002,7 @@ async fn identity_set_update_rejects_server_set_fields() {
 #[tokio::test]
 async fn email_changes_rejects_max_changes_zero() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("u1"));
     let account_id = "u1";
     let args = serde_json::json!({
         "accountId": account_id,
@@ -4955,6 +5018,7 @@ async fn email_changes_rejects_max_changes_zero() {
 #[tokio::test]
 async fn mailbox_changes_rejects_max_changes_zero() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("u1"));
     let account_id = "u1";
     let args = serde_json::json!({
         "accountId": account_id,
@@ -4974,6 +5038,7 @@ async fn mailbox_changes_rejects_max_changes_zero() {
 #[tokio::test]
 async fn thread_changes_second_import_logs_thread_as_updated_not_created() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("u1"));
     let account_id = Id::from("u1");
 
     // Create a mailbox.
@@ -5099,6 +5164,7 @@ async fn email_import_duplicate_message_id_returns_already_exists() {
     use jmap_mail_server::handle_email_import;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Raw RFC 5322 message with a known Message-ID.
@@ -5256,6 +5322,7 @@ async fn submission_set_create_send_at_ignored_from_client() {
 #[tokio::test]
 async fn email_set_create_body_structure_with_text_body_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -5297,6 +5364,7 @@ async fn email_set_create_body_structure_with_text_body_rejected() {
 #[tokio::test]
 async fn email_set_create_text_body_wrong_type_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -5334,6 +5402,7 @@ async fn email_set_create_text_body_wrong_type_rejected() {
 #[tokio::test]
 async fn email_set_create_text_body_multiple_parts_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -5375,6 +5444,7 @@ async fn email_set_create_text_body_multiple_parts_rejected() {
 #[tokio::test]
 async fn email_set_create_body_part_both_part_id_and_blob_id_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -5417,6 +5487,7 @@ async fn email_set_create_body_part_both_part_id_and_blob_id_rejected() {
 #[tokio::test]
 async fn email_set_create_body_values_missing_for_part_id_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -5453,6 +5524,7 @@ async fn email_set_create_body_values_missing_for_part_id_rejected() {
 #[tokio::test]
 async fn email_set_create_body_value_is_truncated_true_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let args = serde_json::json!({
@@ -5632,6 +5704,7 @@ async fn email_get_header_subject_as_text() {
 #[tokio::test]
 async fn email_get_header_from_as_date_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     // The error must fire before any backend query, so no email is needed.
     let args = serde_json::json!({
         "accountId": "acct1",
@@ -5691,6 +5764,7 @@ async fn email_get_header_all_form() {
 #[tokio::test]
 async fn email_get_header_unknown_form_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "ids": [],
@@ -5714,6 +5788,7 @@ async fn email_get_header_unknown_form_rejected() {
 #[tokio::test]
 async fn email_get_header_empty_name_rejected() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "ids": [],
@@ -5806,6 +5881,7 @@ Body.";
 #[tokio::test]
 async fn email_set_destroy_non_string_returns_invalid_arguments() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "destroy": [123],
@@ -5827,6 +5903,7 @@ async fn email_set_destroy_non_string_returns_invalid_arguments() {
 #[tokio::test]
 async fn submission_set_destroy_non_string_returns_invalid_arguments() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "destroy": [true],
@@ -5922,6 +5999,7 @@ async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
 #[tokio::test]
 async fn mailbox_set_destroy_non_string_returns_invalid_arguments() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "destroy": [42],
@@ -5952,6 +6030,7 @@ async fn email_parse_header_property_returned() {
     use jmap_mail_server::handle_email_parse;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct-parse-hdr"));
     let account_id = Id::from("acct-parse-hdr");
 
     // Store a blob with a known Subject header.
@@ -5998,6 +6077,7 @@ async fn email_parse_header_invalid_form_rejected() {
     use jmap_mail_server::handle_email_parse;
 
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct-parse-hdr-bad"));
 
     // header:From:asDate is invalid (From is an address header, not a date header).
     let parse_args = serde_json::json!({
@@ -6091,6 +6171,7 @@ async fn email_query_collapse_threads_deduplicates() {
 #[tokio::test]
 async fn mailbox_query_anchor_not_found_returns_error() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let args = serde_json::json!({
         "accountId": "acct1",
         "anchor": "does-not-exist",
@@ -6560,6 +6641,7 @@ async fn email_get_no_properties_returns_default_fields() {
 #[tokio::test]
 async fn mailbox_get_properties_filtering_restricts_fields() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     let set_args = serde_json::json!({
@@ -6659,6 +6741,7 @@ async fn thread_get_properties_filtering_restricts_fields() {
 #[tokio::test]
 async fn identity_get_properties_filtering_restricts_fields() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = Id::from("acct1");
 
     let set_args = serde_json::json!({
@@ -7963,6 +8046,7 @@ async fn conformance_email_body_attachment_detected() {
 #[tokio::test]
 async fn conformance_mailbox_set_create_basic() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
     let args = serde_json::json!({
@@ -8123,6 +8207,7 @@ async fn conformance_mailbox_set_update_name() {
 #[tokio::test]
 async fn conformance_mailbox_set_destroy() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
     // Create a fresh mailbox so we can destroy it cleanly.
@@ -8220,6 +8305,7 @@ async fn conformance_mailbox_set_destroy_with_children() {
 #[tokio::test]
 async fn conformance_mailbox_set_create_duplicate_name() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
     // Create the first mailbox.
@@ -8290,6 +8376,7 @@ async fn conformance_mailbox_set_create_duplicate_name() {
 #[tokio::test]
 async fn conformance_mailbox_set_state_changes() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
     let args = serde_json::json!({
@@ -8325,6 +8412,7 @@ async fn conformance_mailbox_set_state_changes() {
 #[tokio::test]
 async fn conformance_mailbox_set_create_missing_name() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
     let args = serde_json::json!({
@@ -8373,6 +8461,7 @@ async fn conformance_mailbox_set_create_missing_name() {
 #[tokio::test]
 async fn conformance_mailbox_changes_from_state_zero() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let _account_id = Id::from("acct1");
 
     // Create a mailbox so there is something to report.
@@ -9041,6 +9130,7 @@ async fn conformance_email_query_sort_received_at_desc() {
 #[tokio::test]
 async fn conformance_email_set_create_basic() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -9094,6 +9184,7 @@ async fn conformance_email_set_create_basic() {
 #[tokio::test]
 async fn conformance_email_set_create_sets_state() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -9128,6 +9219,7 @@ async fn conformance_email_set_create_sets_state() {
 #[tokio::test]
 async fn conformance_email_set_create_with_keywords() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let set_args = serde_json::json!({
@@ -9180,6 +9272,7 @@ async fn conformance_email_set_create_with_keywords() {
 #[tokio::test]
 async fn conformance_email_set_update_keywords() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create an email with only $seen.
@@ -9261,6 +9354,7 @@ async fn conformance_email_set_update_keywords() {
 #[tokio::test]
 async fn conformance_email_set_update_mailbox_ids() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create in inbox.
@@ -9340,6 +9434,7 @@ async fn conformance_email_set_update_mailbox_ids() {
 #[tokio::test]
 async fn conformance_email_set_update_adds_keyword() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create an email without $flagged.
@@ -9414,6 +9509,7 @@ async fn conformance_email_set_update_adds_keyword() {
 #[tokio::test]
 async fn conformance_email_set_update_removes_keyword() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create an email with $seen.
@@ -9488,6 +9584,7 @@ async fn conformance_email_set_update_removes_keyword() {
 #[tokio::test]
 async fn conformance_email_set_destroy_basic() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create an email to destroy.
@@ -9558,6 +9655,7 @@ async fn conformance_email_set_destroy_basic() {
 #[tokio::test]
 async fn conformance_email_set_destroy_updates_state() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     // Create an email to destroy.
@@ -9612,6 +9710,7 @@ async fn conformance_email_set_destroy_updates_state() {
 #[tokio::test]
 async fn conformance_email_set_update_not_found() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let (resp, _) = handle_email_set(
@@ -9654,6 +9753,7 @@ async fn conformance_email_set_update_not_found() {
 #[tokio::test]
 async fn conformance_email_set_destroy_not_found() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let (resp, _) = handle_email_set(
@@ -10539,6 +10639,7 @@ async fn vacation_set_concurrent_creates_are_idempotent() {
     // two concurrent upserts must produce exactly one singleton, both succeeding.
     // MemoryBackend satisfies this via its Mutex<Inner> (serialises writes).
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
     let account_id = Id::from("account1");
 
     let update_args = serde_json::json!({
@@ -10607,6 +10708,7 @@ async fn vacation_set_concurrent_creates_are_idempotent() {
 #[tokio::test]
 async fn query_changes_with_filter_returns_filtered_delta() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
     // Create a mailbox for inbox and folderA.
@@ -10706,6 +10808,7 @@ async fn query_changes_with_filter_returns_filtered_delta() {
 #[tokio::test]
 async fn query_changes_up_to_id_truncates_added() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
     // Create 3 emails with distinct receivedAt times so sort order is deterministic.
@@ -10828,6 +10931,7 @@ async fn query_changes_up_to_id_truncates_added() {
 #[tokio::test]
 async fn query_changes_max_changes_returns_cannot_calculate() {
     let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
     let account_id = "acct1";
 
     // Create 10 emails.

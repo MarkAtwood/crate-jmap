@@ -17,6 +17,13 @@ pub async fn handle_thread_get<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
 
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments(
