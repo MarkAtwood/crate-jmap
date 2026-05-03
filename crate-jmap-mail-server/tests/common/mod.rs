@@ -7,7 +7,7 @@
 
 pub mod seed;
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 // MIME body parsing (jmap-mime + mime-tree) — used in import_email and parse_email.
@@ -54,6 +54,8 @@ struct Inner {
     blobs: HashMap<Id, Vec<u8>>,
     /// account_id → (message_id_string → email_id) for duplicate detection in import_email
     message_id_index: HashMap<String, HashMap<String, Id>>,
+    /// explicitly registered account ids (accounts may exist with no objects yet)
+    known_accounts: HashSet<String>,
 }
 
 impl Inner {
@@ -78,6 +80,7 @@ impl Inner {
         type_name: &'static str,
         account_id: &str,
     ) -> &mut HashMap<Id, serde_json::Value> {
+        self.known_accounts.insert(account_id.to_owned());
         self.objects
             .entry((type_name, account_id.to_owned()))
             .or_default()
@@ -193,6 +196,13 @@ impl MemoryBackend {
         let mut inner = self.inner.lock().unwrap();
         inner.blobs.insert(blob_id.clone(), bytes);
     }
+
+    /// Register an account as known even if it has no objects yet.
+    /// Use this in tests that need an empty-but-valid account.
+    pub fn register_account(&self, account_id: &Id) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.known_accounts.insert(account_id.as_ref().to_owned());
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -219,8 +229,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
-        let id = account_id.as_ref();
-        Ok(inner.objects.keys().any(|(_, aid)| aid == id))
+        Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 
     // -----------------------------------------------------------------------

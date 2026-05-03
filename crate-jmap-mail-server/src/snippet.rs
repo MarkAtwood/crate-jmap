@@ -34,6 +34,13 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     }
 
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
 
     let email_ids: Vec<Id> = match args.get("emailIds") {
         Some(v) if !v.is_null() => serde_json::from_value(v.clone())

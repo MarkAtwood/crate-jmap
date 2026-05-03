@@ -23,6 +23,13 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments(
             "arguments must be a JSON object",
@@ -82,6 +89,13 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(args) = args else {
         return Err(JmapError::invalid_arguments(
             "arguments must be a JSON object",
@@ -133,6 +147,13 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments(
             "arguments must be a JSON object",
@@ -218,6 +239,13 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments(
             "arguments must be a JSON object",

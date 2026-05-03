@@ -317,6 +317,32 @@ async fn mdn_send_unknown_account_returns_account_not_found() {
     );
 }
 
+/// Test: MDN/parse with an unknown `accountId` must return `accountNotFound`
+/// (RFC 8620 §3.6.2).
+///
+/// Oracle: RFC 8620 §3.6.2 — server MUST return `accountNotFound` when the
+/// `accountId` in a method call does not correspond to a valid account.
+#[tokio::test]
+async fn mdn_parse_unknown_account_returns_account_not_found() {
+    let backend = MemoryBackend::new();
+
+    let args = serde_json::json!({
+        "accountId": "ghost-account",
+        "blobIds": ["any-blob"]
+    });
+
+    let err = handle_mdn_parse(&backend, args, MDN_PARSE_MAX_BLOB_IDS)
+        .await
+        .expect_err("unknown accountId must return Err");
+
+    assert_eq!(
+        err.error_type.as_str(),
+        "accountNotFound",
+        "unknown accountId must produce accountNotFound; got: {:?}",
+        err.error_type
+    );
+}
+
 /// Test 4: MDN/send where `onSuccessUpdateEmail` does not set `keywords/$mdnsent: true`.
 ///
 /// Oracle: draft-ietf-jmap-mdn-17 §2.1 — the server MUST reject any MDN/send
@@ -427,6 +453,7 @@ async fn mdn_send_null_on_success() {
 async fn mdn_parse_valid() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
+    setup_identity(&backend, &account_id).await;
 
     let blob_id = Id::from("blob-valid-mdn");
     backend.store_blob(&blob_id, VALID_MDN_BLOB.to_vec());
@@ -495,6 +522,7 @@ async fn mdn_parse_valid() {
 async fn mdn_parse_not_found() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
+    setup_identity(&backend, &account_id).await;
 
     let missing_id = "nonexistent-blob-id";
     let args = serde_json::json!({
@@ -541,6 +569,7 @@ async fn mdn_parse_not_found() {
 async fn mdn_parse_not_parsable() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
+    setup_identity(&backend, &account_id).await;
 
     let blob_id = Id::from("blob-invalid-mdn");
     backend.store_blob(&blob_id, INVALID_MDN_BLOB.to_vec());

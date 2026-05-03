@@ -403,6 +403,13 @@ pub async fn handle_email_get<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("args must be an object"));
     };
@@ -582,6 +589,13 @@ pub async fn handle_email_query<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("args must be an object"));
     };
@@ -794,6 +808,13 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("args must be an object"));
     };
@@ -909,6 +930,13 @@ pub async fn handle_email_set<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("args must be an object"));
     };
@@ -1642,6 +1670,13 @@ pub async fn handle_email_import<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("args must be an object"));
     };
@@ -1805,6 +1840,13 @@ pub async fn handle_email_parse<B: MailBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("args must be an object"));
     };
@@ -1969,6 +2011,13 @@ pub async fn handle_email_copy<B: MailBackend>(
     call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
     let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments("args must be an object"));
     };
@@ -1982,6 +2031,13 @@ pub async fn handle_email_copy<B: MailBackend>(
         return Err(JmapError::invalid_arguments(
             "fromAccountId must be different from accountId",
         ));
+    }
+    if !backend
+        .account_exists(&from_account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::from_account_not_found());
     }
 
     let create = match args.remove("create") {

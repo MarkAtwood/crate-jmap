@@ -114,6 +114,8 @@ async fn memory_backend_create_then_get() {
 #[tokio::test]
 async fn chat_get_empty() {
     let backend = MemoryBackend::new();
+    let account_id = Id::from("a1");
+    backend.register_account(&account_id);
     let (resp, invocations) = handle_chat_get(&backend, json!({ "accountId": "a1", "ids": null }))
         .await
         .expect("handle_chat_get");
@@ -129,6 +131,8 @@ async fn chat_get_empty() {
 #[tokio::test]
 async fn chat_get_not_found() {
     let backend = MemoryBackend::new();
+    let account_id = Id::from("a1");
+    backend.register_account(&account_id);
     let (resp, _) = handle_chat_get(&backend, json!({ "accountId": "a1", "ids": ["missing1"] }))
         .await
         .expect("handle_chat_get");
@@ -344,6 +348,8 @@ async fn chat_set_if_in_state_mismatch() {
 #[tokio::test]
 async fn chat_changes_empty() {
     let backend = MemoryBackend::new();
+    let account_id = Id::from("a1");
+    backend.register_account(&account_id);
     let (resp, _) = handle_chat_changes(&backend, json!({ "accountId": "a1", "sinceState": "0" }))
         .await
         .expect("handle_chat_changes");
@@ -358,6 +364,8 @@ async fn chat_changes_empty() {
 #[tokio::test]
 async fn chat_changes_missing_since_state() {
     let backend = MemoryBackend::new();
+    let account_id = Id::from("a1");
+    backend.register_account(&account_id);
     let err = handle_chat_changes(&backend, json!({ "accountId": "a1" }))
         .await
         .unwrap_err();
@@ -433,6 +441,8 @@ async fn chat_query_with_calculate_total() {
 #[tokio::test]
 async fn chat_query_changes_missing_since() {
     let backend = MemoryBackend::new();
+    let account_id = Id::from("a1");
+    backend.register_account(&account_id);
     let err = handle_chat_query_changes(&backend, json!({ "accountId": "a1" }))
         .await
         .unwrap_err();
@@ -1455,6 +1465,10 @@ async fn chat_set_create_direct_different_contacts_allowed() {
 #[tokio::test]
 async fn accounts_are_isolated() {
     let backend = MemoryBackend::new();
+    let a1 = Id::from("a1");
+    let a2 = Id::from("a2");
+    backend.register_account(&a1);
+    backend.register_account(&a2);
 
     handle_chat_set(
         &backend,
