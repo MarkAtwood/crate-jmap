@@ -8,7 +8,9 @@
 mod common;
 
 use common::{MemoryBackend, INVALID_MDN_BLOB, VALID_MDN_BLOB};
-use jmap_mail_server::{handle_mdn_parse, handle_mdn_send, JmapBackend, MailBackend};
+use jmap_mail_server::{
+    handle_mdn_parse, handle_mdn_send, mdn::MDN_PARSE_MAX_BLOB_IDS, JmapBackend, MailBackend,
+};
 use jmap_mail_types::Identity;
 use jmap_types::Id;
 
@@ -394,7 +396,7 @@ async fn mdn_parse_valid() {
         "blobIds": [blob_id.as_ref()]
     });
 
-    let (resp, extra) = handle_mdn_parse(&backend, args)
+    let (resp, extra) = handle_mdn_parse(&backend, args, MDN_PARSE_MAX_BLOB_IDS)
         .await
         .expect("mdn_parse_valid: handle_mdn_parse must succeed");
 
@@ -460,7 +462,7 @@ async fn mdn_parse_not_found() {
         "blobIds": [missing_id]
     });
 
-    let (resp, extra) = handle_mdn_parse(&backend, args)
+    let (resp, extra) = handle_mdn_parse(&backend, args, MDN_PARSE_MAX_BLOB_IDS)
         .await
         .expect("mdn_parse_not_found: handle_mdn_parse must succeed");
 
@@ -508,7 +510,7 @@ async fn mdn_parse_not_parsable() {
         "blobIds": [blob_id.as_ref()]
     });
 
-    let (resp, extra) = handle_mdn_parse(&backend, args)
+    let (resp, extra) = handle_mdn_parse(&backend, args, MDN_PARSE_MAX_BLOB_IDS)
         .await
         .expect("mdn_parse_not_parsable: handle_mdn_parse must succeed");
 
