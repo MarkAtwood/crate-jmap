@@ -6,7 +6,10 @@
 
 use std::collections::HashMap;
 
-use jmap_mail_types::{mdn::MdnSendRequest, Email, Identity};
+use jmap_mail_types::{
+    mdn::{Mdn, MdnSendRequest},
+    Email, Identity,
+};
 use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
@@ -14,36 +17,62 @@ use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{find_immutable_patch_key, set_error_value};
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].
+#[non_exhaustive]
 pub struct MdnSendResult {
-    /// Successfully sent MDNs. Key = client creation ID. Value = [`jmap_mail_types::mdn::Mdn`]
+    /// Successfully sent MDNs. Key = client creation ID. Value = [`Mdn`]
     /// with server-set fields populated (finalRecipient, originalMessageId, etc.).
-    pub sent: std::collections::HashMap<jmap_types::Id, jmap_mail_types::mdn::Mdn>,
-    /// Failed send attempts. Key = client creation ID. Value = [`jmap_server::backend::SetError`].
-    pub not_sent: std::collections::HashMap<jmap_types::Id, jmap_server::backend::SetError>,
+    pub sent: HashMap<Id, Mdn>,
+    /// Failed send attempts. Key = client creation ID. Value = [`SetError`].
+    pub not_sent: HashMap<Id, SetError>,
+}
+
+impl MdnSendResult {
+    /// Construct an `MdnSendResult`.
+    ///
+    /// Required because the struct is `#[non_exhaustive]` — external crates
+    /// cannot use struct-literal syntax.
+    pub fn new(sent: HashMap<Id, Mdn>, not_sent: HashMap<Id, SetError>) -> Self {
+        Self { sent, not_sent }
+    }
 }
 
 /// Per-parse result returned by [`MdnBackend::parse_mdns`].
+#[non_exhaustive]
 pub struct MdnParseResult {
-    /// Successfully parsed MDN blobs. Key = blob ID. Value = [`jmap_mail_types::mdn::Mdn`].
-    pub parsed: std::collections::HashMap<jmap_types::Id, jmap_mail_types::mdn::Mdn>,
+    /// Successfully parsed MDN blobs. Key = blob ID. Value = [`Mdn`].
+    pub parsed: HashMap<Id, Mdn>,
     /// Blob IDs that were found but could not be parsed as an MDN.
-    pub not_parsable: Vec<jmap_types::Id>,
+    pub not_parsable: Vec<Id>,
     /// Blob IDs that were not found in the blob store.
-    pub not_found: Vec<jmap_types::Id>,
+    pub not_found: Vec<Id>,
+}
+
+impl MdnParseResult {
+    /// Construct an `MdnParseResult`.
+    ///
+    /// Required because the struct is `#[non_exhaustive]` — external crates
+    /// cannot use struct-literal syntax.
+    pub fn new(parsed: HashMap<Id, Mdn>, not_parsable: Vec<Id>, not_found: Vec<Id>) -> Self {
+        Self {
+            parsed,
+            not_parsable,
+            not_found,
+        }
+    }
 }
 
 /// Backend trait for `MDN/send` and `MDN/parse` operations.
 ///
-/// Implementors also implement [`jmap_mail_server::MailBackend`] on the same
-/// struct — the generic bounds on any future `register_mdn_handlers` helper
-/// will require both. This separation keeps MDN opt-in: existing
-/// `MailBackend` implementors do not need to change.
+/// Implementors also implement [`MailBackend`] on the same struct — the
+/// generic bounds on any future `register_mdn_handlers` helper will require
+/// both. This separation keeps MDN opt-in: existing `MailBackend` implementors
+/// do not need to change.
 ///
 /// # Blob access
 ///
 /// `MDN/parse` needs raw RFC 5322 bytes for each blob. Implementors are
 /// expected to have direct access to the blob store (the same store used by
-/// `MailBackend`). The required method [`get_blob_bytes`](MdnBackend::get_blob_bytes)
+/// `MailBackend`). The required method [`MdnBackend::get_blob_bytes`]
 /// exposes this access at the trait level so handlers need not assume a
 /// concrete struct type.
 pub trait MdnBackend: Send + Sync {
@@ -62,12 +91,16 @@ pub trait MdnBackend: Send + Sync {
 
     /// Send one or more MDNs.
     ///
+    /// The caller ([`handle_mdn_send`]) guarantees that every entry in `send`
+    /// has `for_email_id = Some(…)` — entries with `None` are rejected before
+    /// this method is called.
+    ///
     /// For each entry in `send`:
     /// - Fetch the referenced email by `for_email_id`; place a `notFound`
-    ///   [`SetError`](jmap_server::backend::SetError) in the result if the
+    ///   [`SetError`] in the result if the
     ///   email does not exist.
     /// - Verify the email has a `Disposition-Notification-To` header; if not,
-    ///   place a `notFound` [`SetError`](jmap_server::backend::SetError)
+    ///   place a `notFound` [`SetError`]
     ///   (per draft §2.1).
     /// - Build and transmit the RFC 5322 MDN message.
     /// - Return server-set fields (`finalRecipient`, `originalMessageId`,
@@ -77,7 +110,7 @@ pub trait MdnBackend: Send + Sync {
     /// `MailBackend::update_object` after this method returns — the backend
     /// does NOT stamp the keyword.
     ///
-    /// Returns [`BackendSetError::Other`](jmap_server::backend::BackendSetError::Other)
+    /// Returns [`BackendSetError::Other`]
     /// only for catastrophic storage failures; per-entry failures are reported
     /// inside [`MdnSendResult::not_sent`].
     fn send_mdns(
@@ -92,7 +125,7 @@ pub trait MdnBackend: Send + Sync {
     /// Parse one or more raw RFC 5322 blobs as MDN messages.
     ///
     /// For each blob ID:
-    /// - Fetch raw bytes via [`get_blob_bytes`](MdnBackend::get_blob_bytes).
+    /// - Fetch raw bytes via [`MdnBackend::get_blob_bytes`].
     /// - Attempt to parse as `multipart/report` containing a
     ///   `message/disposition-notification` part.
     /// - Normalize `actionMode`, `sendingMode`, and `type` to lowercase
@@ -237,10 +270,12 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 }
             }
         }
-        // mdn_gateway and original_message_id are "server-set" in spec §2,
-        // but the Mdn struct is shared between send and parse: a client CAN
-        // include them. Any client-supplied value that ends up in a generated
-        // RFC 5322 header must be CRLF-clean to prevent header injection.
+        // mdn_gateway, original_message_id, original_recipient, and error
+        // items are "server-set" in spec §2, but the Mdn struct is shared
+        // between send and parse: a client CAN include them. Any client-supplied
+        // value that ends up in a generated RFC 5322 header must be CRLF-clean
+        // to prevent header injection (e.g. mdn_gateway → MDN-Gateway: header,
+        // original_recipient → Original-Recipient:, error items → Error: headers).
         if !crlf_bad {
             if let Some(ref s) = mdn.mdn_gateway {
                 if !crate::submission::check_no_crlf(s) {
@@ -252,6 +287,23 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             if let Some(ref s) = mdn.original_message_id {
                 if !crate::submission::check_no_crlf(s) {
                     crlf_bad = true;
+                }
+            }
+        }
+        if !crlf_bad {
+            if let Some(ref s) = mdn.original_recipient {
+                if !crate::submission::check_no_crlf(s) {
+                    crlf_bad = true;
+                }
+            }
+        }
+        if !crlf_bad {
+            if let Some(ref errors) = mdn.error {
+                'error_crlf: for e in errors {
+                    if !crate::submission::check_no_crlf(e) {
+                        crlf_bad = true;
+                        break 'error_crlf;
+                    }
                 }
             }
         }
@@ -296,8 +348,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     }
 
     // Step 6: Call backend.send_mdns.
-    let mut sent_mdns: HashMap<String, jmap_mail_types::mdn::Mdn> = HashMap::new();
-    let mut sent_creation_ids: Vec<String> = Vec::new();
+    let mut sent_mdns: HashMap<String, Mdn> = HashMap::new();
 
     if !remaining_send.is_empty() {
         let result = backend
@@ -312,9 +363,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             not_sent.insert(id.as_ref().to_owned(), set_error_value(&se));
         }
         for (id, mdn) in result.sent {
-            let creation_id_str = id.as_ref().to_owned();
-            sent_mdns.insert(creation_id_str.clone(), mdn);
-            sent_creation_ids.push(creation_id_str);
+            sent_mdns.insert(id.as_ref().to_owned(), mdn);
         }
     }
 
@@ -322,7 +371,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     let mut extra_invocations: Vec<Invocation> = Vec::new();
 
     if let Some(ref patches) = req.on_success_update_email {
-        if !sent_creation_ids.is_empty() {
+        if !sent_mdns.is_empty() {
             let email_old_state = backend
                 .get_state::<Email>(&req.account_id)
                 .await
@@ -331,7 +380,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             let mut email_updated: serde_json::Map<String, Value> = serde_json::Map::new();
             let mut email_not_updated: serde_json::Map<String, Value> = serde_json::Map::new();
 
-            for creation_id_str in &sent_creation_ids {
+            for (creation_id_str, sent_mdn) in &sent_mdns {
                 let patch_key = format!("#{creation_id_str}");
                 let patch = match patches.get(&patch_key) {
                     Some(p) => p,
@@ -339,10 +388,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 };
 
                 // Resolve the email ID from the sent MDN's forEmailId.
-                let email_id = match sent_mdns
-                    .get(creation_id_str)
-                    .and_then(|m| m.for_email_id.as_ref())
-                {
+                let email_id = match sent_mdn.for_email_id.as_ref() {
                     Some(id) => id.clone(),
                     None => continue,
                 };
@@ -440,19 +486,25 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 // MDN/parse handler
 // ---------------------------------------------------------------------------
 
-/// Maximum number of blob IDs accepted in a single `MDN/parse` request.
-/// 16 is chosen as a conservative default matching typical email client
-/// batch sizes; there is no spec-mandated limit, so a real backend should
-/// expose this as a configurable server parameter.
-const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
+/// Default maximum blob IDs for a single `MDN/parse` request.
+///
+/// Pass this as `max_blob_ids` to [`handle_mdn_parse`] unless your deployment
+/// has a specific policy.  16 is a conservative default matching typical email
+/// client batch sizes; the draft spec mandates no limit.
+pub const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
 
 /// Handle an `MDN/parse` method call (draft-ietf-jmap-mdn-17 §3.3).
+///
+/// `max_blob_ids` caps the number of blob IDs accepted in a single request.
+/// Use [`MDN_PARSE_MAX_BLOB_IDS`] for the default.  Exceeding the limit
+/// returns a method-level `requestTooLarge` error (RFC 8620 §5.1).
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty — `MDN/parse` is a read-only operation with no side effects.
 pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     backend: &B,
     args: Value,
+    max_blob_ids: usize,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Step 1: deserialize the full request structure.
     let req: jmap_mail_types::mdn::MdnParseRequest = serde_json::from_value(args).map_err(|e| {
@@ -465,7 +517,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     // follow the same pattern and let storage errors surface naturally.
 
     // Step 3: enforce per-request blob count limit.
-    if req.blob_ids.len() > MDN_PARSE_MAX_BLOB_IDS {
+    if req.blob_ids.len() > max_blob_ids {
         return Err(JmapError::request_too_large());
     }
 

@@ -2283,16 +2283,16 @@ impl MdnBackend for MemoryBackend {
 
         for (creation_id, mdn) in send {
             // Step 1: resolve for_email_id.
-            let for_email_id = match &mdn.for_email_id {
-                None => {
-                    not_sent.insert(
-                        creation_id,
-                        SetError::new(SetErrorType::NotFound)
-                            .with_description("forEmailId is required"),
-                    );
-                    continue;
-                }
-                Some(id) => id.clone(),
+            // Callers (handle_mdn_send) guarantee for_email_id is Some for
+            // every entry before calling send_mdns — None entries are rejected
+            // with invalidProperties before reaching the backend.
+            let Some(for_email_id) = mdn.for_email_id.clone() else {
+                not_sent.insert(
+                    creation_id,
+                    SetError::new(SetErrorType::InvalidProperties)
+                        .with_description("forEmailId is required"),
+                );
+                continue;
             };
 
             // Step 2: look up the email from the store.
@@ -2465,7 +2465,7 @@ impl MdnBackend for MemoryBackend {
             sent.insert(creation_id, sent_mdn);
         }
 
-        Ok(MdnSendResult { sent, not_sent })
+        Ok(MdnSendResult::new(sent, not_sent))
     }
 
     // -----------------------------------------------------------------------
@@ -2563,11 +2563,7 @@ impl MdnBackend for MemoryBackend {
             }
         }
 
-        Ok(MdnParseResult {
-            parsed,
-            not_parsable,
-            not_found,
-        })
+        Ok(MdnParseResult::new(parsed, not_parsable, not_found))
     }
 }
 

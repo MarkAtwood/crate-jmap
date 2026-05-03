@@ -235,11 +235,18 @@ pub use jmap_server::ClosureHandler;
 /// so that clients omitting either capability receive an appropriate
 /// error before method dispatch.
 ///
+/// `max_blob_ids` caps the number of blob IDs accepted in a single
+/// `MDN/parse` request.  Pass [`mdn::MDN_PARSE_MAX_BLOB_IDS`] for the
+/// default (16); use a larger value for high-volume deployments.
+///
 /// The handlers themselves do not inspect the `using` field — that
 /// validation is the dispatcher/framework layer's responsibility.
 #[cfg(feature = "mdn")]
-pub fn register_mdn_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
-where
+pub fn register_mdn_handlers<B, C>(
+    dispatcher: &mut Dispatcher<C>,
+    backend: Arc<B>,
+    max_blob_ids: usize,
+) where
     B: MailBackend + mdn::MdnBackend + 'static,
     C: Clone + Send + 'static,
 {
@@ -261,7 +268,9 @@ where
     )
     .await);
     reg!("MDN/parse", backend, |b, _ci, a| mdn::handle_mdn_parse(
-        &*b, a
+        &*b,
+        a,
+        max_blob_ids
     )
     .await);
 }
