@@ -2547,7 +2547,7 @@ impl MdnBackend for MemoryBackend {
                         "subject": serde_json::Value::Null,
                         "textBody": serde_json::Value::Null,
                         "includeOriginalMessage": false,
-                        "reportingUa": reporting_ua,
+                        "reportingUA": reporting_ua,
                         "disposition": disposition_val,
                         "mdnGateway": serde_json::Value::Null,
                         "originalRecipient": original_recipient,
@@ -2679,6 +2679,6 @@ Disposition: manual-action/MDN-sent-manually; displayed\r\n\
 /// Invalid blob (not a multipart/report MDN) for notParsable tests.
 ///
 /// Does not contain a `Disposition:` field — the minimal parsability heuristic
-/// used by `MemoryMdnBackend::parse_mdns` will classify this as notParsable.
+/// used by `MemoryBackend::parse_mdns` will classify this as notParsable.
 #[cfg(feature = "mdn")]
 pub const INVALID_MDN_BLOB: &[u8] = b"This is just a plain text file, not an MDN.\r\n";
