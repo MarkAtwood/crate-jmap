@@ -217,6 +217,12 @@ impl std::error::Error for MemoryError {}
 impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
 
+    async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+        let inner = self.inner.lock().unwrap();
+        let id = account_id.as_ref();
+        Ok(inner.objects.keys().any(|(_, aid)| aid == id))
+    }
+
     // -----------------------------------------------------------------------
     // get_objects
     // -----------------------------------------------------------------------
@@ -1831,6 +1837,10 @@ impl FaultyBackend {
 
 impl JmapBackend for FaultyBackend {
     type Error = MemoryError;
+
+    async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+        self.inner.account_exists(account_id).await
+    }
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,

@@ -163,11 +163,16 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         JmapError::invalid_arguments(format!("failed to parse MDN/send arguments: {e}"))
     })?;
 
-    // Step 2: Validate identityId — fetch identity, confirming both account and
-    // identity existence in a single round-trip.  An unknown accountId produces
-    // an empty `identities` list, which is caught by the identity-not-found check
-    // below (RFC 8620 §5.1: unknown accountId → accountNotFound, but we surface
-    // it as invalidArguments here per the spec for MDN/send).
+    // Step 2: Verify account exists (RFC 8620 §3.6.2 — unknown accountId → accountNotFound).
+    if !backend
+        .account_exists(&req.account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
+    // Step 3: Validate identityId — fetch identity to confirm it belongs to this account.
     let (identities, _) = backend
         .get_objects::<Identity>(
             &req.account_id,
@@ -181,7 +186,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         return Err(JmapError::invalid_arguments("identityId not found"));
     }
 
-    // Step 3: Validate onSuccessUpdateEmail — per draft §3.1 the server MUST
+    // Step 4: Validate onSuccessUpdateEmail — per draft §3.1 the server MUST
     // reject any MDN/send where onSuccessUpdateEmail does not result in setting
     // keywords/$mdnsent: true for each entry in send.
     if !req.send.is_empty() {
@@ -218,7 +223,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         }
     }
 
-    // Step 4: CRLF validation — per-entry, add to notSent rather than rejecting
+    // Step 5: CRLF validation — per-entry, add to notSent rather than rejecting
     // the whole request.
     let mut not_sent: HashMap<String, Value> = HashMap::new();
     let mut send_map: HashMap<String, Mdn> = HashMap::new();
@@ -273,7 +278,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         }
     }
 
-    // Step 5: Pre-check $mdnsent keyword — batch-fetch all referenced emails in
+    // Step 6: Pre-check $mdnsent keyword — batch-fetch all referenced emails in
     // one round-trip instead of one call per entry, then check keywords locally.
     let email_ids: Vec<Id> = send_map
         .values()
@@ -306,7 +311,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         remaining_send.insert(creation_id, mdn);
     }
 
-    // Step 6: Call backend.send_mdns.
+    // Step 7: Call backend.send_mdns.
     let mut sent_mdns: HashMap<String, Mdn> = HashMap::new();
 
     if !remaining_send.is_empty() {
@@ -326,7 +331,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         }
     }
 
-    // Step 7: Apply onSuccessUpdateEmail for each successfully sent entry.
+    // Step 8: Apply onSuccessUpdateEmail for each successfully sent entry.
     let mut extra_invocations: Vec<Invocation> = Vec::new();
 
     if let Some(ref patches) = req.on_success_update_email {
@@ -419,7 +424,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         }
     }
 
-    // Step 8: Build MDN/send response.
+    // Step 9: Build MDN/send response.
     let sent_value: Value = if sent_mdns.is_empty() {
         Value::Null
     } else {
