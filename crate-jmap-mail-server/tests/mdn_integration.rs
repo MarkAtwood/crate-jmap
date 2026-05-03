@@ -277,6 +277,46 @@ async fn mdn_send_email_not_found() {
     );
 }
 
+/// Test: MDN/send with an unknown `accountId` must return `accountNotFound`
+/// (RFC 8620 §3.6.2), not `invalidArguments`.
+///
+/// Oracle: RFC 8620 §3.6.2 — server MUST return `accountNotFound` when the
+/// `accountId` in a method call does not correspond to a valid account.
+#[tokio::test]
+async fn mdn_send_unknown_account_returns_account_not_found() {
+    // Fresh backend with no data — "ghost-account" has never had any objects stored.
+    let backend = MemoryBackend::new();
+
+    let args = serde_json::json!({
+        "accountId": "ghost-account",
+        "identityId": "any-identity",
+        "send": {
+            "k1": {
+                "forEmailId": "any-email",
+                "disposition": {
+                    "actionMode": "manual-action",
+                    "sendingMode": "mdn-sent-manually",
+                    "type": "displayed"
+                }
+            }
+        },
+        "onSuccessUpdateEmail": {
+            "#k1": { "keywords/$mdnsent": true }
+        }
+    });
+
+    let err = handle_mdn_send(&backend, args, "call-unknown")
+        .await
+        .expect_err("unknown accountId must return Err");
+
+    assert_eq!(
+        err.error_type.as_str(),
+        "accountNotFound",
+        "unknown accountId must produce accountNotFound; got: {:?}",
+        err.error_type
+    );
+}
+
 /// Test 4: MDN/send where `onSuccessUpdateEmail` does not set `keywords/$mdnsent: true`.
 ///
 /// Oracle: draft-ietf-jmap-mdn-17 §2.1 — the server MUST reject any MDN/send

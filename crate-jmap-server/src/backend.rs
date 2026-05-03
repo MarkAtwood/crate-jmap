@@ -510,6 +510,16 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// The error type returned by storage operations.
     type Error: std::error::Error + Send + Sync + 'static;
 
+    /// Return `true` if the given account exists in this backend.
+    ///
+    /// Handlers call this at the start of each method to return
+    /// `accountNotFound` (RFC 8620 §3.6.2) rather than surfacing
+    /// the wrong error when `accountId` is unknown.
+    fn account_exists(
+        &self,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
+
     /// Fetch objects by id (or all objects when `ids` is `None`).
     ///
     /// `properties` is the list of property names requested by the client

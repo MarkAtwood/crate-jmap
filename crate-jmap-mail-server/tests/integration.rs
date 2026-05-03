@@ -481,6 +481,10 @@ async fn search_snippet_get_capability_gated() {
     impl JmapBackend for NoSnippetBackend {
         type Error = common::MemoryError;
 
+        async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+            self.0.account_exists(account_id).await
+        }
+
         async fn get_objects<O: jmap_mail_server::GetObject + Send + Sync>(
             &self,
             account_id: &Id,
