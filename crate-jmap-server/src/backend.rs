@@ -121,9 +121,12 @@ impl std::fmt::Display for SetError {
 }
 
 /// The machine-readable type for a [`SetError`] (RFC 8620 §5.3 and RFC 8621).
+///
+/// Extension crates define their own error strings via [`SetErrorType::custom`]
+/// rather than adding variants here. This keeps the base crate stable as new
+/// JMAP extension crates (calendar, contacts, etc.) are added.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq)]
 pub enum SetErrorType {
     /// The action would violate an ACL or other access control policy.
     Forbidden,
@@ -172,13 +175,24 @@ pub enum SetErrorType {
     ForbiddenToSend,
     /// RFC 8621 §7.5 — The submission cannot be undone.
     CannotUnsend,
-    /// An MDN for this message has already been sent (`$mdnsent` keyword is set).
-    MdnAlreadySent,
+    /// An extension-defined error type not covered by the variants above.
+    /// Serializes as the inner string directly (e.g. `"mdnAlreadySent"`).
+    Custom(String),
+}
+
+impl SetErrorType {
+    /// Construct a [`SetErrorType::Custom`] from any string.
+    ///
+    /// Use this in extension crates to emit domain-specific error types
+    /// without adding variants to this enum.
+    pub fn custom(s: impl Into<String>) -> Self {
+        Self::Custom(s.into())
+    }
 }
 
 impl std::fmt::Display for SetErrorType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let s = match self {
+        let s: &str = match self {
             Self::Forbidden => "forbidden",
             Self::OverQuota => "overQuota",
             Self::TooLarge => "tooLarge",
@@ -202,9 +216,56 @@ impl std::fmt::Display for SetErrorType {
             Self::ForbiddenMailFrom => "forbiddenMailFrom",
             Self::ForbiddenToSend => "forbiddenToSend",
             Self::CannotUnsend => "cannotUnsend",
-            Self::MdnAlreadySent => "mdnAlreadySent",
+            Self::Custom(s) => s.as_str(),
         };
         f.write_str(s)
+    }
+}
+
+impl serde::Serialize for SetErrorType {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(&self.to_string())
+    }
+}
+
+impl<'de> serde::Deserialize<'de> for SetErrorType {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        struct Visitor;
+        impl serde::de::Visitor<'_> for Visitor {
+            type Value = SetErrorType;
+            fn expecting(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("a JMAP SetError type string")
+            }
+            fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
+                Ok(match v {
+                    "forbidden" => SetErrorType::Forbidden,
+                    "overQuota" => SetErrorType::OverQuota,
+                    "tooLarge" => SetErrorType::TooLarge,
+                    "rateLimit" => SetErrorType::RateLimit,
+                    "notFound" => SetErrorType::NotFound,
+                    "invalidPatch" => SetErrorType::InvalidPatch,
+                    "willDestroy" => SetErrorType::WillDestroy,
+                    "invalidProperties" => SetErrorType::InvalidProperties,
+                    "singleton" => SetErrorType::Singleton,
+                    "alreadyExists" => SetErrorType::AlreadyExists,
+                    "mailboxHasChild" => SetErrorType::MailboxHasChild,
+                    "mailboxHasEmail" => SetErrorType::MailboxHasEmail,
+                    "tooManyKeywords" => SetErrorType::TooManyKeywords,
+                    "tooManyMailboxes" => SetErrorType::TooManyMailboxes,
+                    "blobNotFound" => SetErrorType::BlobNotFound,
+                    "forbiddenFrom" => SetErrorType::ForbiddenFrom,
+                    "invalidEmail" => SetErrorType::InvalidEmail,
+                    "tooManyRecipients" => SetErrorType::TooManyRecipients,
+                    "noRecipients" => SetErrorType::NoRecipients,
+                    "invalidRecipients" => SetErrorType::InvalidRecipients,
+                    "forbiddenMailFrom" => SetErrorType::ForbiddenMailFrom,
+                    "forbiddenToSend" => SetErrorType::ForbiddenToSend,
+                    "cannotUnsend" => SetErrorType::CannotUnsend,
+                    other => SetErrorType::Custom(other.to_owned()),
+                })
+            }
+        }
+        d.deserialize_str(Visitor)
     }
 }
 
@@ -549,5 +610,28 @@ mod tests {
             "limit=50 must produce tooManyChanges; got: {:?}",
             err.error_type
         );
+    }
+
+    /// Oracle: SetErrorType::Custom("mdnAlreadySent") must serialize as the bare
+    /// string "mdnAlreadySent" and deserialize back to Custom("mdnAlreadySent").
+    /// Extension crates depend on this round-trip to emit domain-specific errors.
+    #[test]
+    fn set_error_type_custom_round_trips_as_bare_string() {
+        let original = SetErrorType::custom("mdnAlreadySent");
+        let serialized = serde_json::to_string(&original).expect("serialize");
+        assert_eq!(serialized, r#""mdnAlreadySent""#, "Custom must serialize as bare string");
+        let deserialized: SetErrorType = serde_json::from_str(&serialized).expect("deserialize");
+        assert_eq!(deserialized, original, "Custom must deserialize back to Custom");
+    }
+
+    /// Oracle: known SetErrorType variants (e.g. Singleton) must still
+    /// serialize as their camelCase wire strings and deserialize back correctly.
+    #[test]
+    fn set_error_type_known_variant_round_trips() {
+        let original = SetErrorType::Singleton;
+        let serialized = serde_json::to_string(&original).expect("serialize");
+        assert_eq!(serialized, r#""singleton""#, "Singleton must serialize as \"singleton\"");
+        let deserialized: SetErrorType = serde_json::from_str(&serialized).expect("deserialize");
+        assert_eq!(deserialized, original, "Singleton must deserialize back to Singleton");
     }
 }
