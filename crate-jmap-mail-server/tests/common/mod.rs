@@ -2274,11 +2274,10 @@ impl MdnBackend for MemoryBackend {
         &self,
         account_id: &jmap_types::Id,
         _identity_id: &jmap_types::Id,
-        send: std::collections::HashMap<jmap_types::Id, jmap_mail_types::mdn::Mdn>,
+        send: std::collections::HashMap<String, jmap_mail_types::mdn::Mdn>,
     ) -> Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>> {
-        let mut sent: std::collections::HashMap<jmap_types::Id, Mdn> =
-            std::collections::HashMap::new();
-        let mut not_sent: std::collections::HashMap<jmap_types::Id, SetError> =
+        let mut sent: std::collections::HashMap<String, Mdn> = std::collections::HashMap::new();
+        let mut not_sent: std::collections::HashMap<String, SetError> =
             std::collections::HashMap::new();
 
         for (creation_id, mdn) in send {
@@ -2328,15 +2327,14 @@ impl MdnBackend for MemoryBackend {
                 .find(|h| h.name.eq_ignore_ascii_case("Disposition-Notification-To"))
                 .map(|h| h.value.trim().to_owned());
 
-            if dnt_address.is_none() {
+            let Some(dnt_address) = dnt_address else {
                 not_sent.insert(
                     creation_id,
                     SetError::new(SetErrorType::NotFound)
                         .with_description("email has no Disposition-Notification-To header"),
                 );
                 continue;
-            }
-            let dnt_address = dnt_address.unwrap();
+            };
 
             // Step 4: extract server-set fields from the email's headers.
             let original_message_id: Option<String> = email
@@ -2367,21 +2365,11 @@ impl MdnBackend for MemoryBackend {
             let subject_line = mdn.subject.as_deref().unwrap_or("");
             let text_body_line = mdn.text_body.as_deref().unwrap_or("");
 
-            // Serialize the disposition enum fields to their JMAP/RFC 8098 wire strings.
-            // RFC 8098 header values are case-insensitive; we use the JMAP kebab-case
-            // values directly (e.g. "manual-action", "mdn-sent-manually", "displayed").
-            let action_mode_str = serde_json::to_value(&mdn.disposition.action_mode)
-                .ok()
-                .and_then(|v| v.as_str().map(String::from))
-                .unwrap_or_else(|| "manual-action".to_string());
-            let sending_mode_str = serde_json::to_value(&mdn.disposition.sending_mode)
-                .ok()
-                .and_then(|v| v.as_str().map(String::from))
-                .unwrap_or_else(|| "mdn-sent-manually".to_string());
-            let type_str = serde_json::to_value(&mdn.disposition.type_)
-                .ok()
-                .and_then(|v| v.as_str().map(String::from))
-                .unwrap_or_else(|| "displayed".to_string());
+            // Format the disposition enum fields to their RFC 8098 wire strings.
+            // Display impls match the JMAP kebab-case wire values from draft §2.
+            let action_mode_str = mdn.disposition.action_mode.to_string();
+            let sending_mode_str = mdn.disposition.sending_mode.to_string();
+            let type_str = mdn.disposition.type_.to_string();
 
             let mdn_blob = format!(
                 "From: test@example.com\r\n\

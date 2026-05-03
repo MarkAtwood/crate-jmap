@@ -27,6 +27,15 @@ pub enum ActionMode {
     AutomaticAction,
 }
 
+impl std::fmt::Display for ActionMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            ActionMode::ManualAction => "manual-action",
+            ActionMode::AutomaticAction => "automatic-action",
+        })
+    }
+}
+
 /// Whether the MDN itself was sent manually or automatically (draft-ietf-jmap-mdn-17 §2,
 /// derived from RFC 8098 disposition-mode sending-mode).
 #[non_exhaustive]
@@ -37,6 +46,15 @@ pub enum SendingMode {
     MdnSentManually,
     /// The MDN was generated and sent automatically.
     MdnSentAutomatically,
+}
+
+impl std::fmt::Display for SendingMode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            SendingMode::MdnSentManually => "mdn-sent-manually",
+            SendingMode::MdnSentAutomatically => "mdn-sent-automatically",
+        })
+    }
 }
 
 /// The disposition type — what happened to the original message
@@ -55,8 +73,22 @@ pub enum DispositionType {
     Processed,
 }
 
+impl std::fmt::Display for DispositionType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            DispositionType::Deleted => "deleted",
+            DispositionType::Dispatched => "dispatched",
+            DispositionType::Displayed => "displayed",
+            DispositionType::Processed => "processed",
+        })
+    }
+}
+
 /// RFC 8098 disposition field — describes the action taken on the original message
 /// (draft-ietf-jmap-mdn-17 §2).
+///
+/// Construct with [`Disposition::new`] rather than struct-literal syntax (the
+/// struct is `#[non_exhaustive]` to allow future fields).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -72,10 +104,25 @@ pub struct Disposition {
     pub type_: DispositionType,
 }
 
+impl Disposition {
+    /// Construct a [`Disposition`] from its three required fields.
+    pub fn new(action_mode: ActionMode, sending_mode: SendingMode, type_: DispositionType) -> Self {
+        Self {
+            action_mode,
+            sending_mode,
+            type_,
+        }
+    }
+}
+
 /// An MDN object as defined in draft-ietf-jmap-mdn-17 §2.
 ///
 /// Represents either a to-be-sent MDN (in [`MdnSendRequest`]) or a parsed MDN
 /// (in [`MdnParseResponse`]).
+///
+/// The struct is `#[non_exhaustive]` to allow future fields without a breaking
+/// version bump. Construct with [`Mdn::new`] rather than struct-literal syntax;
+/// set optional fields directly after construction.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -131,6 +178,39 @@ pub struct Mdn {
     /// The §3.1 example incorrectly uses `extension`; the §2 definition is authoritative.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extension_fields: Option<HashMap<String, String>>,
+}
+
+impl Mdn {
+    /// Construct an [`Mdn`] with the required `disposition` field.
+    ///
+    /// All optional fields are initialised to `None` / `false`. Set them
+    /// directly after construction as needed, e.g.:
+    ///
+    /// ```rust
+    /// # use jmap_mail_types::mdn::{Mdn, Disposition, ActionMode, SendingMode, DispositionType};
+    /// let mut mdn = Mdn::new(Disposition::new(
+    ///     ActionMode::ManualAction,
+    ///     SendingMode::MdnSentManually,
+    ///     DispositionType::Displayed,
+    /// ));
+    /// mdn.subject = Some("Read: Hello".to_owned());
+    /// ```
+    pub fn new(disposition: Disposition) -> Self {
+        Self {
+            for_email_id: None,
+            subject: None,
+            text_body: None,
+            include_original_message: false,
+            reporting_ua: None,
+            disposition,
+            mdn_gateway: None,
+            original_recipient: None,
+            final_recipient: None,
+            original_message_id: None,
+            error: None,
+            extension_fields: None,
+        }
+    }
 }
 
 /// Request object for `MDN/send` (draft-ietf-jmap-mdn-17 §3.1).
