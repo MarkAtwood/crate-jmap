@@ -22,9 +22,9 @@ use crate::helpers::{find_immutable_patch_key, set_error_value};
 pub struct MdnSendResult {
     /// Successfully sent MDNs. Key = client creation ID. Value = [`Mdn`]
     /// with server-set fields populated (finalRecipient, originalMessageId, etc.).
-    pub sent: HashMap<Id, Mdn>,
+    pub sent: HashMap<String, Mdn>,
     /// Failed send attempts. Key = client creation ID. Value = [`SetError`].
-    pub not_sent: HashMap<Id, SetError>,
+    pub not_sent: HashMap<String, SetError>,
 }
 
 impl MdnSendResult {
@@ -32,7 +32,7 @@ impl MdnSendResult {
     ///
     /// Required because the struct is `#[non_exhaustive]` — external crates
     /// cannot use struct-literal syntax.
-    pub fn new(sent: HashMap<Id, Mdn>, not_sent: HashMap<Id, SetError>) -> Self {
+    pub fn new(sent: HashMap<String, Mdn>, not_sent: HashMap<String, SetError>) -> Self {
         Self { sent, not_sent }
     }
 }
@@ -119,7 +119,7 @@ pub trait MdnBackend: Send + Sync {
         &self,
         account_id: &jmap_types::Id,
         identity_id: &jmap_types::Id,
-        send: HashMap<Id, Mdn>,
+        send: HashMap<String, Mdn>,
     ) -> impl std::future::Future<
         Output = Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>>,
     > + Send;
@@ -221,7 +221,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     // Step 4: CRLF validation — per-entry, add to notSent rather than rejecting
     // the whole request.
     let mut not_sent: HashMap<String, Value> = HashMap::new();
-    let mut send_map: HashMap<Id, Mdn> = HashMap::new();
+    let mut send_map: HashMap<String, Mdn> = HashMap::new();
 
     for (creation_id, mdn) in req.send {
         if mdn.for_email_id.is_none() {
@@ -233,82 +233,32 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             continue;
         }
 
-        let mut crlf_bad = false;
-
-        if let Some(ref s) = mdn.subject {
-            if !crate::submission::check_no_crlf(s) {
-                crlf_bad = true;
-            }
-        }
-        if !crlf_bad {
-            if let Some(ref s) = mdn.text_body {
-                if !crate::submission::check_no_crlf(s) {
-                    crlf_bad = true;
-                }
-            }
-        }
-        if !crlf_bad {
-            if let Some(ref s) = mdn.reporting_ua {
-                if !crate::submission::check_no_crlf(s) {
-                    crlf_bad = true;
-                }
-            }
-        }
-        if !crlf_bad {
-            if let Some(ref s) = mdn.final_recipient {
-                if !crate::submission::check_no_crlf(s) {
-                    crlf_bad = true;
-                }
-            }
-        }
-        if !crlf_bad {
-            if let Some(ref fields) = mdn.extension_fields {
-                for (k, v) in fields {
-                    if !crate::submission::check_no_crlf(k) || !crate::submission::check_no_crlf(v)
-                    {
-                        crlf_bad = true;
-                        break;
-                    }
-                }
-            }
-        }
         // mdn_gateway, original_message_id, original_recipient, and error
         // items are "server-set" in spec §2, but the Mdn struct is shared
         // between send and parse: a client CAN include them. Any client-supplied
         // value that ends up in a generated RFC 5322 header must be CRLF-clean
         // to prevent header injection (e.g. mdn_gateway → MDN-Gateway: header,
         // original_recipient → Original-Recipient:, error items → Error: headers).
-        if !crlf_bad {
-            if let Some(ref s) = mdn.mdn_gateway {
-                if !crate::submission::check_no_crlf(s) {
-                    crlf_bad = true;
-                }
-            }
-        }
-        if !crlf_bad {
-            if let Some(ref s) = mdn.original_message_id {
-                if !crate::submission::check_no_crlf(s) {
-                    crlf_bad = true;
-                }
-            }
-        }
-        if !crlf_bad {
-            if let Some(ref s) = mdn.original_recipient {
-                if !crate::submission::check_no_crlf(s) {
-                    crlf_bad = true;
-                }
-            }
-        }
-        if !crlf_bad {
-            if let Some(ref errors) = mdn.error {
-                for e in errors {
-                    if !crate::submission::check_no_crlf(e) {
-                        crlf_bad = true;
-                        break;
-                    }
-                }
-            }
-        }
+        let crlf_bad = [
+            mdn.subject.as_deref(),
+            mdn.text_body.as_deref(),
+            mdn.reporting_ua.as_deref(),
+            mdn.final_recipient.as_deref(),
+            mdn.mdn_gateway.as_deref(),
+            mdn.original_message_id.as_deref(),
+            mdn.original_recipient.as_deref(),
+        ]
+        .iter()
+        .any(|s| s.is_some_and(|s| !crate::submission::check_no_crlf(s)))
+            || mdn
+                .error
+                .as_ref()
+                .is_some_and(|errs| errs.iter().any(|e| !crate::submission::check_no_crlf(e)))
+            || mdn.extension_fields.as_ref().is_some_and(|fields| {
+                fields.iter().any(|(k, v)| {
+                    !crate::submission::check_no_crlf(k) || !crate::submission::check_no_crlf(v)
+                })
+            });
 
         if crlf_bad {
             not_sent.insert(
@@ -319,7 +269,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 ),
             );
         } else {
-            send_map.insert(Id::from(creation_id.as_str()), mdn);
+            send_map.insert(creation_id, mdn);
         }
     }
 
@@ -340,13 +290,13 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         fetched.into_iter().map(|e| (e.id.clone(), e)).collect()
     };
 
-    let mut remaining_send: HashMap<Id, Mdn> = HashMap::new();
+    let mut remaining_send: HashMap<String, Mdn> = HashMap::new();
     for (creation_id, mdn) in send_map {
         if let Some(ref for_email_id) = mdn.for_email_id {
             if let Some(email) = emails_by_id.get(for_email_id) {
                 if email.keywords.get("$mdnsent") == Some(&true) {
                     not_sent.insert(
-                        creation_id.as_ref().to_owned(),
+                        creation_id.clone(),
                         set_error_value(&SetError::new(SetErrorType::MdnAlreadySent)),
                     );
                     continue;
@@ -369,10 +319,10 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             })?;
 
         for (id, se) in result.not_sent {
-            not_sent.insert(id.as_ref().to_owned(), set_error_value(&se));
+            not_sent.insert(id, set_error_value(&se));
         }
         for (id, mdn) in result.sent {
-            sent_mdns.insert(id.as_ref().to_owned(), mdn);
+            sent_mdns.insert(id, mdn);
         }
     }
 
@@ -509,6 +459,14 @@ pub const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty — `MDN/parse` is a read-only operation with no side effects.
+///
+/// # Account existence
+///
+/// There is no explicit `accountId` existence check here. The `MailBackend`
+/// trait has no account-lookup method; unknown accounts surface naturally as
+/// empty or missing blobs from the storage layer. All other handlers in this
+/// crate follow the same pattern (RFC 8620 §5.1 requires the server to check
+/// the account, but that check belongs in the dispatcher/auth layer, not here).
 pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     backend: &B,
     args: Value,
@@ -519,23 +477,18 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
         JmapError::invalid_arguments(format!("failed to parse MDN/parse arguments: {e}"))
     })?;
 
-    // Step 2: `accountId` presence is enforced by MdnParseRequest deserialization
-    // above — a missing field causes Step 1 to fail.  No separate backend
-    // account-existence check exists in the MailBackend trait; other handlers
-    // follow the same pattern and let storage errors surface naturally.
-
-    // Step 3: enforce per-request blob count limit.
+    // Step 2: enforce per-request blob count limit.
     if req.blob_ids.len() > max_blob_ids {
         return Err(JmapError::request_too_large());
     }
 
-    // Step 4: delegate to the backend.
+    // Step 3: delegate to the backend.
     let result = backend
         .parse_mdns(&req.account_id, req.blob_ids)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    // Step 5: build the response — omit each collection key when empty per spec §3.3.
+    // Step 4: build the response — omit each collection key when empty per spec §3.3.
     // We build JSON directly rather than constructing MdnParseResponse (which is
     // #[non_exhaustive] and therefore cannot be constructed outside its defining crate).
     let parsed_value: Value = if result.parsed.is_empty() {
@@ -563,6 +516,6 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
         "notFound": not_found_value,
     });
 
-    // Step 6: return with no extra invocations.
+    // Step 5: return with no extra invocations.
     Ok((response_json, vec![]))
 }
