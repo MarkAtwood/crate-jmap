@@ -82,8 +82,15 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
 
 /// Generic `*/changes` handler (RFC 8620 §5.2).
 ///
-/// Returns the standard changes response including `updatedProperties: null`
-/// (the server does not track which individual properties changed).
+/// This implementation always returns `updatedProperties: null` (see RFC 8620
+/// §5.2 for the field's semantics). For types with frequently-updated
+/// server-computed counts (e.g. Mailbox `totalEmails`, `unreadEmails`), a
+/// production backend MAY override or post-process the response to set
+/// `updatedProperties` to the list of count fields when only those changed.
+/// When non-null, compliant clients skip re-fetching non-count properties,
+/// reducing traffic on large inboxes. Backends that do not track per-property
+/// change detail MUST leave it null — returning an empty array would be
+/// incorrect (that means "nothing about the listed objects actually changed").
 pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     backend: &B,
     args: Value,

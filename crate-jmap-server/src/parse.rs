@@ -607,6 +607,24 @@ mod tests {
         assert_eq!(args, json!({"ids": ["t1", "t2"]}));
     }
 
+    // Oracle: Fastmail jmap-samples top-ten.py uses path '/ids/*' where `ids` is
+    // a flat string array.  RFC 8620 §3.7 wildcard with empty `remaining` path
+    // must return a copy of the source array — each element maps to itself.
+    #[test]
+    fn resolve_args_wildcard_over_flat_string_array() {
+        // Simulates: Email/query → ids:["a","b","c"], then Email/get with
+        // #ids:{resultOf:"c0", name:"Email/query", path:"/ids/*"}.
+        let prior = vec![(
+            "Email/query".to_owned(),
+            json!({ "ids": ["a", "b", "c"] }),
+            "c0".to_owned(),
+        )];
+        let mut args = json!({"#ids": {"resultOf": "c0", "name": "Email/query", "path": "/ids/*"}});
+        resolve_args(&mut args, &prior).expect("flat-array wildcard must resolve");
+        // * over a flat string array with empty remaining path returns the same array.
+        assert_eq!(args, json!({"ids": ["a", "b", "c"]}));
+    }
+
     // Oracle: RFC 8620 §3.7 — when wildcard result is an array, it is flattened.
     #[test]
     fn resolve_args_wildcard_flattens_array_results() {

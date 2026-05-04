@@ -106,6 +106,12 @@ where
     C: Clone + Send + 'static,
 {
     // Helper: register one method with a closure that takes (Arc<B>, call_id, args).
+    //
+    // `$ci` is the call_id string (echoed back to the client). Most handlers
+    // ignore it and use `_ci` as the identifier. Only handlers that generate
+    // onSuccess* side-effect invocations (Email/copy, EmailSubmission/set) need
+    // `ci` — they pass it to the extra-invocations builder so the side-effect
+    // method call carries the same client-assigned call_id as the original.
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);

@@ -312,9 +312,21 @@ impl<E> From<SetError> for BackendSetError<E> {
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum BackendChangesError<E> {
-    /// The `sinceState` is too old or the server cannot calculate the full set
-    /// of intermediate states. Maps to `tooManyChanges` in the response with
-    /// the given suggested limit. Use `limit: 0` for `cannotCalculateChanges`.
+    /// The server cannot supply incremental changes for the given `sinceState`.
+    ///
+    /// Two sub-cases share this variant:
+    ///
+    /// - **`limit > 0`** — maps to `tooManyChanges` in the JMAP response, with
+    ///   `limit` as the suggested maximum. The client may retry with a smaller
+    ///   window.
+    ///
+    /// - **`limit: 0`** — maps to `cannotCalculateChanges`. This signals a
+    ///   **full state reset**: the client MUST discard ALL locally cached
+    ///   objects for the affected type, reset its local state token to the
+    ///   empty string, and perform a full resync (`/get` with `ids: null`).
+    ///   Partial recovery is not permitted — the server has no usable
+    ///   change log for this state window. (Source: RFC 8620 §5.6; authoritative
+    ///   behavior documented in jmapio/jmap-js `mail-model.js`.)
     TooManyChanges { limit: u64 },
     /// An unexpected storage-layer error.
     Other(E),
@@ -629,9 +641,15 @@ mod tests {
     fn set_error_type_custom_round_trips_as_bare_string() {
         let original = SetErrorType::custom("mdnAlreadySent");
         let serialized = serde_json::to_string(&original).expect("serialize");
-        assert_eq!(serialized, r#""mdnAlreadySent""#, "Custom must serialize as bare string");
+        assert_eq!(
+            serialized, r#""mdnAlreadySent""#,
+            "Custom must serialize as bare string"
+        );
         let deserialized: SetErrorType = serde_json::from_str(&serialized).expect("deserialize");
-        assert_eq!(deserialized, original, "Custom must deserialize back to Custom");
+        assert_eq!(
+            deserialized, original,
+            "Custom must deserialize back to Custom"
+        );
     }
 
     /// Oracle: known SetErrorType variants (e.g. Singleton) must still
@@ -640,8 +658,14 @@ mod tests {
     fn set_error_type_known_variant_round_trips() {
         let original = SetErrorType::Singleton;
         let serialized = serde_json::to_string(&original).expect("serialize");
-        assert_eq!(serialized, r#""singleton""#, "Singleton must serialize as \"singleton\"");
+        assert_eq!(
+            serialized, r#""singleton""#,
+            "Singleton must serialize as \"singleton\""
+        );
         let deserialized: SetErrorType = serde_json::from_str(&serialized).expect("deserialize");
-        assert_eq!(deserialized, original, "Singleton must deserialize back to Singleton");
+        assert_eq!(
+            deserialized, original,
+            "Singleton must deserialize back to Singleton"
+        );
     }
 }

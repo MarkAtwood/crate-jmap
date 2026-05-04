@@ -403,6 +403,9 @@ async fn chat_changes_after_create() {
 #[tokio::test]
 async fn chat_query_empty() {
     let backend = MemoryBackend::new();
+    // Register the account so account_exists() returns true (the generic
+    // handle_query checks this before querying).
+    backend.register_account(&jmap_types::Id::from("a1"));
     let (resp, _) = handle_chat_query(&backend, json!({ "accountId": "a1" }))
         .await
         .expect("handle_chat_query");
