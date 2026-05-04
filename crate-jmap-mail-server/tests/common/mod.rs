@@ -688,10 +688,11 @@ impl MailBackend for MemoryBackend {
             }
         };
         // Replace placeholder blobId with a server-assigned UUID. The Email/set
-        // create handler sets blobId to "placeholder-blob" because it has no raw
-        // bytes to hash; the backend is responsible for assigning the real value.
-        // MemoryBackend uses a UUID since it does not store raw blobs on this
-        // path. Real backends should store the blob and use a content hash here.
+        // create handler sets blobId to "placeholder-blob" (PLACEHOLDER_BLOB_ID in
+        // the library) because it has no raw bytes to hash; the backend is
+        // responsible for assigning the real value. MemoryBackend uses a UUID
+        // since it does not store raw blobs on this path. Real backends should
+        // store the blob and use a content hash here.
         if val.get("blobId").and_then(|v| v.as_str()) == Some("placeholder-blob") {
             if let serde_json::Value::Object(ref mut map) = val {
                 let blob_uuid = Id::from(uuid::Uuid::new_v4().to_string());
@@ -889,16 +890,8 @@ impl MailBackend for MemoryBackend {
             email.keywords = kw_map;
             email.subject = parsed.subject;
             email.message_id = parsed.message_id;
-            email.in_reply_to = if parsed.in_reply_to.is_empty() {
-                None
-            } else {
-                Some(parsed.in_reply_to)
-            };
-            email.references = if parsed.references.is_empty() {
-                None
-            } else {
-                Some(parsed.references)
-            };
+            email.in_reply_to = (!parsed.in_reply_to.is_empty()).then_some(parsed.in_reply_to);
+            email.references = (!parsed.references.is_empty()).then_some(parsed.references);
             email.from = parsed.from;
             email.to = parsed.to;
             email.cc = parsed.cc;
@@ -1118,16 +1111,8 @@ impl MailBackend for MemoryBackend {
         );
         email.subject = parsed.subject;
         email.message_id = parsed.message_id;
-        email.in_reply_to = if parsed.in_reply_to.is_empty() {
-            None
-        } else {
-            Some(parsed.in_reply_to)
-        };
-        email.references = if parsed.references.is_empty() {
-            None
-        } else {
-            Some(parsed.references)
-        };
+        email.in_reply_to = (!parsed.in_reply_to.is_empty()).then_some(parsed.in_reply_to);
+        email.references = (!parsed.references.is_empty()).then_some(parsed.references);
         email.from = parsed.from;
         email.to = parsed.to;
         email.cc = parsed.cc;
@@ -2621,32 +2606,29 @@ fn parse_disposition_field(value: &str) -> Option<serde_json::Value> {
     let sending_str = mode_iter.next()?.trim();
 
     // Validate against known enum variants (wire values from draft-ietf-jmap-mdn §2).
-    let action_wire = match action_str {
-        "manual-action" => "manual-action",
-        "automatic-action" => "automatic-action",
-        _ => return None,
-    };
-    let sending_wire = match sending_str {
-        "mdn-sent-manually" => "mdn-sent-manually",
-        "mdn-sent-automatically" => "mdn-sent-automatically",
-        _ => return None,
-    };
+    // Each string is already lowercased above; we only need membership validation —
+    // the lowercased input is itself the correct wire value, so pass it through.
+    if !matches!(action_str, "manual-action" | "automatic-action") {
+        return None;
+    }
+    if !matches!(sending_str, "mdn-sent-manually" | "mdn-sent-automatically") {
+        return None;
+    }
 
     // RFC 8098 §3.2.6 allows modifiers after a '/' in the disposition-type token,
     // e.g. "displayed/error". Extract only the part before the first '/' as the type.
     let type_base = type_part.splitn(2, '/').next()?.trim();
-    let type_wire = match type_base {
-        "deleted" => "deleted",
-        "dispatched" => "dispatched",
-        "displayed" => "displayed",
-        "processed" => "processed",
-        _ => return None,
-    };
+    if !matches!(
+        type_base,
+        "deleted" | "dispatched" | "displayed" | "processed"
+    ) {
+        return None;
+    }
 
     Some(serde_json::json!({
-        "actionMode": action_wire,
-        "sendingMode": sending_wire,
-        "type": type_wire,
+        "actionMode": action_str,
+        "sendingMode": sending_str,
+        "type": type_base,
     }))
 }
 

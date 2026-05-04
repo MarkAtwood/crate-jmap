@@ -440,15 +440,15 @@ pub async fn handle_email_get<B: MailBackend>(
             .map_err(|e| JmapError::invalid_arguments(format!("bodyProperties: {e}")))?,
     };
     let fetch_text_body_values: bool = args
-        .get("fetchTextBodyValues")
+        .remove("fetchTextBodyValues")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let fetch_html_body_values: bool = args
-        .get("fetchHTMLBodyValues")
+        .remove("fetchHTMLBodyValues")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let fetch_all_body_values: bool = args
-        .get("fetchAllBodyValues")
+        .remove("fetchAllBodyValues")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let max_body_value_bytes: u64 = match args.remove("maxBodyValueBytes") {
@@ -704,9 +704,12 @@ pub async fn handle_email_query<B: MailBackend>(
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             let fetched_count = all.ids.len();
-            let qs = all.query_state.clone();
-            let ccc = all.can_calculate_changes;
+            let query_state = all.query_state.clone();
+            let can_calculate_changes = all.can_calculate_changes;
 
+            // We requested cap+1 to detect overflow: more than cap returned means
+            // the result set was larger than the cap and we must truncate.  Exactly
+            // cap returned means we did NOT overflow (the +1 "probe" came back empty).
             let was_capped = fetched_count > collapse_cap;
             let ids_for_collapse: Vec<Id> = if was_capped {
                 all.ids.into_iter().take(collapse_cap).collect()
@@ -724,6 +727,8 @@ pub async fn handle_email_query<B: MailBackend>(
 
             // When not capped, total is exact. When capped, use the cap as an
             // approximate lower bound (the true count is ≥ collapse_cap).
+            // RFC 8620 §5.5 requires total to be present when calculateTotal=true,
+            // so we return the cap rather than None — it is an honest lower bound.
             let total: Option<u64> = if !was_capped {
                 Some(all_ids.len() as u64)
             } else {
@@ -752,7 +757,13 @@ pub async fn handle_email_query<B: MailBackend>(
                 .skip(start)
                 .take(effective_limit as usize)
                 .collect();
-            (page, total, qs, ccc, start as i64)
+            (
+                page,
+                total,
+                query_state,
+                can_calculate_changes,
+                start as i64,
+            )
         } else {
             let result = backend
                 .query_objects::<Email>(
@@ -1005,7 +1016,7 @@ pub async fn handle_email_set<B: MailBackend>(
                 Ok((server_id, created_obj)) => {
                     // backend.create_object MUST replace the placeholder blobId; see MailBackend doc.
                     debug_assert!(
-                        created_obj.blob_id.as_ref() != "placeholder-blob",
+                        created_obj.blob_id.as_ref() != crate::helpers::PLACEHOLDER_BLOB_ID,
                         "create_object returned a placeholder blobId — backend must assign a real blobId"
                     );
                     mutated = true;
@@ -1189,6 +1200,10 @@ fn apply_body_value_args(val: &mut Value, args: &BodyFetchArgs, body_prop_set: &
     };
 
     // Filter bodyValues: keep only entries whose partId appears in the wanted sets.
+    // When none of the three fetch flags are set, text_part_ids and html_part_ids
+    // are both empty HashSets (constructed in the else branches above), so retain()
+    // removes every entry — effectively clearing bodyValues. This is the correct
+    // RFC 8621 §4.2 default (all flags false → no body values returned).
     if let Some(Value::Object(ref mut bv_map)) = map.get_mut("bodyValues") {
         if !args.fetch_all {
             bv_map.retain(|part_id, _| {
@@ -1256,28 +1271,23 @@ fn apply_body_properties(part: &Value, props: &HashSet<&str>) -> Value {
 
 /// Recursively apply `body_properties` filtering to a `bodyStructure` tree.
 fn apply_body_properties_recursive(node: &mut Value, props: &HashSet<&str>) {
-    // First recurse into subParts so children are filtered.
-    if let Value::Object(ref mut map) = node {
-        if let Some(Value::Array(ref mut parts)) = map.get_mut("subParts") {
-            for part in parts.iter_mut() {
-                apply_body_properties_recursive(part, props);
+    // Recurse into subParts only when the client asked for subParts in
+    // bodyProperties — if subParts is absent from props, apply_body_properties
+    // will strip it from the output anyway, so recursing first is wasted work.
+    if props.contains("subParts") {
+        if let Value::Object(ref mut map) = node {
+            if let Some(Value::Array(ref mut parts)) = map.get_mut("subParts") {
+                for part in parts.iter_mut() {
+                    apply_body_properties_recursive(part, props);
+                }
             }
         }
     }
-    // Then filter this node's own keys.
+    // Filter this node's own keys.  When subParts is not in props, the key is
+    // stripped here; when it is in props the children were already filtered above.
     *node = apply_body_properties(node, props);
-    // subParts is included in the filtered output only when bodyProperties explicitly lists it;
-    // the default list does not include it so bodyStructure trees are returned as leaf nodes
-    // unless the client asks for subParts.
 }
 
-/// Build an [`Email`] from a creation payload (`obj_val`).
-///
-/// Extracts `mailboxIds`, `keywords`, and optional header fields from the
-/// creation object. Sets `blobId` to a placeholder (`"placeholder-blob"`);
-/// per RFC 8621 §5.5 `blobId` is server-set, so the backend replaces it with
-/// the real value inside `create_object`. Assigns a thread id by searching
-/// existing emails for matching `inReplyTo`/`references`.
 const FORBIDDEN_KEYWORD_CHARS: &[u8] = b"(){]%*\"\\";
 const MAX_KEYWORD_LEN: usize = 255;
 
@@ -1316,6 +1326,58 @@ fn validate_and_normalize_keywords(
             Ok((Keyword::from(kw.to_ascii_lowercase()), true))
         })
         .collect()
+}
+
+/// Parse and validate `mailboxIds` from an Email/import or Email/copy entry.
+///
+/// Returns the list of mailbox IDs (entries with `true` value), or an
+/// `invalidProperties` error `Value` suitable for inserting into `notCreated`.
+///
+/// The `rfc_ref` string is embedded in the "required" error description so
+/// callers can cite the correct RFC section (§5.7 for import, §6.1 for copy).
+fn parse_mailbox_ids(entry: &Value, rfc_ref: &str) -> Result<Vec<Id>, Value> {
+    let mailbox_ids: Vec<Id> = match entry.get("mailboxIds").and_then(|v| v.as_object()) {
+        Some(m) => m
+            .iter()
+            .filter(|(_, v)| v.as_bool() == Some(true))
+            .map(|(k, _)| Id::from(k.as_str()))
+            .collect(),
+        None => {
+            return Err(json!({"type": "invalidProperties", "properties": ["mailboxIds"]}));
+        }
+    };
+    if mailbox_ids.is_empty() {
+        return Err(json!({
+            "type": "invalidProperties",
+            "properties": ["mailboxIds"],
+            "description": format!("at least one mailboxId is required ({rfc_ref})")
+        }));
+    }
+    Ok(mailbox_ids)
+}
+
+/// Parse and validate `keywords` from an Email/import or Email/copy entry.
+///
+/// Returns the normalized keyword list, or an `invalidProperties` error
+/// `Value` suitable for inserting into `notCreated`.
+fn parse_keywords_field(entry: &Value) -> Result<Vec<Keyword>, Value> {
+    let raw_keywords_map: HashMap<String, bool> = match entry.get("keywords") {
+        None | Some(Value::Null) => HashMap::new(),
+        Some(v) => match serde_json::from_value(v.clone()) {
+            Ok(kws) => kws,
+            Err(_) => {
+                return Err(json!({"type": "invalidProperties", "properties": ["keywords"]}));
+            }
+        },
+    };
+    match validate_and_normalize_keywords(raw_keywords_map) {
+        Ok(kws) => Ok(kws.into_keys().collect()),
+        Err(desc) => Err(json!({
+            "type": "invalidProperties",
+            "properties": ["keywords"],
+            "description": desc
+        })),
+    }
 }
 
 /// RFC 8621 §4.6 — validate a single EmailBodyPart on creation.
@@ -1378,6 +1440,13 @@ fn validate_body_part(
     Ok(())
 }
 
+/// Build an [`Email`] from a creation payload (`obj_val`).
+///
+/// Extracts `mailboxIds`, `keywords`, and optional header fields from the
+/// creation object. Sets `blobId` to [`crate::helpers::PLACEHOLDER_BLOB_ID`];
+/// per RFC 8621 §5.5 `blobId` is server-set, so the backend replaces it with
+/// the real value inside `create_object`. Assigns a thread id by searching
+/// existing emails for matching `inReplyTo`/`references`.
 async fn build_email_from_create<B: MailBackend>(
     obj_val: &Value,
     account_id: &Id,
@@ -1464,7 +1533,7 @@ async fn build_email_from_create<B: MailBackend>(
     // and must not be accepted from the client on Email/set create (accepting it
     // would allow clients to reference blobs they do not own). The backend
     // assigns the real blobId in create_object.
-    let blob_id: Id = Id::from("placeholder-blob");
+    let blob_id: Id = Id::from(crate::helpers::PLACEHOLDER_BLOB_ID);
 
     // Use a placeholder id; create_object assigns the real one.
     let mut email = Email::new(
@@ -1480,9 +1549,20 @@ async fn build_email_from_create<B: MailBackend>(
     email.in_reply_to = in_reply_to;
     email.references = references;
 
-    // -----------------------------------------------------------------------
-    // RFC 8621 §4.6 — body structure validation
-    // -----------------------------------------------------------------------
+    validate_email_body(obj_val)?;
+
+    Ok(email)
+}
+
+/// Validate the body-related fields of an Email creation payload (RFC 8621 §4.6).
+///
+/// Checks:
+/// - `bodyStructure` is mutually exclusive with `textBody`, `htmlBody`, and `attachments`.
+/// - `textBody` must be exactly one part of type `text/plain`.
+/// - `htmlBody` must be exactly one part of type `text/html`.
+/// - All body parts satisfy `validate_body_part`: `partId`/`blobId` rules, and
+///   `bodyValues` entries must not have `isEncodingProblem` or `isTruncated` true.
+fn validate_email_body(obj_val: &Value) -> Result<(), String> {
     // bodyStructure is mutually exclusive with textBody, htmlBody, and attachments.
     if obj_val.get("bodyStructure").is_some_and(|v| !v.is_null())
         && (obj_val.get("textBody").is_some_and(|v| !v.is_null())
@@ -1553,7 +1633,7 @@ async fn build_email_from_create<B: MailBackend>(
         }
     }
 
-    Ok(email)
+    Ok(())
 }
 
 /// Assign a thread id for a new email.
@@ -1713,56 +1793,22 @@ pub async fn handle_email_import<B: MailBackend>(
         };
 
         // Only include mailboxIds whose value is true (RFC 8621 §5.7 requires at least one).
-        let mailbox_ids: Vec<Id> = match entry.get("mailboxIds").and_then(|v| v.as_object()) {
-            Some(m) => m
-                .iter()
-                .filter(|(_, v)| v.as_bool() == Some(true))
-                .map(|(k, _)| Id::from(k.as_str()))
-                .collect(),
-            None => {
-                not_created.insert(
-                    import_id,
-                    json!({"type": "invalidProperties", "properties": ["mailboxIds"]}),
-                );
+        let mailbox_ids = match parse_mailbox_ids(&entry, "RFC 8621 §5.7") {
+            Ok(ids) => ids,
+            Err(err) => {
+                not_created.insert(import_id, err);
                 continue;
             }
         };
-        if mailbox_ids.is_empty() {
-            not_created.insert(
-                import_id,
-                json!({"type": "invalidProperties", "properties": ["mailboxIds"],
-                       "description": "at least one mailboxId is required (RFC 8621 §5.7)"}),
-            );
-            continue;
-        }
 
-        // keywords: String[Boolean] wire format — deserialize as HashMap<String, bool>,
-        // validate RFC 8621 §4.1.1 syntax, normalize to lowercase, extract the set ones.
-        let raw_keywords_map: HashMap<String, bool> = match entry.get("keywords") {
-            None | Some(Value::Null) => HashMap::new(),
-            Some(v) => match serde_json::from_value(v.clone()) {
-                Ok(kws) => kws,
-                Err(_) => {
-                    not_created.insert(
-                        import_id,
-                        json!({"type": "invalidProperties", "properties": ["keywords"]}),
-                    );
-                    continue;
-                }
-            },
-        };
-        let validated_keywords = match validate_and_normalize_keywords(raw_keywords_map) {
+        // keywords: String[Boolean] wire format — validate RFC 8621 §4.1.1 syntax.
+        let keywords: Vec<jmap_mail_types::Keyword> = match parse_keywords_field(&entry) {
             Ok(kws) => kws,
-            Err(desc) => {
-                not_created.insert(
-                    import_id,
-                    json!({"type": "invalidProperties", "properties": ["keywords"],
-                           "description": desc}),
-                );
+            Err(err) => {
+                not_created.insert(import_id, err);
                 continue;
             }
         };
-        let keywords: Vec<jmap_mail_types::Keyword> = validated_keywords.into_keys().collect();
 
         let received_at: Option<UTCDate> = entry
             .get("receivedAt")
@@ -1875,15 +1921,15 @@ pub async fn handle_email_parse<B: MailBackend>(
             .map_err(|e| JmapError::invalid_arguments(format!("bodyProperties: {e}")))?,
     };
     let fetch_text_body_values: bool = args
-        .get("fetchTextBodyValues")
+        .remove("fetchTextBodyValues")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let fetch_html_body_values: bool = args
-        .get("fetchHTMLBodyValues")
+        .remove("fetchHTMLBodyValues")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let fetch_all_body_values: bool = args
-        .get("fetchAllBodyValues")
+        .remove("fetchAllBodyValues")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
     let max_body_value_bytes: u64 = match args.remove("maxBodyValueBytes") {
@@ -1967,6 +2013,27 @@ pub async fn handle_email_parse<B: MailBackend>(
                         }
                         if headers_implicit {
                             map.remove("headers");
+                        }
+                    }
+                }
+                // RFC 8621 §5.8: id, blobId, threadId, mailboxIds, keywords, and
+                // receivedAt MUST be null in Email/parse responses — these fields have
+                // no meaning for a parsed-but-not-stored blob.  The Email struct carries
+                // them as non-Option so they always serialise to real values; force them
+                // to null here after filter_properties so that explicit client requests
+                // like properties:["mailboxIds"] still get null rather than {}.
+                const PARSE_NULL_FIELDS: &[&str] = &[
+                    "id",
+                    "blobId",
+                    "threadId",
+                    "mailboxIds",
+                    "keywords",
+                    "receivedAt",
+                ];
+                if let Value::Object(ref mut map) = obj {
+                    for &field in PARSE_NULL_FIELDS {
+                        if map.contains_key(field) {
+                            map.insert(field.to_owned(), Value::Null);
                         }
                     }
                 }
@@ -2090,56 +2157,22 @@ pub async fn handle_email_copy<B: MailBackend>(
         };
 
         // Only include mailboxIds whose value is true (RFC 8621 §6.1 requires at least one).
-        let mailbox_ids: Vec<Id> = match entry.get("mailboxIds").and_then(|v| v.as_object()) {
-            Some(m) => m
-                .iter()
-                .filter(|(_, v)| v.as_bool() == Some(true))
-                .map(|(k, _)| Id::from(k.as_str()))
-                .collect(),
-            None => {
-                not_created.insert(
-                    copy_id,
-                    json!({"type": "invalidProperties", "properties": ["mailboxIds"]}),
-                );
+        let mailbox_ids = match parse_mailbox_ids(&entry, "RFC 8621 §6.1") {
+            Ok(ids) => ids,
+            Err(err) => {
+                not_created.insert(copy_id, err);
                 continue;
             }
         };
-        if mailbox_ids.is_empty() {
-            not_created.insert(
-                copy_id,
-                json!({"type": "invalidProperties", "properties": ["mailboxIds"],
-                       "description": "at least one mailboxId is required (RFC 8621 §6.1)"}),
-            );
-            continue;
-        }
 
-        // keywords: String[Boolean] wire format — deserialize as HashMap<String, bool>,
-        // validate RFC 8621 §4.1.1 syntax, normalize to lowercase, extract the set ones.
-        let raw_keywords_map: HashMap<String, bool> = match entry.get("keywords") {
-            None | Some(Value::Null) => HashMap::new(),
-            Some(v) => match serde_json::from_value(v.clone()) {
-                Ok(kws) => kws,
-                Err(_) => {
-                    not_created.insert(
-                        copy_id,
-                        json!({"type": "invalidProperties", "properties": ["keywords"]}),
-                    );
-                    continue;
-                }
-            },
-        };
-        let validated_keywords = match validate_and_normalize_keywords(raw_keywords_map) {
+        // keywords: String[Boolean] wire format — validate RFC 8621 §4.1.1 syntax.
+        let keywords: Vec<Keyword> = match parse_keywords_field(&entry) {
             Ok(kws) => kws,
-            Err(desc) => {
-                not_created.insert(
-                    copy_id,
-                    json!({"type": "invalidProperties", "properties": ["keywords"],
-                           "description": desc}),
-                );
+            Err(err) => {
+                not_created.insert(copy_id, err);
                 continue;
             }
         };
-        let keywords: Vec<Keyword> = validated_keywords.into_keys().collect();
 
         // receivedAt may be overridden during copy (RFC 8621 §4.7).
         let received_at: Option<UTCDate> = entry
@@ -2213,11 +2246,9 @@ pub async fn handle_email_copy<B: MailBackend>(
             _ => None,
         };
 
-    let has_on_success_destroy = on_success_destroy_original && !copied_source_ids.is_empty();
-    let has_on_success_update =
-        on_success_update_original.is_some() && !copied_source_ids.is_empty();
-
-    if has_on_success_destroy || has_on_success_update {
+    if (on_success_destroy_original || on_success_update_original.is_some())
+        && !copied_source_ids.is_empty()
+    {
         let email_old_state = backend
             .get_state::<Email>(&from_account_id)
             .await

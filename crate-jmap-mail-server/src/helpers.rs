@@ -5,6 +5,15 @@ use serde_json::Value;
 
 pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string, ser};
 
+/// Sentinel blob ID set by the `Email/set` create and import handlers.
+///
+/// Backends MUST replace this value in [`crate::backend::MailBackend::create_object`]
+/// and [`crate::backend::MailBackend::import_email`] with the real blob ID before
+/// returning. Clients must never see this value. Defined as a constant so all
+/// three sites that reference it (handler, debug_assert, backend test harness)
+/// use the same string and a rename is caught at compile time.
+pub(crate) const PLACEHOLDER_BLOB_ID: &str = "placeholder-blob";
+
 /// Return only the keys in `prop_set` from the JSON object `obj`.
 ///
 /// Used by all `*/get` handlers to enforce the RFC 8620 §5.1 rule that when

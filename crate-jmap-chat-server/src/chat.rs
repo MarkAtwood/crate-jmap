@@ -39,82 +39,11 @@ pub async fn handle_chat_changes<B: ChatBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `Chat/query` method call (RFC 8620 §5.5).
-///
-/// Filter and sort are passed through to the backend unchanged.
 pub async fn handle_chat_query<B: ChatBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
-
-    let calculate_total: bool = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-
-    let limit: Option<u64> = match args.remove("limit").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => match v.as_u64() {
-            Some(n) => Some(n),
-            None => {
-                return Err(JmapError::invalid_arguments(format!(
-                    "limit: expected a non-negative integer, got {v}"
-                )))
-            }
-        },
-    };
-
-    let position: i64 = match args.remove("position").unwrap_or(Value::Null) {
-        Value::Null => 0,
-        v => v.as_i64().ok_or_else(|| {
-            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
-        })?,
-    };
-
-    let filter: Option<serde_json::Value> = match args.remove("filter").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(v),
-    };
-
-    let sort: Option<Vec<serde_json::Value>> = match args.remove("sort").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
-            serde_json::from_value(v)
-                .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
-        ),
-    };
-
-    let result = backend
-        .query_objects::<Chat>(
-            &account_id,
-            filter.as_ref(),
-            sort.as_deref(),
-            limit,
-            position,
-        )
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
-    let mut resp = json!({
-        "accountId": account_id.as_ref(),
-        "queryState": result.query_state.as_ref(),
-        "canCalculateChanges": result.can_calculate_changes,
-        "position": result.position,
-        "ids": result.ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-    });
-    if calculate_total {
-        if let Some(t) = result.total {
-            resp["total"] = json!(t);
-        }
-    }
-
-    Ok((resp, vec![]))
+    jmap_server::handlers::handle_query::<Chat, B>(backend, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -227,10 +156,12 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 Err(_) => ChatKind::Other(kind_str),
             };
 
-            // Validate kind-specific required fields.
-            let is_direct_create;
-            let direct_contact_id_str: Option<String>;
-            match &kind {
+            // Validate kind-specific required fields and extract per-kind state.
+            // `direct_contact_id_str` is Some(id) for Direct chats and None for
+            // all other kinds — it simultaneously encodes the "is direct" flag and
+            // the contact ID, avoiding a bool+Option pair whose invariant (Some iff
+            // direct) would otherwise be implicit.
+            let direct_contact_id_str: Option<String> = match &kind {
                 ChatKind::Direct => {
                     let contact_id_str = match obj_val.get("contactId").and_then(|v| v.as_str()) {
                         Some(s) => s.to_owned(),
@@ -300,8 +231,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         );
                         continue;
                     }
-                    is_direct_create = true;
-                    direct_contact_id_str = Some(contact_id_str);
+                    Some(contact_id_str)
                 }
                 ChatKind::Channel => {
                     if obj_val.get("spaceId").and_then(|v| v.as_str()).is_none() {
@@ -311,14 +241,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         );
                         continue;
                     }
-                    is_direct_create = false;
-                    direct_contact_id_str = None;
+                    None
                 }
-                _ => {
-                    is_direct_create = false;
-                    direct_contact_id_str = None;
-                }
-            }
+                _ => None,
+            };
 
             let now_str = now_utc_string();
             let now: UTCDate = UTCDate::from(now_str.as_str());
@@ -372,8 +298,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     // We fetch all chats because the backend does not currently
                     // expose a filter-by-kind query; a tighter fetch (Direct only)
                     // would be preferable but requires backend support (JMAP-63k.9).
-                    if is_direct_create {
-                        let contact_id_str = direct_contact_id_str.as_deref().unwrap_or_default();
+                    if let Some(contact_id_str) = direct_contact_id_str.as_deref() {
                         let (current_chats, _) = backend
                             .get_objects::<Chat>(&account_id, None, None)
                             .await

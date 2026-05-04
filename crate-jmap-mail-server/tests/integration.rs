@@ -11,11 +11,12 @@ mod common;
 use common::{seed::setup_seed_data, FaultyBackend, MemoryBackend};
 use jmap_mail_server::{
     handle_email_changes, handle_email_get, handle_email_import, handle_email_query,
-    handle_email_query_changes, handle_email_set, handle_identity_get, handle_identity_set,
-    handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query, handle_mailbox_query_changes,
-    handle_mailbox_set, handle_search_snippet_get, handle_submission_get, handle_submission_query,
-    handle_submission_set, handle_thread_changes, handle_thread_get, handle_vacation_get,
-    handle_vacation_set, JmapBackend, JmapObject, MailBackend, SetErrorType,
+    handle_email_query_changes, handle_email_set, handle_identity_changes, handle_identity_get,
+    handle_identity_set, handle_mailbox_changes, handle_mailbox_get, handle_mailbox_query,
+    handle_mailbox_query_changes, handle_mailbox_set, handle_search_snippet_get,
+    handle_submission_get, handle_submission_query, handle_submission_set, handle_thread_changes,
+    handle_thread_get, handle_vacation_get, handle_vacation_set, JmapBackend, JmapObject,
+    MailBackend, SetErrorType,
 };
 use jmap_mail_types::{Identity, Mailbox};
 use jmap_types::Id;
@@ -1424,8 +1425,726 @@ async fn identity_set_create_malformed_reply_to_rejected() {
 }
 
 // ---------------------------------------------------------------------------
+// Identity/get conformance tests (RFC 8621 §6.1)
+// ---------------------------------------------------------------------------
+
+/// Oracle: Identity/get with ids=null returns all identities (RFC 8621 §6.1).
+/// Ported from jmap-test-suite identity-get.test.ts: get-all-identities.
+#[tokio::test]
+async fn identity_get_all_returns_list() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    // Seed one identity so the list is non-empty.
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Alice", "email": "alice@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+    assert!(
+        set_resp["created"]["c0"]["id"].as_str().is_some(),
+        "identity must be created"
+    );
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": serde_json::Value::Null }),
+    )
+    .await
+    .expect("get all identities");
+
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert!(!list.is_empty(), "list must be non-empty");
+    // State is a string (RFC 8620 §5.2).
+    assert!(
+        get_resp["state"].as_str().is_some(),
+        "state must be a string"
+    );
+}
+
+/// Oracle: Identity object has all required properties with correct types (RFC 8621 §6.1).
+/// Ported from jmap-test-suite identity-get.test.ts: get-identity-properties.
+#[tokio::test]
+async fn identity_get_required_properties() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": {
+                "c0": {
+                    "name": "Bob",
+                    "email": "bob@example.com",
+                    "textSignature": "-- Bob",
+                    "htmlSignature": "<p>Bob</p>",
+                }
+            }
+        }),
+    )
+    .await
+    .expect("create identity");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [id] }),
+    )
+    .await
+    .expect("get identity by id");
+
+    let obj = &get_resp["list"][0];
+    assert!(obj["id"].as_str().is_some(), "id must be a string");
+    assert!(obj["name"].as_str().is_some(), "name must be a string");
+    assert!(obj["email"].as_str().is_some(), "email must be a string");
+    assert!(
+        obj["textSignature"].as_str().is_some(),
+        "textSignature must be a string"
+    );
+    assert!(
+        obj["htmlSignature"].as_str().is_some(),
+        "htmlSignature must be a string"
+    );
+    assert!(
+        obj["mayDelete"].as_bool().is_some(),
+        "mayDelete must be a boolean"
+    );
+    // replyTo is null or array (RFC 8621 §6.1)
+    assert!(
+        obj["replyTo"].is_null() || obj["replyTo"].is_array(),
+        "replyTo must be null or array"
+    );
+    // bcc is null or array
+    assert!(
+        obj["bcc"].is_null() || obj["bcc"].is_array(),
+        "bcc must be null or array"
+    );
+}
+
+/// Oracle: Identity/get with a specific id returns only that identity (RFC 8621 §6.1).
+/// Ported from jmap-test-suite identity-get.test.ts: get-identity-by-id.
+#[tokio::test]
+async fn identity_get_by_id() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Carol", "email": "carol@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+    )
+    .await
+    .expect("get identity by id");
+
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1, "must return exactly one identity");
+    assert_eq!(
+        list[0]["id"].as_str().unwrap_or(""),
+        id,
+        "returned id must match requested"
+    );
+}
+
+/// Oracle: Identity/get returns notFound for unknown id (RFC 8621 §6.1 / RFC 8620 §5.1).
+/// Ported from jmap-test-suite identity-get.test.ts: get-identity-not-found.
+#[tokio::test]
+async fn identity_get_not_found() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": ["nonexistent-identity-xyz"] }),
+    )
+    .await
+    .expect("get with unknown id must not error");
+
+    // notFound MUST be a string array (RFC 8620 §5.1), never null.
+    let not_found = get_resp["notFound"]
+        .as_array()
+        .expect("notFound must be array");
+    assert!(
+        not_found
+            .iter()
+            .any(|v| v.as_str() == Some("nonexistent-identity-xyz")),
+        "notFound must contain the requested id"
+    );
+}
+
+/// Oracle: Identity email address contains "@" (RFC 8621 §6.1).
+/// Ported from jmap-test-suite identity-get.test.ts: get-identity-email-matches.
+#[tokio::test]
+async fn identity_get_email_contains_at() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Dave", "email": "dave@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+    )
+    .await
+    .expect("get identity by id");
+
+    let email = get_resp["list"][0]["email"]
+        .as_str()
+        .expect("email must be string");
+    assert!(email.contains('@'), "email must contain '@'");
+}
+
+// ---------------------------------------------------------------------------
+// Identity/set conformance tests (RFC 8621 §6.3)
+// ---------------------------------------------------------------------------
+
+/// Oracle: Identity/set update changes name; get confirms new value (RFC 8621 §6.3).
+/// Ported from jmap-test-suite identity-set.test.ts: set-update-name.
+#[tokio::test]
+async fn identity_set_update_name_roundtrip() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    // Create initial identity.
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Original Name", "email": "test@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    // Update name.
+    let (update_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "update": { &id: { "name": "Test Updated Name" } }
+        }),
+    )
+    .await
+    .expect("update name");
+    assert!(
+        !update_resp["updated"].is_null(),
+        "updated map must be non-null"
+    );
+
+    // Verify new name via get.
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+    )
+    .await
+    .expect("get after update");
+    assert_eq!(
+        get_resp["list"][0]["name"].as_str(),
+        Some("Test Updated Name"),
+        "name must reflect update"
+    );
+}
+
+/// Oracle: Identity/set update changes textSignature (RFC 8621 §6.3).
+/// Ported from jmap-test-suite identity-set.test.ts: set-update-text-signature.
+#[tokio::test]
+async fn identity_set_update_text_signature_roundtrip() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Eve", "email": "eve@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    let new_sig = "-- \nTest Signature";
+    let (_, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "update": { &id: { "textSignature": new_sig } }
+        }),
+    )
+    .await
+    .expect("update textSignature");
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+    )
+    .await
+    .expect("get after update");
+    let sig = get_resp["list"][0]["textSignature"].as_str().unwrap_or("");
+    assert!(
+        sig.contains("Test Signature"),
+        "textSignature must contain 'Test Signature'; got: {sig:?}"
+    );
+}
+
+/// Oracle: Identity/set update changes htmlSignature (RFC 8621 §6.3).
+/// Ported from jmap-test-suite identity-set.test.ts: set-update-html-signature.
+#[tokio::test]
+async fn identity_set_update_html_signature_roundtrip() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Frank", "email": "frank@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    let (_, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "update": { &id: { "htmlSignature": "<p><b>Test</b> HTML Signature</p>" } }
+        }),
+    )
+    .await
+    .expect("update htmlSignature");
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+    )
+    .await
+    .expect("get after update");
+    let sig = get_resp["list"][0]["htmlSignature"].as_str().unwrap_or("");
+    assert!(
+        sig.contains("HTML Signature"),
+        "htmlSignature must contain 'HTML Signature'; got: {sig:?}"
+    );
+}
+
+/// Oracle: Identity/set update sets then clears replyTo (RFC 8621 §6.3).
+/// Ported from jmap-test-suite identity-set.test.ts: set-update-reply-to.
+#[tokio::test]
+async fn identity_set_update_reply_to_roundtrip() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Grace", "email": "grace@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    // Set replyTo array.
+    let (_, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "update": {
+                &id: {
+                    "replyTo": [{ "name": "Reply Test", "email": "reply@example.com" }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("set replyTo");
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+    )
+    .await
+    .expect("get after replyTo set");
+    let reply_email = get_resp["list"][0]["replyTo"][0]["email"]
+        .as_str()
+        .unwrap_or("");
+    assert_eq!(reply_email, "reply@example.com", "replyTo email must match");
+
+    // Clear replyTo.
+    let (_, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "update": { &id: { "replyTo": serde_json::Value::Null } }
+        }),
+    )
+    .await
+    .expect("clear replyTo");
+
+    let (get_resp2, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [&id] }),
+    )
+    .await
+    .expect("get after replyTo clear");
+    assert!(
+        get_resp2["list"][0]["replyTo"].is_null(),
+        "replyTo must be null after clearing"
+    );
+}
+
+/// Oracle: Identity/set update of nonexistent id returns notUpdated (RFC 8621 §6.3).
+/// Ported from jmap-test-suite identity-set.test.ts: set-not-found.
+#[tokio::test]
+async fn identity_set_update_not_found() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "update": { "nonexistent-identity-xyz": { "name": "test" } }
+        }),
+    )
+    .await
+    .expect("set with unknown id must not panic");
+
+    let not_updated = resp["notUpdated"]
+        .as_object()
+        .expect("notUpdated must be an object");
+    assert!(
+        not_updated.contains_key("nonexistent-identity-xyz"),
+        "notUpdated must contain the requested id; got: {not_updated:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Identity/changes conformance tests (RFC 8621 §6.2)
+// ---------------------------------------------------------------------------
+
+/// Oracle: Identity/changes with current state returns empty lists (RFC 8620 §5.2).
+/// Ported from jmap-test-suite identity-changes.test.ts: changes-no-changes.
+#[tokio::test]
+async fn identity_changes_no_changes() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    // Seed an identity so there's a real state to query from.
+    let (_, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Helen", "email": "helen@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+
+    // Get current state via ids: [].
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [] }),
+    )
+    .await
+    .expect("get current state");
+    let state = get_resp["state"]
+        .as_str()
+        .expect("state must be string")
+        .to_owned();
+
+    // Changes from current state must be empty.
+    let (changes_resp, _) = handle_identity_changes(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "sinceState": &state }),
+    )
+    .await
+    .expect("changes from current state");
+
+    assert_eq!(
+        changes_resp["oldState"].as_str(),
+        Some(state.as_str()),
+        "oldState must equal sinceState"
+    );
+    let created = changes_resp["created"]
+        .as_array()
+        .expect("created must be array");
+    let updated = changes_resp["updated"]
+        .as_array()
+        .expect("updated must be array");
+    let destroyed = changes_resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array");
+    assert!(created.is_empty(), "created must be empty");
+    assert!(updated.is_empty(), "updated must be empty");
+    assert!(destroyed.is_empty(), "destroyed must be empty");
+}
+
+/// Oracle: Identity/changes after update contains id in updated[] (RFC 8620 §5.2).
+/// Ported from jmap-test-suite identity-changes.test.ts: changes-after-update.
+#[tokio::test]
+async fn identity_changes_after_update() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    // Create identity and record old state.
+    let (set_resp, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Iris", "email": "iris@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+    let id = set_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("must get id")
+        .to_owned();
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [] }),
+    )
+    .await
+    .expect("get state before update");
+    let old_state = get_resp["state"]
+        .as_str()
+        .expect("state must be string")
+        .to_owned();
+
+    // Update identity.
+    let (_, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "update": { &id: { "name": "Iris Updated" } }
+        }),
+    )
+    .await
+    .expect("update identity");
+
+    // Changes since old state should include the id in updated[].
+    let (changes_resp, _) = handle_identity_changes(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "sinceState": &old_state }),
+    )
+    .await
+    .expect("changes after update");
+
+    let updated: Vec<&str> = changes_resp["updated"]
+        .as_array()
+        .expect("updated must be array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        updated.contains(&id.as_str()),
+        "updated must contain the modified identity id; got: {updated:?}"
+    );
+}
+
+/// Oracle: Identity/changes response has all required fields (RFC 8620 §5.2).
+/// Ported from jmap-test-suite identity-changes.test.ts: changes-response-structure.
+#[tokio::test]
+async fn identity_changes_response_structure() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    // Seed one identity so state is non-trivial.
+    let (_, _) = handle_identity_set(
+        &backend,
+        serde_json::json!({
+            "accountId": "a1",
+            "create": { "c0": { "name": "Jack", "email": "jack@example.com" } }
+        }),
+    )
+    .await
+    .expect("create identity");
+
+    let (get_resp, _) = handle_identity_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [] }),
+    )
+    .await
+    .expect("get current state");
+    let state = get_resp["state"]
+        .as_str()
+        .expect("state must be string")
+        .to_owned();
+
+    let (changes_resp, _) = handle_identity_changes(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "sinceState": &state }),
+    )
+    .await
+    .expect("changes");
+
+    // All required fields per RFC 8620 §5.2.
+    assert!(
+        changes_resp["accountId"].as_str().is_some(),
+        "accountId must be a string"
+    );
+    assert!(
+        changes_resp["oldState"].as_str().is_some(),
+        "oldState must be a string"
+    );
+    assert!(
+        changes_resp["newState"].as_str().is_some(),
+        "newState must be a string"
+    );
+    assert!(
+        changes_resp["hasMoreChanges"].as_bool().is_some(),
+        "hasMoreChanges must be a boolean"
+    );
+    assert!(
+        changes_resp["created"].is_array(),
+        "created must be an array"
+    );
+    assert!(
+        changes_resp["updated"].is_array(),
+        "updated must be an array"
+    );
+    assert!(
+        changes_resp["destroyed"].is_array(),
+        "destroyed must be an array"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // EmailSubmission/* handler integration tests
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// EmailSubmission/get conformance tests (RFC 8621 §7.1)
+// ---------------------------------------------------------------------------
+
+/// Oracle: EmailSubmission/get with ids=null returns list and state (RFC 8621 §7.1).
+/// Ported from jmap-test-suite submission-get.test.ts: get-empty.
+#[tokio::test]
+async fn submission_get_ids_null_returns_list_and_state() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (get_resp, _) = handle_submission_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": serde_json::Value::Null }),
+    )
+    .await
+    .expect("EmailSubmission/get ids=null must succeed");
+
+    assert!(
+        get_resp["accountId"].as_str().is_some(),
+        "accountId must be a string"
+    );
+    assert!(
+        get_resp["state"].as_str().is_some(),
+        "state must be a string"
+    );
+    assert!(get_resp["list"].is_array(), "list must be an array");
+}
+
+/// Oracle: EmailSubmission/get returns notFound for unknown id (RFC 8620 §5.1).
+/// Ported from jmap-test-suite submission-get.test.ts: get-not-found.
+#[tokio::test]
+async fn submission_get_not_found() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (get_resp, _) = handle_submission_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": ["nonexistent-submission-xyz"] }),
+    )
+    .await
+    .expect("EmailSubmission/get with unknown id must not error");
+
+    // notFound MUST be a string array (RFC 8620 §5.1), never null.
+    let not_found = get_resp["notFound"]
+        .as_array()
+        .expect("notFound must be array");
+    assert!(
+        not_found
+            .iter()
+            .any(|v| v.as_str() == Some("nonexistent-submission-xyz")),
+        "notFound must contain the requested id"
+    );
+}
+
+/// Oracle: EmailSubmission/get response has all required fields (RFC 8621 §7.1).
+/// Ported from jmap-test-suite submission-get.test.ts: get-response-structure.
+#[tokio::test]
+async fn submission_get_response_structure() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("a1"));
+
+    let (get_resp, _) = handle_submission_get(
+        &backend,
+        serde_json::json!({ "accountId": "a1", "ids": [] }),
+    )
+    .await
+    .expect("EmailSubmission/get ids=[] must succeed");
+
+    assert!(
+        get_resp["accountId"].as_str().is_some(),
+        "accountId must be a string"
+    );
+    assert!(
+        get_resp["state"].as_str().is_some(),
+        "state must be a string"
+    );
+    assert!(get_resp["list"].is_array(), "list must be an array");
+    assert!(
+        get_resp["notFound"].is_array(),
+        "notFound must be an array (RFC 8620 §5.1)"
+    );
+}
 
 /// Oracle: EmailSubmission/set create with valid identityId and emailId produces
 /// a submission that is then retrievable via EmailSubmission/get.

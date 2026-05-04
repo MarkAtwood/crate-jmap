@@ -585,11 +585,14 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             if let Some(role_val) = props.get("role").filter(|v| !v.is_null()) {
                 if let Some(role_str) = role_val.as_str() {
                     // Exclude roles that are being vacated by an update in this
-                    // same request (pre-computed above).
-                    let role_taken = !roles_intended_to_vacate.contains(role_str)
-                        && all_mailboxes
-                            .iter()
-                            .any(|m| m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str));
+                    // same request (pre-computed above).  No mailbox id to exclude:
+                    // we are creating a new object, not updating an existing one.
+                    let role_taken = role_already_held(
+                        role_str,
+                        &all_mailboxes,
+                        &roles_intended_to_vacate,
+                        None,
+                    );
                     // Also check what we already successfully created in this request.
                     // MailboxRole always serializes as a bare JSON string (via
                     // impl_string_enum!), so as_str() is always correct here.
@@ -729,33 +732,41 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // request can atomically swap roles — e.g. A vacates inbox, B claims
         // inbox. Without the two passes, HashMap iteration order is undefined
         // so either pass could run first and reject the claim. RFC 8621 §2.5.
+        // Pass 1 = role-vacating (role: null); pass 2 = everything else.
+        // This ordering allows a single request to swap roles atomically.
         let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates.into_iter().partition(|(_, v)| {
             v.as_object()
                 .and_then(|o| o.get("role"))
                 .is_some_and(|v| v.is_null())
         });
 
+        // Returns the InvalidProperties error value if `patch` contains any
+        // server-set field, or None if the patch is clean. Used in both passes
+        // to avoid duplicating the check block.
+        let server_set_error = |patch: &Value| -> Option<Value> {
+            let obj = patch.as_object()?;
+            let bad_props: Vec<String> = SERVER_SET
+                .iter()
+                .filter(|&&field| obj.contains_key(field))
+                .map(|&s| s.to_owned())
+                .collect();
+            if bad_props.is_empty() {
+                None
+            } else {
+                Some(set_error_value(
+                    &SetError::new(SetErrorType::InvalidProperties).with_properties(bad_props),
+                ))
+            }
+        };
+
         // --- Pass 1: role-vacating updates (patch sets role: null) ---
         for (id_str, patch) in vacating {
             let id = Id::from(id_str.as_str());
 
             // Reject patches that touch server-set fields.
-            if let Some(obj) = patch.as_object() {
-                let bad_props: Vec<String> = SERVER_SET
-                    .iter()
-                    .filter(|&&field| obj.contains_key(field))
-                    .map(|&s| s.to_owned())
-                    .collect();
-                if !bad_props.is_empty() {
-                    not_updated.insert(
-                        id_str,
-                        set_error_value(
-                            &SetError::new(SetErrorType::InvalidProperties)
-                                .with_properties(bad_props),
-                        ),
-                    );
-                    continue;
-                }
+            if let Some(err) = server_set_error(&patch) {
+                not_updated.insert(id_str, err);
+                continue;
             }
 
             // Capture the role currently held by this mailbox before the
@@ -801,34 +812,26 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             let id = Id::from(id_str.as_str());
 
             // Reject patches that touch server-set fields.
-            if let Some(obj) = patch.as_object() {
-                let bad_props: Vec<String> = SERVER_SET
-                    .iter()
-                    .filter(|&&field| obj.contains_key(field))
-                    .map(|&s| s.to_owned())
-                    .collect();
-                if !bad_props.is_empty() {
-                    not_updated.insert(
-                        id_str,
-                        set_error_value(
-                            &SetError::new(SetErrorType::InvalidProperties)
-                                .with_properties(bad_props),
-                        ),
-                    );
-                    continue;
-                }
+            if let Some(err) = server_set_error(&patch) {
+                not_updated.insert(id_str, err);
+                continue;
+            }
 
+            if let Some(obj) = patch.as_object() {
                 // Role uniqueness: check against pre-request state minus
                 // roles freed by successful pass-1 vacates, plus any role
                 // already claimed by an earlier update in this pass, plus
                 // any role claimed by the create loop.
                 if let Some(role_val) = obj.get("role").filter(|v| !v.is_null()) {
                     if let Some(role_str) = role_val.as_str() {
-                        let role_taken = all_mailboxes.iter().any(|m| {
-                            m.id != id
-                                && !roles_successfully_vacated.contains(role_str)
-                                && m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str)
-                        });
+                        // Exclude the mailbox being updated (id) — it may
+                        // already hold this role and is about to change it.
+                        let role_taken = role_already_held(
+                            role_str,
+                            &all_mailboxes,
+                            &roles_successfully_vacated,
+                            Some(&id),
+                        );
                         let role_just_claimed = roles_claimed_this_request.contains(role_str);
                         // MailboxRole always serializes as a bare JSON string (via
                         // impl_string_enum!), so as_str() is always correct here.
@@ -1090,6 +1093,32 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
+
+/// Returns `true` if `role_str` is already held by some mailbox in `all`,
+/// taking into account roles known to be vacated by the current request.
+///
+/// `exclude_id` is `Some(id)` when called from the update loop (skip the
+/// mailbox being updated itself) and `None` when called from the create loop
+/// (no existing mailbox to exclude).
+///
+/// This encapsulates the `all_mailboxes.iter().any()` check that appears in
+/// both the create and the update loops, ensuring the predicate stays in sync
+/// if the Mailbox role rules ever change.
+fn role_already_held(
+    role_str: &str,
+    all: &[jmap_mail_types::Mailbox],
+    vacated: &std::collections::HashSet<String>,
+    exclude_id: Option<&jmap_types::Id>,
+) -> bool {
+    all.iter().any(|m| {
+        // Skip the mailbox being updated (only applicable in the update loop).
+        if exclude_id.is_some_and(|exc| *exc == m.id) {
+            return false;
+        }
+        // The role is only still occupied if it was NOT vacated by this request.
+        !vacated.contains(role_str) && m.role.as_ref().is_some_and(|r| r.to_wire_str() == role_str)
+    })
+}
 
 /// Build a [`Mailbox`] from a JSON create-properties object.
 ///

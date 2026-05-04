@@ -7,7 +7,7 @@
 //! - `EmailSubmission/queryChanges` (§7.4)
 //! - `EmailSubmission/set` (§7.5) — also handles `onSuccessUpdateEmail`
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use jmap_mail_types::{
     query::EmailSubmissionFilter,
@@ -357,45 +357,41 @@ pub async fn handle_submission_set<B: MailBackend>(
     // This must happen before the destroy loop so that email IDs are available
     // even for submissions that will be destroyed in this request.
     // Creation references (keys starting with '#') are populated after the create loop.
-    let mut submission_email_id_map: HashMap<String, Id> = HashMap::new();
-    {
-        let has_on_success = args
-            .get("onSuccessUpdateEmail")
+    let has_on_success = args
+        .get("onSuccessUpdateEmail")
+        .filter(|v| !v.is_null())
+        .is_some()
+        || args
+            .get("onSuccessDestroyEmail")
             .filter(|v| !v.is_null())
-            .is_some()
-            || args
-                .get("onSuccessDestroyEmail")
-                .filter(|v| !v.is_null())
-                .is_some();
-        if has_on_success {
-            let mut non_ref_id_set: std::collections::HashSet<Id> =
-                std::collections::HashSet::new();
-            if let Some(m) = args.get("onSuccessUpdateEmail").and_then(|v| v.as_object()) {
-                for key in m.keys() {
-                    if !key.starts_with('#') {
-                        non_ref_id_set.insert(Id::from(key.as_str()));
+            .is_some();
+    let mut submission_email_id_map: HashMap<String, Id> = HashMap::new();
+    if has_on_success {
+        let mut non_ref_id_set: HashSet<Id> = HashSet::new();
+        if let Some(m) = args.get("onSuccessUpdateEmail").and_then(|v| v.as_object()) {
+            for key in m.keys() {
+                if !key.starts_with('#') {
+                    non_ref_id_set.insert(Id::from(key.as_str()));
+                }
+            }
+        }
+        if let Some(arr) = args.get("onSuccessDestroyEmail").and_then(|v| v.as_array()) {
+            for item in arr {
+                if let Some(s) = item.as_str() {
+                    if !s.starts_with('#') {
+                        non_ref_id_set.insert(Id::from(s));
                     }
                 }
             }
-            if let Some(arr) = args.get("onSuccessDestroyEmail").and_then(|v| v.as_array()) {
-                for item in arr {
-                    if let Some(s) = item.as_str() {
-                        if !s.starts_with('#') {
-                            non_ref_id_set.insert(Id::from(s));
-                        }
-                    }
-                }
-            }
-            let non_ref_ids: Vec<Id> = non_ref_id_set.into_iter().collect();
-            if !non_ref_ids.is_empty() {
-                let (subs, _) = backend
-                    .get_objects::<EmailSubmission>(&account_id, Some(&non_ref_ids), None)
-                    .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
-                for sub in subs {
-                    submission_email_id_map
-                        .insert(sub.id.as_ref().to_owned(), sub.email_id.clone());
-                }
+        }
+        let non_ref_ids: Vec<Id> = non_ref_id_set.into_iter().collect();
+        if !non_ref_ids.is_empty() {
+            let (subs, _) = backend
+                .get_objects::<EmailSubmission>(&account_id, Some(&non_ref_ids), None)
+                .await
+                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            for sub in subs {
+                submission_email_id_map.insert(sub.id.as_ref().to_owned(), sub.email_id.clone());
             }
         }
     }
@@ -536,15 +532,6 @@ pub async fn handle_submission_set<B: MailBackend>(
     // -----------------------------------------------------------------------
 
     let mut extra_invocations: Vec<Invocation> = Vec::new();
-
-    let has_on_success = args
-        .get("onSuccessUpdateEmail")
-        .filter(|v| !v.is_null())
-        .is_some()
-        || args
-            .get("onSuccessDestroyEmail")
-            .filter(|v| !v.is_null())
-            .is_some();
 
     if has_on_success {
         let email_old_state = backend

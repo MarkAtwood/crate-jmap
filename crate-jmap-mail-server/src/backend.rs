@@ -9,6 +9,23 @@
 //!
 //! Marker traits and property selector enums live in `jmap-types` and
 //! `jmap-mail-types` respectively; they are re-exported here for convenience.
+//!
+//! # isUnread convention
+//!
+//! When computing [`Mailbox::unread_emails`] and [`Mailbox::unread_threads`],
+//! backends MUST use the following definition (RFC 8621 §2 / jmapio/jmap-js
+//! `Message.js` lines 803–805):
+//!
+//! ```text
+//! isUnread = NOT keywords.$seen  AND  NOT keywords.$draft
+//! ```
+//!
+//! Draft messages — those with the `$draft` keyword — are **never** counted as
+//! unread regardless of their `$seen` state. A message is unread only if it
+//! lacks both `$seen` and `$draft`.
+//!
+//! `unread_threads` counts threads that contain at least one unread (by the
+//! above definition) email in the mailbox.
 
 pub use jmap_mail_types::backend::{
     EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
@@ -149,13 +166,18 @@ pub trait MailBackend: JmapBackend {
 
     /// Return `true` if `blob_id` exists in `account_id`'s blob store.
     ///
-    /// Used by `Email/parse` to distinguish `notFound` (blob absent) from
-    /// `notParsable` (blob present but uninterpretable as a message).
+    /// **RFC 8621 §5.8 requirement**: `Email/parse` MUST distinguish two failure
+    /// cases — `notFound` (blob ID is not in the store) and `notParsable` (blob is
+    /// in the store but cannot be interpreted as an RFC 5322 message). If this
+    /// method always returns `true`, every parse failure will be reported to the
+    /// client as `notParsable` even when the blob does not exist, which makes it
+    /// impossible for the client to distinguish "wrong blob ID" from "valid blob,
+    /// unreadable message".
     ///
-    /// Backends that do not store blobs (e.g. pass-through parsers) must still
-    /// implement this method and return `false`.  There is no default because a
-    /// silently wrong default would cause every parse error to be misreported
-    /// as `notFound` rather than `notParsable`.
+    /// There is no default implementation: requiring an explicit implementation
+    /// forces each backend author to confront this distinction. A default of `true`
+    /// would silently produce non-conformant behavior for backends where blobs can
+    /// be absent.
     fn blob_exists(
         &self,
         account_id: &jmap_types::Id,
