@@ -77,7 +77,7 @@ pub use email::{
     Email, EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue, EmailHeader,
 };
 pub use identity::Identity;
-pub use keyword::Keyword;
+pub use keyword::{Keyword, KeywordError};
 pub use mailbox::{Mailbox, MailboxFilterCondition, MailboxRights, MailboxRole};
 pub use query::{
     ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmissionFilter,

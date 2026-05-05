@@ -166,9 +166,11 @@ requested node ID and appends the results (deduplicated by ID) to the response `
 
 ### FileNode/query — depth parameter
 
-When `depth > 0`, the handler calls `query_objects` with a `parentId` filter recursively
-for up to `depth` levels. IDs are deduplicated across levels before returning. `depth: 0`
-or absent returns only direct matches of the base filter.
+When `depth > 0`, the handler calls `FileNodeBackend::query_subtree` with the initial
+query result IDs as roots and the requested depth. IDs are deduplicated across levels before
+returning. `depth: 0` or absent returns only direct matches of the base filter. The default
+`query_subtree` implementation calls `query_objects` with a `parentId` filter once per level
+(O(depth) backend calls); backends can override it with a single recursive query.
 
 ### FileNode/copy — cross-account copy
 
@@ -209,6 +211,7 @@ until the family is published to crates.io.
 
 - `get_ancestors`, `get_descendant_ids`, `find_sibling_by_name`, and `blob_exists` have no
   default implementations; backends must implement all four.
+- The `FileNode/query` depth expansion calls `FileNodeBackend::query_subtree` once. The **default** `query_subtree` implementation calls `query_objects` with a `parentId` filter once per depth level (O(depth) backend calls). Backends with a nested-sets model, closure table, or recursive CTE should override `query_subtree` with a single bulk query.
 - The `onExists: "rename"` suffix loop is capped at 100 attempts; beyond that,
   `serverFail` is returned.
 - `CallerCtx` is not forwarded through `register_filenode_handlers`.

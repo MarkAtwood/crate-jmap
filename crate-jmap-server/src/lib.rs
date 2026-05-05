@@ -194,7 +194,8 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                                 // method call that already succeeded.
                                 if let Some(id_val) = created_obj.get("id").and_then(|v| v.as_str())
                                 {
-                                    created_ids.insert(client_id.as_str().into(), id_val.into());
+                                    created_ids
+                                        .insert(Id::from(client_id.as_str()), Id::from(id_val));
                                 }
                             }
                         }
@@ -282,6 +283,66 @@ impl<B: Send + Sync + 'static, C: Clone + Send + 'static> JmapHandler<C> for Clo
         _caller: C,
     ) -> HandlerFuture {
         (self.call_fn)(Arc::clone(&self.backend), call_id, args)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ClosureHandlerWithCtx — CallerCtx-forwarding variant of ClosureHandler
+// ---------------------------------------------------------------------------
+
+/// Type alias for a closure that receives `CallerCtx` as a fourth argument.
+///
+/// Unlike [`BackendCallFn`], this closure receives the per-request caller context
+/// `C` (e.g. an auth identity struct) forwarded from [`Dispatcher::dispatch`].
+/// Use [`ClosureHandlerWithCtx`] to register closures that need this context.
+pub type BackendCallFnWithCtx<B, C> =
+    dyn Fn(Arc<B>, String, serde_json::Value, C) -> HandlerFuture + Send + Sync + 'static;
+
+/// A [`JmapHandler`] that wraps an async closure and forwards `CallerCtx` to it.
+///
+/// This is the CallerCtx-aware counterpart of [`ClosureHandler`]. Use this when
+/// your handler closures need per-request context — for example, an auth identity
+/// that controls which data the handler can access.
+///
+/// # Usage
+///
+/// ```rust,ignore
+/// use jmap_server::{ClosureHandlerWithCtx, Dispatcher};
+/// use std::sync::Arc;
+///
+/// #[derive(Clone)]
+/// struct AuthCtx { user_id: String }
+///
+/// let handler: Arc<ClosureHandlerWithCtx<MyBackend, AuthCtx>> =
+///     Arc::new(ClosureHandlerWithCtx {
+///         backend: Arc::new(my_backend),
+///         call_fn: Box::new(|b, call_id, args, ctx| {
+///             Box::pin(async move {
+///                 // ctx.user_id is available here
+///                 handle_something(&*b, args, &ctx.user_id).await
+///             })
+///         }),
+///     });
+///
+/// let mut dispatcher: Dispatcher<AuthCtx> = Dispatcher::new();
+/// dispatcher.register("MyMethod/get", handler);
+/// ```
+pub struct ClosureHandlerWithCtx<B: Send + Sync + 'static, C: Clone + Send + 'static> {
+    pub backend: Arc<B>,
+    pub call_fn: Box<BackendCallFnWithCtx<B, C>>,
+}
+
+impl<B: Send + Sync + 'static, C: Clone + Send + 'static> JmapHandler<C>
+    for ClosureHandlerWithCtx<B, C>
+{
+    fn call(
+        &self,
+        _method: String,
+        call_id: String,
+        args: serde_json::Value,
+        caller: C,
+    ) -> HandlerFuture {
+        (self.call_fn)(Arc::clone(&self.backend), call_id, args, caller)
     }
 }
 
@@ -652,8 +713,8 @@ mod tests {
             .as_ref()
             .expect("created_ids must be Some when client sent createdIds");
         assert_eq!(
-            ids.get(&Id::from("client-1")),
-            Some(&Id::from("server-abc")),
+            ids.get(&Id::try_from("client-1").unwrap()),
+            Some(&Id::try_from("server-abc").unwrap()),
             "client-1 must map to server-abc"
         );
     }
@@ -698,13 +759,13 @@ mod tests {
             .as_ref()
             .expect("created_ids must be Some when client sent createdIds");
         assert_eq!(
-            ids.get(&Id::from("cA")),
-            Some(&Id::from("sA")),
+            ids.get(&Id::try_from("cA").unwrap()),
+            Some(&Id::try_from("sA").unwrap()),
             "cA must be present"
         );
         assert_eq!(
-            ids.get(&Id::from("cB")),
-            Some(&Id::from("sB")),
+            ids.get(&Id::try_from("cB").unwrap()),
+            Some(&Id::try_from("sB").unwrap()),
             "cB must be present"
         );
     }
@@ -722,7 +783,10 @@ mod tests {
         );
         // Client sends a pre-populated createdIds map.
         let mut initial = std::collections::HashMap::new();
-        initial.insert(Id::from("client-old"), Id::from("server-old"));
+        initial.insert(
+            Id::try_from("client-old").unwrap(),
+            Id::try_from("server-old").unwrap(),
+        );
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![("Foo/set".into(), json!({}), "c0".into())],
@@ -734,13 +798,13 @@ mod tests {
             .as_ref()
             .expect("created_ids must be Some when client sent createdIds");
         assert_eq!(
-            ids.get(&Id::from("client-old")),
-            Some(&Id::from("server-old")),
+            ids.get(&Id::try_from("client-old").unwrap()),
+            Some(&Id::try_from("server-old").unwrap()),
             "pre-populated entry must be preserved"
         );
         assert_eq!(
-            ids.get(&Id::from("client-new")),
-            Some(&Id::from("server-new")),
+            ids.get(&Id::try_from("client-new").unwrap()),
+            Some(&Id::try_from("server-new").unwrap()),
             "new /set entry must be merged in"
         );
     }
@@ -838,5 +902,63 @@ mod tests {
         assert_eq!(resp.method_responses[1].0, "Extra/call");
         assert_eq!(resp.method_responses[1].2, "x0");
         assert_eq!(resp.method_responses[1].1["type"], "extra");
+    }
+
+    /// Oracle: ClosureHandlerWithCtx forwards CallerCtx to the closure.
+    /// The closure receives the exact same value that was passed to dispatch().
+    #[tokio::test]
+    async fn closure_handler_with_ctx_forwards_caller() {
+        #[derive(Clone)]
+        struct Ctx(String);
+
+        struct DummyBackend;
+
+        // Use a shared capture to record what ctx the closure received.
+        let received: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+        let received_clone = Arc::clone(&received);
+
+        let handler: Arc<ClosureHandlerWithCtx<DummyBackend, Ctx>> =
+            Arc::new(ClosureHandlerWithCtx {
+                backend: Arc::new(DummyBackend),
+                call_fn: Box::new(move |_b, _call_id, _args, ctx| {
+                    let cap = Arc::clone(&received_clone);
+                    Box::pin(async move {
+                        *cap.lock().unwrap() = Some(ctx.0.clone());
+                        Ok((serde_json::json!({}), vec![]))
+                    })
+                }),
+            });
+
+        let ctx = Ctx("alice".to_owned());
+        handler
+            .call("Test/get".into(), "c1".into(), serde_json::json!({}), ctx)
+            .await
+            .expect("handler must succeed");
+
+        assert_eq!(
+            received.lock().unwrap().as_deref(),
+            Some("alice"),
+            "CallerCtx must be forwarded to the closure"
+        );
+    }
+
+    /// Oracle: ClosureHandlerWithCtx implements JmapHandler<C> and can be
+    /// registered with Dispatcher<C>.
+    #[test]
+    fn closure_handler_with_ctx_is_jmap_handler() {
+        // Compile-time check: ClosureHandlerWithCtx<B, C> must satisfy JmapHandler<C>.
+        fn assert_handler<C: Clone + Send + 'static, H: JmapHandler<C>>(_: &H) {}
+
+        struct DummyBackend;
+        #[derive(Clone)]
+        struct Ctx;
+
+        let h = ClosureHandlerWithCtx {
+            backend: Arc::new(DummyBackend),
+            call_fn: Box::new(|_b, _ci, _a, _ctx| {
+                Box::pin(async { Ok((serde_json::json!({}), vec![])) })
+            }),
+        };
+        assert_handler::<Ctx, _>(&h);
     }
 }
