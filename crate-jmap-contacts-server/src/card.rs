@@ -223,6 +223,58 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
 // ContactCard/copy
 // ---------------------------------------------------------------------------
 
+/// Apply a JMAP patch path (RFC 8620 §5.3) to a JSON object.
+///
+/// Paths use `/`-separated segments; `~1` decodes to `/` and `~0` to `~`
+/// per RFC 6901.  A `null` value removes the key at the path; any other value
+/// sets it.  Intermediate objects are created as needed.
+fn apply_jmap_patch(obj: &mut serde_json::Map<String, Value>, path: &str, val: Value) {
+    fn decode_segment(s: &str) -> String {
+        s.replace("~1", "/").replace("~0", "~")
+    }
+
+    let parts: Vec<String> = path.split('/').map(decode_segment).collect();
+    if parts.is_empty() {
+        return;
+    }
+
+    if parts.len() == 1 {
+        let key = &parts[0];
+        if val.is_null() {
+            obj.remove(key);
+        } else {
+            obj.insert(key.clone(), val);
+        }
+        return;
+    }
+
+    // Navigate/create intermediate objects.
+    let leaf_key = parts.last().unwrap().clone();
+    let mut current = obj;
+    for seg in &parts[..parts.len() - 1] {
+        let next = current
+            .entry(seg.clone())
+            .or_insert_with(|| Value::Object(serde_json::Map::new()));
+        if let Value::Object(ref mut map) = next {
+            current = map;
+        } else {
+            // Target exists but is not an object — replace with object.
+            *next = Value::Object(serde_json::Map::new());
+            if let Value::Object(ref mut map) = next {
+                current = map;
+            } else {
+                return;
+            }
+        }
+    }
+
+    if val.is_null() {
+        current.remove(&leaf_key);
+    } else {
+        current.insert(leaf_key, val);
+    }
+}
+
 /// Handle a `ContactCard/copy` method call (contacts-10 §3.4 / RFC 8620 §6.3).
 ///
 /// Fetches cards from `fromAccountId`, delegates copy to the backend, and
@@ -310,18 +362,19 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             let mut card = cards.remove(0);
 
             // Apply any patch fields from the copy spec (RFC 8620 §6.3).
+            // Paths are JSON Pointer segments (RFC 6901): split on '/',
+            // decode ~1 → '/' and ~0 → '~'.  null value = delete.
             if let Value::Object(spec_obj) = &spec_val {
-                for (k, v) in spec_obj {
-                    if k == "id" {
-                        continue;
+                let mut card_val = serde_json::to_value(&card).unwrap_or_default();
+                if let Value::Object(ref mut merged_map) = card_val {
+                    for (k, v) in spec_obj {
+                        if k == "id" {
+                            continue;
+                        }
+                        apply_jmap_patch(merged_map, k, v.clone());
                     }
-                    // Merge top-level patch fields into the card JSON.
-                    let mut card_val = serde_json::to_value(&card).unwrap_or_default();
-                    if let Value::Object(ref mut m) = card_val {
-                        m.insert(k.clone(), v.clone());
-                    }
-                    card = serde_json::from_value(card_val).unwrap_or(card);
                 }
+                card = serde_json::from_value(card_val).unwrap_or(card);
             }
 
             match backend
@@ -516,6 +569,83 @@ mod tests {
         assert!(
             created["c1"].is_object(),
             "c1 must appear in created: {resp}"
+        );
+    }
+
+    /// Oracle: ContactCard/copy with a flat (top-level) patch key replaces the
+    /// field correctly and does not leave a literal slash-containing key.
+    ///
+    /// Source: RFC 8620 §5.4 — a patch with key "addressBookIds" (no slash)
+    /// must replace the top-level field, not nest it.
+    #[tokio::test]
+    async fn copy_with_flat_patch_applies_correctly() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        // Spec overrides addressBookIds from {"ab1":true} → {"ab2":true}.
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "create": {
+                "c1": {
+                    "id": "card1",
+                    "addressBookIds": { "ab2": true }
+                }
+            }
+        });
+        let (resp, _) = handle_contact_card_copy(&backend, args)
+            .await
+            .expect("must not return top-level error");
+
+        let copied = &resp["copied"];
+        assert!(copied.is_object(), "copied must be present: {resp}");
+        let c1 = &copied["c1"];
+        assert!(c1.is_object(), "c1 must appear in copied: {resp}");
+
+        // The merged card must have addressBookIds == {"ab2":true}.
+        assert_eq!(
+            c1["addressBookIds"],
+            json!({ "ab2": true }),
+            "flat patch must replace addressBookIds: {c1}"
+        );
+        // Must NOT have a literal top-level key called "addressBookIds" with the
+        // old value still sitting alongside the new one.
+        assert_ne!(
+            c1["addressBookIds"],
+            json!({ "ab1": true }),
+            "old addressBookIds must have been replaced: {c1}"
+        );
+    }
+
+    /// Oracle: ContactCard/copy with a source id not found in fromAccountId
+    /// returns notCopied with type "notFound".
+    ///
+    /// Source: RFC 8620 §6.3 — unknown source ids must appear in notCopied.
+    #[tokio::test]
+    async fn copy_source_not_found() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        // Do NOT seed "nonexistent" into acc1 — get_objects will return not_found.
+
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "create": {
+                "c1": { "id": "nonexistent" }
+            }
+        });
+        let (resp, _) = handle_contact_card_copy(&backend, args)
+            .await
+            .expect("must not return top-level error");
+
+        assert!(
+            resp["copied"].is_null(),
+            "copied must be null when source not found: {resp}"
+        );
+        assert_eq!(
+            resp["notCopied"]["c1"]["type"], "notFound",
+            "unknown source id must yield notFound: {resp}"
         );
     }
 }

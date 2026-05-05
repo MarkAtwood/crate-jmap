@@ -237,15 +237,6 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
         }
     }
 
-    let new_state = if mutated {
-        backend
-            .get_state::<AddressBook>(&account_id)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
-    } else {
-        old_state.clone()
-    };
-
     // -----------------------------------------------------------------------
     // onSuccessSetIsDefault — post-set isDefault patch
     // contacts-10 §2.3: onSuccessSetIsDefault is Id|null (a single string id,
@@ -279,12 +270,14 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                         .await
                     {
                         Ok(Some(obj)) => {
+                            mutated = true;
                             updated.insert(
                                 target_id.to_string(),
                                 serde_json::to_value(&obj).unwrap_or(Value::Null),
                             );
                         }
                         Ok(None) => {
+                            mutated = true;
                             updated.insert(target_id.to_string(), Value::Null);
                         }
                         Err(_) => {} // silently ignored per §2.3
@@ -295,6 +288,17 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             _ => {} // malformed — silently ignored
         }
     } // end if main_ops_all_succeeded
+
+    // Fetch newState AFTER all mutations including onSuccessSetIsDefault
+    // (RFC 8620 §5.3: newState must reflect every mutation in this call).
+    let new_state = if mutated {
+        backend
+            .get_state::<AddressBook>(&account_id)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?
+    } else {
+        old_state.clone()
+    };
 
     Ok((
         json!({

@@ -81,4 +81,29 @@ pub trait CalendarsBackend: JmapBackend {
         account_id: &jmap_types::Id,
         calendar_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send;
+
+    /// Compute `utcStart` and `utcEnd` for a [`CalendarEvent`] by converting the
+    /// event's `start`/`duration` fields and time zone into UTC
+    /// (draft-ietf-jmap-calendars-26 §5.2).
+    ///
+    /// Returns `(utc_start, utc_end)` as RFC 3339 strings, or `None` for each
+    /// if the corresponding data is absent or the time zone is unknown.
+    ///
+    /// The default implementation returns `(None, None)` — backends that do not
+    /// support time-zone conversion accept this behaviour and callers will omit
+    /// both fields.  Backends with full tz support should override this.
+    ///
+    /// # Parameters
+    /// - `account_id` — the account owning the event.
+    /// - `event` — the event whose `start` and `duration` are to be converted.
+    /// - `tz_hint` — an optional IANA time-zone override; if `None`, the event's
+    ///   own `time_zone` field (if any) is used.
+    fn compute_utc_times(
+        &self,
+        _account_id: &jmap_types::Id,
+        _event: &jmap_calendars_types::CalendarEvent,
+        _tz_hint: Option<&str>,
+    ) -> impl std::future::Future<Output = (Option<String>, Option<String>)> + Send {
+        async { (None, None) }
+    }
 }
