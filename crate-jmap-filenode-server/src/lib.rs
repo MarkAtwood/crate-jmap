@@ -145,6 +145,9 @@ pub(crate) mod test_support {
         descendants: HashMap<String, Vec<String>>,
         /// (parent_id_opt, name_lowercase) → existing sibling node_id.
         siblings: HashMap<(Option<String>, String), String>,
+        /// parent_id → direct child IDs (for depth-query tests).
+        /// Key is `Option<String>` where None means "children of root".
+        children: HashMap<Option<String>, Vec<String>>,
     }
 
     /// In-memory mock backend for testing.
@@ -161,6 +164,7 @@ pub(crate) mod test_support {
                     ancestors: HashMap::new(),
                     descendants: HashMap::new(),
                     siblings: HashMap::new(),
+                    children: HashMap::new(),
                 })),
             }
         }
@@ -209,6 +213,20 @@ pub(crate) mod test_support {
             // Store with lowercase name so both sensitive/insensitive lookups work.
             let key = (parent_id.map(|s| s.to_owned()), name.to_lowercase());
             guard.siblings.insert(key, existing_id.to_owned());
+        }
+
+        /// Register direct children of a parent node for depth-query tests.
+        ///
+        /// When `query_objects::<FileNode>` is called with a `parentId` filter
+        /// matching this parent, the registered child IDs are returned.
+        ///
+        /// Use `parent_id=None` for root-level children.
+        pub fn set_children(&self, parent_id: Option<&str>, child_ids: &[&str]) {
+            let mut guard = self.inner.lock().unwrap();
+            guard.children.insert(
+                parent_id.map(|s| s.to_owned()),
+                child_ids.iter().map(|s| s.to_string()).collect(),
+            );
         }
     }
 
@@ -260,11 +278,37 @@ pub(crate) mod test_support {
         async fn query_objects<O: QueryObject + Send + Sync>(
             &self,
             _account_id: &Id,
-            _filter: Option<&O::Filter>,
+            filter: Option<&O::Filter>,
             _sort: Option<&[O::Comparator]>,
             _limit: Option<u64>,
             _position: i64,
         ) -> Result<QueryResult, Self::Error> {
+            // Support parentId filter for depth-query tests.  Try to interpret the
+            // filter as a FileNodeFilterCondition via serde round-trip.  If the cast
+            // fails or the filter has no parentId, return empty (default).
+            if let Some(filter_ref) = filter {
+                if let Ok(json_val) = serde_json::to_value(filter_ref) {
+                    if let Ok(fc) = serde_json::from_value::<
+                        jmap_filenode_types::FileNodeFilterCondition,
+                    >(json_val)
+                    {
+                        let parent_key = fc.parent_id.as_ref().map(|id| id.as_ref().to_owned());
+                        let guard = self.inner.lock().unwrap();
+                        if let Some(child_ids) = guard.children.get(&parent_key) {
+                            let ids: Vec<Id> =
+                                child_ids.iter().map(|s| Id::from(s.as_str())).collect();
+                            let total = ids.len() as u64;
+                            return Ok(QueryResult::new(
+                                ids,
+                                0,
+                                Some(total),
+                                State::from("0"),
+                                false,
+                            ));
+                        }
+                    }
+                }
+            }
             Ok(QueryResult::new(
                 vec![],
                 0,
