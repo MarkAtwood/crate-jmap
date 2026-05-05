@@ -12,6 +12,7 @@ categories = ["email", "encoding"]
 
 [features]
 mdn = []
+sieve = []
 
 [dependencies]
 jmap-types = { path = "../crate-jmap-types", version = "0.1.0" }

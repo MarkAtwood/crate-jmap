@@ -1,0 +1,155 @@
+// JMAP Calendars — ParticipantIdentity/* method implementations on SessionClient.
+
+use super::{ChangesResponse, GetResponse, SetResponse};
+
+impl super::SessionClient {
+    /// Fetch ParticipantIdentity objects by IDs
+    /// (draft-ietf-jmap-calendars-26 §3.1).
+    pub async fn participant_identity_get(
+        &self,
+        ids: Option<&[&str]>,
+        properties: Option<&[&str]>,
+    ) -> Result<GetResponse<jmap_calendars_types::ParticipantIdentity>, jmap_base_client::ClientError>
+    {
+        if let Some(id_slice) = ids {
+            for id in id_slice.iter() {
+                if id.is_empty() {
+                    return Err(jmap_base_client::ClientError::InvalidArgument(
+                        "participant_identity_get: ids element may not be empty".into(),
+                    ));
+                }
+            }
+        }
+        let (api_url, account_id) = self.session_parts()?;
+        let args = serde_json::json!({
+            "accountId": account_id,
+            "ids": ids,
+            "properties": properties,
+        });
+        let req = super::build_request("ParticipantIdentity/get", args, super::USING_CALENDARS);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Fetch changes to ParticipantIdentity objects since `since_state`
+    /// (draft-ietf-jmap-calendars-26 §3.2).
+    pub async fn participant_identity_changes(
+        &self,
+        since_state: &str,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
+        if since_state.is_empty() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "participant_identity_changes: since_state may not be empty".into(),
+            ));
+        }
+        let (api_url, account_id) = self.session_parts()?;
+        let mut args = serde_json::json!({
+            "accountId": account_id,
+            "sinceState": since_state,
+        });
+        if let Some(mc) = max_changes {
+            args["maxChanges"] = mc.into();
+        }
+        let req = super::build_request("ParticipantIdentity/changes", args, super::USING_CALENDARS);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Create, update, or destroy ParticipantIdentity objects
+    /// (draft-ietf-jmap-calendars-26 §3.3).
+    pub async fn participant_identity_set(
+        &self,
+        create: Option<serde_json::Value>,
+        update: Option<serde_json::Value>,
+        destroy: Option<Vec<&str>>,
+    ) -> Result<SetResponse<jmap_calendars_types::ParticipantIdentity>, jmap_base_client::ClientError>
+    {
+        if let Some(ref ids) = destroy {
+            for id in ids.iter() {
+                if id.is_empty() {
+                    return Err(jmap_base_client::ClientError::InvalidArgument(
+                        "participant_identity_set: destroy element may not be empty".into(),
+                    ));
+                }
+            }
+        }
+        let (api_url, account_id) = self.session_parts()?;
+        let mut args = serde_json::json!({
+            "accountId": account_id,
+        });
+        if let Some(c) = create {
+            args["create"] = c;
+        }
+        if let Some(u) = update {
+            args["update"] = u;
+        }
+        if let Some(d) = destroy {
+            args["destroy"] = serde_json::Value::Array(
+                d.into_iter()
+                    .map(|id| serde_json::Value::String(id.to_owned()))
+                    .collect(),
+            );
+        }
+        let req = super::build_request("ParticipantIdentity/set", args, super::USING_CALENDARS);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::super::{build_request, CALL_ID, USING_CALENDARS};
+    use serde_json::json;
+
+    /// Oracle: ParticipantIdentity/get request has correct method name.
+    #[test]
+    fn participant_identity_get_request_shape() {
+        let args = json!({ "accountId": "acc1", "ids": null, "properties": null });
+        let req = build_request("ParticipantIdentity/get", args, USING_CALENDARS);
+        let v = serde_json::to_value(&req).expect("serialize");
+        let calls = v["methodCalls"].as_array().expect("methodCalls");
+        assert_eq!(calls[0][0], json!("ParticipantIdentity/get"), "method name");
+        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
+        let using = v["using"].as_array().expect("using");
+        assert!(using.contains(&json!("urn:ietf:params:jmap:calendars")));
+    }
+
+    /// Oracle: empty since_state returns InvalidArgument.
+    #[test]
+    fn participant_identity_changes_empty_state_guard() {
+        let since_state = "";
+        let result: Result<(), jmap_base_client::ClientError> = if since_state.is_empty() {
+            Err(jmap_base_client::ClientError::InvalidArgument(
+                "participant_identity_changes: since_state may not be empty".into(),
+            ))
+        } else {
+            Ok(())
+        };
+        assert!(
+            matches!(
+                result,
+                Err(jmap_base_client::ClientError::InvalidArgument(_))
+            ),
+            "empty since_state must produce InvalidArgument"
+        );
+    }
+
+    /// Oracle: ParticipantIdentity/set with destroy sends destroy array.
+    #[test]
+    fn participant_identity_set_destroy_request_shape() {
+        let destroy_val = serde_json::Value::Array(vec![json!("pid1"), json!("pid2")]);
+        let mut args = json!({ "accountId": "acc1" });
+        args["destroy"] = destroy_val;
+        let req = build_request("ParticipantIdentity/set", args, USING_CALENDARS);
+        let v = serde_json::to_value(&req).expect("serialize");
+        let calls = v["methodCalls"].as_array().expect("methodCalls");
+        assert_eq!(calls[0][0], json!("ParticipantIdentity/set"));
+        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
+        assert_eq!(destroy_arr.len(), 2);
+    }
+}

@@ -12,6 +12,7 @@ license = "MIT OR Apache-2.0"
 jmap-types          = { path = "../crate-jmap-types", version = "0.1.0" }
 jmap-filenode-types = { path = "../crate-jmap-filenode-types", version = "0.1.0" }
 jmap-base-client    = { path = "../crate-jmap-base-client", version = "0.1.0" }
+serde      = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror  = "2"
 

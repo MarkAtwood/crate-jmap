@@ -9,15 +9,15 @@ description = "JMAP Chat HTTP client — auth-agnostic, WebSocket and SSE suppor
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-jmap-types      = { path = "../crate-jmap-types", version = "0.1.0" }
-jmap-chat-types = { path = "../crate-jmap-chat-types", version = "0.1.0" }
-reqwest           = { version = "0.12", features = ["json", "stream", "rustls-tls-manual-roots"] }
+jmap-types        = { path = "../crate-jmap-types", version = "0.1.0" }
+jmap-chat-types   = { path = "../crate-jmap-chat-types", version = "0.1.0" }
+jmap-base-client  = { path = "../crate-jmap-base-client" }
+ulid              = "1"
+chrono            = { version = "0.4", default-features = false, features = ["std", "clock"] }
 serde             = { version = "1", features = ["derive"] }
 serde_json        = "1"
 thiserror         = "2"
 tokio             = { version = "1", features = ["rt"] }
-tokio-tungstenite = { version = "0.29", features = ["rustls-tls-webpki-roots"] }
-url               = "2"
 
 [dev-dependencies]
 tokio       = { version = "1", features = ["rt-multi-thread", "macros"] }

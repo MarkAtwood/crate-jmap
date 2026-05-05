@@ -112,6 +112,16 @@ pub enum SearchSnippetProperty {
     Preview,
 }
 
+/// Property selector for [`crate::SieveScript`] `/get` and `/set`.
+#[cfg(feature = "sieve")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum SieveScriptProperty {
+    Id,
+    Name,
+    BlobId,
+    IsActive,
+}
+
 // ---------------------------------------------------------------------------
 // JmapObject impls
 // ---------------------------------------------------------------------------
@@ -196,4 +206,18 @@ impl SetObject for crate::VacationResponse {
 impl JmapObject for crate::SearchSnippet {
     const TYPE_NAME: &'static str = "SearchSnippet";
     type Property = SearchSnippetProperty;
+}
+
+#[cfg(feature = "sieve")]
+impl JmapObject for crate::sieve::SieveScript {
+    const TYPE_NAME: &'static str = "SieveScript";
+    type Property = SieveScriptProperty;
+}
+
+#[cfg(feature = "sieve")]
+impl GetObject for crate::sieve::SieveScript {}
+
+#[cfg(feature = "sieve")]
+impl SetObject for crate::sieve::SieveScript {
+    type Patch = serde_json::Value;
 }

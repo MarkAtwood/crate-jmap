@@ -42,12 +42,20 @@ pub mod backend;
 pub mod email;
 #[cfg(feature = "mdn")]
 pub mod mdn;
+#[cfg(feature = "sieve")]
+pub mod sieve;
 #[cfg(feature = "mdn")]
 pub use jmap_mail_types::mdn::JMAP_MDN_URI;
+#[cfg(feature = "sieve")]
+pub use jmap_mail_types::sieve::JMAP_SIEVE_SCRIPTS_URI;
 #[cfg(feature = "mdn")]
 pub use mdn::MdnBackend;
 #[cfg(feature = "mdn")]
 pub use mdn::{handle_mdn_parse, handle_mdn_send};
+#[cfg(feature = "sieve")]
+pub use sieve::SieveBackend;
+#[cfg(feature = "sieve")]
+pub use sieve::{handle_sieve_get, handle_sieve_query, handle_sieve_set, handle_sieve_validate};
 mod helpers;
 pub mod identity;
 pub mod mailbox;
@@ -279,4 +287,52 @@ pub fn register_mdn_handlers<B, C>(
         max_blob_ids
     )
     .await);
+}
+
+// ---------------------------------------------------------------------------
+// register_sieve_handlers — Sieve extension entry point (feature = "sieve")
+// ---------------------------------------------------------------------------
+
+/// Register Sieve method handlers with the dispatcher.
+///
+/// Registers `SieveScript/get`, `SieveScript/set`, `SieveScript/query`, and
+/// `SieveScript/validate`. All four methods require
+/// `urn:ietf:params:jmap:sieve` in the JMAP request `using` array
+/// (draft-ietf-jmap-sieve-22). Callers MUST ensure
+/// `check_known_capabilities` is called with that URI listed as known,
+/// so that clients omitting the capability receive an appropriate error
+/// before method dispatch.
+///
+/// Backends must implement both [`MailBackend`] and [`SieveBackend`].
+#[cfg(feature = "sieve")]
+pub fn register_sieve_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+where
+    B: MailBackend + sieve::SieveBackend + 'static,
+    C: Clone + Send + 'static,
+{
+    macro_rules! reg {
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+            let backend_arc: Arc<B> = Arc::clone(&$backend);
+            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+                backend: backend_arc,
+                call_fn: Box::new(move |$b: Arc<B>, $ci: String, $a: serde_json::Value| {
+                    Box::pin(async move { $body }) as HandlerFuture
+                }),
+            });
+            dispatcher.register($method, h);
+        }};
+    }
+
+    reg!("SieveScript/get", backend, |b, _ci, a| {
+        sieve::handle_sieve_get(&*b, a).await
+    });
+    reg!("SieveScript/set", backend, |b, _ci, a| {
+        sieve::handle_sieve_set(&*b, a).await
+    });
+    reg!("SieveScript/query", backend, |b, _ci, a| {
+        sieve::handle_sieve_query(&*b, a).await
+    });
+    reg!("SieveScript/validate", backend, |b, _ci, a| {
+        sieve::handle_sieve_validate(&*b, a).await
+    });
 }

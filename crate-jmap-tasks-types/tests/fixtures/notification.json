@@ -1,0 +1,18 @@
+{
+  "id": "notif001",
+  "created": "2020-01-10T08:00:00Z",
+  "changedBy": {
+    "@type": "Person",
+    "name": "Alice",
+    "principalId": "principal-alice"
+  },
+  "comment": null,
+  "type": "updated",
+  "taskId": "taskid001",
+  "isDraft": false,
+  "task": {
+    "@type": "Task",
+    "uid": "2a358cee-6489-4f14-a57f-c104db4dc2f2",
+    "title": "Do something"
+  }
+}

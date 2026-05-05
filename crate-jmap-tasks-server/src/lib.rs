@@ -1,10 +1,565 @@
-// jmap-tasks-server — JMAP Tasks method handlers.
-// Spec: draft-ietf-jmap-tasks-06
-// See PLAN.md for implementation plan.
+//! JMAP Tasks extension method handlers (draft-ietf-jmap-tasks-06).
+//!
+//! # Usage
+//!
+//! Implement [`TasksBackend`] for your storage layer, then call
+//! [`register_tasks_handlers`] to wire all method names into a
+//! [`jmap_server::Dispatcher`]:
+//!
+//! ```rust,no_run
+//! # use std::sync::Arc;
+//! # use jmap_tasks_server::{TasksBackend, register_tasks_handlers};
+//! # use jmap_server::Dispatcher;
+//! # fn example<B: TasksBackend + 'static>(backend: B) {
+//! let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+//! register_tasks_handlers(&mut dispatcher, Arc::new(backend));
+//! # }
+//! ```
 
-/// Backend trait for JMAP Tasks storage.
+#![forbid(unsafe_code)]
+
+use std::sync::Arc;
+
+use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
+
+pub mod backend;
+mod helpers;
+pub mod task;
+pub mod task_list;
+pub mod task_notification;
+
+pub use backend::{
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    TasksBackend,
+};
+pub use task::{
+    handle_task_changes, handle_task_copy, handle_task_get, handle_task_query,
+    handle_task_query_changes, handle_task_set,
+};
+pub use task_list::{handle_task_list_changes, handle_task_list_get, handle_task_list_set};
+pub use task_notification::{
+    handle_task_notification_changes, handle_task_notification_get, handle_task_notification_query,
+    handle_task_notification_query_changes, handle_task_notification_set,
+};
+
+/// Capability URI for `urn:ietf:params:jmap:tasks`.
+pub const CAPABILITY_TASKS: &str = "urn:ietf:params:jmap:tasks";
+
+// ---------------------------------------------------------------------------
+// register_tasks_handlers — the main entry point for consumers
+// ---------------------------------------------------------------------------
+
+/// Register all JMAP Tasks method handlers with `dispatcher`.
 ///
-/// Implement this to plug any storage engine into the Tasks handlers.
-pub trait TasksBackend {
-    // Methods will be added in implementation beads.
+/// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
+///
+/// After this call, the dispatcher handles:
+/// `TaskList/get`, `TaskList/changes`, `TaskList/set`,
+/// `Task/get`, `Task/changes`, `Task/set`, `Task/copy`,
+/// `Task/query`, `Task/queryChanges`,
+/// `TaskNotification/get`, `TaskNotification/changes`,
+/// `TaskNotification/set`, `TaskNotification/query`,
+/// `TaskNotification/queryChanges`.
+pub fn register_tasks_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+where
+    B: TasksBackend + 'static,
+    C: Clone + Send + 'static,
+{
+    // Helper: register one method with a closure taking (Arc<B>, call_id, args).
+    macro_rules! reg {
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+            let backend_arc: Arc<B> = Arc::clone(&$backend);
+            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+                backend: backend_arc,
+                call_fn: Box::new(move |$b: Arc<B>, $ci: String, $a: serde_json::Value| {
+                    Box::pin(async move { $body }) as HandlerFuture
+                }),
+            });
+            dispatcher.register($method, h);
+        }};
+    }
+
+    // TaskList
+    reg!("TaskList/get", backend, |b, _ci, a| {
+        handle_task_list_get(&*b, a).await
+    });
+    reg!("TaskList/changes", backend, |b, _ci, a| {
+        handle_task_list_changes(&*b, a).await
+    });
+    reg!("TaskList/set", backend, |b, _ci, a| {
+        handle_task_list_set(&*b, a).await
+    });
+
+    // Task
+    reg!("Task/get", backend, |b, _ci, a| {
+        handle_task_get(&*b, a).await
+    });
+    reg!("Task/changes", backend, |b, _ci, a| {
+        handle_task_changes(&*b, a).await
+    });
+    reg!("Task/set", backend, |b, _ci, a| {
+        handle_task_set(&*b, a).await
+    });
+    reg!("Task/copy", backend, |b, _ci, a| {
+        handle_task_copy(&*b, a).await
+    });
+    reg!("Task/query", backend, |b, _ci, a| {
+        handle_task_query(&*b, a).await
+    });
+    reg!("Task/queryChanges", backend, |b, _ci, a| {
+        handle_task_query_changes(&*b, a).await
+    });
+
+    // TaskNotification
+    reg!("TaskNotification/get", backend, |b, _ci, a| {
+        handle_task_notification_get(&*b, a).await
+    });
+    reg!("TaskNotification/changes", backend, |b, _ci, a| {
+        handle_task_notification_changes(&*b, a).await
+    });
+    reg!("TaskNotification/set", backend, |b, _ci, a| {
+        handle_task_notification_set(&*b, a).await
+    });
+    reg!("TaskNotification/query", backend, |b, _ci, a| {
+        handle_task_notification_query(&*b, a).await
+    });
+    reg!("TaskNotification/queryChanges", backend, |b, _ci, a| {
+        handle_task_notification_query_changes(&*b, a).await
+    });
+}
+
+pub use jmap_server::ClosureHandler;
+
+// ---------------------------------------------------------------------------
+// test_support — in-memory mock backend used by inline tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    //! In-memory mock backend for unit tests.
+
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    use jmap_server::{
+        BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
+        QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    };
+    use jmap_tasks_types::{Task, TaskList, TaskNotification};
+    use jmap_types::{Id, State};
+
+    use crate::backend::TasksBackend;
+
+    /// Minimal error type for the mock backend.
+    #[derive(Debug)]
+    pub struct MockError(pub String);
+
+    impl std::fmt::Display for MockError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "mock error: {}", self.0)
+        }
+    }
+
+    impl std::error::Error for MockError {}
+
+    /// In-memory state for one account.
+    #[derive(Default, Clone)]
+    struct AccountState {
+        task_lists: HashMap<Id, TaskList>,
+        tasks: HashMap<Id, Task>,
+        notifications: HashMap<Id, TaskNotification>,
+        task_list_state: u64,
+        task_state: u64,
+        notification_state: u64,
+    }
+
+    /// In-memory mock backend for testing.
+    #[derive(Clone)]
+    pub struct MockBackend {
+        state: Arc<Mutex<HashMap<String, AccountState>>>,
+    }
+
+    impl MockBackend {
+        /// Create a backend with no accounts registered.
+        pub fn new() -> Self {
+            Self {
+                state: Arc::new(Mutex::new(HashMap::new())),
+            }
+        }
+
+        /// Create a backend with the given account already registered.
+        pub fn new_with_account(account_id: &str) -> Self {
+            let b = Self::new();
+            b.state
+                .lock()
+                .unwrap()
+                .insert(account_id.to_owned(), AccountState::default());
+            b
+        }
+
+        /// Pre-populate a TaskNotification in the given account.
+        pub fn add_notification(&mut self, account_id: &str, notif_id: &str) {
+            let notif: TaskNotification = serde_json::from_value(serde_json::json!({
+                "id": notif_id,
+                "created": "2024-01-01T00:00:00Z",
+                "changedBy": { "@type": "Person", "name": "Test" },
+                "type": "created",
+                "taskId": "task1"
+            }))
+            .expect("test fixture must deserialize");
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard
+                .entry(account_id.to_owned())
+                .or_insert_with(AccountState::default);
+            acct.notifications.insert(Id::from(notif_id), notif);
+        }
+
+        /// Pre-populate a TaskList with a task in the given account.
+        pub fn add_task_list_with_task(&mut self, account_id: &str, list_id: &str) {
+            let task_list: TaskList = serde_json::from_value(serde_json::json!({
+                "id": list_id,
+                "name": "Test List",
+                "sortOrder": 0,
+                "isSubscribed": true,
+                "myRights": {
+                    "mayReadItems": true,
+                    "mayWriteAll": true,
+                    "mayWriteOwn": true,
+                    "mayUpdatePrivate": true,
+                    "mayRSVP": true,
+                    "mayAdmin": true,
+                    "mayDelete": true
+                }
+            }))
+            .expect("task list fixture must deserialize");
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard
+                .entry(account_id.to_owned())
+                .or_insert_with(AccountState::default);
+            acct.task_lists.insert(Id::from(list_id), task_list);
+            // Add a task referencing the list
+            let task: Task = serde_json::from_value(serde_json::json!({
+                "id": "task1",
+                "taskListId": list_id
+            }))
+            .expect("task fixture must deserialize");
+            acct.tasks.insert(Id::from("task1"), task);
+        }
+    }
+
+    impl JmapBackend for MockBackend {
+        type Error = MockError;
+
+        async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+            Ok(self.state.lock().unwrap().contains_key(account_id.as_ref()))
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _ids: Option<&[Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            Ok((vec![], vec![]))
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            Ok(State::from("0"))
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _since_state: &State,
+            _max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            Ok(ChangesResult::new(
+                vec![],
+                vec![],
+                vec![],
+                false,
+                State::from("0"),
+            ))
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _limit: Option<u64>,
+            _position: i64,
+        ) -> Result<QueryResult, Self::Error> {
+            Ok(QueryResult::new(
+                vec![],
+                0,
+                Some(0),
+                State::from("0"),
+                false,
+            ))
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            since_query_state: &State,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _max_changes: Option<u64>,
+            _up_to_id: Option<&Id>,
+            _collapse_threads: bool,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            Ok(QueryChangesResult::new(
+                since_query_state.clone(),
+                State::from("0"),
+                Some(0),
+                vec![],
+                vec![],
+            ))
+        }
+    }
+
+    impl TasksBackend for MockBackend {
+        async fn create_object<O: SetObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _create_id: &str,
+            obj: O,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            Ok((Id::from("mock-id-1"), obj))
+        }
+
+        async fn update_object<O: SetObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _id: &Id,
+            _patch: O::Patch,
+        ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+            Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::Forbidden,
+            )))
+        }
+
+        async fn destroy_object<O: SetObject + Send + Sync>(
+            &self,
+            account_id: &Id,
+            id: &Id,
+        ) -> Result<(), BackendSetError<Self::Error>> {
+            let mut guard = self.state.lock().unwrap();
+            if let Some(acct) = guard.get_mut(account_id.as_ref()) {
+                if acct.notifications.remove(id).is_some() {
+                    acct.notification_state += 1;
+                    return Ok(());
+                }
+                if acct.tasks.remove(id).is_some() {
+                    acct.task_state += 1;
+                    return Ok(());
+                }
+                if acct.task_lists.remove(id).is_some() {
+                    acct.task_list_state += 1;
+                    return Ok(());
+                }
+            }
+            Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )))
+        }
+
+        fn supports_type<O: JmapObject>(&self) -> bool {
+            true
+        }
+
+        async fn copy_task(
+            &self,
+            _from_account_id: &Id,
+            _to_account_id: &Id,
+            task: Task,
+        ) -> Result<(Id, Task), BackendSetError<Self::Error>> {
+            Ok((Id::from("copied-task-1"), task))
+        }
+
+        async fn task_list_has_tasks(&self, account_id: &Id, task_list_id: &Id) -> bool {
+            let guard = self.state.lock().unwrap();
+            if let Some(acct) = guard.get(account_id.as_ref()) {
+                return acct.tasks.values().any(|t| {
+                    t.task_list_id
+                        .as_ref()
+                        .map(|lid| lid == task_list_id)
+                        .unwrap_or(false)
+                });
+            }
+            false
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use jmap_server::{Dispatcher, JmapRequest, State};
+    use serde_json::json;
+
+    use super::*;
+    use crate::test_support::MockBackend;
+
+    // Helper: build a minimal JmapRequest with one method call.
+    fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequest {
+        JmapRequest::new(
+            vec!["urn:ietf:params:jmap:tasks".into()],
+            vec![(method.into(), args, call_id.into())],
+            None,
+        )
+    }
+
+    /// Oracle: register_tasks_handlers registers all 14 JMAP Tasks methods.
+    ///
+    /// Verification: each method name returns a non-error response when
+    /// dispatched with a valid account (not `unknownMethod`).
+    #[tokio::test]
+    async fn registers_all_14_methods() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let methods = [
+            ("TaskList/get", json!({"accountId": "acc1", "ids": null})),
+            (
+                "TaskList/changes",
+                json!({"accountId": "acc1", "sinceState": "0"}),
+            ),
+            ("TaskList/set", json!({"accountId": "acc1", "destroy": []})),
+            ("Task/get", json!({"accountId": "acc1", "ids": null})),
+            (
+                "Task/changes",
+                json!({"accountId": "acc1", "sinceState": "0"}),
+            ),
+            ("Task/set", json!({"accountId": "acc1", "destroy": []})),
+            (
+                "Task/copy",
+                json!({"fromAccountId": "acc1", "accountId": "acc1", "create": {}}),
+            ),
+            (
+                "Task/query",
+                json!({"accountId": "acc1", "filter": null, "sort": null}),
+            ),
+            (
+                "Task/queryChanges",
+                json!({"accountId": "acc1", "sinceQueryState": "0"}),
+            ),
+            (
+                "TaskNotification/get",
+                json!({"accountId": "acc1", "ids": null}),
+            ),
+            (
+                "TaskNotification/changes",
+                json!({"accountId": "acc1", "sinceState": "0"}),
+            ),
+            (
+                "TaskNotification/set",
+                json!({"accountId": "acc1", "destroy": []}),
+            ),
+            (
+                "TaskNotification/query",
+                json!({"accountId": "acc1", "filter": null, "sort": null}),
+            ),
+            (
+                "TaskNotification/queryChanges",
+                json!({"accountId": "acc1", "sinceQueryState": "0"}),
+            ),
+        ];
+
+        for (method, args) in methods {
+            let req = single_call(method, args, "c0");
+            let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+            assert_eq!(
+                resp.method_responses.len(),
+                1,
+                "{method}: expected 1 response"
+            );
+            let (_, resp_args, _) = &resp.method_responses[0];
+            assert_ne!(
+                resp_args["type"], "unknownMethod",
+                "{method}: must not be unknownMethod — is it registered?"
+            );
+        }
+    }
+
+    /// Oracle: TaskNotification/set with create entries → notCreated contains
+    /// `forbidden` for every create entry; no top-level error.
+    #[tokio::test]
+    async fn task_notification_set_create_returns_forbidden() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "TaskNotification/set",
+            json!({
+                "accountId": "acc1",
+                "create": {
+                    "c1": {
+                        "id": "x",
+                        "created": "2024-01-01T00:00:00Z",
+                        "changedBy": { "@type": "Person", "name": "A" },
+                        "type": "created",
+                        "taskId": "t1"
+                    }
+                }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notCreated"]["c1"]["type"], "forbidden",
+            "create must be forbidden: {args}"
+        );
+    }
+
+    /// Oracle: TaskList/set destroy with tasks returns taskListHasTasks error.
+    ///
+    /// When `onDestroyRemoveTasks` is false (default) and the task list has tasks,
+    /// the destroy should fail with a custom `taskListHasTasks` error.
+    #[tokio::test]
+    async fn task_list_set_destroy_with_tasks_returns_task_list_has_tasks() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_task_list_with_task("acc1", "list1");
+        let backend = Arc::new(backend);
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "TaskList/set",
+            json!({
+                "accountId": "acc1",
+                "destroy": ["list1"],
+                "onDestroyRemoveTasks": false
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notDestroyed"]["list1"]["type"], "taskListHasTasks",
+            "must return taskListHasTasks when list has tasks: {args}"
+        );
+    }
 }

@@ -59,7 +59,10 @@ pub enum WsFrame {
     /// to deserialize — `type_name` will be `"Response"` or `"StateChange"` in
     /// that case, which can signal server misbehavior or a schema version
     /// mismatch. Callers that log unknown frames should check for these names.
-    Unknown { type_name: String },
+    Unknown {
+        type_name: String,
+        raw: serde_json::Value,
+    },
 }
 
 type Inner =
@@ -92,6 +95,17 @@ impl WsSession {
                 Err(e) => return Some(Err(crate::error::ClientError::WebSocket(e))),
             }
         }
+    }
+
+    /// Send a raw text frame over the WebSocket connection.
+    ///
+    /// Used by extension crates to send non-JMAP frames (e.g., JMAP Chat
+    /// ephemeral stream control messages).
+    pub async fn send_text(&mut self, text: String) -> Result<(), crate::error::ClientError> {
+        self.sink
+            .send(Message::Text(text.into()))
+            .await
+            .map_err(crate::error::ClientError::WebSocket)
     }
 
     /// Send a JMAP request over the WebSocket connection.
@@ -144,16 +158,25 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
         // transport error. A single bad server frame must not kill the entire
         // WebSocket connection; only tungstenite transport errors warrant
         // a reconnect.
-        "StateChange" => match serde_json::from_value::<StateChange>(val) {
-            Ok(sc) => Ok(WsFrame::StateChange(sc)),
-            Err(_) => Ok(WsFrame::Unknown { type_name }),
-        },
+        "StateChange" => {
+            let raw = val.clone();
+            match serde_json::from_value::<StateChange>(val) {
+                Ok(sc) => Ok(WsFrame::StateChange(sc)),
+                Err(_) => Ok(WsFrame::Unknown { type_name, raw }),
+            }
+        }
         // Same degradation policy for malformed Response frames.
-        "Response" => match serde_json::from_value::<jmap_types::JmapResponse>(val) {
-            Ok(r) => Ok(WsFrame::Response(r)),
-            Err(_) => Ok(WsFrame::Unknown { type_name }),
-        },
-        _ => Ok(WsFrame::Unknown { type_name }),
+        "Response" => {
+            let raw = val.clone();
+            match serde_json::from_value::<jmap_types::JmapResponse>(val) {
+                Ok(r) => Ok(WsFrame::Response(r)),
+                Err(_) => Ok(WsFrame::Unknown { type_name, raw }),
+            }
+        }
+        _ => Ok(WsFrame::Unknown {
+            type_name,
+            raw: val,
+        }),
     }
 }
 
@@ -246,6 +269,7 @@ mod tests {
     fn ws_frame_has_no_chat_variants() {
         let frame = WsFrame::Unknown {
             type_name: "test".to_owned(),
+            raw: serde_json::Value::Null,
         };
         match frame {
             WsFrame::StateChange(_) => {}
@@ -278,7 +302,7 @@ mod tests {
         let json = r#"{"@type":"StateChange","unexpected_field":42}"#;
         let frame = parse_ws_frame(json).expect("must not error");
         match frame {
-            WsFrame::Unknown { type_name } => assert_eq!(type_name, "StateChange"),
+            WsFrame::Unknown { type_name, .. } => assert_eq!(type_name, "StateChange"),
             other => panic!("expected Unknown, got {other:?}"),
         }
     }
@@ -290,7 +314,7 @@ mod tests {
         let json = r#"{"@type":"FutureEvent","foo":"bar"}"#;
         let frame = parse_ws_frame(json).expect("must parse");
         match frame {
-            WsFrame::Unknown { type_name } => assert_eq!(type_name, "FutureEvent"),
+            WsFrame::Unknown { type_name, .. } => assert_eq!(type_name, "FutureEvent"),
             other => panic!("expected Unknown, got {other:?}"),
         }
     }

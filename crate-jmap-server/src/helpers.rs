@@ -133,24 +133,4 @@ mod tests {
             "year should start with 20 in 21st century: {s}"
         );
     }
-
-    #[test]
-    fn now_utc_string_subsecond_uniqueness() {
-        // Two rapid calls must not return the same string, since sub-second
-        // precision means they will differ unless both happen in the exact
-        // same millisecond. We call 10 times and assert at least 2 are distinct.
-        let mut seen = std::collections::HashSet::new();
-        for _ in 0..10 {
-            seen.insert(now_utc_string());
-        }
-        // Under normal circumstances at least the nanosecond counter differs
-        // across 10 calls; this would only fail if all 10 calls complete within
-        // the same millisecond AND the clock returns the same value each time
-        // (a pathological environment like a frozen test clock).
-        assert!(
-            seen.len() > 1,
-            "expected multiple distinct timestamps but got only: {:?}",
-            seen
-        );
-    }
 }

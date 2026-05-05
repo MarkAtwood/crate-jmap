@@ -1,0 +1,38 @@
+{
+  "id": "abc123",
+  "role": "inbox",
+  "name": "My Tasks",
+  "description": "Personal task list",
+  "color": "#4287f5",
+  "keywordColors": {
+    "urgent": "#ff0000",
+    "low": "#00aa00"
+  },
+  "categoryColors": {
+    "work": "#0000ff"
+  },
+  "sortOrder": 0,
+  "isSubscribed": true,
+  "timeZone": "America/New_York",
+  "workflowStatuses": ["completed", "failed", "in-process", "needs-action", "cancelled", "pending"],
+  "shareWith": {
+    "def456": {
+      "mayReadItems": true,
+      "mayWriteAll": false,
+      "mayWriteOwn": false,
+      "mayUpdatePrivate": false,
+      "mayRSVP": false,
+      "mayAdmin": false,
+      "mayDelete": false
+    }
+  },
+  "myRights": {
+    "mayReadItems": true,
+    "mayWriteAll": true,
+    "mayWriteOwn": true,
+    "mayUpdatePrivate": true,
+    "mayRSVP": true,
+    "mayAdmin": true,
+    "mayDelete": true
+  }
+}

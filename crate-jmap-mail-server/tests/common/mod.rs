@@ -52,6 +52,9 @@ struct Inner {
     change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,
     /// blob_id → raw bytes (used by import_email and parse_email)
     blobs: HashMap<Id, Vec<u8>>,
+    /// Optional maxSizeScript limit in bytes for sieve size enforcement tests.
+    #[cfg(feature = "sieve")]
+    max_sieve_script_limit: Option<u64>,
     /// account_id → (message_id_string → email_id) for duplicate detection in import_email
     message_id_index: HashMap<String, HashMap<String, Id>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
@@ -202,6 +205,15 @@ impl MemoryBackend {
     pub fn register_account(&self, account_id: &Id) {
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
+    }
+
+    /// Set the maximum Sieve script size in bytes for size enforcement tests.
+    ///
+    /// When set, `SieveBackend::max_sieve_script_bytes` returns this limit,
+    /// causing `handle_sieve_set` to reject scripts exceeding it with `tooLarge`.
+    #[cfg(feature = "sieve")]
+    pub fn set_max_sieve_script_bytes(&self, limit: u64) {
+        self.inner.lock().unwrap().max_sieve_script_limit = Some(limit);
     }
 }
 
@@ -2276,55 +2288,25 @@ impl MdnBackend for MemoryBackend {
 
     async fn send_mdns(
         &self,
-        account_id: &jmap_types::Id,
+        _account_id: &jmap_types::Id,
         _identity_id: &jmap_types::Id,
-        send: std::collections::HashMap<String, jmap_mail_types::mdn::Mdn>,
+        send: std::collections::HashMap<
+            String,
+            (jmap_mail_types::mdn::Mdn, jmap_mail_types::Email),
+        >,
     ) -> Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>> {
         let mut sent: std::collections::HashMap<String, Mdn> = std::collections::HashMap::new();
         let mut not_sent: std::collections::HashMap<String, SetError> =
             std::collections::HashMap::new();
 
-        for (creation_id, mdn) in send {
-            // Step 1: resolve for_email_id.
-            // Callers (handle_mdn_send) guarantee for_email_id is Some for
-            // every entry before calling send_mdns — None entries are rejected
-            // with invalidProperties before reaching the backend.
-            let Some(for_email_id) = mdn.for_email_id.clone() else {
-                not_sent.insert(
-                    creation_id,
-                    SetError::new(SetErrorType::InvalidProperties)
-                        .with_description("forEmailId is required"),
-                );
-                continue;
-            };
+        for (creation_id, (mdn, email)) in send {
+            // The handler (handle_mdn_send) has already:
+            //   - verified for_email_id is Some
+            //   - checked $mdnsent is not set
+            //   - fetched the Email and passed it here
+            // No re-fetch from storage is needed.
 
-            // Step 2: look up the email from the store.
-            let email_val = {
-                // test only: mutex is never poisoned in tests
-                let inner = self.inner.lock().unwrap();
-                inner
-                    .objects_ref("Email", account_id.as_ref())
-                    .and_then(|s| s.get(&for_email_id))
-                    .cloned()
-            };
-            let email_val = match email_val {
-                None => {
-                    not_sent.insert(creation_id, SetError::new(SetErrorType::NotFound));
-                    continue;
-                }
-                Some(v) => v,
-            };
-
-            let email: jmap_mail_types::Email = match serde_json::from_value(email_val) {
-                Ok(e) => e,
-                Err(e) => {
-                    return Err(jmap_server::backend::BackendSetError::Other(MemoryError(
-                        format!("deserialize email: {e}"),
-                    )));
-                }
-            };
-
-            // Step 3: check for Disposition-Notification-To header.
+            // Step 1: check for Disposition-Notification-To header.
             let dnt_address: Option<String> = email
                 .headers
                 .iter()
@@ -2340,7 +2322,7 @@ impl MdnBackend for MemoryBackend {
                 continue;
             };
 
-            // Step 4: extract server-set fields from the email's headers.
+            // Step 2: extract server-set fields from the email's headers.
             let original_message_id: Option<String> = email
                 .headers
                 .iter()
@@ -2474,22 +2456,41 @@ impl MdnBackend for MemoryBackend {
         let mut not_parsable: Vec<jmap_types::Id> = Vec::new();
         let mut not_found: Vec<jmap_types::Id> = Vec::new();
 
+        // Header-presence quick-reject limit: 4 KiB is enough to cover all
+        // RFC 5322 headers in a well-formed MDN.  get_blob_header_bytes avoids
+        // loading the full blob before the cheap parsability check.
+        const HEADER_LIMIT: usize = 4096;
+
         for blob_id in blob_ids {
+            // Quick-reject: fetch only the first HEADER_LIMIT bytes for the
+            // parsability heuristic.  If that prefix doesn't contain
+            // "disposition:", the blob can't be an MDN — skip it without
+            // loading the rest.
+            let header_bytes = self
+                .get_blob_header_bytes(account_id, &blob_id, HEADER_LIMIT)
+                .await?;
+            match header_bytes {
+                None => {
+                    not_found.push(blob_id);
+                    continue;
+                }
+                Some(ref hdr) => {
+                    let hdr_text = String::from_utf8_lossy(hdr);
+                    if !hdr_text.to_ascii_lowercase().contains("disposition:") {
+                        not_parsable.push(blob_id);
+                        continue;
+                    }
+                }
+            }
+
+            // Full fetch for actual parsing.
             let bytes = self.get_blob_bytes(account_id, &blob_id).await?;
             match bytes {
                 None => {
                     not_found.push(blob_id);
                 }
                 Some(raw) => {
-                    // Minimal heuristic: a blob is parsable as an MDN if it contains
-                    // the ASCII string "disposition:" (case-insensitive; RFC 5322 header
-                    // names are case-insensitive per §2.2). A full MIME parser is not
-                    // used here — this is test infrastructure.
                     let text = String::from_utf8_lossy(&raw);
-                    if !text.to_ascii_lowercase().contains("disposition:") {
-                        not_parsable.push(blob_id);
-                        continue;
-                    }
 
                     // Parse fields from the disposition-notification part.
                     // Each field is extracted from the first matching "Field-Name:" line.
@@ -2671,3 +2672,72 @@ Disposition: manual-action/MDN-sent-manually; displayed\r\n\
 /// used by `MemoryBackend::parse_mdns` will classify this as notParsable.
 #[cfg(feature = "mdn")]
 pub const INVALID_MDN_BLOB: &[u8] = b"This is just a plain text file, not an MDN.\r\n";
+
+// ---------------------------------------------------------------------------
+// SieveBackend impl for MemoryBackend (feature = "sieve")
+// ---------------------------------------------------------------------------
+
+#[cfg(feature = "sieve")]
+use jmap_mail_server::SieveBackend;
+
+#[cfg(feature = "sieve")]
+impl SieveBackend for MemoryBackend {
+    type Error = MemoryError;
+
+    fn max_sieve_script_bytes(
+        &self,
+        _account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<u64>, Self::Error>> + Send {
+        let limit = self.inner.lock().unwrap().max_sieve_script_limit;
+        async move { Ok(limit) }
+    }
+
+    fn get_sieve_blob(
+        &self,
+        _account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
+        // Same pattern as MdnBackend::get_blob_bytes:
+        // lock, clone, release lock, return async move
+        let bytes = self.inner.lock().unwrap().blobs.get(blob_id).cloned();
+        async move { Ok(bytes) }
+    }
+
+    fn validate_sieve_script(
+        &self,
+        _account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {
+        // Trivial validation: blob must exist, be non-empty, and be valid UTF-8.
+        // Returns Ok(None) for valid, Ok(Some(reason)) for invalid.
+        // A real backend would call a Sieve parser here.
+        let bytes = self.inner.lock().unwrap().blobs.get(blob_id).cloned();
+        async move {
+            match bytes {
+                None => Ok(Some("blob not found".to_owned())),
+                Some(b) => {
+                    if b.is_empty() {
+                        return Ok(Some("script must not be empty".to_owned()));
+                    }
+                    match std::str::from_utf8(&b) {
+                        Err(_) => Ok(Some("script is not valid UTF-8".to_owned())),
+                        Ok(_) => Ok(None),
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Sieve test fixture constants (feature = "sieve")
+// ---------------------------------------------------------------------------
+
+/// A minimal valid Sieve script for test fixtures.
+/// Source: RFC 5228 §8 "Formal Syntax" — "keep;" is the simplest valid script.
+#[cfg(feature = "sieve")]
+pub const VALID_SIEVE_SCRIPT: &[u8] = b"keep;";
+
+/// An invalid/empty Sieve script — triggers `validate_sieve_script` to return Some(err).
+#[cfg(feature = "sieve")]
+pub const INVALID_SIEVE_SCRIPT: &[u8] = b"";

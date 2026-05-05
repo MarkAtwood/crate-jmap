@@ -9,11 +9,12 @@ description = "RFC 8621 JMAP for Mail client — Email, Mailbox, Thread, Identit
 license = "MIT OR Apache-2.0"
 
 [dependencies]
-jmap-types      = { path = "../crate-jmap-types", version = "0.1.0" }
-jmap-mail-types = { path = "../crate-jmap-mail-types", version = "0.1.0" }
+jmap-types       = { path = "../crate-jmap-types", version = "0.1.0" }
+jmap-mail-types  = { path = "../crate-jmap-mail-types", version = "0.1.0" }
 jmap-base-client = { path = "../crate-jmap-base-client", version = "0.1.0" }
-serde_json      = "1"
-thiserror       = "2"
+serde      = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror  = "2"
 
 [dev-dependencies]
 tokio    = { version = "1", features = ["rt-multi-thread", "macros"] }

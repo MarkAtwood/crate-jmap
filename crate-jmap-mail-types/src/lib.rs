@@ -62,6 +62,13 @@ pub mod vacation;
 #[cfg(feature = "mdn")]
 pub mod mdn;
 
+#[cfg(feature = "sieve")]
+pub mod sieve;
+#[cfg(feature = "sieve")]
+pub use sieve::{SieveAccountCapability, SieveCapability, SieveScript, JMAP_SIEVE_SCRIPTS_URI};
+
+#[cfg(feature = "sieve")]
+pub use backend::SieveScriptProperty;
 pub use backend::{
     EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
     SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
