@@ -78,13 +78,9 @@ pub use space::{
 /// `Chat/*`, `Message/*`, `Space/*`, `SpaceBan/*`, `ChatContact/*`,
 /// `ReadPosition/*`, `CustomEmoji/*`, `SpaceInvite/*`, and `PresenceStatus/*`.
 ///
-/// **Caller context `C` is not forwarded to handlers.** Each handler closure
-/// receives only `(Arc<B>, call_id, args)`; the `caller: C` value from the
-/// dispatcher is discarded. To act on per-request context (e.g. for
-/// per-tenant auth or rate limiting), implement [`JmapHandler`] directly
-/// rather than using this function. The closure shape used here is stable for
-/// v0.1; adding `CallerCtx` forwarding would be a breaking change and is
-/// deferred to a future version.
+/// `CallerCtx` IS now forwarded as `_ctx` to each closure.  Handler bodies
+/// still receive only `(b, ci, a)`; `_ctx` is available for custom use by
+/// backends that register handlers individually via [`ClosureHandlerWithCtx`].
 pub fn register_chat_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
 where
     B: ChatBackend + 'static,
@@ -94,11 +90,13 @@ where
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandlerWithCtx {
                 backend: backend_arc,
-                call_fn: Box::new(move |$b: Arc<B>, $ci: String, $a: serde_json::Value| {
-                    Box::pin(async move { $body }) as HandlerFuture
-                }),
+                call_fn: Box::new(
+                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
+                        Box::pin(async move { $body }) as HandlerFuture
+                    },
+                ),
             });
             dispatcher.register($method, h);
         }};
@@ -241,4 +239,4 @@ where
     });
 }
 
-pub use jmap_server::ClosureHandler;
+pub use jmap_server::{ClosureHandler, ClosureHandlerWithCtx};
