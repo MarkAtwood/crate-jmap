@@ -5,7 +5,6 @@ members = [
     "crate-jmap-mime",
     "crate-jmap-chat-types",
     "crate-jmap-contacts-types",
-    "crate-jmap-jscontact",
     "crate-jmap-calendars-types",
     "crate-jmap-tasks-types",
     "crate-jmap-filenode-types",
