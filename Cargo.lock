@@ -931,6 +931,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-jscontact"
+version = "0.1.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-mail-client"
 version = "0.1.0"
 dependencies = [
