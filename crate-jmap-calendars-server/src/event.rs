@@ -222,10 +222,29 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             }
 
             let id = Id::from(id_str.as_str());
-            match backend
-                .update_object::<CalendarEvent>(&account_id, &id, patch_val)
-                .await
-            {
+
+            // §5.4: if every top-level patch key is a per-user property
+            // (or null), route to update_per_user_properties so the backend
+            // can store it without touching the shared updated timestamp.
+            let is_per_user_only = patch_val
+                .as_object()
+                .map(|m| {
+                    m.iter()
+                        .all(|(k, v)| v.is_null() || B::is_per_user_property(k))
+                })
+                .unwrap_or(false);
+
+            let update_result = if is_per_user_only {
+                backend
+                    .update_per_user_properties(&account_id, &id, patch_val)
+                    .await
+            } else {
+                backend
+                    .update_object::<CalendarEvent>(&account_id, &id, patch_val)
+                    .await
+            };
+
+            match update_result {
                 Ok(Some(obj)) => {
                     mutated = true;
                     updated.insert(
@@ -899,6 +918,254 @@ mod tests {
                 );
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Per-user property routing tests (JMAP-qksw.3)
+    // -----------------------------------------------------------------------
+
+    /// Helper: a MockBackend that tracks which update path was called.
+    ///
+    /// `per_user_called` is set when `update_per_user_properties` is
+    /// invoked; `update_called` is set when `update_object` is invoked.
+    /// Both flags start as `false`.
+    mod routing {
+        use std::sync::{Arc, Mutex};
+
+        use jmap_server::{
+            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
+            SetObject,
+        };
+        use jmap_types::{Id, State};
+
+        use crate::backend::CalendarsBackend;
+
+        #[derive(Debug)]
+        pub struct TrackError;
+        impl std::fmt::Display for TrackError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "track error")
+            }
+        }
+        impl std::error::Error for TrackError {}
+
+        #[derive(Clone)]
+        pub struct TrackingBackend {
+            pub per_user_called: Arc<Mutex<bool>>,
+            pub update_called: Arc<Mutex<bool>>,
+        }
+
+        impl TrackingBackend {
+            pub fn new() -> Self {
+                Self {
+                    per_user_called: Arc::new(Mutex::new(false)),
+                    update_called: Arc::new(Mutex::new(false)),
+                }
+            }
+        }
+
+        impl JmapBackend for TrackingBackend {
+            type Error = TrackError;
+
+            async fn account_exists(&self, _account_id: &Id) -> Result<bool, Self::Error> {
+                Ok(true)
+            }
+
+            async fn get_objects<O: GetObject + Send + Sync>(
+                &self,
+                _account_id: &Id,
+                _ids: Option<&[Id]>,
+                _properties: Option<&[String]>,
+            ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+                Ok((vec![], vec![]))
+            }
+
+            async fn get_state<O: JmapObject + Send + Sync>(
+                &self,
+                _account_id: &Id,
+            ) -> Result<State, Self::Error> {
+                Ok(State::from("0"))
+            }
+
+            async fn get_changes<O: JmapObject + Send + Sync>(
+                &self,
+                _account_id: &Id,
+                _since_state: &State,
+                _max_changes: Option<u64>,
+            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+                Ok(ChangesResult::new(
+                    vec![],
+                    vec![],
+                    vec![],
+                    false,
+                    State::from("0"),
+                ))
+            }
+
+            async fn query_objects<O: QueryObject + Send + Sync>(
+                &self,
+                _account_id: &Id,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+            ) -> Result<QueryResult, Self::Error> {
+                Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ))
+            }
+
+            async fn query_changes<O: QueryObject + Send + Sync>(
+                &self,
+                _account_id: &Id,
+                since_query_state: &State,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _max_changes: Option<u64>,
+                _up_to_id: Option<&Id>,
+                _collapse_threads: bool,
+            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                Ok(QueryChangesResult::new(
+                    since_query_state.clone(),
+                    State::from("0"),
+                    Some(0),
+                    vec![],
+                    vec![],
+                ))
+            }
+        }
+
+        impl CalendarsBackend for TrackingBackend {
+            async fn create_object<O: SetObject + Send + Sync>(
+                &self,
+                _account_id: &Id,
+                _create_id: &str,
+                obj: O,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("mock-id"), obj))
+            }
+
+            async fn update_object<O: SetObject + Send + Sync>(
+                &self,
+                _account_id: &Id,
+                _id: &Id,
+                _patch: O::Patch,
+            ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+                *self.update_called.lock().unwrap() = true;
+                Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )))
+            }
+
+            async fn update_per_user_properties(
+                &self,
+                _account_id: &Id,
+                _id: &Id,
+                _patch: serde_json::Value,
+            ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>
+            {
+                *self.per_user_called.lock().unwrap() = true;
+                Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )))
+            }
+
+            async fn destroy_object<O: SetObject + Send + Sync>(
+                &self,
+                _account_id: &Id,
+                _id: &Id,
+            ) -> Result<(), BackendSetError<Self::Error>> {
+                Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )))
+            }
+
+            fn supports_type<O: JmapObject>(&self) -> bool {
+                true
+            }
+
+            async fn calendar_has_events(&self, _account_id: &Id, _calendar_id: &Id) -> bool {
+                false
+            }
+        }
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — a patch containing only
+    /// per-user properties (`keywords`) must be routed to
+    /// `update_per_user_properties`, NOT `update_object`.
+    #[tokio::test]
+    async fn set_update_per_user_only_patch_routes_to_per_user_path() {
+        let backend = routing::TrackingBackend::new();
+        let args = json!({
+            "accountId": "acc",
+            "update": {
+                "ev1": { "keywords": { "$flagged": true } }
+            }
+        });
+        let _ = handle_calendar_event_set(&backend, args).await;
+
+        assert!(
+            *backend.per_user_called.lock().unwrap(),
+            "update_per_user_properties must be called for a keywords-only patch"
+        );
+        assert!(
+            !*backend.update_called.lock().unwrap(),
+            "update_object must NOT be called for a per-user-only patch"
+        );
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — a patch containing a
+    /// shared property (`title`) must be routed to `update_object`, NOT
+    /// `update_per_user_properties`.
+    #[tokio::test]
+    async fn set_update_shared_property_patch_routes_to_update_object() {
+        let backend = routing::TrackingBackend::new();
+        let args = json!({
+            "accountId": "acc",
+            "update": {
+                "ev1": { "title": "New Title" }
+            }
+        });
+        let _ = handle_calendar_event_set(&backend, args).await;
+
+        assert!(
+            *backend.update_called.lock().unwrap(),
+            "update_object must be called for a shared-property patch"
+        );
+        assert!(
+            !*backend.per_user_called.lock().unwrap(),
+            "update_per_user_properties must NOT be called for a shared-property patch"
+        );
+    }
+
+    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — a mixed patch containing
+    /// both per-user (`keywords`) and shared (`title`) properties must be
+    /// routed to `update_object` (the shared-property path), NOT
+    /// `update_per_user_properties`.
+    #[tokio::test]
+    async fn set_update_mixed_patch_routes_to_update_object() {
+        let backend = routing::TrackingBackend::new();
+        let args = json!({
+            "accountId": "acc",
+            "update": {
+                "ev1": { "keywords": { "$flagged": true }, "title": "New Title" }
+            }
+        });
+        let _ = handle_calendar_event_set(&backend, args).await;
+
+        assert!(
+            *backend.update_called.lock().unwrap(),
+            "update_object must be called for a mixed patch"
+        );
+        assert!(
+            !*backend.per_user_called.lock().unwrap(),
+            "update_per_user_properties must NOT be called for a mixed patch"
+        );
     }
 
     /// Oracle: §5.13 — `parse` with a blob the default backend cannot parse

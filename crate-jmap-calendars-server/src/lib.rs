@@ -661,4 +661,224 @@ mod tests {
         );
         assert_eq!(args["accountId"], "acc1");
     }
+
+    /// Oracle: RFC 8620 §5.4 — `fromAccountId` that does not exist returns a
+    /// top-level `fromAccountNotFound` error (via dispatcher).
+    #[tokio::test]
+    async fn copy_missing_from_account_returns_from_account_not_found() {
+        let backend = Arc::new(MockBackend::new_with_account("dst"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/copy",
+            json!({
+                "accountId": "dst",
+                "fromAccountId": "no-such-account",
+                "create": {}
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert_eq!(
+            args["type"], "fromAccountNotFound",
+            "must be fromAccountNotFound: {args}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.4 — create entry with no `"id"` field → `notCreated`
+    /// contains `invalidProperties` citing `["id"]` (via dispatcher).
+    #[tokio::test]
+    async fn copy_missing_source_id_returns_invalid_properties() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/copy",
+            json!({
+                "accountId": "acc1",
+                "fromAccountId": "acc1",
+                "create": {
+                    "c1": { "calendarIds": { "cal1": true } }
+                }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notCreated"]["c1"]["type"], "invalidProperties",
+            "must be invalidProperties: {args}"
+        );
+        assert_eq!(
+            args["notCreated"]["c1"]["properties"][0], "id",
+            "must cite 'id' in properties: {args}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.4 — source id that does not exist in `fromAccountId`
+    /// → `notCreated` contains `{"type":"notFound"}` (via dispatcher).
+    #[tokio::test]
+    async fn copy_source_event_not_found_returns_not_found() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/copy",
+            json!({
+                "accountId": "acc1",
+                "fromAccountId": "acc1",
+                "create": {
+                    "c1": { "id": "no-such-event" }
+                }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notCreated"]["c1"]["type"], "notFound",
+            "must be notFound: {args}"
+        );
+    }
+
+    /// Oracle: §5.13 — default backend puts unrecognised blob ids in
+    /// `notParsable`; `parsed` is null (via dispatcher).
+    #[tokio::test]
+    async fn parse_unknown_blob_returns_not_parsable() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/parse",
+            json!({
+                "accountId": "acc1",
+                "blobIds": ["unknown-blob"]
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notParsable"],
+            json!(["unknown-blob"]),
+            "blob must appear in notParsable: {args}"
+        );
+        assert_eq!(
+            args["parsed"],
+            serde_json::Value::Null,
+            "parsed must be null: {args}"
+        );
+    }
+
+    /// Oracle: §2.2 — default backend returns an empty `list` (via dispatcher).
+    #[tokio::test]
+    async fn get_availability_returns_empty_list() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Principal/getAvailability",
+            json!({
+                "accountId": "acc1",
+                "id": "principal1",
+                "utcStart": "2024-06-15T09:00:00Z",
+                "utcEnd": "2024-06-15T10:00:00Z"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(args["accountId"], "acc1");
+        assert!(
+            args["list"].as_array().unwrap().is_empty(),
+            "list must be empty: {args}"
+        );
+    }
+
+    /// Oracle: §2.2 — missing `id` argument returns `invalidArguments`
+    /// (via dispatcher).
+    #[tokio::test]
+    async fn get_availability_missing_id_returns_error() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Principal/getAvailability",
+            json!({
+                "accountId": "acc1",
+                "utcStart": "2024-06-15T09:00:00Z",
+                "utcEnd": "2024-06-15T10:00:00Z"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert_eq!(
+            args["type"], "invalidArguments",
+            "must be invalidArguments for missing id: {args}"
+        );
+    }
+
+    /// Oracle: §5.9 — creating an event with both `utcStart` and `start`
+    /// produces `notCreated` with `invalidProperties` (via dispatcher).
+    #[tokio::test]
+    async fn set_with_utc_start_and_start_returns_invalid_properties() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/set",
+            json!({
+                "accountId": "acc1",
+                "create": {
+                    "c1": {
+                        "calendarIds": { "cal1": true },
+                        "start": "2024-06-01T10:00:00",
+                        "utcStart": "2024-06-01T08:00:00Z"
+                    }
+                }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notCreated"]["c1"]["type"], "invalidProperties",
+            "must be invalidProperties: {args}"
+        );
+        let props = args["notCreated"]["c1"]["properties"].as_array().unwrap();
+        let prop_strs: Vec<&str> = props.iter().filter_map(|v| v.as_str()).collect();
+        assert!(
+            prop_strs.contains(&"utcStart") && prop_strs.contains(&"start"),
+            "must cite utcStart and start: {args}"
+        );
+    }
 }
