@@ -8,6 +8,9 @@
 //! `accountCapabilities` map).  Session-level values are empty objects for
 //! all Tasks capabilities.
 
+use std::collections::HashMap;
+
+use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
 /// Capability URI for core JMAP Tasks support (draft-tasks-06 §1.6.1).
@@ -95,12 +98,30 @@ pub struct TasksAssigneesAccountCapability {
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TasksAlertsCapability {}
 
+/// Account-level capability for the JMAP Tasks Alerts extension
+/// (draft-ietf-jmap-tasks-06 §1.6.4).
+///
+/// Empty object — all server capabilities for alerts are signalled at
+/// session level by [`TasksAlertsCapability`].
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct TasksAlertsAccountCapability {}
+
 /// Session-level capability for the multilingual extension (draft-tasks-06 §1.6.5).
 ///
 /// Value is an empty object `{}`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TasksMultilingualCapability {}
+
+/// Account-level capability for the JMAP Tasks Multilingual extension
+/// (draft-ietf-jmap-tasks-06 §1.6.5).
+///
+/// Empty object — all server capabilities for multilingual support are
+/// signalled at session level by [`TasksMultilingualCapability`].
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct TasksMultilingualAccountCapability {}
 
 /// Session-level capability for the custom time zones extension
 /// (draft-tasks-06 §1.6.6).
@@ -109,3 +130,34 @@ pub struct TasksMultilingualCapability {}
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct TasksCustomTimeZonesCapability {}
+
+/// Account-level capability for the JMAP Tasks Custom Time Zones extension
+/// (draft-ietf-jmap-tasks-06 §1.6.6).
+///
+/// Empty object — all server capabilities for custom time zones are
+/// signalled at session level by [`TasksCustomTimeZonesCapability`].
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct TasksCustomTimeZonesAccountCapability {}
+
+/// Capability placed on a JMAP Sharing Principal's capabilities map
+/// under `"urn:ietf:params:jmap:tasks"` (draft-ietf-jmap-tasks-06 §2.1).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrincipalTasksCapability {
+    /// Id of the account this principal may use for JMAP Tasks,
+    /// or `null` if the principal has no Tasks account.
+    ///
+    /// Required-nullable (serializes as `null` when `None`, not absent).
+    pub account_id: Option<Id>,
+
+    /// Whether the client may invite this principal to share a task list.
+    pub may_share_with: bool,
+
+    /// Method types to which the principal has a send address, and the
+    /// address for each.  `null` or absent when the principal cannot be
+    /// sent to.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub send_to: Option<HashMap<String, String>>,
+}

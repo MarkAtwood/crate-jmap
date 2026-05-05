@@ -54,7 +54,7 @@ pub use jscalendar::{
     OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, VirtualLocation,
 };
 pub use notification::{
-    CalendarEventNotification, NotificationFilterCondition, NotificationType, Person,
+    CalendarAlert, CalendarEventNotification, NotificationFilterCondition, NotificationType, Person,
 };
 pub use participant_identity::ParticipantIdentity;
 

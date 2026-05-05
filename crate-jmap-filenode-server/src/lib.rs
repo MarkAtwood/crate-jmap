@@ -114,6 +114,7 @@ pub(crate) mod test_support {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
+    use jmap_filenode_types::FileNode;
     use jmap_server::{
         BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
         QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
@@ -138,10 +139,12 @@ pub(crate) mod test_support {
     struct MockInner {
         /// Known account IDs.
         accounts: HashMap<String, ()>,
-        /// Nodes that report `node_has_children = true`.
-        has_children: HashMap<String, bool>,
-        /// (node_id, proposed_parent_id) pairs that would create a cycle.
-        cycles: HashMap<(String, String), bool>,
+        /// node_id → ancestor chain (immediate parent first, up to root).
+        ancestors: HashMap<String, Vec<FileNode>>,
+        /// node_id → all descendant IDs (children, grandchildren, etc.).
+        descendants: HashMap<String, Vec<String>>,
+        /// (parent_id_opt, name_lowercase) → existing sibling node_id.
+        siblings: HashMap<(Option<String>, String), String>,
     }
 
     /// In-memory mock backend for testing.
@@ -155,8 +158,9 @@ pub(crate) mod test_support {
             Self {
                 inner: Arc::new(Mutex::new(MockInner {
                     accounts: HashMap::new(),
-                    has_children: HashMap::new(),
-                    cycles: HashMap::new(),
+                    ancestors: HashMap::new(),
+                    descendants: HashMap::new(),
+                    siblings: HashMap::new(),
                 })),
             }
         }
@@ -171,23 +175,40 @@ pub(crate) mod test_support {
             b
         }
 
-        /// Mark `node_id` as having (or not having) children.
-        pub fn set_has_children(&self, node_id: &str, has: bool) {
-            self.inner
-                .lock()
-                .unwrap()
-                .has_children
-                .insert(node_id.to_owned(), has);
+        /// Declare the descendant IDs for `node_id`.
+        ///
+        /// Used by tests to set up cycle detection (if proposed new parent is
+        /// in `descendant_ids`) and `nodeHasChildren` checks (non-empty list).
+        pub fn set_descendants(&self, node_id: &str, descendant_ids: &[&str]) {
+            self.inner.lock().unwrap().descendants.insert(
+                node_id.to_owned(),
+                descendant_ids.iter().map(|s| s.to_string()).collect(),
+            );
         }
 
-        /// Declare that moving `node_id` under `new_parent_id` would (or
-        /// would not) create a cycle.
-        pub fn set_cycle_pair(&self, node_id: &str, new_parent_id: &str, cycles: bool) {
-            self.inner
-                .lock()
-                .unwrap()
-                .cycles
-                .insert((node_id.to_owned(), new_parent_id.to_owned()), cycles);
+        /// Pre-register ancestor nodes for a set of node ids (used by fetchParents tests).
+        ///
+        /// Each id in `node_ids` will return `ancestors` from `get_ancestors`.
+        #[allow(dead_code)]
+        pub fn set_ancestors(&self, node_ids: &[&str], ancestors: Vec<FileNode>) {
+            let mut guard = self.inner.lock().unwrap();
+            for node_id in node_ids {
+                guard
+                    .ancestors
+                    .insert(node_id.to_string(), ancestors.clone());
+            }
+        }
+
+        /// Register a sibling mapping: a node with `name` under `parent_id`
+        /// (None = root) already exists with id `existing_id`.
+        ///
+        /// Used by `find_sibling_by_name` to simulate collision detection.
+        /// Both case-sensitive and case-insensitive lookups use the lowercase key.
+        pub fn set_sibling(&self, parent_id: Option<&str>, name: &str, existing_id: &str) {
+            let mut guard = self.inner.lock().unwrap();
+            // Store with lowercase name so both sensitive/insensitive lookups work.
+            let key = (parent_id.map(|s| s.to_owned()), name.to_lowercase());
+            guard.siblings.insert(key, existing_id.to_owned());
         }
     }
 
@@ -308,25 +329,56 @@ pub(crate) mod test_support {
             true
         }
 
-        async fn would_create_cycle(
+        async fn get_ancestors(
             &self,
             _account_id: &Id,
-            node_id: &Id,
-            new_parent_id: &Id,
-        ) -> bool {
-            let guard = self.inner.lock().unwrap();
-            *guard
-                .cycles
-                .get(&(
-                    node_id.as_ref().to_owned(),
-                    new_parent_id.as_ref().to_owned(),
-                ))
-                .unwrap_or(&false)
+            ids: &[Id],
+        ) -> Result<Vec<FileNode>, Self::Error> {
+            if let Some(first_id) = ids.first() {
+                let guard = self.inner.lock().unwrap();
+                Ok(guard
+                    .ancestors
+                    .get(first_id.as_ref())
+                    .cloned()
+                    .unwrap_or_default())
+            } else {
+                Ok(vec![])
+            }
         }
 
-        async fn node_has_children(&self, _account_id: &Id, node_id: &Id) -> bool {
+        async fn get_descendant_ids(
+            &self,
+            _account_id: &Id,
+            id: &Id,
+        ) -> Result<Vec<Id>, Self::Error> {
             let guard = self.inner.lock().unwrap();
-            *guard.has_children.get(node_id.as_ref()).unwrap_or(&false)
+            Ok(guard
+                .descendants
+                .get(id.as_ref())
+                .map(|v| v.iter().map(|s| Id::from(s.as_str())).collect())
+                .unwrap_or_default())
+        }
+
+        async fn blob_exists(&self, _account_id: &Id, _blob_id: &Id) -> bool {
+            // Mock always reports blobs as existing.
+            true
+        }
+
+        async fn find_sibling_by_name(
+            &self,
+            _account_id: &Id,
+            parent_id: Option<&Id>,
+            name: &str,
+            case_insensitive: bool,
+        ) -> Result<Option<Id>, Self::Error> {
+            let guard = self.inner.lock().unwrap();
+            let key_name = if case_insensitive {
+                name.to_lowercase()
+            } else {
+                name.to_owned()
+            };
+            let key = (parent_id.map(|id| id.as_ref().to_owned()), key_name);
+            Ok(guard.siblings.get(&key).map(|s| Id::from(s.as_str())))
         }
     }
 }

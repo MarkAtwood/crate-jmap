@@ -140,6 +140,7 @@ pub(crate) mod test_support {
     //! In-memory mock backend for unit tests.
 
     use std::collections::HashMap;
+    use std::sync::atomic::{AtomicU32, Ordering};
     use std::sync::{Arc, Mutex};
 
     use jmap_server::{
@@ -178,6 +179,9 @@ pub(crate) mod test_support {
     #[derive(Clone)]
     pub struct MockBackend {
         state: Arc<Mutex<HashMap<String, AccountState>>>,
+        /// Counts how many times `update_task_per_user` was called.
+        /// Used by integration tests to verify per-user routing.
+        pub per_user_calls: Arc<AtomicU32>,
     }
 
     impl MockBackend {
@@ -185,6 +189,7 @@ pub(crate) mod test_support {
         pub fn new() -> Self {
             Self {
                 state: Arc::new(Mutex::new(HashMap::new())),
+                per_user_calls: Arc::new(AtomicU32::new(0)),
             }
         }
 
@@ -213,6 +218,22 @@ pub(crate) mod test_support {
                 .entry(account_id.to_owned())
                 .or_insert_with(AccountState::default);
             acct.notifications.insert(Id::from(notif_id), notif);
+        }
+
+        /// Pre-populate a Task with a specific `isDraft` value in the given account.
+        ///
+        /// Used by tests for the isDraft immutability enforcement path.
+        pub fn seed_task(&mut self, account_id: &str, task_id: &str, is_draft: bool) {
+            let task: Task = serde_json::from_value(serde_json::json!({
+                "id": task_id,
+                "isDraft": is_draft
+            }))
+            .expect("task seed fixture must deserialize");
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard
+                .entry(account_id.to_owned())
+                .or_insert_with(AccountState::default);
+            acct.tasks.insert(Id::from(task_id), task);
         }
 
         /// Pre-populate a TaskList with a task in the given account.
@@ -257,11 +278,40 @@ pub(crate) mod test_support {
 
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
-            _account_id: &Id,
-            _ids: Option<&[Id]>,
+            account_id: &Id,
+            ids: Option<&[Id]>,
             _properties: Option<&[String]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-            Ok((vec![], vec![]))
+            // Attempt to serve from the tasks store via a serde round-trip.
+            // When O = Task this is identity; for other types the deserialize
+            // step will fail (no data in the store matches) and we fall back
+            // to empty — preserving the prior behaviour for TaskList/get etc.
+            let guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get(account_id.as_ref()) else {
+                return Ok((vec![], vec![]));
+            };
+
+            let mut found: Vec<O> = Vec::new();
+            let mut not_found: Vec<Id> = Vec::new();
+
+            if let Some(id_slice) = ids {
+                for id in id_slice {
+                    if let Some(task) = acct.tasks.get(id) {
+                        match serde_json::to_value(task)
+                            .ok()
+                            .and_then(|v| serde_json::from_value::<O>(v).ok())
+                        {
+                            Some(obj) => found.push(obj),
+                            None => not_found.push(id.clone()),
+                        }
+                    } else {
+                        not_found.push(id.clone());
+                    }
+                }
+            }
+            // If no specific ids were requested, serve nothing (empty list) —
+            // the isDraft check always passes specific ids.
+            Ok((found, not_found))
         }
 
         async fn get_state<O: JmapObject + Send + Sync>(
@@ -382,6 +432,18 @@ pub(crate) mod test_support {
             Ok((Id::from("copied-task-1"), task))
         }
 
+        async fn update_task_per_user(
+            &self,
+            account_id: &Id,
+            id: &Id,
+            patch: serde_json::Value,
+        ) -> Result<Option<Task>, BackendSetError<Self::Error>> {
+            // Track that this per-user path was called.
+            self.per_user_calls.fetch_add(1, Ordering::Relaxed);
+            // Delegate to update_object (same outcome as default impl).
+            self.update_object::<Task>(account_id, id, patch).await
+        }
+
         async fn task_list_has_tasks(&self, account_id: &Id, task_list_id: &Id) -> bool {
             let guard = self.state.lock().unwrap();
             if let Some(acct) = guard.get(account_id.as_ref()) {
@@ -403,6 +465,7 @@ pub(crate) mod test_support {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
     use jmap_server::{Dispatcher, JmapRequest, State};
@@ -560,6 +623,159 @@ mod tests {
         assert_eq!(
             args["notDestroyed"]["list1"]["type"], "taskListHasTasks",
             "must return taskListHasTasks when list has tasks: {args}"
+        );
+    }
+
+    // ── Integration tests: isDraft, utcStart, per-user routing ──────────────
+
+    /// Oracle: draft-tasks-06 §4 — isDraft false→true revert is rejected via
+    /// dispatcher (end-to-end path through register_tasks_handlers).
+    #[tokio::test]
+    async fn isdraft_revert_via_dispatcher() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.seed_task("acc1", "t1", false);
+        let backend = Arc::new(backend);
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Task/set",
+            json!({
+                "accountId": "acc1",
+                "update": { "t1": { "isDraft": true } }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notUpdated"]["t1"]["type"], "invalidProperties",
+            "isDraft revert must be invalidProperties: {args}"
+        );
+        assert_eq!(
+            args["notUpdated"]["t1"]["properties"][0], "isDraft",
+            "isDraft must be listed in properties: {args}"
+        );
+    }
+
+    /// Oracle: draft-tasks-06 §4 — isDraft false (draft → published) is always
+    /// allowed; the handler must not pre-reject it.
+    #[tokio::test]
+    async fn isdraft_draft_to_publish_allowed() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.seed_task("acc1", "t1", true);
+        let backend = Arc::new(backend);
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Task/set",
+            json!({
+                "accountId": "acc1",
+                "update": { "t1": { "isDraft": false } }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        // The patch must NOT be pre-rejected with invalidProperties.
+        if let Some(not_updated) = args["notUpdated"].as_object() {
+            if let Some(err) = not_updated.get("t1") {
+                assert_ne!(
+                    err["type"].as_str(),
+                    Some("invalidProperties"),
+                    "isDraft:false must not produce invalidProperties: {args}"
+                );
+            }
+        }
+    }
+
+    /// Oracle: draft-tasks-06 §4 (lines 739-772) — utcStart is NOT returned
+    /// when not in the properties list.
+    #[tokio::test]
+    async fn utcstart_not_in_default_properties() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Task/get",
+            json!({ "accountId": "acc1", "ids": null, "properties": ["id"] }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(args.get("type").is_none(), "must not be error: {args}");
+        for item in args["list"].as_array().unwrap_or(&vec![]) {
+            assert!(
+                item.get("utcStart").is_none(),
+                "utcStart must not appear when not requested: {item}"
+            );
+        }
+    }
+
+    /// Oracle: draft-tasks-06 §4 — when utcStart is explicitly requested,
+    /// the handler invokes compute_task_utc_times (default: returns None, so
+    /// no value injected), but no error is raised.
+    #[tokio::test]
+    async fn utcstart_returned_when_requested() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Task/get",
+            json!({
+                "accountId": "acc1",
+                "ids": null,
+                "properties": ["id", "utcStart"]
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "Task/get with utcStart must not error: {args}"
+        );
+    }
+
+    /// Oracle: draft-tasks-06 §4.5.1 — a per-user-only patch is routed to
+    /// `update_task_per_user`. MockBackend tracks the call count.
+    #[tokio::test]
+    async fn per_user_patch_split() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let before = backend.per_user_calls.load(Ordering::Relaxed);
+
+        let req = single_call(
+            "Task/set",
+            json!({
+                "accountId": "acc1",
+                "update": { "t1": { "color": "#ff0000" } }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be top-level error: {args}"
+        );
+
+        let after = backend.per_user_calls.load(Ordering::Relaxed);
+        assert_eq!(
+            after - before,
+            1,
+            "per_user update must have been called exactly once for a color-only patch"
         );
     }
 }

@@ -140,9 +140,9 @@ pub struct FilesRights {
 /// Other fields are **truly optional**: absent from the wire when not set by the
 /// client or server.  These use `#[serde(skip_serializing_if = "Option::is_none")]`.
 ///
-    /// | Nullable (must appear as `null`) | Optional (absent when `None`) |
-    /// |---|---|
-    /// | `parent_id`, `blob_id`, `target`, `size`, `media_type`, `share_with`, `role` | `node_type`, `created`, `modified`, `accessed`, `changed`, `executable`, `is_subscribed`, `my_rights` |
+/// | Nullable (must appear as `null`) | Optional (absent when `None`) |
+/// |---|---|
+/// | `parent_id`, `blob_id`, `target`, `size`, `media_type`, `share_with`, `role` | `node_type`, `created`, `modified`, `accessed`, `changed`, `executable`, `is_subscribed`, `my_rights` |
 ///
 /// ## `modified` and `accessed` semantics
 ///

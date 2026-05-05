@@ -6,10 +6,11 @@
 //!
 //! Read-side operations (`get_objects`, `get_state`, `get_changes`,
 //! `query_objects`, `query_changes`) are defined on the
-//! [`jmap_server::JmapBackend`] supertrait.  Only write operations and the two
-//! FileNode-specific structural checks live here.
+//! [`jmap_server::JmapBackend`] supertrait.  Only write operations and the
+//! FileNode-specific structural queries live here.
 
 pub use jmap_filenode_types::backend::FileNodeProperty;
+use jmap_filenode_types::FileNode;
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
@@ -26,8 +27,7 @@ pub use jmap_server::{
 /// translates between the JMAP wire protocol and these backend calls.
 ///
 /// Read-side operations are defined on the [`JmapBackend`] supertrait.
-/// Only write operations and two FileNode-specific structural checks are
-/// here.
+/// Only write operations and FileNode-specific structural queries are here.
 ///
 /// This trait is not object-safe by design (generic methods).  Use
 /// `Arc<impl FileNodeBackend>` when sharing across tasks.
@@ -68,26 +68,50 @@ pub trait FileNodeBackend: JmapBackend {
     /// Backends that support all types unconditionally can always return `true`.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
-    /// Returns `true` if setting `node_id`'s `parentId` to `new_parent_id`
-    /// would create a cycle in the tree (i.e. `new_parent_id` is `node_id`
-    /// itself, or is a descendant of `node_id`).
+    /// Returns the ancestor chain of the given nodes from immediate parent to root.
     ///
-    /// Used by `FileNode/set` to enforce the "no cycles" constraint from
-    /// draft-ietf-jmap-filenode-13 §3.2.3.
-    fn would_create_cycle(
+    /// Used for cycle detection (if proposed new parent is in this list, a cycle
+    /// would be created) and for `fetchParents` expansion in `FileNode/get`.
+    fn get_ancestors(
         &self,
         account_id: &jmap_types::Id,
-        node_id: &jmap_types::Id,
-        new_parent_id: &jmap_types::Id,
+        ids: &[jmap_types::Id],
+    ) -> impl std::future::Future<Output = Result<Vec<FileNode>, Self::Error>> + Send;
+
+    /// Returns all IDs that are descendants of the given node (children,
+    /// grandchildren, etc.).
+    ///
+    /// Used for: (1) cycle detection — if proposed new `parentId` is in the
+    /// descendant set, the move would create a cycle; (2) `nodeHasChildren`
+    /// guard — if result is non-empty, the node has children.
+    fn get_descendant_ids(
+        &self,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<Vec<jmap_types::Id>, Self::Error>> + Send;
+
+    /// Returns whether a blob exists in the given account.
+    ///
+    /// Used by `FileNode/set` to validate `blobId` fields before creating or
+    /// updating a file node with type `"file"`.
+    fn blob_exists(
+        &self,
+        account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send;
 
-    /// Returns `true` if the node has at least one child node.
+    /// Returns the id of any sibling node that already has the given name, or
+    /// `None` if the name is unique within that parent.
     ///
-    /// Used by `FileNode/set` destroy to enforce `onDestroyRemoveChildren`
-    /// semantics per draft-ietf-jmap-filenode-13 §3.2.3.
-    fn node_has_children(
+    /// `parent_id` is `None` for the root level.  `case_insensitive` controls
+    /// the comparison (many file systems treat names case-insensitively).
+    ///
+    /// Used by `FileNode/set` to enforce the `alreadyExists` constraint.
+    fn find_sibling_by_name(
         &self,
         account_id: &jmap_types::Id,
-        node_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = bool> + Send;
+        parent_id: Option<&jmap_types::Id>,
+        name: &str,
+        case_insensitive: bool,
+    ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;
 }
