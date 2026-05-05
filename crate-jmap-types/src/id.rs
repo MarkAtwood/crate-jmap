@@ -382,8 +382,7 @@ mod tests {
     /// Oracle: RFC 8620 §1.4 example "2014-10-30T06:12:00Z" must succeed.
     #[test]
     fn utcdate_new_validated_valid_succeeds() {
-        let d = UTCDate::new_validated("2014-10-30T06:12:00Z")
-            .expect("valid UTCDate must succeed");
+        let d = UTCDate::new_validated("2014-10-30T06:12:00Z").expect("valid UTCDate must succeed");
         assert_eq!(d.as_ref(), "2014-10-30T06:12:00Z");
     }
 
@@ -423,8 +422,7 @@ mod tests {
     /// Oracle: non-empty State string succeeds.
     #[test]
     fn state_new_validated_valid_succeeds() {
-        let s = State::new_validated("75128aab4b1b")
-            .expect("valid State must succeed");
+        let s = State::new_validated("75128aab4b1b").expect("valid State must succeed");
         assert_eq!(s.as_ref(), "75128aab4b1b");
     }
 
