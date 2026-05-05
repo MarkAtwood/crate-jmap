@@ -85,25 +85,59 @@ pub trait MdnBackend: Send + Sync {
     ///
     /// Returns `Ok(Some(bytes))` if found, `Ok(None)` if the blob does not
     /// exist in this account, and `Err` for storage failures.
+    ///
+    /// # Performance note
+    ///
+    /// This method returns the **complete** blob. For `MDN/parse`, the handler
+    /// calls [`MdnBackend::get_blob_header_bytes`] first for a cheap
+    /// parsability check; implementors should override that method to avoid
+    /// loading large attachment blobs into memory before the check.
     fn get_blob_bytes(
         &self,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;
 
+    /// Fetch at most the first `limit` bytes of a blob by ID.
+    ///
+    /// Used by [`handle_mdn_parse`] for the cheap header-presence check before
+    /// fetching the full blob. The default implementation falls back to
+    /// [`MdnBackend::get_blob_bytes`] and truncates in memory; override this
+    /// method in production backends to perform a partial read at the storage
+    /// layer (e.g. a ranged `GET` against object storage or a `LIMIT` on a
+    /// streaming read).
+    ///
+    /// Returns `Ok(Some(bytes))` with `bytes.len() <= limit` if found,
+    /// `Ok(None)` if the blob does not exist, and `Err` for storage failures.
+    fn get_blob_header_bytes(
+        &self,
+        account_id: &jmap_types::Id,
+        blob_id: &jmap_types::Id,
+        limit: usize,
+    ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
+        async move {
+            let bytes = self.get_blob_bytes(account_id, blob_id).await?;
+            Ok(bytes.map(|mut v| {
+                v.truncate(limit);
+                v
+            }))
+        }
+    }
+
     /// Send one or more MDNs.
     ///
-    /// The caller ([`handle_mdn_send`]) guarantees that every entry in `send`
-    /// has `for_email_id = Some(…)` — entries with `None` are rejected before
-    /// this method is called.
+    /// The caller ([`handle_mdn_send`]) guarantees:
+    /// - Every entry has `for_email_id = Some(…)` — `None` entries are
+    ///   rejected before this method is called.
+    /// - The [`Email`] value paired with each [`Mdn`] is the same email
+    ///   object that the handler already fetched for the `$mdnsent` pre-check
+    ///   (step 6 of [`handle_mdn_send`]). Backends must use this value instead
+    ///   of re-fetching the email from storage, avoiding a second round-trip
+    ///   per entry.
     ///
     /// For each entry in `send`:
-    /// - Fetch the referenced email by `for_email_id`; place a `notFound`
-    ///   [`SetError`] in the result if the
-    ///   email does not exist.
     /// - Verify the email has a `Disposition-Notification-To` header; if not,
-    ///   place a `notFound` [`SetError`]
-    ///   (per draft §2.1).
+    ///   place a `notFound` [`SetError`] in the result (per draft §2.1).
     /// - Build and transmit the RFC 5322 MDN message.
     /// - Return server-set fields (`finalRecipient`, `originalMessageId`,
     ///   `mdnGateway`, `originalRecipient`, `error`) for sent entries.
@@ -112,14 +146,14 @@ pub trait MdnBackend: Send + Sync {
     /// `MailBackend::update_object` after this method returns — the backend
     /// does NOT stamp the keyword.
     ///
-    /// Returns [`BackendSetError::Other`]
-    /// only for catastrophic storage failures; per-entry failures are reported
-    /// inside [`MdnSendResult::not_sent`].
+    /// Returns [`BackendSetError::Other`] only for catastrophic storage
+    /// failures; per-entry failures are reported inside
+    /// [`MdnSendResult::not_sent`].
     fn send_mdns(
         &self,
         account_id: &jmap_types::Id,
         identity_id: &jmap_types::Id,
-        send: HashMap<String, Mdn>,
+        send: HashMap<String, (Mdn, Email)>,
     ) -> impl std::future::Future<
         Output = Result<MdnSendResult, jmap_server::backend::BackendSetError<Self::Error>>,
     > + Send;
@@ -295,7 +329,10 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         fetched.into_iter().map(|e| (e.id.clone(), e)).collect()
     };
 
-    let mut remaining_send: HashMap<String, Mdn> = HashMap::new();
+    // Pair each surviving MDN with its pre-fetched Email so that send_mdns
+    // does not need a second storage round-trip per entry. Entries whose email
+    // was not found are still passed through (backend returns notFound for those).
+    let mut remaining_send: HashMap<String, (Mdn, Option<Email>)> = HashMap::new();
     for (creation_id, mdn) in send_map {
         if let Some(ref for_email_id) = mdn.for_email_id {
             if let Some(email) = emails_by_id.get(for_email_id) {
@@ -306,28 +343,53 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                     );
                     continue;
                 }
+                remaining_send.insert(creation_id, (mdn, Some(email.clone())));
+                continue;
             }
         }
-        remaining_send.insert(creation_id, mdn);
+        remaining_send.insert(creation_id, (mdn, None));
     }
 
-    // Step 7: Call backend.send_mdns.
+    // Step 7: Call backend.send_mdns with (Mdn, Email) pairs.
+    // Entries where the email was not found are included; the backend is
+    // responsible for returning notFound for those entries.
     let mut sent_mdns: HashMap<String, Mdn> = HashMap::new();
 
     if !remaining_send.is_empty() {
-        let result = backend
-            .send_mdns(&req.account_id, &req.identity_id, remaining_send)
-            .await
-            .map_err(|e| match e {
-                BackendSetError::Other(inner) => JmapError::server_fail(inner.to_string()),
-                BackendSetError::SetError(se) => JmapError::server_fail(se.to_string()),
-            })?;
-
-        for (id, se) in result.not_sent {
-            not_sent.insert(id, set_error_value(&se));
+        // Flatten Option<Email> — entries with no pre-fetched email are dropped
+        // here and handled by the backend's notFound path, but since the spec
+        // requires a valid email to send an MDN, we emit notFound directly for
+        // any entry where the pre-check found no email.
+        let mut backend_send: HashMap<String, (Mdn, Email)> = HashMap::new();
+        for (creation_id, (mdn, maybe_email)) in remaining_send {
+            match maybe_email {
+                Some(email) => {
+                    backend_send.insert(creation_id, (mdn, email));
+                }
+                None => {
+                    not_sent.insert(
+                        creation_id,
+                        set_error_value(&SetError::new(SetErrorType::NotFound)),
+                    );
+                }
+            }
         }
-        for (id, mdn) in result.sent {
-            sent_mdns.insert(id, mdn);
+
+        if !backend_send.is_empty() {
+            let result = backend
+                .send_mdns(&req.account_id, &req.identity_id, backend_send)
+                .await
+                .map_err(|e| match e {
+                    BackendSetError::Other(inner) => JmapError::server_fail(inner.to_string()),
+                    BackendSetError::SetError(se) => JmapError::server_fail(se.to_string()),
+                })?;
+
+            for (id, se) in result.not_sent {
+                not_sent.insert(id, set_error_value(&se));
+            }
+            for (id, mdn) in result.sent {
+                sent_mdns.insert(id, mdn);
+            }
         }
     }
 

@@ -1,0 +1,11 @@
+{
+  "@type": "Task",
+  "uid": "buy-groceries-uid-001",
+  "title": "Buy groceries",
+  "due": "2020-01-19T18:00:00",
+  "timeZone": "Europe/Vienna",
+  "estimatedDuration": "PT1H",
+  "id": "taskid002",
+  "taskListId": "abc123",
+  "progress": "needs-action"
+}

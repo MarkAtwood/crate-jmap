@@ -10,6 +10,7 @@ license = "MIT OR Apache-2.0"
 
 [features]
 mdn = ["jmap-mail-types/mdn"]
+sieve = ["jmap-mail-types/sieve"]
 
 [dependencies]
 jmap-types      = { path = "../crate-jmap-types", version = "0.1.0" }

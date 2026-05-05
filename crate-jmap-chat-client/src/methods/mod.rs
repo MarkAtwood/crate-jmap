@@ -1,0 +1,1046 @@
+// Typed JMAP Chat method wrappers — response types, Patch<T>, SessionClient,
+// input/patch structs, constants, and helpers.
+//
+// Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
+// §5.2 /changes, §5.3 /set). Method implementations live in sub-modules and
+// operate on `SessionClient`.
+
+pub mod contact;
+pub mod misc;
+pub mod space_ban;
+pub mod space_invite;
+
+pub mod blob;
+pub mod custom_emoji;
+pub mod quota;
+
+use std::collections::HashMap;
+
+use serde::Deserialize;
+
+use jmap_types::Id;
+
+// ---------------------------------------------------------------------------
+// Response types
+// ---------------------------------------------------------------------------
+
+/// RFC 8620 §5.1 — /get response.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetResponse<T> {
+    pub account_id: Id,
+    pub state: String,
+    pub list: Vec<T>,
+    pub not_found: Option<Vec<Id>>,
+}
+
+/// RFC 8620 §5.5 — /query response.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryResponse {
+    pub account_id: Id,
+    pub query_state: String,
+    pub can_calculate_changes: bool,
+    pub position: u64,
+    pub ids: Vec<Id>,
+    pub total: Option<u64>,
+    pub limit: Option<u64>,
+}
+
+/// RFC 8620 §5.2 — /changes response.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ChangesResponse {
+    pub account_id: Id,
+    pub old_state: String,
+    pub new_state: String,
+    pub has_more_changes: bool,
+    pub created: Vec<Id>,
+    pub updated: Vec<Id>,
+    pub destroyed: Vec<Id>,
+}
+
+/// RFC 8620 §5.3 — /set response.
+///
+/// Used for create, update, and destroy operations. All optional maps are
+/// `None` when absent in the server response.
+///
+/// The type parameter `T` is the shape of each created/updated object.
+/// Defaults to `serde_json::Value` so callers that don't need typed objects
+/// can use `SetResponse` without a type argument.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+#[serde(bound(deserialize = "T: serde::de::DeserializeOwned"))]
+pub struct SetResponse<T = serde_json::Value> {
+    pub account_id: Id,
+    pub old_state: Option<String>,
+    pub new_state: String,
+    /// Keys are caller-supplied creation keys (not server Ids); see RFC 8620 §5.3.
+    pub created: Option<HashMap<String, T>>,
+    /// Keys are server-assigned object Ids; see RFC 8620 §5.3.
+    pub updated: Option<HashMap<String, T>>,
+    pub destroyed: Option<Vec<Id>>,
+    /// Keys are caller-supplied creation keys (not server Ids); see RFC 8620 §5.3.
+    pub not_created: Option<HashMap<String, SetError>>,
+    /// Keys are server-assigned object Ids; see RFC 8620 §5.3.
+    pub not_updated: Option<HashMap<String, SetError>>,
+    /// Keys are server-assigned object Ids; see RFC 8620 §5.3.
+    pub not_destroyed: Option<HashMap<String, SetError>>,
+}
+
+/// Response to a `PushSubscription/set` create call (RFC 8620 §7.2).
+///
+/// `account_id` is always `null` for PushSubscription objects (they are not
+/// account-scoped). `Option<Id>` handles both the null case and servers that
+/// echo the session accountId anyway.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PushSubscriptionCreateResponse {
+    #[serde(default)]
+    pub account_id: Option<Id>,
+    pub created: Option<HashMap<String, serde_json::Value>>,
+    #[serde(default)]
+    pub not_created: Option<HashMap<String, SetError>>,
+}
+
+/// A /set operation failure for a single object (RFC 8620 §5.3).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SetError {
+    #[serde(rename = "type")]
+    pub error_type: String,
+    pub description: Option<String>,
+    /// Present only when `error_type == "rateLimited"` (JMAP Chat slow-mode).
+    /// Callers should wait until this time before retrying.
+    #[serde(rename = "serverRetryAfter")]
+    pub server_retry_after: Option<jmap_types::UTCDate>,
+}
+
+impl std::fmt::Display for SetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.description {
+            Some(desc) => write!(f, "{}: {}", self.error_type, desc),
+            None => write!(f, "{}", self.error_type),
+        }
+    }
+}
+
+/// RFC 8620 §5.6 — /queryChanges response.
+///
+/// Reports which IDs were removed from and added to a query result set since
+/// `old_query_state`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryChangesResponse {
+    pub account_id: Id,
+    pub old_query_state: String,
+    pub new_query_state: String,
+    pub total: Option<u64>,
+    pub removed: Vec<Id>,
+    pub added: Vec<AddedItem>,
+}
+
+/// A single item added to a query result set (RFC 8620 §5.6).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AddedItem {
+    pub id: Id,
+    pub index: u64,
+}
+
+/// Response to a `Chat/typing` call (JMAP Chat §Chat/typing).
+///
+/// The server echoes only `accountId`.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TypingResponse {
+    pub account_id: Id,
+}
+
+/// Response to a `Space/join` call (JMAP Chat §Space/join).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceJoinResponse {
+    pub account_id: Id,
+    pub space_id: Id,
+}
+
+// ---------------------------------------------------------------------------
+// Patch<T>: three-way update value for nullable fields
+// ---------------------------------------------------------------------------
+
+/// Three-way patch value for nullable JMAP fields.
+///
+/// - `Keep` (default): the field is omitted from the patch — server leaves it unchanged.
+/// - `Set(v)`: the field is included with value `v`.
+/// - `Clear`: the field is included as JSON `null` (clears the server-side value).
+///
+/// Use `Patch::from(v)` to construct `Set(v)`. Use `Default::default()` or
+/// `Patch::Keep` to leave the field unchanged. Use `Patch::Clear` to set a
+/// nullable field to null explicitly.
+///
+/// # Serde usage
+///
+/// Fields of type `Patch<T>` **must** carry both attributes:
+/// ```ignore
+/// #[serde(default, skip_serializing_if = "Patch::is_keep")]
+/// pub my_field: Patch<String>,
+/// ```
+/// - `default`: absent JSON key → `Patch::Keep` (no change).
+/// - `skip_serializing_if`: omits the key from the output when the value is `Keep`.
+///
+/// Without `skip_serializing_if`, `Patch::Keep` serializes as a runtime error.
+///
+/// # Deserialization
+///
+/// `Patch::Keep` is **not reachable from JSON deserialization**. The custom
+/// `Deserialize` impl maps JSON `null` → `Clear` and a JSON value → `Set(v)`.
+/// An absent key (via `#[serde(default)]`) produces `Keep` via `Default`.
+#[derive(Debug, Default, Clone, PartialEq)]
+pub enum Patch<T> {
+    #[default]
+    Keep,
+    Set(T),
+    Clear,
+}
+
+impl<T> Patch<T> {
+    /// Returns `true` if this is `Patch::Keep` (field should be omitted from serialization).
+    pub fn is_keep(&self) -> bool {
+        matches!(self, Patch::Keep)
+    }
+}
+
+impl<T> From<T> for Patch<T> {
+    fn from(v: T) -> Self {
+        Patch::Set(v)
+    }
+}
+
+impl<T: serde::Serialize> Patch<T> {
+    /// Returns `None` when `Keep` (omit key from patch),
+    /// `Some(Value::Null)` when `Clear`, or `Some(serialized_value)` when `Set`.
+    pub fn map_entry(&self) -> Result<Option<serde_json::Value>, serde_json::Error> {
+        match self {
+            Patch::Keep => Ok(None),
+            Patch::Clear => Ok(Some(serde_json::Value::Null)),
+            Patch::Set(v) => serde_json::to_value(v).map(Some),
+        }
+    }
+}
+
+impl<T: serde::Serialize> serde::Serialize for Patch<T> {
+    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        match self {
+            Patch::Keep => Err(serde::ser::Error::custom(
+                "Patch::Keep cannot be serialized; add \
+                 #[serde(skip_serializing_if = \"Patch::is_keep\")] to the field",
+            )),
+            Patch::Clear => s.serialize_none(),
+            Patch::Set(v) => v.serialize(s),
+        }
+    }
+}
+
+impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Patch<T> {
+    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        // JSON absent (via #[serde(default)]) → Keep (default).
+        // JSON null → Clear. JSON value → Set(v).
+        Option::<T>::deserialize(d).map(|opt| match opt {
+            None => Patch::Clear,
+            Some(v) => Patch::Set(v),
+        })
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/// The call-id embedded in every single-method JMAP request produced by
+/// [`build_request`]. Pass directly to `jmap_base_client::extract_response`.
+pub(crate) const CALL_ID: &str = "r1";
+
+/// Capability URIs for standard JMAP Chat method calls (RFC 8620 §3.3).
+pub(crate) const USING_CHAT: &[&str] = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:chat"];
+
+/// Capability URIs for Quota method calls.
+pub(crate) const USING_QUOTA: &[&str] =
+    &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:quota"];
+
+/// Capability URIs for PushSubscription method calls (RFC 8620 §7.2).
+pub(crate) const USING_CORE: &[&str] = &["urn:ietf:params:jmap:core"];
+
+/// Capability URIs for PushSubscription/set with chat push extension.
+pub(crate) const USING_CHAT_PUSH: &[&str] = &[
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:chat:push",
+];
+
+// ---------------------------------------------------------------------------
+// build_request helper
+// ---------------------------------------------------------------------------
+
+/// Build a single-method JMAP request.
+///
+/// `using` is the complete `using` array for the request (RFC 8620 §3.3).
+/// Use the pre-defined constants [`USING_CHAT`], [`USING_QUOTA`], or
+/// [`USING_CORE`] to avoid per-call allocations.
+///
+/// The embedded call-id is [`CALL_ID`]; pass it directly to
+/// `jmap_base_client::extract_response`.
+pub(crate) fn build_request(
+    method: &str,
+    args: serde_json::Value,
+    using: &[&str],
+) -> jmap_types::JmapRequest {
+    let using_vec: Vec<String> = using.iter().map(|&s| s.to_owned()).collect();
+    let invocation: jmap_types::Invocation = (method.to_owned(), args, CALL_ID.to_owned());
+    jmap_types::JmapRequest::new(using_vec, vec![invocation], None)
+}
+
+// ---------------------------------------------------------------------------
+// resolve_client_id helper
+// ---------------------------------------------------------------------------
+
+/// Resolve an optional caller-supplied client ID, generating a ULID if absent.
+///
+/// Returns the supplied string unchanged, or a freshly generated ULID when
+/// `None` or empty.
+pub(crate) fn resolve_client_id(id: Option<&str>) -> String {
+    match id {
+        Some(s) if !s.is_empty() => s.to_owned(),
+        _ => ulid::Ulid::new().to_string(),
+    }
+}
+
+// ---------------------------------------------------------------------------
+// SessionClient — session-bound client
+// ---------------------------------------------------------------------------
+
+/// A `JmapClient` bound to a JMAP session.
+///
+/// Obtain via the chat extension methods that accept a `Session`. All JMAP
+/// Chat methods are available on this type without needing to pass `&Session`
+/// on every call.
+///
+/// # Session lifecycle
+///
+/// `SessionClient` captures the `Session` at construction time. JMAP sessions
+/// can expire; after re-fetching the session via `JmapClient::fetch_session`,
+/// construct a new `SessionClient` with the updated session. Reusing a stale
+/// `SessionClient` after session expiry will result in `unknownAccount` or
+/// similar errors from the server.
+pub struct SessionClient {
+    pub(crate) client: jmap_base_client::JmapClient,
+    pub(crate) session: jmap_base_client::Session,
+}
+
+impl SessionClient {
+    /// Extract `(api_url, chat_account_id)` from the bound session.
+    ///
+    /// Returns `Err(InvalidSession)` if there is no primary account for
+    /// `urn:ietf:params:jmap:chat`.
+    pub(crate) fn session_parts(&self) -> Result<(&str, &str), jmap_base_client::ClientError> {
+        let api_url = self.session.api_url.as_str();
+        let account_id = self
+            .session
+            .primary_account_id("urn:ietf:params:jmap:chat")
+            .ok_or_else(|| {
+                jmap_base_client::ClientError::InvalidSession(
+                    "no primary account for urn:ietf:params:jmap:chat".into(),
+                )
+            })?;
+        Ok((api_url, account_id))
+    }
+
+    /// The JMAP API URL from the bound session.
+    pub(crate) fn api_url(&self) -> &str {
+        self.session.api_url.as_str()
+    }
+
+    /// Forward a JMAP request to the underlying HTTP client.
+    pub(crate) async fn call_internal(
+        &self,
+        api_url: &str,
+        req: &jmap_types::JmapRequest,
+    ) -> Result<jmap_types::JmapResponse, jmap_base_client::ClientError> {
+        self.client.call(api_url, req).await
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Input/patch types for methods with many optional parameters
+// ---------------------------------------------------------------------------
+
+/// Input parameters for `Chat/query`.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct ChatQueryInput {
+    pub filter_kind: Option<jmap_chat_types::ChatKind>,
+    pub filter_muted: Option<bool>,
+    pub position: Option<u64>,
+    pub limit: Option<u64>,
+}
+
+/// Input parameters for `Message/query`.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct MessageQueryInput<'a> {
+    pub chat_id: Option<&'a str>,
+    pub has_mention: Option<bool>,
+    pub has_attachment: Option<bool>,
+    pub text: Option<&'a str>,
+    pub thread_root_id: Option<&'a str>,
+    /// Only include messages received after this time (exclusive).
+    pub after: Option<&'a jmap_types::UTCDate>,
+    /// Only include messages received before this time (exclusive).
+    pub before: Option<&'a jmap_types::UTCDate>,
+    pub position: Option<u64>,
+    pub limit: Option<u64>,
+    /// Sort by `sentAt` ascending (oldest first) when `true`.
+    /// Defaults to `false` (descending, newest first), so `position:0, limit:N`
+    /// returns the N most recent messages.
+    pub sort_ascending: bool,
+}
+
+impl<'a> MessageQueryInput<'a> {
+    /// Set ascending sort order (oldest first).
+    pub fn with_sort_ascending(mut self, v: bool) -> Self {
+        self.sort_ascending = v;
+        self
+    }
+}
+
+/// Input parameters for `Message/set` create.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct MessageCreateInput<'a> {
+    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    pub client_id: Option<&'a str>,
+    pub chat_id: &'a str,
+    pub body: &'a str,
+    /// MIME type for the message body.
+    pub body_type: crate::types::BodyType,
+    /// RFC 3339 timestamp.
+    pub sent_at: &'a jmap_types::UTCDate,
+    pub reply_to: Option<&'a str>,
+}
+
+impl<'a> MessageCreateInput<'a> {
+    /// Create a `MessageCreateInput` with required fields; optional fields default to `None`.
+    pub fn new(
+        chat_id: &'a str,
+        body: &'a str,
+        body_type: crate::types::BodyType,
+        sent_at: &'a jmap_types::UTCDate,
+    ) -> Self {
+        Self {
+            client_id: None,
+            chat_id,
+            body,
+            body_type,
+            sent_at,
+            reply_to: None,
+        }
+    }
+
+    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
+    pub fn with_client_id(mut self, id: &'a str) -> Self {
+        self.client_id = Some(id);
+        self
+    }
+
+    /// Set the message this one replies to.
+    pub fn with_reply_to(mut self, id: &'a str) -> Self {
+        self.reply_to = Some(id);
+        self
+    }
+}
+
+/// A single reaction change in a `Message/set` patch (JMAP Chat §4.5).
+///
+/// The patch key is `reactions/<senderReactionId>` (JSON Pointer).
+/// `senderReactionId` is a caller-generated ID (e.g. ULID) that uniquely
+/// identifies this reaction slot for the sending user in this message.
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ReactionChange<'a> {
+    /// Add a reaction. Patch value: `{emoji, sentAt}`.
+    Add {
+        sender_reaction_id: &'a str,
+        emoji: &'a str,
+        sent_at: &'a jmap_types::UTCDate,
+    },
+    /// Remove a reaction. Patch value: null.
+    Remove { sender_reaction_id: &'a str },
+}
+
+/// Patch parameters for `Message/set` update.
+///
+/// All fields are optional; absent fields (i.e. `None`) are not included in
+/// the patch (the server leaves them unchanged).
+///
+/// Use `..Default::default()` to fill in unused fields.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct MessagePatch<'a> {
+    /// New message body text (author-only edit).
+    pub body: Option<&'a str>,
+    /// MIME type for `body`. Set alongside `body` in author-only edits.
+    pub body_type: Option<crate::types::BodyType>,
+    /// Reaction changes to apply. `None` (default) = no reaction changes.
+    pub reaction_changes: Option<&'a [ReactionChange<'a>]>,
+    /// Set the read-receipt timestamp (`Message.readAt`).
+    pub read_at: Option<&'a jmap_types::UTCDate>,
+    /// Set the deletion timestamp for soft/hard delete.
+    pub deleted_at: Option<&'a jmap_types::UTCDate>,
+    /// When `Some(true)` and `deleted_at` is also set, deletes for all
+    /// participants (server sends `Peer/retract`).
+    pub deleted_for_all: Option<bool>,
+}
+
+/// Patch parameters for `PresenceStatus/set` update.
+///
+/// All fields are optional. A field that is `Patch::Keep` (default) is omitted
+/// from the patch, leaving the server value unchanged. Use `Patch::Set(v)` to
+/// set a value and `Patch::Clear` to null-clear a nullable field.
+///
+/// Use `..Default::default()` to fill in unused fields.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct PresenceStatusPatch<'a> {
+    pub presence: Option<jmap_chat_types::Presence>,
+    pub status_text: Patch<&'a str>,
+    pub status_emoji: Patch<&'a str>,
+    /// Set or clear the auto-clear deadline. `Patch::Clear` removes any deadline.
+    pub expires_at: Patch<&'a jmap_types::UTCDate>,
+    pub receipt_sharing: Option<bool>,
+}
+
+/// Input parameters for `CustomEmoji/query`.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct CustomEmojiQueryInput<'a> {
+    /// Filter to a specific Space's custom emojis. `None` returns all emojis
+    /// visible to the account (Space-specific + server-global).
+    pub filter_space_id: Option<&'a str>,
+    pub position: Option<u64>,
+    pub limit: Option<u64>,
+}
+
+/// Parameters for creating one CustomEmoji via `CustomEmoji/set`.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct CustomEmojiCreateInput<'a> {
+    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    pub client_id: Option<&'a str>,
+    /// Shortcode name without colons (e.g., `catjam`).
+    pub name: &'a str,
+    /// blobId of the emoji image (already uploaded).
+    pub blob_id: &'a str,
+    /// If `Some`, limits the emoji to the given Space. `None` = server-global.
+    pub space_id: Option<&'a str>,
+}
+
+impl<'a> CustomEmojiCreateInput<'a> {
+    /// Create a `CustomEmojiCreateInput` with required fields; optional fields default to `None`.
+    pub fn new(name: &'a str, blob_id: &'a str) -> Self {
+        Self {
+            client_id: None,
+            name,
+            blob_id,
+            space_id: None,
+        }
+    }
+
+    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
+    pub fn with_client_id(mut self, id: &'a str) -> Self {
+        self.client_id = Some(id);
+        self
+    }
+}
+
+/// Parameters for creating one SpaceInvite via `SpaceInvite/set`.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceInviteCreateInput<'a> {
+    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    pub client_id: Option<&'a str>,
+    pub space_id: &'a str,
+    pub default_channel_id: Option<&'a str>,
+    pub expires_at: Option<&'a jmap_types::UTCDate>,
+    pub max_uses: Option<u64>,
+}
+
+impl<'a> SpaceInviteCreateInput<'a> {
+    /// Create a `SpaceInviteCreateInput` with required fields; optional fields default to `None`.
+    pub fn new(space_id: &'a str) -> Self {
+        Self {
+            client_id: None,
+            space_id,
+            default_channel_id: None,
+            expires_at: None,
+            max_uses: None,
+        }
+    }
+
+    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
+    pub fn with_client_id(mut self, id: &'a str) -> Self {
+        self.client_id = Some(id);
+        self
+    }
+
+    /// Set the maximum number of times this invite may be used.
+    pub fn with_max_uses(mut self, max: u64) -> Self {
+        self.max_uses = Some(max);
+        self
+    }
+}
+
+/// Parameters for creating one SpaceBan via `SpaceBan/set`.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceBanCreateInput<'a> {
+    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    pub client_id: Option<&'a str>,
+    pub space_id: &'a str,
+    /// ChatContact.id of the user to ban.
+    pub user_id: &'a str,
+    pub reason: Option<&'a str>,
+    pub expires_at: Option<&'a jmap_types::UTCDate>,
+}
+
+impl<'a> SpaceBanCreateInput<'a> {
+    /// Create a `SpaceBanCreateInput` with required fields; optional fields default to `None`.
+    pub fn new(space_id: &'a str, user_id: &'a str) -> Self {
+        Self {
+            client_id: None,
+            space_id,
+            user_id,
+            reason: None,
+            expires_at: None,
+        }
+    }
+
+    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
+    pub fn with_client_id(mut self, id: &'a str) -> Self {
+        self.client_id = Some(id);
+        self
+    }
+}
+
+/// Patch parameters for `ChatContact/set` update.
+///
+/// All fields are optional; absent fields are omitted from the patch. For the
+/// nullable `display_name` field, use `Patch::Set(s)` to set and `Patch::Clear`
+/// to clear. Use `..Default::default()` to fill in unused fields.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct ChatContactPatch<'a> {
+    pub blocked: Option<bool>,
+    /// `Patch::Clear` clears `displayName`; `Patch::Set(s)` sets it.
+    pub display_name: Patch<&'a str>,
+}
+
+/// Sort property for `ChatContact/query`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ContactSortProperty {
+    LastSeenAt,
+    Login,
+    LastActiveAt,
+}
+
+/// Input parameters for `ChatContact/query`.
+///
+/// All fields are optional; an empty filter shows all contacts.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct ChatContactQueryInput {
+    pub filter_blocked: Option<bool>,
+    /// Filter to contacts with this exact presence state.
+    pub filter_presence: Option<crate::types::ContactPresenceFilter>,
+    pub position: Option<u64>,
+    pub limit: Option<u64>,
+    /// Sort property.
+    pub sort_property: Option<ContactSortProperty>,
+    /// When `Some(false)` or `None`, sort descending. `Some(true)` sorts ascending.
+    pub sort_ascending: Option<bool>,
+}
+
+/// Input parameters for `Space/set` create.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceCreateInput<'a> {
+    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    pub client_id: Option<&'a str>,
+    /// Display name for the Space.
+    pub name: &'a str,
+    pub description: Option<&'a str>,
+    pub icon_blob_id: Option<&'a str>,
+}
+
+impl<'a> SpaceCreateInput<'a> {
+    /// Create a `SpaceCreateInput` with required fields; optional fields default to `None`.
+    pub fn new(name: &'a str) -> Self {
+        Self {
+            client_id: None,
+            name,
+            description: None,
+            icon_blob_id: None,
+        }
+    }
+
+    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
+    pub fn with_client_id(mut self, id: &'a str) -> Self {
+        self.client_id = Some(id);
+        self
+    }
+}
+
+/// Input parameters for `Space/query`.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct SpaceQueryInput<'a> {
+    /// Filter by substring match on Space name.
+    pub filter_name: Option<&'a str>,
+    pub filter_is_public: Option<bool>,
+    pub position: Option<u64>,
+    pub limit: Option<u64>,
+}
+
+/// How to join a Space — passed to `Space/join`.
+///
+/// The enum makes invalid inputs unrepresentable: exactly one path is always
+/// selected at construction time.
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum SpaceJoinInput<'a> {
+    /// Redeem a SpaceInvite by its `code` field (not its `id`).
+    InviteCode(&'a str),
+    /// Join a public Space directly by its JMAP id.
+    SpaceId(&'a str),
+}
+
+/// One entry in the `addMembers` patch key for `Chat/set` update.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct AddMemberInput<'a> {
+    /// ChatContact.id of the member to add.
+    pub id: &'a str,
+    /// Role for the new member. `None` lets the server apply the default (`"member"`).
+    pub role: Option<crate::types::ChatMemberRole>,
+}
+
+impl<'a> AddMemberInput<'a> {
+    /// Create an `AddMemberInput`; `role` defaults to `None` (server assigns default).
+    pub fn new(id: &'a str) -> Self {
+        Self { id, role: None }
+    }
+
+    /// Set the role for this member.
+    pub fn with_role(mut self, role: crate::types::ChatMemberRole) -> Self {
+        self.role = Some(role);
+        self
+    }
+}
+
+/// One entry in the `updateMemberRoles` patch key for `Chat/set` update.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct UpdateMemberRoleInput<'a> {
+    /// ChatContact.id of the member to update.
+    pub id: &'a str,
+    /// New role for this member.
+    pub role: crate::types::ChatMemberRole,
+}
+
+impl<'a> UpdateMemberRoleInput<'a> {
+    /// Create an `UpdateMemberRoleInput` with the target member and their new role.
+    pub fn new(id: &'a str, role: crate::types::ChatMemberRole) -> Self {
+        Self { id, role }
+    }
+}
+
+/// Input parameters for `Chat/set` create.
+///
+/// Discriminates the three Chat creation kinds from the spec. Each variant
+/// carries the fields required for that kind plus an optional `client_id`;
+/// when `None`, a ULID is generated automatically.
+#[non_exhaustive]
+#[derive(Debug)]
+pub enum ChatCreateInput<'a> {
+    /// Create a direct (one-to-one) chat.
+    Direct {
+        /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+        client_id: Option<&'a str>,
+        /// ChatContact.id of the other participant.
+        contact_id: &'a str,
+    },
+    /// Create a group chat.
+    Group {
+        /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+        client_id: Option<&'a str>,
+        /// Display name for the group.
+        name: &'a str,
+        /// ChatContact.ids of initial non-owner members.
+        member_ids: &'a [&'a str],
+        description: Option<&'a str>,
+        avatar_blob_id: Option<&'a str>,
+        message_expiry_seconds: Option<u64>,
+    },
+    /// Create a channel chat inside a Space.
+    Channel {
+        /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+        client_id: Option<&'a str>,
+        /// The Space this channel belongs to.
+        space_id: &'a str,
+        /// Display name for the channel.
+        name: &'a str,
+        description: Option<&'a str>,
+    },
+}
+
+/// Patch parameters for `Chat/set` update.
+///
+/// All fields are optional; absent fields are not included in the patch (the
+/// server leaves them unchanged). For nullable spec fields (`mute_until`,
+/// `description`, `avatar_blob_id`) use `Patch::Set(v)` to set and
+/// `Patch::Clear` to null-clear. Slice fields default to `None` (no change).
+///
+/// Use `..Default::default()` to fill in unused fields.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct ChatPatch<'a> {
+    pub muted: Option<bool>,
+    /// `Patch::Clear` clears `muteUntil`; `Patch::Set(t)` sets it.
+    pub mute_until: Patch<&'a jmap_types::UTCDate>,
+    pub receive_typing_indicators: Option<bool>,
+    /// Replace the entire pinned-message list. `Some(&[])` clears all pins.
+    pub pinned_message_ids: Option<&'a [&'a str]>,
+    /// Spec defines this as `UnsignedInt` (non-nullable).
+    pub message_expiry_seconds: Option<u64>,
+    pub receipt_sharing: Option<bool>,
+    /// New display name (group chats, admin only).
+    pub name: Option<&'a str>,
+    /// `Patch::Clear` clears; `Patch::Set(s)` sets (group chats, admin only).
+    pub description: Patch<&'a str>,
+    /// `Patch::Clear` clears; `Patch::Set(id)` sets (group chats, admin only).
+    pub avatar_blob_id: Patch<&'a str>,
+    /// Members to add (group chats, admin only). `None` = no change.
+    pub add_members: Option<&'a [AddMemberInput<'a>]>,
+    /// ChatContact.ids to remove (group chats, admin only). `None` = no change.
+    pub remove_members: Option<&'a [&'a str]>,
+    /// Role changes for existing members (group chats, admin only). `None` = no change.
+    pub update_member_roles: Option<&'a [UpdateMemberRoleInput<'a>]>,
+}
+
+/// One member to add in the `addMembers` patch key of `Space/set` update.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceAddMemberInput<'a> {
+    /// ChatContact.id of the member to add.
+    pub id: &'a str,
+    /// Initial role IDs for the new member. `None` grants no extra roles beyond `@everyone`.
+    pub role_ids: Option<&'a [&'a str]>,
+}
+
+impl<'a> SpaceAddMemberInput<'a> {
+    /// Create a `SpaceAddMemberInput`; `role_ids` defaults to `None`.
+    pub fn new(id: &'a str) -> Self {
+        Self { id, role_ids: None }
+    }
+}
+
+/// One member update in the `updateMembers` patch key of `Space/set` update.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceUpdateMemberInput<'a> {
+    /// ChatContact.id of the member to update.
+    pub id: &'a str,
+    pub role_ids: Option<&'a [&'a str]>,
+    /// `Patch::Clear` clears the nick; `Patch::Set(s)` sets it.
+    pub nick: Patch<&'a str>,
+}
+
+impl<'a> SpaceUpdateMemberInput<'a> {
+    /// Create a `SpaceUpdateMemberInput`; optional fields default to `None`/`Keep`.
+    pub fn new(id: &'a str) -> Self {
+        Self {
+            id,
+            role_ids: None,
+            nick: Patch::Keep,
+        }
+    }
+}
+
+/// One channel to add in the `addChannels` patch key of `Space/set` update.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceAddChannelInput<'a> {
+    pub name: &'a str,
+    pub category_id: Option<&'a str>,
+    pub position: Option<u64>,
+    pub topic: Option<&'a str>,
+}
+
+impl<'a> SpaceAddChannelInput<'a> {
+    /// Create a `SpaceAddChannelInput`; optional fields default to `None`.
+    pub fn new(name: &'a str) -> Self {
+        Self {
+            name,
+            category_id: None,
+            position: None,
+            topic: None,
+        }
+    }
+}
+
+/// Patch parameters for `Space/set` update.
+///
+/// All fields are optional. Absent fields are omitted from the patch.
+/// Nullable fields (`description`, `icon_blob_id`) use `Patch::Set(v)` to set
+/// and `Patch::Clear` to null-clear. Slice fields default to `None` (no change).
+///
+/// Use `..Default::default()` to fill in unused fields.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct SpacePatch<'a> {
+    /// New display name (`manage_space` permission required).
+    pub name: Option<&'a str>,
+    /// `Patch::Clear` clears; `Patch::Set(s)` sets.
+    pub description: Patch<&'a str>,
+    /// `Patch::Clear` clears; `Patch::Set(id)` sets.
+    pub icon_blob_id: Patch<&'a str>,
+    pub is_public: Option<bool>,
+    pub is_publicly_previewable: Option<bool>,
+    /// Members to add (`manage_members` required). `None` = no change.
+    pub add_members: Option<&'a [SpaceAddMemberInput<'a>]>,
+    /// ChatContact.ids to remove (`manage_members` required). `None` = no change.
+    pub remove_members: Option<&'a [&'a str]>,
+    /// Member updates (`manage_members` required). `None` = no change.
+    pub update_members: Option<&'a [SpaceUpdateMemberInput<'a>]>,
+    /// Channels to add (`manage_channels` required). `None` = no change.
+    pub add_channels: Option<&'a [SpaceAddChannelInput<'a>]>,
+    /// Channel Chat ids to remove (`manage_channels` required). `None` = no change.
+    pub remove_channels: Option<&'a [&'a str]>,
+}
+
+/// Input parameters for `PushSubscription/set` create (RFC 8620 §7.2).
+///
+/// Creates a PushSubscription with the optional `chatPush` extension
+/// (draft-atwood-jmap-chat-push-00 §3.1).
+///
+/// `device_client_id` and `url` have no safe defaults and must always be supplied.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct PushSubscriptionCreateInput<'a> {
+    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    pub client_id: Option<&'a str>,
+    /// Stable client device identifier, used by the server to deduplicate subscriptions.
+    pub device_client_id: &'a str,
+    /// Push endpoint URL registered with the platform push service.
+    pub url: &'a str,
+    /// Subscription expiry time. `None` lets the server choose.
+    pub expires: Option<&'a jmap_types::UTCDate>,
+    /// Data type names to include in StateChange notifications.
+    /// `None` means the server delivers all changed types.
+    pub types: Option<&'a [&'a str]>,
+    /// Per-account ChatPushConfig entries for inline push. Each entry is
+    /// `(accountId, config)`. Pass `None` to omit the `chatPush` property.
+    pub chat_push: Option<&'a [(&'a str, jmap_chat_types::ChatPushConfig)]>,
+}
+
+impl<'a> PushSubscriptionCreateInput<'a> {
+    /// Create a `PushSubscriptionCreateInput` with required fields; optional fields default to `None`.
+    pub fn new(device_client_id: &'a str, url: &'a str) -> Self {
+        Self {
+            client_id: None,
+            device_client_id,
+            url,
+            expires: None,
+            types: None,
+            chat_push: None,
+        }
+    }
+
+    /// Set the caller-supplied creation key (overrides the auto-generated ULID).
+    pub fn with_client_id(mut self, id: &'a str) -> Self {
+        self.client_id = Some(id);
+        self
+    }
+
+    /// Restrict StateChange notifications to these data type names.
+    pub fn with_types(mut self, types: &'a [&'a str]) -> Self {
+        self.types = Some(types);
+        self
+    }
+
+    /// Attach per-account ChatPushConfig entries for inline push.
+    pub fn with_chat_push(
+        mut self,
+        chat_push: &'a [(&'a str, jmap_chat_types::ChatPushConfig)],
+    ) -> Self {
+        self.chat_push = Some(chat_push);
+        self
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Method sub-modules
+// ---------------------------------------------------------------------------
+
+pub mod chat;
+pub mod message;
+pub mod space;
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Oracle: `Patch::Keep` via `map_entry()` returns `None` (key omitted from patch).
+    /// This is the canonical pattern used by all patch methods in this crate.
+    /// The expected value `None` is derived directly from the spec: a field not
+    /// present in the patch leaves the server value unchanged (RFC 8620 §5.3).
+    #[test]
+    fn patch_keep_via_map_entry() {
+        let p: Patch<String> = Patch::Keep;
+        let result = p.map_entry().expect("map_entry must not fail for Keep");
+        assert!(
+            result.is_none(),
+            "Patch::Keep must produce None from map_entry (key omitted from patch)"
+        );
+    }
+
+    /// Oracle: `Patch::Set(v)` via `map_entry()` returns `Some(json_value)`.
+    /// Expected JSON is derived from the literal value "hello", not from the code.
+    #[test]
+    fn patch_set_via_map_entry() {
+        let p = Patch::Set("hello".to_string());
+        let result = p.map_entry().expect("map_entry must not fail for Set");
+        assert_eq!(
+            result,
+            Some(serde_json::Value::String("hello".to_string())),
+            "Patch::Set must produce Some(json_value) from map_entry"
+        );
+    }
+
+    /// Oracle: `Patch::Clear` via `map_entry()` returns `Some(Value::Null)`.
+    /// Clearing a nullable field sends explicit JSON null (RFC 8620 §5.3).
+    #[test]
+    fn patch_clear_via_map_entry() {
+        let p: Patch<String> = Patch::Clear;
+        let result = p.map_entry().expect("map_entry must not fail for Clear");
+        assert_eq!(
+            result,
+            Some(serde_json::Value::Null),
+            "Patch::Clear must produce Some(null) from map_entry"
+        );
+    }
+}

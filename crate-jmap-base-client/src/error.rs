@@ -105,6 +105,10 @@ pub enum ClientError {
     /// server fix.
     #[error("unexpected server response: {0}")]
     UnexpectedResponse(String),
+
+    /// Server rate-limited the request. `retry_after` indicates when to retry.
+    #[error("rate limited; retry after {retry_after}")]
+    RateLimited { retry_after: jmap_types::UTCDate },
 }
 
 // ---------------------------------------------------------------------------
@@ -115,10 +119,9 @@ pub enum ClientError {
 mod tests {
     use super::*;
 
-    /// Verify ClientError does not have a RateLimited variant by exhaustive match.
-    /// This match will fail to compile if RateLimited is ever reintroduced.
+    /// Verify ClientError variants by exhaustive match.
     #[test]
-    fn client_error_no_rate_limited_variant() {
+    fn client_error_exhaustive_match() {
         let e = ClientError::InvalidArgument("test".into());
         match e {
             ClientError::Http(_) => {}
@@ -135,6 +138,7 @@ mod tests {
             ClientError::ResponseTooLarge { .. } => {}
             ClientError::WebSocket(_) => {}
             ClientError::UnexpectedResponse(_) => {}
+            ClientError::RateLimited { .. } => {}
         }
     }
 }

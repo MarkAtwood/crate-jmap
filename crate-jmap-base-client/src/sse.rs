@@ -47,7 +47,7 @@ pub enum SseEvent {
     ///
     /// Callers should silently ignore this variant; log `event_type` when
     /// debugging unexpected parse failures.
-    Unknown { event_type: String },
+    Unknown { event_type: String, data: String },
 }
 
 /// Parse a single SSE block (the text between two blank lines) into an [`SseFrame`].
@@ -86,15 +86,18 @@ pub fn parse_sse_block(block: &str) -> SseFrame {
         Some("state") => match data_lines.as_slice() {
             [] => SseEvent::Unknown {
                 event_type: "state".to_owned(),
+                data: String::new(),
             }, // no data: lines
             [single] => parse_state_data("state", single),
             _ => parse_state_data("state", &data_lines.join("\n")),
         },
         Some(t) => SseEvent::Unknown {
             event_type: t.to_owned(),
+            data: data_lines.join("\n"),
         },
         None => SseEvent::Unknown {
             event_type: String::new(),
+            data: data_lines.join("\n"),
         },
     };
 
@@ -115,6 +118,7 @@ fn parse_state_data(event_type: &str, data: &str) -> SseEvent {
         Some(sc) => SseEvent::StateChange(sc),
         None => SseEvent::Unknown {
             event_type: event_type.to_owned(),
+            data: data.to_owned(),
         },
     }
 }
@@ -250,6 +254,7 @@ mod tests {
     fn sse_event_no_typing_or_presence() {
         let e = SseEvent::Unknown {
             event_type: String::new(),
+            data: String::new(),
         };
         match e {
             SseEvent::StateChange(_) => {}

@@ -96,3 +96,36 @@
 [23:40:51] REVIEW round 1: P0=2 P1=8 P2=18
 [23:44:13] COORDINATOR: round 1 fixes committed. Starting round 2.
 [23:52:13] COORDINATOR: phase3 done. Review converged in 3 rounds.
+[18:30:07] COORDINATOR: starting phase1 research wave for JMAP-82ty
+[18:32:41] COORDINATOR: research wave complete (INVENTORY, API-SHAPE, SPEC, INTEGRATION, SECURITY)
+[19:01:36] COORDINATOR: phase1 complete for JMAP-82ty; dep graph set; Wave-0 ready: JMAP-wx3
+[19:05:41] team-wx3: JMAP-wx3 complete; sieve types in jmap-mail-types; wire format fixed by V; workspace clean
+[19:07:18] team-3uh: JMAP-3uh complete; SieveBackend trait created; Cargo.toml feature added; workspace clean
+[19:08:46] team-589: JMAP-589 complete; lib.rs wired; register_sieve_handlers added; stubs in sieve.rs; workspace clean
+[19:14:45] Wave2: all 4 handlers closed (irj/46i/3qw/ogt); 606 tests pass
+[19:16:05] team-7uk: JMAP-7uk complete; MemorySieveBackend added; 606 tests pass
+[19:19:36] COORDINATOR: phase2 complete; all sieve beads closed; workspace clean; 16 sieve integration tests pass
+[19:19:43] COORDINATOR: review round 1, epic JMAP-w9hj
+[19:23:09] REVIEW round 1: P0=0 P1=4 P2=5
+[19:28:29] COORDINATOR: round 1 fixes closed; workspace clean; starting round 2
+[19:28:35] COORDINATOR: review round 2, epic JMAP-l4mj
+[19:33:37] REVIEW round 2: P0=0 P1=1 P2=3
+[19:38:08] COORDINATOR: round 2 fixes closed; workspace clean; starting round 3
+[19:38:13] COORDINATOR: review round 3, epic JMAP-fg8q
+[19:40:06] REVIEW round 3: P0=0 P1=0 P2=1
+[19:44:01] COORDINATOR: phase3 done. Review converged in 3 rounds. P3 items remain but SEC7 confirmed approaching bottom.
+[19:47:38] COORDINATOR: claimed epic JMAP-gb1w
+[23:09:40] COORDINATOR: research wave complete; user approved jmap-base-client unlock for raw SSE/WS data; starting gap analysis
+[23:15:50] COORDINATOR: phase1 complete for JMAP-gb1w; 17 beads specced; Wave-0 ready: ds04, gb1w.1, xjmj
+[23:25:00] Wave1: s1ei/lqtf complete; workspace clean
+[23:48:11] Wave2: all 10 method/SSE/WS beads closed; 24 chat-client tests pass; workspace clean
+[23:49:44] COORDINATOR: phase2 complete; all chat-client beads closed; 29 tests pass; workspace clean
+[23:49:53] COORDINATOR: review round 1, epic JMAP-4g6p
+[23:52:29] REVIEW round 1: P0=0 P1=0 P2=3
+[23:53:34] COORDINATOR: round 1 fixes closed; starting round 2
+[23:53:40] COORDINATOR: review round 2, epic JMAP-vuqs
+[23:55:55] REVIEW round 2: P0=3 P1=0 P2=0
+[23:58:58] COORDINATOR: round 2 P0 fixes closed; starting round 3
+[23:59:03] COORDINATOR: review round 3, epic JMAP-8fpl
+[00:00:08] REVIEW round 3: P0=0 P1=1 P2=0
+[00:00:36] COORDINATOR: phase3 done. Review converged in 3 rounds.

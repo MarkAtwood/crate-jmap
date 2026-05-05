@@ -1,10 +1,491 @@
-// jmap-contacts-server — JMAP Contacts method handlers.
-// Spec: draft-ietf-jmap-contacts-10
-// See PLAN.md for implementation plan.
+//! JMAP Contacts extension method handlers (draft-ietf-jmap-contacts-10).
+//!
+//! # Usage
+//!
+//! Implement [`ContactsBackend`] for your storage layer, then call
+//! [`register_contacts_handlers`] to wire all method names into a
+//! [`jmap_server::Dispatcher`]:
+//!
+//! ```rust,no_run
+//! # use std::sync::Arc;
+//! # use jmap_contacts_server::{ContactsBackend, register_contacts_handlers};
+//! # use jmap_server::Dispatcher;
+//! # fn example<B: ContactsBackend + 'static>(backend: B) {
+//! let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+//! register_contacts_handlers(&mut dispatcher, Arc::new(backend));
+//! # }
+//! ```
 
-/// Backend trait for JMAP Contacts storage.
+#![forbid(unsafe_code)]
+
+use std::sync::Arc;
+
+use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
+
+pub mod addressbook;
+pub mod backend;
+pub mod card;
+mod helpers;
+
+pub use addressbook::{
+    handle_address_book_changes, handle_address_book_get, handle_address_book_set,
+};
+pub use backend::{
+    AddedItem, AddressBookProperty, BackendChangesError, BackendSetError, ChangesResult,
+    ContactCardProperty, ContactsBackend, GetObject, JmapBackend, JmapObject, QueryChangesResult,
+    QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+};
+pub use card::{
+    handle_contact_card_changes, handle_contact_card_copy, handle_contact_card_get,
+    handle_contact_card_query, handle_contact_card_query_changes, handle_contact_card_set,
+};
+
+/// Capability URI for `urn:ietf:params:jmap:contacts`.
+pub const CAPABILITY_CONTACTS: &str = "urn:ietf:params:jmap:contacts";
+
+// ---------------------------------------------------------------------------
+// register_contacts_handlers — the main entry point for consumers
+// ---------------------------------------------------------------------------
+
+/// Register all JMAP Contacts method handlers with `dispatcher`.
 ///
-/// Implement this to plug any storage engine into the Contacts handlers.
-pub trait ContactsBackend {
-    // Methods will be added in implementation beads.
+/// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
+///
+/// After this call, the dispatcher handles:
+/// `AddressBook/get`, `AddressBook/changes`, `AddressBook/set`,
+/// `ContactCard/get`, `ContactCard/changes`, `ContactCard/set`,
+/// `ContactCard/copy`, `ContactCard/query`, `ContactCard/queryChanges`.
+///
+/// **No `AddressBook/query` or `AddressBook/queryChanges`** — the spec
+/// (draft-ietf-jmap-contacts-10) does not define these methods.
+pub fn register_contacts_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+where
+    B: ContactsBackend + 'static,
+    C: Clone + Send + 'static,
+{
+    // Helper: register one method with a closure taking (Arc<B>, call_id, args).
+    macro_rules! reg {
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+            let backend_arc: Arc<B> = Arc::clone(&$backend);
+            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+                backend: backend_arc,
+                call_fn: Box::new(move |$b: Arc<B>, $ci: String, $a: serde_json::Value| {
+                    Box::pin(async move { $body }) as HandlerFuture
+                }),
+            });
+            dispatcher.register($method, h);
+        }};
+    }
+
+    // AddressBook
+    reg!("AddressBook/get", backend, |b, _ci, a| {
+        handle_address_book_get(&*b, a).await
+    });
+    reg!("AddressBook/changes", backend, |b, _ci, a| {
+        handle_address_book_changes(&*b, a).await
+    });
+    reg!("AddressBook/set", backend, |b, _ci, a| {
+        handle_address_book_set(&*b, a).await
+    });
+
+    // ContactCard
+    reg!("ContactCard/get", backend, |b, _ci, a| {
+        handle_contact_card_get(&*b, a).await
+    });
+    reg!("ContactCard/changes", backend, |b, _ci, a| {
+        handle_contact_card_changes(&*b, a).await
+    });
+    reg!("ContactCard/set", backend, |b, _ci, a| {
+        handle_contact_card_set(&*b, a).await
+    });
+    reg!("ContactCard/copy", backend, |b, _ci, a| {
+        handle_contact_card_copy(&*b, a).await
+    });
+    reg!("ContactCard/query", backend, |b, _ci, a| {
+        handle_contact_card_query(&*b, a).await
+    });
+    reg!("ContactCard/queryChanges", backend, |b, _ci, a| {
+        handle_contact_card_query_changes(&*b, a).await
+    });
+}
+
+pub use jmap_server::ClosureHandler;
+
+// ---------------------------------------------------------------------------
+// test_support — in-memory mock backend used by inline tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+pub(crate) mod test_support {
+    //! In-memory mock backend for unit tests.
+    //!
+    //! Provides a minimal `ContactsBackend` implementation. The mock
+    //! `address_book_has_contents` returns `true` for the special id
+    //! `"ab-nonempty"` and `false` for everything else, enabling tests of
+    //! the `onDestroyRemoveContents` logic without a real storage layer.
+
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    use jmap_contacts_types::ContactCard;
+    use jmap_server::{
+        BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
+        QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    };
+    use jmap_types::{Id, State};
+
+    use crate::backend::ContactsBackend;
+
+    /// Minimal error type for the mock backend.
+    #[derive(Debug)]
+    pub struct MockError(pub String);
+
+    impl std::fmt::Display for MockError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "mock error: {}", self.0)
+        }
+    }
+
+    impl std::error::Error for MockError {}
+
+    /// In-memory state for one account.
+    #[derive(Default, Clone)]
+    struct AccountState {
+        contact_cards: HashMap<Id, ContactCard>,
+    }
+
+    /// In-memory mock backend for testing.
+    #[derive(Clone)]
+    pub struct MockBackend {
+        state: Arc<Mutex<HashMap<String, AccountState>>>,
+        /// Ids in this set report as having contents (for onDestroyRemoveContents tests).
+        nonempty_books: Arc<Mutex<std::collections::HashSet<String>>>,
+        /// Whether copy_contact_card was called (for copy test verification).
+        pub copy_called: Arc<Mutex<bool>>,
+    }
+
+    impl MockBackend {
+        pub fn new() -> Self {
+            Self {
+                state: Arc::new(Mutex::new(HashMap::new())),
+                nonempty_books: Arc::new(Mutex::new({
+                    let mut s = std::collections::HashSet::new();
+                    s.insert("ab-nonempty".to_owned());
+                    s
+                })),
+                copy_called: Arc::new(Mutex::new(false)),
+            }
+        }
+
+        pub fn new_with_account(account_id: &str) -> Self {
+            let b = Self::new();
+            b.state
+                .lock()
+                .unwrap()
+                .insert(account_id.to_owned(), AccountState::default());
+            b
+        }
+
+        /// Register an additional account (used in copy tests).
+        pub fn add_account(&mut self, account_id: &str) {
+            self.state
+                .lock()
+                .unwrap()
+                .insert(account_id.to_owned(), AccountState::default());
+        }
+
+        /// Pre-populate a ContactCard in the given account.
+        pub fn add_contact_card(&mut self, account_id: &str, card_id: &str) {
+            let card: ContactCard = serde_json::from_value(serde_json::json!({
+                "id": card_id,
+                "addressBookIds": { "ab1": true }
+            }))
+            .expect("test fixture must deserialize");
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard
+                .entry(account_id.to_owned())
+                .or_insert_with(AccountState::default);
+            acct.contact_cards.insert(Id::from(card_id), card);
+        }
+    }
+
+    impl JmapBackend for MockBackend {
+        type Error = MockError;
+
+        async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+            Ok(self.state.lock().unwrap().contains_key(account_id.as_ref()))
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            account_id: &Id,
+            ids: Option<&[Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            // Return ContactCard objects when present; otherwise empty.
+            let guard = self.state.lock().unwrap();
+            if let Some(acct) = guard.get(account_id.as_ref()) {
+                if let Some(requested_ids) = ids {
+                    let mut found: Vec<O> = Vec::new();
+                    let mut not_found: Vec<Id> = Vec::new();
+                    for id in requested_ids {
+                        if let Some(card) = acct.contact_cards.get(id) {
+                            let v = serde_json::to_value(card)
+                                .ok()
+                                .and_then(|v| serde_json::from_value::<O>(v).ok());
+                            match v {
+                                Some(obj) => found.push(obj),
+                                None => not_found.push(id.clone()),
+                            }
+                        } else {
+                            not_found.push(id.clone());
+                        }
+                    }
+                    return Ok((found, not_found));
+                }
+            }
+            Ok((vec![], vec![]))
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            Ok(State::from("0"))
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _since_state: &State,
+            _max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            Ok(ChangesResult::new(
+                vec![],
+                vec![],
+                vec![],
+                false,
+                State::from("0"),
+            ))
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _limit: Option<u64>,
+            _position: i64,
+        ) -> Result<QueryResult, Self::Error> {
+            Ok(QueryResult::new(
+                vec![],
+                0,
+                Some(0),
+                State::from("0"),
+                false,
+            ))
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            since_query_state: &State,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _max_changes: Option<u64>,
+            _up_to_id: Option<&Id>,
+            _collapse_threads: bool,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            Ok(QueryChangesResult::new(
+                since_query_state.clone(),
+                State::from("0"),
+                Some(0),
+                vec![],
+                vec![],
+            ))
+        }
+    }
+
+    impl ContactsBackend for MockBackend {
+        async fn create_object<O: SetObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _create_id: &str,
+            obj: O,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            Ok((Id::from("mock-id-1"), obj))
+        }
+
+        async fn update_object<O: SetObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _id: &Id,
+            _patch: O::Patch,
+        ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+            Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )))
+        }
+
+        async fn destroy_object<O: SetObject + Send + Sync>(
+            &self,
+            _account_id: &Id,
+            _id: &Id,
+        ) -> Result<(), BackendSetError<Self::Error>> {
+            Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )))
+        }
+
+        fn supports_type<O: JmapObject>(&self) -> bool {
+            true
+        }
+
+        async fn copy_contact_card(
+            &self,
+            _from_account_id: &Id,
+            _to_account_id: &Id,
+            card: ContactCard,
+        ) -> Result<(Id, ContactCard), BackendSetError<Self::Error>> {
+            *self.copy_called.lock().unwrap() = true;
+            Ok((Id::from("copied-id-1"), card))
+        }
+
+        async fn address_book_has_contents(&self, _account_id: &Id, address_book_id: &Id) -> bool {
+            self.nonempty_books
+                .lock()
+                .unwrap()
+                .contains(address_book_id.as_ref())
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use jmap_server::{Dispatcher, JmapRequest, State};
+    use serde_json::json;
+
+    use super::*;
+    use crate::test_support::MockBackend;
+
+    fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequest {
+        JmapRequest::new(
+            vec![CAPABILITY_CONTACTS.into()],
+            vec![(method.into(), args, call_id.into())],
+            None,
+        )
+    }
+
+    /// Oracle: register_contacts_handlers registers all 9 spec methods.
+    ///
+    /// Verification: each method name returns a non-unknownMethod response.
+    #[tokio::test]
+    async fn registers_all_9_methods() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_contacts_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let methods: &[(&str, serde_json::Value)] = &[
+            ("AddressBook/get", json!({"accountId": "acc1", "ids": null})),
+            (
+                "AddressBook/changes",
+                json!({"accountId": "acc1", "sinceState": "0"}),
+            ),
+            (
+                "AddressBook/set",
+                json!({"accountId": "acc1", "destroy": []}),
+            ),
+            ("ContactCard/get", json!({"accountId": "acc1", "ids": null})),
+            (
+                "ContactCard/changes",
+                json!({"accountId": "acc1", "sinceState": "0"}),
+            ),
+            (
+                "ContactCard/set",
+                json!({"accountId": "acc1", "destroy": []}),
+            ),
+            (
+                "ContactCard/copy",
+                json!({
+                    "accountId": "acc1",
+                    "fromAccountId": "acc1",
+                    "create": {}
+                }),
+            ),
+            (
+                "ContactCard/query",
+                json!({"accountId": "acc1", "filter": null, "sort": null}),
+            ),
+            (
+                "ContactCard/queryChanges",
+                json!({"accountId": "acc1", "sinceQueryState": "0"}),
+            ),
+        ];
+
+        for (method, args) in methods {
+            let req = single_call(method, args.clone(), "c0");
+            let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+            assert_eq!(
+                resp.method_responses.len(),
+                1,
+                "{method}: expected 1 response"
+            );
+            let (_, resp_args, _) = &resp.method_responses[0];
+            assert_ne!(
+                resp_args["type"], "unknownMethod",
+                "{method}: must not be unknownMethod — is it registered?"
+            );
+        }
+    }
+
+    /// Oracle: AddressBook/query and AddressBook/queryChanges are NOT registered.
+    ///
+    /// Source: contacts-10 §2 — the spec does not define these methods.
+    #[tokio::test]
+    async fn address_book_query_and_query_changes_are_not_registered() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_contacts_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        for method in &["AddressBook/query", "AddressBook/queryChanges"] {
+            let req = single_call(method, json!({"accountId": "acc1", "filter": null}), "c0");
+            let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+            let (_, resp_args, _) = &resp.method_responses[0];
+            assert_eq!(
+                resp_args["type"], "unknownMethod",
+                "{method}: must be unknownMethod (not defined by spec)"
+            );
+        }
+    }
+
+    /// Oracle: AddressBook/set destroy with non-empty book returns
+    /// addressBookHasContents via the dispatcher path.
+    #[tokio::test]
+    async fn dispatcher_address_book_set_destroy_non_empty_returns_error() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_contacts_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "AddressBook/set",
+            json!({"accountId": "acc1", "destroy": ["ab-nonempty"]}),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notDestroyed"]["ab-nonempty"]["type"], "addressBookHasContents",
+            "non-empty book must yield addressBookHasContents: {args}"
+        );
+    }
 }
