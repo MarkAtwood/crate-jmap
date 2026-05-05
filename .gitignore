@@ -4,3 +4,5 @@
 *.db
 .beads-credential-key
 target/
+# OpenCode agent worktrees
+.claude/
