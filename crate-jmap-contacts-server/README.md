@@ -1,6 +1,6 @@
 # jmap-contacts-server
 
-JMAP Contacts ([draft-ietf-jmap-contacts-10]) method handlers for Rust. Plugs
+JMAP Contacts ([RFC 9610]) method handlers for Rust. Plugs
 into [`jmap-server`]'s `Dispatcher`. Implements all 9 contacts method names.
 Storage-agnostic — consumers implement the `ContactsBackend` trait for their
 own data layer.
@@ -220,13 +220,13 @@ remain that way until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-contacts-10]** — JMAP Contacts (normative for all method
+- **[RFC 9610]** — JMAP Contacts (normative for all method
   semantics, AddressBook/set arguments, ContactCard/copy)
 - **[RFC 9553]** — JSContact (normative for ContactCard field schema)
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference,
   `/set` response shape, `/copy` semantics)
 
-[draft-ietf-jmap-contacts-10]: https://www.ietf.org/archive/id/draft-ietf-jmap-contacts-10.txt
+[RFC 9610]: https://www.rfc-editor.org/rfc/rfc9610
 [RFC 9553]: https://www.rfc-editor.org/rfc/rfc9553
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server

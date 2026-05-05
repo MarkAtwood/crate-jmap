@@ -1,6 +1,6 @@
 # jmap-contacts-types
 
-Serde-annotated Rust types for JMAP Contacts ([draft-ietf-jmap-contacts-10]) and
+Serde-annotated Rust types for JMAP Contacts ([RFC 9610]) and
 JSContact ([RFC 9553]). Types only — no method handlers, no async, no network I/O.
 
 ## What
@@ -219,12 +219,12 @@ remain that way until the family is published to crates.io.
 
 ## References
 
-- **[draft-ietf-jmap-contacts-10]** — JMAP Contacts (normative for
+- **[RFC 9610]** — JMAP Contacts (normative for
   AddressBook, ContactCard JMAP binding, filter, capability)
 - **[RFC 9553]** — JSContact (normative for all Card sub-object types)
 - **[RFC 8620]** — JMAP Core (request format, Id, UTCDate, State, Filter)
 
-[draft-ietf-jmap-contacts-10]: https://www.ietf.org/archive/id/draft-ietf-jmap-contacts-10.txt
+[RFC 9610]: https://www.rfc-editor.org/rfc/rfc9610
 [RFC 9553]: https://www.rfc-editor.org/rfc/rfc9553
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 
