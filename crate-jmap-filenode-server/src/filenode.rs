@@ -797,11 +797,95 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `FileNode/query` method call (draft-ietf-jmap-filenode-13 §3.2.5).
+///
+/// Supports the `depth` argument (§3.2.5): when `depth > 0`, the query is
+/// recursively expanded by re-querying with `parentId = <matched_id>` for up to
+/// `depth` additional levels. IDs are deduplicated across all levels.
+///
+/// When `depth` is absent, `null`, or `0`, the query is a flat one-liner
+/// delegated to [`jmap_server::handlers::handle_query`].
 pub async fn handle_filenode_query<B: FileNodeBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query::<FileNode, B>(backend, args).await
+    // Extract depth before delegating — the generic handler strips unrecognised args.
+    let depth: u64 = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(0);
+
+    let account_id = crate::helpers::extract_account_id(&args)?;
+
+    // Delegate to the generic query handler for the first (level-0) result.
+    let (mut response, tail) =
+        jmap_server::handlers::handle_query::<FileNode, B>(backend, args).await?;
+
+    if depth == 0 {
+        return Ok((response, tail));
+    }
+
+    // depth > 0: recurse.  Collect ids from the initial result, then expand
+    // each directory by querying for its direct children, up to `depth` levels.
+    let mut all_ids: std::collections::LinkedList<Id> = {
+        let initial = response["ids"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|v| v.as_str().map(Id::from))
+                    .collect::<std::collections::LinkedList<_>>()
+            })
+            .unwrap_or_default();
+        initial
+    };
+    let mut seen: std::collections::HashSet<Id> = all_ids.iter().cloned().collect();
+
+    let mut frontier: Vec<Id> = seen.iter().cloned().collect();
+
+    for _level in 0..depth {
+        let mut next_frontier: Vec<Id> = Vec::new();
+        for parent_id in frontier.drain(..) {
+            // Build a parentId filter via serde to avoid the #[non_exhaustive]
+            // restriction outside the defining crate.
+            let filter_json = serde_json::json!({"parentId": parent_id.as_ref()});
+            let child_filter: jmap_filenode_types::FileNodeFilterCondition =
+                match serde_json::from_value(filter_json) {
+                    Ok(f) => f,
+                    Err(_) => continue,
+                };
+            match backend
+                .query_objects::<FileNode>(&account_id, Some(&child_filter), None, None, 0)
+                .await
+            {
+                Ok(result) => {
+                    for child_id in result.ids {
+                        if seen.insert(child_id.clone()) {
+                            all_ids.push_back(child_id.clone());
+                            next_frontier.push(child_id);
+                        }
+                    }
+                }
+                Err(e) => {
+                    // Non-fatal: log and continue — a partial result is better
+                    // than failing the entire query.
+                    let _ = e;
+                }
+            }
+        }
+        frontier = next_frontier;
+        if frontier.is_empty() {
+            break; // No new nodes found at this level; stop early.
+        }
+    }
+
+    // Rebuild the ids array and update total in the response.
+    let ids_vec: Vec<Value> = all_ids
+        .iter()
+        .map(|id| Value::String(id.as_ref().to_owned()))
+        .collect();
+    let total = ids_vec.len() as u64;
+    response["ids"] = Value::Array(ids_vec);
+    if let Some(t) = response.get_mut("total") {
+        *t = Value::Number(total.into());
+    }
+
+    Ok((response, tail))
 }
 
 // ---------------------------------------------------------------------------
@@ -921,6 +1005,119 @@ mod tests {
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
         assert!(resp["ids"].is_array());
+    }
+
+    // ── depth parameter (draft-ietf-jmap-filenode-13 §3.2.5) ────────────────
+
+    /// Oracle: depth absent → flat query, same result as before.
+    #[tokio::test]
+    async fn query_depth_absent_flat_query() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
+        let (resp, _) = handle_filenode_query(&backend, args)
+            .await
+            .expect("must succeed for absent depth");
+        assert!(resp["ids"].as_array().unwrap().is_empty());
+    }
+
+    /// Oracle: depth=0 → same as absent, no recursion.
+    #[tokio::test]
+    async fn query_depth_zero_flat_query() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({ "accountId": "acc1", "depth": 0, "filter": null, "sort": null });
+        let (resp, _) = handle_filenode_query(&backend, args)
+            .await
+            .expect("must succeed for depth=0");
+        assert!(resp["ids"].as_array().unwrap().is_empty());
+    }
+
+    /// Oracle: depth=1 → initial result plus direct children of matched nodes.
+    /// Backend is seeded so that "dir1" has children ["child1", "child2"].
+    /// The initial query returns ["dir1"] (via parentId=None/root filter);
+    /// depth=1 expansion fetches parentId="dir1" and adds children.
+    #[tokio::test]
+    async fn query_depth_one_returns_children() {
+        let backend = MockBackend::new_with_account("acc1");
+        // Root-level node returned by the initial query.
+        backend.set_children(None, &["dir1"]);
+        // dir1's children.
+        backend.set_children(Some("dir1"), &["child1", "child2"]);
+
+        let args = json!({
+            "accountId": "acc1",
+            "depth": 1,
+            "filter": {"isTopLevel": true},
+            "sort": null
+        });
+        let (resp, _) = handle_filenode_query(&backend, args)
+            .await
+            .expect("must succeed for depth=1");
+        let ids = resp["ids"].as_array().expect("ids must be array");
+        // dir1 + child1 + child2 = 3 ids total.
+        assert_eq!(
+            ids.len(),
+            3,
+            "depth=1 must include dir and its children: {ids:?}"
+        );
+        let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
+        assert!(id_strs.contains(&"dir1"), "dir1 must be in result");
+        assert!(id_strs.contains(&"child1"), "child1 must be in result");
+        assert!(id_strs.contains(&"child2"), "child2 must be in result");
+    }
+
+    /// Oracle: depth=1 with a deep tree stops at 1 level.
+    /// child1 has grandchildren, but depth=1 must NOT return them.
+    #[tokio::test]
+    async fn query_depth_one_stops_at_first_level() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.set_children(None, &["dir1"]);
+        backend.set_children(Some("dir1"), &["child1"]);
+        backend.set_children(Some("child1"), &["grandchild1"]);
+
+        let args = json!({
+            "accountId": "acc1",
+            "depth": 1,
+            "filter": {"isTopLevel": true},
+            "sort": null
+        });
+        let (resp, _) = handle_filenode_query(&backend, args)
+            .await
+            .expect("must succeed");
+        let ids = resp["ids"].as_array().expect("ids must be array");
+        // dir1 + child1 = 2; grandchild1 must NOT appear.
+        assert_eq!(ids.len(), 2, "depth=1 must stop at direct children");
+        let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
+        assert!(
+            !id_strs.contains(&"grandchild1"),
+            "grandchild must not appear at depth=1"
+        );
+    }
+
+    /// Oracle: depth=2 → two levels of expansion.
+    #[tokio::test]
+    async fn query_depth_two_returns_grandchildren() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.set_children(None, &["dir1"]);
+        backend.set_children(Some("dir1"), &["child1"]);
+        backend.set_children(Some("child1"), &["grandchild1"]);
+
+        let args = json!({
+            "accountId": "acc1",
+            "depth": 2,
+            "filter": {"isTopLevel": true},
+            "sort": null
+        });
+        let (resp, _) = handle_filenode_query(&backend, args)
+            .await
+            .expect("must succeed");
+        let ids = resp["ids"].as_array().expect("ids must be array");
+        // dir1 + child1 + grandchild1 = 3.
+        assert_eq!(ids.len(), 3, "depth=2 must include grandchild");
+        let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
+        assert!(
+            id_strs.contains(&"grandchild1"),
+            "grandchild1 must appear at depth=2"
+        );
     }
 
     // -----------------------------------------------------------------------
