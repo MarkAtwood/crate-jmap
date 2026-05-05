@@ -118,6 +118,19 @@ pub trait TasksBackend: JmapBackend {
         self.update_object::<jmap_tasks_types::Task>(account_id, id, patch)
     }
 
+    /// Returns `true` if this backend enforces the `isDraft` immutability invariant
+    /// atomically in `update_object` (by returning `SetError { error_type: InvalidProperties,
+    /// properties: ["isDraft"] }` when a patch attempts to set `isDraft: true` on a
+    /// published task).
+    ///
+    /// When `true`, the handler skips the `get_objects` pre-fetch in `Task/set` update
+    /// processing, saving one backend round-trip per update that contains `isDraft: true`.
+    ///
+    /// Default: `false` — pre-fetch is always performed.
+    fn enforce_is_draft_atomically(&self) -> bool {
+        false
+    }
+
     /// Compute `utcStart` and `utcDue` for a [`Task`] by converting the task's
     /// `start`/`due` local-time fields and time zone into UTC (draft-tasks-06 §4,
     /// lines 739-772).

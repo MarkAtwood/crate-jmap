@@ -21,6 +21,46 @@ use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
 
+/// Error returned by [`Keyword::try_new`] when the input violates RFC 8621 §4.1.1.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum KeywordError {
+    /// The keyword string is empty.
+    Empty,
+    /// The keyword contains a character outside the allowed set
+    /// (RFC 8621 §4.1.1: visible ASCII, no whitespace).
+    InvalidChar(char),
+    /// The keyword starts with `$` but is not one of the IANA-registered system keywords.
+    /// Custom keywords MUST NOT begin with `$` (RFC 8621 §4.1.1).
+    ReservedPrefix,
+}
+
+impl fmt::Display for KeywordError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            KeywordError::Empty => f.write_str("keyword must not be empty"),
+            KeywordError::InvalidChar(c) => write!(f, "keyword contains invalid character {:?}", c),
+            KeywordError::ReservedPrefix => f.write_str(
+                "custom keywords must not begin with '$' (reserved for system keywords)",
+            ),
+        }
+    }
+}
+
+impl std::error::Error for KeywordError {}
+
+/// IANA-registered system keywords (RFC 8621 §4.1.1 + IANA registry).
+/// Only these may begin with `$`. Custom keywords must not use the `$` prefix.
+const SYSTEM_KEYWORDS: &[&str] = &[
+    "$draft",
+    "$seen",
+    "$flagged",
+    "$answered",
+    "$forwarded",
+    "$phishing",
+    "$junk",
+    "$notjunk",
+];
+
 /// A JMAP keyword string (RFC 8621 §4.1.1).
 ///
 /// Keywords are used to tag [`crate::Email`] objects.  System keywords begin
@@ -53,6 +93,37 @@ impl Keyword {
     /// Construct a [`Keyword`] from a string without validation.
     pub fn new(s: impl Into<String>) -> Self {
         Keyword(s.into())
+    }
+
+    /// Construct a [`Keyword`] with RFC 8621 §4.1.1 syntax validation.
+    ///
+    /// Returns `Err(KeywordError)` if the input:
+    /// - is empty,
+    /// - contains whitespace or non-visible-ASCII characters,
+    /// - starts with `$` but is not one of the IANA-registered system keywords.
+    ///
+    /// Use [`Keyword::new`] if you need an infallible constructor (e.g., when
+    /// deserializing from JSON where the server guarantees validity).
+    pub fn try_new(s: impl Into<String>) -> Result<Self, KeywordError> {
+        let s: String = s.into();
+        if s.is_empty() {
+            return Err(KeywordError::Empty);
+        }
+        // Check each character: must be visible ASCII (0x21–0x7E), no whitespace.
+        for ch in s.chars() {
+            let b = ch as u32;
+            if !(0x21..=0x7E).contains(&b) {
+                return Err(KeywordError::InvalidChar(ch));
+            }
+        }
+        // If starts with '$', must be a known system keyword (case-insensitive compare).
+        if s.starts_with('$') {
+            let lower = s.to_ascii_lowercase();
+            if !SYSTEM_KEYWORDS.contains(&lower.as_str()) {
+                return Err(KeywordError::ReservedPrefix);
+            }
+        }
+        Ok(Keyword(s))
     }
 }
 
@@ -166,5 +237,82 @@ mod tests {
         assert_eq!(b, c);
         assert_eq!(a.as_ref(), "$seen");
         assert_eq!(a.to_string(), "$seen");
+    }
+
+    // --- KeywordError and try_new tests ---
+
+    /// Oracle: RFC 8621 §4.1.1 — empty keyword is invalid.
+    #[test]
+    fn try_new_empty_fails() {
+        assert_eq!(Keyword::try_new(""), Err(KeywordError::Empty));
+    }
+
+    /// Oracle: RFC 8621 §4.1.1 — whitespace is not visible ASCII.
+    #[test]
+    fn try_new_space_fails() {
+        let err = Keyword::try_new("has space").unwrap_err();
+        assert_eq!(err, KeywordError::InvalidChar(' '));
+    }
+
+    /// Oracle: RFC 8621 §4.1.1 — tab is not visible ASCII.
+    #[test]
+    fn try_new_tab_fails() {
+        let err = Keyword::try_new("has\ttab").unwrap_err();
+        assert_eq!(err, KeywordError::InvalidChar('\t'));
+    }
+
+    /// Oracle: control character is not visible ASCII.
+    #[test]
+    fn try_new_control_char_fails() {
+        let err = Keyword::try_new("has\x01ctrl").unwrap_err();
+        assert_eq!(err, KeywordError::InvalidChar('\x01'));
+    }
+
+    /// Oracle: RFC 8621 §4.1.1 — '$' prefix reserved for system keywords.
+    #[test]
+    fn try_new_unknown_dollar_prefix_fails() {
+        let err = Keyword::try_new("$unknown").unwrap_err();
+        assert_eq!(err, KeywordError::ReservedPrefix);
+    }
+
+    /// Oracle: RFC 8621 §4.1.1 — all 8 IANA system keywords must be accepted.
+    #[test]
+    fn try_new_all_system_keywords_succeed() {
+        for kw in &[
+            "$draft",
+            "$seen",
+            "$flagged",
+            "$answered",
+            "$forwarded",
+            "$phishing",
+            "$junk",
+            "$notjunk",
+        ] {
+            Keyword::try_new(*kw)
+                .unwrap_or_else(|e| panic!("system keyword {kw:?} must succeed: {e}"));
+        }
+    }
+
+    /// Oracle: system keywords are case-insensitive per RFC 8621 §4.1.1.
+    #[test]
+    fn try_new_system_keyword_case_insensitive() {
+        // RFC 8621 §4.1.1: "Keywords are case-insensitive"
+        // $SEEN should be accepted (it maps to the $seen system keyword).
+        Keyword::try_new("$SEEN").expect("$SEEN (case variant of $seen) must succeed");
+    }
+
+    /// Oracle: RFC 8621 §4.1.1 — valid custom keyword (no $) succeeds.
+    #[test]
+    fn try_new_custom_keyword_succeeds() {
+        let kw = Keyword::try_new("project-alpha").expect("valid custom keyword must succeed");
+        assert_eq!(kw.as_ref(), "project-alpha");
+    }
+
+    /// Oracle: KeywordError implements std::error::Error.
+    #[test]
+    fn keyword_error_implements_error() {
+        let e = Keyword::try_new("").unwrap_err();
+        let _: &dyn std::error::Error = &e;
+        assert!(!e.to_string().is_empty());
     }
 }

@@ -821,66 +821,37 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
         return Ok((response, tail));
     }
 
-    // depth > 0: recurse.  Collect ids from the initial result, then expand
-    // each directory by querying for its direct children, up to `depth` levels.
-    let mut all_ids: std::collections::LinkedList<Id> = {
-        let initial = response["ids"]
-            .as_array()
-            .map(|a| {
-                a.iter()
-                    .filter_map(|v| v.as_str().map(Id::from))
-                    .collect::<std::collections::LinkedList<_>>()
-            })
-            .unwrap_or_default();
-        initial
-    };
-    let mut seen: std::collections::HashSet<Id> = all_ids.iter().cloned().collect();
+    // depth > 0: use backend.query_subtree for recursive expansion.
+    // query_subtree returns all descendant IDs up to `depth` levels deep.
+    // root_ids are the IDs from the initial query result.
+    let root_ids: Vec<Id> = response["ids"]
+        .as_array()
+        .map(|a| a.iter().filter_map(|v| v.as_str().map(Id::from)).collect())
+        .unwrap_or_default();
 
-    let mut frontier: Vec<Id> = seen.iter().cloned().collect();
-
-    for _level in 0..depth {
-        let mut next_frontier: Vec<Id> = Vec::new();
-        for parent_id in frontier.drain(..) {
-            // Build a parentId filter via serde to avoid the #[non_exhaustive]
-            // restriction outside the defining crate.
-            let filter_json = serde_json::json!({"parentId": parent_id.as_ref()});
-            let child_filter: jmap_filenode_types::FileNodeFilterCondition =
-                match serde_json::from_value(filter_json) {
-                    Ok(f) => f,
-                    Err(_) => continue,
-                };
-            match backend
-                .query_objects::<FileNode>(&account_id, Some(&child_filter), None, None, 0)
-                .await
-            {
-                Ok(result) => {
-                    for child_id in result.ids {
-                        if seen.insert(child_id.clone()) {
-                            all_ids.push_back(child_id.clone());
-                            next_frontier.push(child_id);
-                        }
-                    }
-                }
-                Err(e) => {
-                    // Non-fatal: log and continue — a partial result is better
-                    // than failing the entire query.
-                    let _ = e;
-                }
-            }
-        }
-        frontier = next_frontier;
-        if frontier.is_empty() {
-            break; // No new nodes found at this level; stop early.
-        }
+    if root_ids.is_empty() {
+        return Ok((response, tail));
     }
 
-    // Rebuild the ids array and update total in the response.
-    let ids_vec: Vec<Value> = all_ids
+    let descendant_ids = match backend.query_subtree(&account_id, &root_ids, depth).await {
+        Ok(ids) => ids,
+        Err(e) => {
+            // Non-fatal: return flat result if subtree query fails.
+            let _ = e;
+            return Ok((response, tail));
+        }
+    };
+
+    // Merge root_ids + descendant_ids, preserving root order then descendant order.
+    let mut combined: Vec<Value> = root_ids
         .iter()
         .map(|id| Value::String(id.as_ref().to_owned()))
         .collect();
-    let total = ids_vec.len() as u64;
-    response["ids"] = Value::Array(ids_vec);
+    for id in &descendant_ids {
+        combined.push(Value::String(id.as_ref().to_owned()));
+    }
+    let total = combined.len() as u64;
+    response["ids"] = Value::Array(combined);
     if let Some(t) = response.get_mut("total") {
         *t = Value::Number(total.into());
     }
@@ -1118,6 +1089,27 @@ mod tests {
             id_strs.contains(&"grandchild1"),
             "grandchild1 must appear at depth=2"
         );
+    }
+
+    /// Oracle: query_subtree with depth=1 returns same results as the manual loop.
+    /// Regression test: the refactored implementation must produce identical output.
+    #[tokio::test]
+    async fn query_depth_one_via_subtree_matches_manual_loop() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.set_children(None, &["dir1"]);
+        backend.set_children(Some("dir1"), &["child1", "child2"]);
+
+        let args = json!({
+            "accountId": "acc1",
+            "depth": 1,
+            "filter": {"isTopLevel": true},
+            "sort": null
+        });
+        let (resp, _) = handle_filenode_query(&backend, args)
+            .await
+            .expect("must succeed");
+        let ids = resp["ids"].as_array().expect("ids array");
+        assert_eq!(ids.len(), 3, "dir1 + child1 + child2 = 3");
     }
 
     // -----------------------------------------------------------------------

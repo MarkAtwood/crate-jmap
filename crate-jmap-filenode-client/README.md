@@ -107,8 +107,7 @@ with `existingId` pointing to the conflicting node.
 
 ## Known Limitations
 
-- `file_node_query` with `depth > 0` issues one `FileNode/query` request per level; for
-  deep trees this is O(depth) round-trips, not a single recursive server query.
+- `file_node_query` with `depth > 0` sends exactly **one** HTTP request to the JMAP server with the `depth` integer as a JSON field. The O(depth) backend calls are made by the server handler internally as it calls `query_objects` per level against its storage backend — the client has no visibility into this and does not issue multiple HTTP round-trips. Backends can override `FileNodeBackend::query_subtree` to reduce server-side backend calls to a single recursive query.
 - No integration tests against a real JMAP server; tests use request-shape oracles and
   serialization checks only.
 

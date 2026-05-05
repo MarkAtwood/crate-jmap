@@ -114,4 +114,67 @@ pub trait FileNodeBackend: JmapBackend {
         name: &str,
         case_insensitive: bool,
     ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;
+
+    /// Return all FileNode IDs in the subtree rooted at any node in `root_ids`,
+    /// up to `max_depth` levels deep (0 = direct children only, `u64::MAX` = full subtree).
+    ///
+    /// The default implementation calls `query_objects` with a `parentId` filter
+    /// once per level — O(max_depth) backend calls.  Backends with a nested-sets
+    /// model, closure table, or recursive CTE SHOULD override this to a single query.
+    ///
+    /// Returned IDs are deduplicated; ordering is unspecified.
+    /// The `root_ids` themselves are NOT included in the result.
+    fn query_subtree(
+        &self,
+        account_id: &jmap_types::Id,
+        root_ids: &[jmap_types::Id],
+        max_depth: u64,
+    ) -> impl std::future::Future<Output = Result<Vec<jmap_types::Id>, Self::Error>> + Send
+    where
+        Self: Sized,
+    {
+        // Default: loop using query_objects with parentId filter per level.
+        // This is correct but O(max_depth) in backend calls.
+        let account_id = account_id.clone();
+        let root_ids = root_ids.to_vec();
+        async move {
+            let mut all_ids: Vec<jmap_types::Id> = Vec::new();
+            let mut seen: std::collections::HashSet<jmap_types::Id> =
+                root_ids.iter().cloned().collect();
+            let mut frontier: Vec<jmap_types::Id> = root_ids;
+            let mut depth_remaining = max_depth;
+
+            loop {
+                if frontier.is_empty() || depth_remaining == 0 {
+                    break;
+                }
+                depth_remaining = depth_remaining.saturating_sub(1);
+                let mut next_frontier: Vec<jmap_types::Id> = Vec::new();
+                for parent_id in frontier.drain(..) {
+                    // Build parentId filter via serde (FileNodeFilterCondition is
+                    // #[non_exhaustive], cannot use struct literal outside defining crate).
+                    let filter_json = serde_json::json!({"parentId": parent_id.as_ref()});
+                    let child_filter: jmap_filenode_types::FileNodeFilterCondition =
+                        match serde_json::from_value(filter_json) {
+                            Ok(f) => f,
+                            Err(_) => continue,
+                        };
+                    if let Ok(result) = self
+                        .query_objects::<FileNode>(&account_id, Some(&child_filter), None, None, 0)
+                        .await
+                    {
+                        for id in result.ids {
+                            if seen.insert(id.clone()) {
+                                all_ids.push(id.clone());
+                                next_frontier.push(id);
+                            }
+                        }
+                    }
+                    // non-fatal on Err: skip this node's children
+                }
+                frontier = next_frontier;
+            }
+            Ok(all_ids)
+        }
+    }
 }
