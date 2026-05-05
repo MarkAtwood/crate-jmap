@@ -312,6 +312,8 @@ fn filenode_unknown_node_type_becomes_other() {
 fn filenode_nullable_fields_serialize_as_null_not_absent() {
     // Deserialize a node where all nullable fields are null so that the Rust
     // fields hold None; then re-serialize and check that they appear as null.
+    // `role` is typed `String|null` in §3.1 — required-nullable, must round-trip
+    // as `null` not absent.
     let json = r#"{
         "id": "x",
         "parentId": null,
@@ -320,7 +322,8 @@ fn filenode_nullable_fields_serialize_as_null_not_absent() {
         "size": null,
         "name": "f",
         "type": null,
-        "shareWith": null
+        "shareWith": null,
+        "role": null
     }"#;
     let node: FileNode = serde_json::from_str(json).unwrap();
 
@@ -349,6 +352,10 @@ fn filenode_nullable_fields_serialize_as_null_not_absent() {
 
     assert!(obj.contains_key("shareWith"), "shareWith must be present");
     assert!(obj["shareWith"].is_null(), "shareWith must be null");
+
+    // role is String|null (§3.1) — required-nullable, MUST appear as null.
+    assert!(obj.contains_key("role"), "role must be present");
+    assert!(obj["role"].is_null(), "role must be null");
 
     // Truly optional: MUST be absent when None.
     assert!(
@@ -383,7 +390,6 @@ fn filenode_nullable_fields_serialize_as_null_not_absent() {
         !obj.contains_key("myRights"),
         "myRights must be absent when None"
     );
-    assert!(!obj.contains_key("role"), "role must be absent when None");
 }
 
 #[test]
@@ -458,6 +464,68 @@ fn filenode_roundtrip_file() {
     let serialized = serde_json::to_string(&original).unwrap();
     let back: FileNode = serde_json::from_str(&serialized).unwrap();
     assert_eq!(original, back);
+}
+
+// ---------------------------------------------------------------------------
+// FileNode — role field nullable semantics (§3.1 type: String|null)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn filenode_role_serializes_as_null() {
+    // Oracle: §3.1 types `role` as `String|null` — required-nullable field.
+    // A FileNode with role None must produce "role":null in wire JSON, not
+    // absence of the key.
+    let json = r#"{
+        "id": "rn1",
+        "parentId": null,
+        "blobId": "blob-rn",
+        "target": null,
+        "size": 10,
+        "name": "file.txt",
+        "type": "text/plain",
+        "shareWith": null,
+        "role": null
+    }"#;
+    let node: FileNode = serde_json::from_str(json).expect("deserialize FileNode with role null");
+    assert_eq!(node.role, None);
+
+    let out = serde_json::to_string(&node).expect("serialize");
+    let v: serde_json::Value = serde_json::from_str(&out).expect("parse output");
+    let obj = v.as_object().expect("object");
+    assert!(
+        obj.contains_key("role"),
+        "role must be present in serialized JSON"
+    );
+    assert!(obj["role"].is_null(), "role must serialize as null, not absent");
+}
+
+#[test]
+fn filenode_role_null_round_trips() {
+    // Oracle: §3.1 — role: null → deserialize → None → serialize → "role":null.
+    let json = r#"{
+        "id": "rn2",
+        "parentId": null,
+        "blobId": null,
+        "target": null,
+        "size": null,
+        "name": "dir",
+        "type": null,
+        "shareWith": null,
+        "role": null
+    }"#;
+    let node: FileNode = serde_json::from_str(json).expect("first deserialize");
+    assert_eq!(node.role, None);
+
+    let serialized = serde_json::to_string(&node).expect("serialize");
+    let back: FileNode = serde_json::from_str(&serialized).expect("second deserialize");
+    assert_eq!(back.role, None);
+
+    let out2: serde_json::Value = serde_json::from_str(&serialized).expect("parse");
+    assert!(
+        out2.as_object().expect("object").contains_key("role"),
+        "role must be present after round-trip"
+    );
+    assert!(out2["role"].is_null(), "role must remain null after round-trip");
 }
 
 // ---------------------------------------------------------------------------

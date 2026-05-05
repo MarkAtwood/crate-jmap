@@ -50,8 +50,12 @@ pub struct AddressBook {
     /// True if the user has subscribed to this AddressBook.
     pub is_subscribed: bool,
     /// Map of principal id → rights for principals this AddressBook is shared
-    /// with.  `null` if not shared, or if the server does not support sharing.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    /// with.
+    ///
+    /// Required-and-nullable (contacts-10 §2 type: `Id[AddressBookRights]|null`):
+    /// always present in wire JSON; serializes as `null` when not shared.
+    /// The spec §4.1 example shows `"shareWith": null` explicitly — never absent.
+    #[serde(default)]
     pub share_with: Option<HashMap<Id, AddressBookRights>>,
     /// ACL rights the authenticated user has on this AddressBook; server-set.
     pub my_rights: AddressBookRights,

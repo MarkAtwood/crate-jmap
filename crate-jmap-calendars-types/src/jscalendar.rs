@@ -388,6 +388,21 @@ pub struct Participant {
     /// Links associated with this participant.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<HashMap<String, Link>>,
+
+    /// iTIP scheduling sequence number for this participant (RFC 8984 §5.2.1).
+    ///
+    /// Context: Participant — this is a per-participant iTIP tracking field,
+    /// not an event-level field.  The server updates it when an iTIP message
+    /// is processed.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schedule_sequence: Option<u64>,
+
+    /// UTC date-time of the last iTIP scheduling message processed for this
+    /// participant (RFC 8984 §5.2.2).
+    ///
+    /// Context: Participant — per-participant iTIP tracking, not event-level.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schedule_updated: Option<String>,
 }
 
 // ── Alert ─────────────────────────────────────────────────────────────────────

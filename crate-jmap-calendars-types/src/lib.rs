@@ -29,6 +29,7 @@
 #[macro_use]
 mod string_enum;
 
+pub mod availability;
 pub mod backend;
 pub mod calendar;
 pub mod capability;
@@ -39,11 +40,13 @@ pub mod participant_identity;
 
 // ── Top-level re-exports ──────────────────────────────────────────────────────
 
+pub use availability::BusyPeriod;
 pub use calendar::{Calendar, CalendarFilterCondition, CalendarRights, IncludeInAvailability};
 pub use capability::{
     CalendarsAccountCapability, CalendarsCapability, CalendarsParseCapability,
-    PrincipalsAvailabilityAccountCapability, PrincipalsAvailabilityCapability,
-    JMAP_CALENDARS_PARSE_URI, JMAP_CALENDARS_URI, JMAP_PRINCIPALS_AVAILABILITY_URI,
+    PrincipalCalendarsCapability, PrincipalsAvailabilityAccountCapability,
+    PrincipalsAvailabilityCapability, JMAP_CALENDARS_PARSE_URI, JMAP_CALENDARS_URI,
+    JMAP_PRINCIPALS_AVAILABILITY_URI,
 };
 pub use event::{CalendarEvent, CalendarEventComparator, CalendarEventFilterCondition};
 pub use jscalendar::{

@@ -43,8 +43,6 @@ pub enum CalendarEventProperty {
     MayInviteSelf,
     MayInviteOthers,
     HideAttendees,
-    ScheduleSequence,
-    ScheduleUpdated,
     BlobId,
     Uid,
     Title,

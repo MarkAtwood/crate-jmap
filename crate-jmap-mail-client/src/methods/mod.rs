@@ -9,6 +9,7 @@ pub mod email;
 pub mod identity;
 pub mod mailbox;
 pub mod search_snippet;
+pub mod submission;
 pub mod thread;
 pub mod vacation;
 
@@ -173,6 +174,35 @@ pub struct MailboxSetParams {
     /// destroyed (RFC 8621 §2.5).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_destroy_remove_emails: Option<bool>,
+}
+
+/// Extra args for EmailSubmission/set (RFC 8621 §7.5).
+///
+/// These two fields are method-level arguments on `EmailSubmission/set` (not
+/// nested inside a create/update object). They let the caller atomically
+/// modify or destroy related Email objects when a submission is created
+/// successfully, without a separate round-trip.
+///
+/// Example use case: remove the `$draft` keyword from the email after
+/// submission succeeds.
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailSubmissionSetParams {
+    /// Map of creation key → `PatchObject` to apply to the associated Email
+    /// if the submission is created successfully (RFC 8621 §7.5).
+    ///
+    /// Keys that start with `"#"` are result references to creation keys in
+    /// the same `create` map.  Values are JSON Merge Patch objects.
+    /// `null` removes the field; the type is `Id[PatchObject]|null` on the wire.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_success_update_email: Option<serde_json::Value>,
+
+    /// Email IDs (or `#`-prefixed creation keys) to destroy if the submission
+    /// is created successfully (RFC 8621 §7.5).
+    ///
+    /// Typically used to destroy the draft email after successful submission.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_success_destroy_email: Option<Vec<String>>,
 }
 
 // ---------------------------------------------------------------------------

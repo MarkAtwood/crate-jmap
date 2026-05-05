@@ -140,9 +140,9 @@ pub struct FilesRights {
 /// Other fields are **truly optional**: absent from the wire when not set by the
 /// client or server.  These use `#[serde(skip_serializing_if = "Option::is_none")]`.
 ///
-/// | Nullable (must appear as `null`) | Optional (absent when `None`) |
-/// |---|---|
-/// | `parent_id`, `blob_id`, `target`, `size`, `media_type`, `share_with` | `node_type`, `created`, `modified`, `accessed`, `changed`, `executable`, `is_subscribed`, `my_rights`, `role` |
+    /// | Nullable (must appear as `null`) | Optional (absent when `None`) |
+    /// |---|---|
+    /// | `parent_id`, `blob_id`, `target`, `size`, `media_type`, `share_with`, `role` | `node_type`, `created`, `modified`, `accessed`, `changed`, `executable`, `is_subscribed`, `my_rights` |
 ///
 /// ## `modified` and `accessed` semantics
 ///
@@ -262,7 +262,8 @@ pub struct FileNode {
 
     /// Special role identifying this directory's purpose.
     ///
-    /// MUST be null for files.  Absent from wire when `None`.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    /// Required-and-nullable (draft §3.1 type: `String|null`): always present
+    /// in wire JSON; serializes as `null` when unset.  MUST be `null` for
+    /// file nodes.
     pub role: Option<NodeRole>,
 }
