@@ -89,3 +89,44 @@ pub struct PrincipalsAvailabilityAccountCapability {
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 pub struct CalendarsParseCapability {}
+
+/// The value of `Principal.capabilities["urn:ietf:params:jmap:calendars"]`
+/// on a JMAP Principals object (draft-ietf-jmap-calendars-26 §2.1).
+///
+/// This is distinct from the session-level [`CalendarsCapability`].  Where
+/// [`CalendarsCapability`] appears in the JMAP Session `capabilities` map,
+/// `PrincipalCalendarsCapability` appears inside a *Principal* object's own
+/// `capabilities` map and describes that principal's calendar presence.
+///
+/// ## Field semantics
+///
+/// - `account_id` — the JMAP account id that contains this principal's
+///   calendar data, or `null` if the principal has no calendar account
+///   accessible to the requesting user.
+/// - `may_get_availability` — the requesting user may call
+///   `Principal/getAvailability` for this principal.
+/// - `may_share_with` — the requesting user may add this principal to the
+///   `shareWith` of their own Calendar objects.
+/// - `calendar_address` — the iTIP scheduling address for this principal
+///   (e.g. `"mailto:alice@example.com"`).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrincipalCalendarsCapability {
+    /// Id of the account containing this principal's calendar data,
+    /// or `null` if no accessible calendar account exists.
+    ///
+    /// Required-and-nullable: always present on the wire, as `null` or an Id.
+    pub account_id: Option<jmap_types::Id>,
+
+    /// The requesting user may call `Principal/getAvailability` for this
+    /// principal.
+    pub may_get_availability: bool,
+
+    /// The requesting user may add this principal to the `shareWith` property
+    /// of their own Calendar objects.
+    pub may_share_with: bool,
+
+    /// iTIP scheduling address for this principal.
+    pub calendar_address: String,
+}

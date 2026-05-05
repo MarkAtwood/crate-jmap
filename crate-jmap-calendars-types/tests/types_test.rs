@@ -11,9 +11,10 @@
 //! `r##"..."##` raw string delimiters because `"#` would terminate `r#"..."#`.
 
 use jmap_calendars_types::{
-    Alert, AlertTrigger, Calendar, CalendarEvent, CalendarEventFilterCondition,
+    Alert, AlertTrigger, BusyPeriod, Calendar, CalendarEvent, CalendarEventFilterCondition,
     CalendarEventNotification, CalendarRights, CalendarsAccountCapability, CalendarsCapability,
-    IncludeInAvailability, ParticipantIdentity, Person, JMAP_CALENDARS_URI,
+    IncludeInAvailability, Participant, ParticipantIdentity, Person, PrincipalCalendarsCapability,
+    JMAP_CALENDARS_URI,
 };
 use jmap_types::Id;
 
@@ -746,6 +747,261 @@ fn person_null_fields() {
     assert!(p.email.is_none());
     assert!(p.principal_id.is_none());
     assert!(p.calendar_address.is_none());
+}
+
+// ─── BusyPeriod (draft-ietf-jmap-calendars-26 §2.2) ─────────────────────────
+
+/// Deserialize a BusyPeriod with all fields set.
+///
+/// Oracle: field types from draft-ietf-jmap-calendars-26 §2.2 field descriptions.
+/// busyStatus values: "confirmed", "tentative", "unavailable".
+#[test]
+fn busy_period_full_deserialize() {
+    let json = r#"{
+        "utcStart": "2024-06-15T09:00:00Z",
+        "utcEnd": "2024-06-15T10:00:00Z",
+        "busyStatus": "confirmed",
+        "event": {
+            "@type": "Event",
+            "uid": "evt-001",
+            "title": "Team meeting"
+        },
+        "accountId": "acc-42"
+    }"#;
+
+    let bp: BusyPeriod = serde_json::from_str(json).expect("BusyPeriod deserialize");
+    assert_eq!(bp.utc_start, "2024-06-15T09:00:00Z");
+    assert_eq!(bp.utc_end, "2024-06-15T10:00:00Z");
+    assert_eq!(bp.busy_status.as_deref(), Some("confirmed"));
+    assert!(bp.event.is_some(), "event must be deserialized");
+    assert_eq!(bp.event.as_ref().unwrap()["title"], "Team meeting");
+    assert!(bp.account_id.is_some(), "accountId must be present");
+    assert_eq!(bp.account_id.as_ref().unwrap().as_ref(), "acc-42");
+}
+
+/// Deserialize a BusyPeriod where event and accountId are absent (no detail access).
+///
+/// Oracle: §2.2 — when showDetails=false or user lacks mayReadItems, event and
+/// accountId are null (absent) in the response.
+#[test]
+fn busy_period_no_detail_access() {
+    let json = r#"{
+        "utcStart": "2024-06-15T14:00:00Z",
+        "utcEnd": "2024-06-15T15:30:00Z",
+        "busyStatus": "unavailable"
+    }"#;
+
+    let bp: BusyPeriod = serde_json::from_str(json).expect("BusyPeriod minimal deserialize");
+    assert_eq!(bp.utc_start, "2024-06-15T14:00:00Z");
+    assert_eq!(bp.utc_end, "2024-06-15T15:30:00Z");
+    assert_eq!(bp.busy_status.as_deref(), Some("unavailable"));
+    assert!(bp.event.is_none());
+    assert!(bp.account_id.is_none());
+
+    // Optional fields absent from wire when None.
+    let v = serde_json::to_value(&bp).expect("serialize");
+    let obj = v.as_object().expect("object");
+    assert!(!obj.contains_key("event"), "event must be absent when None");
+    assert!(
+        !obj.contains_key("accountId"),
+        "accountId must be absent when None"
+    );
+}
+
+/// BusyPeriod round-trip: serialize then re-deserialize, verify equality.
+#[test]
+fn busy_period_roundtrip() {
+    let json = r#"{
+        "utcStart": "2024-07-01T08:00:00Z",
+        "utcEnd": "2024-07-01T09:00:00Z",
+        "busyStatus": "tentative",
+        "event": { "@type": "Event", "uid": "rt-evt" },
+        "accountId": "acc-rt"
+    }"#;
+
+    let original: BusyPeriod = serde_json::from_str(json).expect("first deserialize");
+    let serialized = serde_json::to_string(&original).expect("serialize");
+    let back: BusyPeriod = serde_json::from_str(&serialized).expect("re-deserialize");
+
+    assert_eq!(original.utc_start, back.utc_start);
+    assert_eq!(original.utc_end, back.utc_end);
+    assert_eq!(original.busy_status, back.busy_status);
+    assert_eq!(original.account_id, back.account_id);
+    assert_eq!(original.event, back.event);
+}
+
+/// Wire key names for BusyPeriod match spec camelCase names.
+#[test]
+fn busy_period_wire_names() {
+    let json = r#"{
+        "utcStart": "2024-08-01T10:00:00Z",
+        "utcEnd": "2024-08-01T11:00:00Z",
+        "busyStatus": "confirmed",
+        "accountId": "acc-wn"
+    }"#;
+    let bp: BusyPeriod = serde_json::from_str(json).expect("deserialize");
+    let v = serde_json::to_value(&bp).expect("serialize");
+    let obj = v.as_object().expect("object");
+
+    assert!(obj.contains_key("utcStart"), "wire key must be utcStart");
+    assert!(obj.contains_key("utcEnd"), "wire key must be utcEnd");
+    assert!(obj.contains_key("busyStatus"), "wire key must be busyStatus");
+    assert!(obj.contains_key("accountId"), "wire key must be accountId");
+}
+
+// ─── PrincipalCalendarsCapability (calendars-26 §2.1) ────────────────────────
+
+/// Deserialize PrincipalCalendarsCapability with accountId populated.
+///
+/// Oracle: field names from draft-ietf-jmap-calendars-26 §2.1 field descriptions.
+#[test]
+fn principal_calendars_capability_with_account_id() {
+    let json = r#"{
+        "accountId": "acc-alice",
+        "mayGetAvailability": true,
+        "mayShareWith": true,
+        "calendarAddress": "mailto:alice@example.com"
+    }"#;
+
+    let cap: PrincipalCalendarsCapability =
+        serde_json::from_str(json).expect("PrincipalCalendarsCapability deserialize");
+    assert_eq!(cap.account_id.as_ref().map(|id| id.as_ref()), Some("acc-alice"));
+    assert!(cap.may_get_availability);
+    assert!(cap.may_share_with);
+    assert_eq!(cap.calendar_address, "mailto:alice@example.com");
+}
+
+/// Deserialize PrincipalCalendarsCapability with accountId null.
+///
+/// Oracle: §2.1 — accountId is `Id|null`; null when the principal has no
+/// accessible calendar account.
+#[test]
+fn principal_calendars_capability_account_id_null() {
+    let json = r#"{
+        "accountId": null,
+        "mayGetAvailability": false,
+        "mayShareWith": false,
+        "calendarAddress": "mailto:service@example.com"
+    }"#;
+
+    let cap: PrincipalCalendarsCapability =
+        serde_json::from_str(json).expect("deserialize with null accountId");
+    assert!(cap.account_id.is_none(), "accountId must be None for null");
+    assert!(!cap.may_get_availability);
+    assert!(!cap.may_share_with);
+}
+
+/// accountId serializes as null (not absent) when None.
+///
+/// Oracle: §2.1 types accountId as `Id|null` — required-nullable, must always
+/// appear on the wire.
+#[test]
+fn principal_calendars_capability_account_id_null_serializes() {
+    let json = r#"{
+        "accountId": null,
+        "mayGetAvailability": false,
+        "mayShareWith": false,
+        "calendarAddress": "mailto:noaccount@example.com"
+    }"#;
+    let cap: PrincipalCalendarsCapability = serde_json::from_str(json).expect("deserialize");
+    let v = serde_json::to_value(&cap).expect("serialize");
+    let obj = v.as_object().expect("object");
+
+    assert!(
+        obj.contains_key("accountId"),
+        "accountId must be present in wire JSON (required-nullable)"
+    );
+    assert!(obj["accountId"].is_null(), "accountId must serialize as null");
+}
+
+/// PrincipalCalendarsCapability round-trip.
+#[test]
+fn principal_calendars_capability_roundtrip() {
+    let json = r#"{
+        "accountId": "acc-rt",
+        "mayGetAvailability": true,
+        "mayShareWith": false,
+        "calendarAddress": "mailto:rt@example.com"
+    }"#;
+
+    let original: PrincipalCalendarsCapability =
+        serde_json::from_str(json).expect("first deserialize");
+    let serialized = serde_json::to_string(&original).expect("serialize");
+    let back: PrincipalCalendarsCapability =
+        serde_json::from_str(&serialized).expect("re-deserialize");
+
+    assert_eq!(original.account_id, back.account_id);
+    assert_eq!(original.may_get_availability, back.may_get_availability);
+    assert_eq!(original.may_share_with, back.may_share_with);
+    assert_eq!(original.calendar_address, back.calendar_address);
+}
+
+// ─── Participant — scheduleSequence / scheduleUpdated (RFC 8984 §5.2) ────────
+
+/// Verify Participant carries scheduleSequence and scheduleUpdated.
+///
+/// Oracle: RFC 8984 §5.2.1 / §5.2.2 — both fields have Context: Participant.
+/// JSON constructed from the spec field descriptions: scheduleSequence is a
+/// UnsignedInt, scheduleUpdated is a UTCDateTime string.
+#[test]
+fn participant_schedule_fields_roundtrip() {
+    let json = r#"{
+        "@type": "Participant",
+        "email": "alice@example.com",
+        "roles": { "attendee": true },
+        "scheduleSequence": 3,
+        "scheduleUpdated": "2024-06-15T10:30:00Z"
+    }"#;
+
+    let p: Participant = serde_json::from_str(json).expect("Participant deserialize");
+    assert_eq!(p.schedule_sequence, Some(3));
+    assert_eq!(
+        p.schedule_updated.as_deref(),
+        Some("2024-06-15T10:30:00Z")
+    );
+
+    // Round-trip: serialize then re-deserialize.
+    let serialized = serde_json::to_string(&p).expect("serialize");
+    let back: Participant = serde_json::from_str(&serialized).expect("re-deserialize");
+    assert_eq!(back.schedule_sequence, Some(3));
+    assert_eq!(
+        back.schedule_updated.as_deref(),
+        Some("2024-06-15T10:30:00Z")
+    );
+
+    // Wire names: camelCase.
+    let v: serde_json::Value = serde_json::from_str(&serialized).expect("parse");
+    assert_eq!(v["scheduleSequence"], serde_json::json!(3_u64));
+    assert_eq!(v["scheduleUpdated"], serde_json::json!("2024-06-15T10:30:00Z"));
+}
+
+/// Participant with no schedule fields omits them from wire (optional).
+///
+/// Oracle: RFC 8984 §5.2 — these fields are optional per-participant iTIP
+/// tracking fields; absent when not involved in scheduling.
+#[test]
+fn participant_schedule_fields_absent_when_none() {
+    let json = r#"{
+        "@type": "Participant",
+        "email": "bob@example.com",
+        "roles": { "attendee": true }
+    }"#;
+
+    let p: Participant = serde_json::from_str(json).expect("Participant deserialize");
+    assert_eq!(p.schedule_sequence, None);
+    assert_eq!(p.schedule_updated, None);
+
+    let serialized = serde_json::to_string(&p).expect("serialize");
+    let v: serde_json::Value = serde_json::from_str(&serialized).expect("parse");
+    let obj = v.as_object().expect("object");
+    assert!(
+        !obj.contains_key("scheduleSequence"),
+        "scheduleSequence must be absent when None"
+    );
+    assert!(
+        !obj.contains_key("scheduleUpdated"),
+        "scheduleUpdated must be absent when None"
+    );
 }
 
 // ─── Id usage in tests ────────────────────────────────────────────────────────

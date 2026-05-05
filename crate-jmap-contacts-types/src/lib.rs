@@ -176,6 +176,87 @@ mod tests {
         assert!(ab.share_with.is_none());
     }
 
+    /// AddressBook with share_with: None serializes as "shareWith": null, not absent.
+    /// Oracle: contacts-10 §2 type `Id[AddressBookRights]|null`; §4.1 second
+    /// AddressBook example shows `"shareWith": null` explicitly on the wire.
+    #[test]
+    fn address_book_share_with_null_serializes() {
+        // Build an AddressBook that has share_with: None (the null case).
+        let json = r#"{
+            "id": "ab-null-sw",
+            "name": "Private",
+            "sortOrder": 0,
+            "isDefault": false,
+            "isSubscribed": true,
+            "shareWith": null,
+            "myRights": {
+                "mayRead": true,
+                "mayWrite": true,
+                "mayShare": false,
+                "mayDelete": false
+            }
+        }"#;
+        let ab: AddressBook = serde_json::from_str(json).expect("deserialize");
+        assert!(ab.share_with.is_none());
+
+        let serialized = serde_json::to_value(&ab).expect("serialize");
+        let obj = serialized.as_object().expect("object");
+        assert!(
+            obj.contains_key("shareWith"),
+            "shareWith must be present in wire JSON (required-nullable)"
+        );
+        assert!(
+            obj["shareWith"].is_null(),
+            "shareWith must serialize as null when None"
+        );
+    }
+
+    /// AddressBook with share_with: Some(map) round-trips correctly.
+    /// Oracle: contacts-10 §4.1 first AddressBook example with populated shareWith map.
+    #[test]
+    fn address_book_share_with_some_serializes() {
+        // From draft-ietf-jmap-contacts-10 §4.1 first AddressBook.
+        let json = r#"{
+            "id": "062adcfa-105d-455c-bc60-6db68b69c3f3",
+            "name": "Personal",
+            "description": null,
+            "sortOrder": 0,
+            "isDefault": true,
+            "isSubscribed": true,
+            "shareWith": {
+                "3f1502e0-63fe-4335-9ff3-e739c188f5dd": {
+                    "mayRead": true,
+                    "mayWrite": false,
+                    "mayShare": false,
+                    "mayDelete": false
+                }
+            },
+            "myRights": {
+                "mayRead": true,
+                "mayWrite": true,
+                "mayShare": true,
+                "mayDelete": false
+            }
+        }"#;
+        let ab: AddressBook = serde_json::from_str(json).expect("deserialize");
+        assert!(ab.share_with.is_some());
+
+        let serialized = serde_json::to_value(&ab).expect("serialize");
+        let obj = serialized.as_object().expect("object");
+        assert!(
+            obj.contains_key("shareWith"),
+            "shareWith must be present when set"
+        );
+        assert!(
+            !obj["shareWith"].is_null(),
+            "shareWith must not be null when populated"
+        );
+        // Round-trip: deserialize the serialized form, verify equality.
+        let back: AddressBook =
+            serde_json::from_value(serialized).expect("round-trip deserialize");
+        assert_eq!(ab.share_with, back.share_with);
+    }
+
     /// AddressBook round-trip: description Some vs None.
     #[test]
     fn address_book_round_trip_with_description() {

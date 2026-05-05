@@ -7,8 +7,9 @@
 pub mod methods;
 
 pub use methods::{
-    AddedItem, ChangesResponse, EmailCopyParams, EmailGetParams, GetResponse, MailboxSetParams,
-    QueryChangesResponse, QueryResponse, SessionClient, SetError, SetResponse,
+    AddedItem, ChangesResponse, EmailCopyParams, EmailGetParams, EmailSubmissionSetParams,
+    GetResponse, MailboxSetParams, QueryChangesResponse, QueryResponse, SessionClient, SetError,
+    SetResponse,
 };
 
 /// Extension trait adding RFC 8621 (JMAP for Mail) methods to [`jmap_base_client::JmapClient`].

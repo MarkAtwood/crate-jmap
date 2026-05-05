@@ -75,14 +75,6 @@ pub struct CalendarEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hide_attendees: Option<bool>,
 
-    /// Server-managed scheduling sequence number (draft §5.2.1).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub schedule_sequence: Option<u64>,
-
-    /// Server-managed UTC date-time of the last scheduling update (draft §5.2.2).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub schedule_updated: Option<String>,
-
     /// JMAP Blob id for the iCalendar representation of this event.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blob_id: Option<Id>,
