@@ -52,11 +52,11 @@ pub async fn handle_address_book_changes<B: ContactsBackend>(
 ///   `SetError { type: "addressBookHasContents" }`. If `true`, the backend
 ///   must remove the contents itself.
 ///
-/// - **`onSuccessSetIsDefault`** (object or null): a patch object applied
-///   *after* all other set operations succeed, mapping address book ids
-///   (or creation-id references) to `isDefault` values.  Implemented as
-///   a best-effort `update_object` call per entry; individual patch failures
-///   are collected into `notUpdated` but do not roll back the overall set.
+/// - **`onSuccessSetIsDefault`** (`Id|null`, single string id or null): if
+///   non-null, after all other set operations succeed the named address book
+///   is patched with `{"isDefault": true}`.  Creation-id references (`#c1`)
+///   are resolved to the server-assigned id.  Any error from this patch is
+///   silently ignored per §2.3.
 pub async fn handle_address_book_set<B: ContactsBackend>(
     backend: &B,
     args: Value,
@@ -248,58 +248,53 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
 
     // -----------------------------------------------------------------------
     // onSuccessSetIsDefault — post-set isDefault patch
-    // contacts-10 §2.3: after the main set operations, if onSuccessSetIsDefault
-    // is a non-null object, apply each { id: isDefault } entry as an update.
+    // contacts-10 §2.3: onSuccessSetIsDefault is Id|null (a single string id,
+    // not a map).  After the main set operations, if it is a non-null string,
+    // patch the named address book with {"isDefault": true}.  Errors are
+    // silently ignored per §2.3.
+    //
+    // contacts-10 §2.3: this block MUST be skipped if any main set operation
+    // (create, update, or destroy) produced an error.
     // -----------------------------------------------------------------------
-    if let Some(Value::Object(is_default_map)) = on_success_set_is_default {
-        for (id_str, is_default_val) in is_default_map {
-            // Resolve creation references (#<create_id>).
-            let resolved_id = if let Some(stripped) = id_str.strip_prefix('#') {
-                // Look up the server-assigned id in the created map.
-                if let Some(created_obj) = created.get(stripped) {
-                    created_obj
-                        .get("id")
+    let main_ops_all_succeeded =
+        not_created.is_empty() && not_updated.is_empty() && not_destroyed.is_empty();
+    if main_ops_all_succeeded {
+        match on_success_set_is_default {
+            Some(Value::String(id_str)) => {
+                // Resolve creation reference: if id_str starts with '#', look up in created map.
+                let resolved: Option<Id> = if let Some(create_id) = id_str.strip_prefix('#') {
+                    created
+                        .get(create_id)
+                        .and_then(|v| v.get("id"))
                         .and_then(|v| v.as_str())
-                        .unwrap_or(&id_str)
-                        .to_owned()
+                        .map(Id::from)
                 } else {
-                    // Creation failed — skip.
-                    continue;
-                }
-            } else {
-                id_str.clone()
-            };
-
-            let id = Id::from(resolved_id.as_str());
-            let patch = json!({ "isDefault": is_default_val });
-
-            match backend
-                .update_object::<AddressBook>(&account_id, &id, patch)
-                .await
-            {
-                Ok(Some(obj)) => {
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
-                    );
-                }
-                Ok(None) => {
-                    updated.insert(id_str, Value::Null);
-                }
-                Err(BackendSetError::SetError(set_err)) => {
-                    not_updated.insert(id_str, set_error_value(&set_err));
-                }
-                Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    Some(Id::from(id_str.as_str()))
+                };
+                if let Some(target_id) = resolved {
+                    let patch = json!({"isDefault": true});
+                    // §2.3: errors here are silently ignored.
+                    match backend
+                        .update_object::<AddressBook>(&account_id, &target_id, patch)
+                        .await
+                    {
+                        Ok(Some(obj)) => {
+                            updated.insert(
+                                target_id.to_string(),
+                                serde_json::to_value(&obj).unwrap_or(Value::Null),
+                            );
+                        }
+                        Ok(None) => {
+                            updated.insert(target_id.to_string(), Value::Null);
+                        }
+                        Err(_) => {} // silently ignored per §2.3
+                    }
                 }
             }
+            Some(Value::Null) | None => {}
+            _ => {} // malformed — silently ignored
         }
-    }
+    } // end if main_ops_all_succeeded
 
     Ok((
         json!({
@@ -404,5 +399,107 @@ mod tests {
             .await
             .expect("must not error for known account");
         assert_eq!(resp["accountId"], "acc1");
+    }
+
+    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault with a bare string id
+    /// triggers a best-effort isDefault patch.  The MockBackend's update_object
+    /// returns NotFound (a SetError), which is silently swallowed per §2.3, so
+    /// no top-level error is returned and notUpdated remains null.
+    #[tokio::test]
+    async fn set_on_success_set_is_default_bare_id() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": [],
+            "onSuccessSetIsDefault": "book1"
+        });
+        let (resp, _) = handle_address_book_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+
+        // The update error is silently swallowed — no top-level error and
+        // notUpdated must be null (the error is not surfaced per §2.3).
+        assert!(
+            resp.get("type").is_none(),
+            "must not be a top-level error: {resp}"
+        );
+        assert!(
+            resp["notUpdated"].is_null(),
+            "§2.3 errors must be silently ignored, notUpdated must be null: {resp}"
+        );
+    }
+
+    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault: null is a no-op.
+    /// No error must be returned and the response must be structurally valid.
+    #[tokio::test]
+    async fn set_on_success_set_is_default_null_ignored() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "onSuccessSetIsDefault": null
+        });
+        let (resp, _) = handle_address_book_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+
+        assert!(
+            resp.get("type").is_none(),
+            "null onSuccessSetIsDefault must not cause an error: {resp}"
+        );
+        assert_eq!(resp["accountId"], "acc1");
+    }
+
+    /// Oracle: contacts-10 §2.3 — a malformed onSuccessSetIsDefault (object
+    /// instead of Id|null) must be silently ignored; no top-level error.
+    #[tokio::test]
+    async fn set_on_success_set_is_default_bad_type_ignored() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "onSuccessSetIsDefault": {"wrong": "type"}
+        });
+        let (resp, _) = handle_address_book_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+
+        assert!(
+            resp.get("type").is_none(),
+            "malformed onSuccessSetIsDefault must be silently ignored: {resp}"
+        );
+        assert_eq!(resp["accountId"], "acc1");
+    }
+
+    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault MUST be skipped when
+    /// any main set operation (create, update, or destroy) produced an error.
+    /// Here a create with a malformed entry causes notCreated, which means
+    /// onSuccessSetIsDefault must NOT be applied.
+    #[tokio::test]
+    async fn set_on_success_skipped_when_create_fails() {
+        let backend = MockBackend::new_with_account("acc1");
+        // An empty object {} as the create value has no required "name" field,
+        // so deserialization will fail → notCreated entry → main op failed.
+        let args = json!({
+            "accountId": "acc1",
+            "create": { "c1": {} },   // missing required name → invalidProperties
+            "onSuccessSetIsDefault": "book1"
+        });
+        let (resp, _) = handle_address_book_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+
+        // The create must have failed.
+        assert!(
+            resp["notCreated"].is_object(),
+            "c1 must be in notCreated: {resp}"
+        );
+        // onSuccessSetIsDefault must NOT have run (updated must be null/absent).
+        // If it did run, "book1" would appear in updated.
+        let updated = &resp["updated"];
+        let is_empty =
+            updated.is_null() || updated.as_object().map(|o| o.is_empty()).unwrap_or(true);
+        assert!(
+            is_empty,
+            "updated must be empty — onSuccessSetIsDefault must not run when create failed: {resp}"
+        );
     }
 }
