@@ -79,6 +79,21 @@ pub struct CalendarEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blob_id: Option<Id>,
 
+    /// Raw iCalendar (RFC 5545) data for this event, base64-encoded.
+    ///
+    /// Only returned when explicitly requested via `properties:["iCalComponent"]`
+    /// (draft-ietf-jmap-calendars-26 §5.7).  Never included by default.
+    ///
+    /// The value is the base64url-encoded VEVENT iCalendar component, suitable
+    /// for interoperability with systems that do not support the native
+    /// CalendarEvent representation.
+    ///
+    /// Wire name is `"iCalComponent"` — not `"icalComponent"` — because "iCal"
+    /// is a brand abbreviation with mixed case.  Manual rename required since
+    /// `rename_all = "camelCase"` would produce `"icalComponent"`.
+    #[serde(rename = "iCalComponent", skip_serializing_if = "Option::is_none")]
+    pub ical_component: Option<String>,
+
     // ── JSCalendar @type ─────────────────────────────────────────────────────
     /// JSCalendar object type; always `"Event"` when present.
     /// Included for round-trip fidelity; omitted on create.

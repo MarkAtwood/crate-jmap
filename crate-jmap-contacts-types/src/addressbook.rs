@@ -1,7 +1,9 @@
 //! draft-ietf-jmap-contacts-10 §2 — AddressBook object and component types.
 //!
-//! Provides [`AddressBook`], [`AddressBookRights`], and
-//! [`AddressBookFilterCondition`].
+//! Provides [`AddressBook`] and [`AddressBookRights`].
+//!
+//! Note: the spec defines no `AddressBook/query` method, so no
+//! `AddressBookFilterCondition` type exists.
 
 use std::collections::HashMap;
 
@@ -63,21 +65,4 @@ pub struct AddressBook {
     pub share_with: Option<HashMap<Id, AddressBookRights>>,
     /// ACL rights the authenticated user has on this AddressBook; server-set.
     pub my_rights: AddressBookRights,
-}
-
-/// Filter condition for `AddressBook/query`.
-///
-/// All fields are optional; a condition with no fields set matches every
-/// AddressBook.
-#[non_exhaustive]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AddressBookFilterCondition {
-    /// Matches AddressBooks whose name contains this string.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-
-    /// Matches AddressBooks with this exact subscription state.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub is_subscribed: Option<bool>,
 }

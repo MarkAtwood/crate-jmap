@@ -45,7 +45,7 @@ pub mod backend;
 pub mod capability;
 pub mod card;
 
-pub use addressbook::{AddressBook, AddressBookFilterCondition, AddressBookRights};
+pub use addressbook::{AddressBook, AddressBookRights};
 pub use backend::{AddressBookProperty, ContactCardProperty};
 pub use capability::{ContactsAccountCapability, ContactsCapability, JMAP_CONTACTS_URI};
 pub use card::{ContactCard, ContactCardComparator, ContactCardFilterCondition};
