@@ -16,11 +16,48 @@ use crate::helpers::{extract_account_id, set_error_value};
 /// Extra args (`expandRecurrences`, `reducedParticipants`, `fetchCalendars`)
 /// are passed through to the generic handler which forwards them to the
 /// backend via the args `Value`.
+///
+/// If `utcStart` or `utcEnd` appear in the requested `properties` (or all
+/// properties are requested), `compute_utc_times` is called per event and
+/// the results are injected into the response list
+/// (draft-ietf-jmap-calendars-26 §5.2).
 pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<CalendarEvent, B>(backend, args).await
+    // Determine whether utcStart or utcEnd are requested.
+    let want_utc = match args.get("properties") {
+        None | Some(Value::Null) => true, // all properties requested
+        Some(Value::Array(props)) => props.iter().any(|p| {
+            p.as_str()
+                .map(|s| s == "utcStart" || s == "utcEnd")
+                .unwrap_or(false)
+        }),
+        _ => false,
+    };
+    let account_id = extract_account_id(&args)?;
+
+    let (mut response, tail) =
+        jmap_server::handlers::handle_get::<CalendarEvent, B>(backend, args).await?;
+
+    if want_utc {
+        if let Some(Value::Array(list)) = response.get_mut("list") {
+            for item in list.iter_mut() {
+                if let Ok(event) = serde_json::from_value::<CalendarEvent>(item.clone()) {
+                    let (utc_start, utc_end) =
+                        backend.compute_utc_times(&account_id, &event, None).await;
+                    if let Some(s) = utc_start {
+                        item["utcStart"] = Value::String(s);
+                    }
+                    if let Some(e) = utc_end {
+                        item["utcEnd"] = Value::String(e);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok((response, tail))
 }
 
 // ---------------------------------------------------------------------------
@@ -72,6 +109,38 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
+            // §5.9: client cannot set both utcStart and start simultaneously,
+            // or both utcEnd and duration.
+            let obj_json = &obj_val;
+            let has_utc_start = obj_json
+                .get("utcStart")
+                .map(|v| !v.is_null())
+                .unwrap_or(false);
+            let has_start = obj_json.get("start").map(|v| !v.is_null()).unwrap_or(false);
+            let has_utc_end = obj_json
+                .get("utcEnd")
+                .map(|v| !v.is_null())
+                .unwrap_or(false);
+            let has_duration = obj_json
+                .get("duration")
+                .map(|v| !v.is_null())
+                .unwrap_or(false);
+
+            if has_utc_start && has_start {
+                not_created.insert(
+                    create_id,
+                    json!({ "type": "invalidProperties", "properties": ["utcStart", "start"] }),
+                );
+                continue;
+            }
+            if has_utc_end && has_duration {
+                not_created.insert(
+                    create_id,
+                    json!({ "type": "invalidProperties", "properties": ["utcEnd", "duration"] }),
+                );
+                continue;
+            }
+
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.entry("id")
@@ -118,6 +187,40 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
+            // §5.9: patch cannot contain both utcStart and start, or both
+            // utcEnd and duration.
+            let has_utc_start = patch_val
+                .get("utcStart")
+                .map(|v| !v.is_null())
+                .unwrap_or(false);
+            let has_start = patch_val
+                .get("start")
+                .map(|v| !v.is_null())
+                .unwrap_or(false);
+            let has_utc_end = patch_val
+                .get("utcEnd")
+                .map(|v| !v.is_null())
+                .unwrap_or(false);
+            let has_duration = patch_val
+                .get("duration")
+                .map(|v| !v.is_null())
+                .unwrap_or(false);
+
+            if has_utc_start && has_start {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidProperties", "properties": ["utcStart", "start"] }),
+                );
+                continue;
+            }
+            if has_utc_end && has_duration {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidProperties", "properties": ["utcEnd", "duration"] }),
+                );
+                continue;
+            }
+
             let id = Id::from(id_str.as_str());
             match backend
                 .update_object::<CalendarEvent>(&account_id, &id, patch_val)
@@ -606,6 +709,105 @@ mod tests {
             resp["created"]["c1"].is_object(),
             "created must contain c1: {resp}"
         );
+    }
+
+    /// Oracle: §5.9 — creating with both `utcStart` and `start` set must
+    /// produce `notCreated` with `invalidProperties` citing both fields.
+    #[tokio::test]
+    async fn set_create_utc_start_and_start_conflict_returns_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc");
+        let args = json!({
+            "accountId": "acc",
+            "create": {
+                "c1": {
+                    "calendarIds": { "cal1": true },
+                    "start": "2024-06-01T10:00:00",
+                    "utcStart": "2024-06-01T08:00:00Z"
+                }
+            }
+        });
+        let (resp, extra) = handle_calendar_event_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+        assert!(extra.is_empty());
+        assert_eq!(
+            resp["notCreated"]["c1"]["type"], "invalidProperties",
+            "expected invalidProperties: {resp}"
+        );
+        let props = resp["notCreated"]["c1"]["properties"].as_array().unwrap();
+        let prop_strs: Vec<&str> = props.iter().filter_map(|v| v.as_str()).collect();
+        assert!(
+            prop_strs.contains(&"utcStart") && prop_strs.contains(&"start"),
+            "must cite utcStart and start: {resp}"
+        );
+    }
+
+    /// Oracle: §5.9 — creating with both `utcEnd` and `duration` set must
+    /// produce `notCreated` with `invalidProperties` citing both fields.
+    #[tokio::test]
+    async fn set_create_utc_end_and_duration_conflict_returns_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc");
+        let args = json!({
+            "accountId": "acc",
+            "create": {
+                "c1": {
+                    "calendarIds": { "cal1": true },
+                    "duration": "PT1H",
+                    "utcEnd": "2024-06-01T09:00:00Z"
+                }
+            }
+        });
+        let (resp, extra) = handle_calendar_event_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+        assert!(extra.is_empty());
+        assert_eq!(
+            resp["notCreated"]["c1"]["type"], "invalidProperties",
+            "expected invalidProperties: {resp}"
+        );
+        let props = resp["notCreated"]["c1"]["properties"].as_array().unwrap();
+        let prop_strs: Vec<&str> = props.iter().filter_map(|v| v.as_str()).collect();
+        assert!(
+            prop_strs.contains(&"utcEnd") && prop_strs.contains(&"duration"),
+            "must cite utcEnd and duration: {resp}"
+        );
+    }
+
+    /// Oracle: get without requesting `utcStart`/`utcEnd` must not error.
+    #[tokio::test]
+    async fn get_without_utc_properties_does_not_error() {
+        let backend = MockBackend::new_with_account("acc");
+        let args = json!({
+            "accountId": "acc",
+            "ids": null,
+            "properties": ["id", "title"]
+        });
+        let result = handle_calendar_event_get(&backend, args).await;
+        assert!(result.is_ok(), "must not error: {result:?}");
+    }
+
+    /// Oracle: get with `utcStart` in properties succeeds; default impl
+    /// returns `None` so the field is absent from each item — no error.
+    #[tokio::test]
+    async fn get_with_utc_start_requested_does_not_error() {
+        let backend = MockBackend::new_with_account("acc");
+        let args = json!({
+            "accountId": "acc",
+            "ids": null,
+            "properties": ["id", "utcStart"]
+        });
+        let result = handle_calendar_event_get(&backend, args).await;
+        assert!(result.is_ok(), "must not error: {result:?}");
+        let (resp, _) = result.unwrap();
+        // list is present; utcStart absent from items (default impl returns None).
+        if let Some(list) = resp["list"].as_array() {
+            for item in list {
+                assert!(
+                    item.get("utcStart").is_none(),
+                    "default impl must not inject utcStart: {item}"
+                );
+            }
+        }
     }
 
     /// Oracle: RFC 8620 §6.3 — `onSuccessDestroyOriginal: true` generates an
