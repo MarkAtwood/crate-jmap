@@ -186,10 +186,19 @@ impl super::SessionClient {
     /// `from_account_id` is the source account. `create` is a JSON object
     /// mapping creation keys to copy-creation objects. `on_exists` and
     /// `compare_case_insensitively` are optional collision-handling parameters.
+    /// Copy FileNode objects from `from_account_id` into this account
+    /// (draft-ietf-jmap-filenode-13 §3.2.4 — FileNode/copy).
+    ///
+    /// Accepts the same optional arguments as `FileNode/set`:
+    /// - `on_destroy_remove_children`: when `true`, any children of a destroyed
+    ///   source node are also removed (§3.2.4, §3.2.3).
+    /// - `on_exists`: collision policy at the destination.
+    /// - `compare_case_insensitively`: case-folding for name collisions.
     pub async fn file_node_copy(
         &self,
         from_account_id: &str,
         create: serde_json::Value,
+        on_destroy_remove_children: Option<bool>,
         on_exists: Option<FileNodeOnExists>,
         compare_case_insensitively: Option<bool>,
     ) -> Result<SetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
@@ -204,6 +213,9 @@ impl super::SessionClient {
             "accountId": account_id,
             "create": create,
         });
+        if let Some(odrc) = on_destroy_remove_children {
+            args["onDestroyRemoveChildren"] = odrc.into();
+        }
         if let Some(oe) = on_exists {
             args["onExists"] = serde_json::to_value(&oe).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
@@ -560,6 +572,44 @@ mod tests {
             calls[0][1]["fromAccountId"],
             json!("source-account"),
             "fromAccountId must be present"
+        );
+    }
+
+    /// Oracle: FileNode/copy with onDestroyRemoveChildren=true includes the key
+    /// in the request (draft-ietf-jmap-filenode-13 §3.2.4).
+    #[test]
+    fn file_node_copy_with_on_destroy_remove_children_includes_key() {
+        let mut args = json!({
+            "fromAccountId": "source",
+            "accountId": "dest",
+            "create": {},
+        });
+        args["onDestroyRemoveChildren"] = json!(true);
+        let req = build_request("FileNode/copy", args, USING_FILENODE);
+        let v = serde_json::to_value(&req).expect("serialize");
+        let calls = v["methodCalls"].as_array().expect("methodCalls");
+        assert_eq!(
+            calls[0][1]["onDestroyRemoveChildren"],
+            json!(true),
+            "onDestroyRemoveChildren must appear when set to true"
+        );
+    }
+
+    /// Oracle: FileNode/copy with onDestroyRemoveChildren=None must NOT include
+    /// the key in the request.
+    #[test]
+    fn file_node_copy_without_on_destroy_remove_children_omits_key() {
+        let args = json!({
+            "fromAccountId": "source",
+            "accountId": "dest",
+            "create": {},
+        });
+        let req = build_request("FileNode/copy", args, USING_FILENODE);
+        let v = serde_json::to_value(&req).expect("serialize");
+        let calls = v["methodCalls"].as_array().expect("methodCalls");
+        assert!(
+            calls[0][1].get("onDestroyRemoveChildren").is_none(),
+            "onDestroyRemoveChildren must be absent when None"
         );
     }
 
