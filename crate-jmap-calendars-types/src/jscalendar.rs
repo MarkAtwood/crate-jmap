@@ -432,6 +432,14 @@ pub struct Participant {
     /// Context: Participant — per-participant iTIP tracking, not event-level.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub schedule_updated: Option<String>,
+
+    /// iTIP status codes from the most recent scheduling message sent to this
+    /// participant (RFC 8984 §4.4.6).
+    ///
+    /// An array of iTIP status code strings (e.g. `"1.0"`, `"2.0"`, `"5.0"`).
+    /// Server-set and persisted; absent when no scheduling has occurred.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schedule_status: Option<Vec<String>>,
 }
 
 // ── Alert ─────────────────────────────────────────────────────────────────────

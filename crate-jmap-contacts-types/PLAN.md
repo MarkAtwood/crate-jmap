@@ -156,6 +156,10 @@ sets that the spec declares non-extensible (none exist in this spec).
 
 ## AddressBook Type (contacts-10 §2)
 
+> **Note:** `totalContacts` is NOT a field in draft-ietf-jmap-contacts-10.  Do not
+> add it.  The spec defines no such property on AddressBook.  Any prior audit
+> finding referring to `totalContacts` was incorrect.
+
 ```rust
 pub struct AddressBook {
     pub id: Id,                                   // immutable; server-set

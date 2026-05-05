@@ -999,6 +999,10 @@ fn participant_schedule_fields_absent_when_none() {
     let p: Participant = serde_json::from_str(json).expect("Participant deserialize");
     assert_eq!(p.schedule_sequence, None);
     assert_eq!(p.schedule_updated, None);
+    assert!(
+        p.schedule_status.is_none(),
+        "scheduleStatus must be None when absent"
+    );
 
     let serialized = serde_json::to_string(&p).expect("serialize");
     let v: serde_json::Value = serde_json::from_str(&serialized).expect("parse");
@@ -1010,6 +1014,10 @@ fn participant_schedule_fields_absent_when_none() {
     assert!(
         !obj.contains_key("scheduleUpdated"),
         "scheduleUpdated must be absent when None"
+    );
+    assert!(
+        !obj.contains_key("scheduleStatus"),
+        "scheduleStatus must be absent when None"
     );
 }
 
@@ -1332,5 +1340,82 @@ fn link_title_absent_when_none() {
     assert!(
         !out.contains("\"title\""),
         "title must not appear in output when None: {out}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Participant.scheduleStatus (RFC 8984 §4.4.6)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn participant_schedule_status_roundtrip() {
+    // Oracle: RFC 8984 §4.4.6 — scheduleStatus is String[] (optional),
+    // contains iTIP status codes (e.g. "1.0", "2.0").
+    let json =
+        r#"{"@type":"Participant","roles":{"attendee":true},"scheduleStatus":["1.0","2.0"]}"#;
+    let p: Participant = serde_json::from_str(json)
+        .expect("participant_schedule_status_roundtrip: must deserialize");
+    let status = p
+        .schedule_status
+        .as_ref()
+        .expect("scheduleStatus must be Some");
+    assert_eq!(status.len(), 2, "must have 2 status codes");
+    assert_eq!(status[0], "1.0");
+    assert_eq!(status[1], "2.0");
+
+    let out =
+        serde_json::to_value(&p).expect("participant_schedule_status_roundtrip: must serialize");
+    assert_eq!(
+        out["scheduleStatus"][0], "1.0",
+        "scheduleStatus[0] must be '1.0'"
+    );
+    assert_eq!(
+        out["scheduleStatus"][1], "2.0",
+        "scheduleStatus[1] must be '2.0'"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// CalendarEvent.iCalComponent (calendars-26 §5.7)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn calendar_event_ical_component_roundtrip() {
+    // Oracle: draft-ietf-jmap-calendars-26 §5.7 — iCalComponent is returned
+    // only when explicitly requested. The value is base64-encoded iCalendar data.
+    let sample_base64 = "QkVHSU46VkNBTEVOREFSCk...(truncated)..."; // not real base64, just a string value
+    let json = format!(r#"{{"id":"ev1","iCalComponent":"{sample_base64}"}}"#);
+    let event: CalendarEvent = serde_json::from_str(&json)
+        .expect("calendar_event_ical_component_roundtrip: must deserialize");
+    assert_eq!(
+        event.ical_component.as_deref(),
+        Some(sample_base64),
+        "iCalComponent must round-trip correctly"
+    );
+
+    let out = serde_json::to_value(&event)
+        .expect("calendar_event_ical_component_roundtrip: must serialize");
+    assert_eq!(
+        out["iCalComponent"], sample_base64,
+        "iCalComponent wire name must be 'iCalComponent'"
+    );
+}
+
+#[test]
+fn calendar_event_ical_component_absent_when_none() {
+    // Oracle: skip_serializing_if = Option::is_none — iCalComponent must be absent
+    // from the wire when not explicitly set (it is never returned by default).
+    let json = r#"{"id":"ev1"}"#;
+    let event: CalendarEvent = serde_json::from_str(json)
+        .expect("calendar_event_ical_component_absent_when_none: must deserialize");
+    assert!(
+        event.ical_component.is_none(),
+        "iCalComponent must be None when absent from JSON"
+    );
+    let out = serde_json::to_string(&event)
+        .expect("calendar_event_ical_component_absent_when_none: must serialize");
+    assert!(
+        !out.contains("iCalComponent"),
+        "iCalComponent must not appear in output when None: {out}"
     );
 }
