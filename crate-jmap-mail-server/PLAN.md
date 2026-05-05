@@ -35,12 +35,12 @@ Known consumer: `stoa` (the Usenet/email JMAP server).
 
 Two small RFC 8621-adjacent extensions belong here rather than in their own crates:
 
-- **Sieve** (`draft-ietf-jmap-sieve-22`): `SieveScript/get`, `/set`, `/query`, `/validate`.
+- **Sieve** (`RFC 9661`): `SieveScript/get`, `/set`, `/query`, `/validate`.
   One object type (`SieveScript`: `id`, `name`, `blobId`, `isActive`). Script content
   stored/retrieved via standard JMAP blob upload/download. Add as `src/sieve.rs` with a
   `sieve` feature flag gating registration.
 
-- **MDN** (`draft-ietf-jmap-mdn-17`): `MDN/send`, `MDN/parse`. No stored objects —
+- **MDN** (`RFC 9007`): `MDN/send`, `MDN/parse`. No stored objects —
   pure send-and-forget read receipts (RFC 8098). Add as `src/mdn.rs` with an `mdn`
   feature flag.
 

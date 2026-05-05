@@ -1,6 +1,6 @@
 //! Wiremock integration tests for ContactCard/query and ContactCard/queryChanges.
 //!
-//! Oracle for all response shapes: draft-ietf-jmap-contacts-10 §3.4–3.5 and
+//! Oracle for all response shapes: RFC 9610 §3.4–3.5 and
 //! RFC 8620 §5.5–5.6.
 //! Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 
@@ -13,7 +13,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Test JMAP-kh21.3 #1 — ContactCard/query with filter returns matching ids.
 ///
-/// Oracle: draft-ietf-jmap-contacts-10 §3.4 — filter is an optional argument.
+/// Oracle: RFC 9610 §3.4 — filter is an optional argument.
 /// RFC 8620 §5.5 — query response shape (queryState, position, ids, canCalculateChanges).
 #[tokio::test]
 async fn contact_card_query_with_filter() {
@@ -76,7 +76,7 @@ async fn contact_card_query_with_filter() {
 
 /// Test JMAP-kh21.3 #2 — ContactCard/queryChanges returns removed and added ids.
 ///
-/// Oracle: draft-ietf-jmap-contacts-10 §3.5 — sinceQueryState is required.
+/// Oracle: RFC 9610 §3.5 — sinceQueryState is required.
 /// RFC 8620 §5.6 — queryChanges response shape (removed, added, newQueryState).
 #[tokio::test]
 async fn contact_card_query_changes_round_trip() {

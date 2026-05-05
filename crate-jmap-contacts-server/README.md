@@ -36,7 +36,7 @@ same `Arc<MyBackend>` can be shared with other parts of your application.
 | `ContactCard` | `get`, `changes`, `set`, `copy`, `query`, `queryChanges` |
 
 Note: `AddressBook/query` and `AddressBook/queryChanges` are **not** registered.
-draft-ietf-jmap-contacts-10 does not define these methods.
+RFC 9610 does not define these methods.
 
 ## ContactsBackend trait
 
@@ -127,7 +127,7 @@ RFC 8620 response object.
 
 ### AddressBook/set — onSuccessSetIsDefault semantics
 
-RFC contacts-10 §2.3 defines an `onSuccessSetIsDefault` argument that, after
+RFC RFC 9610 §2.3 defines an `onSuccessSetIsDefault` argument that, after
 all create/update/destroy operations succeed, designates one AddressBook as
 the account default. The handler enforces the single-default invariant:
 

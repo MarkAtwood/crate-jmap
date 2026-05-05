@@ -7,13 +7,13 @@ JSContact ([RFC 9553]). Types only — no method handlers, no async, no network 
 
 | Type | Module | Source |
 |---|---|---|
-| `AddressBook` | `addressbook` | contacts-10 §2 |
-| `AddressBookRights` | `addressbook` | contacts-10 §2 |
-| `ContactCard` | `card` | contacts-10 §3, RFC 9553 §2 |
-| `ContactCardFilterCondition` | `card` | contacts-10 §3.3.1 |
-| `ContactCardComparator` | `card` | contacts-10 §3.3 |
-| `ContactsCapability` | `capability` | contacts-10 §1.4.1 |
-| `ContactsAccountCapability` | `capability` | contacts-10 §1.4.1 |
+| `AddressBook` | `addressbook` | RFC 9610 §2 |
+| `AddressBookRights` | `addressbook` | RFC 9610 §2 |
+| `ContactCard` | `card` | RFC 9610 §3, RFC 9553 §2 |
+| `ContactCardFilterCondition` | `card` | RFC 9610 §3.3.1 |
+| `ContactCardComparator` | `card` | RFC 9610 §3.3 |
+| `ContactsCapability` | `capability` | RFC 9610 §1.4.1 |
+| `ContactsAccountCapability` | `capability` | RFC 9610 §1.4.1 |
 | `Name`, `NameComponent` | `jscontact::name` | RFC 9553 §2.2.1 |
 | `Nickname` | `jscontact::nickname` | RFC 9553 §2.2.2 |
 | `Organization`, `OrgUnit` | `jscontact::org` | RFC 9553 §2.2.3 |
@@ -35,9 +35,9 @@ JSContact ([RFC 9553]). Types only — no method handlers, no async, no network 
 
 | Feature | Status |
 |---|---|
-| `AddressBook` object (contacts-10 §2) | Complete |
+| `AddressBook` object (RFC 9610 §2) | Complete |
 | `AddressBookRights` (4 boolean fields) | Complete |
-| `ContactCard` JMAP wrapper (contacts-10 §3) | Complete |
+| `ContactCard` JMAP wrapper (RFC 9610 §3) | Complete |
 | JSContact `Name`, `Organization`, `Title` | Complete |
 | JSContact `EmailAddress`, `Phone`, `OnlineService` | Complete |
 | JSContact `Address` | Complete |

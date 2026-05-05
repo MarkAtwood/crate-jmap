@@ -19,7 +19,7 @@
 //! # `mdn` feature
 //!
 //! Enable the `mdn` feature to add support for the JMAP MDN extension
-//! (draft-ietf-jmap-mdn). This exposes [`register_mdn_handlers`], which wires
+//! (RFC 9007). This exposes [`register_mdn_handlers`], which wires
 //! two additional method names into the dispatcher: `MDN/send` and `MDN/parse`.
 //! Backends must also implement [`MdnBackend`] in addition to [`MailBackend`].
 
@@ -242,7 +242,7 @@ pub use jmap_server::{ClosureHandler, ClosureHandlerWithCtx};
 /// Registers `MDN/send` and `MDN/parse`. Both methods require
 /// `urn:ietf:params:jmap:mdn` in the JMAP request `using` array;
 /// `MDN/send` additionally requires `urn:ietf:params:jmap:mail`
-/// (draft-ietf-jmap-mdn-17 §2.1). Callers MUST ensure
+/// (RFC 9007 §2.1). Callers MUST ensure
 /// `check_known_capabilities` is called with both URIs listed as known,
 /// so that clients omitting either capability receive an appropriate
 /// error before method dispatch.
@@ -298,7 +298,7 @@ pub fn register_mdn_handlers<B, C>(
 /// Registers `SieveScript/get`, `SieveScript/set`, `SieveScript/query`, and
 /// `SieveScript/validate`. All four methods require
 /// `urn:ietf:params:jmap:sieve` in the JMAP request `using` array
-/// (draft-ietf-jmap-sieve-22). Callers MUST ensure
+/// (RFC 9661). Callers MUST ensure
 /// `check_known_capabilities` is called with that URI listed as known,
 /// so that clients omitting the capability receive an appropriate error
 /// before method dispatch.

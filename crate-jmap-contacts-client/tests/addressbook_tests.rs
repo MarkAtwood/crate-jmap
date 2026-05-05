@@ -1,6 +1,6 @@
 //! Wiremock integration tests for AddressBook/get, /changes, /set.
 //!
-//! Oracle for all response shapes: draft-ietf-jmap-contacts-10 §2 and RFC 8620 §5.
+//! Oracle for all response shapes: RFC 9610 §2 and RFC 8620 §5.
 //! Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 
 #[path = "helpers.rs"]
@@ -12,7 +12,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Test JMAP-kh21.1 #1 — AddressBook/get returns the AddressBook list.
 ///
-/// Oracle: draft-ietf-jmap-contacts-10 §2.1 — passing ids=null returns all
+/// Oracle: RFC 9610 §2.1 — passing ids=null returns all
 /// AddressBooks. Response shape from spec §4.1 example.
 #[tokio::test]
 async fn addressbook_get_round_trip() {
@@ -69,7 +69,7 @@ async fn addressbook_get_round_trip() {
 
 /// Test JMAP-kh21.1 #2 — AddressBook/changes sends sinceState in the request.
 ///
-/// Oracle: draft-ietf-jmap-contacts-10 §2.2 — sinceState is a required argument.
+/// Oracle: RFC 9610 §2.2 — sinceState is a required argument.
 /// RFC 8620 §5.2 — changes response shape.
 #[tokio::test]
 async fn addressbook_changes_sends_since_state() {
@@ -127,7 +127,7 @@ async fn addressbook_changes_sends_since_state() {
 
 /// Test JMAP-kh21.1 #3 — AddressBook/set create round-trip.
 ///
-/// Oracle: draft-ietf-jmap-contacts-10 §2.3 — /set create returns server-assigned id
+/// Oracle: RFC 9610 §2.3 — /set create returns server-assigned id
 /// in the created map. RFC 8620 §5.3.
 #[tokio::test]
 async fn addressbook_set_create_round_trip() {
@@ -200,7 +200,7 @@ async fn addressbook_set_create_round_trip() {
 
 /// Test JMAP-kh21.1 #4 — AddressBook/set with onDestroyRemoveContents sends the wire key.
 ///
-/// Oracle: draft-ietf-jmap-contacts-10 §2.3 — onDestroyRemoveContents is the wire key
+/// Oracle: RFC 9610 §2.3 — onDestroyRemoveContents is the wire key
 /// (contacts-10 uses "contents" not "contacts"). Verify the exact JSON key appears.
 #[tokio::test]
 async fn addressbook_set_on_destroy_remove_contents() {

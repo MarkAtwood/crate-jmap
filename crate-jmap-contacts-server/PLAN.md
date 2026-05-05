@@ -1,6 +1,6 @@
 # jmap-contacts-server — Implementation Plan
 
-JMAP Contacts (draft-ietf-jmap-contacts-10) method handlers.  Plugs into
+JMAP Contacts (RFC 9610) method handlers.  Plugs into
 `jmap-server`'s `Dispatcher`.  Backend-agnostic: defines a `ContactsBackend`
 trait; consumers provide the implementation.
 
@@ -35,7 +35,7 @@ backend handles storage.
 
 ### Normative
 
-`~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-contacts-10.txt` — read
+`~/PROJECT/jmap-chat-spec/references/RFC 9610.txt` — read
 the relevant section before implementing each handler.  Wire field names and
 method semantics come from the spec, not from memory.
 
@@ -81,7 +81,7 @@ tokio               = { version = "1", features = ["rt"] }
 
 No vCard libraries.  No HTTP client.  No database drivers.
 
-## JMAP Method Coverage (draft-ietf-jmap-contacts-10)
+## JMAP Method Coverage (RFC 9610)
 
 | Object | Methods | Draft §§ | Notes |
 |---|---|---|---|
@@ -198,7 +198,7 @@ into each handler closure — same pattern as `register_mail_handlers` and
 
 ### 10. Capability URI
 
-`urn:ietf:params:jmap:contacts` — registered per contacts-10 §1.4.1.
+`urn:ietf:params:jmap:contacts` — registered per RFC 9610 §1.4.1.
 
 Account capability object contains:
 - `maxAddressBooksPerCard: UnsignedInt|null` — max AddressBooks per card
@@ -334,7 +334,7 @@ tests/
   card_tests.rs
 ```
 
-Test oracles come from the draft-ietf-jmap-contacts-10 example exchanges
+Test oracles come from the RFC 9610 example exchanges
 (§4.1 and §4.2) and from hand-constructed JSON matching the spec field
 descriptions.  Extract them verbatim from the spec and hardcode as
 `serde_json::json!({...})` literals.  Never derive expected values from the

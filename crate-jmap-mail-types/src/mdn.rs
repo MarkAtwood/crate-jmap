@@ -1,4 +1,4 @@
-//! JMAP MDN types (draft-ietf-jmap-mdn-17).
+//! JMAP MDN types (RFC 9007).
 //!
 //! Covers all request/response types for `MDN/send` (§3.1) and `MDN/parse` (§3.3),
 //! plus the [`Mdn`] object and its sub-types.
@@ -12,10 +12,10 @@ use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Capability URI for JMAP MDN (draft-ietf-jmap-mdn-17 §2).
+/// Capability URI for JMAP MDN (RFC 9007 §2).
 pub const JMAP_MDN_URI: &str = "urn:ietf:params:jmap:mdn";
 
-/// Whether the MDN was triggered manually or automatically (draft-ietf-jmap-mdn-17 §2,
+/// Whether the MDN was triggered manually or automatically (RFC 9007 §2,
 /// derived from RFC 8098 disposition-mode action-mode).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,7 +36,7 @@ impl std::fmt::Display for ActionMode {
     }
 }
 
-/// Whether the MDN itself was sent manually or automatically (draft-ietf-jmap-mdn-17 §2,
+/// Whether the MDN itself was sent manually or automatically (RFC 9007 §2,
 /// derived from RFC 8098 disposition-mode sending-mode).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -58,7 +58,7 @@ impl std::fmt::Display for SendingMode {
 }
 
 /// The disposition type — what happened to the original message
-/// (draft-ietf-jmap-mdn-17 §2, derived from RFC 8098 disposition-type).
+/// (RFC 9007 §2, derived from RFC 8098 disposition-type).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -85,7 +85,7 @@ impl std::fmt::Display for DispositionType {
 }
 
 /// RFC 8098 disposition field — describes the action taken on the original message
-/// (draft-ietf-jmap-mdn-17 §2).
+/// (RFC 9007 §2).
 ///
 /// Construct with [`Disposition::new`] rather than struct-literal syntax (the
 /// struct is `#[non_exhaustive]` to allow future fields).
@@ -115,7 +115,7 @@ impl Disposition {
     }
 }
 
-/// An MDN object as defined in draft-ietf-jmap-mdn-17 §2.
+/// An MDN object as defined in RFC 9007 §2.
 ///
 /// Represents either a to-be-sent MDN (in [`MdnSendRequest`]) or a parsed MDN
 /// (in [`MdnParseResponse`]).
@@ -174,7 +174,7 @@ pub struct Mdn {
 
     /// Extension fields from the MDN.
     ///
-    /// Wire name is `extensionFields` per draft-ietf-jmap-mdn-17 §2 (normative).
+    /// Wire name is `extensionFields` per RFC 9007 §2 (normative).
     /// The §3.1 example incorrectly uses `extension`; the §2 definition is authoritative.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extension_fields: Option<HashMap<String, String>>,
@@ -213,7 +213,7 @@ impl Mdn {
     }
 }
 
-/// Request object for `MDN/send` (draft-ietf-jmap-mdn-17 §3.1).
+/// Request object for `MDN/send` (RFC 9007 §3.1).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -231,7 +231,7 @@ pub struct MdnSendRequest {
     pub on_success_update_email: Option<HashMap<String, Value>>,
 }
 
-/// Response object for `MDN/send` (draft-ietf-jmap-mdn-17 §3.1).
+/// Response object for `MDN/send` (RFC 9007 §3.1).
 ///
 /// The `notSent` map values are JMAP SetError objects (RFC 8620 §5.3) serialized
 /// as JSON objects; they are typed as [`Value`] here to avoid an upward dependency
@@ -250,7 +250,7 @@ pub struct MdnSendResponse {
     pub not_sent: Option<HashMap<String, Value>>,
 }
 
-/// Request object for `MDN/parse` (draft-ietf-jmap-mdn-17 §3.3).
+/// Request object for `MDN/parse` (RFC 9007 §3.3).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -261,7 +261,7 @@ pub struct MdnParseRequest {
     pub blob_ids: Vec<Id>,
 }
 
-/// Response object for `MDN/parse` (draft-ietf-jmap-mdn-17 §3.3).
+/// Response object for `MDN/parse` (RFC 9007 §3.3).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -284,7 +284,7 @@ mod tests {
     use super::*;
 
     /// Round-trip test for [`Disposition`] against the wire format specified
-    /// in draft-ietf-jmap-mdn-17 §2.
+    /// in RFC 9007 §2.
     ///
     /// Wire values are taken directly from the spec text — this is the independent
     /// oracle.
@@ -306,7 +306,7 @@ mod tests {
     /// Round-trip test for [`Mdn`] verifying camelCase wire names and
     /// `include_original_message` default behaviour.
     ///
-    /// Field names taken from draft-ietf-jmap-mdn-17 §2 (normative definition).
+    /// Field names taken from RFC 9007 §2 (normative definition).
     #[test]
     fn mdn_camel_case_wire_names() {
         // Minimal MDN — only required field is `disposition`.
@@ -331,7 +331,7 @@ mod tests {
 
     /// Verify `extensionFields` wire name (not `extension`).
     ///
-    /// draft-ietf-jmap-mdn-17 §2 uses `extensionFields` (normative).
+    /// RFC 9007 §2 uses `extensionFields` (normative).
     /// The §3.1 example incorrectly uses `extension` — we follow §2.
     #[test]
     fn extension_fields_wire_name() {
@@ -388,7 +388,7 @@ mod tests {
 
     /// Verify MdnSendRequest round-trips with camelCase field names.
     ///
-    /// Field names taken from draft-ietf-jmap-mdn-17 §3.1.
+    /// Field names taken from RFC 9007 §3.1.
     #[test]
     fn mdn_send_request_roundtrip() {
         // Wire JSON uses camelCase per spec §3.1
@@ -415,7 +415,7 @@ mod tests {
 
     /// Verify MdnParseResponse round-trips with camelCase field names.
     ///
-    /// Field names taken from draft-ietf-jmap-mdn-17 §3.3.
+    /// Field names taken from RFC 9007 §3.3.
     #[test]
     fn mdn_parse_response_roundtrip() {
         // Wire JSON uses camelCase per spec §3.3

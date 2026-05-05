@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-contacts-10 §2 — AddressBook object and component types.
+//! RFC 9610 §2 — AddressBook object and component types.
 //!
 //! Provides [`AddressBook`] and [`AddressBookRights`].
 //!
@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
-/// Access rights a principal holds on an AddressBook (contacts-10 §2).
+/// Access rights a principal holds on an AddressBook (RFC 9610 §2).
 ///
 /// All four rights are booleans.  `Default` produces all-false, which is the
 /// most restrictive valid value and a safe starting point when constructing
@@ -30,7 +30,7 @@ pub struct AddressBookRights {
     pub may_delete: bool,
 }
 
-/// A JMAP AddressBook object (draft-ietf-jmap-contacts-10 §2).
+/// A JMAP AddressBook object (RFC 9610 §2).
 ///
 /// An AddressBook is a named collection of ContactCards.  All ContactCards
 /// belong to one or more AddressBooks.
@@ -44,7 +44,7 @@ pub struct AddressBook {
     pub name: String,
     /// Optional longer-form description (default: null).
     ///
-    /// Required-and-nullable per RFC 9553 + contacts-10 §4.1: always present on
+    /// Required-and-nullable per RFC 9553 + RFC 9610 §4.1: always present on
     /// the wire as `"description": null` when unset.  Must NOT use
     /// `skip_serializing_if`.
     #[serde(default)]
@@ -58,7 +58,7 @@ pub struct AddressBook {
     /// Map of principal id → rights for principals this AddressBook is shared
     /// with.
     ///
-    /// Required-and-nullable (contacts-10 §2 type: `Id[AddressBookRights]|null`):
+    /// Required-and-nullable (RFC 9610 §2 type: `Id[AddressBookRights]|null`):
     /// always present in wire JSON; serializes as `null` when not shared.
     /// The spec §4.1 example shows `"shareWith": null` explicitly — never absent.
     #[serde(default)]

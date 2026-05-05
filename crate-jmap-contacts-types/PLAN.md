@@ -16,13 +16,13 @@ jmap-types (RFC 8620 wire primitives)
 
 ## What This Crate Covers
 
-Two JMAP data types are defined by draft-ietf-jmap-contacts-10.  The ContactCard
+Two JMAP data types are defined by RFC 9610.  The ContactCard
 type is a JMAP binding of the JSContact Card format defined in RFC 9553.
 
 | Module | Type(s) | Source |
 |---|---|---|
-| `addressbook.rs` | `AddressBook`, `AddressBookRights` | contacts-10 §2 |
-| `card.rs` | `ContactCard` (the JMAP-wrapped JSContact Card) | contacts-10 §3, RFC 9553 §2 |
+| `addressbook.rs` | `AddressBook`, `AddressBookRights` | RFC 9610 §2 |
+| `card.rs` | `ContactCard` (the JMAP-wrapped JSContact Card) | RFC 9610 §3, RFC 9553 §2 |
 | `jscontact/name.rs` | `Name`, `NameComponent`, `NameComponentKind` | RFC 9553 §2.2.1 |
 | `jscontact/nickname.rs` | `Nickname` | RFC 9553 §2.2.2 |
 | `jscontact/org.rs` | `Organization`, `OrgUnit` | RFC 9553 §2.2.3 |
@@ -40,7 +40,7 @@ type is a JMAP binding of the JSContact Card format defined in RFC 9553.
 | `jscontact/personal.rs` | `PersonalInfo`, `PersonalInfoKind` | RFC 9553 §2.8.4 |
 | `jscontact/relation.rs` | `Relation` | RFC 9553 §2.1.8 |
 | `jscontact/localization.rs` | `Localization` (PatchObject map) | RFC 9553 §2.7.1 |
-| `query.rs` | `ContactCardFilter`, `ContactCardFilterCondition`, `ContactCardComparator` | contacts-10 §3.3 |
+| `query.rs` | `ContactCardFilter`, `ContactCardFilterCondition`, `ContactCardComparator` | RFC 9610 §3.3 |
 
 ## What Is Out of Scope
 
@@ -56,7 +56,7 @@ type is a JMAP binding of the JSContact Card format defined in RFC 9553.
 
 ### 1. ContactCard is the JMAP object name — not "Contact" or "Card"
 
-The JMAP draft (draft-ietf-jmap-contacts-10) registers the data type as
+The JMAP draft (RFC 9610) registers the data type as
 `ContactCard`.  The JMAP method names are `ContactCard/get`, `ContactCard/set`,
 etc.  The §4.1 example in the draft that shows `"Contact/get"` is a typo in the
 draft; all normative sections use `ContactCard`.
@@ -154,9 +154,9 @@ enum fields (e.g., `CardKind = String`, `PhoneFeature = String`) with named
 constants in a `mod consts` submodule.  Use actual Rust enums only for closed
 sets that the spec declares non-extensible (none exist in this spec).
 
-## AddressBook Type (contacts-10 §2)
+## AddressBook Type (RFC 9610 §2)
 
-> **Note:** `totalContacts` is NOT a field in draft-ietf-jmap-contacts-10.  Do not
+> **Note:** `totalContacts` is NOT a field in RFC 9610.  Do not
 > add it.  The spec defines no such property on AddressBook.  Any prior audit
 > finding referring to `totalContacts` was incorrect.
 
@@ -180,14 +180,14 @@ pub struct AddressBookRights {
 }
 ```
 
-## ContactCard Type (contacts-10 §3, RFC 9553 §2)
+## ContactCard Type (RFC 9610 §3, RFC 9553 §2)
 
 The JMAP `ContactCard` embeds RFC 9553 `Card` fields.  Fields are grouped by
 RFC 9553 section:
 
 ```rust
 pub struct ContactCard {
-    // ── JMAP additions (contacts-10 §3) ─────────────────────────────────
+    // ── JMAP additions (RFC 9610 §3) ─────────────────────────────────
     pub id: Option<Id>,                           // immutable; server-set
     pub address_book_ids: Option<HashMap<String, bool>>, // wire: "addressBookIds"
 
@@ -240,7 +240,7 @@ pub struct ContactCard {
 }
 ```
 
-## ContactCardFilter Type (contacts-10 §3.3.1)
+## ContactCardFilter Type (RFC 9610 §3.3.1)
 
 ```rust
 pub struct ContactCardFilterCondition {
@@ -314,7 +314,7 @@ src/
 Tests must use independent oracles — never derive expected values from the code
 under test.  Acceptable sources:
 
-1. Literal JSON from draft-ietf-jmap-contacts-10 examples (§4.1, §4.2) —
+1. Literal JSON from RFC 9610 examples (§4.1, §4.2) —
    copy-pasted from the draft text.
 2. Literal JSON from RFC 9553 examples (Figures 6–39 in §2) — copy-pasted
    from the RFC text.
@@ -345,7 +345,7 @@ Key test cases:
 
 ## Spec References
 
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-contacts-10.txt` —
+- `~/PROJECT/jmap-chat-spec/references/RFC 9610.txt` —
   JMAP Contacts (normative for AddressBook, ContactCard JMAP binding, filter,
   capability)
 - `~/PROJECT/jmap-chat-spec/references/rfc9553.txt` — RFC 9553 JSContact

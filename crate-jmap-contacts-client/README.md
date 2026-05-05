@@ -97,7 +97,7 @@ All method implementations live on `SessionClient` in the `methods/` submodules.
 | `ContactCard/queryChanges` | `contact_card_query_changes` | `QueryChangesResponse` |
 
 Note: `AddressBook/query` and `AddressBook/queryChanges` are not implemented —
-draft-ietf-jmap-contacts-10 does not define these methods.
+RFC 9610 does not define these methods.
 
 ### AddressBook/set — extra arguments
 
@@ -111,7 +111,7 @@ pub struct AddressBookSetParams {
     pub on_destroy_remove_contents: Option<bool>,
 
     /// Designates one AddressBook as the account default after all other
-    /// operations succeed (contacts-10 §2.3).
+    /// operations succeed (RFC 9610 §2.3).
     pub on_success_set_is_default: Option<serde_json::Value>,
 }
 ```

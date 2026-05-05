@@ -6,7 +6,7 @@
 //! are local to this crate).
 //!
 //! `AddressBook` does **not** implement [`QueryObject`] because
-//! draft-ietf-jmap-contacts-10 does not define `AddressBook/query` or
+//! RFC 9610 does not define `AddressBook/query` or
 //! `AddressBook/queryChanges`.
 
 use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};

@@ -20,7 +20,7 @@ pub use jmap_server::{
 // ContactsBackend trait
 // ---------------------------------------------------------------------------
 
-/// Storage backend for JMAP Contacts method handlers (draft-ietf-jmap-contacts-10).
+/// Storage backend for JMAP Contacts method handlers (RFC 9610).
 ///
 /// Implementors provide the actual data access; the method handler modules
 /// in this crate translate between JMAP wire protocol and backend calls.

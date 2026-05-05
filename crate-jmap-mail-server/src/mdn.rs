@@ -1,4 +1,4 @@
-//! [`MdnBackend`] trait for `MDN/send` and `MDN/parse` operations (draft-ietf-jmap-mdn-17).
+//! [`MdnBackend`] trait for `MDN/send` and `MDN/parse` operations (RFC 9007).
 //!
 //! This module is unconditionally compiled when the `mdn` feature is enabled on
 //! `jmap-mail-server`. The feature gate lives in `lib.rs` (`#[cfg(feature = "mdn")]`),
@@ -182,7 +182,7 @@ pub trait MdnBackend: Send + Sync {
 // MDN/send handler
 // ---------------------------------------------------------------------------
 
-/// Handle an `MDN/send` method call (draft-ietf-jmap-mdn-17 §3.1).
+/// Handle an `MDN/send` method call (RFC 9007 §3.1).
 ///
 /// Returns `(response_args, extra_invocations)`. When `onSuccessUpdateEmail` is
 /// present and MDNs are sent successfully, `extra_invocations` will contain one
@@ -518,7 +518,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 /// client batch sizes; the draft spec mandates no limit.
 pub const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
 
-/// Handle an `MDN/parse` method call (draft-ietf-jmap-mdn-17 §3.3).
+/// Handle an `MDN/parse` method call (RFC 9007 §3.3).
 ///
 /// `max_blob_ids` caps the number of blob IDs accepted in a single request.
 /// Use [`MDN_PARSE_MAX_BLOB_IDS`] for the default.  Exceeding the limit

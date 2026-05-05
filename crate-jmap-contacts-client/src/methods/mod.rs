@@ -122,11 +122,11 @@ pub struct AddedItem {
 
 // ---------------------------------------------------------------------------
 // AddressBookSetParams — extra arguments for AddressBook/set
-// (draft-ietf-jmap-contacts-10 §2.3)
+// (RFC 9610 §2.3)
 // ---------------------------------------------------------------------------
 
 /// Extra method-level arguments for `AddressBook/set`
-/// (draft-ietf-jmap-contacts-10 §2.3).
+/// (RFC 9610 §2.3).
 ///
 /// Both fields are optional. Pass `None` (or `Default::default()`) when not
 /// needed.
@@ -140,7 +140,7 @@ pub struct AddressBookSetParams {
 
     /// A `serde_json::Value` holding the `onSuccessSetIsDefault` argument.
     /// When `Some`, the server sets the indicated AddressBook as the default
-    /// after all other operations succeed (contacts-10 §2.3).
+    /// after all other operations succeed (RFC 9610 §2.3).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_success_set_is_default: Option<serde_json::Value>,
 }
@@ -154,7 +154,7 @@ pub struct AddressBookSetParams {
 pub(crate) const CALL_ID: &str = "r1";
 
 /// Capability URIs for JMAP Contacts method calls
-/// (draft-ietf-jmap-contacts-10 §1.4).
+/// (RFC 9610 §1.4).
 pub(crate) const USING_CONTACTS: &[&str] =
     &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:contacts"];
 
@@ -239,7 +239,7 @@ mod tests {
     use serde_json::json;
 
     /// Oracle: USING_CONTACTS contains exactly the two capability URIs from
-    /// draft-ietf-jmap-contacts-10 §1.4.
+    /// RFC 9610 §1.4.
     /// Expected values are taken directly from the spec.
     #[test]
     fn using_contacts_contains_correct_uris() {
@@ -282,7 +282,7 @@ mod tests {
 
     /// Oracle: AddressBookSetParams with on_destroy_remove_contents=true serializes
     /// the camelCase field name.
-    /// Expected: JSON key is "onDestroyRemoveContents" per contacts-10 §2.3.
+    /// Expected: JSON key is "onDestroyRemoveContents" per RFC 9610 §2.3.
     #[test]
     fn address_book_set_params_serializes_on_destroy_remove_contents() {
         let params = AddressBookSetParams {

@@ -1,7 +1,7 @@
-//! Sieve integration tests for jmap-mail-server (draft-ietf-jmap-sieve-22).
+//! Sieve integration tests for jmap-mail-server (RFC 9661).
 //!
 //! All tests in this file are compiled and run only when `--features sieve` is passed.
-//! Test vectors come from draft-ietf-jmap-sieve-22 §2.3–§2.6 examples and
+//! Test vectors come from RFC 9661 §2.3–§2.6 examples and
 //! RFC 5228 §8 (valid Sieve syntax).
 #![cfg(feature = "sieve")]
 #![allow(async_fn_in_trait)]
@@ -46,7 +46,7 @@ fn store_invalid_blob(backend: &MemoryBackend) -> Id {
 
 /// Test 1: SieveScript/get on empty account.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.3 — when no scripts exist, list is
+/// Oracle: RFC 9661 §2.3 — when no scripts exist, list is
 /// empty and notFound is [].
 #[tokio::test]
 async fn sieve_get_empty_account() {
@@ -76,7 +76,7 @@ async fn sieve_get_empty_account() {
 
 /// Test 9: SieveScript/get by id — happy path.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.3 — get by ids returns matching entry.
+/// Oracle: RFC 9661 §2.3 — get by ids returns matching entry.
 #[tokio::test]
 async fn sieve_get_by_id() {
     let backend = MemoryBackend::new();
@@ -129,7 +129,7 @@ async fn sieve_get_by_id() {
 
 /// Test 10: SieveScript/get with a non-existent id.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.3 / RFC 8620 §5.1 — unknown ids appear
+/// Oracle: RFC 9661 §2.3 / RFC 8620 §5.1 — unknown ids appear
 /// in notFound; list is empty.
 #[tokio::test]
 async fn sieve_get_not_found() {
@@ -191,7 +191,7 @@ async fn sieve_get_unknown_account() {
 
 /// Test 2: SieveScript/set create basic — creates a script, not active by default.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — created script has isActive: false
+/// Oracle: RFC 9661 §2.4 — created script has isActive: false
 /// unless onSuccessActivateScript is set.
 #[tokio::test]
 async fn sieve_set_create_basic() {
@@ -229,7 +229,7 @@ async fn sieve_set_create_basic() {
 
 /// Test 3: SieveScript/set create + onSuccessActivateScript.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — after create with activation,
+/// Oracle: RFC 9661 §2.4 — after create with activation,
 /// the script's isActive becomes true (visible via updated map or re-fetch).
 #[tokio::test]
 async fn sieve_set_create_and_activate() {
@@ -283,7 +283,7 @@ async fn sieve_set_create_and_activate() {
 
 /// Test 4: At most one active script — activating a new script deactivates the old one.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — the server MUST deactivate any
+/// Oracle: RFC 9661 §2.4 — the server MUST deactivate any
 /// currently active script when onSuccessActivateScript targets a different script.
 #[tokio::test]
 async fn sieve_set_at_most_one_active() {
@@ -349,7 +349,7 @@ async fn sieve_set_at_most_one_active() {
 
 /// Test 5: Destroying an active script is rejected with sieveIsActive.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — the server MUST NOT destroy an
+/// Oracle: RFC 9661 §2.4 — the server MUST NOT destroy an
 /// active script; returns sieveIsActive SetError.
 #[tokio::test]
 async fn sieve_set_destroy_active_rejected() {
@@ -395,7 +395,7 @@ async fn sieve_set_destroy_active_rejected() {
 
 /// Test 6: Duplicate name is rejected with alreadyExists.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — creating a script whose name
+/// Oracle: RFC 9661 §2.4 — creating a script whose name
 /// already exists returns alreadyExists with existingId.
 #[tokio::test]
 async fn sieve_set_duplicate_name() {
@@ -442,7 +442,7 @@ async fn sieve_set_duplicate_name() {
 
 /// Test 7: onSuccessDeactivateScript with no create/update/destroy.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — onSuccessDeactivateScript: true
+/// Oracle: RFC 9661 §2.4 — onSuccessDeactivateScript: true
 /// deactivates the currently active script.
 #[tokio::test]
 async fn sieve_set_deactivate_only() {
@@ -484,7 +484,7 @@ async fn sieve_set_deactivate_only() {
 
 /// Test 8: Re-activate a previously deactivated script.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — onSuccessActivateScript with a
+/// Oracle: RFC 9661 §2.4 — onSuccessActivateScript with a
 /// bare id (not a #creation-id reference) activates an existing script.
 #[tokio::test]
 async fn sieve_set_reactivate() {
@@ -562,7 +562,7 @@ async fn sieve_set_unknown_account() {
 
 /// Test 11: SieveScript/query with isActive filter.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §4.2 — filter.isActive filters to only
+/// Oracle: RFC 9661 §4.2 — filter.isActive filters to only
 /// active (or inactive) scripts.
 #[tokio::test]
 async fn sieve_query_filter_active() {
@@ -607,7 +607,7 @@ async fn sieve_query_filter_active() {
 
 /// Test 12: SieveScript/validate with a valid script.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.6 — error field MUST be null when
+/// Oracle: RFC 9661 §2.6 — error field MUST be null when
 /// the script is valid. VALID_SIEVE_SCRIPT is `b"keep;"` from RFC 5228 §8.
 #[tokio::test]
 async fn sieve_validate_valid() {
@@ -636,7 +636,7 @@ async fn sieve_validate_valid() {
 
 /// Test 13: SieveScript/validate with an invalid (empty) script.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.6 — error field MUST be present as
+/// Oracle: RFC 9661 §2.6 — error field MUST be present as
 /// an object with type "invalidSieve" when the script fails validation.
 /// INVALID_SIEVE_SCRIPT is `b""` — empty bytes fail the MemoryBackend validator.
 #[tokio::test]
@@ -671,7 +671,7 @@ async fn sieve_validate_invalid() {
 /// default impl), so no script is protected and a normal destroy succeeds.
 ///
 /// This test verifies the **absence** of a spurious `forbidden` error when
-/// the backend does not designate any script as VR-backed (draft-ietf-jmap-sieve-22 §4).
+/// the backend does not designate any script as VR-backed (RFC 9661 §4).
 #[tokio::test]
 async fn sieve_set_vr_script_destroy_no_protection_by_default() {
     let backend = MemoryBackend::new();
@@ -723,7 +723,7 @@ async fn sieve_set_vr_script_destroy_no_protection_by_default() {
 ///
 /// When no VR-backed script is designated (`vacation_response_script_id` returns
 /// `Ok(None)`), updating the `blobId` of any script MUST succeed
-/// (draft-ietf-jmap-sieve-22 §4 guard does not fire).
+/// (RFC 9661 §4 guard does not fire).
 #[tokio::test]
 async fn sieve_set_vr_script_blob_update_no_protection_by_default() {
     let backend = MemoryBackend::new();
@@ -774,7 +774,7 @@ async fn sieve_set_vr_script_blob_update_no_protection_by_default() {
 
 /// Test 19: onSuccessActivateScript suppressed when any create/update/destroy fails.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — activation side-effects only run if
+/// Oracle: RFC 9661 §2.4 — activation side-effects only run if
 /// ALL operations succeed. A partial failure (B fails with alreadyExists) must
 /// suppress onSuccessActivateScript even when another create (C) succeeds.
 ///
@@ -870,7 +870,7 @@ async fn sieve_validate_unknown_account() {
 
 /// Test 17: SieveScript/set create rejects script exceeding maxSizeScript with tooLarge.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — "If the SieveScript cannot be created
+/// Oracle: RFC 9661 §2.4 — "If the SieveScript cannot be created
 /// or updated because its size exceeds the maxSizeScript limit, the server MUST
 /// reject the request with a tooLarge SetError."
 ///
@@ -916,7 +916,7 @@ async fn sieve_set_create_too_large() {
 
 /// Test 18: SieveScript/set update rejects blobId patch exceeding maxSizeScript with tooLarge.
 ///
-/// Oracle: draft-ietf-jmap-sieve-22 §2.4 — same tooLarge rule applies to updates.
+/// Oracle: RFC 9661 §2.4 — same tooLarge rule applies to updates.
 #[tokio::test]
 async fn sieve_set_update_too_large() {
     let backend = MemoryBackend::new();
