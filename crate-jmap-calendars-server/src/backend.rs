@@ -106,4 +106,72 @@ pub trait CalendarsBackend: JmapBackend {
     ) -> impl std::future::Future<Output = (Option<String>, Option<String>)> + Send {
         async { (None, None) }
     }
+
+    /// Parse calendar event blobs (draft-ietf-jmap-calendars-26 §5.13).
+    ///
+    /// Returns parsed events for each blob, or classifies blobs as `notFound`
+    /// or `notParsable`.
+    ///
+    /// The default implementation puts all blobs in `not_parsable`.
+    fn parse_calendar_event_blobs(
+        &self,
+        _account_id: &jmap_types::Id,
+        blob_ids: &[jmap_types::Id],
+        _properties: Option<&[String]>,
+    ) -> impl std::future::Future<Output = Result<ParseResult, Self::Error>> + Send {
+        let not_parsable = blob_ids.to_vec();
+        async move {
+            Ok(ParseResult {
+                parsed: std::collections::HashMap::new(),
+                not_found: vec![],
+                not_parsable,
+            })
+        }
+    }
+
+    /// Fetch availability data for a principal (draft-ietf-jmap-calendars-26 §2.2).
+    ///
+    /// The default implementation returns an empty list.
+    fn get_availability(
+        &self,
+        _account_id: &jmap_types::Id,
+        _principal_id: &jmap_types::Id,
+        _utc_start: &str,
+        _utc_end: &str,
+        _show_details: bool,
+        _event_properties: Option<&[String]>,
+    ) -> impl std::future::Future<
+        Output = Result<Vec<jmap_calendars_types::BusyPeriod>, AvailabilityError<Self::Error>>,
+    > + Send {
+        async { Ok(vec![]) }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Supporting types for new backend methods
+// ---------------------------------------------------------------------------
+
+/// Result of a `CalendarEvent/parse` operation (draft-ietf-jmap-calendars-26 §5.13).
+pub struct ParseResult {
+    /// Successfully parsed: blobId → list of parsed [`CalendarEvent`]s.
+    pub parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
+    /// Blob IDs that were not found in the blob store.
+    pub not_found: Vec<jmap_types::Id>,
+    /// Blob IDs that could not be parsed as iCalendar data.
+    pub not_parsable: Vec<jmap_types::Id>,
+}
+
+/// Error type for [`CalendarsBackend::get_availability`] backend calls.
+#[derive(Debug)]
+pub enum AvailabilityError<E: std::error::Error> {
+    /// The requested principal was not found.
+    NotFound,
+    /// The caller is not permitted to query this principal's availability.
+    Forbidden,
+    /// The requested time range is too large.
+    TooLarge,
+    /// Rate limit exceeded.
+    RateLimit,
+    /// An unexpected backend error.
+    Other(E),
 }

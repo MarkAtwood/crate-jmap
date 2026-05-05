@@ -115,6 +115,42 @@ pub struct AddedItem {
 }
 
 // ---------------------------------------------------------------------------
+// CalendarEvent/parse response
+// ---------------------------------------------------------------------------
+
+/// Response type for `CalendarEvent/parse`
+/// (draft-ietf-jmap-calendars-26 §5.13).
+///
+/// `parsed` maps each blob id to the list of `CalendarEvent` objects parsed
+/// from that blob (a blob may contain multiple VEVENT components).
+/// `not_found` lists blob ids that were not found in the account.
+/// `not_parsable` lists blob ids that could not be parsed as iCalendar data.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarEventParseResponse {
+    pub account_id: Id,
+    pub parsed: Option<HashMap<Id, Vec<jmap_calendars_types::CalendarEvent>>>,
+    pub not_found: Option<Vec<Id>>,
+    pub not_parsable: Option<Vec<Id>>,
+}
+
+// ---------------------------------------------------------------------------
+// Principal/getAvailability response
+// ---------------------------------------------------------------------------
+
+/// Response type for `Principal/getAvailability`
+/// (draft-ietf-jmap-calendars-26 §2.2).
+///
+/// `list` contains the busy periods for the queried principal within the
+/// requested time range.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrincipalGetAvailabilityResponse {
+    pub account_id: Id,
+    pub list: Vec<jmap_calendars_types::BusyPeriod>,
+}
+
+// ---------------------------------------------------------------------------
 // CalendarEvent/get extra parameters
 // ---------------------------------------------------------------------------
 
@@ -147,6 +183,25 @@ pub(crate) const CALL_ID: &str = "r1";
 pub(crate) const USING_CALENDARS: &[&str] = &[
     "urn:ietf:params:jmap:core",
     "urn:ietf:params:jmap:calendars",
+];
+
+/// Capability URIs for `CalendarEvent/parse`
+/// (draft-ietf-jmap-calendars-26 §5.13).
+// Reserved for the CalendarEvent/parse method implementation.
+#[allow(dead_code)]
+pub(crate) const USING_PARSE: &[&str] = &[
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:calendars",
+    "urn:ietf:params:jmap:calendars:parse",
+];
+
+/// Capability URIs for `Principal/getAvailability`
+/// (draft-ietf-jmap-calendars-26 §2.2).
+// Reserved for the Principal/getAvailability method implementation.
+#[allow(dead_code)]
+pub(crate) const USING_AVAILABILITY: &[&str] = &[
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:principals:availability",
 ];
 
 // ---------------------------------------------------------------------------
@@ -272,6 +327,65 @@ mod tests {
         assert_eq!(
             resp.not_found.as_deref(),
             Some(["missing1".into()].as_slice())
+        );
+    }
+
+    /// Oracle: CalendarEventParseResponse deserializes from a spec-derived JSON
+    /// fixture (draft-ietf-jmap-calendars-26 §5.13).
+    #[test]
+    fn calendar_event_parse_response_deserializes() {
+        let raw = json!({
+            "accountId": "acc1",
+            "parsed": { "blob1": [{"id": "ev1", "title": "Meeting"}] },
+            "notFound": ["missing1"],
+            "notParsable": []
+        });
+        let resp: CalendarEventParseResponse =
+            serde_json::from_value(raw).expect("CalendarEventParseResponse must deserialize");
+        assert_eq!(resp.account_id, "acc1");
+        let parsed = resp.parsed.expect("parsed must be Some");
+        let blob1_key = jmap_types::Id::from("blob1");
+        assert!(parsed.contains_key(&blob1_key), "blob1 must be in parsed");
+        assert_eq!(parsed[&blob1_key].len(), 1, "one event under blob1");
+        assert_eq!(
+            resp.not_found.as_deref(),
+            Some(["missing1".into()].as_slice())
+        );
+        let not_parsable = resp.not_parsable.expect("notParsable must be Some");
+        assert!(not_parsable.is_empty(), "notParsable must be empty");
+    }
+
+    /// Oracle: PrincipalGetAvailabilityResponse deserializes from a
+    /// spec-derived JSON fixture (draft-ietf-jmap-calendars-26 §2.2).
+    #[test]
+    fn principal_get_availability_response_deserializes() {
+        let raw = json!({
+            "accountId": "acc1",
+            "list": [
+                {
+                    "utcStart": "2024-06-15T09:00:00Z",
+                    "utcEnd": "2024-06-15T10:00:00Z",
+                    "busyStatus": "busy",
+                    "accountId": "acc1"
+                }
+            ]
+        });
+        let resp: PrincipalGetAvailabilityResponse =
+            serde_json::from_value(raw).expect("PrincipalGetAvailabilityResponse must deserialize");
+        assert_eq!(resp.account_id, "acc1");
+        assert_eq!(resp.list.len(), 1, "one busy period");
+        let period = &resp.list[0];
+        assert_eq!(period.utc_start, "2024-06-15T09:00:00Z");
+        assert_eq!(period.utc_end, "2024-06-15T10:00:00Z");
+        assert_eq!(
+            period.busy_status.as_deref(),
+            Some("busy"),
+            "busyStatus must be 'busy'"
+        );
+        assert_eq!(
+            period.account_id.as_ref().map(|id| id.as_ref()),
+            Some("acc1"),
+            "accountId in BusyPeriod must be 'acc1'"
         );
     }
 

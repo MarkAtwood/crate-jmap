@@ -568,6 +568,97 @@ pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
 }
 
 // ---------------------------------------------------------------------------
+// CalendarEvent/parse
+// ---------------------------------------------------------------------------
+
+/// Handle a `CalendarEvent/parse` method call (draft-ietf-jmap-calendars-26 §5.13).
+///
+/// Parses raw iCalendar blobs identified by `blobIds` and returns the resulting
+/// [`CalendarEvent`] objects, or classifies each blob as `notFound` /
+/// `notParsable`.
+pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
+    backend: &B,
+    args: Value,
+) -> Result<(Value, Vec<Invocation>), JmapError> {
+    let account_id = extract_account_id(&args)?;
+
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
+    let Value::Object(ref args_map) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
+
+    // blobIds is required; treat missing/null as empty to produce a valid response.
+    let blob_ids: Vec<Id> = args_map
+        .get("blobIds")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(Id::from))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    let properties: Option<Vec<String>> = args_map
+        .get("properties")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(|s| s.to_owned()))
+                .collect()
+        });
+
+    match backend
+        .parse_calendar_event_blobs(
+            &account_id,
+            &blob_ids,
+            properties.as_deref().map(|v| v as &[String]),
+        )
+        .await
+    {
+        Ok(result) => {
+            let parsed_json: serde_json::Map<String, Value> = result
+                .parsed
+                .into_iter()
+                .map(|(id, events)| {
+                    let events_val = serde_json::to_value(&events).unwrap_or(Value::Null);
+                    (id.to_string(), events_val)
+                })
+                .collect();
+            let not_found_json: Vec<Value> = result
+                .not_found
+                .iter()
+                .map(|id| Value::String(id.to_string()))
+                .collect();
+            let not_parsable_json: Vec<Value> = result
+                .not_parsable
+                .iter()
+                .map(|id| Value::String(id.to_string()))
+                .collect();
+
+            Ok((
+                json!({
+                    "accountId": account_id.as_ref(),
+                    "parsed":      if parsed_json.is_empty()      { Value::Null } else { Value::Object(parsed_json) },
+                    "notFound":    if not_found_json.is_empty()    { Value::Null } else { Value::Array(not_found_json) },
+                    "notParsable": if not_parsable_json.is_empty() { Value::Null } else { Value::Array(not_parsable_json) },
+                }),
+                vec![],
+            ))
+        }
+        Err(e) => Err(JmapError::server_fail(e.to_string())),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
@@ -808,6 +899,46 @@ mod tests {
                 );
             }
         }
+    }
+
+    /// Oracle: §5.13 — `parse` with a blob the default backend cannot parse
+    /// must list the blob in `notParsable`.
+    #[tokio::test]
+    async fn parse_returns_not_parsable_by_default() {
+        let backend = MockBackend::new_with_account("acc");
+        let args = json!({
+            "accountId": "acc",
+            "blobIds": ["blob1"]
+        });
+        let (resp, extra) = handle_calendar_event_parse(&backend, args)
+            .await
+            .expect("must succeed");
+        assert!(extra.is_empty());
+        assert_eq!(resp["accountId"], "acc");
+        assert_eq!(
+            resp["notParsable"],
+            json!(["blob1"]),
+            "blob must appear in notParsable: {resp}"
+        );
+        assert_eq!(resp["parsed"], Value::Null, "parsed must be null: {resp}");
+    }
+
+    /// Oracle: §5.13 — unknown accountId must return `accountNotFound`.
+    #[tokio::test]
+    async fn parse_unknown_account_returns_error() {
+        let backend = MockBackend::new();
+        let args = json!({
+            "accountId": "no-such-account",
+            "blobIds": ["blob1"]
+        });
+        let err = handle_calendar_event_parse(&backend, args)
+            .await
+            .expect_err("must return error for unknown account");
+        assert_eq!(
+            err.error_type.as_str(),
+            "accountNotFound",
+            "wrong error type: {err:?}"
+        );
     }
 
     /// Oracle: RFC 8620 §6.3 — `onSuccessDestroyOriginal: true` generates an

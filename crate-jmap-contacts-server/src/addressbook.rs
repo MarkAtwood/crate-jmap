@@ -275,6 +275,28 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                                 target_id.to_string(),
                                 serde_json::to_value(&obj).unwrap_or(Value::Null),
                             );
+                            // RFC 8620 §5.3: all changed objects must appear in
+                            // updated.  When isDefault transfers, the backend clears
+                            // it on all other books; re-fetch to pick them up.
+                            if let Ok((all_books, _)) = backend
+                                .get_objects::<AddressBook>(&account_id, None, None)
+                                .await
+                            {
+                                for book in all_books {
+                                    let book_id = book.id.clone();
+                                    if book_id == target_id {
+                                        continue; // already recorded above
+                                    }
+                                    // The backend enforces single-default: any book
+                                    // returned here whose is_default is now false was
+                                    // implicitly demoted.
+                                    if !book.is_default {
+                                        if let Ok(v) = serde_json::to_value(&book) {
+                                            updated.insert(book_id.to_string(), v);
+                                        }
+                                    }
+                                }
+                            }
                         }
                         Ok(None) => {
                             mutated = true;
@@ -471,6 +493,54 @@ mod tests {
             "malformed onSuccessSetIsDefault must be silently ignored: {resp}"
         );
         assert_eq!(resp["accountId"], "acc1");
+    }
+
+    /// Oracle: RFC 8620 §5.3 — onSuccessSetIsDefault must report the DEMOTED
+    /// book (previously isDefault=true) in `updated` in addition to the newly
+    /// promoted book.
+    ///
+    /// Pre-conditions: account has two address books; book1 is the default.
+    /// Action: onSuccessSetIsDefault="book2".
+    /// Expected: updated contains BOTH book1 (isDefault:false) AND book2 (isDefault:true).
+    #[tokio::test]
+    async fn set_on_success_reports_demoted_book_in_updated() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.seed_addressbook("acc1", "book1", true);
+        backend.seed_addressbook("acc1", "book2", false);
+
+        let args = json!({
+            "accountId": "acc1",
+            "onSuccessSetIsDefault": "book2"
+        });
+        let (resp, _) = handle_address_book_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+
+        let updated = resp["updated"]
+            .as_object()
+            .expect("updated must be an object: {resp}");
+
+        // The newly-promoted book must appear.
+        assert!(
+            updated.contains_key("book2"),
+            "book2 (newly default) must appear in updated: {resp}"
+        );
+        assert_eq!(
+            updated["book2"]["isDefault"],
+            serde_json::json!(true),
+            "book2 must have isDefault:true: {resp}"
+        );
+
+        // The demoted book must also appear (RFC 8620 §5.3).
+        assert!(
+            updated.contains_key("book1"),
+            "book1 (demoted, was isDefault=true) must appear in updated: {resp}"
+        );
+        assert_eq!(
+            updated["book1"]["isDefault"],
+            serde_json::json!(false),
+            "book1 must have isDefault:false after demotion: {resp}"
+        );
     }
 
     /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault MUST be skipped when
