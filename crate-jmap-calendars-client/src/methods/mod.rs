@@ -9,7 +9,9 @@ pub mod calendar;
 pub mod event;
 pub mod event_copy;
 pub mod event_notification;
+pub mod event_parse;
 pub mod participant_identity;
+pub mod principal_availability;
 
 use std::collections::HashMap;
 
@@ -187,8 +189,6 @@ pub(crate) const USING_CALENDARS: &[&str] = &[
 
 /// Capability URIs for `CalendarEvent/parse`
 /// (draft-ietf-jmap-calendars-26 §5.13).
-// Reserved for the CalendarEvent/parse method implementation.
-#[allow(dead_code)]
 pub(crate) const USING_PARSE: &[&str] = &[
     "urn:ietf:params:jmap:core",
     "urn:ietf:params:jmap:calendars",
@@ -197,8 +197,6 @@ pub(crate) const USING_PARSE: &[&str] = &[
 
 /// Capability URIs for `Principal/getAvailability`
 /// (draft-ietf-jmap-calendars-26 §2.2).
-// Reserved for the Principal/getAvailability method implementation.
-#[allow(dead_code)]
 pub(crate) const USING_AVAILABILITY: &[&str] = &[
     "urn:ietf:params:jmap:core",
     "urn:ietf:params:jmap:principals:availability",
