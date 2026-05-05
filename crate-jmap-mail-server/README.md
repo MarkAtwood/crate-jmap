@@ -247,6 +247,15 @@ jmap-types
 Path dependencies between crates use `path = "../crate-jmap-*"` and will
 remain that way until the family is published to crates.io.
 
+## Known Limitations
+
+- **`search_snippets` has no default implementation.** `MailBackend::search_snippets` must be implemented; there is no default. The in-crate test `MemoryMailBackend` returns empty snippets for all calls, which means `SearchSnippet/get` returns empty results in test mode. A real implementation requires full-text indexing or delegation to a search service.
+- **`find_thread_by_message_ids` default is unsuitable for persistent backends.** The default implementation uses a thread-ID generator seeded from system-clock nanoseconds at process startup. Two processes starting within the same nanosecond (common in containers and CI) produce identical ID sequences. More critically, the thread graph is lost on restart — emails that share a `Message-ID` / `References` chain will be silently assigned new thread IDs after a restart. Persistent backends MUST override this method and store thread assignments durably.
+- **`onDestroyRemoveEmails` cascade is O(N) per destroyed mailbox.** When `onDestroyRemoveEmails: true`, the handler queries all emails in the mailbox, fetches their `mailboxIds`, and issues one update or destroy per email. A batch backend method would reduce this to O(1) calls. This is a known gap in the `MailBackend` API surface.
+- **`CallerCtx` not forwarded through `register_mail_handlers`.** Handler closures receive `(Arc<B>, call_id, args)` only; the `caller: C` value from the dispatcher is discarded. If you need per-request auth context inside a handler (e.g., to enforce row-level security), implement `JmapHandler<C>` directly and register with `dispatcher.register()`.
+- **`Email/import` and `Email/parse` require backend cooperation.** The handler validates argument shape and calls `backend.import_email` / `backend.parse_email`; the actual RFC 5322 parsing is entirely the backend's responsibility. Use `jmap-mime` to convert `mime_tree` output to `jmap-mail-types` body structures.
+- **Singleton upsert for `VacationResponse` is not concurrency-safe.** If two requests simultaneously create a `VacationResponse` for the same account, both may succeed at the storage layer before either can detect the other. The handler uses optimistic create-then-update; backends that support conditional writes should enforce singleton semantics atomically in `create_object`.
+
 ## References
 
 - **[RFC 8621]** — JMAP for Mail (normative for all method semantics)

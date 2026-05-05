@@ -1,0 +1,205 @@
+# jmap-calendars-client
+
+RFC 8620 typed client methods for JMAP Calendars
+([draft-ietf-jmap-calendars-26]).
+
+Implements 18 typed `async fn` methods on a session-bound client. Depends on
+`jmap-base-client` for transport, authentication, and session management.
+
+## Usage
+
+```rust
+use jmap_base_client::{JmapClient, JmapClientBuilder};
+use jmap_calendars_client::JmapCalendarsExt;
+
+// 1. Build the underlying HTTP client.
+let client = JmapClientBuilder::new()
+    .credential("user@example.com", "secret")
+    .build()?;
+
+// 2. Fetch a JMAP session (discovers API URL and account IDs).
+let session = client.fetch_session("https://jmap.example.com/.well-known/jmap").await?;
+
+// 3. Bind the client to the session — gives access to all Calendars methods.
+let sc = client.with_calendars_session(session);
+
+// 4. Fetch all calendars.
+let calendars = sc.calendar_get(None, None).await?;
+println!("{} calendars", calendars.list.len());
+
+// 5. Parse a calendar blob into CalendarEvent objects.
+let blob_id = "blob-abc";
+let parsed = sc.calendar_event_parse(&[blob_id], None).await?;
+if let Some(map) = parsed.parsed {
+    for (id, events) in &map {
+        println!("blob {id}: {} events", events.len());
+    }
+}
+```
+
+Re-create the `SessionClient` after each `fetch_session` call; a stale
+session will produce `unknownAccount` or similar errors from the server.
+
+## Methods
+
+All methods are `async fn` on `SessionClient`. They require no extra
+parameters beyond those shown — the account ID and API URL are resolved
+from the bound session.
+
+### Calendar
+
+| Method | Signature | Returns |
+|---|---|---|
+| `calendar_get` | `(ids: Option<&[&str]>, properties: Option<&[&str]>)` | `GetResponse<Calendar>` |
+| `calendar_changes` | `(since_state: &str, max_changes: Option<u64>)` | `ChangesResponse` |
+| `calendar_set` | `(create, update, destroy, on_destroy_remove_events: Option<bool>)` | `SetResponse<Calendar>` |
+
+### CalendarEvent
+
+| Method | Signature | Returns |
+|---|---|---|
+| `calendar_event_get` | `(ids: Option<&[&str]>, properties: Option<&[&str]>, params: Option<CalendarEventGetParams>)` | `GetResponse<CalendarEvent>` |
+| `calendar_event_changes` | `(since_state: &str, max_changes: Option<u64>)` | `ChangesResponse` |
+| `calendar_event_set` | `(create, update, destroy: Option<Vec<&str>>)` | `SetResponse<CalendarEvent>` |
+| `calendar_event_copy` | `(from_account_id: &str, create: serde_json::Value)` | `SetResponse<CalendarEvent>` |
+| `calendar_event_query` | `(filter, sort, position: Option<u64>, limit: Option<u64>, expand_recurrences: Option<bool>)` | `QueryResponse` |
+| `calendar_event_query_changes` | `(since_query_state: &str, max_changes: Option<u64>)` | `QueryChangesResponse` |
+| `calendar_event_parse` | `(blob_ids: &[&str], properties: Option<&[&str]>)` | `CalendarEventParseResponse` |
+
+### CalendarEventNotification
+
+| Method | Signature | Returns |
+|---|---|---|
+| `calendar_event_notification_get` | `(ids: Option<&[&str]>, properties: Option<&[&str]>)` | `GetResponse<CalendarEventNotification>` |
+| `calendar_event_notification_changes` | `(since_state: &str, max_changes: Option<u64>)` | `ChangesResponse` |
+| `calendar_event_notification_set` | `(destroy: Option<Vec<&str>>)` | `SetResponse` |
+| `calendar_event_notification_query` | `(filter, sort, position: Option<u64>, limit: Option<u64>)` | `QueryResponse` |
+| `calendar_event_notification_query_changes` | `(since_query_state: &str, max_changes: Option<u64>)` | `QueryChangesResponse` |
+
+### ParticipantIdentity
+
+| Method | Signature | Returns |
+|---|---|---|
+| `participant_identity_get` | `(ids: Option<&[&str]>, properties: Option<&[&str]>)` | `GetResponse<ParticipantIdentity>` |
+| `participant_identity_changes` | `(since_state: &str, max_changes: Option<u64>)` | `ChangesResponse` |
+| `participant_identity_set` | `(create, update, destroy: Option<Vec<&str>>)` | `SetResponse<ParticipantIdentity>` |
+
+### Principal
+
+| Method | Signature | Returns |
+|---|---|---|
+| `principal_get_availability` | `(principal_id: &str, utc_start: &str, utc_end: &str, show_details: Option<bool>, event_properties: Option<&[&str]>)` | `PrincipalGetAvailabilityResponse` |
+
+`filter`, `sort`, `create`, and `update` parameters are `Option<serde_json::Value>`
+throughout. Pass `None` to omit them from the request.
+
+## Extension trait
+
+`JmapCalendarsExt` extends `jmap_base_client::JmapClient` with a single
+method:
+
+```rust
+pub trait JmapCalendarsExt {
+    fn with_calendars_session(&self, session: Session) -> SessionClient;
+}
+```
+
+Import the trait to use it:
+
+```rust
+use jmap_calendars_client::JmapCalendarsExt;
+```
+
+`SessionClient` is the struct returned by `with_calendars_session`. It holds
+a clone of the `JmapClient` and the fetched `Session`. All 18 Calendars
+methods are implemented directly on `SessionClient` — there is no method
+dispatch overhead.
+
+`session_parts()` (internal) extracts `(api_url, account_id)` from the
+session by looking up the primary account for
+`urn:ietf:params:jmap:calendars`. If no such primary account exists in the
+session, it returns `ClientError::InvalidSession`.
+
+## Response types
+
+| Type | Fields | Source |
+|---|---|---|
+| `GetResponse<T>` | `account_id`, `state`, `list: Vec<T>`, `not_found: Option<Vec<Id>>` | RFC 8620 §5.1 |
+| `ChangesResponse` | `account_id`, `old_state`, `new_state`, `has_more_changes`, `created`, `updated`, `destroyed` | RFC 8620 §5.2 |
+| `SetResponse<T>` | `account_id`, `old_state`, `new_state`, `created`, `updated`, `destroyed`, `not_created`, `not_updated`, `not_destroyed` | RFC 8620 §5.3 |
+| `QueryResponse` | `account_id`, `query_state`, `can_calculate_changes`, `position`, `ids`, `total`, `limit` | RFC 8620 §5.5 |
+| `QueryChangesResponse` | `account_id`, `old_query_state`, `new_query_state`, `total`, `removed`, `added` | RFC 8620 §5.6 |
+| `CalendarEventParseResponse` | `account_id`, `parsed: Option<HashMap<Id, Vec<CalendarEvent>>>`, `not_found`, `not_parsable` | draft §5.13 |
+| `PrincipalGetAvailabilityResponse` | `account_id`, `list: Vec<BusyPeriod>` | draft §2.2 |
+
+`SetResponse<T>` defaults to `T = serde_json::Value` when the concrete type
+is not needed. Use `SetResponse<Calendar>` or `SetResponse<CalendarEvent>`
+when you need typed access to created/updated objects.
+
+`CalendarEventGetParams` carries optional extra arguments for
+`calendar_event_get`:
+
+```rust
+pub struct CalendarEventGetParams {
+    pub expand_recurrences: Option<bool>,   // draft §5.11
+    pub reduced_participants: Option<bool>, // draft §5.4
+    pub fetch_calendars: Option<bool>,      // draft §5.4
+}
+```
+
+Pass `None` for any field to omit it from the request.
+
+## Known Limitations
+
+- **Tests are wiremock smoke tests only.** There are no integration tests
+  against a real JMAP server. The tests verify request shape (method name,
+  call id, capability URIs, wire field names) and response deserialization
+  against spec-derived JSON fixtures.
+
+- **`calendar_event_parse` requires pre-uploaded blobs.** The method accepts
+  blob IDs as strings; callers must upload blobs separately using
+  `jmap_base_client::upload_blob` before calling this method. The client
+  does not perform blob upload automatically.
+
+- **`principal_get_availability` wire key is `"id"` (not `"principalId"`).**
+  This is correct per draft §2.2 but non-obvious — the field name `"id"` in
+  the wire request refers to the principal being queried. Do not change it
+  to `"principalId"`.
+
+- **`CalendarEventNotification/set` is destroy-only.** The
+  `calendar_event_notification_set` method accepts only a `destroy` parameter.
+  Create and update operations are not exposed because the server is required
+  to reject them with `forbidden` SetErrors (draft §7.3); constructing such
+  requests would be incorrect.
+
+## Crate family
+
+```
+jmap-types
+    └── jmap-base-client         HTTP transport, auth, session, blob
+            └── jmap-calendars-client  ← this crate
+```
+
+`jmap-calendars-types` is a sibling dependency (via `jmap-calendars-client`'s
+`Cargo.toml`) — response types reference `Calendar`, `CalendarEvent`,
+`CalendarEventNotification`, `ParticipantIdentity`, and `BusyPeriod` from
+that crate.
+
+Path dependencies between crates use `path = "../crate-jmap-*"` and will
+remain that way until the family is published to crates.io.
+
+## References
+
+- **[draft-ietf-jmap-calendars-26]** — JMAP Calendars binding (normative for
+  method semantics, wire field names, capability URIs)
+- **[RFC 8984]** — JSCalendar Event format (normative for `CalendarEvent`
+  content)
+- **[RFC 8620]** — JMAP Core (request format, response shapes, error types)
+
+[draft-ietf-jmap-calendars-26]: https://www.ietf.org/archive/id/draft-ietf-jmap-calendars-26.txt
+[RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
+[RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
+
+## License
+
+MIT OR Apache-2.0
