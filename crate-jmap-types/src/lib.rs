@@ -37,7 +37,7 @@ pub mod wire;
 
 pub use backend::{GetObject, JmapObject, QueryObject, SetObject};
 pub use error::JmapError;
-pub use id::{Date, Id, State, UTCDate};
+pub use id::{Date, Id, State, UTCDate, ValidationError};
 pub use query::{Filter, FilterOperator, Operator};
 pub use resultref::{Argument, ResultReference};
 pub use wire::{Invocation, JmapRequest, JmapResponse};
