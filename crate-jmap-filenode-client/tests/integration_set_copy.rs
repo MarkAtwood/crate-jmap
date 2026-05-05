@@ -237,8 +237,9 @@ async fn file_node_copy_with_on_exists_rename() {
             json!({
                 "copy1": { "id": "original-node-x", "parentId": null }
             }),
+            None, // on_destroy_remove_children
             Some(FileNodeOnExists::Rename),
-            None,
+            None, // compare_case_insensitively
         )
         .await
         .expect("file_node_copy_with_on_exists_rename: must succeed");
