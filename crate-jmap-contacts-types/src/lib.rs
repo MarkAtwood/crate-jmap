@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-contacts-10 + RFC 9553 data types for JMAP Contacts.
+//! RFC 9610 + RFC 9553 data types for JMAP Contacts.
 //!
 //! Provides [`AddressBook`], [`AddressBookRights`], [`ContactCard`],
 //! [`ContactCardFilterCondition`], [`ContactCardComparator`],
@@ -73,7 +73,7 @@ mod tests {
     }
 
     /// Deserialize AddressBookRights from spec §4.1 example JSON.
-    /// Oracle: literal JSON from draft-ietf-jmap-contacts-10 §4.1.
+    /// Oracle: literal JSON from RFC 9610 §4.1.
     #[test]
     fn address_book_rights_deserialize() {
         let json = r#"{
@@ -107,10 +107,10 @@ mod tests {
     // ── AddressBook ──────────────────────────────────────────────────────
 
     /// Deserialize an AddressBook from the spec §4.1 example response.
-    /// Oracle: literal JSON from draft-ietf-jmap-contacts-10 §4.1.
+    /// Oracle: literal JSON from RFC 9610 §4.1.
     #[test]
     fn address_book_deserialize_spec_example() {
-        // Taken verbatim from draft-ietf-jmap-contacts-10 §4.1.
+        // Taken verbatim from RFC 9610 §4.1.
         let json = r#"{
             "id": "062adcfa-105d-455c-bc60-6db68b69c3f3",
             "name": "Personal",
@@ -153,7 +153,7 @@ mod tests {
     }
 
     /// Deserialize the second AddressBook from §4.1 (shareWith: null).
-    /// Oracle: literal JSON from draft-ietf-jmap-contacts-10 §4.1.
+    /// Oracle: literal JSON from RFC 9610 §4.1.
     #[test]
     fn address_book_share_with_null() {
         let json = r#"{
@@ -177,7 +177,7 @@ mod tests {
     }
 
     /// AddressBook with share_with: None serializes as "shareWith": null, not absent.
-    /// Oracle: contacts-10 §2 type `Id[AddressBookRights]|null`; §4.1 second
+    /// Oracle: RFC 9610 §2 type `Id[AddressBookRights]|null`; §4.1 second
     /// AddressBook example shows `"shareWith": null` explicitly on the wire.
     #[test]
     fn address_book_share_with_null_serializes() {
@@ -212,10 +212,10 @@ mod tests {
     }
 
     /// AddressBook with share_with: Some(map) round-trips correctly.
-    /// Oracle: contacts-10 §4.1 first AddressBook example with populated shareWith map.
+    /// Oracle: RFC 9610 §4.1 first AddressBook example with populated shareWith map.
     #[test]
     fn address_book_share_with_some_serializes() {
-        // From draft-ietf-jmap-contacts-10 §4.1 first AddressBook.
+        // From RFC 9610 §4.1 first AddressBook.
         let json = r#"{
             "id": "062adcfa-105d-455c-bc60-6db68b69c3f3",
             "name": "Personal",
@@ -289,7 +289,7 @@ mod tests {
 
     /// description: null → None in Rust → "description": null on the wire.
     ///
-    /// Oracle: RFC 9553 + draft-ietf-jmap-contacts-10 §4.1 — both example
+    /// Oracle: RFC 9553 + RFC 9610 §4.1 — both example
     /// AddressBook objects show `"description": null` explicitly.  The field
     /// must be present as null, never absent.
     #[test]
@@ -326,10 +326,10 @@ mod tests {
     // ── ContactCard ──────────────────────────────────────────────────────
 
     /// Deserialize the ContactCard from the spec §4.1 example.
-    /// Oracle: literal JSON from draft-ietf-jmap-contacts-10 §4.1.
+    /// Oracle: literal JSON from RFC 9610 §4.1.
     #[test]
     fn contact_card_deserialize_spec_example() {
-        // From draft-ietf-jmap-contacts-10 §4.1 response.
+        // From RFC 9610 §4.1 response.
         let json = r#"{
             "id": "3",
             "addressBookIds": {
@@ -439,7 +439,7 @@ mod tests {
 
     /// Verify that slash-keyed filter fields serialize with the correct wire
     /// names.
-    /// Oracle: draft-ietf-jmap-contacts-10 §3.3.1 field list.
+    /// Oracle: RFC 9610 §3.3.1 field list.
     #[test]
     fn filter_condition_slash_keys_serialize_correctly() {
         let filter: ContactCardFilterCondition = serde_json::from_value(json!({
@@ -460,7 +460,7 @@ mod tests {
     }
 
     /// All filter fields deserialize from spec §3.3.1 field names.
-    /// Oracle: field names taken directly from draft-ietf-jmap-contacts-10 §3.3.1.
+    /// Oracle: field names taken directly from RFC 9610 §3.3.1.
     #[test]
     fn filter_condition_all_fields() {
         let json = r#"{
@@ -522,7 +522,7 @@ mod tests {
     // ── Capability ───────────────────────────────────────────────────────
 
     /// ContactsCapability serializes to `{}`.
-    /// Oracle: contacts-10 §1.4.1 — session-level capability is an empty object.
+    /// Oracle: RFC 9610 §1.4.1 — session-level capability is an empty object.
     #[test]
     fn contacts_capability_is_empty_object() {
         let cap = ContactsCapability::default();
@@ -531,7 +531,7 @@ mod tests {
     }
 
     /// ContactsAccountCapability deserializes correctly.
-    /// Oracle: contacts-10 §1.4.1 field list.
+    /// Oracle: RFC 9610 §1.4.1 field list.
     #[test]
     fn contacts_account_capability_deserialize() {
         let json = r#"{
@@ -544,7 +544,7 @@ mod tests {
     }
 
     /// ContactsAccountCapability with null maxAddressBooksPerCard.
-    /// Oracle: contacts-10 §1.4.1 — "null for no limit".
+    /// Oracle: RFC 9610 §1.4.1 — "null for no limit".
     #[test]
     fn contacts_account_capability_null_max() {
         let json = r#"{

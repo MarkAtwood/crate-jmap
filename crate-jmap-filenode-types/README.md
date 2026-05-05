@@ -88,7 +88,7 @@ round-trip without data loss.
 ## Known Limitations
 
 - `ArchiveEntry` integration types for the JMAP Blob Extensions draft
-  (`draft-gondwana-jmap-blobext`) are not implemented.
+  (`RFC 9404) are not implemented.
 
 ## References
 

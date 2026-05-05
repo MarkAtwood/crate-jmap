@@ -32,7 +32,7 @@ Generic query types (`Filter<T>`, `FilterOperator<T>`, `Operator`) live in
 - Method handlers (`FileNode/get`, `FileNode/set`, etc.) — those live in `jmap-filenode-server`
 - Transport and network I/O — no tokio, no reqwest
 - Partial PATCH semantics — `jmap-filenode-server` applies patches; this crate holds the types
-- JMAP Blob Extensions (`draft-gondwana-jmap-blobext`) integration types (`ArchiveEntry`
+- JMAP Blob Extensions (`RFC 9404) integration types (`ArchiveEntry`
   extension with `nodeId`/`recurse`, `ExtractRecipe` with `parentNodeId`) — those belong in
   a future `jmap-blobext-types` crate that depends on this one
 

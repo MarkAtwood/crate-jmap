@@ -1,6 +1,6 @@
 //! [`SieveBackend`] trait for `SieveScript/get`, `SieveScript/set`,
 //! `SieveScript/query`, and `SieveScript/validate` operations
-//! (draft-ietf-jmap-sieve-22).
+//! (RFC 9661).
 //!
 //! This module is unconditionally compiled when the `sieve` feature is enabled
 //! on `jmap-mail-server`. The feature gate lives in `lib.rs`
@@ -28,7 +28,7 @@ use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{extract_account_id, filter_properties, set_error_value};
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
-/// and `SieveScript/validate` operations (draft-ietf-jmap-sieve-22).
+/// and `SieveScript/validate` operations (RFC 9661).
 ///
 /// Implementors also implement [`MailBackend`] — the generic bounds on
 /// [`register_sieve_handlers`] require both. This separation keeps sieve opt-in.
@@ -90,7 +90,7 @@ pub trait SieveBackend: Send + Sync {
 
     /// Returns the [`Id`] of the Sieve script that backs the `VacationResponse`
     /// for this account, if the server implements vacation responses as a stored
-    /// Sieve script (draft-ietf-jmap-sieve-22 §4).
+    /// Sieve script (RFC 9661 §4).
     ///
     /// Returns `Ok(None)` if the server does not use a VR-backed Sieve script
     /// (the default). Return `Ok(Some(id))` if the account has a VR-backed
@@ -107,7 +107,7 @@ pub trait SieveBackend: Send + Sync {
     }
 }
 
-/// Filter arguments for `SieveScript/query` (draft-ietf-jmap-sieve §4.2).
+/// Filter arguments for `SieveScript/query` (RFC 9661 §4.2).
 ///
 /// Only `name` (substring match) and `isActive` (exact match) are defined by
 /// the spec. Both are optional.
@@ -122,7 +122,7 @@ struct SieveScriptFilter {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Validate a script name per draft-ietf-jmap-sieve §2.1.
+/// Validate a script name per RFC 9661 §2.1.
 ///
 /// Returns `Some(SetError)` if the name is invalid, `None` if it is acceptable.
 fn validate_script_name(name: &str) -> Option<SetError> {
@@ -153,7 +153,7 @@ fn validate_script_name(name: &str) -> Option<SetError> {
 // SieveScript/get handler
 // ---------------------------------------------------------------------------
 
-/// Handle a `SieveScript/get` request (draft-ietf-jmap-sieve-22 §2.3).
+/// Handle a `SieveScript/get` request (RFC 9661 §2.3).
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty — `SieveScript/get` is a read-only operation with no side effects.
@@ -247,7 +247,7 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
 // SieveScript/set handler
 // ---------------------------------------------------------------------------
 
-/// Handle a `SieveScript/set` method call (draft-ietf-jmap-sieve-22 §2.4).
+/// Handle a `SieveScript/set` method call (RFC 9661 §2.4).
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty — activation side effects are applied inline, not as separate
@@ -269,7 +269,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     }
 
     // Fetch VacationResponse-backed script id once for the lifetime of this call
-    // (draft-ietf-jmap-sieve-22 §4). The default impl returns Ok(None).
+    // (RFC 9661 §4). The default impl returns Ok(None).
     let vr_script_id: Option<Id> = backend
         .vacation_response_script_id(&account_id)
         .await
@@ -597,7 +597,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             }
 
             // VR-backed script guard: reject blobId changes on the VR-backed script
-            // (draft-ietf-jmap-sieve-22 §4). isActive changes are handled separately
+            // (RFC 9661 §4). isActive changes are handled separately
             // by the activation state machine and are not blocked here.
             if let Some(ref vr_id) = vr_script_id {
                 if vr_id == &id {
@@ -887,7 +887,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 // SieveScript/query handler
 // ---------------------------------------------------------------------------
 
-/// Handle a `SieveScript/query` method call (draft-ietf-jmap-sieve §4.2).
+/// Handle a `SieveScript/query` method call (RFC 9661 §4.2).
 ///
 /// `SieveScript` implements `GetObject` but not `QueryObject`, so the backend
 /// `query_objects` generic is unavailable. We fetch all scripts and apply
@@ -1055,7 +1055,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
 // SieveScript/validate handler
 // ---------------------------------------------------------------------------
 
-/// Handle a `SieveScript/validate` method call (draft-ietf-jmap-sieve-22 §2.6).
+/// Handle a `SieveScript/validate` method call (RFC 9661 §2.6).
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty.
@@ -1088,7 +1088,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     // Step 5: Build response — "error" field MUST be present as null when valid
-    // (draft-ietf-jmap-sieve-22 §2.6).
+    // (RFC 9661 §2.6).
     let error_value = match validation_error {
         None => Value::Null,
         Some(desc) => json!({ "type": SIEVE_ERR_INVALID, "description": desc }),

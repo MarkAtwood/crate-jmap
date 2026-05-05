@@ -1,4 +1,4 @@
-//! ContactCard/* method handlers (draft-ietf-jmap-contacts-10 §3).
+//! ContactCard/* method handlers (RFC 9610 §3).
 //!
 //! Provides handlers for:
 //! - `ContactCard/get`
@@ -19,7 +19,7 @@ use crate::helpers::{extract_account_id, set_error_value};
 // ContactCard/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `ContactCard/get` method call (contacts-10 §3.1).
+/// Handle a `ContactCard/get` method call (RFC 9610 §3.1).
 pub async fn handle_contact_card_get<B: ContactsBackend>(
     backend: &B,
     args: Value,
@@ -31,7 +31,7 @@ pub async fn handle_contact_card_get<B: ContactsBackend>(
 // ContactCard/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `ContactCard/changes` method call (contacts-10 §3.2).
+/// Handle a `ContactCard/changes` method call (RFC 9610 §3.2).
 pub async fn handle_contact_card_changes<B: ContactsBackend>(
     backend: &B,
     args: Value,
@@ -43,7 +43,7 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
 // ContactCard/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `ContactCard/set` method call (contacts-10 §3.3).
+/// Handle a `ContactCard/set` method call (RFC 9610 §3.3).
 pub async fn handle_contact_card_set<B: ContactsBackend>(
     backend: &B,
     args: Value,
@@ -275,7 +275,7 @@ fn apply_jmap_patch(obj: &mut serde_json::Map<String, Value>, path: &str, val: V
     }
 }
 
-/// Handle a `ContactCard/copy` method call (contacts-10 §3.4 / RFC 8620 §6.3).
+/// Handle a `ContactCard/copy` method call (RFC 9610 §3.4 / RFC 8620 §6.3).
 ///
 /// Fetches cards from `fromAccountId`, delegates copy to the backend, and
 /// returns `copied`/`notCopied` maps.
@@ -429,7 +429,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
 // ContactCard/query
 // ---------------------------------------------------------------------------
 
-/// Handle a `ContactCard/query` method call (contacts-10 §3.3).
+/// Handle a `ContactCard/query` method call (RFC 9610 §3.3).
 pub async fn handle_contact_card_query<B: ContactsBackend>(
     backend: &B,
     args: Value,
@@ -441,7 +441,7 @@ pub async fn handle_contact_card_query<B: ContactsBackend>(
 // ContactCard/queryChanges
 // ---------------------------------------------------------------------------
 
-/// Handle a `ContactCard/queryChanges` method call (contacts-10 §3.4).
+/// Handle a `ContactCard/queryChanges` method call (RFC 9610 §3.4).
 pub async fn handle_contact_card_query_changes<B: ContactsBackend>(
     backend: &B,
     args: Value,
@@ -636,7 +636,7 @@ mod tests {
 
     /// Oracle: ContactCard/copy calls copy_contact_card on the backend.
     ///
-    /// Source: contacts-10 §3.4 — copy must succeed when both accounts exist
+    /// Source: RFC 9610 §3.4 — copy must succeed when both accounts exist
     /// and the source card is found.
     #[tokio::test]
     async fn copy_calls_backend_copy_contact_card() {

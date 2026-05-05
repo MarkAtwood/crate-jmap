@@ -11,7 +11,7 @@
 use super::{AddressBookSetParams, ChangesResponse, GetResponse, SetResponse};
 
 impl super::SessionClient {
-    /// Fetch AddressBook objects by IDs (draft-ietf-jmap-contacts-10 §2.1).
+    /// Fetch AddressBook objects by IDs (RFC 9610 §2.1).
     ///
     /// If `ids` is `None`, the server returns all AddressBooks for the account.
     /// Pass `properties: None` to return all fields.
@@ -41,7 +41,7 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to AddressBook objects since `since_state`
-    /// (draft-ietf-jmap-contacts-10 §2.2).
+    /// (RFC 9610 §2.2).
     ///
     /// If `has_more_changes` is true in the response, call again with
     /// `new_state` as `since_state` until the flag is false.
@@ -69,7 +69,7 @@ impl super::SessionClient {
     }
 
     /// Create, update, or destroy AddressBook objects
-    /// (draft-ietf-jmap-contacts-10 §2.3).
+    /// (RFC 9610 §2.3).
     ///
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
     /// optional; pass `None` to omit any operation from the request.
@@ -192,7 +192,7 @@ mod tests {
     }
 
     /// Oracle: AddressBook/get request has correct method name and CALL_ID.
-    /// Expected method name is "AddressBook/get" per contacts-10 §2.1.
+    /// Expected method name is "AddressBook/get" per RFC 9610 §2.1.
     #[test]
     fn address_book_get_request_shape() {
         let args = json!({
@@ -249,7 +249,7 @@ mod tests {
     }
 
     /// Oracle: AddressBook/set with onDestroyRemoveContents sends the field.
-    /// Expected: JSON key is "onDestroyRemoveContents" per contacts-10 §2.3.
+    /// Expected: JSON key is "onDestroyRemoveContents" per RFC 9610 §2.3.
     #[test]
     fn address_book_set_params_on_destroy_serializes() {
         let params = AddressBookSetParams {
@@ -270,7 +270,7 @@ mod tests {
         );
     }
 
-    /// Oracle: AddressBook deserialization from contacts-10 §4.1 example.
+    /// Oracle: AddressBook deserialization from RFC 9610 §4.1 example.
     /// Expected JSON taken verbatim from spec §4.1.
     #[test]
     fn address_book_deserializes_from_spec_example() {

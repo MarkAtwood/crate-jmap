@@ -1,6 +1,6 @@
 //! Wiremock integration tests for ContactCard/get, /changes, /set, /copy.
 //!
-//! Oracle for all response shapes: draft-ietf-jmap-contacts-10 §3 and RFC 8620 §5.
+//! Oracle for all response shapes: RFC 9610 §3 and RFC 8620 §5.
 //! Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 //! Minimal ContactCard fixture per JSContact RFC 9553 §2.
 
@@ -13,7 +13,7 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 /// Test JMAP-kh21.2 #1 — ContactCard/get returns the ContactCard list.
 ///
-/// Oracle: draft-ietf-jmap-contacts-10 §3.1 — passing ids=null returns all
+/// Oracle: RFC 9610 §3.1 — passing ids=null returns all
 /// ContactCards for the account. Minimal JSContact card fixture per RFC 9553 §2.
 #[tokio::test]
 async fn contact_card_get_round_trip() {
@@ -57,7 +57,7 @@ async fn contact_card_get_round_trip() {
 
 /// Test JMAP-kh21.2 #2 — ContactCard/changes sends sinceState in the request.
 ///
-/// Oracle: draft-ietf-jmap-contacts-10 §3.2 — sinceState is a required argument.
+/// Oracle: RFC 9610 §3.2 — sinceState is a required argument.
 /// RFC 8620 §5.2 — changes response shape.
 #[tokio::test]
 async fn contact_card_changes_sends_since_state() {
@@ -115,7 +115,7 @@ async fn contact_card_changes_sends_since_state() {
 
 /// Test JMAP-kh21.2 #3 — ContactCard/set create round-trip.
 ///
-/// Oracle: draft-ietf-jmap-contacts-10 §3.3 — /set create returns server-assigned id
+/// Oracle: RFC 9610 §3.3 — /set create returns server-assigned id
 /// in the created map. RFC 8620 §5.3. Minimal JSContact card fixture per RFC 9553 §2.
 #[tokio::test]
 async fn contact_card_set_create_round_trip() {

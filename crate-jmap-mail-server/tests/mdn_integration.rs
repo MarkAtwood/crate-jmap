@@ -1,7 +1,7 @@
-//! MDN integration tests for jmap-mail-server (draft-ietf-jmap-mdn-17).
+//! MDN integration tests for jmap-mail-server (RFC 9007).
 //!
 //! All tests in this file are compiled and run only when `--features mdn` is passed.
-//! Test vectors come from draft-ietf-jmap-mdn-17 §3.1, §3.3, and RFC 8098 §9.
+//! Test vectors come from RFC 9007 §3.1, §3.3, and RFC 8098 §9.
 #![cfg(feature = "mdn")]
 #![allow(async_fn_in_trait)]
 
@@ -34,7 +34,7 @@ use jmap_types::Id;
 /// Panics on any backend error — this is test fixture setup code.
 async fn setup_mdn_email(backend: &MemoryBackend, account_id: &Id) -> Id {
     // Raw RFC 5322 bytes with the required MDN-related headers.
-    // These specific header values are from draft-ietf-jmap-mdn-17 §3.1 example.
+    // These specific header values are from RFC 9007 §3.1 example.
     let raw = b"From: Jane Sender <Jane_Sender@example.org>\r\n\
 Message-ID: <199509192301.23456@example.org>\r\n\
 To: Joe Recipient <Joe_Recipient@example.com>\r\n\
@@ -75,7 +75,7 @@ async fn setup_identity(backend: &MemoryBackend, account_id: &Id) -> Id {
 
 /// Test 1: MDN/send success path.
 ///
-/// Oracle: draft-ietf-jmap-mdn-17 §3.1 example request.
+/// Oracle: RFC 9007 §3.1 example request.
 /// The MDN is sent for an email that has a Disposition-Notification-To header.
 /// On success:
 /// - `sent["k1546"]` is present and non-null.
@@ -167,7 +167,7 @@ async fn mdn_send_success() {
 
 /// Test 2: MDN/send is rejected per-entry when the email already has `$mdnsent`.
 ///
-/// Oracle: draft-ietf-jmap-mdn-17 §2.1 — the server MUST NOT send a second MDN
+/// Oracle: RFC 9007 §2.1 — the server MUST NOT send a second MDN
 /// for an email that already has the `$mdnsent` keyword.
 /// Wire error type: `mdnAlreadySent` (spec §2.1).
 #[tokio::test]
@@ -230,7 +230,7 @@ async fn mdn_send_already_sent() {
 
 /// Test 3: MDN/send with a non-existent `forEmailId`.
 ///
-/// Oracle: draft-ietf-jmap-mdn-17 §2.1 — the server places a `notFound` SetError
+/// Oracle: RFC 9007 §2.1 — the server places a `notFound` SetError
 /// in `notSent` for any entry whose referenced email does not exist.
 #[tokio::test]
 async fn mdn_send_email_not_found() {
@@ -345,7 +345,7 @@ async fn mdn_parse_unknown_account_returns_account_not_found() {
 
 /// Test 4: MDN/send where `onSuccessUpdateEmail` does not set `keywords/$mdnsent: true`.
 ///
-/// Oracle: draft-ietf-jmap-mdn-17 §2.1 — the server MUST reject any MDN/send
+/// Oracle: RFC 9007 §2.1 — the server MUST reject any MDN/send
 /// where `onSuccessUpdateEmail` is present but does not stamp `$mdnsent: true`
 /// for each entry in `send`.  The whole request is rejected with `invalidArguments`.
 #[tokio::test]
@@ -393,7 +393,7 @@ async fn mdn_send_missing_mdnsent_patch() {
 
 /// Test 5: MDN/send where `onSuccessUpdateEmail` is null and `send` is non-empty.
 ///
-/// Oracle: draft-ietf-jmap-mdn-17 §2.1 — `onSuccessUpdateEmail` is required when
+/// Oracle: RFC 9007 §2.1 — `onSuccessUpdateEmail` is required when
 /// `send` is non-empty.  The whole request is rejected with `invalidArguments`.
 #[tokio::test]
 async fn mdn_send_null_on_success() {
@@ -441,7 +441,7 @@ async fn mdn_send_null_on_success() {
 
 /// Test 6: MDN/parse with a valid MDN blob.
 ///
-/// Oracle: draft-ietf-jmap-mdn-17 §3.3 + RFC 8098 §9 example.
+/// Oracle: RFC 9007 §3.3 + RFC 8098 §9 example.
 /// `VALID_MDN_BLOB` is the hand-written fixture from `common/mod.rs`, derived
 /// from the RFC 8098 §9 example — it is the independent oracle.
 ///
@@ -516,7 +516,7 @@ async fn mdn_parse_valid() {
 
 /// Test 7: MDN/parse with a non-existent blob ID.
 ///
-/// Oracle: draft-ietf-jmap-mdn-17 §3.3 — blob IDs not found in the account
+/// Oracle: RFC 9007 §3.3 — blob IDs not found in the account
 /// appear in `notFound`; `parsed` and `notParsable` are absent (null).
 #[tokio::test]
 async fn mdn_parse_not_found() {
@@ -559,7 +559,7 @@ async fn mdn_parse_not_found() {
 
 /// Test 8: MDN/parse with a blob that is not a valid MDN message.
 ///
-/// Oracle: draft-ietf-jmap-mdn-17 §3.3 — blobs that cannot be parsed as MDN
+/// Oracle: RFC 9007 §3.3 — blobs that cannot be parsed as MDN
 /// appear in `notParsable`; `parsed` and `notFound` are absent (null).
 ///
 /// `INVALID_MDN_BLOB` (from `common/mod.rs`) is a plain text string with no
@@ -611,7 +611,7 @@ async fn mdn_parse_not_parsable() {
 /// Test 9: MDN/send with a null/absent `forEmailId` produces per-entry
 /// `invalidProperties`, not a whole-request error.
 ///
-/// Oracle: draft-ietf-jmap-mdn-17 §2 — "forEmailId MUST NOT be null for MDN/send."
+/// Oracle: RFC 9007 §2 — "forEmailId MUST NOT be null for MDN/send."
 /// A null/absent forEmailId must produce per-entry invalidProperties, not a whole-request error.
 #[tokio::test]
 async fn mdn_send_null_for_email_id() {

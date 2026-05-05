@@ -2591,7 +2591,7 @@ fn find_header_value(text: &str, field_name: &str) -> Option<String> {
 /// e.g. `manual-action/MDN-sent-manually; displayed`
 ///
 /// All parts are lowercased before matching (RFC 8098 is case-insensitive;
-/// draft-ietf-jmap-mdn requires lowercase in JMAP wire format).
+/// RFC 9007 requires lowercase in JMAP wire format).
 ///
 /// Returns `None` if the field cannot be parsed into recognized enum variants.
 #[cfg(feature = "mdn")]
@@ -2606,7 +2606,7 @@ fn parse_disposition_field(value: &str) -> Option<serde_json::Value> {
     let action_str = mode_iter.next()?.trim();
     let sending_str = mode_iter.next()?.trim();
 
-    // Validate against known enum variants (wire values from draft-ietf-jmap-mdn §2).
+    // Validate against known enum variants (wire values from RFC 9007 §2).
     // Each string is already lowercased above; we only need membership validation —
     // the lowercased input is itself the correct wire value, so pass it through.
     if !matches!(action_str, "manual-action" | "automatic-action") {
@@ -2639,7 +2639,7 @@ fn parse_disposition_field(value: &str) -> Option<serde_json::Value> {
 
 /// Minimal valid MDN blob for use in MDN/parse tests.
 ///
-/// Hand-written from draft-ietf-jmap-mdn-17 §3.3 + RFC 8098 §9 example.
+/// Hand-written from RFC 9007 §3.3 + RFC 8098 §9 example.
 /// This is the independent oracle for parse tests — do not generate from code under test.
 #[cfg(feature = "mdn")]
 pub const VALID_MDN_BLOB: &[u8] = b"\

@@ -1,4 +1,4 @@
-//! JMAP Contacts extension method handlers (draft-ietf-jmap-contacts-10).
+//! JMAP Contacts extension method handlers (RFC 9610).
 //!
 //! # Usage
 //!
@@ -57,7 +57,7 @@ pub const CAPABILITY_CONTACTS: &str = "urn:ietf:params:jmap:contacts";
 /// `ContactCard/copy`, `ContactCard/query`, `ContactCard/queryChanges`.
 ///
 /// **No `AddressBook/query` or `AddressBook/queryChanges`** — the spec
-/// (draft-ietf-jmap-contacts-10) does not define these methods.
+/// (RFC 9610) does not define these methods.
 pub fn register_contacts_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
 where
     B: ContactsBackend + 'static,
@@ -542,7 +542,7 @@ mod tests {
 
     /// Oracle: AddressBook/query and AddressBook/queryChanges are NOT registered.
     ///
-    /// Source: contacts-10 §2 — the spec does not define these methods.
+    /// Source: RFC 9610 §2 — the spec does not define these methods.
     #[tokio::test]
     async fn address_book_query_and_query_changes_are_not_registered() {
         let backend = Arc::new(MockBackend::new_with_account("acc1"));
@@ -564,7 +564,7 @@ mod tests {
     // AddressBook/set onSuccessSetIsDefault dispatcher-based tests (JMAP-jf2h.6)
     // -----------------------------------------------------------------------
 
-    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault with a bare string id
+    /// Oracle: RFC 9610 §2.3 — onSuccessSetIsDefault with a bare string id
     /// applied via the dispatcher sets the target book as default and reports
     /// both the promoted and demoted books in `updated`.
     ///
@@ -621,7 +621,7 @@ mod tests {
         );
     }
 
-    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault MUST be skipped when
+    /// Oracle: RFC 9610 §2.3 — onSuccessSetIsDefault MUST be skipped when
     /// any main set operation produced an error.  A failing create (missing
     /// required `name` field) produces notCreated, which must prevent
     /// onSuccessSetIsDefault from running.
@@ -662,7 +662,7 @@ mod tests {
         );
     }
 
-    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault: null is a no-op;
+    /// Oracle: RFC 9610 §2.3 — onSuccessSetIsDefault: null is a no-op;
     /// the dispatcher must return a valid response with no top-level error.
     #[tokio::test]
     async fn on_success_set_is_default_null_no_op_via_dispatcher() {

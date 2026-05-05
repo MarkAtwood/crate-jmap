@@ -11,7 +11,7 @@
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
 
 impl super::SessionClient {
-    /// Fetch ContactCard objects by IDs (draft-ietf-jmap-contacts-10 §3.1).
+    /// Fetch ContactCard objects by IDs (RFC 9610 §3.1).
     ///
     /// If `ids` is `None`, the server returns all ContactCards for the account.
     /// Pass `properties: None` to return all fields.
@@ -41,7 +41,7 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to ContactCard objects since `since_state`
-    /// (draft-ietf-jmap-contacts-10 §3.2).
+    /// (RFC 9610 §3.2).
     ///
     /// If `has_more_changes` is true in the response, call again with
     /// `new_state` as `since_state` until the flag is false.
@@ -69,7 +69,7 @@ impl super::SessionClient {
     }
 
     /// Create, update, or destroy ContactCard objects
-    /// (draft-ietf-jmap-contacts-10 §3.3).
+    /// (RFC 9610 §3.3).
     ///
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
     /// optional; pass `None` to omit any operation from the request.
@@ -139,7 +139,7 @@ impl super::SessionClient {
     }
 
     /// Query ContactCard IDs with optional filter and sort
-    /// (draft-ietf-jmap-contacts-10 §3.4).
+    /// (RFC 9610 §3.4).
     ///
     /// Pass `filter: None` and `sort: None` to return all ContactCards with
     /// server-default ordering. Use `position` and `limit` for pagination.
@@ -172,7 +172,7 @@ impl super::SessionClient {
     }
 
     /// Fetch query-result changes for ContactCard since `since_query_state`
-    /// (draft-ietf-jmap-contacts-10 §3.5).
+    /// (RFC 9610 §3.5).
     ///
     /// Returns which ContactCard IDs were removed from or added to the query
     /// result set since the given state. `max_changes` may be `None`.
@@ -313,7 +313,7 @@ mod tests {
     }
 
     /// Oracle: ContactCard/get request has correct method name and CALL_ID.
-    /// Expected method name is "ContactCard/get" per contacts-10 §3.1.
+    /// Expected method name is "ContactCard/get" per RFC 9610 §3.1.
     #[test]
     fn contact_card_get_request_shape() {
         let args = json!({
@@ -409,7 +409,7 @@ mod tests {
         assert_eq!(calls[0][1]["sinceQueryState"], json!("qs42"));
     }
 
-    /// Oracle: ContactCard deserialization from contacts-10 §4.1 example.
+    /// Oracle: ContactCard deserialization from RFC 9610 §4.1 example.
     /// Expected JSON taken verbatim from spec §4.1.
     #[test]
     fn contact_card_deserializes_from_spec_example() {

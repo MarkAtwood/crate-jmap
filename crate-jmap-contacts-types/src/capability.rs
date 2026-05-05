@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-contacts-10 §1.4 — JMAP Contacts capability objects.
+//! RFC 9610 §1.4 — JMAP Contacts capability objects.
 //!
 //! Provides [`ContactsCapability`] (session-level, empty object) and
 //! [`ContactsAccountCapability`] (account-level, with server limits).
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 /// account's `accountCapabilities` object.
 pub const JMAP_CONTACTS_URI: &str = "urn:ietf:params:jmap:contacts";
 
-/// Session-level contacts capability (contacts-10 §1.4.1).
+/// Session-level contacts capability (RFC 9610 §1.4.1).
 ///
 /// The value of the `urn:ietf:params:jmap:contacts` property in the JMAP
 /// Session `capabilities` object is an empty JSON object `{}`.
@@ -19,7 +19,7 @@ pub const JMAP_CONTACTS_URI: &str = "urn:ietf:params:jmap:contacts";
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ContactsCapability {}
 
-/// Account-level contacts capability (contacts-10 §1.4.1).
+/// Account-level contacts capability (RFC 9610 §1.4.1).
 ///
 /// The value of `urn:ietf:params:jmap:contacts` in an account's
 /// `accountCapabilities` object.  Contains server limits and permissions for

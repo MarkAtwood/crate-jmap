@@ -1,6 +1,6 @@
 # jmap-contacts-client — Implementation Plan
 
-JMAP Contacts (draft-ietf-jmap-contacts-10) method implementations on top of
+JMAP Contacts (RFC 9610) method implementations on top of
 `jmap-base-client`.
 
 ## Crate Family Position
@@ -41,7 +41,7 @@ Design pattern to follow:
   module layout, and test strategy
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method inputs/outputs
   are structured and how `JmapRequestBuilder` is used to issue calls
-- `~/PROJECT/jmap-chat-spec/references/draft-ietf-jmap-contacts-10.txt` —
+- `~/PROJECT/jmap-chat-spec/references/RFC 9610.txt` —
   normative spec (§2–§4 for method arguments and responses)
 - `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol (get/set/
   query/changes/queryChanges/copy request and response structures)
@@ -197,7 +197,7 @@ pub struct AddressBookSetRequest {
     pub update: Option<HashMap<Id, serde_json::Value>>,  // PatchObject
     pub destroy: Option<Vec<Id>>,
     pub on_destroy_remove_contents: bool,                // default: false
-    pub on_success_set_is_default: Option<Id>,           // contacts-10 §2.3
+    pub on_success_set_is_default: Option<Id>,           // RFC 9610 §2.3
 }
 
 /// Arguments for ContactCard/query.
@@ -267,7 +267,7 @@ src/
   assert it matches the wire format expected by the spec
 - Response deserialization tests: feed JSON from the spec examples (§4.1, §4.2),
   assert the typed structs are populated correctly
-- Primary oracle: the §4.1 example exchange in draft-ietf-jmap-contacts-10
+- Primary oracle: the §4.1 example exchange in RFC 9610
 
 ### Key test cases
 

@@ -1,4 +1,4 @@
-//! AddressBook/* method handlers (draft-ietf-jmap-contacts-10 §2).
+//! AddressBook/* method handlers (RFC 9610 §2).
 //!
 //! Provides handlers for:
 //! - `AddressBook/get`
@@ -19,7 +19,7 @@ use crate::helpers::{extract_account_id, set_error_value};
 // AddressBook/get
 // ---------------------------------------------------------------------------
 
-/// Handle an `AddressBook/get` method call (contacts-10 §2.1).
+/// Handle an `AddressBook/get` method call (RFC 9610 §2.1).
 pub async fn handle_address_book_get<B: ContactsBackend>(
     backend: &B,
     args: Value,
@@ -31,7 +31,7 @@ pub async fn handle_address_book_get<B: ContactsBackend>(
 // AddressBook/changes
 // ---------------------------------------------------------------------------
 
-/// Handle an `AddressBook/changes` method call (contacts-10 §2.2).
+/// Handle an `AddressBook/changes` method call (RFC 9610 §2.2).
 pub async fn handle_address_book_changes<B: ContactsBackend>(
     backend: &B,
     args: Value,
@@ -43,7 +43,7 @@ pub async fn handle_address_book_changes<B: ContactsBackend>(
 // AddressBook/set
 // ---------------------------------------------------------------------------
 
-/// Handle an `AddressBook/set` method call (contacts-10 §2.3).
+/// Handle an `AddressBook/set` method call (RFC 9610 §2.3).
 ///
 /// Contacts-specific extensions:
 ///
@@ -202,7 +202,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             };
             let id = Id::from(id_str.as_str());
 
-            // contacts-10 §2.3: if onDestroyRemoveContents is false and the
+            // RFC 9610 §2.3: if onDestroyRemoveContents is false and the
             // address book has contents, reject with addressBookHasContents.
             if !on_destroy_remove_contents
                 && backend.address_book_has_contents(&account_id, &id).await
@@ -239,12 +239,12 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
 
     // -----------------------------------------------------------------------
     // onSuccessSetIsDefault — post-set isDefault patch
-    // contacts-10 §2.3: onSuccessSetIsDefault is Id|null (a single string id,
+    // RFC 9610 §2.3: onSuccessSetIsDefault is Id|null (a single string id,
     // not a map).  After the main set operations, if it is a non-null string,
     // patch the named address book with {"isDefault": true}.  Errors are
     // silently ignored per §2.3.
     //
-    // contacts-10 §2.3: this block MUST be skipped if any main set operation
+    // RFC 9610 §2.3: this block MUST be skipped if any main set operation
     // (create, update, or destroy) produced an error.
     // -----------------------------------------------------------------------
     let main_ops_all_succeeded =
@@ -349,7 +349,7 @@ mod tests {
 
     use crate::test_support::MockBackend;
 
-    /// Oracle: contacts-10 §2.3 — destroy with non-empty address book and
+    /// Oracle: RFC 9610 §2.3 — destroy with non-empty address book and
     /// onDestroyRemoveContents=false (default) returns addressBookHasContents.
     ///
     /// The mock backend's `address_book_has_contents` returns true for
@@ -380,7 +380,7 @@ mod tests {
         );
     }
 
-    /// Oracle: contacts-10 §2.3 — destroy with onDestroyRemoveContents=true
+    /// Oracle: RFC 9610 §2.3 — destroy with onDestroyRemoveContents=true
     /// bypasses the contents check and delegates to the backend.
     #[tokio::test]
     async fn set_destroy_with_on_destroy_remove_contents_true_proceeds() {
@@ -427,7 +427,7 @@ mod tests {
         assert_eq!(resp["accountId"], "acc1");
     }
 
-    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault with a bare string id
+    /// Oracle: RFC 9610 §2.3 — onSuccessSetIsDefault with a bare string id
     /// triggers a best-effort isDefault patch.  The MockBackend's update_object
     /// returns NotFound (a SetError), which is silently swallowed per §2.3, so
     /// no top-level error is returned and notUpdated remains null.
@@ -455,7 +455,7 @@ mod tests {
         );
     }
 
-    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault: null is a no-op.
+    /// Oracle: RFC 9610 §2.3 — onSuccessSetIsDefault: null is a no-op.
     /// No error must be returned and the response must be structurally valid.
     #[tokio::test]
     async fn set_on_success_set_is_default_null_ignored() {
@@ -475,7 +475,7 @@ mod tests {
         assert_eq!(resp["accountId"], "acc1");
     }
 
-    /// Oracle: contacts-10 §2.3 — a malformed onSuccessSetIsDefault (object
+    /// Oracle: RFC 9610 §2.3 — a malformed onSuccessSetIsDefault (object
     /// instead of Id|null) must be silently ignored; no top-level error.
     #[tokio::test]
     async fn set_on_success_set_is_default_bad_type_ignored() {
@@ -543,7 +543,7 @@ mod tests {
         );
     }
 
-    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault MUST be skipped when
+    /// Oracle: RFC 9610 §2.3 — onSuccessSetIsDefault MUST be skipped when
     /// any main set operation (create, update, or destroy) produced an error.
     /// Here a create with a malformed entry causes notCreated, which means
     /// onSuccessSetIsDefault must NOT be applied.

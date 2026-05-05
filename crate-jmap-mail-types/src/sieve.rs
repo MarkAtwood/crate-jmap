@@ -1,4 +1,4 @@
-//! JMAP Sieve Scripts types (draft-ietf-jmap-sieve).
+//! JMAP Sieve Scripts types (RFC 9661).
 //!
 //! Covers [`SieveScript`], [`SieveCapability`], and [`SieveAccountCapability`]
 //! for the `urn:ietf:params:jmap:sieve` capability.
@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 /// Capability URI for JMAP Sieve Scripts.
 pub const JMAP_SIEVE_SCRIPTS_URI: &str = "urn:ietf:params:jmap:sieve";
 
-/// A Sieve script stored on the server (draft-ietf-jmap-sieve §3).
+/// A Sieve script stored on the server (RFC 9661 §3).
 ///
 /// The struct is `#[non_exhaustive]` to allow future fields without a breaking
 /// version bump. Construct with [`SieveScript::new`] rather than struct-literal
@@ -49,7 +49,7 @@ impl SieveScript {
     }
 }
 
-/// Server-level Sieve capability object (draft-ietf-jmap-sieve §2).
+/// Server-level Sieve capability object (RFC 9661 §2).
 ///
 /// Advertised under the `urn:ietf:params:jmap:sieve` key in the JMAP Session
 /// `capabilities` object.
@@ -68,7 +68,7 @@ impl SieveCapability {
     }
 }
 
-/// Per-account Sieve capability object (draft-ietf-jmap-sieve §2).
+/// Per-account Sieve capability object (RFC 9661 §2).
 ///
 /// Advertised under the `urn:ietf:params:jmap:sieve` key in the JMAP Session
 /// `accountCapabilities` object.
@@ -120,7 +120,7 @@ impl SieveAccountCapability {
 mod tests {
     use super::*;
 
-    /// Oracle: hand-written JSON fixture derived from draft-ietf-jmap-sieve §3
+    /// Oracle: hand-written JSON fixture derived from RFC 9661 §3
     /// field definitions — blobId, isActive, name wire names.
     #[test]
     fn sieve_script_full_roundtrip() {
@@ -162,7 +162,7 @@ mod tests {
         );
     }
 
-    /// Oracle: SieveAccountCapability wire names from draft-ietf-jmap-sieve §2.
+    /// Oracle: SieveAccountCapability wire names from RFC 9661 §2.
     /// Nullable fields (maxSizeScript, maxNumberRedirects, etc.) must be present
     /// as JSON null when None — spec example shows `"maxNumberRedirects": null`.
     #[test]

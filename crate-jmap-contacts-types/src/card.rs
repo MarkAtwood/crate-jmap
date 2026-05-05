@@ -1,4 +1,4 @@
-//! draft-ietf-jmap-contacts-10 §3 — ContactCard object and filter types.
+//! RFC 9610 §3 — ContactCard object and filter types.
 //!
 //! A ContactCard is a JMAP wrapper around a JSContact Card (RFC 9553 §2),
 //! with two JMAP-specific additions: `id` and `addressBookIds`.
@@ -13,7 +13,7 @@ use std::collections::HashMap;
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
-/// A JMAP ContactCard object (draft-ietf-jmap-contacts-10 §3).
+/// A JMAP ContactCard object (RFC 9610 §3).
 ///
 /// Wraps the JSContact Card format (RFC 9553 §2) with two JMAP-specific
 /// additions: [`id`](ContactCard::id) and
@@ -31,7 +31,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactCard {
-    // ── JMAP additions (contacts-10 §3) ─────────────────────────────────
+    // ── JMAP additions (RFC 9610 §3) ─────────────────────────────────
     /// Server-assigned immutable identifier (JMAP addition).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Id>,
@@ -172,7 +172,7 @@ pub struct ContactCard {
     pub personal_info: Option<serde_json::Value>,
 }
 
-/// Filter condition for `ContactCard/query` (contacts-10 §3.3.1).
+/// Filter condition for `ContactCard/query` (RFC 9610 §3.3.1).
 ///
 /// All fields are optional; a condition with no fields set matches every
 /// ContactCard.
@@ -269,7 +269,7 @@ pub struct ContactCardFilterCondition {
     pub note: Option<String>,
 }
 
-/// Comparator for `ContactCard/query` sort order (contacts-10 §3.3.2).
+/// Comparator for `ContactCard/query` sort order (RFC 9610 §3.3.2).
 ///
 /// The `property` field holds the sort key string.  Required values:
 /// `"created"`, `"updated"`.  Recommended values: `"name/given"`,
