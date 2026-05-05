@@ -519,6 +519,121 @@ mod tests {
         assert_eq!(err.error_type.as_str(), "fromAccountNotFound");
     }
 
+    /// Oracle: ContactCard/copy with unknown source id returns notCopied with
+    /// type "notFound" (RFC 8620 §6.3).
+    ///
+    /// Uses the dispatcher path (register_contacts_handlers) so that the full
+    /// handler dispatch stack is exercised.
+    #[tokio::test]
+    async fn copy_source_not_found_returns_not_found() {
+        use std::sync::Arc;
+
+        use jmap_server::{Dispatcher, JmapRequest, State};
+
+        use crate::register_contacts_handlers;
+        use crate::CAPABILITY_CONTACTS;
+
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        // Do NOT seed the source card — get_objects will report not_found.
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_contacts_handlers(&mut dispatcher, Arc::new(backend));
+
+        let req = JmapRequest::new(
+            vec![CAPABILITY_CONTACTS.into()],
+            vec![(
+                "ContactCard/copy".into(),
+                json!({
+                    "accountId": "acc2",
+                    "fromAccountId": "acc1",
+                    "create": { "c1": { "id": "nonexistent" } }
+                }),
+                "c0".into(),
+            )],
+            None,
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert!(
+            args["copied"].is_null(),
+            "copied must be null when source not found: {args}"
+        );
+        assert_eq!(
+            args["notCopied"]["c1"]["type"], "notFound",
+            "unknown source id must yield notFound: {args}"
+        );
+    }
+
+    /// Oracle: ContactCard/copy with a patch override correctly applies the
+    /// patch to the copied card (RFC 8620 §6.3 / §5.4 patch semantics).
+    ///
+    /// Seeds a card with addressBookIds: {ab1:true}; copies it with override
+    /// addressBookIds: {ab2:true}; verifies the copied result has ab2, not ab1.
+    ///
+    /// Uses the dispatcher path (register_contacts_handlers).
+    #[tokio::test]
+    async fn copy_applies_flat_patch_correctly() {
+        use std::sync::Arc;
+
+        use jmap_server::{Dispatcher, JmapRequest, State};
+
+        use crate::register_contacts_handlers;
+        use crate::CAPABILITY_CONTACTS;
+
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_contacts_handlers(&mut dispatcher, Arc::new(backend));
+
+        let req = JmapRequest::new(
+            vec![CAPABILITY_CONTACTS.into()],
+            vec![(
+                "ContactCard/copy".into(),
+                json!({
+                    "accountId": "acc2",
+                    "fromAccountId": "acc1",
+                    "create": {
+                        "c1": {
+                            "id": "card1",
+                            "addressBookIds": { "ab2": true }
+                        }
+                    }
+                }),
+                "c0".into(),
+            )],
+            None,
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        let copied = &args["copied"];
+        assert!(copied.is_object(), "copied must be present: {args}");
+        let c1 = &copied["c1"];
+        assert!(c1.is_object(), "c1 must appear in copied: {args}");
+        assert_eq!(
+            c1["addressBookIds"],
+            json!({ "ab2": true }),
+            "patch must have replaced addressBookIds: {c1}"
+        );
+        assert_ne!(
+            c1["addressBookIds"],
+            json!({ "ab1": true }),
+            "old addressBookIds must have been replaced: {c1}"
+        );
+    }
+
     /// Oracle: ContactCard/copy calls copy_contact_card on the backend.
     ///
     /// Source: contacts-10 §3.4 — copy must succeed when both accounts exist

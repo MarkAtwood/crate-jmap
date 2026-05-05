@@ -31,6 +31,46 @@ pub use jmap_server::{
 ///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl CalendarsBackend>` when sharing across tasks.
+///
+/// # Recurrence expansion contracts
+///
+/// ## `expandRecurrences` (draft-ietf-jmap-calendars-26 §5.11)
+///
+/// When a `CalendarEvent/query` request includes `"expandRecurrences": true`,
+/// the backend **MUST** expand recurring events into individual instances
+/// within the filter's time range (`after` / `before`).  Each expanded
+/// instance is returned as a virtual object with a **synthetic id** formed by
+/// appending the recurrence-id to the master event id (e.g.
+/// `"<masterId>_<recurrenceId>"`).  The exact separator and encoding are
+/// implementation-defined but must be stable across requests so that clients
+/// can use those ids in subsequent `CalendarEvent/get` calls.
+///
+/// If the expansion would produce more instances than the implementation can
+/// safely enumerate (e.g. an infinitely recurring event with no end date and
+/// an unbounded query window), the backend SHOULD return the
+/// `cannotCalculateOccurrences` error rather than truncating silently.
+///
+/// When `expandRecurrences` is absent or `false`, recurring events are
+/// returned as a single master object and the backend MUST NOT synthesise
+/// per-instance ids.
+///
+/// ## `recurrenceOverrides` patch passthrough (draft-ietf-jmap-calendars-26 §5.9.1)
+///
+/// `recurrenceOverrides` is a two-level JSON Pointer patch path:
+/// the outer key is `"recurrenceOverrides"` and the inner key is a
+/// `LocalDateTime` recurrence-id string (e.g. `"2025-03-05T09:00:00"`).
+/// A `CalendarEvent/set` update patch may therefore contain keys of the form:
+///
+/// ```text
+/// "recurrenceOverrides/2025-03-05T09:00:00/status"
+/// ```
+///
+/// The handler passes these patch keys to the backend verbatim via
+/// `update_object` / `update_per_user_properties`.  The backend is
+/// responsible for interpreting the two-level path and merging it into the
+/// stored `recurrenceOverrides` map; the handler does **not** pre-parse or
+/// restructure the path.  Backends must preserve unaffected override entries
+/// unchanged when applying a partial patch.
 pub trait CalendarsBackend: JmapBackend {
     /// Create a new object of type `O`.
     ///
@@ -69,6 +109,36 @@ pub trait CalendarsBackend: JmapBackend {
     /// called internally by the handler library. Backends that support all
     /// types unconditionally can return `true` always.
     fn supports_type<O: JmapObject>(&self) -> bool;
+
+    /// Returns `true` if `prop` is a per-user [`CalendarEvent`] property
+    /// (draft-ietf-jmap-calendars-26 §5.4).
+    ///
+    /// Per-user properties — `keywords`, `color`, `freeBusyStatus`,
+    /// `useDefaultAlerts`, and `alerts` — belong to the authenticated user and
+    /// MUST NOT change the shared `updated` timestamp when patched.
+    fn is_per_user_property(prop: &str) -> bool {
+        matches!(
+            prop,
+            "keywords" | "color" | "freeBusyStatus" | "useDefaultAlerts" | "alerts"
+        )
+    }
+
+    /// Apply a patch that contains only per-user [`CalendarEvent`] properties
+    /// (draft-ietf-jmap-calendars-26 §5.4).
+    ///
+    /// Default implementation delegates to `update_object`. Backends serving
+    /// multiple users SHOULD override this to store per-user properties
+    /// separately so that shared `updated` timestamps are not affected.
+    fn update_per_user_properties(
+        &self,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+        patch: serde_json::Value,
+    ) -> impl std::future::Future<
+        Output = Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>,
+    > + Send {
+        self.update_object::<jmap_calendars_types::CalendarEvent>(account_id, id, patch)
+    }
 
     /// Returns `true` if the given Calendar has any events.
     ///

@@ -558,6 +558,134 @@ mod tests {
         }
     }
 
+    // -----------------------------------------------------------------------
+    // AddressBook/set onSuccessSetIsDefault dispatcher-based tests (JMAP-jf2h.6)
+    // -----------------------------------------------------------------------
+
+    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault with a bare string id
+    /// applied via the dispatcher sets the target book as default and reports
+    /// both the promoted and demoted books in `updated`.
+    ///
+    /// Pre-conditions: book1 is default; book2 is not.
+    /// Action (via dispatcher): AddressBook/set with onSuccessSetIsDefault: "book2".
+    /// Expected: updated contains book2 (isDefault:true) and book1 (isDefault:false).
+    #[tokio::test]
+    async fn on_success_set_is_default_string_id_applied_via_dispatcher() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.seed_addressbook("acc1", "book1", true);
+        backend.seed_addressbook("acc1", "book2", false);
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_contacts_handlers(&mut dispatcher, Arc::new(backend));
+
+        let req = single_call(
+            "AddressBook/set",
+            json!({
+                "accountId": "acc1",
+                "onSuccessSetIsDefault": "book2"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+
+        let updated = args["updated"]
+            .as_object()
+            .expect("updated must be an object when isDefault transfers");
+
+        assert!(
+            updated.contains_key("book2"),
+            "book2 (newly default) must appear in updated: {args}"
+        );
+        assert_eq!(
+            updated["book2"]["isDefault"],
+            json!(true),
+            "book2 must have isDefault:true: {args}"
+        );
+
+        assert!(
+            updated.contains_key("book1"),
+            "book1 (demoted) must appear in updated: {args}"
+        );
+        assert_eq!(
+            updated["book1"]["isDefault"],
+            json!(false),
+            "book1 must have isDefault:false after demotion: {args}"
+        );
+    }
+
+    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault MUST be skipped when
+    /// any main set operation produced an error.  A failing create (missing
+    /// required `name` field) produces notCreated, which must prevent
+    /// onSuccessSetIsDefault from running.
+    #[tokio::test]
+    async fn on_success_set_is_default_skipped_when_create_fails_via_dispatcher() {
+        let backend = MockBackend::new_with_account("acc1");
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_contacts_handlers(&mut dispatcher, Arc::new(backend));
+
+        let req = single_call(
+            "AddressBook/set",
+            json!({
+                "accountId": "acc1",
+                "create": { "c1": {} },   // missing required name → invalidProperties
+                "onSuccessSetIsDefault": "book1"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        // The create must have failed.
+        assert!(
+            args["notCreated"].is_object(),
+            "c1 must be in notCreated: {args}"
+        );
+        // onSuccessSetIsDefault must NOT have run.
+        let updated = &args["updated"];
+        let is_empty =
+            updated.is_null() || updated.as_object().map(|o| o.is_empty()).unwrap_or(true);
+        assert!(
+            is_empty,
+            "updated must be empty — onSuccessSetIsDefault must not run after create failure: {args}"
+        );
+    }
+
+    /// Oracle: contacts-10 §2.3 — onSuccessSetIsDefault: null is a no-op;
+    /// the dispatcher must return a valid response with no top-level error.
+    #[tokio::test]
+    async fn on_success_set_is_default_null_no_op_via_dispatcher() {
+        let backend = MockBackend::new_with_account("acc1");
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_contacts_handlers(&mut dispatcher, Arc::new(backend));
+
+        let req = single_call(
+            "AddressBook/set",
+            json!({
+                "accountId": "acc1",
+                "onSuccessSetIsDefault": null
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+
+        assert!(
+            args.get("type").is_none(),
+            "null onSuccessSetIsDefault must not cause an error: {args}"
+        );
+        assert_eq!(args["accountId"], "acc1");
+    }
+
     /// Oracle: AddressBook/set destroy with non-empty book returns
     /// addressBookHasContents via the dispatcher path.
     #[tokio::test]
