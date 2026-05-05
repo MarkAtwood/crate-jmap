@@ -1,6 +1,6 @@
 # jmap-contacts-client
 
-Typed client methods for JMAP Contacts ([draft-ietf-jmap-contacts-10]). Depends
+Typed client methods for JMAP Contacts ([RFC 9610]). Depends
 on [`jmap-base-client`] for transport, authentication, and session management.
 
 ## Usage
@@ -160,13 +160,13 @@ jmap-types
 
 ## References
 
-- **[draft-ietf-jmap-contacts-10]** — JMAP Contacts (normative for all method
+- **[RFC 9610]** — JMAP Contacts (normative for all method
   names, argument shapes, and response formats)
 - **[RFC 9553]** — JSContact (normative for ContactCard sub-object schemas)
 - **[RFC 8620]** — JMAP Core (request format, response shapes, `/get`, `/set`,
   `/changes`, `/query`, `/queryChanges`, `/copy`)
 
-[draft-ietf-jmap-contacts-10]: https://www.ietf.org/archive/id/draft-ietf-jmap-contacts-10.txt
+[RFC 9610]: https://www.rfc-editor.org/rfc/rfc9610
 [RFC 9553]: https://www.rfc-editor.org/rfc/rfc9553
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client
