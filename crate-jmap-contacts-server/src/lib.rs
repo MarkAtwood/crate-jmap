@@ -127,7 +127,7 @@ pub(crate) mod test_support {
     use std::collections::HashMap;
     use std::sync::{Arc, Mutex};
 
-    use jmap_contacts_types::ContactCard;
+    use jmap_contacts_types::{AddressBook, ContactCard};
     use jmap_server::{
         BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
         QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
@@ -152,6 +152,7 @@ pub(crate) mod test_support {
     #[derive(Default, Clone)]
     struct AccountState {
         contact_cards: HashMap<Id, ContactCard>,
+        addressbooks: HashMap<Id, AddressBook>,
     }
 
     /// In-memory mock backend for testing.
@@ -207,6 +208,30 @@ pub(crate) mod test_support {
                 .or_insert_with(AccountState::default);
             acct.contact_cards.insert(Id::from(card_id), card);
         }
+
+        /// Pre-populate an AddressBook in the given account.
+        pub fn seed_addressbook(&mut self, account_id: &str, book_id: &str, is_default: bool) {
+            let book: AddressBook = serde_json::from_value(serde_json::json!({
+                "id": book_id,
+                "name": book_id,
+                "sortOrder": 0,
+                "isDefault": is_default,
+                "isSubscribed": false,
+                "shareWith": null,
+                "myRights": {
+                    "mayRead": true,
+                    "mayWrite": true,
+                    "mayShare": false,
+                    "mayDelete": false
+                }
+            }))
+            .expect("test fixture must deserialize");
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard
+                .entry(account_id.to_owned())
+                .or_insert_with(AccountState::default);
+            acct.addressbooks.insert(Id::from(book_id), book);
+        }
     }
 
     impl JmapBackend for MockBackend {
@@ -222,9 +247,32 @@ pub(crate) mod test_support {
             ids: Option<&[Id]>,
             _properties: Option<&[String]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-            // Return ContactCard objects when present; otherwise empty.
+            // Try AddressBook store first (all or by id), then ContactCard store.
             let guard = self.state.lock().unwrap();
             if let Some(acct) = guard.get(account_id.as_ref()) {
+                // Try to deserialize from addressbooks map.
+                let ab_values: Vec<serde_json::Value> = if let Some(requested_ids) = ids {
+                    requested_ids
+                        .iter()
+                        .filter_map(|id| acct.addressbooks.get(id))
+                        .filter_map(|b| serde_json::to_value(b).ok())
+                        .collect()
+                } else {
+                    acct.addressbooks
+                        .values()
+                        .filter_map(|b| serde_json::to_value(b).ok())
+                        .collect()
+                };
+                // If the store is non-empty and the type is AddressBook, return it.
+                if !ab_values.is_empty() || (ids.is_none() && !acct.addressbooks.is_empty()) {
+                    let found: Vec<O> = ab_values
+                        .into_iter()
+                        .filter_map(|v| serde_json::from_value::<O>(v).ok())
+                        .collect();
+                    return Ok((found, vec![]));
+                }
+
+                // Fall through to ContactCard store.
                 if let Some(requested_ids) = ids {
                     let mut found: Vec<O> = Vec::new();
                     let mut not_found: Vec<Id> = Vec::new();
@@ -318,10 +366,56 @@ pub(crate) mod test_support {
 
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
-            _account_id: &Id,
-            _id: &Id,
-            _patch: O::Patch,
+            account_id: &Id,
+            id: &Id,
+            patch: O::Patch,
         ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+            // Attempt to apply as an AddressBook patch.
+            let patch_val = match serde_json::to_value(&patch) {
+                Ok(v) => v,
+                Err(_) => {
+                    return Err(BackendSetError::SetError(SetError::new(
+                        SetErrorType::NotFound,
+                    )))
+                }
+            };
+
+            let mut guard = self.state.lock().unwrap();
+            if let Some(acct) = guard.get_mut(account_id.as_ref()) {
+                if let Some(existing_book) = acct.addressbooks.get(id).cloned() {
+                    // Apply the patch: merge JSON fields into the existing book.
+                    if let Ok(mut book_val) = serde_json::to_value(&existing_book) {
+                        if let (Some(obj), Some(patch_obj)) =
+                            (book_val.as_object_mut(), patch_val.as_object())
+                        {
+                            for (k, v) in patch_obj {
+                                obj.insert(k.clone(), v.clone());
+                            }
+                        }
+                        if let Ok(updated_book) = serde_json::from_value::<AddressBook>(book_val) {
+                            // Single-default invariant: if this book is now
+                            // default, clear isDefault on all other books.
+                            if updated_book.is_default {
+                                let target_id = id.clone();
+                                for (other_id, other_book) in acct.addressbooks.iter_mut() {
+                                    if *other_id != target_id {
+                                        other_book.is_default = false;
+                                    }
+                                }
+                            }
+                            // Store the updated book.
+                            acct.addressbooks.insert(id.clone(), updated_book.clone());
+                            // Try to cast back to O (succeeds when O = AddressBook).
+                            if let Ok(obj) = serde_json::to_value(&updated_book)
+                                .and_then(|v| serde_json::from_value::<O>(v))
+                            {
+                                return Ok(Some(obj));
+                            }
+                        }
+                    }
+                }
+            }
+
             Err(BackendSetError::SetError(SetError::new(
                 SetErrorType::NotFound,
             )))

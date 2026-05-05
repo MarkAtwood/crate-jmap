@@ -28,6 +28,7 @@ pub mod event;
 pub mod event_notification;
 mod helpers;
 pub mod participant_identity;
+pub mod principal;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendSetError, CalendarsBackend, ChangesResult, GetObject,
@@ -37,7 +38,8 @@ pub use backend::{
 pub use calendar::{handle_calendar_changes, handle_calendar_get, handle_calendar_set};
 pub use event::{
     handle_calendar_event_changes, handle_calendar_event_copy, handle_calendar_event_get,
-    handle_calendar_event_query, handle_calendar_event_query_changes, handle_calendar_event_set,
+    handle_calendar_event_parse, handle_calendar_event_query, handle_calendar_event_query_changes,
+    handle_calendar_event_set,
 };
 pub use event_notification::{
     handle_calendar_event_notification_changes, handle_calendar_event_notification_get,
@@ -48,6 +50,7 @@ pub use participant_identity::{
     handle_participant_identity_changes, handle_participant_identity_get,
     handle_participant_identity_set,
 };
+pub use principal::handle_principal_get_availability;
 
 /// Capability URI for `urn:ietf:params:jmap:calendars`.
 pub const CAPABILITY_CALENDARS: &str = "urn:ietf:params:jmap:calendars";
@@ -60,15 +63,17 @@ pub const CAPABILITY_CALENDARS: &str = "urn:ietf:params:jmap:calendars";
 ///
 /// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
 ///
-/// After this call, the dispatcher handles all 18 Calendars methods:
+/// After this call, the dispatcher handles all 20 Calendars methods:
 /// - `Calendar/get`, `Calendar/changes`, `Calendar/set`
 /// - `CalendarEvent/get`, `CalendarEvent/changes`, `CalendarEvent/set`,
-///   `CalendarEvent/copy`, `CalendarEvent/query`, `CalendarEvent/queryChanges`
+///   `CalendarEvent/copy`, `CalendarEvent/query`, `CalendarEvent/queryChanges`,
+///   `CalendarEvent/parse`
 /// - `CalendarEventNotification/get`, `CalendarEventNotification/changes`,
 ///   `CalendarEventNotification/set`, `CalendarEventNotification/query`,
 ///   `CalendarEventNotification/queryChanges`
 /// - `ParticipantIdentity/get`, `ParticipantIdentity/changes`,
 ///   `ParticipantIdentity/set`
+/// - `Principal/getAvailability`
 ///
 /// **Caller context `C` is not forwarded to handlers.** Each handler closure
 /// receives only `(Arc<B>, call_id, args)`; the `caller: C` value from the
@@ -121,6 +126,9 @@ where
     reg!("CalendarEvent/queryChanges", backend, |b, _ci, a| {
         handle_calendar_event_query_changes(&*b, a).await
     });
+    reg!("CalendarEvent/parse", backend, |b, _ci, a| {
+        handle_calendar_event_parse(&*b, a).await
+    });
 
     // CalendarEventNotification
     reg!("CalendarEventNotification/get", backend, |b, _ci, a| {
@@ -150,6 +158,11 @@ where
     });
     reg!("ParticipantIdentity/set", backend, |b, _ci, a| {
         handle_participant_identity_set(&*b, a).await
+    });
+
+    // Principal
+    reg!("Principal/getAvailability", backend, |b, _ci, a| {
+        handle_principal_get_availability(&*b, a).await
     });
 }
 
@@ -460,12 +473,12 @@ mod tests {
         )
     }
 
-    /// Oracle: register_calendars_handlers registers all 18 Calendars methods.
+    /// Oracle: register_calendars_handlers registers all 20 Calendars methods.
     ///
     /// Verification: each method returns a non-`unknownMethod` response when
     /// dispatched with a valid account.
     #[tokio::test]
-    async fn registers_all_18_methods() {
+    async fn registers_all_20_methods() {
         let backend = Arc::new(MockBackend::new_with_account("acc1"));
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
@@ -532,6 +545,19 @@ mod tests {
             (
                 "ParticipantIdentity/set",
                 json!({"accountId": "acc1", "destroy": []}),
+            ),
+            (
+                "CalendarEvent/parse",
+                json!({"accountId": "acc1", "blobIds": []}),
+            ),
+            (
+                "Principal/getAvailability",
+                json!({
+                    "accountId": "acc1",
+                    "id": "p1",
+                    "utcStart": "2024-06-15T09:00:00Z",
+                    "utcEnd": "2024-06-15T10:00:00Z"
+                }),
             ),
         ];
 

@@ -7,8 +7,8 @@
 pub mod methods;
 
 pub use methods::{
-    CalendarEventGetParams, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse,
-    SetResponse,
+    CalendarEventGetParams, CalendarEventParseResponse, ChangesResponse, GetResponse,
+    PrincipalGetAvailabilityResponse, QueryChangesResponse, QueryResponse, SetResponse,
 };
 
 /// Extension trait adding JMAP Calendars methods to [`jmap_base_client::JmapClient`].
