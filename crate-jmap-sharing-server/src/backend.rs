@@ -32,10 +32,18 @@ pub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProper
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl SharingBackend>` when sharing across tasks.
 pub trait SharingBackend: JmapBackend {
-    /// Create a new Principal.
+    /// Create a new object.
     ///
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
+    ///
+    /// # Invariant
+    ///
+    /// The returned `O` MUST have its `id` field set to the server-assigned
+    /// [`Id`] returned as the first element of the tuple.  The handler relies
+    /// on this to populate the `created` response map per RFC 8620 §5.3:
+    /// the `id` is visible to the client only through the returned object's
+    /// fields, not through the tuple's `Id` element.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         account_id: &jmap_types::Id,

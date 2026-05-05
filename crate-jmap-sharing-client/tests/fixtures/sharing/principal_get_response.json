@@ -1,0 +1,24 @@
+{
+  "sessionState": "s1",
+  "methodResponses": [[
+    "Principal/get",
+    {
+      "accountId": "u33084183",
+      "state": "p-s1",
+      "list": [
+        {
+          "id": "p-joe",
+          "type": "individual",
+          "name": "Joe Bloggs",
+          "description": null,
+          "email": "joe@example.com",
+          "timeZone": null,
+          "capabilities": {},
+          "accounts": null
+        }
+      ],
+      "notFound": []
+    },
+    "r1"
+  ]]
+}

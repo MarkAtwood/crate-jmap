@@ -25,10 +25,9 @@ normative reference for field names, types, and serialization.
 
 | Module | Type(s) | RFC 9670 section |
 |---|---|---|
-| `principal.rs` | `Principal`, `PrincipalType` | §2 |
-| `notification.rs` | `ShareNotification`, `ChangedBy` | §3 |
-| `query.rs` | `PrincipalFilterCondition`, `ShareNotificationFilterCondition` | §2.4.1, §3.4.1 |
-| `capability.rs` | `PrincipalsCapability`, `PrincipalsOwnerCapability` | §1.5 |
+ | `principal.rs` | `Principal`, `PrincipalType`, `PrincipalFilterCondition` | §2 |
+ | `notification.rs` | `ShareNotification`, `ChangedBy`, `ShareNotificationFilterCondition` | §3 |
+ | `capability.rs` | `PrincipalsCapability`, `PrincipalsOwnerCapability` | §1.5 |
 
 ## What Is Out of Scope
 

@@ -1,0 +1,29 @@
+{
+  "sessionState": "s1",
+  "methodResponses": [[
+    "ShareNotification/get",
+    {
+      "accountId": "u33084183",
+      "state": "n-s1",
+      "list": [
+        {
+          "id": "notif-1",
+          "created": "2024-06-15T10:00:00Z",
+          "changedBy": {
+            "name": "Joe Bloggs",
+            "email": "joe@example.com",
+            "principalId": "p-joe"
+          },
+          "objectType": "Mailbox",
+          "objectAccountId": "u33084183",
+          "objectId": "mbox-inbox",
+          "oldRights": null,
+          "newRights": {"mayRead": true, "mayWrite": false, "mayShare": false, "mayDelete": false},
+          "name": "Team Inbox"
+        }
+      ],
+      "notFound": []
+    },
+    "r1"
+  ]]
+}
