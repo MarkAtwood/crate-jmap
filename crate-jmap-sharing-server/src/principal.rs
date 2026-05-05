@@ -176,10 +176,16 @@ pub async fn handle_principal_set<B: SharingBackend>(
     // destroy
     // -----------------------------------------------------------------------
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
+        // Guard: all destroy elements must be Id strings.
+        if destroy_arr.iter().any(|v| !v.is_string()) {
+            return Err(JmapError::invalid_arguments(
+                "destroy array must contain only Id strings",
+            ));
+        }
         for id_val in destroy_arr {
             let id_str = match id_val.as_str() {
                 Some(s) => s.to_owned(),
-                None => continue,
+                None => continue, // unreachable after guard, kept for exhaustiveness
             };
             let id = Id::from(id_str.as_str());
 
@@ -311,6 +317,20 @@ mod tests {
             not_updated["P1"]["type"], "forbidden",
             "backend forbidden must appear in notUpdated: {resp}"
         );
+    }
+
+    /// Oracle: Principal/set destroy array with a non-string element must return
+    /// a top-level invalidArguments error, not silently skip the element.
+    #[tokio::test]
+    async fn set_destroy_non_string_element_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": [123]  // integer, not string
+        });
+        let result = handle_principal_set(&backend, args).await;
+        let err = result.expect_err("must return top-level error for non-string destroy element");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
     }
 
     /// Oracle: Principal/set create with invalid JSON → invalidProperties in notCreated.

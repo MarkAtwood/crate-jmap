@@ -79,10 +79,10 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
     // -----------------------------------------------------------------------
     // create — forbidden: ShareNotification is server-created only
     // -----------------------------------------------------------------------
-    if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
-        for create_id in create_map.keys() {
+    if let Some(Value::Object(create_map)) = args.remove("create") {
+        for (create_id, _) in create_map {
             not_created.insert(
-                create_id.clone(),
+                create_id,
                 set_error_value(&SetError::new(SetErrorType::Forbidden)),
             );
         }
@@ -91,10 +91,10 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
     // -----------------------------------------------------------------------
     // update — forbidden: ShareNotification is immutable
     // -----------------------------------------------------------------------
-    if let Some(update_map) = args.get("update").and_then(|v| v.as_object()) {
-        for id_str in update_map.keys() {
+    if let Some(Value::Object(update_map)) = args.remove("update") {
+        for (id_str, _) in update_map {
             not_updated.insert(
-                id_str.clone(),
+                id_str,
                 set_error_value(&SetError::new(SetErrorType::Forbidden)),
             );
         }
@@ -104,10 +104,16 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
     // destroy — the only permitted operation (RFC 9670 §3.3)
     // -----------------------------------------------------------------------
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
+        // Guard: all destroy elements must be Id strings.
+        if destroy_arr.iter().any(|v| !v.is_string()) {
+            return Err(JmapError::invalid_arguments(
+                "destroy array must contain only Id strings",
+            ));
+        }
         for id_val in destroy_arr {
             let id_str = match id_val.as_str() {
                 Some(s) => s.to_owned(),
-                None => continue,
+                None => continue, // unreachable after guard, kept for exhaustiveness
             };
             let id = Id::from(id_str.as_str());
 
@@ -291,6 +297,20 @@ mod tests {
             .expect("destroyed must be array");
         assert_eq!(destroyed.len(), 1);
         assert_eq!(destroyed[0], "notif1");
+    }
+
+    /// Oracle: ShareNotification/set destroy array with null element must return
+    /// a top-level invalidArguments error.
+    #[tokio::test]
+    async fn set_destroy_null_element_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": [null]
+        });
+        let result = handle_share_notification_set(&backend, args).await;
+        let err = result.expect_err("must return top-level error for null destroy element");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
     }
 
     /// Oracle: destroy of a non-existent notification → notFound in notDestroyed.

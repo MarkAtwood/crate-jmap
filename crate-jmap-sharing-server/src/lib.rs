@@ -307,8 +307,12 @@ pub(crate) mod test_support {
             _create_id: &str,
             obj: O,
         ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-            // Return the object with a generated id — callers should check the
-            // returned id, not the placeholder.
+            // This mock returns the object as-is with a generated id string.
+            // INVARIANT GAP: the returned `obj` retains whatever placeholder id
+            // was passed in by the caller — it is NOT patched to `"mock-id-1"`.
+            // This violates the SharingBackend::create_object invariant (the
+            // returned O must have its `id` field set to the server-assigned Id).
+            // Use MemoryBackend for tests that require a correct create response.
             Ok((Id::from("mock-id-1"), obj))
         }
 
