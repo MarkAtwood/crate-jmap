@@ -112,8 +112,8 @@ where
     reg!("CalendarEvent/set", backend, |b, _ci, a| {
         handle_calendar_event_set(&*b, a).await
     });
-    reg!("CalendarEvent/copy", backend, |b, _ci, a| {
-        handle_calendar_event_copy(&*b, a).await
+    reg!("CalendarEvent/copy", backend, |b, ci, a| {
+        handle_calendar_event_copy(&*b, a, &ci).await
     });
     reg!("CalendarEvent/query", backend, |b, _ci, a| {
         handle_calendar_event_query(&*b, a).await
@@ -245,6 +245,28 @@ pub(crate) mod test_support {
                 .or_default()
                 .insert(Id::from(notif_id), serde_json::json!({ "id": notif_id }));
         }
+
+        /// Seed a serialized object into the mock store for `get_objects` retrieval.
+        ///
+        /// The `type_name` must match `O::TYPE_NAME` for the object type being
+        /// tested (e.g. `"CalendarEvent"`).
+        #[allow(dead_code)]
+        pub fn add_object(
+            &mut self,
+            account_id: &str,
+            type_name: &str,
+            id: &str,
+            value: serde_json::Value,
+        ) {
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard
+                .entry(account_id.to_owned())
+                .or_insert_with(AccountState::default);
+            acct.objects
+                .entry(type_name.to_owned())
+                .or_default()
+                .insert(Id::from(id), value);
+        }
     }
 
     impl JmapBackend for MockBackend {
@@ -256,11 +278,49 @@ pub(crate) mod test_support {
 
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
-            _account_id: &Id,
-            _ids: Option<&[Id]>,
+            account_id: &Id,
+            ids: Option<&[Id]>,
             _properties: Option<&[String]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-            Ok((vec![], vec![]))
+            let type_name = O::TYPE_NAME;
+            let guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get(account_id.as_ref()) else {
+                return Ok((vec![], vec![]));
+            };
+            let Some(store) = acct.objects.get(type_name) else {
+                // No objects of this type → all ids are not-found.
+                let not_found = match ids {
+                    Some(id_slice) => id_slice.to_vec(),
+                    None => vec![],
+                };
+                return Ok((vec![], not_found));
+            };
+            match ids {
+                None => {
+                    // Return all objects of this type.
+                    let mut found = Vec::new();
+                    for v in store.values() {
+                        if let Ok(obj) = serde_json::from_value::<O>(v.clone()) {
+                            found.push(obj);
+                        }
+                    }
+                    Ok((found, vec![]))
+                }
+                Some(id_slice) => {
+                    let mut found = Vec::new();
+                    let mut not_found = Vec::new();
+                    for id in id_slice {
+                        match store.get(id) {
+                            Some(v) => match serde_json::from_value::<O>(v.clone()) {
+                                Ok(obj) => found.push(obj),
+                                Err(_) => not_found.push(id.clone()),
+                            },
+                            None => not_found.push(id.clone()),
+                        }
+                    }
+                    Ok((found, not_found))
+                }
+            }
         }
 
         async fn get_state<O: JmapObject + Send + Sync>(
