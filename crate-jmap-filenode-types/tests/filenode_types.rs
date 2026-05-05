@@ -496,7 +496,10 @@ fn filenode_role_serializes_as_null() {
         obj.contains_key("role"),
         "role must be present in serialized JSON"
     );
-    assert!(obj["role"].is_null(), "role must serialize as null, not absent");
+    assert!(
+        obj["role"].is_null(),
+        "role must serialize as null, not absent"
+    );
 }
 
 #[test]
@@ -525,7 +528,10 @@ fn filenode_role_null_round_trips() {
         out2.as_object().expect("object").contains_key("role"),
         "role must be present after round-trip"
     );
-    assert!(out2["role"].is_null(), "role must remain null after round-trip");
+    assert!(
+        out2["role"].is_null(),
+        "role must remain null after round-trip"
+    );
 }
 
 // ---------------------------------------------------------------------------

@@ -93,11 +93,11 @@ pub struct ShareNotification {
 #[serde(rename_all = "camelCase")]
 pub struct ShareNotificationFilterCondition {
     /// Notifications created on or after this date match.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub after: Option<UTCDate>,
 
     /// Notifications created before this date match.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub before: Option<UTCDate>,
 
     /// The `objectType` of the notification must exactly match this value.
@@ -265,5 +265,32 @@ mod tests {
         let reserialized = serde_json::to_value(&fc).expect("serialize");
         assert_eq!(reserialized["objectType"], json["objectType"]);
         assert_eq!(reserialized["objectAccountId"], json["objectAccountId"]);
+    }
+
+    /// Explicit JSON `null` for `after` and `before` deserializes without error.
+    ///
+    /// Oracle: RFC 9670 §3.4.1 — `after` and `before` are `UTCDate|null`; an
+    /// explicit `null` value is valid JSON and must be accepted.
+    #[test]
+    fn notification_filter_null_after_before() {
+        let json = json!({"after": null, "before": null});
+        let fc: ShareNotificationFilterCondition =
+            serde_json::from_value(json).expect("explicit null after/before must deserialize");
+        assert!(fc.after.is_none(), "after must be None when JSON null");
+        assert!(fc.before.is_none(), "before must be None when JSON null");
+    }
+
+    /// `ShareNotificationFilterCondition::default()` serializes to `{}`.
+    ///
+    /// Oracle: all fields are optional and absent when None per `skip_serializing_if`.
+    #[test]
+    fn notification_filter_default_serializes_to_empty_object() {
+        let fc = ShareNotificationFilterCondition::default();
+        let out = serde_json::to_value(&fc).expect("must serialize");
+        assert_eq!(
+            out,
+            json!({}),
+            "default must serialize to empty object, got: {out}"
+        );
     }
 }

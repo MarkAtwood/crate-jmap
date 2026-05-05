@@ -82,4 +82,63 @@ pub trait TasksBackend: JmapBackend {
         account_id: &jmap_types::Id,
         task_list_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send;
+
+    /// Returns true if `prop` is a per-user Task property (draft-tasks-06 §4.5.1).
+    ///
+    /// Per-user properties — `keywords`, `color`, `freeBusyStatus`,
+    /// `useDefaultAlerts`, and `alerts` — belong to the authenticated user and
+    /// MUST NOT change the shared `updated` timestamp when patched.  The routing
+    /// logic in `handle_task_set` calls [`Self::update_task_per_user`] when
+    /// every non-null patch key is in this set.
+    fn is_per_user_property(prop: &str) -> bool {
+        matches!(
+            prop,
+            "keywords" | "color" | "freeBusyStatus" | "useDefaultAlerts" | "alerts"
+        )
+    }
+
+    /// Apply a patch that contains only per-user Task properties
+    /// (draft-tasks-06 §4.5.1 — `keywords`, `color`, `freeBusyStatus`,
+    /// `useDefaultAlerts`, `alerts`).
+    ///
+    /// When only per-user properties are patched, the shared `updated`
+    /// timestamp MUST NOT change (§4.5.1 lines 978-981).  The default
+    /// implementation delegates to [`Self::update_object`], which is correct
+    /// for single-user scenarios but backends serving multiple users SHOULD
+    /// override this method to route to a user-scoped patch path.
+    fn update_task_per_user(
+        &self,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+        patch: serde_json::Value,
+    ) -> impl std::future::Future<
+        Output = Result<Option<jmap_tasks_types::Task>, BackendSetError<Self::Error>>,
+    > + Send {
+        // Task::Patch = serde_json::Value (see jmap_tasks_types backend.rs).
+        self.update_object::<jmap_tasks_types::Task>(account_id, id, patch)
+    }
+
+    /// Compute `utcStart` and `utcDue` for a [`Task`] by converting the task's
+    /// `start`/`due` local-time fields and time zone into UTC (draft-tasks-06 §4,
+    /// lines 739-772).
+    ///
+    /// Returns `(utc_start, utc_due)` as RFC 3339 strings, or `None` for each if
+    /// the corresponding field is absent or the time zone is unknown.
+    ///
+    /// The default implementation returns `(None, None)` — backends that do not
+    /// support time-zone conversion can accept this behaviour and the caller will
+    /// omit both fields.  Backends with full tz support should override this.
+    ///
+    /// # Parameters
+    /// - `task` — the task whose `start` and `due` fields are to be converted.
+    /// - `tz_hint` — an optional IANA time-zone override; if `None`, the task's
+    ///   own `time_zone` field (if any) is used.
+    fn compute_task_utc_times(
+        &self,
+        _task: &jmap_tasks_types::Task,
+        _tz_hint: Option<&str>,
+    ) -> (Option<String>, Option<String>) {
+        // Default: no UTC conversion capability; callers omit utcStart/utcDue.
+        (None, None)
+    }
 }

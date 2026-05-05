@@ -126,7 +126,7 @@ pub struct PrincipalFilterCondition {
 
     /// The `type` of the Principal must exactly match this value.
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
-    pub type_: Option<String>,
+    pub type_: Option<PrincipalType>,
 
     /// The `timeZone` of the Principal must exactly match this value.
     #[serde(rename = "timeZone", skip_serializing_if = "Option::is_none")]
@@ -310,7 +310,7 @@ mod tests {
             serde_json::from_value(json.clone()).expect("deserialize filter");
         assert_eq!(fc.name.as_deref(), Some("Joe"));
         assert_eq!(fc.email.as_deref(), Some("joe@example.com"));
-        assert_eq!(fc.type_.as_deref(), Some("individual"));
+        assert_eq!(fc.type_, Some(PrincipalType::Individual));
         assert_eq!(fc.time_zone.as_deref(), Some("UTC"));
 
         let reserialized = serde_json::to_value(&fc).expect("serialize");
@@ -338,5 +338,26 @@ mod tests {
         assert_eq!(fc.text.as_deref(), Some("meeting room"));
         assert!(fc.name.is_none());
         assert!(fc.email.is_none());
+    }
+
+    /// Unknown `type` values round-trip via PrincipalType::Other for
+    /// forward compatibility.
+    ///
+    /// Oracle: PrincipalType::Other(String) catch-all — unknown future values
+    /// must survive a deserialize → serialize round-trip unchanged.
+    #[test]
+    fn filter_condition_type_other_roundtrip() {
+        let json = json!({ "type": "future-unknown-value" });
+        let fc: PrincipalFilterCondition =
+            serde_json::from_value(json).expect("deserialize filter with unknown type");
+        assert_eq!(
+            fc.type_,
+            Some(PrincipalType::Other("future-unknown-value".to_owned()))
+        );
+        let serialized = serde_json::to_string(&fc).expect("serialize");
+        assert!(
+            serialized.contains("future-unknown-value"),
+            "round-trip must preserve unknown type string, got: {serialized}"
+        );
     }
 }

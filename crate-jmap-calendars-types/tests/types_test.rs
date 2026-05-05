@@ -11,10 +11,10 @@
 //! `r##"..."##` raw string delimiters because `"#` would terminate `r#"..."#`.
 
 use jmap_calendars_types::{
-    Alert, AlertTrigger, BusyPeriod, Calendar, CalendarEvent, CalendarEventFilterCondition,
-    CalendarEventNotification, CalendarRights, CalendarsAccountCapability, CalendarsCapability,
-    IncludeInAvailability, Participant, ParticipantIdentity, Person, PrincipalCalendarsCapability,
-    JMAP_CALENDARS_URI,
+    Alert, AlertTrigger, BusyPeriod, Calendar, CalendarAlert, CalendarEvent,
+    CalendarEventFilterCondition, CalendarEventNotification, CalendarRights,
+    CalendarsAccountCapability, CalendarsCapability, IncludeInAvailability, Link, Participant,
+    ParticipantIdentity, Person, PrincipalCalendarsCapability, VirtualLocation, JMAP_CALENDARS_URI,
 };
 use jmap_types::Id;
 
@@ -845,7 +845,10 @@ fn busy_period_wire_names() {
 
     assert!(obj.contains_key("utcStart"), "wire key must be utcStart");
     assert!(obj.contains_key("utcEnd"), "wire key must be utcEnd");
-    assert!(obj.contains_key("busyStatus"), "wire key must be busyStatus");
+    assert!(
+        obj.contains_key("busyStatus"),
+        "wire key must be busyStatus"
+    );
     assert!(obj.contains_key("accountId"), "wire key must be accountId");
 }
 
@@ -865,7 +868,10 @@ fn principal_calendars_capability_with_account_id() {
 
     let cap: PrincipalCalendarsCapability =
         serde_json::from_str(json).expect("PrincipalCalendarsCapability deserialize");
-    assert_eq!(cap.account_id.as_ref().map(|id| id.as_ref()), Some("acc-alice"));
+    assert_eq!(
+        cap.account_id.as_ref().map(|id| id.as_ref()),
+        Some("acc-alice")
+    );
     assert!(cap.may_get_availability);
     assert!(cap.may_share_with);
     assert_eq!(cap.calendar_address, "mailto:alice@example.com");
@@ -911,7 +917,10 @@ fn principal_calendars_capability_account_id_null_serializes() {
         obj.contains_key("accountId"),
         "accountId must be present in wire JSON (required-nullable)"
     );
-    assert!(obj["accountId"].is_null(), "accountId must serialize as null");
+    assert!(
+        obj["accountId"].is_null(),
+        "accountId must serialize as null"
+    );
 }
 
 /// PrincipalCalendarsCapability round-trip.
@@ -955,10 +964,7 @@ fn participant_schedule_fields_roundtrip() {
 
     let p: Participant = serde_json::from_str(json).expect("Participant deserialize");
     assert_eq!(p.schedule_sequence, Some(3));
-    assert_eq!(
-        p.schedule_updated.as_deref(),
-        Some("2024-06-15T10:30:00Z")
-    );
+    assert_eq!(p.schedule_updated.as_deref(), Some("2024-06-15T10:30:00Z"));
 
     // Round-trip: serialize then re-deserialize.
     let serialized = serde_json::to_string(&p).expect("serialize");
@@ -972,7 +978,10 @@ fn participant_schedule_fields_roundtrip() {
     // Wire names: camelCase.
     let v: serde_json::Value = serde_json::from_str(&serialized).expect("parse");
     assert_eq!(v["scheduleSequence"], serde_json::json!(3_u64));
-    assert_eq!(v["scheduleUpdated"], serde_json::json!("2024-06-15T10:30:00Z"));
+    assert_eq!(
+        v["scheduleUpdated"],
+        serde_json::json!("2024-06-15T10:30:00Z")
+    );
 }
 
 /// Participant with no schedule fields omits them from wire (optional).
@@ -1011,4 +1020,317 @@ fn participant_schedule_fields_absent_when_none() {
 fn id_from_str_works() {
     let id = Id::from("test-id-123");
     assert_eq!(id.as_ref(), "test-id-123");
+}
+
+// ---------------------------------------------------------------------------
+// Link
+// ---------------------------------------------------------------------------
+
+#[test]
+fn link_with_href_roundtrip() {
+    // Oracle: RFC 8984 §1.4.11 field definitions.
+    let json = r#"{"@type":"Link","href":"https://example.com/file.pdf","contentType":"application/pdf","size":4096,"rel":"enclosure","display":"report.pdf"}"#;
+    let link: Link =
+        serde_json::from_str(json).expect("link_with_href_roundtrip: must deserialize");
+    assert_eq!(link.at_type, "Link");
+    assert_eq!(link.href.as_deref(), Some("https://example.com/file.pdf"));
+    assert_eq!(link.content_type.as_deref(), Some("application/pdf"));
+    assert_eq!(link.size, Some(4096));
+    assert_eq!(link.rel.as_deref(), Some("enclosure"));
+    assert_eq!(link.display.as_deref(), Some("report.pdf"));
+    assert!(
+        link.blob_id.is_none(),
+        "blob_id must be absent when not in JSON"
+    );
+
+    // Verify blobId absent from serialized output.
+    let out = serde_json::to_string(&link).expect("link_with_href_roundtrip: must serialize");
+    assert!(
+        !out.contains("blobId"),
+        "blobId must not appear when None: {out}"
+    );
+}
+
+#[test]
+fn link_with_blob_id_roundtrip() {
+    // Oracle: draft-ietf-jmap-calendars-26 §5.3 — blobId may be set instead of href.
+    let json = r#"{"@type":"Link","blobId":"blob-abc123","contentType":"image/png","size":2048,"rel":"enclosure"}"#;
+    let link: Link =
+        serde_json::from_str(json).expect("link_with_blob_id_roundtrip: must deserialize");
+    assert_eq!(link.blob_id, Some(Id::from("blob-abc123")));
+    assert!(link.href.is_none(), "href must be absent when not in JSON");
+
+    // Verify blobId is present in serialized output but href is not.
+    let out = serde_json::to_value(&link).expect("link_with_blob_id_roundtrip: must serialize");
+    assert_eq!(
+        out["blobId"], "blob-abc123",
+        "blobId must serialize to wire name"
+    );
+    assert!(
+        out.get("href").is_none() || out["href"].is_null(),
+        "href must be absent when None"
+    );
+}
+
+#[test]
+fn link_blob_id_absent_when_none() {
+    // Oracle: skip_serializing_if = Option::is_none — optional field absent when not set.
+    // Construct via deserialization (Link is #[non_exhaustive]).
+    let json = r#"{"@type":"Link","href":"https://example.com/doc.pdf"}"#;
+    let link: Link =
+        serde_json::from_str(json).expect("link_blob_id_absent_when_none: must deserialize");
+    assert!(
+        link.blob_id.is_none(),
+        "blob_id must be None when absent from JSON"
+    );
+    let out = serde_json::to_string(&link).expect("link_blob_id_absent_when_none: must serialize");
+    assert!(
+        !out.contains("blobId"),
+        "blobId must not appear when None: {out}"
+    );
+}
+
+#[test]
+fn link_wire_names() {
+    // Oracle: #[serde(rename_all = "camelCase")] on Link struct.
+    // All camelCase wire keys must be present; snake_case must not appear.
+    let json = r#"{"@type":"Link","href":"https://example.com/","contentType":"text/html","size":100,"rel":"describedby","display":"Page","blobId":"b1"}"#;
+    let link: Link = serde_json::from_str(json).expect("link_wire_names: must deserialize");
+    let out = serde_json::to_value(&link).expect("link_wire_names: must serialize");
+    // camelCase keys must be present
+    assert!(
+        out.get("blobId").is_some(),
+        "blobId must be camelCase wire key"
+    );
+    assert!(
+        out.get("contentType").is_some(),
+        "contentType must be camelCase wire key"
+    );
+    assert!(out.get("rel").is_some(), "rel must be present");
+    assert!(out.get("display").is_some(), "display must be present");
+    // snake_case must NOT appear
+    assert!(
+        out.get("blob_id").is_none(),
+        "snake_case blob_id must not appear on wire"
+    );
+    assert!(
+        out.get("content_type").is_none(),
+        "snake_case content_type must not appear on wire"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// CalendarAlert
+// ---------------------------------------------------------------------------
+
+#[test]
+fn calendar_alert_with_recurrence_id_roundtrip() {
+    // Oracle: draft-ietf-jmap-calendars-26 §6.4 CalendarAlert push-notification object.
+    // A recurring-event alert: recurrenceId is present and non-null.
+    let json = r#"{"@type":"CalendarAlert","accountId":"acc-1","calendarEventId":"ev-42","uid":"abc-uid-123","recurrenceId":"2024-06-15T10:00:00","alertId":"alert-1"}"#;
+    let alert: CalendarAlert = serde_json::from_str(json)
+        .expect("calendar_alert_with_recurrence_id_roundtrip: must deserialize");
+    assert_eq!(
+        alert.at_type, "CalendarAlert",
+        "@type field must be 'CalendarAlert'"
+    );
+    assert_eq!(alert.account_id.as_ref(), "acc-1");
+    assert_eq!(alert.calendar_event_id.as_ref(), "ev-42");
+    assert_eq!(alert.uid, "abc-uid-123");
+    assert_eq!(
+        alert.recurrence_id.as_deref(),
+        Some("2024-06-15T10:00:00"),
+        "recurrenceId must be present for recurring events"
+    );
+    assert_eq!(alert.alert_id, "alert-1");
+
+    // Round-trip: serialize and re-deserialize.
+    let serialized = serde_json::to_string(&alert)
+        .expect("calendar_alert_with_recurrence_id_roundtrip: must serialize");
+    let recovered: CalendarAlert = serde_json::from_str(&serialized)
+        .expect("calendar_alert_with_recurrence_id_roundtrip: round-trip must deserialize");
+    assert_eq!(alert, recovered);
+}
+
+#[test]
+fn calendar_alert_recurrence_id_null_for_non_recurring() {
+    // Oracle: draft-ietf-jmap-calendars-26 §6.4 — recurrenceId is null for non-recurring events.
+    // It MUST serialize as null (not be omitted) so receivers can distinguish
+    // recurring from non-recurring events.
+    let json = r#"{"@type":"CalendarAlert","accountId":"acc-2","calendarEventId":"ev-99","uid":"xyz-uid-999","recurrenceId":null,"alertId":"alert-2"}"#;
+    let alert: CalendarAlert = serde_json::from_str(json)
+        .expect("calendar_alert_recurrence_id_null_for_non_recurring: must deserialize");
+    assert!(
+        alert.recurrence_id.is_none(),
+        "recurrenceId must be None when null"
+    );
+
+    // Verify it serializes back as null (not omitted).
+    let out = serde_json::to_value(&alert)
+        .expect("calendar_alert_recurrence_id_null_for_non_recurring: must serialize");
+    assert!(
+        out.get("recurrenceId").is_some(),
+        "recurrenceId key must be present in serialized output (not omitted)"
+    );
+    assert!(
+        out["recurrenceId"].is_null(),
+        "recurrenceId must serialize as null for non-recurring events"
+    );
+}
+
+#[test]
+fn calendar_alert_wire_names() {
+    // Oracle: #[serde(rename_all = "camelCase")] + #[serde(rename = "@type")] on CalendarAlert.
+    // All camelCase wire keys must be present; snake_case must not appear.
+    let json = r#"{"@type":"CalendarAlert","accountId":"A1","calendarEventId":"EV1","uid":"uid-1","recurrenceId":"2024-01-01T09:00:00","alertId":"al-1"}"#;
+    let alert: CalendarAlert =
+        serde_json::from_str(json).expect("calendar_alert_wire_names: must deserialize");
+    let out = serde_json::to_value(&alert).expect("calendar_alert_wire_names: must serialize");
+    // Required camelCase wire keys
+    assert!(out.get("@type").is_some(), "@type must be present");
+    assert!(
+        out.get("accountId").is_some(),
+        "accountId must be camelCase"
+    );
+    assert!(
+        out.get("calendarEventId").is_some(),
+        "calendarEventId must be camelCase"
+    );
+    assert!(out.get("alertId").is_some(), "alertId must be camelCase");
+    // snake_case must NOT appear on wire
+    assert!(
+        out.get("account_id").is_none(),
+        "account_id must not appear on wire"
+    );
+    assert!(
+        out.get("calendar_event_id").is_none(),
+        "calendar_event_id must not appear on wire"
+    );
+    assert!(
+        out.get("alert_id").is_none(),
+        "alert_id must not appear on wire"
+    );
+    assert!(
+        out.get("at_type").is_none(),
+        "at_type must not appear on wire (must be @type)"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// VirtualLocation — mandatory uri field (RFC 8984 §4.2.6)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn virtual_location_uri_required() {
+    // Oracle: RFC 8984 §4.2.6 — uri is a mandatory String field.
+    // A well-formed VirtualLocation must include uri; deserialization must succeed
+    // and preserve the uri value.
+    let json = r#"{"@type":"VirtualLocation","name":"Team Call","uri":"https://meet.example.com/room-42","features":{"video":true}}"#;
+    let vl: VirtualLocation =
+        serde_json::from_str(json).expect("virtual_location_uri_required: must deserialize");
+    assert_eq!(
+        vl.uri, "https://meet.example.com/room-42",
+        "uri must round-trip correctly"
+    );
+    assert_eq!(vl.name.as_deref(), Some("Team Call"));
+}
+
+#[test]
+fn virtual_location_uri_missing_fails_deserialization() {
+    // Oracle: RFC 8984 §4.2.6 — uri is mandatory; a VirtualLocation with no uri
+    // must fail deserialization (the crate uses String, not Option<String>).
+    let json = r#"{"@type":"VirtualLocation","name":"Nameless Location"}"#;
+    let result: Result<VirtualLocation, _> = serde_json::from_str(json);
+    assert!(
+        result.is_err(),
+        "VirtualLocation without uri must fail deserialization (uri is mandatory per RFC 8984 §4.2.6)"
+    );
+}
+
+#[test]
+fn virtual_location_wire_names() {
+    // Oracle: #[serde(rename_all = "camelCase")] on VirtualLocation.
+    let json = r#"{"@type":"VirtualLocation","uri":"https://meet.example.com/xyz","features":{"audio":true}}"#;
+    let vl: VirtualLocation =
+        serde_json::from_str(json).expect("virtual_location_wire_names: must deserialize");
+    let out = serde_json::to_value(&vl).expect("virtual_location_wire_names: must serialize");
+    assert!(out.get("uri").is_some(), "uri must be present on wire");
+    assert!(out.get("@type").is_some(), "@type must be present on wire");
+    // snake_case must not appear
+    assert!(
+        out.get("at_type").is_none(),
+        "at_type must not appear on wire"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Link.cid and Link.title fields (RFC 8984 §1.4.11)
+// ---------------------------------------------------------------------------
+
+#[test]
+fn link_cid_roundtrip() {
+    // Oracle: RFC 8984 §1.4.11 — cid is an optional field for inline image
+    // references in text/html event descriptions via cid: URLs.
+    let json = r#"{"@type":"Link","href":"https://example.com/logo.png","cid":"logo@example.com","contentType":"image/png"}"#;
+    let link: Link = serde_json::from_str(json).expect("link_cid_roundtrip: must deserialize");
+    assert_eq!(
+        link.cid.as_deref(),
+        Some("logo@example.com"),
+        "cid must round-trip correctly"
+    );
+    // Verify wire name is "cid" (camelCase would be identical here).
+    let out = serde_json::to_value(&link).expect("link_cid_roundtrip: must serialize");
+    assert_eq!(
+        out["cid"], "logo@example.com",
+        "cid wire name must be 'cid'"
+    );
+}
+
+#[test]
+fn link_cid_absent_when_none() {
+    // Oracle: skip_serializing_if = Option::is_none — cid must be absent when not set.
+    let json = r#"{"@type":"Link","href":"https://example.com/doc.pdf"}"#;
+    let link: Link =
+        serde_json::from_str(json).expect("link_cid_absent_when_none: must deserialize");
+    assert!(link.cid.is_none(), "cid must be None when absent from JSON");
+    let out = serde_json::to_string(&link).expect("link_cid_absent_when_none: must serialize");
+    assert!(
+        !out.contains("\"cid\""),
+        "cid must not appear in output when None: {out}"
+    );
+}
+
+#[test]
+fn link_title_roundtrip() {
+    // Oracle: RFC 8984 §1.4.11 — title is an optional human-readable description
+    // of the linked resource, distinct from display (file name).
+    let json = r#"{"@type":"Link","href":"https://example.com/report.pdf","title":"Annual Report 2024","display":"report.pdf"}"#;
+    let link: Link = serde_json::from_str(json).expect("link_title_roundtrip: must deserialize");
+    assert_eq!(
+        link.title.as_deref(),
+        Some("Annual Report 2024"),
+        "title must round-trip correctly"
+    );
+    let out = serde_json::to_value(&link).expect("link_title_roundtrip: must serialize");
+    assert_eq!(
+        out["title"], "Annual Report 2024",
+        "title wire name must be 'title'"
+    );
+}
+
+#[test]
+fn link_title_absent_when_none() {
+    // Oracle: skip_serializing_if = Option::is_none — title must be absent when not set.
+    let json = r#"{"@type":"Link","href":"https://example.com/"}"#;
+    let link: Link =
+        serde_json::from_str(json).expect("link_title_absent_when_none: must deserialize");
+    assert!(
+        link.title.is_none(),
+        "title must be None when absent from JSON"
+    );
+    let out = serde_json::to_string(&link).expect("link_title_absent_when_none: must serialize");
+    assert!(
+        !out.contains("\"title\""),
+        "title must not appear in output when None: {out}"
+    );
 }

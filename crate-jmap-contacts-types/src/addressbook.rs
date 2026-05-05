@@ -41,7 +41,11 @@ pub struct AddressBook {
     /// User-visible name; MUST NOT be empty and MUST NOT exceed 255 UTF-8 octets.
     pub name: String,
     /// Optional longer-form description (default: null).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    ///
+    /// Required-and-nullable per RFC 9553 + contacts-10 §4.1: always present on
+    /// the wire as `"description": null` when unset.  Must NOT use
+    /// `skip_serializing_if`.
+    #[serde(default)]
     pub description: Option<String>,
     /// UI sort order; lower values display first.  Range: [0, 2^31).
     pub sort_order: u32,

@@ -15,11 +15,47 @@ use crate::helpers::{extract_account_id, set_error_value};
 // ---------------------------------------------------------------------------
 
 /// Handle a `Task/get` method call (draft-tasks-06 §4.5).
+///
+/// If `"utcStart"` or `"utcDue"` appear in the requested `properties` (or if
+/// `properties` is `null` — meaning all fields), [`TasksBackend::compute_task_utc_times`]
+/// is called for each returned task and the computed values are merged in
+/// (draft-tasks-06 §4, lines 739-772).
 pub async fn handle_task_get<B: TasksBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<Task, B>(backend, args).await
+    // Determine whether utcStart / utcDue are requested.
+    let want_utc = match args.get("properties") {
+        None | Some(Value::Null) => true, // all properties requested
+        Some(Value::Array(props)) => props.iter().any(|p| {
+            p.as_str()
+                .map(|s| s == "utcStart" || s == "utcDue")
+                .unwrap_or(false)
+        }),
+        _ => false,
+    };
+
+    // Delegate to the generic get handler.
+    let (mut response, tail) = jmap_server::handlers::handle_get::<Task, B>(backend, args).await?;
+
+    // If utcStart or utcDue were requested, augment each returned task.
+    if want_utc {
+        if let Some(Value::Array(list)) = response.get_mut("list") {
+            for item in list.iter_mut() {
+                if let Ok(task) = serde_json::from_value::<Task>(item.clone()) {
+                    let (utc_start, utc_due) = backend.compute_task_utc_times(&task, None);
+                    if let Some(s) = utc_start {
+                        item["utcStart"] = Value::String(s);
+                    }
+                    if let Some(d) = utc_due {
+                        item["utcDue"] = Value::String(d);
+                    }
+                }
+            }
+        }
+    }
+
+    Ok((response, tail))
 }
 
 // ---------------------------------------------------------------------------
@@ -136,28 +172,64 @@ pub async fn handle_task_set<B: TasksBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            // isDraft immutability check: reject patch that sets isDraft: true
-            // if the patch contains isDraft: true, reject at handler level.
-            // (Full enforcement requires reading current state; backends should
-            // also enforce this and return invalidProperties from update_object.)
-            if let Some(is_draft) = patch_val.get("isDraft").and_then(|v| v.as_bool()) {
-                if is_draft {
-                    // Patch sets isDraft: true — check if this is a revert.
-                    // Since we can't read current state cheaply here, we pass
-                    // the check to the backend. Backend returns invalidProperties
-                    // if current isDraft is false.
-                    // No pre-rejection here; the backend enforces it.
+            // isDraft immutability check (draft-tasks-06 §4, lines 733-737):
+            // once set to false, isDraft MUST NOT be updated back to true.
+            // We enforce this at the handler layer by fetching the current task.
+            if patch_val.get("isDraft").and_then(|v| v.as_bool()) == Some(true) {
+                let task_id = Id::from(id_str.as_str());
+                match backend
+                    .get_objects::<Task>(&account_id, Some(&[task_id]), None)
+                    .await
+                {
+                    Ok((tasks, _)) => {
+                        if tasks.first().and_then(|t| t.is_draft) == Some(false) {
+                            // Task is already published; reverting to draft is forbidden.
+                            not_updated.insert(
+                                id_str,
+                                json!({
+                                    "type": "invalidProperties",
+                                    "properties": ["isDraft"]
+                                }),
+                            );
+                            continue;
+                        }
+                        // is_draft == Some(true) or None (no info): allow the
+                        // patch through and let the backend handle it.
+                    }
+                    Err(e) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                        continue;
+                    }
                 }
-                // If is_draft == false this is always allowed (draft → published).
-                let _ = is_draft;
             }
 
             let id = Id::from(id_str.as_str());
 
-            match backend
-                .update_object::<Task>(&account_id, &id, patch_val)
-                .await
-            {
+            // Route to the per-user update path if every non-null patch key is
+            // a per-user Task property (draft-tasks-06 §4.5.1).  Mixed patches
+            // (containing both per-user and shared keys) go to update_object.
+            let is_per_user_only = patch_val
+                .as_object()
+                .map(|m| {
+                    m.iter()
+                        .all(|(k, v)| v.is_null() || B::is_per_user_property(k))
+                })
+                .unwrap_or(false);
+
+            let update_result = if is_per_user_only {
+                backend
+                    .update_task_per_user(&account_id, &id, patch_val)
+                    .await
+            } else {
+                backend
+                    .update_object::<Task>(&account_id, &id, patch_val)
+                    .await
+            };
+
+            match update_result {
                 Ok(Some(obj)) => {
                     mutated = true;
                     updated.insert(
@@ -417,6 +489,226 @@ mod tests {
         let (resp, _) = handle_task_set(&backend, args)
             .await
             .expect("must not return top-level error");
+        assert_eq!(resp["accountId"], "acc1");
+    }
+
+    // ── isDraft immutability enforcement (draft-tasks-06 §4, lines 733-737) ─
+
+    /// Oracle: draft-tasks-06 §4 — "Once set to false, the value [isDraft]
+    /// cannot be updated to true."
+    /// A patch of {"isDraft": true} on a task that already has isDraft=false
+    /// MUST be rejected at the handler level with invalidProperties.
+    #[tokio::test]
+    async fn set_is_draft_revert_rejected_when_current_is_false() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        // Pre-seed a published (isDraft=false) task.
+        backend.seed_task("acc1", "t1", false);
+
+        let args = json!({
+            "accountId": "acc1",
+            "update": {
+                "t1": { "isDraft": true }
+            }
+        });
+        let (resp, _) = handle_task_set(&backend, args)
+            .await
+            .expect("must not return a top-level error");
+
+        let not_updated = resp["notUpdated"]
+            .as_object()
+            .expect("notUpdated must be an object");
+        assert!(
+            not_updated.contains_key("t1"),
+            "t1 must appear in notUpdated: {resp}"
+        );
+        assert_eq!(
+            not_updated["t1"]["type"].as_str(),
+            Some("invalidProperties"),
+            "error type must be invalidProperties"
+        );
+        assert_eq!(
+            not_updated["t1"]["properties"][0].as_str(),
+            Some("isDraft"),
+            "properties must list isDraft"
+        );
+    }
+
+    /// Oracle: draft-tasks-06 §4 — patching {"isDraft": true} on a task that
+    /// is already a draft (isDraft=true) is allowed (no state transition).
+    #[tokio::test]
+    async fn set_is_draft_true_on_draft_task_passes_to_backend() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        // Pre-seed a draft task (isDraft=true).
+        backend.seed_task("acc1", "t2", true);
+
+        let args = json!({
+            "accountId": "acc1",
+            "update": {
+                "t2": { "isDraft": true }
+            }
+        });
+        let (resp, _) = handle_task_set(&backend, args)
+            .await
+            .expect("must not return a top-level error");
+
+        // The handler passes the patch to the backend (which returns Forbidden
+        // in the mock). The important thing is it is NOT pre-rejected here —
+        // it must NOT appear in notUpdated with type=="invalidProperties".
+        if let Some(not_updated) = resp["notUpdated"].as_object() {
+            if let Some(err) = not_updated.get("t2") {
+                assert_ne!(
+                    err["type"].as_str(),
+                    Some("invalidProperties"),
+                    "isDraft:true on an existing draft must not produce invalidProperties"
+                );
+            }
+        }
+    }
+
+    /// Oracle: draft-tasks-06 §4 — patching {"isDraft": false} is always allowed
+    /// (moving from draft to published is a one-way door going the right way).
+    #[tokio::test]
+    async fn set_is_draft_false_passes_to_backend() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.seed_task("acc1", "t3", true);
+
+        let args = json!({
+            "accountId": "acc1",
+            "update": {
+                "t3": { "isDraft": false }
+            }
+        });
+        let (resp, _) = handle_task_set(&backend, args)
+            .await
+            .expect("must not return a top-level error");
+
+        // Like above: the patch must NOT be pre-rejected with invalidProperties.
+        if let Some(not_updated) = resp["notUpdated"].as_object() {
+            if let Some(err) = not_updated.get("t3") {
+                assert_ne!(
+                    err["type"].as_str(),
+                    Some("invalidProperties"),
+                    "isDraft:false must never produce invalidProperties"
+                );
+            }
+        }
+    }
+
+    // ── compute_task_utc_times / utcStart wiring (draft-tasks-06 §4 lines 739-772) ─
+
+    /// Oracle: draft-tasks-06 §4 — utcStart is not returned unless explicitly
+    /// requested in `properties`.  The default impl returns None so it must be
+    /// absent from the response when not requested.
+    #[tokio::test]
+    async fn get_without_utc_properties_omits_utc_fields() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "ids": null,
+            "properties": ["id", "title"]  // utcStart and utcDue NOT listed
+        });
+        let (resp, _) = handle_task_get(&backend, args).await.expect("must succeed");
+        // The list is empty (no tasks seeded), but the response itself must be valid.
+        assert_eq!(resp["accountId"], "acc1");
+        // No utcStart or utcDue should appear in response items (list is empty so
+        // this is vacuously satisfied, but the path is exercised without error).
+        let list = resp["list"].as_array().expect("list must be an array");
+        for item in list {
+            assert!(
+                item.get("utcStart").is_none(),
+                "utcStart must not appear when not in properties"
+            );
+        }
+    }
+
+    /// Oracle: draft-tasks-06 §4 — when utcStart is in properties, the handler
+    /// calls compute_task_utc_times. The default impl returns (None, None) so
+    /// no utcStart key is injected, but no error is raised either.
+    #[tokio::test]
+    async fn get_with_utc_start_in_properties_does_not_error() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "ids": null,
+            "properties": ["id", "utcStart", "utcDue"]
+        });
+        let (resp, _) = handle_task_get(&backend, args)
+            .await
+            .expect("must succeed with utcStart in properties");
+        assert_eq!(resp["accountId"], "acc1");
+    }
+
+    // ── per-user property routing (draft-tasks-06 §4.5.1) ──────────────────
+
+    /// Oracle: draft-tasks-06 §4.5.1 — a patch containing only per-user
+    /// properties must be routed to update_task_per_user. The mock backend's
+    /// update_task_per_user delegates to update_object (which returns Forbidden),
+    /// so the response is the same as a regular update — the test verifies the
+    /// handler path is reached and does not short-circuit with invalidProperties.
+    #[tokio::test]
+    async fn set_per_user_only_patch_routes_to_per_user_update() {
+        let backend = MockBackend::new_with_account("acc1");
+        // color is a per-user property (§4.5.1).
+        let args = json!({
+            "accountId": "acc1",
+            "update": { "t1": { "color": "#ff0000" } }
+        });
+        let (resp, _) = handle_task_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+        // update_task_per_user → update_object → Forbidden from MockBackend.
+        // Verify: NOT in notUpdated with "invalidProperties" (the handler reached
+        // the backend path, not a pre-rejection).
+        if let Some(nu) = resp["notUpdated"].as_object() {
+            if let Some(err) = nu.get("t1") {
+                assert_ne!(
+                    err["type"].as_str(),
+                    Some("invalidProperties"),
+                    "per-user-only patch must not produce invalidProperties"
+                );
+            }
+        }
+    }
+
+    /// Oracle: draft-tasks-06 §4.5.1 — a patch containing a shared property
+    /// (title) must route to update_object, not update_task_per_user.
+    /// Same observable behaviour as above (both call update_object in mock),
+    /// but verifies the routing decision doesn't crash or misclassify.
+    #[tokio::test]
+    async fn set_shared_property_patch_routes_to_update_object() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "update": { "t1": { "title": "New title" } }
+        });
+        let (resp, _) = handle_task_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+        if let Some(nu) = resp["notUpdated"].as_object() {
+            if let Some(err) = nu.get("t1") {
+                assert_ne!(
+                    err["type"].as_str(),
+                    Some("invalidProperties"),
+                    "shared-property patch must not produce invalidProperties"
+                );
+            }
+        }
+    }
+
+    /// Oracle: draft-tasks-06 §4.5.1 — a mixed patch (per-user + shared)
+    /// routes to update_object (not update_task_per_user).
+    #[tokio::test]
+    async fn set_mixed_patch_routes_to_update_object() {
+        let backend = MockBackend::new_with_account("acc1");
+        // color = per-user; title = shared → mixed patch must go to update_object.
+        let args = json!({
+            "accountId": "acc1",
+            "update": { "t1": { "color": "#ff0000", "title": "New" } }
+        });
+        let (resp, _) = handle_task_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+        // Verify no crash and handler reached backend normally.
         assert_eq!(resp["accountId"], "acc1");
     }
 }

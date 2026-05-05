@@ -141,8 +141,7 @@ impl super::SessionClient {
         if let Some(s) = sort {
             args["sort"] = s;
         }
-        let req =
-            super::build_request("EmailSubmission/queryChanges", args, super::USING_MAIL);
+        let req = super::build_request("EmailSubmission/queryChanges", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -187,8 +186,9 @@ impl super::SessionClient {
                 args["onSuccessUpdateEmail"] = v;
             }
             if let Some(v) = p.on_success_destroy_email {
-                args["onSuccessDestroyEmail"] =
-                    serde_json::Value::Array(v.into_iter().map(serde_json::Value::String).collect());
+                args["onSuccessDestroyEmail"] = serde_json::Value::Array(
+                    v.into_iter().map(serde_json::Value::String).collect(),
+                );
             }
         }
         if let Some(s) = if_in_state {
@@ -265,14 +265,13 @@ mod tests {
     #[test]
     fn submission_query_changes_empty_state_guard() {
         let since_query_state = "";
-        let result: Result<(), jmap_base_client::ClientError> =
-            if since_query_state.is_empty() {
-                Err(jmap_base_client::ClientError::InvalidArgument(
-                    "email_submission_query_changes: since_query_state may not be empty".into(),
-                ))
-            } else {
-                Ok(())
-            };
+        let result: Result<(), jmap_base_client::ClientError> = if since_query_state.is_empty() {
+            Err(jmap_base_client::ClientError::InvalidArgument(
+                "email_submission_query_changes: since_query_state may not be empty".into(),
+            ))
+        } else {
+            Ok(())
+        };
         assert!(
             matches!(
                 result,
@@ -447,8 +446,7 @@ mod tests {
 
         use super::super::GetResponse;
         let resp: GetResponse<jmap_mail_types::EmailSubmission> =
-            serde_json::from_value(json_val)
-                .expect("must deserialize EmailSubmission GetResponse");
+            serde_json::from_value(json_val).expect("must deserialize EmailSubmission GetResponse");
         assert_eq!(resp.state, "s5");
         assert_eq!(resp.list.len(), 1);
         assert_eq!(resp.list[0].id.as_ref(), "sub1");

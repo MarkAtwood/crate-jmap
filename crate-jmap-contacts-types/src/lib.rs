@@ -252,8 +252,7 @@ mod tests {
             "shareWith must not be null when populated"
         );
         // Round-trip: deserialize the serialized form, verify equality.
-        let back: AddressBook =
-            serde_json::from_value(serialized).expect("round-trip deserialize");
+        let back: AddressBook = serde_json::from_value(serialized).expect("round-trip deserialize");
         assert_eq!(ab.share_with, back.share_with);
     }
 
@@ -286,6 +285,42 @@ mod tests {
         let _rt: AddressBook = serde_json::from_str(&serde_json::to_string(&ab).unwrap()).unwrap();
         // rights field unused directly; just suppress unused-variable warning
         let _ = rights;
+    }
+
+    /// description: null → None in Rust → "description": null on the wire.
+    ///
+    /// Oracle: RFC 9553 + draft-ietf-jmap-contacts-10 §4.1 — both example
+    /// AddressBook objects show `"description": null` explicitly.  The field
+    /// must be present as null, never absent.
+    #[test]
+    fn address_book_description_null_serializes() {
+        let json = r#"{
+            "id": "AB1",
+            "name": "Personal",
+            "description": null,
+            "sortOrder": 0,
+            "isDefault": false,
+            "isSubscribed": false,
+            "shareWith": null,
+            "myRights": {
+                "mayRead": true,
+                "mayWrite": true,
+                "mayShare": false,
+                "mayDelete": false
+            }
+        }"#;
+        let ab: AddressBook = serde_json::from_str(json).expect("deserialize");
+        assert!(ab.description.is_none(), "description should be None");
+
+        let out = serde_json::to_value(&ab).expect("serialize");
+        assert!(
+            out.as_object().expect("object").contains_key("description"),
+            "description key must be present in wire JSON"
+        );
+        assert!(
+            out["description"].is_null(),
+            "description must serialize as null, not be absent"
+        );
     }
 
     // ── ContactCard ──────────────────────────────────────────────────────

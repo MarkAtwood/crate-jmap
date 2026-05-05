@@ -19,6 +19,7 @@
 
 use std::collections::HashMap;
 
+use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
 // ── Scalar wrappers ───────────────────────────────────────────────────────────
@@ -249,9 +250,13 @@ pub struct VirtualLocation {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
 
-    /// URI to join the virtual location (e.g. meeting URL).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub uri: Option<String>,
+    /// URI to join the virtual location (e.g. a conference call or meeting URL).
+    ///
+    /// Mandatory per RFC 8984 §4.2.6 — a `VirtualLocation` without a `uri` is
+    /// malformed.  Unlike top-level JMAP object fields, sub-object fields are NOT
+    /// subject to RFC 8620 §5.1 partial-response suppression, so this cannot be
+    /// absent in a well-formed server response.
+    pub uri: String,
 
     /// Map of feature type URIs → `true`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -269,7 +274,7 @@ pub struct Link {
     #[serde(rename = "@type")]
     pub at_type: String,
 
-    /// URI of the linked resource.
+    /// URI of the linked resource; may be absent when `blob_id` is set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub href: Option<String>,
 
@@ -288,6 +293,30 @@ pub struct Link {
     /// Display/file name for the link.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display: Option<String>,
+
+    /// Content-id value for inline images embedded in a `text/html` description
+    /// via `cid:` URLs (RFC 8984 §1.4.11).
+    ///
+    /// Only meaningful when `CalendarEvent.descriptionContentType` is `text/html`
+    /// and the HTML body references this link as `<img src="cid:…">`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cid: Option<String>,
+
+    /// Human-readable, plain-text description of the linked resource
+    /// (RFC 8984 §1.4.11).
+    ///
+    /// Distinct from `display` (which is a file name); `title` is a longer
+    /// description suitable for accessibility text or tooltips.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+
+    /// JMAP blob id; may be set instead of `href` for server-stored attachments
+    /// (draft-ietf-jmap-calendars-26 §5.3 / §10.9.14).
+    ///
+    /// When present, `href` may be absent.  The server MUST translate this to
+    /// an embedded data: URL when sending to systems that cannot access blobs.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub blob_id: Option<Id>,
 }
 
 // ── Relation ─────────────────────────────────────────────────────────────────

@@ -99,6 +99,45 @@ pub struct CalendarEventNotification {
     pub event_patch: Option<serde_json::Value>,
 }
 
+/// Push-notification payload emitted when a calendar alert fires
+/// (draft-ietf-jmap-calendars-26 §6.4).
+///
+/// Sent over the JMAP push channel when the server determines that an alert
+/// for a CalendarEvent should fire.  Clients receiving this payload should
+/// trigger the appropriate local notification (e.g. an OS alert).
+///
+/// `recurrenceId` is `null` for non-recurring events and MUST serialize as
+/// `null` (not be omitted) — the receiver uses its presence to distinguish
+/// recurring from non-recurring.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarAlert {
+    /// Object type discriminator; always `"CalendarAlert"` on the wire.
+    #[serde(rename = "@type")]
+    pub at_type: String,
+
+    /// The account that owns the calendar event.
+    pub account_id: Id,
+
+    /// Id of the CalendarEvent for which this alert is firing.
+    pub calendar_event_id: Id,
+
+    /// The UID property of the iCalendar object underlying the calendar event.
+    pub uid: String,
+
+    /// The recurrenceId of the specific occurrence, or `null` for non-recurring
+    /// events (draft-ietf-jmap-calendars-26 §6.4).
+    ///
+    /// Serializes as `null` when `None` — intentionally NOT marked
+    /// `skip_serializing_if` so the receiver can distinguish recurring from
+    /// non-recurring events.
+    pub recurrence_id: Option<String>,
+
+    /// Id of the [`Alert`] object within the CalendarEvent that is firing.
+    pub alert_id: String,
+}
+
 /// Filter condition for `CalendarEventNotification/query`
 /// (draft-ietf-jmap-calendars-26 §7.4.1).
 ///

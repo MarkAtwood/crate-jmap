@@ -39,11 +39,13 @@ pub mod task_list;
 
 pub use backend::{TaskListProperty, TaskNotificationProperty, TaskProperty};
 pub use capability::{
-    TasksAccountCapability, TasksAlertsCapability, TasksAssigneesAccountCapability,
-    TasksAssigneesCapability, TasksCapability, TasksCustomTimeZonesCapability,
-    TasksMultilingualCapability, TasksRecurrencesAccountCapability, TasksRecurrencesCapability,
-    JMAP_TASKS_ALERTS_URI, JMAP_TASKS_ASSIGNEES_URI, JMAP_TASKS_CUSTOMTIMEZONES_URI,
-    JMAP_TASKS_MULTILINGUAL_URI, JMAP_TASKS_RECURRENCES_URI, JMAP_TASKS_URI,
+    PrincipalTasksCapability, TasksAccountCapability, TasksAlertsAccountCapability,
+    TasksAlertsCapability, TasksAssigneesAccountCapability, TasksAssigneesCapability,
+    TasksCapability, TasksCustomTimeZonesAccountCapability, TasksCustomTimeZonesCapability,
+    TasksMultilingualAccountCapability, TasksMultilingualCapability,
+    TasksRecurrencesAccountCapability, TasksRecurrencesCapability, JMAP_TASKS_ALERTS_URI,
+    JMAP_TASKS_ASSIGNEES_URI, JMAP_TASKS_CUSTOMTIMEZONES_URI, JMAP_TASKS_MULTILINGUAL_URI,
+    JMAP_TASKS_RECURRENCES_URI, JMAP_TASKS_URI,
 };
 pub use filter::{TaskComparator, TaskNotificationComparator};
 pub use notification::{NotificationType, TaskNotification, TaskNotificationFilterCondition};

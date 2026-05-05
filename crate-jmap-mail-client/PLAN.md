@@ -15,8 +15,12 @@ jmap-types
 ## What This Crate Is
 
 An extension layer over `jmap-base-client` that adds typed methods for every RFC 8621
-operation: `Email/get`, `Email/set`, `Email/query`, `Email/changes`, `Mailbox/get`,
-`Mailbox/set`, `Thread/get`, `Identity/get`, `EmailSubmission/set`, `SearchSnippet/get`.
+operation: `Email/get`, `Email/set`, `Email/query`, `Email/changes`, `Email/copy`,
+`Mailbox/get`, `Mailbox/set`, `Mailbox/query`, `Mailbox/changes`, `Thread/get`,
+`Thread/changes`, `Identity/get`, `Identity/set`, `Identity/changes`,
+`EmailSubmission/get`, `EmailSubmission/changes`, `EmailSubmission/query`,
+`EmailSubmission/queryChanges`, `EmailSubmission/set`,
+`SearchSnippet/get`, `VacationResponse/get`, `VacationResponse/set`.
 
 Consumers call `jmap-base-client::JmapClient::call()` directly or use the typed helpers
 defined here. No new HTTP machinery — all network operations go through `jmap-base-client`.

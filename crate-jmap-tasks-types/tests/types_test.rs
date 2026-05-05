@@ -7,9 +7,13 @@
 //! No expected values are derived from the code under test.
 
 use jmap_tasks_types::{
-    NotificationType, Task, TaskFilterCondition, TaskList, TaskListRole, TaskNotification,
-    TaskNotificationFilterCondition, TaskProgress, TaskRights, TasksAccountCapability,
-    TasksCapability,
+    NotificationType, PrincipalTasksCapability, Task, TaskFilterCondition, TaskList, TaskListRole,
+    TaskNotification, TaskNotificationFilterCondition, TaskProgress, TaskRights,
+    TasksAccountCapability, TasksAlertsAccountCapability, TasksAlertsCapability,
+    TasksAssigneesAccountCapability, TasksAssigneesCapability, TasksCapability,
+    TasksCustomTimeZonesAccountCapability, TasksCustomTimeZonesCapability,
+    TasksMultilingualAccountCapability, TasksMultilingualCapability,
+    TasksRecurrencesAccountCapability, TasksRecurrencesCapability,
 };
 
 // ─── TaskList ────────────────────────────────────────────────────────────────
@@ -414,5 +418,272 @@ fn capability_uri_constants() {
     assert_eq!(
         jmap_tasks_types::JMAP_TASKS_CUSTOMTIMEZONES_URI,
         "urn:ietf:params:jmap:tasks:customtimezones"
+    );
+}
+
+// ─── Account-level extension capability structs (Task 1: JMAP-d8e7.1) ────────
+
+/// `TasksAlertsAccountCapability` serializes to `{}` and deserializes from `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.4 — account capability is an empty object.
+#[test]
+fn tasks_alerts_account_capability_empty_object() {
+    let cap = TasksAlertsAccountCapability::default();
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert_eq!(out, serde_json::json!({}), "must be empty JSON object");
+    let _: TasksAlertsAccountCapability =
+        serde_json::from_str("{}").expect("must deserialize from empty object");
+}
+
+/// `TasksMultilingualAccountCapability` serializes to `{}` and deserializes from `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.5 — account capability is an empty object.
+#[test]
+fn tasks_multilingual_account_capability_empty_object() {
+    let cap = TasksMultilingualAccountCapability::default();
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert_eq!(out, serde_json::json!({}), "must be empty JSON object");
+    let _: TasksMultilingualAccountCapability =
+        serde_json::from_str("{}").expect("must deserialize from empty object");
+}
+
+/// `TasksCustomTimeZonesAccountCapability` serializes to `{}` and deserializes from `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.6 — account capability is an empty object.
+#[test]
+fn tasks_custom_time_zones_account_capability_empty_object() {
+    let cap = TasksCustomTimeZonesAccountCapability::default();
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert_eq!(out, serde_json::json!({}), "must be empty JSON object");
+    let _: TasksCustomTimeZonesAccountCapability =
+        serde_json::from_str("{}").expect("must deserialize from empty object");
+}
+
+// ─── PrincipalTasksCapability (Task 2: JMAP-d8e7.2) ──────────────────────────
+
+/// `account_id: None` serializes as `"accountId": null` (required-nullable).
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §2.1 — accountId is Id|null, always present.
+#[test]
+fn principal_tasks_capability_account_id_null_serializes() {
+    // Construct via deserialization (struct is #[non_exhaustive]).
+    let cap: PrincipalTasksCapability =
+        serde_json::from_str(r#"{"accountId":null,"mayShareWith":false}"#)
+            .expect("must deserialize");
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert!(
+        out["accountId"].is_null(),
+        "accountId must be null when None, got: {out}"
+    );
+}
+
+/// `send_to: None` must NOT produce a `"sendTo"` key in the output.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §2.1 — sendTo is optional (null or absent).
+#[test]
+fn principal_tasks_capability_send_to_absent_when_none() {
+    // Construct via deserialization (struct is #[non_exhaustive]).
+    let cap: PrincipalTasksCapability =
+        serde_json::from_str(r#"{"accountId":null,"mayShareWith":true}"#)
+            .expect("must deserialize");
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert!(
+        out.get("sendTo").is_none(),
+        "sendTo must be absent when None, got: {out}"
+    );
+}
+
+/// Full round-trip: all three fields present, serialized and re-deserialized.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §2.1 field definitions.
+#[test]
+fn principal_tasks_capability_roundtrip_full() {
+    let json = r#"{
+        "accountId": "acc001",
+        "mayShareWith": true,
+        "sendTo": {
+            "imip": "mailto:alice@example.com"
+        }
+    }"#;
+    let cap: PrincipalTasksCapability =
+        serde_json::from_str(json).expect("must deserialize full capability");
+    assert_eq!(
+        cap.account_id.as_ref().map(|id| id.as_ref()),
+        Some("acc001")
+    );
+    assert!(cap.may_share_with);
+    let send_to = cap.send_to.as_ref().expect("sendTo must be present");
+    assert_eq!(
+        send_to.get("imip").map(String::as_str),
+        Some("mailto:alice@example.com")
+    );
+
+    // Re-serialize and re-deserialize; must round-trip.
+    let out = serde_json::to_string(&cap).expect("must serialize");
+    let recovered: PrincipalTasksCapability =
+        serde_json::from_str(&out).expect("must re-deserialize");
+    assert_eq!(cap, recovered);
+}
+
+// ─── Session-level empty capability structs ───────────────────────────────────
+
+/// `TasksAlertsCapability` (session-level) serializes to `{}` and deserializes from `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.4 — session capability is an empty object.
+#[test]
+fn tasks_alerts_capability_empty_object_serialize() {
+    let cap = TasksAlertsCapability::default();
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert_eq!(out, serde_json::json!({}), "must be empty JSON object");
+}
+
+/// `TasksAlertsCapability` deserializes from `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.4 — session capability is an empty object.
+#[test]
+fn tasks_alerts_capability_empty_object_deserialize() {
+    let _: TasksAlertsCapability =
+        serde_json::from_str("{}").expect("must deserialize from empty object");
+}
+
+/// `TasksMultilingualCapability` (session-level) serializes to `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.5 — session capability is an empty object.
+#[test]
+fn tasks_multilingual_capability_empty_object_serialize() {
+    let cap = TasksMultilingualCapability::default();
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert_eq!(out, serde_json::json!({}), "must be empty JSON object");
+}
+
+/// `TasksMultilingualCapability` deserializes from `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.5 — session capability is an empty object.
+#[test]
+fn tasks_multilingual_capability_empty_object_deserialize() {
+    let _: TasksMultilingualCapability =
+        serde_json::from_str("{}").expect("must deserialize from empty object");
+}
+
+/// `TasksCustomTimeZonesCapability` (session-level) serializes to `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.6 — session capability is an empty object.
+#[test]
+fn tasks_custom_time_zones_capability_empty_object_serialize() {
+    let cap = TasksCustomTimeZonesCapability::default();
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert_eq!(out, serde_json::json!({}), "must be empty JSON object");
+}
+
+/// `TasksCustomTimeZonesCapability` deserializes from `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.6 — session capability is an empty object.
+#[test]
+fn tasks_custom_time_zones_capability_empty_object_deserialize() {
+    let _: TasksCustomTimeZonesCapability =
+        serde_json::from_str("{}").expect("must deserialize from empty object");
+}
+
+/// `TasksRecurrencesCapability` (session-level) serializes to `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.2 — session capability is an empty object.
+#[test]
+fn tasks_recurrences_capability_empty_object_serialize() {
+    let cap = TasksRecurrencesCapability::default();
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert_eq!(out, serde_json::json!({}), "must be empty JSON object");
+}
+
+/// `TasksRecurrencesCapability` deserializes from `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.2 — session capability is an empty object.
+#[test]
+fn tasks_recurrences_capability_empty_object_deserialize() {
+    let _: TasksRecurrencesCapability =
+        serde_json::from_str("{}").expect("must deserialize from empty object");
+}
+
+/// `TasksAssigneesCapability` (session-level) serializes to `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.3 — session capability is an empty object.
+#[test]
+fn tasks_assignees_capability_empty_object_serialize() {
+    let cap = TasksAssigneesCapability::default();
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert_eq!(out, serde_json::json!({}), "must be empty JSON object");
+}
+
+/// `TasksAssigneesCapability` deserializes from `{}`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.3 — session capability is an empty object.
+#[test]
+fn tasks_assignees_capability_empty_object_deserialize() {
+    let _: TasksAssigneesCapability =
+        serde_json::from_str("{}").expect("must deserialize from empty object");
+}
+
+// ─── Account-level non-empty extension capability structs ─────────────────────
+
+/// `TasksRecurrencesAccountCapability` serializes with `maxExpandedQueryDuration`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.2 — account capability has one required field.
+#[test]
+fn tasks_recurrences_account_capability_serialize() {
+    let cap: TasksRecurrencesAccountCapability =
+        serde_json::from_str(r#"{"maxExpandedQueryDuration":"P1Y"}"#).expect("must deserialize");
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert_eq!(out["maxExpandedQueryDuration"], "P1Y");
+}
+
+/// `TasksRecurrencesAccountCapability` deserializes and round-trips.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.2 — maxExpandedQueryDuration is an ISO 8601 Duration.
+#[test]
+fn tasks_recurrences_account_capability_roundtrip() {
+    // Hand-written fixture: P365D is a valid ISO 8601 duration.
+    let json = r#"{"maxExpandedQueryDuration":"P365D"}"#;
+    let cap: TasksRecurrencesAccountCapability =
+        serde_json::from_str(json).expect("must deserialize");
+    assert_eq!(cap.max_expanded_query_duration, "P365D");
+    let out = serde_json::to_string(&cap).expect("must serialize");
+    let recovered: TasksRecurrencesAccountCapability =
+        serde_json::from_str(&out).expect("must re-deserialize");
+    assert_eq!(
+        cap.max_expanded_query_duration,
+        recovered.max_expanded_query_duration
+    );
+}
+
+/// `TasksAssigneesAccountCapability` serializes `maxParticipantsPerTask` as `null` when `None`.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.3 — maxParticipantsPerTask is UnsignedInt|null.
+#[test]
+fn tasks_assignees_account_capability_null_participants_serialize() {
+    let cap: TasksAssigneesAccountCapability =
+        serde_json::from_str(r#"{"maxParticipantsPerTask":null}"#).expect("must deserialize");
+    assert!(cap.max_participants_per_task.is_none());
+    let out = serde_json::to_value(&cap).expect("must serialize");
+    assert!(
+        out["maxParticipantsPerTask"].is_null(),
+        "maxParticipantsPerTask must serialize as null when None, got: {out}"
+    );
+}
+
+/// `TasksAssigneesAccountCapability` deserializes and round-trips with a concrete value.
+///
+/// Oracle: draft-ietf-jmap-tasks-06 §1.6.3 — maxParticipantsPerTask is UnsignedInt|null.
+#[test]
+fn tasks_assignees_account_capability_roundtrip() {
+    // Hand-written fixture: server allows up to 50 participants per task.
+    let json = r#"{"maxParticipantsPerTask":50}"#;
+    let cap: TasksAssigneesAccountCapability =
+        serde_json::from_str(json).expect("must deserialize");
+    assert_eq!(cap.max_participants_per_task, Some(50));
+    let out = serde_json::to_string(&cap).expect("must serialize");
+    let recovered: TasksAssigneesAccountCapability =
+        serde_json::from_str(&out).expect("must re-deserialize");
+    assert_eq!(
+        cap.max_participants_per_task,
+        recovered.max_participants_per_task
     );
 }
