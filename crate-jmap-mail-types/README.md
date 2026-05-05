@@ -341,6 +341,13 @@ jmap-types                 shared wire primitives (RFC 8620)
             └── jmap-mail-client   RFC 8621 HTTP client methods
 ```
 
+## Known Limitations
+
+- **Partial `Email/get` responses cannot deserialize into `Email`.** The `Email` struct requires all six metadata fields (`id`, `blobId`, `threadId`, `mailboxIds`, `size`, `receivedAt`) to be present. When a `Email/get` request uses `properties` to fetch only a subset of fields, the server omits the unrequested fields and the response will fail to deserialize into `GetResponse<Email>`. Use `GetResponse<serde_json::Value>` for partial-property responses and deserialize individual fields manually.
+- **No keyword validation.** `Keyword::new("$invalid key with spaces")` succeeds. RFC 8621 §4.1.1 keyword syntax rules (no spaces, ASCII visible characters, system keywords must start with `$`) are not enforced at the type layer.
+- **No header-field value parsing.** `EmailHeader.value` is a raw string as returned by the server. Structured header parsing (date, address list, message-id, etc.) is not provided; use a RFC 5322 parsing library if needed.
+- **`Email::new` required fields.** The six fields passed to `Email::new` must all be non-empty strings; empty `Id` or `UTCDate` values are accepted without error.
+
 ## References
 
 - [RFC 8621] — JMAP for Mail (normative)

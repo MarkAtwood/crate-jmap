@@ -1,0 +1,130 @@
+# jmap-tasks-types
+
+Serde-annotated Rust types for the JMAP Tasks extension ([draft-ietf-jmap-tasks-06]) and
+JSCalendar Task subset ([RFC 8984]). Types only — no method handlers, no async, no network I/O.
+
+## What
+
+| Type | Description |
+|---|---|
+| `TaskList` | Task list object (§3) |
+| `TaskRights` | Per-user rights on a task list (`myRights`) |
+| `TaskListRole` | Well-known task list roles (`inbox`, `outbox`, etc.) |
+| `Task` | Task object (§4) — JSCalendar Task subset |
+| `TaskProgress` | Task progress status (`needs-action`, `in-process`, `completed`, `failed`, `cancelled`) |
+| `Checklist` | Named checklist attached to a Task |
+| `CheckItem` | Individual item within a Checklist |
+| `Comment` | Comment attached to a Task |
+| `Person` | A person reference (name, email, kind) used in assignees and changed-by |
+| `TaskNotification` | Server-generated notification about a task change (§5) |
+| `TaskFilterCondition` | Filter arguments for `Task/query` (§4.13) |
+| `TaskNotificationFilterCondition` | Filter arguments for `TaskNotification/query` |
+| `TasksCapability` | Session-level capability object (empty `{}`) |
+| `TasksAccountCapability` | Account-level capability (minDateTime, maxDateTime, mayCreateTaskList) |
+| `TasksRecurrencesCapability` / `TasksRecurrencesAccountCapability` | Recurrences extension (§1.6.2) |
+| `TasksAssigneesCapability` / `TasksAssigneesAccountCapability` | Assignees extension (§1.6.3) |
+| `TasksAlertsCapability` / `TasksAlertsAccountCapability` | Alerts extension (§1.6.4) |
+| `TasksMultilingualCapability` / `TasksMultilingualAccountCapability` | Multilingual extension (§1.6.5) |
+| `TasksCustomTimeZonesCapability` / `TasksCustomTimeZonesAccountCapability` | Custom time zones extension (§1.6.6) |
+| `PrincipalTasksCapability` | Per-principal Tasks capability |
+
+Capability URI constants:
+
+| Constant | Value |
+|---|---|
+| `JMAP_TASKS_URI` | `"urn:ietf:params:jmap:tasks"` |
+| `JMAP_TASKS_RECURRENCES_URI` | `"urn:ietf:params:jmap:tasks:recurrences"` |
+| `JMAP_TASKS_ASSIGNEES_URI` | `"urn:ietf:params:jmap:tasks:assignees"` |
+| `JMAP_TASKS_ALERTS_URI` | `"urn:ietf:params:jmap:tasks:alerts"` |
+| `JMAP_TASKS_MULTILINGUAL_URI` | `"urn:ietf:params:jmap:tasks:multilingual"` |
+| `JMAP_TASKS_CUSTOMTIMEZONES_URI` | `"urn:ietf:params:jmap:tasks:customtimezones"` |
+
+## Spec coverage
+
+**draft-ietf-jmap-tasks-06 sections implemented:**
+
+- §1.6 — Capability URIs (all six)
+- §3 — TaskList object and rights
+- §3.4 — `isSubscribed` field (used in place of the spec's ambiguous §3.4 `isVisible` reference)
+- §4 — Task object (JSCalendar Task subset, including `isDraft`, `utcStart`, `utcDue`)
+- §4.5.1 — Per-user Task properties (`keywords`, `color`, `freeBusyStatus`, `useDefaultAlerts`, `alerts`)
+- §4.12 — `Checklist` and `CheckItem`
+- §4.13 — `TaskFilterCondition` (excluding `filterAsTree`, which is a TODO in the spec itself)
+- §5 — `TaskNotification` and `NotificationType`
+- §5.5 — `TaskNotificationFilterCondition`
+
+**RFC 8984 sections implemented:**
+
+- §4.1 — `Task` base properties inherited from JSCalendar (`uid`, `title`, `description`, `start`, `due`, `timeZone`, `showWithoutTime`, `estimatedDuration`, `priority`, `privacy`, `color`, `keywords`)
+- §4.4 — `Comment` and `Person` types
+
+## Usage
+
+```rust
+use jmap_tasks_types::{TaskList, Task};
+
+// Deserialize a TaskList from a JMAP response.
+let task_list: TaskList = serde_json::from_str(r#"{
+    "id": "list1",
+    "name": "Work",
+    "sortOrder": 0,
+    "isSubscribed": true,
+    "myRights": {
+        "mayReadItems": true,
+        "mayWriteAll": true,
+        "mayWriteOwn": true,
+        "mayUpdatePrivate": true,
+        "mayRSVP": false,
+        "mayAdmin": false,
+        "mayDelete": false
+    }
+}"#)?;
+
+// Deserialize a Task.
+let task: Task = serde_json::from_str(r#"{
+    "id": "task1",
+    "taskListId": "list1",
+    "title": "Write quarterly report",
+    "start": "2025-06-01T09:00:00",
+    "due": "2025-06-15T17:00:00",
+    "timeZone": "America/New_York",
+    "isDraft": false
+}"#)?;
+# Ok::<(), serde_json::Error>(())
+```
+
+## How it works
+
+All structs carry `#[serde(rename_all = "camelCase")]` to produce camelCase JSON field names
+as required by the JMAP wire format. Extension capability structs use `#[non_exhaustive]` so
+that adding new optional fields in a future draft revision is not a breaking change.
+
+The `TaskListRole` and `TaskProgress` types are string-backed enums with an `Other(String)`
+fallback variant so that unrecognised server values round-trip without data loss.
+
+## Known Limitations
+
+- The draft expired in November 2023 and has not been updated; some fields use best-judgment
+  interpretation where the spec is ambiguous or contradicts itself. In particular, `isVisible`
+  is referenced in §3.4 without being defined in §3; this crate follows the normative §3 field
+  list which uses `isSubscribed`.
+- `filterAsTree` for `Task/query` is mentioned in §4.13 as a TODO in the spec itself; it is
+  not implemented.
+- `workflowStatuses` on `TaskList` are user-defined strings; no validation against the list
+  is performed at the type layer.
+- The spec typos `assigneee` (three e's) in §4.2.3 and `TaskId` (capital T) in §5.1 are
+  corrected silently; wire names are `assignee` and `taskId` respectively.
+
+## References
+
+- **[draft-ietf-jmap-tasks-06]** — JMAP Tasks (normative for all type definitions)
+- **[RFC 8984]** — JSCalendar (Task property subset)
+- **[RFC 8620]** — JMAP Core (Id, State, SetError, request/response shape)
+
+[draft-ietf-jmap-tasks-06]: https://www.ietf.org/archive/id/draft-ietf-jmap-tasks-06.txt
+[RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
+[RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
+
+## License
+
+MIT OR Apache-2.0

@@ -551,6 +551,16 @@ Dependencies flow downward only. Type crates (`jmap-types`, `jmap-mail-types`,
 
 ---
 
+## Known Limitations
+
+- **No automatic SSE reconnect.** `subscribe_events` returns an `async Stream` that terminates when the server closes the connection. Reconnect logic (with exponential backoff and `Last-Event-ID` header) is the caller's responsibility.
+- **No WebSocket ping/pong keepalive.** `WsSession` does not send RFC 6455 ping frames. If your server closes idle WebSocket connections, implement keepalive in the caller.
+- **`fetch_session` is not cached.** Call `fetch_session` once at startup or after receiving a `StateChange` that indicates the session state has changed. Calling it on every request adds unnecessary latency.
+- **`request_timeout` applies per-call.** The timeout covers the entire request-response cycle for `fetch_session`, `call`, `upload_blob`, and `download_blob`. It does not apply to SSE or WebSocket streams, which are indefinitely long by design.
+- **SSE frame size cap terminates the stream.** If a single SSE frame (between double newlines) exceeds `ClientConfig::max_sse_frame` (default 1 MiB), the stream is terminated with `ClientError::SseFrameTooLarge`. Increase the cap if your server sends large push events.
+
+---
+
 ## References
 
 - [RFC 8620](https://www.rfc-editor.org/rfc/rfc8620) — JMAP Core (session,

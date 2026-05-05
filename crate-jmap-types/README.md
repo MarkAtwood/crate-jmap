@@ -175,6 +175,12 @@ jmap-types          ← this crate
     └── jmap-chat-types Chat extension data types
 ```
 
+## Known Limitations
+
+- **No field validation.** `Id::from("")` succeeds. `UTCDate::from("not-a-date")` succeeds. RFC 8620 field constraints (non-empty Ids, valid date formats) are enforced by consumers such as `jmap-server`, not here.
+- **`Argument<T>` sealed type set.** The `Argument<T>` type (which holds either a plain value or a `ResultReference`) is constrained to a sealed set of inner types (`String`, `Vec<String>`, `Id`, `Vec<Id>`, `u32`, `u64`, `bool`). `serde_json::Value` is intentionally excluded. To add a new type, a PR to this crate is required.
+- **`JmapError` method-level only.** `JmapError` covers RFC 8620 §3.6.2 method-level errors. Request-level errors (§3.6.1, returned as HTTP 400/500 with an RFC 7807 body) are `RequestError` in `jmap-server`, not here.
+
 ## References
 
 - [RFC 8620] — JMAP Core (normative)

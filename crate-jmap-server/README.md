@@ -72,6 +72,13 @@ let resp = request_error(JmapError::limit("maxCallsInRequest"));  // → HTTP 40
 // Return Err(JmapError::...) from your JmapHandler::call implementation.
 ```
 
+## Known Limitations
+
+- **`CallerCtx` not forwarded through `ClosureHandler`.** The `ClosureHandler` convenience type (used by `register_mail_handlers` and similar) does not pass `CallerCtx` to the handler closure. If you need per-request auth context inside a handler, implement `JmapHandler<C>` directly and register with `dispatcher.register(method_name, Arc::new(your_handler))`.
+- **`sortAsTree` and `filterAsTree` not implemented.** The generic `handle_query` handler rejects these arguments with `unsupportedSort`/`unsupportedFilter` rather than silently ignoring them. Tree-mode traversal is not implemented.
+- **In-process filtering only.** `handle_query` fetches all objects and filters them in-process. For large accounts this is O(N) in the number of objects. Backends that can push filtering to storage should implement `query_objects` with real filter logic rather than relying on the generic handler.
+- **Single-process only.** The dispatcher holds no shared state between requests and is safe to use concurrently; however, there is no built-in clustering support. State consistency across multiple processes is the backend's responsibility.
+
 ## Spec references
 
 - **[RFC 8620]** — JMAP base protocol (request format, ResultReference, error types)

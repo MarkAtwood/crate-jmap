@@ -133,6 +133,13 @@ application needs per-request auth context inside a handler (e.g. to enforce tha
 can only modify their own `PresenceStatus`), implement `JmapHandler` directly for that
 method instead of relying on the registered handler.
 
+## Known Limitations
+
+- **`CallerCtx` not forwarded through `register_chat_handlers`.** Handler closures receive only `(Arc<B>, call_id, args)`; the dispatcher's `CallerCtx` value is discarded. If you need per-request auth context inside a handler (e.g., to check that a caller can only update their own `PresenceStatus`), implement `JmapHandler<C>` directly for that method.
+- **Direct chat deduplication is eventually consistent.** The `Chat/set` create handler uses optimistic create-then-validate to detect duplicate Direct chats. Under concurrent load two clients may both successfully create the same Direct chat; the loser's write is rolled back and it receives `alreadyExists`, but the duplicate briefly exists. Backends can eliminate this window by enforcing uniqueness atomically in `create_object`.
+- **`Space/join` TOCTOU window.** After a successful join write, the handler re-reads the member list to detect concurrent joins. There is a brief window between the write and the re-read during which a second concurrent join can succeed. Both joiners will detect the race, but the loser's join is rolled back, not the winner's — so the final state is consistent.
+- **Draft spec only.** `draft-atwood-jmap-chat` has not been submitted to the IETF; wire format and method semantics may change.
+
 ## Crate family
 
 ```

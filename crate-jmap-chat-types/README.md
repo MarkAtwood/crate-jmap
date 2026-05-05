@@ -48,6 +48,12 @@ deserialize to `EphemeralMessage::Unknown` for forward compatibility.
 | `draft-atwood-jmap-chat-push-00` | Push notification payloads |
 | `draft-atwood-jmap-chat-wss-00` | WebSocket ephemeral events |
 
+## Known Limitations
+
+- **No validation of message content.** `Message.body` is an unvalidated string; length limits and character restrictions defined by the draft are not enforced at the type layer.
+- **`EphemeralMessage::Unknown` for forward compatibility.** Any WebSocket event type not recognized by this crate deserializes to `EphemeralMessage::Unknown { type_name, payload }`. Callers must handle this variant; match exhaustion without it will not compile.
+- **Draft spec only.** `draft-atwood-jmap-chat` has not been submitted to the IETF. Wire format and type names may change.
+
 ## Crate family
 
 ```
