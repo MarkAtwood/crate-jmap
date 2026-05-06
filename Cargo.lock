@@ -766,7 +766,7 @@ checksum = "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
 
 [[package]]
 name = "jmap-base-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "base64",
  "bytes",
@@ -786,7 +786,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-base-client",
  "jmap-calendars-types",
@@ -800,7 +800,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-calendars-types",
  "jmap-server",
@@ -813,7 +813,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-calendars-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-types",
  "serde",
@@ -822,7 +822,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "chrono",
  "jmap-base-client",
@@ -838,7 +838,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-chat-types",
  "jmap-server",
@@ -851,7 +851,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-chat-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-types",
  "serde",
@@ -860,7 +860,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-base-client",
  "jmap-contacts-types",
@@ -874,7 +874,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-contacts-types",
  "jmap-server",
@@ -887,7 +887,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-contacts-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-types",
  "serde",
@@ -896,7 +896,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-base-client",
  "jmap-filenode-types",
@@ -910,7 +910,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-filenode-types",
  "jmap-server",
@@ -923,7 +923,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-filenode-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-types",
  "serde",
@@ -932,7 +932,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-base-client",
  "jmap-mail-types",
@@ -946,7 +946,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "jmap-mail-types",
  "jmap-mime",
@@ -962,7 +962,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mail-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-types",
  "serde",
@@ -971,7 +971,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-mime"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-mail-types",
  "jmap-types",
@@ -981,7 +981,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-server"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "http",
  "jmap-types",
@@ -992,7 +992,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-base-client",
  "jmap-sharing-types",
@@ -1006,7 +1006,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-server",
  "jmap-sharing-types",
@@ -1019,7 +1019,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-sharing-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-types",
  "serde",
@@ -1028,7 +1028,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-client"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-base-client",
  "jmap-tasks-types",
@@ -1042,7 +1042,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-server"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-server",
  "jmap-tasks-types",
@@ -1055,7 +1055,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-tasks-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "jmap-types",
  "serde",
@@ -1064,7 +1064,7 @@ dependencies = [
 
 [[package]]
 name = "jmap-types"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "serde",
  "serde_json",
