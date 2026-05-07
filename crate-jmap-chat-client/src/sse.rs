@@ -1,8 +1,8 @@
 //! SSE types and frame parser for JMAP Chat push notifications.
 //!
-//! Wraps the base-client [`parse_sse_block`](jmap_base_client::parse_sse_block) and
+//! Wraps the base-client [`jmap_base_client::parse_sse_block`] and
 //! interprets the chat-specific `"typing"` and `"presence"` event types that the base
-//! client leaves as [`SseEvent::Unknown`](jmap_base_client::SseEvent::Unknown).
+//! client leaves as [`SseEvent::Unknown`].
 //!
 //! Spec: draft-atwood-jmap-chat-push-00 §§ typing, presence
 //! Wire format: RFC 8895 (Server-Sent Events)
@@ -13,7 +13,7 @@ use jmap_types::Id;
 
 /// A parsed SSE event from the JMAP Chat event source.
 ///
-/// Extends the base-client [`SseEvent`](jmap_base_client::SseEvent) with
+/// Extends the base-client [`SseEvent`] with
 /// chat-specific variants for typing indicators and presence updates.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
