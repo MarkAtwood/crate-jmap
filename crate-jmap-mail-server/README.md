@@ -5,6 +5,15 @@ RFC 8621 (JMAP for Mail) method handlers for Rust. Plugs into
 Storage-agnostic — consumers implement the `MailBackend` trait for their
 own data layer.
 
+Two optional extensions are available behind Cargo features:
+
+- `mdn` — RFC 9007 Message Disposition Notifications (`MDN/send`, `MDN/parse`)
+- `sieve` — RFC 9661 Sieve Script management (`SieveScript/get`, `set`, `query`,
+  `validate`)
+
+Each extension exposes its own `register_*_handlers` entry point and its own
+backend trait extension.
+
 ## Usage
 
 ```rust
@@ -142,12 +151,31 @@ pub trait MailBackend: JmapBackend {
 
 ### Registration
 
-`register_mail_handlers` uses `ClosureHandlerWithCtx` (provided by
-`jmap-server`) to wrap each handler function and `Arc<B>` into a
-`JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
-`CallerCtx` value is forwarded into each closure as `_ctx`; the standard
-`handle_*` handler bodies receive `(Arc<B>, call_id, args)` only. One
-`Arc::clone` per method name; no heap allocation per request.
+This crate exposes three entry points; each is independent and may be called
+in any order on the same dispatcher:
+
+| Function | Cargo feature | Methods registered | Backend trait |
+|---|---|---|---|
+| `register_mail_handlers` | always available | 26 RFC 8621 methods (see [Registered methods](#registered-methods)) | `MailBackend` |
+| `register_mdn_handlers` | `mdn` (RFC 9007) | `MDN/send`, `MDN/parse` | `MailBackend + MdnBackend` |
+| `register_sieve_handlers` | `sieve` (RFC 9661) | `SieveScript/get`, `set`, `query`, `validate` | `MailBackend + SieveBackend` |
+
+All three use `ClosureHandlerWithCtx` (provided by `jmap-server`) to wrap each
+handler function and `Arc<B>` into a `JmapHandler<C>` and register it with the
+dispatcher. The dispatcher's `CallerCtx` value is forwarded into each closure
+as `_ctx`; the standard `handle_*` handler bodies receive `(Arc<B>, call_id,
+args)` only. One `Arc::clone` per method name; no heap allocation per request.
+
+`register_mdn_handlers` takes a third argument, `max_blob_ids: usize`, which
+caps the number of blob IDs accepted by a single `MDN/parse` request. Use
+`mdn::MDN_PARSE_MAX_BLOB_IDS` for the default (16). Callers are responsible
+for advertising the corresponding capability URI in the JMAP Session — the
+handlers do not inspect the `using` field themselves. The capability URI
+constants are re-exported from `jmap_mail_types`:
+
+- `JMAP_MDN_URI = "urn:ietf:params:jmap:mdn"` (when `mdn` is enabled)
+- `JMAP_SIEVE_SCRIPTS_URI = "urn:ietf:params:jmap:sieve"` (when `sieve` is
+  enabled)
 
 ### Handler structure
 

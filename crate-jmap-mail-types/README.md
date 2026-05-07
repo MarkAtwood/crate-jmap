@@ -26,9 +26,14 @@ between `jmap-types` (shared wire primitives from RFC 8620) and `jmap-mail-serve
 | `EmailBodyPart` | §4.1.4 | One MIME body part: `partId`, `blobId`, `type`, `charset`, `size`, `headers`, `subParts` |
 | `EmailBodyValue` | §4.1.4 | Decoded text content of a body part: `value`, `isEncodingProblem`, `isTruncated` |
 | `Keyword` | §4.1.1 | Newtype over `String`; system constants in the `keyword` module (`$seen`, `$flagged`, etc.) |
-| `EmailFilter` / `Filter<T>` | §4.4 | `FilterCondition` or `FilterOperator` (`and`/`or`/`not`) union type |
+| `KeywordError` | §4.1.1 | Error type returned by `Keyword` validation routines |
+| `Filter<T>` / `FilterOperator<T>` | §4.4 | Generic filter union — `Condition(T)` leaf or `Operator` node combining children with `and`/`or`/`not` |
+| `Operator` | §4.4 | Enum of filter combinators: `And`, `Or`, `Not` |
+| `EmailFilter` | §4.4 | Type alias for `Filter<EmailFilterCondition>` |
 | `EmailFilterCondition` | §4.4.1 | Per-email filter: mailbox, keyword, date range, size, text search, header match |
 | `EmailComparator` | §4.4.2 | Sort comparator: `property`, `isAscending`, `collation`, `keyword` |
+| `ComparatorProperty` | §4.4.2 | Enum of legal sort properties shared across object types |
+| `EmailSubmissionFilter` / `EmailSubmissionFilterCondition` | §7.4 | Filter types for `EmailSubmission/query` |
 | `Identity` | §6 | Send-from identity: `id`, `name`, `email`, `replyTo`, `bcc`, `textSignature`, `htmlSignature`, `mayDelete` |
 | `EmailSubmission` | §7 | Outbound send record: `id`, `identityId`, `emailId`, `threadId`, `envelope`, `sendAt`, `undoStatus`, `deliveryStatus` |
 | `Envelope` | §7 | SMTP envelope: `mailFrom` and `rcptTo` |
@@ -46,6 +51,43 @@ between `jmap-types` (shared wire primitives from RFC 8620) and `jmap-mail-serve
 | `EmailSubmissionProperty` | — | Enum of legal `EmailSubmission` property names |
 | `SearchSnippetProperty` | — | Enum of legal `SearchSnippet` property names |
 | `VacationResponseProperty` | — | Enum of legal `VacationResponse` property names |
+
+## Optional Features
+
+Two Cargo features gate optional RFC extension modules. Both are off by default;
+enable them in `Cargo.toml` only if you need the corresponding extension:
+
+```toml
+[dependencies]
+jmap-mail-types = { version = "0.1", features = ["mdn", "sieve"] }
+```
+
+### `mdn` — RFC 9007 Message Disposition Notifications
+
+Enables `pub mod mdn`. Adds the following public types and constants:
+
+| Item | Source |
+|---|---|
+| `JMAP_MDN_URI` const (`"urn:ietf:params:jmap:mdn"`) | RFC 9007 §2 |
+| `Mdn` | RFC 9007 §2 — the MDN object |
+| `Disposition` | RFC 9007 §2 — describes the action taken on the original message |
+| `ActionMode` enum (`ManualAction`, `AutomaticAction`) | RFC 9007 §2 |
+| `SendingMode` enum (`MdnSentManually`, `MdnSentAutomatically`) | RFC 9007 §2 |
+| `DispositionType` enum (`Deleted`, `Dispatched`, `Displayed`, `Processed`) | RFC 9007 §2 |
+| `MdnSendRequest` / `MdnSendResponse` | RFC 9007 §3.1 |
+| `MdnParseRequest` / `MdnParseResponse` | RFC 9007 §3.3 |
+
+### `sieve` — RFC 9661 Sieve Script management
+
+Enables `pub mod sieve`. Adds the following public types and constants:
+
+| Item | Source |
+|---|---|
+| `JMAP_SIEVE_SCRIPTS_URI` const (`"urn:ietf:params:jmap:sieve"`) | RFC 9661 §2 |
+| `SieveScript` | RFC 9661 §3 — a Sieve script object (`id`, `name`, `blobId`, `isActive`) |
+| `SieveCapability` | RFC 9661 §2 — server-level capability (`implementation`) |
+| `SieveAccountCapability` | RFC 9661 §2 — per-account limits and supported extensions |
+| `SieveScriptProperty` (re-exported from `backend`) | RFC 9661 §3 — property enum for `SieveScript/get` |
 
 ## Why
 
@@ -355,12 +397,16 @@ jmap-types                 shared wire primitives (RFC 8620)
 - [RFC 5322] — Internet Message Format (email structure, header fields)
 - [RFC 5321] — SMTP (envelope address format used in `EmailSubmission`)
 - [RFC 4314] — IMAP ACL Extension (basis for `MailboxRights`)
+- [RFC 9007] — JMAP for MDN (gated behind the `mdn` Cargo feature)
+- [RFC 9661] — JMAP Sieve Scripts (gated behind the `sieve` Cargo feature)
 
 [RFC 8621]: https://www.rfc-editor.org/rfc/rfc8621
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 5322]: https://www.rfc-editor.org/rfc/rfc5322
 [RFC 5321]: https://www.rfc-editor.org/rfc/rfc5321
 [RFC 4314]: https://www.rfc-editor.org/rfc/rfc4314
+[RFC 9007]: https://www.rfc-editor.org/rfc/rfc9007
+[RFC 9661]: https://www.rfc-editor.org/rfc/rfc9661
 
 ## License
 

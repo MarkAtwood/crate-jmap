@@ -10,9 +10,15 @@ Serde-annotated Rust types for JMAP Sharing ([RFC 9670]): `Principal` and
 | `Principal` | `principal` | RFC 9670 §2 |
 | `PrincipalType` | `principal` | RFC 9670 §2 |
 | `PrincipalFilterCondition` | `principal` | RFC 9670 §2.4.1 |
+| `PrincipalProperty` | `backend` | RFC 9670 §2 — property enum for `Principal/get` |
 | `ShareNotification` | `notification` | RFC 9670 §3 |
 | `ChangedBy` | `notification` | RFC 9670 §3 |
 | `ShareNotificationFilterCondition` | `notification` | RFC 9670 §3.4.1 |
+| `ShareNotificationProperty` | `backend` | RFC 9670 §3 — property enum for `ShareNotification/get` |
+| `PrincipalsCapability` | `capability` | RFC 9670 §1.5 — session-level capability object |
+| `PrincipalsOwnerCapability` | `capability` | RFC 9670 §1.5 — owner-principal capability object |
+| `JMAP_PRINCIPALS_URI` const (`"urn:ietf:params:jmap:principals"`) | `capability` | RFC 9670 §1.5 |
+| `JMAP_PRINCIPALS_OWNER_URI` const (`"urn:ietf:params:jmap:principals:owner"`) | `capability` | RFC 9670 §1.5 |
 
 ## Usage
 

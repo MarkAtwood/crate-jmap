@@ -7,18 +7,45 @@ Serde-annotated Rust types for the JMAP Chat extension
 
 ## What's in here
 
+The full set of public re-exports from `lib.rs`. Every item below is also
+available from the crate root (e.g. `jmap_chat_types::Chat`).
+
+### Object types
+
 | Module | Types |
 |--------|-------|
-| `chat` | `Chat`, `ChatMember`, `ChannelPermission` |
-| `message` | `Message`, `Attachment`, `Mention`, `MessageAction`, `Reaction`, `MessageRevision`, `DeliveryReceipt` |
+| `chat` | `Chat`, `ChatKind`, `ChatMember`, `ChannelPermission` |
+| `message` | `Message`, `Attachment`, `Mention`, `MessageAction`, `Reaction`, `MessageRevision`, `DeliveryReceipt`, `DeliveryState`, `ReadDisposition`, `SenderId` |
 | `space` | `Space`, `SpaceRole`, `SpaceMember`, `Category`, `SpaceInvite`, `SpaceBan` |
 | `contact` | `ChatContact`, `Endpoint` |
 | `position` | `ReadPosition` |
-| `presence` | `PresenceStatus` |
+| `presence` | `Presence`, `PresenceStatus` |
 | `emoji` | `CustomEmoji` |
-| `ephemeral` | `EphemeralMessage` — WebSocket ephemeral events |
-| `push` | `ChatMessagePush`, `ChatMessageEntry`, `ChatPushConfig` |
 | `clearable` | `Clearable<T>` — null-vs-absent JSON patch helper |
+
+### Push and ephemeral transports
+
+| Module | Types |
+|--------|-------|
+| `ephemeral` | `EphemeralMessage` — outer WebSocket envelope, plus typed events: `ChatPresenceEvent`, `ChatStreamDisable`, `ChatStreamEnable`, `ChatTypingEvent` |
+| `push` | `ChatMessagePush`, `ChatMessageEntry`, `ChatPushConfig` |
+
+### `properties` enums (for `*/get` projections)
+
+Re-exported from the `backend` module. Each enumerates the legal property
+names for the corresponding object in a JMAP `*/get` request:
+
+| Enum | Object |
+|---|---|
+| `ChatProperty` | `Chat` |
+| `MessageProperty` | `Message` |
+| `SpaceProperty` | `Space` |
+| `SpaceBanProperty` | `SpaceBan` |
+| `SpaceInviteProperty` | `SpaceInvite` |
+| `ChatContactProperty` | `ChatContact` |
+| `CustomEmojiProperty` | `CustomEmoji` |
+| `PresenceStatusProperty` | `PresenceStatus` |
+| `ReadPositionProperty` | `ReadPosition` |
 
 ## Usage
 

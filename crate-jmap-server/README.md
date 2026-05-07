@@ -72,6 +72,75 @@ let resp = request_error(JmapError::limit("maxCallsInRequest"));  // → HTTP 40
 // Return Err(JmapError::...) from your JmapHandler::call implementation.
 ```
 
+## Re-exports
+
+The crate root re-exports three groups of items so consumers do not have to
+take a direct dependency on `jmap-types`:
+
+### Wire types (from `jmap_types`)
+
+```rust
+pub use jmap_types::{
+    Argument, Id, Invocation, JmapError, JmapRequest, JmapResponse,
+    ResultReference, State, UTCDate,
+};
+```
+
+These are the RFC 8620 wire primitives: `Id`, `UTCDate`, and `State` for
+typed identifier/timestamp/state-token fields; `JmapRequest` / `JmapResponse`
+for the top-level request/response envelopes; `Invocation` for individual
+method calls (a `(method, args, callId)` tuple); `ResultReference` and
+`Argument<T>` for the back-reference machinery in RFC 8620 §3.7;
+`JmapError` for both request-level and method-level errors.
+
+### Backend infrastructure (from the `backend` module)
+
+```rust
+pub use backend::{
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject,
+    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult,
+    SetError, SetErrorType, SetObject,
+};
+```
+
+Generic backend traits (`JmapBackend`, `GetObject`, `QueryObject`, `SetObject`),
+result and error envelopes (`ChangesResult`, `QueryResult`, `QueryChangesResult`,
+`SetError` / `SetErrorType`, `BackendSetError`, `BackendChangesError`), and the
+`AddedItem` row used in `Foo/queryChanges` responses. Extension server crates
+(`jmap-mail-server`, `jmap-chat-server`, etc.) extend `JmapBackend` to add
+their own write/extension methods.
+
+### Helpers (from the `helpers` module)
+
+```rust
+pub use helpers::{extract_account_id, not_found_json, now_utc_string, ser};
+```
+
+Small utilities used by every method handler: `extract_account_id` pulls the
+`accountId` field from a method-arguments `Value` (returning `accountNotFound`
+on absence), `now_utc_string` produces an RFC 3339 timestamp suitable for
+RFC 8620 `UTCDate` fields, `ser` serializes any `Serialize` value into a
+`Value` (mapping serialization failure to `serverFail`), and `not_found_json`
+builds the `notFound: [...]` array used by `Foo/get` responses for missing
+ids.
+
+### Other entry points
+
+```rust
+pub use parse::{check_known_capabilities, parse_request, resolve_args};
+pub use response::{error_invocation, error_status, request_error, RequestError};
+pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
+// Plus the closure-based JmapHandler adapters defined in this crate's
+// crate root: ClosureHandler and ClosureHandlerWithCtx.
+```
+
+Request parsing and capability validation; HTTP response shaping for
+request-level errors; generic implementations of the four read-side JMAP
+methods (`Foo/get`, `Foo/changes`, `Foo/query`, `Foo/queryChanges`) that
+extension server crates plug their backend into; and the two closure-based
+`JmapHandler` adapters (`ClosureHandler`, `ClosureHandlerWithCtx`) used by
+`register_*_handlers` macros across the extension server crates.
+
 ## Known Limitations
 
 - **`CallerCtx` not forwarded through `ClosureHandler`.** The `ClosureHandler` convenience type (used by `register_mail_handlers` and similar) does not pass `CallerCtx` to the handler closure. If you need per-request auth context inside a handler, implement `JmapHandler<C>` directly and register with `dispatcher.register(method_name, Arc::new(your_handler))`.

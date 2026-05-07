@@ -128,6 +128,63 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 |---|---|---|
 | `push_subscription_create` | `input: &PushSubscriptionCreateInput<'_>` | `PushSubscriptionCreateResponse` |
 
+## Push transport
+
+Two real-time push transports are supported, both layered on top of the
+`jmap-base-client` HTTP client. They expose typed Chat-specific event types
+without forcing the application to parse raw JSON.
+
+### Modules
+
+| Module | Public items | Purpose |
+|---|---|---|
+| `pub mod ws` | `ChatWsExt`, `ChatWsFrame` | RFC 8887 WebSocket binding for JMAP, with Chat-specific event types decoded from the wire frames. |
+| `pub mod sse` | `ChatSseEvent`, `ChatSseFrame`, `parse_chat_sse_block` | Server-Sent Events parser specialized for JMAP Chat push payloads. |
+| `pub mod session` | `ChatSessionExt`, `ChatCapability`, `ChatPushCapability` | Capability discovery — answers "does this server advertise WebSocket push and what is the URL?" before opening a connection. |
+
+`ChatWsExt` is an extension trait on `JmapClient` that opens a WebSocket
+connection to the URL advertised in the JMAP Session's `webSocketUrl`
+capability. `parse_chat_sse_block` consumes a single SSE event block and
+returns a typed `ChatSseEvent` (or an error if the block is malformed).
+
+### Usage sketch
+
+```rust,no_run
+use jmap_base_client::{connect_ws, Session};
+use jmap_chat_client::{ChatSessionExt, ChatWsExt};
+
+async fn drive_chat_ws(session: &Session) -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Discover whether the server advertises JMAP WebSocket transport
+    //    AND that the Chat capability rides on it.
+    if !session.supports_chat_websocket() {
+        return Ok(());
+    }
+
+    // 2. Read the WebSocket URL from the RFC 8887 capability object.
+    let ws_cap = session.websocket_capability()?
+        .expect("supports_chat_websocket implies WebSocketCapability is present");
+
+    // 3. Open the WsSession (auth header tuple is built by your auth code).
+    let mut ws = connect_ws(&ws_cap.url, /* auth_header = */ None).await?;
+
+    // 4. Drive it via ChatWsExt — each yielded frame is a typed ChatWsFrame:
+    //    StateChange, ChatTyping, ChatPresence, ResponseFrame, RequestError,
+    //    Unknown { type_name, .. }, etc.
+    while let Some(frame) = ws.next_chat_frame().await {
+        let _frame = frame?;
+    }
+    Ok(())
+}
+```
+
+For SSE, use the base-client event-source loop (`JmapClient::subscribe_events`)
+and feed each raw event block to `parse_chat_sse_block`, which returns a
+`ChatSseFrame` carrying the typed `ChatSseEvent` payload. The same Chat event
+variants are delivered over both transports; choose based on what the server
+advertises (see `ChatSessionExt::supports_chat_websocket` and
+`chat_push_capability`) and the deployment's network constraints (proxies,
+long-lived connections, etc.).
+
 ## Known Limitations
 
 - **`space_join` is non-standard.** `Space/join` is a JMAP Chat extension method

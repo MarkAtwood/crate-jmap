@@ -13,6 +13,7 @@ Types only — no method handlers, no async, no network I/O.
 | `FilesRights` | Per-user access rights on a FileNode (`mayRead`, `mayWrite`, `mayAdmin`, etc.) |
 | `FileNodeFilterCondition` | Filter arguments for `FileNode/query` |
 | `FileNodeCapability` | Account-level capability object for the FileNode extension |
+| `FileNodeProperty` | Enum of legal `FileNode` property names for `properties` arrays |
 
 Capability URI constant:
 

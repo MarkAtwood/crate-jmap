@@ -12,17 +12,31 @@ use std::sync::Arc;
 use jmap_chat_server::{ChatBackend, register_chat_handlers};
 use jmap_server::Dispatcher;
 
+// MyCallerCtx is the application's per-request context type — typically the
+// authenticated identity (user id, tenant, rate-limit token, etc.).
+// It must be `Clone + Send + 'static`. Use `()` if you have no per-request
+// context.
+#[derive(Clone)]
+struct MyCallerCtx { /* user_id, tenant, ... */ }
+
 // 1. Implement ChatBackend for your storage.
 struct MyChatBackend { /* db pool, etc. */ }
 impl ChatBackend for MyChatBackend { /* ... */ }
 
-// 2. Wire into a Dispatcher.
-let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+// 2. Wire into a Dispatcher parameterised over your CallerCtx type.
+let mut dispatcher: Dispatcher<MyCallerCtx> = Dispatcher::new();
 register_chat_handlers(&mut dispatcher, Arc::new(MyChatBackend { /* ... */ }));
 
 // 3. Dispatch requests in your HTTP handler.
-// let response = dispatcher.dispatch(request, (), session_state).await;
+// let ctx = MyCallerCtx { /* ... */ };
+// let response = dispatcher.dispatch(request, ctx, session_state).await;
 ```
+
+`register_chat_handlers` is generic over `<B, C>` — `B: ChatBackend` is your
+storage backend, and `C: Clone + Send + 'static` is the dispatcher's
+`CallerCtx` type. The same `Arc<B>` is shared across all registered methods;
+each request's `C` value is forwarded into the closure as `_ctx` (see
+[CallerCtx](#callerctx) below).
 
 ## Registered methods
 
