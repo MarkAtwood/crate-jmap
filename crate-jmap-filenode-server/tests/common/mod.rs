@@ -73,7 +73,7 @@ impl AccountStore {
 
     fn next_node_id(&mut self) -> Id {
         self.node_counter += 1;
-        Id::try_from(format!("node-{}", self.node_counter).as_str()).unwrap()
+        Id::from(format!("node-{}", self.node_counter).as_str())
     }
 
     fn bump_state(&mut self, change_type: ChangeType, id: Id) {
@@ -218,9 +218,9 @@ impl JmapBackend for MemoryBackend {
         let guard = self.inner.lock().unwrap();
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
-            None => return Ok(State::try_from("0").unwrap()),
+            None => return Ok(State::from("0")),
         };
-        Ok(State::try_from(format!("{}", store.state).as_str()).unwrap())
+        Ok(State::from(format!("{}", store.state).as_str()))
     }
 
     async fn get_changes<O: JmapObject + Send + Sync>(
@@ -240,12 +240,12 @@ impl JmapBackend for MemoryBackend {
                     vec![],
                     vec![],
                     false,
-                    State::try_from("0").unwrap(),
+                    State::from("0"),
                 ))
             }
         };
 
-        let current_state = State::try_from(format!("{}", store.state).as_str()).unwrap();
+        let current_state = State::from(format!("{}", store.state).as_str());
 
         // Collect all changes after since_state.
         let all: Vec<&ChangeEntry> = store
@@ -303,12 +303,12 @@ impl JmapBackend for MemoryBackend {
                     vec![],
                     0,
                     Some(0),
-                    State::try_from("0").unwrap(),
+                    State::from("0"),
                     false,
                 ))
             }
         };
-        let current_state = State::try_from(format!("{}", store.state).as_str()).unwrap();
+        let current_state = State::from(format!("{}", store.state).as_str());
 
         // Parse the filter as FileNodeFilterCondition via serde round-trip.
         // This avoids the #[non_exhaustive] restriction outside the defining crate.
@@ -354,14 +354,14 @@ impl JmapBackend for MemoryBackend {
             None => {
                 return Ok(QueryChangesResult::new(
                     since_query_state.clone(),
-                    State::try_from("0").unwrap(),
+                    State::from("0"),
                     Some(0),
                     vec![],
                     vec![],
                 ))
             }
         };
-        let current_state = State::try_from(format!("{}", store.state).as_str()).unwrap();
+        let current_state = State::from(format!("{}", store.state).as_str());
 
         Ok(QueryChangesResult::new(
             since_query_state.clone(),

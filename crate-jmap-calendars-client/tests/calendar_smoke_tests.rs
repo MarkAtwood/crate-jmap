@@ -4,7 +4,7 @@
 //!   - Calendar/get: draft-ietf-jmap-calendars-26 §4.1 and RFC 8620 §5.1
 //!   - CalendarEvent/set: draft-ietf-jmap-calendars-26 §5.6 and RFC 8620 §5.3
 //!   - CalendarEvent/parse: draft-ietf-jmap-calendars-26 §5.13
-//! Oracle for JMAP batch response envelope: RFC 8620 §3.4.
+//!     Oracle for JMAP batch response envelope: RFC 8620 §3.4.
 
 #[path = "helpers.rs"]
 mod helpers;

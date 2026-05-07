@@ -527,7 +527,7 @@ mod tests {
             .expect("create must succeed");
 
         let (found, not_found) = backend
-            .get_objects::<Principal>(&Id::from("acc1"), Some(&[new_id.clone()]), None)
+            .get_objects::<Principal>(&Id::from("acc1"), Some(std::slice::from_ref(&new_id)), None)
             .await
             .expect("get must succeed");
 

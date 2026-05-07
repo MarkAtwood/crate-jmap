@@ -443,7 +443,7 @@ mod tests {
             .as_ref()
             .expect("addressBookIds must be present");
         let ab_key: jmap_types::Id = jmap_types::Id::from("062adcfa-105d-455c-bc60-6db68b69c3f3");
-        assert_eq!(ab_ids[&ab_key], true);
+        assert!(ab_ids[&ab_key]);
 
         let emails = card.emails.as_ref().expect("emails must be present");
         assert_eq!(emails["0"]["address"], "joe.bloggs@example.com");

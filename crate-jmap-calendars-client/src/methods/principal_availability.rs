@@ -66,6 +66,7 @@ mod tests {
 
     /// Oracle: empty principal_id → InvalidArgument.
     #[test]
+    #[allow(clippy::const_is_empty)]
     fn empty_principal_id_returns_invalid_argument() {
         let result: Result<(), _> = if "".is_empty() {
             Err(ClientError::InvalidArgument("must not be empty".into()))

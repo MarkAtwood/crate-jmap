@@ -244,7 +244,7 @@ fn calendar_event_minimal() {
     assert_eq!(id_val.as_ref(), "event-001");
     let cals = ev.calendar_ids.as_ref().expect("calendarIds");
     assert_eq!(cals.len(), 1);
-    assert_eq!(*cals.values().next().expect("first value"), true);
+    assert!(*cals.values().next().expect("first value"));
 }
 
 /// An all-fields-None (empty) CalendarEvent deserializes without error

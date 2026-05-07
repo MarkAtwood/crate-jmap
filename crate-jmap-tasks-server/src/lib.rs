@@ -218,7 +218,7 @@ pub(crate) mod test_support {
             let mut guard = self.state.lock().unwrap();
             let acct = guard
                 .entry(account_id.to_owned())
-                .or_insert_with(AccountState::default);
+                .or_default();
             acct.notifications.insert(Id::from(notif_id), notif);
         }
 
@@ -234,7 +234,7 @@ pub(crate) mod test_support {
             let mut guard = self.state.lock().unwrap();
             let acct = guard
                 .entry(account_id.to_owned())
-                .or_insert_with(AccountState::default);
+                .or_default();
             acct.tasks.insert(Id::from(task_id), task);
         }
 
@@ -259,7 +259,7 @@ pub(crate) mod test_support {
             let mut guard = self.state.lock().unwrap();
             let acct = guard
                 .entry(account_id.to_owned())
-                .or_insert_with(AccountState::default);
+                .or_default();
             acct.task_lists.insert(Id::from(list_id), task_list);
             // Add a task referencing the list
             let task: Task = serde_json::from_value(serde_json::json!({

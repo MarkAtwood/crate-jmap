@@ -329,7 +329,7 @@ mod tests {
     /// Oracle: Email/set with destroy list sends destroy array in args.
     #[test]
     fn email_set_destroy_request_shape() {
-        let destroy_ids = vec!["e1", "e2"];
+        let destroy_ids = ["e1", "e2"];
         let destroy_val = serde_json::Value::Array(
             destroy_ids
                 .iter()
