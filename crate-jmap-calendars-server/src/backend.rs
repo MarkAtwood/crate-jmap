@@ -110,7 +110,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// types unconditionally can return `true` always.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
-    /// Returns `true` if `prop` is a per-user [`CalendarEvent`] property
+    /// Returns `true` if `prop` is a per-user [`CalendarEvent`](jmap_calendars_types::CalendarEvent) property
     /// (draft-ietf-jmap-calendars-26 §5.4).
     ///
     /// Per-user properties — `keywords`, `color`, `freeBusyStatus`,
@@ -123,7 +123,7 @@ pub trait CalendarsBackend: JmapBackend {
         )
     }
 
-    /// Apply a patch that contains only per-user [`CalendarEvent`] properties
+    /// Apply a patch that contains only per-user [`CalendarEvent`](jmap_calendars_types::CalendarEvent) properties
     /// (draft-ietf-jmap-calendars-26 §5.4).
     ///
     /// Default implementation delegates to `update_object`. Backends serving
@@ -152,7 +152,7 @@ pub trait CalendarsBackend: JmapBackend {
         calendar_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send;
 
-    /// Compute `utcStart` and `utcEnd` for a [`CalendarEvent`] by converting the
+    /// Compute `utcStart` and `utcEnd` for a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) by converting the
     /// event's `start`/`duration` fields and time zone into UTC
     /// (draft-ietf-jmap-calendars-26 §5.2).
     ///
@@ -223,7 +223,7 @@ pub trait CalendarsBackend: JmapBackend {
 
 /// Result of a `CalendarEvent/parse` operation (draft-ietf-jmap-calendars-26 §5.13).
 pub struct ParseResult {
-    /// Successfully parsed: blobId → list of parsed [`CalendarEvent`]s.
+    /// Successfully parsed: blobId → list of parsed [`CalendarEvent`](jmap_calendars_types::CalendarEvent)s.
     pub parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
     /// Blob IDs that were not found in the blob store.
     pub not_found: Vec<jmap_types::Id>,

@@ -131,7 +131,7 @@ pub trait TasksBackend: JmapBackend {
         false
     }
 
-    /// Compute `utcStart` and `utcDue` for a [`Task`] by converting the task's
+    /// Compute `utcStart` and `utcDue` for a [`Task`](jmap_tasks_types::Task) by converting the task's
     /// `start`/`due` local-time fields and time zone into UTC (draft-tasks-06 §4,
     /// lines 739-772).
     ///

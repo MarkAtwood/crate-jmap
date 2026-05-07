@@ -67,7 +67,7 @@ pub enum ClientError {
     /// WebSocket. Indicates a caller bug — the data structure contains
     /// non-serializable values. Not retriable.
     ///
-    /// This error is only returned by [`WsSession::send_request`]; the HTTP
+    /// This error is only returned by [`WsSession::send_request`](crate::WsSession::send_request); the HTTP
     /// `call()` path delegates serialization to reqwest, which surfaces
     /// serialization failures as [`ClientError::Http`].
     ///
@@ -76,7 +76,7 @@ pub enum ClientError {
     Serialize(serde_json::Error),
 
     /// An SSE frame exceeded the configured buffer limit
-    /// ([`ClientConfig::max_sse_frame`]). The stream is terminated after this
+    /// ([`ClientConfig::max_sse_frame`](crate::ClientConfig::max_sse_frame)). The stream is terminated after this
     /// error. Indicates a misbehaving or hostile server.
     #[error("SSE frame too large (limit: {limit} bytes)")]
     SseFrameTooLarge { limit: usize },

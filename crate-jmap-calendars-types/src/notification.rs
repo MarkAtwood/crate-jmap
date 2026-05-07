@@ -134,7 +134,7 @@ pub struct CalendarAlert {
     /// non-recurring events.
     pub recurrence_id: Option<String>,
 
-    /// Id of the [`Alert`] object within the CalendarEvent that is firing.
+    /// Id of the [`Alert`](crate::Alert) object within the CalendarEvent that is firing.
     pub alert_id: String,
 }
 

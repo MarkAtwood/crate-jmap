@@ -40,7 +40,7 @@ pub trait SharingBackend: JmapBackend {
     /// # Invariant
     ///
     /// The returned `O` MUST have its `id` field set to the server-assigned
-    /// [`Id`] returned as the first element of the tuple.  The handler relies
+    /// [`Id`](jmap_types::Id) returned as the first element of the tuple.  The handler relies
     /// on this to populate the `created` response map per RFC 8620 §5.3:
     /// the `id` is visible to the client only through the returned object's
     /// fields, not through the tuple's `Id` element.
