@@ -2,7 +2,7 @@
 
 JMAP Calendars ([draft-ietf-jmap-calendars-26]) method handlers for Rust.
 Backend-agnostic — plugs into `jmap-server::Dispatcher`. Implements all
-20 Calendars method names.
+19 Calendars method names.
 
 Storage-agnostic — consumers implement the `CalendarsBackend` trait for their
 own data layer.
@@ -18,7 +18,7 @@ use jmap_server::Dispatcher;
 struct MyBackend { /* db pool, etc. */ }
 impl CalendarsBackend for MyBackend { /* ... */ }
 
-// 2. Wire all 20 Calendars methods into a Dispatcher in one call.
+// 2. Wire all 19 Calendars methods into a Dispatcher in one call.
 let mut dispatcher: Dispatcher<()> = Dispatcher::new();
 register_calendars_handlers(&mut dispatcher, Arc::new(MyBackend { /* ... */ }));
 
@@ -32,7 +32,7 @@ parts of your application.
 
 ## Registered methods
 
-All 20 method names are registered:
+All 19 method names are registered:
 
 | Object | Methods |
 |---|---|
@@ -189,10 +189,12 @@ JMAP method-level errors defined in draft §2.2.
 
 ### Registration
 
-`register_calendars_handlers` uses a `ClosureHandler` (provided by
+`register_calendars_handlers` uses `ClosureHandlerWithCtx` (provided by
 `jmap-server`) to wrap each handler function and `Arc<B>` into a
-`JmapHandler<C>` and registers it with the dispatcher. One `Arc::clone` per
-method name; no heap allocation per request.
+`JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
+`CallerCtx` value is forwarded into each closure as `_ctx`; the standard
+`handle_*` handler bodies receive `(Arc<B>, call_id, args)` only. One
+`Arc::clone` per method name; no heap allocation per request.
 
 ### Per-user property routing
 
@@ -258,13 +260,6 @@ variants to the appropriate JMAP method-level errors.
 - **`get_availability` default returns an empty list** —
   `Principal/getAvailability` always returns no busy periods unless the
   backend overrides this method with real free/busy data.
-
-- **`CallerCtx` is not forwarded.** `register_calendars_handlers` discards
-  the `CallerCtx` value from each dispatch. Handler closures receive only
-  `(Arc<B>, call_id, args)`; the `caller: C` value is not forwarded. If
-  per-request context (auth identity, tenant id, rate-limit token) is needed,
-  implement `JmapHandler<C>` directly and register with
-  `dispatcher.register(method_name, Arc::new(your_handler))`.
 
 - **`expandRecurrences` query argument** — the handler passes this flag to
   `query_objects` as part of the filter, but recurring event expansion is

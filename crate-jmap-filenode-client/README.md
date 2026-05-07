@@ -6,11 +6,14 @@ all 6 JMAP FileNode method names.
 
 ## Usage
 
-```rust
+```rust,no_run
+use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_filenode_client::{JmapFileNodeExt, FileNodeSetParams, FileNodeOnExists};
 
+# async fn run() -> Result<(), Box<dyn std::error::Error>> {
 // 1. Build a JmapClient (auth, base URL — see jmap-base-client docs).
-let client = jmap_base_client::JmapClient::new(/* ... */);
+let auth = BearerAuth::new("my-token")?;
+let client = JmapClient::new_plain(auth, "https://jmap.example.com", ClientConfig::default())?;
 
 // 2. Fetch the session object.
 let session = client.fetch_session().await?;
@@ -45,6 +48,8 @@ sc.file_node_set(
     None,
     Some(params),
 ).await?;
+# Ok(())
+# }
 ```
 
 ## Methods

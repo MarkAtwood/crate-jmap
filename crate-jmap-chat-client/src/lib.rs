@@ -1,5 +1,6 @@
-// jmap-chat-client — auth-agnostic JMAP Chat HTTP client with WebSocket and SSE support.
-// See PLAN.md for the full implementation plan.
+//! jmap-chat-client — auth-agnostic JMAP Chat HTTP client with WebSocket and SSE support.
+//!
+//! See PLAN.md for the full implementation plan.
 
 #![forbid(unsafe_code)]
 
@@ -10,6 +11,7 @@ pub mod types;
 pub mod utils;
 pub mod ws;
 
+pub use jmap_base_client::ClientError;
 pub use methods::{
     AddedItem, ChangesResponse, GetResponse, Patch, PushSubscriptionCreateResponse,
     QueryChangesResponse, QueryResponse, SessionClient, SetError, SetResponse, SpaceJoinResponse,

@@ -12,24 +12,16 @@ JSContact ([RFC 9553]). Types only — no method handlers, no async, no network 
 | `ContactCard` | `card` | RFC 9610 §3, RFC 9553 §2 |
 | `ContactCardFilterCondition` | `card` | RFC 9610 §3.3.1 |
 | `ContactCardComparator` | `card` | RFC 9610 §3.3 |
+| `AddressBookProperty` | `backend` | RFC 9610 §2 |
+| `ContactCardProperty` | `backend` | RFC 9610 §3, RFC 9553 §2 |
 | `ContactsCapability` | `capability` | RFC 9610 §1.4.1 |
 | `ContactsAccountCapability` | `capability` | RFC 9610 §1.4.1 |
-| `Name`, `NameComponent` | `jscontact::name` | RFC 9553 §2.2.1 |
-| `Nickname` | `jscontact::nickname` | RFC 9553 §2.2.2 |
-| `Organization`, `OrgUnit` | `jscontact::org` | RFC 9553 §2.2.3 |
-| `SpeakToAs`, `Pronouns` | `jscontact::speak_to` | RFC 9553 §2.2.4 |
-| `Title` | `jscontact::title` | RFC 9553 §2.2.5 |
-| `EmailAddress` | `jscontact::email` | RFC 9553 §2.3.1 |
-| `OnlineService` | `jscontact::online` | RFC 9553 §2.3.2 |
-| `Phone` | `jscontact::phone` | RFC 9553 §2.3.3 |
-| `LanguagePref` | `jscontact::lang` | RFC 9553 §2.3.4 |
-| `Address`, `AddressComponent` | `jscontact::address` | RFC 9553 §2.5.1 |
-| `Calendar`, `SchedulingAddress` | `jscontact::calendar` | RFC 9553 §2.4 |
-| `CryptoKey`, `Directory`, `Link`, `Media` | `jscontact::resource` | RFC 9553 §2.6 |
-| `Anniversary`, `PartialDate` | `jscontact::anniversary` | RFC 9553 §2.8.1 |
-| `Note` | `jscontact::note` | RFC 9553 §2.8.3 |
-| `PersonalInfo` | `jscontact::personal` | RFC 9553 §2.8.4 |
-| `Relation` | `jscontact::relation` | RFC 9553 §2.1.8 |
+| `JMAP_CONTACTS_URI` const | `capability` | RFC 9610 §1.4.1 |
+
+JSContact sub-objects (`Name`, `EmailAddress`, `Phone`, `Address`, etc.) are
+**not** exported as typed structs from this crate. Sub-object fields on
+`ContactCard` are `Option<serde_json::Value>` — see
+[Known Limitations](#known-limitations) below.
 
 ## Spec coverage
 
@@ -37,16 +29,12 @@ JSContact ([RFC 9553]). Types only — no method handlers, no async, no network 
 |---|---|
 | `AddressBook` object (RFC 9610 §2) | Complete |
 | `AddressBookRights` (4 boolean fields) | Complete |
-| `ContactCard` JMAP wrapper (RFC 9610 §3) | Complete |
-| JSContact `Name`, `Organization`, `Title` | Complete |
-| JSContact `EmailAddress`, `Phone`, `OnlineService` | Complete |
-| JSContact `Address` | Complete |
-| JSContact `Calendar`, `SchedulingAddress` | Complete |
-| JSContact `CryptoKey`, `Directory`, `Link`, `Media` | Complete |
-| JSContact `Anniversary`, `PartialDate` | Complete |
-| JSContact `Note`, `PersonalInfo`, `Relation` | Complete |
+| `ContactCard` JMAP wrapper (RFC 9610 §3) | Complete (sub-objects as `Value`) |
 | `ContactCardFilterCondition` with slash-keyed fields | Complete |
+| `ContactCardComparator` | Complete |
+| `AddressBookProperty` / `ContactCardProperty` enums | Complete |
 | `ContactsCapability` / `ContactsAccountCapability` | Complete |
+| Typed JSContact sub-object structs (RFC 9553 §2) | Not provided — fields are `serde_json::Value` |
 | vCard/jCard import-export | Out of scope |
 | JSContact-to-vCard conversion (RFC 9555) | Out of scope |
 
@@ -152,28 +140,18 @@ collection field (`name`, `emails`, `phones`, `addresses`, `organizations`,
 `extensions`). This keeps deserialization infallible for partial JMAP responses
 and for JSContact extensions the crate does not know about.
 
-Typed sub-object structs (`Name`, `EmailAddress`, `Phone`, `Address`, etc.) are
-defined in the `jscontact/` module and are exported from the crate root. They
-can be used independently — for example, when the caller knows a field is
-present and wants to deserialize it further:
+Typed Rust structs for JSContact sub-objects are **not** provided by this
+crate. Callers needing typed access to a sub-object (e.g. to extract a phone
+number or postal address) must deserialize the relevant `serde_json::Value`
+into their own struct, using RFC 9553 as the schema.
 
-```rust
-use jmap_contacts_types::jscontact::EmailAddress;
-// (hypothetical — the field is Value on ContactCard)
-```
+### Property enums
 
-### Enum open-endedness
-
-JSContact allows vendor-specific extension values in many string-enum fields.
-These are represented as `String` with named constants in a `mod consts`
-submodule, rather than closed Rust enums. Only sets that the spec declares
-non-extensible use actual enums; none exist in this spec.
-
-### @type discriminators
-
-`@type` fields on JSContact sub-objects are serialized with the correct literal
-value but not validated on deserialization. The type is implied by the context
-(an object in the `emails` map is always an `EmailAddress`).
+`AddressBookProperty` and `ContactCardProperty` enumerate the property names
+recognized by `AddressBook/get` and `ContactCard/get` requests, respectively.
+They are open-ended (a `Custom(String)` variant accepts vendor extensions) and
+serialize to the JSContact wire-format property name (including slash-keyed
+JSContact paths such as `name/given`).
 
 ## Known Limitations
 
@@ -181,15 +159,15 @@ value but not validated on deserialization. The type is implied by the context
 
 The following `ContactCard` fields are all `Option<serde_json::Value>`:
 
-`names`, `nicknames`, `emails`, `phones`, `addresses`, `organizations`,
+`name`, `nicknames`, `emails`, `phones`, `addresses`, `organizations`,
 `titles`, `notes`, `links`, `calendars`, `cryptoKeys`, `photos`,
 `preferredLanguages`, `localizations`, `anniversaries`, `keywords`,
 `extensions`
 
 Callers needing typed access to contact fields (e.g., to extract a phone
-number or postal address) must deserialize the `Value` themselves using
-RFC 9553 as the schema. The typed structs (`Phone`, `Address`, etc.) in the
-`jscontact/` module exist and can be used for this purpose.
+number or postal address) must deserialize the `Value` themselves into a
+struct of their own, using RFC 9553 as the schema. No typed sub-object
+structs are exported from this crate.
 
 ### No compile-time enforcement of JSContact field constraints
 
@@ -201,9 +179,9 @@ format strings) is the responsibility of the method handler layer
 ### Typed structs for ContactCard sub-objects are a future goal
 
 Typed Rust structs for JSContact sub-objects matching RFC 9553 §2.x are
-defined in the `jscontact/` module but are not yet used as the field types on
-`ContactCard` itself. The gap between the defined types and the `Value` fields
-on `ContactCard` is intentional and tracked for a future release.
+intentionally not provided in this release. The gap is tracked for a future
+release; until then, callers work with the `serde_json::Value` fields on
+`ContactCard` directly.
 
 ## Crate family
 

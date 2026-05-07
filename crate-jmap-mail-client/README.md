@@ -1,6 +1,6 @@
 # jmap-mail-client
 
-RFC 8620 typed client methods for JMAP Mail ([RFC 8621]). An extension trait on
+Typed JMAP client methods for JMAP Mail ([RFC 8621]). An extension trait on
 `jmap-base-client::JmapClient` that adds all 26 RFC 8621 method calls as typed
 async methods.
 

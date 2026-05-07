@@ -5,14 +5,15 @@ Typed client methods for JMAP Sharing ([RFC 9670]). Depends on
 
 ## Usage
 
-```rust
-use jmap_base_client::JmapClient;
+```rust,no_run
+use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_sharing_client::JmapSharingExt;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 1. Build a base client (handles auth, HTTP, session fetch).
-    let client = JmapClient::new("https://jmap.example.com/.well-known/jmap")?;
+    let auth = BearerAuth::new("my-token")?;
+    let client = JmapClient::new_plain(auth, "https://jmap.example.com", ClientConfig::default())?;
 
     // 2. Fetch the JMAP session document.
     let session = client.fetch_session().await?;
