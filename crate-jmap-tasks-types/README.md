@@ -17,8 +17,14 @@ JSCalendar Task subset ([RFC 8984]). Types only — no method handlers, no async
 | `Comment` | Comment attached to a Task |
 | `Person` | A person reference (name, email, kind) used in assignees and changed-by |
 | `TaskNotification` | Server-generated notification about a task change (§5) |
+| `NotificationType` | Enum of `TaskNotification` change kinds |
 | `TaskFilterCondition` | Filter arguments for `Task/query` (§4.13) |
 | `TaskNotificationFilterCondition` | Filter arguments for `TaskNotification/query` |
+| `TaskComparator` | Sort comparator for `Task/query` |
+| `TaskNotificationComparator` | Sort comparator for `TaskNotification/query` |
+| `TaskProperty` | Enum of legal `Task` property names for `properties` arrays |
+| `TaskListProperty` | Enum of legal `TaskList` property names |
+| `TaskNotificationProperty` | Enum of legal `TaskNotification` property names |
 | `TasksCapability` | Session-level capability object (empty `{}`) |
 | `TasksAccountCapability` | Account-level capability (minDateTime, maxDateTime, mayCreateTaskList) |
 | `TasksRecurrencesCapability` / `TasksRecurrencesAccountCapability` | Recurrences extension (§1.6.2) |
