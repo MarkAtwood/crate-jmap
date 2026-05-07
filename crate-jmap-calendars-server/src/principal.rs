@@ -13,7 +13,7 @@ use crate::helpers::extract_account_id;
 /// Handle a `Principal/getAvailability` method call
 /// (draft-ietf-jmap-calendars-26 §2.2).
 ///
-/// Returns an array of [`BusyPeriod`] objects for the time range
+/// Returns an array of [`BusyPeriod`](jmap_calendars_types::BusyPeriod) objects for the time range
 /// `[utcStart, utcEnd)` for the identified principal.  If `showDetails` is
 /// `false` (the default), the `event` and `accountId` fields within each
 /// `BusyPeriod` are omitted even when the backend populates them.

@@ -16,6 +16,8 @@ use super::GetResponse;
 /// Describes a storage limit that applies to one or more data types within
 /// a given scope.  Poll with [`SessionClient::quota_get`] to display storage
 /// usage in the UI and warn the user when approaching limits.
+///
+/// [`SessionClient::quota_get`]: super::SessionClient::quota_get
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Quota {

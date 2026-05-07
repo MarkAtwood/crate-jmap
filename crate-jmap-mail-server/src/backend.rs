@@ -12,7 +12,8 @@
 //!
 //! # isUnread convention
 //!
-//! When computing [`Mailbox::unread_emails`] and [`Mailbox::unread_threads`],
+//! When computing [`Mailbox::unread_emails`](jmap_mail_types::Mailbox::unread_emails)
+//! and [`Mailbox::unread_threads`](jmap_mail_types::Mailbox::unread_threads),
 //! backends MUST use the following definition (RFC 8621 §2 / jmapio/jmap-js
 //! `Message.js` lines 803–805):
 //!

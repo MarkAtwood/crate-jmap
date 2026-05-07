@@ -18,7 +18,7 @@ impl super::SessionClient {
     ///
     /// `filter` is the same filter object used in `Email/query`. Either
     /// `thread_ids` or `email_ids` (or both) may be provided to scope the
-    /// snippets; the server returns one [`SearchSnippet`] per email in the
+    /// snippets; the server returns one [`SearchSnippet`](jmap_mail_types::SearchSnippet) per email in the
     /// result set.
     ///
     /// Returns the raw response value because the SearchSnippet/get response
