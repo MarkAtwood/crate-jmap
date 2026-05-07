@@ -224,7 +224,7 @@ mod tests {
     /// Oracle: CalendarEventNotification/set with destroy list sends IDs.
     #[test]
     fn calendar_event_notification_set_with_destroy_sends_ids() {
-        let ids = vec!["notif1", "notif2"];
+        let ids = ["notif1", "notif2"];
         let destroy_val = serde_json::Value::Array(
             ids.iter()
                 .map(|id| serde_json::Value::String((*id).to_owned()))

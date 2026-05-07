@@ -967,7 +967,7 @@ async fn mailbox_set_destroy_with_emails_no_flag_fails() {
     let blob_id = Id::from("blob-nodestroy");
     backend.store_blob(&blob_id, msg.to_vec());
     backend
-        .import_email(&account_id, &blob_id, &[mb_id.clone()], &[], None)
+        .import_email(&account_id, &blob_id, std::slice::from_ref(&mb_id), &[], None)
         .await
         .expect("import_email");
 
@@ -1024,7 +1024,7 @@ async fn mailbox_set_destroy_with_emails_with_flag_succeeds() {
     let blob_id = Id::from("blob-cascade");
     backend.store_blob(&blob_id, msg.to_vec());
     let (email_id, _) = backend
-        .import_email(&account_id, &blob_id, &[mb_id.clone()], &[], None)
+        .import_email(&account_id, &blob_id, std::slice::from_ref(&mb_id), &[], None)
         .await
         .expect("import_email");
 
@@ -2332,7 +2332,7 @@ async fn submission_set_on_success_update_email() {
 
     // Oracle: the email no longer has $draft keyword.
     let (emails, _) = backend
-        .get_objects::<jmap_mail_types::Email>(&account_id, Some(&[email_id.clone()]), None)
+        .get_objects::<jmap_mail_types::Email>(&account_id, Some(std::slice::from_ref(&email_id)), None)
         .await
         .expect("get_objects");
     assert_eq!(emails.len(), 1);
@@ -3179,7 +3179,7 @@ async fn email_set_update_keywords() {
     assert!(
         upd_resp["updated"]
             .as_object()
-            .map_or(false, |m| m.contains_key(&email_id)),
+            .is_some_and(|m| m.contains_key(&email_id)),
         "email must appear in updated"
     );
 
@@ -6702,7 +6702,7 @@ async fn submission_set_failed_create_does_not_apply_on_success_update_email() {
 
     // Oracle 3: the email's keywords are unchanged (no $seen keyword added).
     let (emails, _) = backend
-        .get_objects::<jmap_mail_types::Email>(&account_id, Some(&[email_id.clone()]), None)
+        .get_objects::<jmap_mail_types::Email>(&account_id, Some(std::slice::from_ref(&email_id)), None)
         .await
         .expect("get_objects must not fail");
     assert_eq!(emails.len(), 1, "email must still exist");
@@ -9012,7 +9012,7 @@ async fn conformance_mailbox_set_destroy_with_children() {
 
     // Oracle: destroyed must not contain folderA.
     let destroyed = resp["destroyed"].as_array();
-    let is_in_destroyed = destroyed.map_or(false, |arr| {
+    let is_in_destroyed = destroyed.is_some_and(|arr| {
         arr.iter().any(|v| v.as_str() == Some(folder_a_id.as_str()))
     });
     assert!(!is_in_destroyed, "folderA must not appear in destroyed");
@@ -10114,7 +10114,7 @@ async fn conformance_email_set_update_mailbox_ids() {
     assert!(
         upd_resp["updated"]
             .as_object()
-            .map_or(false, |m| m.contains_key(&email_id)),
+            .is_some_and(|m| m.contains_key(&email_id)),
         "email must be in updated; notUpdated={:?}",
         upd_resp["notUpdated"]
     );
@@ -10195,7 +10195,7 @@ async fn conformance_email_set_update_adds_keyword() {
     assert!(
         upd_resp["updated"]
             .as_object()
-            .map_or(false, |m| m.contains_key(&email_id)),
+            .is_some_and(|m| m.contains_key(&email_id)),
         "email must be in updated; notUpdated={:?}",
         upd_resp["notUpdated"]
     );
@@ -10270,7 +10270,7 @@ async fn conformance_email_set_update_removes_keyword() {
     assert!(
         upd_resp["updated"]
             .as_object()
-            .map_or(false, |m| m.contains_key(&email_id)),
+            .is_some_and(|m| m.contains_key(&email_id)),
         "email must be in updated; notUpdated={:?}",
         upd_resp["notUpdated"]
     );

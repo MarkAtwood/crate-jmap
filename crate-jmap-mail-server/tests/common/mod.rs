@@ -1782,9 +1782,9 @@ fn try_rfc3339_to_epoch_secs(s: &str) -> Option<i64> {
     let is_leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
     const MONTH_DAYS: [i64; 12] = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
     let mut days_in_year: i64 = 0;
-    for m in 0..(month - 1) as usize {
+    for (m, days) in MONTH_DAYS.iter().enumerate().take((month - 1) as usize) {
         let extra = if m == 1 && is_leap { 1 } else { 0 };
-        days_in_year += MONTH_DAYS[m] + extra;
+        days_in_year += days + extra;
     }
 
     let total_days = days_to_year_start + days_in_year + (day - 1);

@@ -97,7 +97,7 @@ async fn memory_backend_create_then_get() {
         .expect("create_object");
 
     let (found, not_found) = backend
-        .get_objects::<Chat>(&account_id, Some(&[server_id.clone()]), None)
+        .get_objects::<Chat>(&account_id, Some(std::slice::from_ref(&server_id)), None)
         .await
         .expect("get_objects");
 

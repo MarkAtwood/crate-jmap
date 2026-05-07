@@ -358,7 +358,7 @@ mod tests {
 
         let ab_ids = card.address_book_ids.as_ref().unwrap();
         let ab_key: Id = Id::from("062adcfa-105d-455c-bc60-6db68b69c3f3");
-        assert_eq!(ab_ids[&ab_key], true);
+        assert!(ab_ids[&ab_key]);
 
         // name is a serde_json::Value
         let name = card.name.as_ref().unwrap();
@@ -388,9 +388,8 @@ mod tests {
         let card: ContactCard = serde_json::from_str(json).unwrap();
         assert_eq!(card.kind.as_deref(), Some("group"));
         let members = card.members.as_ref().unwrap();
-        assert_eq!(
-            members["urn:uuid:03a0e51f-d1aa-4385-8a53-e29025acd8af"],
-            true
+        assert!(
+            members["urn:uuid:03a0e51f-d1aa-4385-8a53-e29025acd8af"]
         );
         assert_eq!(members.len(), 2);
     }

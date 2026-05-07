@@ -314,7 +314,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[inbox_id.clone()],
+            std::slice::from_ref(&inbox_id),
             &[seen()],
             Some(&date(ts::DAYS_AGO_10)),
         )
@@ -349,7 +349,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[inbox_id.clone()],
+            std::slice::from_ref(&inbox_id),
             &[seen(), flagged()],
             Some(&date(ts::DAYS_AGO_9)),
         )
@@ -379,7 +379,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[folder_a_id.clone()],
+            std::slice::from_ref(&folder_a_id),
             &[seen()],
             Some(&date(ts::DAYS_AGO_8)),
         )
@@ -412,7 +412,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[inbox_id.clone()],
+            std::slice::from_ref(&inbox_id),
             &[],
             Some(&date(ts::DAYS_AGO_7)),
         )
@@ -446,7 +446,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[inbox_id.clone()],
+            std::slice::from_ref(&inbox_id),
             &[answered()],
             Some(&date(ts::DAYS_AGO_6)),
         )
@@ -510,7 +510,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[folder_b_id.clone()],
+            std::slice::from_ref(&folder_b_id),
             &[],
             Some(&date(ts::DAYS_AGO_4)),
         )
@@ -541,7 +541,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[inbox_id.clone()],
+            std::slice::from_ref(&inbox_id),
             &[seen()],
             Some(&date(ts::DAYS_AGO_3)),
         )
@@ -571,7 +571,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[inbox_id.clone()],
+            std::slice::from_ref(&inbox_id),
             &[seen()],
             Some(&date(ts::DAYS_AGO_2)),
         )
@@ -601,7 +601,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[inbox_id.clone()],
+            std::slice::from_ref(&inbox_id),
             &[seen(), forwarded(), kw("custom_label")],
             Some(&date(ts::DAYS_AGO_1)),
         )
@@ -631,7 +631,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[folder_a_id.clone()],
+            std::slice::from_ref(&folder_a_id),
             &[seen()],
             Some(&date(ts::DAYS_AGO_30)),
         )
@@ -663,7 +663,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[inbox_id.clone()],
+            std::slice::from_ref(&inbox_id),
             &[seen()],
             Some(&date(ts::DAYS_AGO_1_MINUS_1H)),
         )
@@ -693,7 +693,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[child1_id.clone()],
+            std::slice::from_ref(&child1_id),
             &[seen()],
             Some(&date(ts::DAYS_AGO_5)),
         )
@@ -723,7 +723,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[folder_b_id.clone()],
+            std::slice::from_ref(&folder_b_id),
             &[seen()],
             Some(&date(ts::DAYS_AGO_3)),
         )
@@ -753,7 +753,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[folder_b_id.clone()],
+            std::slice::from_ref(&folder_b_id),
             &[seen(), flagged()],
             Some(&date(ts::DAYS_AGO_2)),
         )
@@ -783,7 +783,7 @@ pub async fn setup_seed_data(backend: &MemoryBackend, account_id: &Id) -> SeedDa
         .import_email(
             account_id,
             &blob_id,
-            &[folder_b_id.clone()],
+            std::slice::from_ref(&folder_b_id),
             &[],
             Some(&date(ts::DAYS_AGO_1)),
         )

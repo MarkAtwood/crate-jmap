@@ -713,8 +713,8 @@ mod tests {
             .as_ref()
             .expect("created_ids must be Some when client sent createdIds");
         assert_eq!(
-            ids.get(&Id::try_from("client-1").unwrap()),
-            Some(&Id::try_from("server-abc").unwrap()),
+            ids.get(&Id::from("client-1")),
+            Some(&Id::from("server-abc")),
             "client-1 must map to server-abc"
         );
     }
@@ -759,13 +759,13 @@ mod tests {
             .as_ref()
             .expect("created_ids must be Some when client sent createdIds");
         assert_eq!(
-            ids.get(&Id::try_from("cA").unwrap()),
-            Some(&Id::try_from("sA").unwrap()),
+            ids.get(&Id::from("cA")),
+            Some(&Id::from("sA")),
             "cA must be present"
         );
         assert_eq!(
-            ids.get(&Id::try_from("cB").unwrap()),
-            Some(&Id::try_from("sB").unwrap()),
+            ids.get(&Id::from("cB")),
+            Some(&Id::from("sB")),
             "cB must be present"
         );
     }
@@ -784,8 +784,8 @@ mod tests {
         // Client sends a pre-populated createdIds map.
         let mut initial = std::collections::HashMap::new();
         initial.insert(
-            Id::try_from("client-old").unwrap(),
-            Id::try_from("server-old").unwrap(),
+            Id::from("client-old"),
+            Id::from("server-old"),
         );
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
@@ -798,13 +798,13 @@ mod tests {
             .as_ref()
             .expect("created_ids must be Some when client sent createdIds");
         assert_eq!(
-            ids.get(&Id::try_from("client-old").unwrap()),
-            Some(&Id::try_from("server-old").unwrap()),
+            ids.get(&Id::from("client-old")),
+            Some(&Id::from("server-old")),
             "pre-populated entry must be preserved"
         );
         assert_eq!(
-            ids.get(&Id::try_from("client-new").unwrap()),
-            Some(&Id::try_from("server-new").unwrap()),
+            ids.get(&Id::from("client-new")),
+            Some(&Id::from("server-new")),
             "new /set entry must be merged in"
         );
     }

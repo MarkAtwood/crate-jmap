@@ -207,7 +207,7 @@ pub(crate) mod test_support {
             let mut guard = self.state.lock().unwrap();
             let acct = guard
                 .entry(account_id.to_owned())
-                .or_insert_with(AccountState::default);
+                .or_default();
             acct.contact_cards.insert(Id::from(card_id), card);
         }
 
@@ -231,7 +231,7 @@ pub(crate) mod test_support {
             let mut guard = self.state.lock().unwrap();
             let acct = guard
                 .entry(account_id.to_owned())
-                .or_insert_with(AccountState::default);
+                .or_default();
             acct.addressbooks.insert(Id::from(book_id), book);
         }
     }

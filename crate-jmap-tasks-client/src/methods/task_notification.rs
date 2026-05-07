@@ -193,7 +193,7 @@ mod tests {
     /// Oracle: empty id in destroy returns InvalidArgument.
     #[test]
     fn task_notification_set_empty_destroy_id_returns_invalid_argument() {
-        let destroy = vec![""];
+        let destroy = [""];
         let result: Result<(), jmap_base_client::ClientError> = {
             let mut err = None;
             for id in destroy.iter() {

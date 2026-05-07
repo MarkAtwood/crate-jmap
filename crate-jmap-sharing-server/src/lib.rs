@@ -216,7 +216,7 @@ pub(crate) mod test_support {
             let mut guard = self.state.lock().unwrap();
             let acct = guard
                 .entry(account_id.to_owned())
-                .or_insert_with(AccountState::default);
+                .or_default();
             acct.notifications.insert(Id::from(notif_id), notif);
         }
     }

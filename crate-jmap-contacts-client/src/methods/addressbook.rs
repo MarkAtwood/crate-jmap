@@ -228,7 +228,7 @@ mod tests {
     /// Oracle: AddressBook/set with destroy list sends destroy array in args.
     #[test]
     fn address_book_set_destroy_request_shape() {
-        let destroy_ids = vec!["id1", "id2"];
+        let destroy_ids = ["id1", "id2"];
         let destroy_val = serde_json::Value::Array(
             destroy_ids
                 .iter()
