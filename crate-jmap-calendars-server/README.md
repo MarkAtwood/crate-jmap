@@ -272,8 +272,7 @@ variants to the appropriate JMAP method-level errors.
 Include these in your Session object's `capabilities` map:
 
 ```rust
-pub const CAPABILITY_CALENDARS: &str = "urn:ietf:params:jmap:calendars";
-// Also from jmap-calendars-types:
+// Re-exported from jmap-calendars-types:
 pub const JMAP_CALENDARS_URI: &str         = "urn:ietf:params:jmap:calendars";
 pub const JMAP_CALENDARS_PARSE_URI: &str   = "urn:ietf:params:jmap:calendars:parse";
 pub const JMAP_PRINCIPALS_AVAILABILITY_URI: &str

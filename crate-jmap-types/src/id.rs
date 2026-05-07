@@ -6,6 +6,7 @@ use std::fmt;
 /// Error returned by the fallible constructors [`Id::new_validated`],
 /// [`UTCDate::new_validated`], and [`State::new_validated`].
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct ValidationError(pub String);
 
 impl fmt::Display for ValidationError {

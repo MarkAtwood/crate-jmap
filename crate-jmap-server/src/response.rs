@@ -82,6 +82,7 @@ pub fn error_status(err: &JmapError) -> StatusCode {
 /// with the RFC 7807 Problem Details body.  Any HTTP framework that works with
 /// the `http` crate (axum, hyper, warp, etc.) accepts this directly.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct RequestError {
     status: StatusCode,
     err: JmapError,

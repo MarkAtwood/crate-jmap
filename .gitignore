@@ -6,3 +6,5 @@
 target/
 # OpenCode agent worktrees
 .claude/
+# Per-session audit / scratch artifacts
+audit/

@@ -44,7 +44,7 @@ pub use task_notification::{
 };
 
 /// Capability URI for `urn:ietf:params:jmap:tasks`.
-pub const CAPABILITY_TASKS: &str = "urn:ietf:params:jmap:tasks";
+pub use jmap_tasks_types::JMAP_TASKS_URI;
 
 // ---------------------------------------------------------------------------
 // register_tasks_handlers — the main entry point for consumers

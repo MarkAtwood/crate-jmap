@@ -187,8 +187,9 @@ and register with `dispatcher.register(method_name, Arc::new(your_handler))`.
 Include these in your Session object's `capabilities` map:
 
 ```rust
-pub const CAPABILITY_TASKS: &str = "urn:ietf:params:jmap:tasks";
-// Sub-extension URIs (from jmap-tasks-types):
+// Re-exported from jmap-tasks-types:
+pub const JMAP_TASKS_URI: &str = "urn:ietf:params:jmap:tasks";
+// Sub-extension URIs (also from jmap-tasks-types):
 // JMAP_TASKS_RECURRENCES_URI, JMAP_TASKS_ASSIGNEES_URI,
 // JMAP_TASKS_ALERTS_URI, JMAP_TASKS_MULTILINGUAL_URI,
 // JMAP_TASKS_CUSTOMTIMEZONES_URI

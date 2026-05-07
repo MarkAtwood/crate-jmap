@@ -43,10 +43,10 @@ pub use principal::{
 };
 
 /// Capability URI for `urn:ietf:params:jmap:principals`.
-pub const CAPABILITY_PRINCIPALS: &str = "urn:ietf:params:jmap:principals";
+pub use jmap_sharing_types::JMAP_PRINCIPALS_URI;
 
 /// Capability URI for `urn:ietf:params:jmap:principals:owner`.
-pub const CAPABILITY_PRINCIPALS_OWNER: &str = "urn:ietf:params:jmap:principals:owner";
+pub use jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI;
 
 // ---------------------------------------------------------------------------
 // register_sharing_handlers — the main entry point for consumers

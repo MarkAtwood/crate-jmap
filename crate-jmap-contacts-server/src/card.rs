@@ -531,7 +531,7 @@ mod tests {
         use jmap_server::{Dispatcher, JmapRequest, State};
 
         use crate::register_contacts_handlers;
-        use crate::CAPABILITY_CONTACTS;
+        use crate::JMAP_CONTACTS_URI;
 
         let mut backend = MockBackend::new_with_account("acc1");
         backend.add_account("acc2");
@@ -541,7 +541,7 @@ mod tests {
         register_contacts_handlers(&mut dispatcher, Arc::new(backend));
 
         let req = JmapRequest::new(
-            vec![CAPABILITY_CONTACTS.into()],
+            vec![JMAP_CONTACTS_URI.into()],
             vec![(
                 "ContactCard/copy".into(),
                 json!({
@@ -584,7 +584,7 @@ mod tests {
         use jmap_server::{Dispatcher, JmapRequest, State};
 
         use crate::register_contacts_handlers;
-        use crate::CAPABILITY_CONTACTS;
+        use crate::JMAP_CONTACTS_URI;
 
         let mut backend = MockBackend::new_with_account("acc1");
         backend.add_account("acc2");
@@ -594,7 +594,7 @@ mod tests {
         register_contacts_handlers(&mut dispatcher, Arc::new(backend));
 
         let req = JmapRequest::new(
-            vec![CAPABILITY_CONTACTS.into()],
+            vec![JMAP_CONTACTS_URI.into()],
             vec![(
                 "ContactCard/copy".into(),
                 json!({

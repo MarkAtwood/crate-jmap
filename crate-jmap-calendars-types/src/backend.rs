@@ -12,6 +12,7 @@ use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
 
 /// Property selector for [`crate::Calendar`] `/get` and `/set`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CalendarProperty {
     Id,
     Name,
@@ -31,6 +32,7 @@ pub enum CalendarProperty {
 
 /// Property selector for [`crate::CalendarEvent`] `/get` and `/set`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CalendarEventProperty {
     Id,
     BaseEventId,
@@ -54,6 +56,7 @@ pub enum CalendarEventProperty {
 
 /// Property selector for [`crate::CalendarEventNotification`] `/get`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum CalendarEventNotificationProperty {
     Id,
     Created,
@@ -68,6 +71,7 @@ pub enum CalendarEventNotificationProperty {
 
 /// Property selector for [`crate::ParticipantIdentity`] `/get` and `/set`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ParticipantIdentityProperty {
     Id,
     Name,

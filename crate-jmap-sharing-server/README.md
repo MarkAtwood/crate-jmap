@@ -158,12 +158,13 @@ single-default invariant to enforce.
 Include these in your Session object's `capabilities` map:
 
 ```rust
-pub const CAPABILITY_PRINCIPALS: &str = "urn:ietf:params:jmap:principals";
-pub const CAPABILITY_PRINCIPALS_OWNER: &str = "urn:ietf:params:jmap:principals:owner";
+// Re-exported from jmap-sharing-types:
+pub const JMAP_PRINCIPALS_URI: &str       = "urn:ietf:params:jmap:principals";
+pub const JMAP_PRINCIPALS_OWNER_URI: &str = "urn:ietf:params:jmap:principals:owner";
 ```
 
-`CAPABILITY_PRINCIPALS` indicates the server supports Principal and
-ShareNotification objects. `CAPABILITY_PRINCIPALS_OWNER` indicates the server
+`JMAP_PRINCIPALS_URI` indicates the server supports Principal and
+ShareNotification objects. `JMAP_PRINCIPALS_OWNER_URI` indicates the server
 also supports creating and managing Principals (not just reading them).
 
 ## CallerCtx

@@ -793,7 +793,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "wiremock",
 ]
@@ -830,7 +829,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "ulid",
  "wiremock",
@@ -845,7 +843,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
 ]
 
@@ -867,7 +864,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "wiremock",
 ]
@@ -881,7 +877,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
 ]
 
@@ -903,7 +898,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "wiremock",
 ]
@@ -917,7 +911,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
 ]
 
@@ -939,7 +932,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "wiremock",
 ]
@@ -955,7 +947,6 @@ dependencies = [
  "mime-tree",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "uuid",
 ]
@@ -999,7 +990,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "wiremock",
 ]
@@ -1013,7 +1003,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
 ]
 
@@ -1035,7 +1024,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
  "wiremock",
 ]
@@ -1049,7 +1037,6 @@ dependencies = [
  "jmap-types",
  "serde",
  "serde_json",
- "thiserror",
  "tokio",
 ]
 

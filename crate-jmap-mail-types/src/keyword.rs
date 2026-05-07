@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 
 /// Error returned by [`Keyword::try_new`] when the input violates RFC 8621 §4.1.1.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum KeywordError {
     /// The keyword string is empty.
     Empty,

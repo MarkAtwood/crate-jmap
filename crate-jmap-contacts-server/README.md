@@ -181,7 +181,8 @@ Include this in your Session object's `capabilities` map when the contacts
 extension is available:
 
 ```rust
-pub const CAPABILITY_CONTACTS: &str = "urn:ietf:params:jmap:contacts";
+// Re-exported from jmap-contacts-types:
+pub const JMAP_CONTACTS_URI: &str = "urn:ietf:params:jmap:contacts";
 ```
 
 ## CallerCtx
