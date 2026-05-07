@@ -232,16 +232,22 @@ pub struct ParseResult {
 }
 
 /// Error type for [`CalendarsBackend::get_availability`] backend calls.
-#[derive(Debug)]
-pub enum AvailabilityError<E: std::error::Error> {
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
+pub enum AvailabilityError<E: std::error::Error + 'static> {
     /// The requested principal was not found.
+    #[error("principal not found")]
     NotFound,
     /// The caller is not permitted to query this principal's availability.
+    #[error("forbidden")]
     Forbidden,
     /// The requested time range is too large.
+    #[error("requested time range is too large")]
     TooLarge,
     /// Rate limit exceeded.
+    #[error("rate limit exceeded")]
     RateLimit,
     /// An unexpected backend error.
-    Other(E),
+    #[error("backend error: {0}")]
+    Other(#[source] E),
 }
