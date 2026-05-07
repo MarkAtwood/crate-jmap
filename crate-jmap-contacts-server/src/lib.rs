@@ -41,7 +41,7 @@ pub use card::{
 };
 
 /// Capability URI for `urn:ietf:params:jmap:contacts`.
-pub const CAPABILITY_CONTACTS: &str = "urn:ietf:params:jmap:contacts";
+pub use jmap_contacts_types::JMAP_CONTACTS_URI;
 
 // ---------------------------------------------------------------------------
 // register_contacts_handlers — the main entry point for consumers
@@ -472,7 +472,7 @@ mod tests {
 
     fn single_call(method: &str, args: serde_json::Value, call_id: &str) -> JmapRequest {
         JmapRequest::new(
-            vec![CAPABILITY_CONTACTS.into()],
+            vec![JMAP_CONTACTS_URI.into()],
             vec![(method.into(), args, call_id.into())],
             None,
         )

@@ -16,7 +16,6 @@ jmap-tasks-types = { workspace = true }
 jmap-base-client = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-thiserror = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

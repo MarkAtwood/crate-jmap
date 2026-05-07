@@ -173,16 +173,14 @@ responsibility. If it needs to validate Principal ids, it calls into the
 same storage layer — but not through this crate's API. The two crates do not
 call each other at runtime.
 
-### 6. Capability URI constants are defined here
+### 6. Capability URI constants are re-exported from jmap-sharing-types
 
 ```rust
-pub const CAPABILITY_PRINCIPALS: &str =
-    "urn:ietf:params:jmap:principals";
-pub const CAPABILITY_PRINCIPALS_OWNER: &str =
-    "urn:ietf:params:jmap:principals:owner";
+pub use jmap_sharing_types::JMAP_PRINCIPALS_URI;
+pub use jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI;
 ```
 
-These are exported from `lib.rs` for use by the server consumer when
+These are re-exported from `lib.rs` for use by the server consumer when
 building the Session object. The consumer is responsible for inserting the
 appropriate capability values into the Session and Account capability maps;
 this crate provides the URI strings and the types
@@ -242,12 +240,13 @@ pub trait SharingBackend: JmapBackend {
     fn supports_type<O: JmapObject>(&self) -> bool;
 }
 
-/// Capability URI for urn:ietf:params:jmap:principals.
-pub const CAPABILITY_PRINCIPALS: &str = "urn:ietf:params:jmap:principals";
+/// Capability URI for urn:ietf:params:jmap:principals
+/// (re-exported from jmap-sharing-types).
+pub use jmap_sharing_types::JMAP_PRINCIPALS_URI;
 
-/// Capability URI for urn:ietf:params:jmap:principals:owner.
-pub const CAPABILITY_PRINCIPALS_OWNER: &str =
-    "urn:ietf:params:jmap:principals:owner";
+/// Capability URI for urn:ietf:params:jmap:principals:owner
+/// (re-exported from jmap-sharing-types).
+pub use jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI;
 
 /// Register all RFC 9670 JMAP Sharing handlers with a jmap-server Dispatcher.
 ///
@@ -269,7 +268,7 @@ pub use backend::{
 ```
 src/
   lib.rs            re-exports; register_sharing_handlers;
-                    CAPABILITY_PRINCIPALS, CAPABILITY_PRINCIPALS_OWNER constants
+                    JMAP_PRINCIPALS_URI, JMAP_PRINCIPALS_OWNER_URI re-exports
   backend.rs        SharingBackend trait; error type re-exports
   principal.rs      Principal/get, /changes, /set, /query, /queryChanges
   notification.rs   ShareNotification/get, /changes, /set (destroy-only),

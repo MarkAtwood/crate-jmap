@@ -53,7 +53,7 @@ pub use participant_identity::{
 pub use principal::handle_principal_get_availability;
 
 /// Capability URI for `urn:ietf:params:jmap:calendars`.
-pub const CAPABILITY_CALENDARS: &str = "urn:ietf:params:jmap:calendars";
+pub use jmap_calendars_types::JMAP_CALENDARS_URI;
 
 // ---------------------------------------------------------------------------
 // register_calendars_handlers — the main entry point for consumers

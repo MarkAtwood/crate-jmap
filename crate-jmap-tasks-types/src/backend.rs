@@ -12,6 +12,7 @@ use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
 
 /// Property selector for [`crate::TaskList`] `/get` and `/set`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum TaskListProperty {
     Id,
     Role,
@@ -32,6 +33,7 @@ pub enum TaskListProperty {
 
 /// Property selector for [`crate::Task`] `/get` and `/set`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum TaskProperty {
     Id,
     TaskListId,
@@ -95,6 +97,7 @@ pub enum TaskProperty {
 
 /// Property selector for [`crate::TaskNotification`] `/get`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum TaskNotificationProperty {
     Id,
     Created,

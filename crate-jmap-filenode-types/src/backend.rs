@@ -11,6 +11,7 @@ use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
 
 /// Property selector for [`crate::FileNode`] `/get` and `/set`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum FileNodeProperty {
     Id,
     ParentId,

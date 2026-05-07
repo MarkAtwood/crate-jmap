@@ -12,6 +12,7 @@ use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
 
 /// Property selector for [`crate::Principal`] `/get` and `/set`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum PrincipalProperty {
     Id,
     Type,
@@ -25,6 +26,7 @@ pub enum PrincipalProperty {
 
 /// Property selector for [`crate::ShareNotification`] `/get`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ShareNotificationProperty {
     Id,
     Created,

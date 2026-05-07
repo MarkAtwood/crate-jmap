@@ -17,6 +17,7 @@ use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
 
 /// Property selector for [`crate::AddressBook`] `/get` and `/set`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum AddressBookProperty {
     Id,
     Name,
@@ -30,6 +31,7 @@ pub enum AddressBookProperty {
 
 /// Property selector for [`crate::ContactCard`] `/get`, `/set`, and `/query`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[non_exhaustive]
 pub enum ContactCardProperty {
     Id,
     AddressBookIds,
