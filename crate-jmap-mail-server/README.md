@@ -142,10 +142,12 @@ pub trait MailBackend: JmapBackend {
 
 ### Registration
 
-`register_mail_handlers` uses a `ClosureHandler` (provided by `jmap-server`)
-to wrap each handler function and `Arc<B>` into a `JmapHandler<C>` and registers
-it with the dispatcher. One `Arc::clone` per method name; no heap allocation
-per request.
+`register_mail_handlers` uses `ClosureHandlerWithCtx` (provided by
+`jmap-server`) to wrap each handler function and `Arc<B>` into a
+`JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
+`CallerCtx` value is forwarded into each closure as `_ctx`; the standard
+`handle_*` handler bodies receive `(Arc<B>, call_id, args)` only. One
+`Arc::clone` per method name; no heap allocation per request.
 
 ### Handler structure
 
@@ -211,16 +213,18 @@ calls — that is a known gap in the current `MailBackend` API.
 
 ## CallerCtx
 
-`register_mail_handlers` discards the `CallerCtx` value from each dispatch.
-Handler closures receive only `(Arc<B>, call_id, args)`; the `caller: C`
-value is not forwarded. This matches the shape of `jmap-server`'s own
-`ClosureHandler` convenience wrapper.
+`register_mail_handlers` registers each method as a `ClosureHandlerWithCtx`
+that forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`.
+The standard `handle_*` handler bodies ignore `_ctx` and receive only
+`(Arc<B>, call_id, args)`; the value is still available for backends that
+register handlers individually via `ClosureHandlerWithCtx`.
 
 If you need per-request context — auth identity, tenant id, rate-limit token
-— implement `JmapHandler<C>` directly and register with
+— inside one of the standard `handle_*` functions, implement
+`JmapHandler<C>` directly and register with
 `dispatcher.register(method_name, Arc::new(your_handler))`. Forwarding
-`CallerCtx` to `MailBackend` would be a breaking change to this crate's API
-and is deferred to a future version.
+`CallerCtx` into `MailBackend` itself would be a breaking change to this
+crate's trait API and is deferred to a future version.
 
 ## Capability URIs
 
@@ -252,7 +256,6 @@ remain that way until the family is published to crates.io.
 - **`search_snippets` has no default implementation.** `MailBackend::search_snippets` must be implemented; there is no default. The in-crate test `MemoryMailBackend` returns empty snippets for all calls, which means `SearchSnippet/get` returns empty results in test mode. A real implementation requires full-text indexing or delegation to a search service.
 - **`find_thread_by_message_ids` default is unsuitable for persistent backends.** The default implementation uses a thread-ID generator seeded from system-clock nanoseconds at process startup. Two processes starting within the same nanosecond (common in containers and CI) produce identical ID sequences. More critically, the thread graph is lost on restart — emails that share a `Message-ID` / `References` chain will be silently assigned new thread IDs after a restart. Persistent backends MUST override this method and store thread assignments durably.
 - **`onDestroyRemoveEmails` cascade default is O(N) per destroyed mailbox.** When `onDestroyRemoveEmails: true`, the handler queries all emails in the mailbox, fetches their `mailboxIds`, and issues individual updates or destroys per email. The `MailBackend` trait provides an optional `batch_destroy_emails` method (with a default implementation that loops) — backends that need O(1) cascade behavior should override `batch_destroy_emails` with a single bulk-delete operation; the handler already calls this method rather than looping itself.
-- **`CallerCtx` not forwarded through `register_mail_handlers`.** Handler closures receive `(Arc<B>, call_id, args)` only; the `caller: C` value from the dispatcher is discarded. If you need per-request auth context inside a handler (e.g., to enforce row-level security), implement `JmapHandler<C>` directly and register with `dispatcher.register()`.
 - **`Email/import` and `Email/parse` require backend cooperation.** The handler validates argument shape and calls `backend.import_email` / `backend.parse_email`; the actual RFC 5322 parsing is entirely the backend's responsibility. Use `jmap-mime` to convert `mime_tree` output to `jmap-mail-types` body structures.
 - **Singleton upsert for `VacationResponse` is not concurrency-safe.** If two requests simultaneously create a `VacationResponse` for the same account, both may succeed at the storage layer before either can detect the other. The handler uses optimistic create-then-update; backends that support conditional writes should enforce singleton semantics atomically in `create_object`.
 

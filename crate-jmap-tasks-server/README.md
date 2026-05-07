@@ -133,9 +133,12 @@ pub trait TasksBackend: JmapBackend {
 
 ### Registration
 
-`register_tasks_handlers` uses a `ClosureHandler` (provided by `jmap-server`) to wrap each
-handler function and `Arc<B>` into a `JmapHandler<C>` and registers it with the dispatcher.
-One `Arc::clone` per method name; no heap allocation per request.
+`register_tasks_handlers` uses `ClosureHandlerWithCtx` (provided by
+`jmap-server`) to wrap each handler function and `Arc<B>` into a
+`JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
+`CallerCtx` value is forwarded into each closure as `_ctx`; the standard
+`handle_*` handler bodies receive `(Arc<B>, call_id, args)` only. One
+`Arc::clone` per method name; no heap allocation per request.
 
 ### Task/set — isDraft immutability
 
@@ -169,11 +172,15 @@ all tasks in the list before destroying the list itself.
 
 ## CallerCtx
 
-`register_tasks_handlers` discards the `CallerCtx` value from each dispatch. Handler
-closures receive only `(Arc<B>, call_id, args)`; the `caller: C` value is not forwarded.
+`register_tasks_handlers` registers each method as a `ClosureHandlerWithCtx` that
+forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`. The standard
+`handle_*` handler bodies ignore `_ctx` and receive only `(Arc<B>, call_id, args)`;
+the value is still available for backends that register handlers individually via
+`ClosureHandlerWithCtx`.
 
-If you need per-request context — auth identity, tenant id, rate-limit token — implement
-`JmapHandler<C>` directly and register with `dispatcher.register(method_name, Arc::new(your_handler))`.
+If you need per-request context — auth identity, tenant id, rate-limit token —
+inside one of the standard `handle_*` functions, implement `JmapHandler<C>` directly
+and register with `dispatcher.register(method_name, Arc::new(your_handler))`.
 
 ## Capability URIs
 
@@ -206,7 +213,6 @@ until the family is published to crates.io.
 - `isDraft` immutability check requires one extra `get_objects` call per updated task where
   the patch includes `isDraft: true`. Backends that enforce this invariant atomically in
   `update_object` should return an `invalidProperties` SetError there instead.
-- `CallerCtx` is not forwarded through `register_tasks_handlers`.
 - No storage backend ships with this crate.
 
 ## References

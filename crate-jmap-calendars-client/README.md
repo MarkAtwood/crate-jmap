@@ -1,24 +1,24 @@
 # jmap-calendars-client
 
-RFC 8620 typed client methods for JMAP Calendars
+Typed JMAP client methods for JMAP Calendars
 ([draft-ietf-jmap-calendars-26]).
 
-Implements 18 typed `async fn` methods on a session-bound client. Depends on
+Implements 19 typed `async fn` methods on a session-bound client. Depends on
 `jmap-base-client` for transport, authentication, and session management.
 
 ## Usage
 
-```rust
-use jmap_base_client::{JmapClient, JmapClientBuilder};
+```rust,no_run
+use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_calendars_client::JmapCalendarsExt;
 
+# async fn run() -> Result<(), Box<dyn std::error::Error>> {
 // 1. Build the underlying HTTP client.
-let client = JmapClientBuilder::new()
-    .credential("user@example.com", "secret")
-    .build()?;
+let auth = BearerAuth::new("my-token")?;
+let client = JmapClient::new_plain(auth, "https://jmap.example.com", ClientConfig::default())?;
 
 // 2. Fetch a JMAP session (discovers API URL and account IDs).
-let session = client.fetch_session("https://jmap.example.com/.well-known/jmap").await?;
+let session = client.fetch_session().await?;
 
 // 3. Bind the client to the session — gives access to all Calendars methods.
 let sc = client.with_calendars_session(session);
@@ -35,6 +35,8 @@ if let Some(map) = parsed.parsed {
         println!("blob {id}: {} events", events.len());
     }
 }
+# Ok(())
+# }
 ```
 
 Re-create the `SessionClient` after each `fetch_session` call; a stale
@@ -111,7 +113,7 @@ use jmap_calendars_client::JmapCalendarsExt;
 ```
 
 `SessionClient` is the struct returned by `with_calendars_session`. It holds
-a clone of the `JmapClient` and the fetched `Session`. All 18 Calendars
+a clone of the `JmapClient` and the fetched `Session`. All 19 Calendars
 methods are implemented directly on `SessionClient` — there is no method
 dispatch overhead.
 

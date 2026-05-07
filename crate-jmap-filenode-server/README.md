@@ -120,9 +120,12 @@ pub trait FileNodeBackend: JmapBackend {
 
 ### Registration
 
-`register_filenode_handlers` uses a `ClosureHandler` (provided by `jmap-server`) to wrap
-each handler function and `Arc<B>` into a `JmapHandler<C>` and registers it with the
-dispatcher. One `Arc::clone` per method name; no heap allocation per request.
+`register_filenode_handlers` uses `ClosureHandlerWithCtx` (provided by
+`jmap-server`) to wrap each handler function and `Arc<B>` into a
+`JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
+`CallerCtx` value is forwarded into each closure as `_ctx`; the standard
+`handle_*` handler bodies receive `(Arc<B>, call_id, args)` only. One
+`Arc::clone` per method name; no heap allocation per request.
 
 ### FileNode/set create — nodeType inference and validation
 
@@ -180,11 +183,15 @@ semantics as `FileNode/set`.
 
 ## CallerCtx
 
-`register_filenode_handlers` discards the `CallerCtx` value from each dispatch. Handler
-closures receive only `(Arc<B>, call_id, args)`; the `caller: C` value is not forwarded.
+`register_filenode_handlers` registers each method as a `ClosureHandlerWithCtx` that
+forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`. The standard
+`handle_*` handler bodies ignore `_ctx` and receive only `(Arc<B>, call_id, args)`;
+the value is still available for backends that register handlers individually via
+`ClosureHandlerWithCtx`.
 
-If you need per-request context — auth identity, tenant id, rate-limit token — implement
-`JmapHandler<C>` directly and register with `dispatcher.register(method_name, Arc::new(your_handler))`.
+If you need per-request context — auth identity, tenant id, rate-limit token —
+inside one of the standard `handle_*` functions, implement `JmapHandler<C>` directly
+and register with `dispatcher.register(method_name, Arc::new(your_handler))`.
 
 ## Capability URI
 
@@ -214,7 +221,6 @@ until the family is published to crates.io.
 - The `FileNode/query` depth expansion calls `FileNodeBackend::query_subtree` once. The **default** `query_subtree` implementation calls `query_objects` with a `parentId` filter once per depth level (O(depth) backend calls). Backends with a nested-sets model, closure table, or recursive CTE should override `query_subtree` with a single bulk query.
 - The `onExists: "rename"` suffix loop is capped at 100 attempts; beyond that,
   `serverFail` is returned.
-- `CallerCtx` is not forwarded through `register_filenode_handlers`.
 - No storage backend ships with this crate. A tree-backed `MockBackend` exists in the
   `test_support` module inside `src/lib.rs` for unit testing only; it is not suitable for
   production use.

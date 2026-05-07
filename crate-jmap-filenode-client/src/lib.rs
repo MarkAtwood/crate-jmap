@@ -1,11 +1,13 @@
-// jmap-filenode-client — JMAP FileNode method implementations.
-// Depends on jmap-base-client for transport, auth, and session.
-// See PLAN.md for the full implementation plan.
+//! jmap-filenode-client — JMAP FileNode method implementations.
+//!
+//! Depends on jmap-base-client for transport, auth, and session.
+//! See PLAN.md for the full implementation plan.
 
 #![forbid(unsafe_code)]
 
 pub mod methods;
 
+pub use jmap_base_client::ClientError;
 pub use methods::filenode::{FileNodeCopyParams, FileNodeOnExists, FileNodeSetParams};
 pub use methods::{
     AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient,

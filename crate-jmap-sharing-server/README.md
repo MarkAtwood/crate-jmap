@@ -98,10 +98,12 @@ pub trait SharingBackend: JmapBackend {
 
 ### Registration
 
-`register_sharing_handlers` uses a `ClosureHandler` (provided by `jmap-server`)
-to wrap each handler function and `Arc<B>` into a `JmapHandler<C>` and registers
-it with the dispatcher. One `Arc::clone` per method name; no heap allocation per
-request.
+`register_sharing_handlers` uses `ClosureHandlerWithCtx` (provided by
+`jmap-server`) to wrap each handler function and `Arc<B>` into a
+`JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
+`CallerCtx` value is forwarded into each closure as `_ctx`; the standard
+`handle_*` handler bodies receive `(Arc<B>, call_id, args)` only. One
+`Arc::clone` per method name; no heap allocation per request.
 
 ### Handler structure
 
@@ -166,23 +168,24 @@ also supports creating and managing Principals (not just reading them).
 
 ## CallerCtx
 
-`register_sharing_handlers` discards the `CallerCtx` value from each dispatch.
-Handler closures receive only `(Arc<B>, call_id, args)`; the `caller: C` value
-is not forwarded. This matches the convention in `jmap-mail-server` and
-`jmap-contacts-server`.
+`register_sharing_handlers` registers each method as a `ClosureHandlerWithCtx`
+that forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`.
+The standard `handle_*` handler bodies ignore `_ctx` and receive only
+`(Arc<B>, call_id, args)`; the value is still available for backends that
+register handlers individually via `ClosureHandlerWithCtx`.
 
 If you need per-request context — auth identity, tenant id, rate-limit token —
-implement `JmapHandler<C>` directly and register with
+inside one of the standard `handle_*` functions, implement `JmapHandler<C>`
+directly and register with
 `dispatcher.register(method_name, Arc::new(your_handler))`. Forwarding
-`CallerCtx` to `SharingBackend` would be a breaking change to this crate's API
-and is deferred to a future version.
+`CallerCtx` into `SharingBackend` itself would be a breaking change to this
+crate's trait API and is deferred to a future version.
 
 ## Known Limitations
 
 - Permission enforcement is entirely the backend's responsibility. The handler
   only routes `forbidden` SetErrors back to the caller. A backend that does not
   enforce access control will silently permit any operation.
-- `CallerCtx` is not forwarded through `register_sharing_handlers`.
 - No storage backend ships with this crate. The in-memory `MockBackend` in the
   `test_support` module is a test harness only and is not suitable for
   production use.

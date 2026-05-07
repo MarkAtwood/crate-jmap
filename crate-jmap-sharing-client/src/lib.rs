@@ -1,11 +1,13 @@
-// jmap-sharing-client — JMAP Sharing method implementations (RFC 9670).
-// Depends on jmap-base-client for transport, auth, and session.
-// See PLAN.md for the full implementation plan.
+//! jmap-sharing-client — JMAP Sharing method implementations (RFC 9670).
+//!
+//! Depends on jmap-base-client for transport, auth, and session.
+//! See PLAN.md for the full implementation plan.
 
 #![forbid(unsafe_code)]
 
 pub mod methods;
 
+pub use jmap_base_client::ClientError;
 pub use methods::{
     AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient,
     SetError, SetResponse,

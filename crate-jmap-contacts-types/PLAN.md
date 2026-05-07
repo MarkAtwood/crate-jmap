@@ -22,25 +22,15 @@ type is a JMAP binding of the JSContact Card format defined in RFC 9553.
 | Module | Type(s) | Source |
 |---|---|---|
 | `addressbook.rs` | `AddressBook`, `AddressBookRights` | RFC 9610 §2 |
-| `card.rs` | `ContactCard` (the JMAP-wrapped JSContact Card) | RFC 9610 §3, RFC 9553 §2 |
-| `jscontact/name.rs` | `Name`, `NameComponent`, `NameComponentKind` | RFC 9553 §2.2.1 |
-| `jscontact/nickname.rs` | `Nickname` | RFC 9553 §2.2.2 |
-| `jscontact/org.rs` | `Organization`, `OrgUnit` | RFC 9553 §2.2.3 |
-| `jscontact/speak_to.rs` | `SpeakToAs`, `Pronouns`, `GrammaticalGender` | RFC 9553 §2.2.4 |
-| `jscontact/title.rs` | `Title`, `TitleKind` | RFC 9553 §2.2.5 |
-| `jscontact/email.rs` | `EmailAddress` | RFC 9553 §2.3.1 |
-| `jscontact/online.rs` | `OnlineService` | RFC 9553 §2.3.2 |
-| `jscontact/phone.rs` | `Phone`, `PhoneFeature` | RFC 9553 §2.3.3 |
-| `jscontact/lang.rs` | `LanguagePref` | RFC 9553 §2.3.4 |
-| `jscontact/address.rs` | `Address`, `AddressComponent`, `AddressComponentKind` | RFC 9553 §2.5.1 |
-| `jscontact/resource.rs` | `CryptoKey`, `Directory`, `Link`, `Media` | RFC 9553 §2.6 |
-| `jscontact/calendar.rs` | `Calendar`, `SchedulingAddress` | RFC 9553 §2.4 |
-| `jscontact/anniversary.rs` | `Anniversary`, `AnniversaryKind`, `PartialDate` | RFC 9553 §2.8.1 |
-| `jscontact/note.rs` | `Note` | RFC 9553 §2.8.3 |
-| `jscontact/personal.rs` | `PersonalInfo`, `PersonalInfoKind` | RFC 9553 §2.8.4 |
-| `jscontact/relation.rs` | `Relation` | RFC 9553 §2.1.8 |
-| `jscontact/localization.rs` | `Localization` (PatchObject map) | RFC 9553 §2.7.1 |
-| `query.rs` | `ContactCardFilter`, `ContactCardFilterCondition`, `ContactCardComparator` | RFC 9610 §3.3 |
+| `card.rs` | `ContactCard`, `ContactCardFilterCondition`, `ContactCardComparator` | RFC 9610 §3, §3.3, §3.3.1; RFC 9553 §2 |
+| `backend.rs` | `AddressBookProperty`, `ContactCardProperty` | RFC 9610 §2, §3 |
+| `capability.rs` | `ContactsCapability`, `ContactsAccountCapability`, `JMAP_CONTACTS_URI` | RFC 9610 §1.4.1 |
+| `string_enum.rs` | `string_enum!` macro for open-ended string-typed enums | n/a |
+
+JSContact sub-object types (`Name`, `EmailAddress`, `Phone`, `Address`, etc.)
+defined in RFC 9553 §2.x are **not** exported as typed Rust structs. All
+JSContact collection fields on `ContactCard` are `Option<serde_json::Value>`.
+See "Key Design Decisions" below.
 
 ## What Is Out of Scope
 
@@ -65,13 +55,19 @@ The Rust struct is named `ContactCard`.  It embeds all RFC 9553 Card fields
 directly (flattened), plus the JMAP-specific `id` and `addressBookIds` fields
 added by the contacts draft.
 
-### 2. JSContact object types use Id-keyed maps
+### 2. JSContact sub-objects are `serde_json::Value`, not typed structs
 
 RFC 9553 represents collections as `String[ObjectType]` — JSON objects where all
 keys are JSContact `Id` values (base64url, 1–255 octets) and all values are the
-same sub-object type.  In Rust these are `HashMap<String, T>`.  The key type is
-`String` rather than `jmap_types::Id` because JSContact Ids and JMAP Ids have
-the same character constraints but are defined independently.
+same sub-object type. This crate does **not** provide typed Rust structs for
+those sub-object types. Instead, every JSContact collection field on
+`ContactCard` is typed `Option<serde_json::Value>`. Callers needing typed
+access deserialize the `Value` into a struct of their own, using RFC 9553 as
+the schema.
+
+This is a deliberate scope reduction for the initial release — see
+"Known Limitations" in `README.md`. Adding typed sub-object structs is
+tracked as a future goal.
 
 ### 3. All ContactCard fields are Option
 
@@ -85,17 +81,17 @@ Mandatory RFC 9553 fields (`@type`, `version`, `uid`) are still `Option<String>`
 on the Rust struct — mandatory on creation (validated by the server handler), but
 a partial `/get` response may omit them.
 
-### 4. @type fields — serialize but ignore on deserialize
+### 4. @type fields — pass through untouched
 
-RFC 9553 defines `@type` as a discriminator on sub-objects.  Many sub-object
-`@type` values are implied by context (e.g., an object in the `emails` map is
-always an `EmailAddress`).  Strategy:
+RFC 9553 defines `@type` as a discriminator on sub-objects.  Because sub-object
+fields on `ContactCard` are `serde_json::Value`, this crate does not interpret
+or validate `@type` at the type-crate layer — the field round-trips through
+serde untouched. Constraint enforcement (including `@type` discriminator
+validation) is the responsibility of the handler layer (`jmap-contacts-server`)
+or the caller.
 
-- Serialize `@type` with the correct literal value using `#[serde(rename = "@type")]`.
-- On deserialize, accept and ignore `@type` — do not validate it at the
-  deserialization layer.  The handler layer validates if needed.
-- Use `#[serde(skip_serializing_if = "Option::is_none")]` for optional fields to
-  keep wire output minimal.
+Use `#[serde(skip_serializing_if = "Option::is_none")]` for optional fields on
+`ContactCard` and `AddressBook` to keep wire output minimal.
 
 ### 5. ContactCard.kind and groups
 
@@ -120,8 +116,9 @@ are not in the spec and MUST NOT be included.
 
 The contacts draft (§3) adds a `blobId: Id` property to any `Media` object
 within a ContactCard (RFC 9553 §2.6.4).  This is a JMAP-only extension to the
-JSContact spec.  The `Media` struct includes `blob_id: Option<Id>` serialized as
-`"blobId"`.
+JSContact spec.  Because `media` on `ContactCard` is `serde_json::Value`, the
+`blobId` key passes through serde untouched. Constraint enforcement and
+blob-id resolution are the responsibility of the handler layer.
 
 ### 9. ContactCardFilter — FilterCondition fields use slash-separated names
 
@@ -130,29 +127,22 @@ The contacts draft (§3.3.1) defines filter conditions with field names like
 contain forward slashes.  In Rust, they map to struct fields with
 `#[serde(rename = "name/given")]` attributes.
 
-### 10. PartialDate for anniversaries
+### 10. PartialDate, Localization, and other JSContact value shapes
 
-RFC 9553 §2.8.1 uses a `PartialDate` type for anniversary dates — a date that
-may have the year, month, or day omitted.  Represent as a struct with
-`Option<u16>` year, `Option<u8>` month, `Option<u8>` day plus a `@type`
-discriminator (`"PartialDate"` vs `"Timestamp"`).  Use custom serde to handle
-the two variants.
+RFC 9553 defines several value shapes (e.g. `PartialDate` for anniversaries,
+`PatchObject` for localizations) that ride inside the JSContact collection
+fields. Because those fields are `serde_json::Value` on `ContactCard`, this
+crate does not represent them as typed structs. Wire shapes pass through serde
+untouched; semantic validation lives in the handler or the caller.
 
-### 11. Localization — PatchObject semantics
+### 11. Enum catch-alls — open-ended string enums via `string_enum!`
 
-The `localizations` property (RFC 9553 §2.7.1) maps language tags to
-`PatchObject` values — JSON objects of `String[*]` (JSON Pointer path → value).
-Represent as `HashMap<String, HashMap<String, serde_json::Value>>`.  This crate
-does not interpret the patches; server/client code does.
-
-### 12. Enum catch-alls — String not enum
-
-Many JSContact string-enum values (kind, context names, phone features) allow
-vendor-specific extensions.  These MUST NOT be represented as Rust enums with
-`#[serde(deny_unknown_fields)]`.  Strategy: use `String` for all open-ended
-enum fields (e.g., `CardKind = String`, `PhoneFeature = String`) with named
-constants in a `mod consts` submodule.  Use actual Rust enums only for closed
-sets that the spec declares non-extensible (none exist in this spec).
+Several enum-like fields used at the JMAP layer (e.g. `AddressBookProperty`,
+`ContactCardProperty`) are open-ended: the spec allows vendor-specific
+extensions. The `string_enum!` macro (in `src/string_enum.rs`) produces a
+non-exhaustive enum with a `Custom(String)` variant that round-trips unknown
+values through serde. Closed-set enums are not used here because the spec
+does not declare any sub-set non-extensible.
 
 ## AddressBook Type (RFC 9610 §2)
 
@@ -189,7 +179,7 @@ RFC 9553 section:
 pub struct ContactCard {
     // ── JMAP additions (RFC 9610 §3) ─────────────────────────────────
     pub id: Option<Id>,                           // immutable; server-set
-    pub address_book_ids: Option<HashMap<String, bool>>, // wire: "addressBookIds"
+    pub address_book_ids: Option<HashMap<Id, bool>>, // wire: "addressBookIds"
 
     // ── RFC 9553 §2.1 Metadata ───────────────────────────────────────────
     // @type is always "Card" — serialized, not stored as a field
@@ -199,44 +189,35 @@ pub struct ContactCard {
     pub language: Option<String>,                 // RFC 5646 language tag
     pub members: Option<HashMap<String, bool>>,   // uid set; for kind="group"
     pub prod_id: Option<String>,
-    pub related_to: Option<HashMap<String, Relation>>,
     pub uid: Option<String>,                      // mandatory on creation
     pub updated: Option<String>,                  // UTCDateTime; server-set
 
-    // ── RFC 9553 §2.2 Name and Organization ─────────────────────────────
-    pub name: Option<Name>,
-    pub nicknames: Option<HashMap<String, Nickname>>,
-    pub organizations: Option<HashMap<String, Organization>>,
-    pub speak_to_as: Option<SpeakToAs>,
-    pub titles: Option<HashMap<String, Title>>,
-
-    // ── RFC 9553 §2.3 Contact ────────────────────────────────────────────
-    pub emails: Option<HashMap<String, EmailAddress>>,
-    pub online_services: Option<HashMap<String, OnlineService>>,
-    pub phones: Option<HashMap<String, Phone>>,
-    pub preferred_languages: Option<HashMap<String, LanguagePref>>,
-
-    // ── RFC 9553 §2.4 Calendaring ────────────────────────────────────────
-    pub calendars: Option<HashMap<String, Calendar>>,
-    pub scheduling_addresses: Option<HashMap<String, SchedulingAddress>>,
-
-    // ── RFC 9553 §2.5 Address ────────────────────────────────────────────
-    pub addresses: Option<HashMap<String, Address>>,
-
-    // ── RFC 9553 §2.6 Resources ──────────────────────────────────────────
-    pub crypto_keys: Option<HashMap<String, CryptoKey>>,
-    pub directories: Option<HashMap<String, Directory>>,
-    pub links: Option<HashMap<String, Link>>,
-    pub media: Option<HashMap<String, Media>>,
-
-    // ── RFC 9553 §2.7 Multilingual ───────────────────────────────────────
-    pub localizations: Option<HashMap<String, HashMap<String, serde_json::Value>>>,
-
-    // ── RFC 9553 §2.8 Additional ─────────────────────────────────────────
-    pub anniversaries: Option<HashMap<String, Anniversary>>,
+    // ── RFC 9553 sub-object fields (all `serde_json::Value`) ───────────
+    // The crate does NOT provide typed structs for JSContact sub-objects.
+    // Each of the fields below is `Option<serde_json::Value>`; callers
+    // deserialize into their own structs using RFC 9553 as the schema.
+    pub name: Option<serde_json::Value>,
+    pub nicknames: Option<serde_json::Value>,
+    pub organizations: Option<serde_json::Value>,
+    pub speak_to_as: Option<serde_json::Value>,
+    pub titles: Option<serde_json::Value>,
+    pub emails: Option<serde_json::Value>,
+    pub online_services: Option<serde_json::Value>,
+    pub phones: Option<serde_json::Value>,
+    pub preferred_languages: Option<serde_json::Value>,
+    pub calendars: Option<serde_json::Value>,
+    pub scheduling_addresses: Option<serde_json::Value>,
+    pub addresses: Option<serde_json::Value>,
+    pub crypto_keys: Option<serde_json::Value>,
+    pub directories: Option<serde_json::Value>,
+    pub links: Option<serde_json::Value>,
+    pub media: Option<serde_json::Value>,
+    pub localizations: Option<serde_json::Value>,
+    pub anniversaries: Option<serde_json::Value>,
     pub keywords: Option<HashMap<String, bool>>,
-    pub notes: Option<HashMap<String, Note>>,
-    pub personal_info: Option<HashMap<String, PersonalInfo>>,
+    pub notes: Option<serde_json::Value>,
+    pub personal_info: Option<serde_json::Value>,
+    pub related_to: Option<serde_json::Value>,
 }
 ```
 
@@ -283,31 +264,18 @@ pub struct ContactCardComparator {
 
 ```
 src/
-  lib.rs                  re-exports; #[forbid(unsafe_code)]
-  addressbook.rs          AddressBook, AddressBookRights
-  card.rs                 ContactCard (top-level JMAP object)
-  query.rs                ContactCardFilter, ContactCardFilterCondition,
-                          ContactCardComparator
-  jscontact/
-    mod.rs                pub use for all sub-modules
-    name.rs               Name, NameComponent, NameComponentKind consts
-    nickname.rs           Nickname
-    org.rs                Organization, OrgUnit
-    speak_to.rs           SpeakToAs, Pronouns, GrammaticalGender consts
-    title.rs              Title, TitleKind consts
-    email.rs              EmailAddress
-    online.rs             OnlineService
-    phone.rs              Phone, PhoneFeature consts
-    lang.rs               LanguagePref
-    address.rs            Address, AddressComponent, AddressComponentKind consts
-    resource.rs           CryptoKey, Directory, Link, Media (+ blobId)
-    calendar.rs           Calendar, SchedulingAddress
-    anniversary.rs        Anniversary, AnniversaryKind consts, PartialDate
-    note.rs               Note
-    personal.rs           PersonalInfo, PersonalInfoKind consts
-    relation.rs           Relation
-    localization.rs       type alias for localization map
+  lib.rs           re-exports; #[forbid(unsafe_code)]
+  addressbook.rs   AddressBook, AddressBookRights
+  card.rs          ContactCard, ContactCardFilterCondition, ContactCardComparator
+  backend.rs       AddressBookProperty, ContactCardProperty
+  capability.rs    ContactsCapability, ContactsAccountCapability,
+                   JMAP_CONTACTS_URI const
+  string_enum.rs   `string_enum!` macro for open-ended string-typed enums
 ```
+
+There is no `jscontact/` submodule. Typed Rust structs for JSContact
+sub-objects (RFC 9553 §2.x) are intentionally not provided — see "Key Design
+Decisions" §2.
 
 ## Test Oracle Strategy
 
@@ -327,10 +295,10 @@ verify serde consistency but are not a substitute for spec-grounded oracle tests
 Key test cases:
 - `AddressBook` round-trip using the §4.1 example response
 - `ContactCard` with `emails`, `phones`, `name` using the RFC 9553 figures
+  (asserted as `serde_json::Value` shapes, not typed sub-object structs)
 - `ContactCard` with `kind: "group"` and `members` map
 - `ContactCardFilterCondition` with slash-keyed fields (`name/given`)
 - `AddressBookRights` — four fields only, no extras
-- `Media` with `blobId` serializes the extra JMAP field
 
 ## Congruence with jmap-mail-types
 

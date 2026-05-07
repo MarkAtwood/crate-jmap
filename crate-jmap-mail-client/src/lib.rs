@@ -1,11 +1,13 @@
-// jmap-mail-client — RFC 8621 JMAP for Mail method implementations.
-// Depends on jmap-base-client for transport, auth, and session.
-// See PLAN.md for the full implementation plan.
+//! jmap-mail-client — RFC 8621 JMAP for Mail method implementations.
+//!
+//! Depends on jmap-base-client for transport, auth, and session.
+//! See PLAN.md for the full implementation plan.
 
 #![forbid(unsafe_code)]
 
 pub mod methods;
 
+pub use jmap_base_client::ClientError;
 pub use methods::{
     AddedItem, ChangesResponse, EmailCopyParams, EmailGetParams, EmailSubmissionSetParams,
     GetResponse, MailboxSetParams, QueryChangesResponse, QueryResponse, SessionClient, SetError,
