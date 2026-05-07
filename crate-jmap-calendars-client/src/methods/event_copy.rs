@@ -63,23 +63,7 @@ mod tests {
         assert_eq!(calls[0][1]["accountId"], json!("dst_acc"));
     }
 
-    /// Oracle: empty from_account_id triggers the InvalidArgument guard.
-    #[test]
-    fn calendar_event_copy_empty_from_account_id_returns_invalid_argument() {
-        let from_account_id = "";
-        let result: Result<(), jmap_base_client::ClientError> = if from_account_id.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "calendar_event_copy: from_account_id may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty from_account_id must produce InvalidArgument"
-        );
-    }
+    // The InvalidArgument guard for empty from_account_id lives in
+    // calendar_event_copy production code; testing it requires a
+    // wiremock-backed async harness. See JMAP-sc1b.64.
 }

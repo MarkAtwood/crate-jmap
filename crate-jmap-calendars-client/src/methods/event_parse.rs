@@ -49,20 +49,11 @@ impl SessionClient {
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use jmap_base_client::ClientError;
     use serde_json::json;
 
-    /// Oracle: empty blob_ids → InvalidArgument.
-    #[test]
-    fn empty_blob_ids_returns_invalid_argument() {
-        let blob_ids: &[&str] = &[];
-        let result: Result<(), _> = if blob_ids.is_empty() {
-            Err(ClientError::InvalidArgument("must not be empty".into()))
-        } else {
-            Ok(())
-        };
-        assert!(matches!(result, Err(ClientError::InvalidArgument(_))));
-    }
+    // The InvalidArgument guard for empty blob_ids lives in CalendarEvent/parse
+    // production code; testing it requires a wiremock-backed async harness.
+    // See JMAP-sc1b.64.
 
     /// Oracle: blobIds must appear in the request with camelCase wire name.
     #[test]

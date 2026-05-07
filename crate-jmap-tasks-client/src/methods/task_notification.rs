@@ -190,44 +190,10 @@ mod tests {
         );
     }
 
-    /// Oracle: empty id in destroy returns InvalidArgument.
-    #[test]
-    fn task_notification_set_empty_destroy_id_returns_invalid_argument() {
-        let destroy = [""];
-        let result: Result<(), jmap_base_client::ClientError> = {
-            let mut err = None;
-            for id in destroy.iter() {
-                if id.is_empty() {
-                    err = Some(jmap_base_client::ClientError::InvalidArgument(
-                        "task_notification_set: destroy element may not be empty".into(),
-                    ));
-                    break;
-                }
-            }
-            err.map(Err).unwrap_or(Ok(()))
-        };
-        assert!(matches!(
-            result,
-            Err(jmap_base_client::ClientError::InvalidArgument(_))
-        ));
-    }
-
-    /// Oracle: empty since_state returns InvalidArgument.
-    #[test]
-    fn task_notification_changes_empty_since_state_returns_invalid_argument() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "task_notification_changes: since_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(matches!(
-            result,
-            Err(jmap_base_client::ClientError::InvalidArgument(_))
-        ));
-    }
+    // The InvalidArgument guards for empty destroy IDs and empty since_state
+    // live in task_notification_set / task_notification_changes production
+    // code; testing them requires a wiremock-backed async harness.
+    // See JMAP-sc1b.64.
 
     /// Oracle: USING_TASKS is used for TaskNotification/set request.
     #[test]

@@ -157,7 +157,7 @@ pub struct EmailGetParams {
 #[serde(rename_all = "camelCase")]
 pub struct EmailCopyParams {
     /// The account to copy from (RFC 8621 §4.7).
-    pub from_account_id: String,
+    pub from_account_id: Id,
     /// If `true`, destroy originals after successful copy (RFC 8620 §5.4).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_success_destroy_original: Option<bool>,
