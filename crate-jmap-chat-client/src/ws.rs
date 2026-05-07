@@ -1,9 +1,9 @@
 //! WebSocket frame types and extension trait for JMAP Chat.
 //!
-//! Wraps [`jmap_base_client::WsFrame`] with chat-specific variants for
-//! [`ChatTypingEvent`](jmap_chat_types::ChatTypingEvent) and
-//! [`ChatPresenceEvent`](jmap_chat_types::ChatPresenceEvent), which arrive as
-//! [`WsFrame::Unknown`](jmap_base_client::WsFrame::Unknown) on the base transport.
+//! Wraps [`WsFrame`] with chat-specific variants for
+//! [`ChatTypingEvent`] and
+//! [`ChatPresenceEvent`], which arrive as
+//! [`WsFrame::Unknown`] on the base transport.
 //!
 //! Spec: draft-atwood-jmap-chat-wss-00
 
