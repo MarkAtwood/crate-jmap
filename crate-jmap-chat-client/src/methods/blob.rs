@@ -35,7 +35,7 @@ pub struct BlobLookupEntry {
 #[serde(rename_all = "camelCase")]
 pub struct BlobLookupResponse {
     /// Account the query was run against.
-    pub account_id: String,
+    pub account_id: Id,
     /// One entry per queried blobId.
     pub list: Vec<BlobLookupEntry>,
     /// blobIds that were not found or not accessible (access-control safe).
@@ -72,7 +72,7 @@ pub struct BlobObject {
 #[serde(rename_all = "camelCase")]
 pub struct BlobConvertResponse {
     /// Account the conversion was run against.
-    pub account_id: String,
+    pub account_id: Id,
     /// Successful conversions: maps each creation id to the resulting blob.
     #[serde(default)]
     pub created: Option<HashMap<String, BlobObject>>,

@@ -241,45 +241,10 @@ mod tests {
         );
     }
 
-    /// Oracle: empty since_state triggers the validation guard.
-    #[test]
-    fn submission_changes_empty_since_state_guard() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "email_submission_changes: since_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_state must produce InvalidArgument"
-        );
-    }
-
-    /// Oracle: empty since_query_state triggers the validation guard.
-    #[test]
-    fn submission_query_changes_empty_state_guard() {
-        let since_query_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_query_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "email_submission_query_changes: since_query_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_query_state must produce InvalidArgument"
-        );
-    }
+    // The InvalidArgument guards for empty since_state and since_query_state
+    // live in email_submission_changes / email_submission_query_changes
+    // production code; testing them requires a wiremock-backed async harness.
+    // See JMAP-sc1b.64.
 
     /// Oracle: empty destroy element triggers the validation guard.
     #[test]

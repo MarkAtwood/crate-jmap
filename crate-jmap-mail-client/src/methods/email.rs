@@ -251,46 +251,9 @@ mod tests {
         );
     }
 
-    /// Oracle: empty since_state returns InvalidArgument.
-    /// Guard fires before any session or network call.
-    #[test]
-    fn email_changes_empty_since_state_returns_invalid_argument() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "email_changes: since_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_state must produce InvalidArgument"
-        );
-    }
-
-    /// Oracle: empty since_query_state returns InvalidArgument.
-    #[test]
-    fn email_query_changes_empty_state_returns_invalid_argument() {
-        let since_query_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_query_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "email_query_changes: since_query_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_query_state must produce InvalidArgument"
-        );
-    }
+    // The InvalidArgument guards for empty since_state and since_query_state
+    // live in email_changes / email_query_changes production code; testing them
+    // requires a wiremock-backed async harness. See JMAP-sc1b.64.
 
     /// Oracle: Email/get request has correct method name and using array.
     /// Expected JSON shape from RFC 8620 §3.3.

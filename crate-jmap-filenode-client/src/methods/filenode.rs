@@ -9,6 +9,7 @@
 //   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
+use jmap_types::Id;
 
 // ---------------------------------------------------------------------------
 // FileNode-specific input types
@@ -52,7 +53,7 @@ pub struct FileNodeSetParams {
 #[serde(rename_all = "camelCase")]
 pub struct FileNodeCopyParams {
     /// The account that is the source of the copy operation.
-    pub from_account_id: String,
+    pub from_account_id: Id,
 }
 
 // ---------------------------------------------------------------------------
@@ -327,83 +328,10 @@ mod tests {
         );
     }
 
-    /// Oracle: empty since_state produces InvalidArgument.
-    /// Guard fires before any session or network call.
-    #[test]
-    fn file_node_changes_empty_since_state_guard() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "file_node_changes: since_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_state must produce InvalidArgument"
-        );
-    }
-
-    /// Oracle: empty since_query_state produces InvalidArgument.
-    #[test]
-    fn file_node_query_changes_empty_state_guard() {
-        let since_query_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_query_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "file_node_query_changes: since_query_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_query_state must produce InvalidArgument"
-        );
-    }
-
-    /// Oracle: empty destroy element produces InvalidArgument.
-    #[test]
-    fn file_node_set_empty_destroy_id_guard() {
-        let destroy: Vec<&str> = vec![""];
-        let mut found_error = false;
-        for id in destroy.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty destroy id must trigger the InvalidArgument guard"
-        );
-    }
-
-    /// Oracle: empty from_account_id produces InvalidArgument.
-    #[test]
-    fn file_node_copy_empty_from_account_id_guard() {
-        let from_account_id = "";
-        let result: Result<(), jmap_base_client::ClientError> = if from_account_id.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "file_node_copy: from_account_id may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty from_account_id must produce InvalidArgument"
-        );
-    }
+    // The InvalidArgument guards for empty since_state, since_query_state,
+    // destroy IDs, and from_account_id live in the FileNode production code;
+    // testing them requires a wiremock-backed async harness.
+    // See JMAP-sc1b.64.
 
     // ── Serialization oracles ───────────────────────────────────────────────
 

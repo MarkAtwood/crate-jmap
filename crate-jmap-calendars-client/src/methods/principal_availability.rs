@@ -61,20 +61,13 @@ impl SessionClient {
 #[cfg(test)]
 mod tests {
     use super::super::*;
-    use jmap_base_client::ClientError;
     use serde_json::json;
 
-    /// Oracle: empty principal_id → InvalidArgument.
-    #[test]
-    #[allow(clippy::const_is_empty)]
-    fn empty_principal_id_returns_invalid_argument() {
-        let result: Result<(), _> = if "".is_empty() {
-            Err(ClientError::InvalidArgument("must not be empty".into()))
-        } else {
-            Ok(())
-        };
-        assert!(matches!(result, Err(ClientError::InvalidArgument(_))));
-    }
+    // The InvalidArgument guard for empty principal_id is exercised by the
+    // production method body in principal_get_availability (lines 22-26).
+    // A black-box test that drives the async method is the right place to
+    // verify it; that requires wiremock and is out of scope for this crate
+    // (no async test harness yet). See JMAP-sc1b.64.
 
     /// Oracle: §2.2 wire field is "id", not "principalId".
     #[test]

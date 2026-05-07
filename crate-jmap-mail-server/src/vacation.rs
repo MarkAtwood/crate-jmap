@@ -250,12 +250,15 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                             // operators can detect and repair the state.
                                             // This is acceptable for a test/reference backend
                                             // but production backends should use atomic writes.
+                                            #[cfg(debug_assertions)]
                                             eprintln!(
                                                 "WARN: VacationResponse upsert rollback failed \
                                                  (orphaned singleton in account {:?}): {:?}",
                                                 account_id.as_ref(),
                                                 rollback_err,
                                             );
+                                            #[cfg(not(debug_assertions))]
+                                            let _ = &rollback_err;
                                         }
                                     }
                                     not_updated.insert(id.clone(), set_error_value(&e));

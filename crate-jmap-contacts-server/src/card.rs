@@ -249,7 +249,9 @@ fn apply_jmap_patch(obj: &mut serde_json::Map<String, Value>, path: &str, val: V
     }
 
     // Navigate/create intermediate objects.
-    let leaf_key = parts.last().unwrap().clone();
+    let Some(leaf_key) = parts.last().cloned() else {
+        return;
+    };
     let mut current = obj;
     for seg in &parts[..parts.len() - 1] {
         let next = current

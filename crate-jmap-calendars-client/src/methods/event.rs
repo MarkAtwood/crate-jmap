@@ -240,43 +240,8 @@ mod tests {
         assert_eq!(calls[0][1]["expandRecurrences"], json!(true));
     }
 
-    /// Oracle: empty since_state returns InvalidArgument.
-    #[test]
-    fn calendar_event_changes_empty_state_returns_invalid_argument() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "calendar_event_changes: since_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_state must produce InvalidArgument"
-        );
-    }
-
-    /// Oracle: empty since_query_state returns InvalidArgument.
-    #[test]
-    fn calendar_event_query_changes_empty_state_returns_invalid_argument() {
-        let sqc = "";
-        let result: Result<(), jmap_base_client::ClientError> = if sqc.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "calendar_event_query_changes: since_query_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_query_state must produce InvalidArgument"
-        );
-    }
+    // The InvalidArgument guards for empty since_state and since_query_state
+    // live in calendar_event_changes / calendar_event_query_changes production
+    // code; testing them requires a wiremock-backed async harness.
+    // See JMAP-sc1b.64.
 }

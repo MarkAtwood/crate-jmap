@@ -143,25 +143,9 @@ mod tests {
         );
     }
 
-    /// Oracle: empty since_state returns InvalidArgument.
-    #[test]
-    fn task_list_changes_empty_since_state_returns_invalid_argument() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "task_list_changes: since_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_state must produce InvalidArgument"
-        );
-    }
+    // The InvalidArgument guard for empty since_state lives in task_list_changes
+    // production code; testing it requires a wiremock-backed async harness.
+    // See JMAP-sc1b.64.
 
     /// Oracle: TaskList/set with onDestroyRemoveTasks sends the field in args.
     #[test]

@@ -191,39 +191,9 @@ mod tests {
         assert!(has_empty, "empty id must trigger guard");
     }
 
-    /// Oracle: empty since_state for task_changes returns InvalidArgument.
-    #[test]
-    fn task_changes_empty_since_state_returns_invalid_argument() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "task_changes: since_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(matches!(
-            result,
-            Err(jmap_base_client::ClientError::InvalidArgument(_))
-        ));
-    }
-
-    /// Oracle: empty from_account_id for task_copy returns InvalidArgument.
-    #[test]
-    fn task_copy_empty_from_account_id_returns_invalid_argument() {
-        let from_account_id = "";
-        let result: Result<(), jmap_base_client::ClientError> = if from_account_id.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "task_copy: from_account_id may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(matches!(
-            result,
-            Err(jmap_base_client::ClientError::InvalidArgument(_))
-        ));
-    }
+    // The InvalidArgument guards for empty since_state and from_account_id
+    // live in task_changes / task_copy production code; testing them requires
+    // a wiremock-backed async harness. See JMAP-sc1b.64.
 
     /// Oracle: Task/copy request includes fromAccountId in args.
     #[test]
@@ -241,20 +211,7 @@ mod tests {
         assert_eq!(calls[0][2], json!(CALL_ID));
     }
 
-    /// Oracle: empty since_query_state for task_query_changes returns InvalidArgument.
-    #[test]
-    fn task_query_changes_empty_state_returns_invalid_argument() {
-        let since_query_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_query_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "task_query_changes: since_query_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(matches!(
-            result,
-            Err(jmap_base_client::ClientError::InvalidArgument(_))
-        ));
-    }
+    // The InvalidArgument guard for empty since_query_state lives in
+    // task_query_changes production code; testing it requires a
+    // wiremock-backed async harness. See JMAP-sc1b.64.
 }

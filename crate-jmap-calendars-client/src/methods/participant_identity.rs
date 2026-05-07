@@ -119,25 +119,9 @@ mod tests {
         assert!(using.contains(&json!("urn:ietf:params:jmap:calendars")));
     }
 
-    /// Oracle: empty since_state returns InvalidArgument.
-    #[test]
-    fn participant_identity_changes_empty_state_guard() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = if since_state.is_empty() {
-            Err(jmap_base_client::ClientError::InvalidArgument(
-                "participant_identity_changes: since_state may not be empty".into(),
-            ))
-        } else {
-            Ok(())
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_state must produce InvalidArgument"
-        );
-    }
+    // The InvalidArgument guard for empty since_state lives in
+    // participant_identity_changes production code; testing it requires
+    // a wiremock-backed async harness. See JMAP-sc1b.64.
 
     /// Oracle: ParticipantIdentity/set with destroy sends destroy array.
     #[test]

@@ -88,6 +88,27 @@ pub struct RequestError {
     err: JmapError,
 }
 
+impl std::fmt::Display for RequestError {
+    /// Render as `"<status>: <error_type>[: <description>]"` for log/diagnostic
+    /// output. The HTTP status is included because [`RequestError`] is the
+    /// request-level error type and the status is the most actionable field
+    /// for operators.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.err.description.as_deref() {
+            Some(desc) => write!(
+                f,
+                "{}: {}: {}",
+                self.status.as_u16(),
+                self.err.error_type,
+                desc
+            ),
+            None => write!(f, "{}: {}", self.status.as_u16(), self.err.error_type),
+        }
+    }
+}
+
+impl std::error::Error for RequestError {}
+
 impl RequestError {
     /// Convert into an HTTP response with an RFC 7807 Problem Details body.
     ///
