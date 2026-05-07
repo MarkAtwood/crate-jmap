@@ -1,28 +1,30 @@
 [package]
 name = "jmap-mail-server"
-authors = ["Mark Atwood <mark@reviewcommit.com>"]
-repository = "https://github.com/MarkAtwood/crate-jmap"
 version = "0.1.2"
-edition = "2021"
-rust-version = "1.75"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
 description = "RFC 8621 JMAP for Mail method handlers — backend-agnostic, plugs into jmap-server Dispatcher"
-license = "MIT OR Apache-2.0"
+keywords = ["jmap", "rfc8621", "server", "mail"]
+categories = ["network-programming", "web-programming::http-server"]
 
 [features]
 mdn = ["jmap-mail-types/mdn"]
 sieve = ["jmap-mail-types/sieve"]
 
 [dependencies]
-jmap-types      = { path = "../crate-jmap-types", version = "0.1.1" }
-jmap-mail-types = { path = "../crate-jmap-mail-types", version = "0.1.1" }
-jmap-server     = { path = "../crate-jmap-server", version = "0.1.2" }
-serde      = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror  = "2"
-tokio      = { version = "1", features = ["rt"] }
+jmap-types = { workspace = true }
+jmap-mail-types = { workspace = true }
+jmap-server = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
 
 [dev-dependencies]
-tokio     = { version = "1", features = ["rt-multi-thread", "macros"] }
-uuid      = { version = "1", features = ["v4"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+uuid = { version = "1", features = ["v4"] }
 mime-tree = { workspace = true }
-jmap-mime = { path = "../crate-jmap-mime" , version = "0.1.1" }
+jmap-mime = { workspace = true }
