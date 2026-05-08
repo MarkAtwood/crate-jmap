@@ -91,6 +91,7 @@ src/
   error.rs      JmapError and constructors
   wire.rs       JmapRequest, JmapResponse, Invocation
   resultref.rs  ResultReference, Argument<T>
+  patch.rs      PatchObject (RFC 8620 §5.3)
 ```
 
 ## Spec Reference
