@@ -138,7 +138,7 @@ impl Inner {
             .collect();
 
         // Sort ascending by UTC epoch so non-UTC offsets compare correctly.
-        id_and_date.sort_by(|a, b| a.1.cmp(&b.1));
+        id_and_date.sort_by_key(|pair| pair.1);
 
         // Write the sorted list back to the Thread object.
         if let Some(store) = self.objects.get_mut(&("Thread", account_id.to_owned())) {
