@@ -86,6 +86,16 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
+            // RFC 8620 §5.3: "The id property MUST NOT be set in the create
+            // object" — id is server-assigned. Any present "id" key (even
+            // null) is rejected with invalidProperties:["id"].
+            if obj_val.get("id").is_some() {
+                not_created.insert(
+                    create_id,
+                    json!({"type": "invalidProperties", "properties": ["id"]}),
+                );
+                continue;
+            }
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.entry("id")
@@ -273,6 +283,37 @@ mod tests {
         assert_eq!(
             not_destroyed["cal1"]["type"], "calendarHasEvent",
             "must produce calendarHasEvent error: {resp}"
+        );
+    }
+
+    /// Oracle: Calendar/set create with client-supplied "id" → notCreated
+    /// with invalidProperties citing properties:["id"].
+    /// Source: RFC 8620 §5.3 — "The id property MUST NOT be set in the
+    /// create object." Independent oracle: spec wire shape is hand-written.
+    #[tokio::test]
+    async fn set_create_with_client_supplied_id_returns_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": { "id": "client-chosen-id", "name": "My Calendar" }
+            }
+        });
+        let (resp, _) = handle_calendar_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+        assert_eq!(
+            resp["notCreated"]["c1"]["type"], "invalidProperties",
+            "must reject client-supplied id with invalidProperties: {resp}"
+        );
+        assert_eq!(
+            resp["notCreated"]["c1"]["properties"][0], "id",
+            "must cite 'id' in properties: {resp}"
+        );
+        // Must NOT have created the calendar.
+        assert!(
+            resp["created"].is_null(),
+            "must not have created any calendar: {resp}"
         );
     }
 
