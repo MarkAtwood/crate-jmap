@@ -544,8 +544,26 @@ impl JmapClient {
 /// arguments into `T`.
 ///
 /// Returns [`ClientError::MethodNotFound`] if no invocation with the given
-/// call_id exists. Returns [`ClientError::MethodError`] if the matched
-/// invocation is a JMAP `"error"` response (RFC 8620 §3.6.1).
+/// call_id exists. Returns [`ClientError::MethodError`] if any invocation
+/// with the matching call_id is a JMAP `"error"` response (RFC 8620 §3.6.1).
+///
+/// # Multiple invocations sharing a call_id
+///
+/// Per RFC 8620 §3.2, a single method call may produce multiple invocations
+/// in the response — for example, `Foo/copy` with `onSuccessDestroyOriginal:
+/// true` produces both a `Foo/copy` and an implicit `Foo/set` invocation,
+/// both stamped with the same call_id (RFC 8620 §5.8 example, lines 3158–
+/// 3180). This function handles that case by:
+///
+/// 1. **Errors take precedence.** If any invocation matching `call_id`
+///    has method name `"error"`, this function returns that error. A
+///    success response cannot mask a sibling error response with the same
+///    call_id — silently returning the success while the server reported
+///    failure would be data loss for the caller.
+/// 2. Otherwise, the **first** non-error invocation matching `call_id`
+///    is deserialized into `T`. In the §5.8 implicit-method case both
+///    invocations are successes; the first is the primary response and
+///    is what the caller wants.
 ///
 /// This function is `pub` so extension crates (`jmap-chat-client`,
 /// `jmap-mail-client`) can use it to extract typed results from a
@@ -554,32 +572,34 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
     resp: &jmap_types::JmapResponse,
     call_id: &str,
 ) -> Result<T, ClientError> {
-    // Invocation is a type alias (String, Value, String) = (method, args, call_id)
-    let inv = resp
-        .method_responses
-        .iter()
-        .find(|inv| inv.2 == call_id)
-        .ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
-    let (method_name, args, _) = inv;
-
-    // RFC 8620 §3.6.1: a method name of "error" signals a protocol-level error.
-    if method_name == "error" {
-        let err_type = args
-            .get("type")
-            .and_then(|v| v.as_str())
-            .unwrap_or("serverError") // safe: fallback literal, not user input
-            .to_owned();
-        let description = args
-            .get("description")
-            .and_then(|v| v.as_str())
-            .map(str::to_owned);
-        return Err(ClientError::MethodError {
-            error_type: err_type,
-            description,
-        });
+    // Invocation is a type alias (String, Value, String) = (method, args, call_id).
+    // Two-pass scan: first look for any error invocation with this call_id
+    // (errors take precedence per §3.6.1 — see the doc-comment); then fall
+    // through to the first non-error invocation.
+    let mut first_success: Option<&jmap_types::Invocation> = None;
+    for inv in resp.method_responses.iter().filter(|inv| inv.2 == call_id) {
+        if inv.0 == "error" {
+            let args = &inv.1;
+            let err_type = args
+                .get("type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("serverError") // safe: fallback literal, not user input
+                .to_owned();
+            let description = args
+                .get("description")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned);
+            return Err(ClientError::MethodError {
+                error_type: err_type,
+                description,
+            });
+        }
+        if first_success.is_none() {
+            first_success = Some(inv);
+        }
     }
-
-    <T as serde::Deserialize>::deserialize(args).map_err(ClientError::Parse)
+    let inv = first_success.ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
+    <T as serde::Deserialize>::deserialize(&inv.1).map_err(ClientError::Parse)
 }
 
 /// Decode as much valid UTF-8 as possible from `raw` into `buf`, draining
