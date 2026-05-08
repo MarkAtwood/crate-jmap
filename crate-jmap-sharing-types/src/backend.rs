@@ -4,7 +4,7 @@
 //! violating the orphan rule (`JmapObject` is foreign but the sharing types are
 //! local to this crate).
 
-use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
+use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // Property selector enums (server-side; no serde required)
@@ -51,7 +51,7 @@ impl JmapObject for crate::Principal {
 impl GetObject for crate::Principal {}
 
 impl SetObject for crate::Principal {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::Principal {
@@ -67,7 +67,7 @@ impl JmapObject for crate::ShareNotification {
 impl GetObject for crate::ShareNotification {}
 
 impl SetObject for crate::ShareNotification {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::ShareNotification {
