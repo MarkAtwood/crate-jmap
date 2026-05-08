@@ -50,6 +50,15 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
         ));
     };
 
+    // RFC 8620 §3.6.2: accountId not recognised → accountNotFound.
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     let old_state = backend
         .get_state::<ParticipantIdentity>(&account_id)
         .await
@@ -228,6 +237,17 @@ mod tests {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
         let result = handle_participant_identity_get(&backend, args).await;
+        let err = result.expect_err("must return error for unknown account");
+        assert_eq!(err.error_type.as_str(), "accountNotFound");
+    }
+
+    /// Oracle: ParticipantIdentity/set with unknown accountId returns accountNotFound.
+    /// Source: RFC 8620 §3.6.2.
+    #[tokio::test]
+    async fn set_unknown_account_returns_account_not_found() {
+        let backend = MockBackend::new();
+        let args = json!({ "accountId": "unknown" });
+        let result = handle_participant_identity_set(&backend, args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }

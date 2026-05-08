@@ -57,6 +57,17 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
         ));
     };
 
+    // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
+    // error). Without this, a /set against an unknown accountId would silently
+    // "succeed" with a fake oldState/newState envelope.
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     let on_destroy_remove_events = args
         .get("onDestroyRemoveEvents")
         .and_then(|v| v.as_bool())
@@ -257,6 +268,18 @@ mod tests {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
         let result = handle_calendar_get(&backend, args).await;
+        let err = result.expect_err("must return error for unknown account");
+        assert_eq!(err.error_type.as_str(), "accountNotFound");
+    }
+
+    /// Oracle: Calendar/set with unknown accountId returns accountNotFound.
+    /// Source: RFC 8620 §3.6.2 — every method MUST validate accountId.
+    /// Independent oracle: spec-defined error name.
+    #[tokio::test]
+    async fn set_unknown_account_returns_account_not_found() {
+        let backend = MockBackend::new();
+        let args = json!({ "accountId": "unknown" });
+        let result = handle_calendar_set(&backend, args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }

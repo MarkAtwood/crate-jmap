@@ -88,6 +88,15 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
         ));
     };
 
+    // RFC 8620 §3.6.2: accountId not recognised → accountNotFound.
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     let old_state = backend
         .get_state::<CalendarEvent>(&account_id)
         .await
@@ -357,6 +366,17 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
             "arguments must be a JSON object",
         ));
     };
+
+    // RFC 8620 §3.6.2 / §5.4: destination accountId not recognised →
+    // accountNotFound. Checked before fromAccountId so that an unknown
+    // destination produces accountNotFound, not fromAccountNotFound.
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
 
     // fromAccountId is required (RFC 8620 §5.4).
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
@@ -709,6 +729,38 @@ mod tests {
         let result = handle_calendar_event_get(&backend, args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
+    }
+
+    /// Oracle: CalendarEvent/set with unknown accountId returns accountNotFound.
+    /// Source: RFC 8620 §3.6.2.
+    #[tokio::test]
+    async fn set_unknown_account_returns_account_not_found() {
+        let backend = MockBackend::new();
+        let args = json!({ "accountId": "unknown" });
+        let result = handle_calendar_event_set(&backend, args).await;
+        let err = result.expect_err("must return error for unknown account");
+        assert_eq!(err.error_type.as_str(), "accountNotFound");
+    }
+
+    /// Oracle: CalendarEvent/copy with unknown destination accountId returns
+    /// accountNotFound (NOT fromAccountNotFound). RFC 8620 §3.6.2 / §5.4.
+    /// The accountNotFound check must run before the fromAccountId check, so
+    /// even when both ids are unknown the destination check fires first.
+    #[tokio::test]
+    async fn copy_unknown_destination_account_returns_account_not_found() {
+        let backend = MockBackend::new();
+        let args = json!({
+            "accountId": "missing-dst",
+            "fromAccountId": "missing-src",
+            "create": {}
+        });
+        let result = handle_calendar_event_copy(&backend, args, "c0").await;
+        let err = result.expect_err("must return error for unknown destination account");
+        assert_eq!(
+            err.error_type.as_str(),
+            "accountNotFound",
+            "accountId check must run before fromAccountId check"
+        );
     }
 
     /// Oracle: RFC 8620 §5.4 — fromAccountId that does not exist must return
