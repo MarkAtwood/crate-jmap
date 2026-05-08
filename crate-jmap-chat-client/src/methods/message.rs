@@ -211,7 +211,7 @@ impl super::SessionClient {
         if let Some(not_created) = &set_resp.not_created {
             if let Some(err) = not_created.get(client_id_str) {
                 if err.error_type == "rateLimited" {
-                    let retry_after = err.server_retry_after.clone().ok_or_else(|| {
+                    let retry_after = super::server_retry_after(err).ok_or_else(|| {
                         jmap_base_client::ClientError::UnexpectedResponse(
                             "rateLimited SetError missing serverRetryAfter".into(),
                         )

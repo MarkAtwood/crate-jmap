@@ -13,134 +13,20 @@ pub mod submission;
 pub mod thread;
 pub mod vacation;
 
-use std::collections::HashMap;
-
-use serde::Deserialize;
-
 use jmap_types::Id;
 
 // ---------------------------------------------------------------------------
-// Response types (RFC 8620)
+// Response types (RFC 8620 §5)
 // ---------------------------------------------------------------------------
+//
+// Re-exported from `jmap-types::methods` so all `jmap-*-client` crates share
+// one canonical set of /get, /set, /changes, /query, /queryChanges shapes.
+// The wire format is identical to the previous local definitions.
 
-/// RFC 8620 §5.1 — /get response.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetResponse<T> {
-    pub account_id: Id,
-    pub state: String,
-    pub list: Vec<T>,
-    pub not_found: Option<Vec<Id>>,
-}
-
-/// RFC 8620 §5.5 — /query response.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct QueryResponse {
-    pub account_id: Id,
-    pub query_state: String,
-    pub can_calculate_changes: bool,
-    pub position: u64,
-    pub ids: Vec<Id>,
-    pub total: Option<u64>,
-    pub limit: Option<u64>,
-}
-
-/// RFC 8620 §5.2 — /changes response.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChangesResponse {
-    pub account_id: Id,
-    pub old_state: String,
-    pub new_state: String,
-    pub has_more_changes: bool,
-    pub created: Vec<Id>,
-    pub updated: Vec<Id>,
-    pub destroyed: Vec<Id>,
-}
-
-/// RFC 8620 §5.3 — /set response.
-///
-/// The type parameter `T` is the shape of each created/updated object.
-/// Defaults to `serde_json::Value` so callers that don't need typed objects
-/// can use `SetResponse` without a type argument.
-///
-/// Wire shape per RFC 8620 §5.3 (lines 2033-2082 of rfc8620.txt):
-///   created       Id[Foo]      | null
-///   updated       Id[Foo|null] | null   ← inner null is REQUIRED:
-///                                         server returns null for an updated
-///                                         object when the patch was applied
-///                                         verbatim (no server-set property
-///                                         deltas to report).
-///   destroyed     Id[]         | null
-///   notCreated    Id[SetError] | null
-///   notUpdated    Id[SetError] | null
-///   notDestroyed  Id[SetError] | null
-///
-/// `created` and `notCreated` keys are creation ids (client-side strings).
-/// `updated`, `notUpdated`, `notDestroyed` keys are real record ids.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-#[serde(bound(deserialize = "T: serde::de::DeserializeOwned"))]
-pub struct SetResponse<T = serde_json::Value> {
-    pub account_id: Id,
-    pub old_state: Option<String>,
-    pub new_state: String,
-    /// Keys are caller-supplied creation keys; see RFC 8620 §5.3.
-    pub created: Option<HashMap<String, T>>,
-    /// Keys are server-assigned object Ids; values are `Some(Foo)` when the
-    /// server returns deltas, or `None` when the patch applied verbatim
-    /// (RFC 8620 §5.3 wire type "Id[Foo|null]|null").
-    pub updated: Option<HashMap<Id, Option<T>>>,
-    pub destroyed: Option<Vec<Id>>,
-    /// Keys are caller-supplied creation keys; see RFC 8620 §5.3.
-    pub not_created: Option<HashMap<String, SetError>>,
-    /// Keys are server-assigned object Ids; see RFC 8620 §5.3.
-    pub not_updated: Option<HashMap<String, SetError>>,
-    /// Keys are server-assigned object Ids; see RFC 8620 §5.3.
-    pub not_destroyed: Option<HashMap<String, SetError>>,
-}
-
-/// A /set operation failure for a single object (RFC 8620 §5.3).
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct SetError {
-    #[serde(rename = "type")]
-    pub error_type: String,
-    pub description: Option<String>,
-}
-
-impl std::fmt::Display for SetError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.description {
-            Some(desc) => write!(f, "{}: {}", self.error_type, desc),
-            None => write!(f, "{}", self.error_type),
-        }
-    }
-}
-
-/// RFC 8620 §5.6 — /queryChanges response.
-///
-/// Reports which IDs were removed from and added to a query result set since
-/// `old_query_state`.
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct QueryChangesResponse {
-    pub account_id: Id,
-    pub old_query_state: String,
-    pub new_query_state: String,
-    pub total: Option<u64>,
-    pub removed: Vec<Id>,
-    pub added: Vec<AddedItem>,
-}
-
-/// A single item added to a query result set (RFC 8620 §5.6).
-#[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct AddedItem {
-    pub id: Id,
-    pub index: u64,
-}
+pub use jmap_types::{
+    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetError,
+    SetResponse,
+};
 
 // ---------------------------------------------------------------------------
 // Input parameter types (RFC 8621 method-specific args)
