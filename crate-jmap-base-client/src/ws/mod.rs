@@ -92,7 +92,7 @@ impl WsSession {
                 Ok(Message::Text(text)) => return Some(parse_ws_frame(&text)),
                 Ok(Message::Close(_)) => return None,
                 Ok(_) => continue, // Ping / Pong / Binary: silently skip
-                Err(e) => return Some(Err(crate::error::ClientError::WebSocket(e))),
+                Err(e) => return Some(Err(crate::error::ClientError::from_ws(e))),
             }
         }
     }
@@ -105,7 +105,7 @@ impl WsSession {
         self.sink
             .send(Message::Text(text.into()))
             .await
-            .map_err(crate::error::ClientError::WebSocket)
+            .map_err(crate::error::ClientError::from_ws)
     }
 
     /// Send a JMAP request over the WebSocket connection.
@@ -135,7 +135,7 @@ impl WsSession {
         self.sink
             .send(Message::Text(text.into()))
             .await
-            .map_err(crate::error::ClientError::WebSocket)
+            .map_err(crate::error::ClientError::from_ws)
     }
 }
 
@@ -213,7 +213,7 @@ pub async fn connect_ws(
 
     let mut request = ws_url
         .into_client_request()
-        .map_err(crate::error::ClientError::WebSocket)?;
+        .map_err(crate::error::ClientError::from_ws)?;
 
     if let Some((name, value)) = auth_header {
         let hdr_name = http::HeaderName::from_str(name).map_err(|e| {
@@ -240,14 +240,18 @@ pub async fn connect_ws(
     )
     .await
     .map_err(|_elapsed| {
-        crate::error::ClientError::WebSocket(tokio_tungstenite::tungstenite::Error::Io(
+        // Synthesize an Io-kind transport error to surface the timeout
+        // through the public WebSocketError accessors (is_io() will be
+        // true). The third-party error type is constructed locally and
+        // immediately wrapped, so it does not leak to callers.
+        crate::error::ClientError::from_ws(tokio_tungstenite::tungstenite::Error::Io(
             std::io::Error::new(
                 std::io::ErrorKind::TimedOut,
                 "WebSocket connect timed out after 10 seconds",
             ),
         ))
     })?;
-    let (ws_stream, _response) = connect_result.map_err(crate::error::ClientError::WebSocket)?;
+    let (ws_stream, _response) = connect_result.map_err(crate::error::ClientError::from_ws)?;
 
     let (sink, stream) = ws_stream.split();
     Ok(WsSession { sink, stream })

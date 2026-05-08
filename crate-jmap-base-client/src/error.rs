@@ -1,3 +1,211 @@
+//! [`ClientError`] and the opaque wrapper types ([`HttpError`],
+//! [`WebSocketError`], [`InvalidHeaderValueError`]) that hide
+//! [`reqwest`] and [`tokio_tungstenite`] from this crate's public API.
+//!
+//! # SemVer policy
+//!
+//! `reqwest` and `tokio-tungstenite` are **private dependencies** of this
+//! crate. Their types do not appear in any public function signature,
+//! variant payload, or `From` impl. The wrapper types ([`HttpError`],
+//! [`WebSocketError`], [`InvalidHeaderValueError`]) expose a curated set of
+//! diagnostic accessors that return primitive types only, so this crate can
+//! bump the underlying transport's major version without breaking
+//! downstream callers.
+//!
+//! Internal construction goes through `pub(crate)` helpers on
+//! [`ClientError`] (`from_reqwest`, `from_ws`, `from_invalid_header`) —
+//! downstream consumers cannot construct the transport-error variants and
+//! never need to.
+
+use std::error::Error as StdError;
+use std::fmt;
+
+// ---------------------------------------------------------------------------
+// HttpError — opaque wrapper around reqwest::Error
+// ---------------------------------------------------------------------------
+
+/// HTTP transport error reported by the underlying HTTP client.
+///
+/// The inner third-party error type is private; callers diagnose the failure
+/// via the accessor methods, all of which return primitive types so this
+/// crate can swap or bump the underlying HTTP client without breaking the
+/// public API.
+#[non_exhaustive]
+pub struct HttpError(reqwest::Error);
+
+impl HttpError {
+    /// `true` if the request timed out before a response was received.
+    pub fn is_timeout(&self) -> bool {
+        self.0.is_timeout()
+    }
+    /// `true` if the underlying connection could not be established
+    /// (DNS failure, TCP refused, TLS handshake failure, etc.).
+    pub fn is_connect(&self) -> bool {
+        self.0.is_connect()
+    }
+    /// `true` if the error originated in the request builder
+    /// (URL parse failure, invalid header construction at build time, etc.).
+    pub fn is_builder(&self) -> bool {
+        self.0.is_builder()
+    }
+    /// `true` if the error is a redirect-loop or too-many-redirects failure.
+    pub fn is_redirect(&self) -> bool {
+        self.0.is_redirect()
+    }
+    /// `true` if the error originated from a non-success HTTP status.
+    pub fn is_status(&self) -> bool {
+        self.0.is_status()
+    }
+    /// `true` if the error happened while sending the request body.
+    pub fn is_request(&self) -> bool {
+        self.0.is_request()
+    }
+    /// `true` if the error happened while receiving / decoding the response body.
+    pub fn is_body(&self) -> bool {
+        self.0.is_body()
+    }
+    /// `true` if the response body could not be decoded as the requested
+    /// representation (e.g. JSON parse failure inside the transport layer).
+    pub fn is_decode(&self) -> bool {
+        self.0.is_decode()
+    }
+    /// HTTP status code if the error came from a non-success response;
+    /// `None` for transport-level failures (timeout, connection refused, etc.).
+    pub fn status(&self) -> Option<u16> {
+        self.0.status().map(|s| s.as_u16())
+    }
+    /// URL the request was sent to, if known. Returned as an owned `String`
+    /// to avoid leaking the underlying transport's `Url` type into this
+    /// crate's public API.
+    pub fn url(&self) -> Option<String> {
+        self.0.url().map(ToString::to_string)
+    }
+}
+
+impl fmt::Display for HttpError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl fmt::Debug for HttpError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("HttpError").field(&self.0).finish()
+    }
+}
+
+impl StdError for HttpError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(&self.0)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// WebSocketError — opaque wrapper around tokio_tungstenite::tungstenite::Error
+// ---------------------------------------------------------------------------
+
+/// WebSocket transport error reported by the underlying WebSocket client.
+///
+/// As with [`HttpError`], the inner third-party type is private and
+/// diagnostics are exposed via accessor methods returning primitive types.
+#[non_exhaustive]
+pub struct WebSocketError(tokio_tungstenite::tungstenite::Error);
+
+impl WebSocketError {
+    /// `true` if the peer cleanly closed the connection.
+    pub fn is_connection_closed(&self) -> bool {
+        matches!(
+            &self.0,
+            tokio_tungstenite::tungstenite::Error::ConnectionClosed
+        )
+    }
+    /// `true` if the connection was already closed when the operation was
+    /// attempted (caller bug or race).
+    pub fn is_already_closed(&self) -> bool {
+        matches!(
+            &self.0,
+            tokio_tungstenite::tungstenite::Error::AlreadyClosed
+        )
+    }
+    /// `true` if the error wraps an underlying `std::io::Error`.
+    pub fn is_io(&self) -> bool {
+        matches!(&self.0, tokio_tungstenite::tungstenite::Error::Io(_))
+    }
+    /// `true` if the error is a WebSocket protocol violation
+    /// (malformed frame, invalid opcode, etc.).
+    pub fn is_protocol(&self) -> bool {
+        matches!(&self.0, tokio_tungstenite::tungstenite::Error::Protocol(_))
+    }
+    /// `true` if a frame or message exceeded a configured size limit.
+    pub fn is_capacity(&self) -> bool {
+        matches!(&self.0, tokio_tungstenite::tungstenite::Error::Capacity(_))
+    }
+    /// `true` if the WebSocket URL was invalid.
+    pub fn is_url(&self) -> bool {
+        matches!(&self.0, tokio_tungstenite::tungstenite::Error::Url(_))
+    }
+}
+
+impl fmt::Display for WebSocketError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl fmt::Debug for WebSocketError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("WebSocketError").field(&self.0).finish()
+    }
+}
+
+impl StdError for WebSocketError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(&self.0)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// InvalidHeaderValueError — string-only wrapper, no third-party leak
+// ---------------------------------------------------------------------------
+
+/// A header value (typically an authentication token) contained bytes that
+/// are not valid for an HTTP header.
+///
+/// The inner type is just a string message; there is no actionable
+/// diagnostic state beyond that, so this wrapper does not expose any
+/// accessor beyond [`Display`](fmt::Display).
+#[non_exhaustive]
+pub struct InvalidHeaderValueError {
+    message: String,
+}
+
+impl InvalidHeaderValueError {
+    /// The human-readable description of the failure.
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+}
+
+impl fmt::Display for InvalidHeaderValueError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl fmt::Debug for InvalidHeaderValueError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("InvalidHeaderValueError")
+            .field("message", &self.message)
+            .finish()
+    }
+}
+
+impl StdError for InvalidHeaderValueError {}
+
+// ---------------------------------------------------------------------------
+// ClientError
+// ---------------------------------------------------------------------------
+
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
@@ -5,17 +213,18 @@ pub enum ClientError {
     /// network failure) or permanent (TLS configuration error). Indicates a
     /// network or transport problem, not a JMAP protocol error.
     ///
-    /// **Semver note**: this variant embeds `reqwest::Error` directly. Callers
-    /// that match this variant are semver-locked to the same `reqwest` major
-    /// version as this crate. This is a known pre-1.0 limitation.
+    /// The payload is an opaque [`HttpError`] that does not expose any
+    /// third-party error type — this crate's HTTP transport can be swapped
+    /// or its major version bumped without affecting downstream callers.
+    /// Use [`HttpError::is_timeout`], [`HttpError::status`], etc. to diagnose.
     #[error("HTTP error: {0}")]
-    Http(#[from] reqwest::Error),
+    Http(HttpError),
 
     /// A header value could not be encoded. Indicates a caller bug — the
     /// credential string contains characters that are not valid HTTP header
     /// value characters. Not retriable.
     #[error("invalid header value: {0}")]
-    InvalidHeaderValue(#[from] reqwest::header::InvalidHeaderValue),
+    InvalidHeaderValue(InvalidHeaderValueError),
 
     /// The server returned HTTP 401 (authentication failure) or 403
     /// (authorization failure — credentials present but insufficient). Not
@@ -90,11 +299,12 @@ pub enum ClientError {
     /// A WebSocket transport error (connection, framing, or TLS). May be
     /// retriable (transient network failure) or permanent (TLS config error).
     ///
-    /// **Semver note**: this variant embeds `tungstenite::Error` directly.
-    /// Callers that match this variant are semver-locked to the same
-    /// `tokio-tungstenite` major version as this crate. Pre-1.0 limitation.
+    /// The payload is an opaque [`WebSocketError`] that does not expose any
+    /// third-party error type — see [`HttpError`] for the same SemVer
+    /// rationale. Use [`WebSocketError::is_io`],
+    /// [`WebSocketError::is_protocol`], etc. to diagnose.
     #[error("WebSocket error: {0}")]
-    WebSocket(#[from] tokio_tungstenite::tungstenite::Error),
+    WebSocket(WebSocketError),
 
     /// The server returned a response that violates the JMAP protocol (outside
     /// the Session fetch path). Examples: wrong `Content-Type` on an SSE
@@ -111,6 +321,36 @@ pub enum ClientError {
     RateLimited { retry_after: jmap_types::UTCDate },
 }
 
+impl ClientError {
+    /// Convert a [`reqwest::Error`] into a [`ClientError::Http`] variant.
+    ///
+    /// `pub(crate)` so downstream callers cannot construct transport-error
+    /// variants — that responsibility belongs to this crate's transport
+    /// layer alone. This is the only conversion path from the third-party
+    /// type into `ClientError`, and is the reason this crate's public API
+    /// no longer mentions `reqwest::Error`.
+    pub(crate) fn from_reqwest(e: reqwest::Error) -> Self {
+        Self::Http(HttpError(e))
+    }
+
+    /// Convert a [`tokio_tungstenite::tungstenite::Error`] into a
+    /// [`ClientError::WebSocket`] variant. See
+    /// [`from_reqwest`](Self::from_reqwest) for the SemVer rationale.
+    pub(crate) fn from_ws(e: tokio_tungstenite::tungstenite::Error) -> Self {
+        Self::WebSocket(WebSocketError(e))
+    }
+
+    /// Convert a [`reqwest::header::InvalidHeaderValue`] into a
+    /// [`ClientError::InvalidHeaderValue`] variant. The inner third-party
+    /// type carries no actionable diagnostic state, so we keep only the
+    /// `Display` representation as a `String`.
+    pub(crate) fn from_invalid_header(e: reqwest::header::InvalidHeaderValue) -> Self {
+        Self::InvalidHeaderValue(InvalidHeaderValueError {
+            message: e.to_string(),
+        })
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -119,7 +359,8 @@ pub enum ClientError {
 mod tests {
     use super::*;
 
-    /// Verify ClientError variants by exhaustive match.
+    /// Verify ClientError variants by exhaustive match. Variant names are
+    /// part of the public API; this catches accidental rename / removal.
     #[test]
     fn client_error_exhaustive_match() {
         let e = ClientError::InvalidArgument("test".into());
@@ -140,5 +381,123 @@ mod tests {
             ClientError::UnexpectedResponse(_) => {}
             ClientError::RateLimited { .. } => {}
         }
+    }
+
+    /// InvalidHeaderValueError preserves the underlying message so the
+    /// Display output matches the third-party error's Display verbatim —
+    /// callers that previously logged the `ClientError::InvalidHeaderValue`
+    /// variant see the same diagnostic text after the wrapper rename.
+    ///
+    /// Independent oracle: reqwest::header::InvalidHeaderValue is produced
+    /// by HeaderValue::from_str on bytes that are not valid header values
+    /// (e.g. embedded newline). The wrapper's Display is just the inner
+    /// type's Display.
+    #[test]
+    fn invalid_header_value_preserves_message() {
+        let inner_err = reqwest::header::HeaderValue::from_str("bad\nvalue")
+            .expect_err("newline must be rejected as a header value");
+        let inner_display = inner_err.to_string();
+
+        let ce = ClientError::from_invalid_header(inner_err);
+        let ClientError::InvalidHeaderValue(ihve) = &ce else {
+            panic!("must be InvalidHeaderValue variant, got {ce:?}");
+        };
+        assert_eq!(
+            ihve.message(),
+            inner_display,
+            "wrapper message must equal inner Display"
+        );
+        // Outer ClientError Display includes the prefix.
+        assert!(
+            ce.to_string().starts_with("invalid header value: "),
+            "ClientError Display must use the variant's #[error] prefix: {ce}"
+        );
+    }
+
+    /// An HttpError constructed from a reqwest builder failure exposes the
+    /// expected diagnostic accessor values: is_builder=true, status=None,
+    /// and a non-empty Display. Independent oracle: reqwest's documented
+    /// behaviour for invalid URLs (builder error, no status code).
+    #[test]
+    fn http_error_from_invalid_url_is_builder_error() {
+        // reqwest::Client::new().get("not a url") produces a builder error
+        // when the URL fails to parse. Building the request and calling
+        // .send() requires async context; .build() is synchronous and
+        // suffices to provoke a parse failure.
+        let client = reqwest::Client::new();
+        let build_err = client
+            .request(reqwest::Method::GET, "://not-a-url")
+            .build()
+            .expect_err("malformed URL must produce a build error");
+
+        let ce = ClientError::from_reqwest(build_err);
+        let ClientError::Http(http_err) = &ce else {
+            panic!("must be Http variant, got {ce:?}");
+        };
+        assert!(
+            http_err.is_builder(),
+            "malformed URL must be classified as a builder error"
+        );
+        assert!(
+            http_err.status().is_none(),
+            "builder errors carry no HTTP status"
+        );
+        assert!(
+            !http_err.is_timeout(),
+            "builder error must not classify as timeout"
+        );
+        assert!(
+            !http_err.is_connect(),
+            "builder error must not classify as connect"
+        );
+        assert!(
+            !http_err.to_string().is_empty(),
+            "Display must produce a non-empty diagnostic"
+        );
+    }
+
+    /// A WebSocketError wrapping ConnectionClosed correctly classifies via
+    /// its accessor methods. Independent oracle: tungstenite's documented
+    /// Error variants are matched directly via the matches! macro.
+    #[test]
+    fn websocket_error_classifies_connection_closed() {
+        let inner = tokio_tungstenite::tungstenite::Error::ConnectionClosed;
+        let ce = ClientError::from_ws(inner);
+        let ClientError::WebSocket(ws_err) = &ce else {
+            panic!("must be WebSocket variant, got {ce:?}");
+        };
+        assert!(ws_err.is_connection_closed());
+        assert!(!ws_err.is_already_closed());
+        assert!(!ws_err.is_io());
+        assert!(!ws_err.is_protocol());
+        assert!(!ws_err.is_capacity());
+    }
+
+    /// A WebSocketError wrapping an Io variant correctly classifies via
+    /// is_io. Independent oracle: tungstenite::Error::Io is the documented
+    /// wrapper for std::io::Error sources.
+    #[test]
+    fn websocket_error_classifies_io() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::ConnectionReset, "test");
+        let inner = tokio_tungstenite::tungstenite::Error::Io(io_err);
+        let ce = ClientError::from_ws(inner);
+        let ClientError::WebSocket(ws_err) = &ce else {
+            panic!("must be WebSocket variant, got {ce:?}");
+        };
+        assert!(ws_err.is_io());
+        assert!(!ws_err.is_connection_closed());
+        assert!(!ws_err.is_already_closed());
+    }
+
+    /// HttpError, WebSocketError, and InvalidHeaderValueError all implement
+    /// std::error::Error. This is a regression guard against any future
+    /// refactor that drops one of these impls (which would silently break
+    /// downstream code that iterates the source chain via Error::source).
+    #[test]
+    fn wrapper_types_implement_std_error() {
+        fn assert_error<E: StdError>() {}
+        assert_error::<HttpError>();
+        assert_error::<WebSocketError>();
+        assert_error::<InvalidHeaderValueError>();
     }
 }

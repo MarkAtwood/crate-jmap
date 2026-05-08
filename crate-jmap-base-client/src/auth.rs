@@ -64,11 +64,13 @@ impl CustomCaTransport {
 
 impl TransportConfig for CustomCaTransport {
     fn build_client(&self) -> Result<reqwest::Client, ClientError> {
-        let cert = reqwest::Certificate::from_der(&self.der_cert)?;
+        let cert =
+            reqwest::Certificate::from_der(&self.der_cert).map_err(ClientError::from_reqwest)?;
         let client = reqwest::ClientBuilder::new()
             .connect_timeout(std::time::Duration::from_secs(10))
             .add_root_certificate(cert)
-            .build()?;
+            .build()
+            .map_err(ClientError::from_reqwest)?;
         Ok(client)
     }
 }
@@ -157,7 +159,7 @@ impl BearerAuth {
         }
         let header_string = format!("Bearer {token}");
         // Validate the header value is legal (no control characters, etc.).
-        HeaderValue::from_str(&header_string)?;
+        HeaderValue::from_str(&header_string).map_err(ClientError::from_invalid_header)?;
         Ok(Self { header_string })
     }
 }
@@ -207,7 +209,7 @@ impl BasicAuth {
         let header_string = format!("Basic {encoded}");
         // Validate the header value is legal (base64 is always printable ASCII,
         // but keep the check for correctness).
-        HeaderValue::from_str(&header_string)?;
+        HeaderValue::from_str(&header_string).map_err(ClientError::from_invalid_header)?;
         Ok(Self { header_string })
     }
 }
@@ -235,7 +237,7 @@ fn default_reqwest_client() -> Result<reqwest::Client, ClientError> {
     reqwest::ClientBuilder::new()
         .connect_timeout(std::time::Duration::from_secs(10))
         .build()
-        .map_err(ClientError::Http)
+        .map_err(ClientError::from_reqwest)
 }
 
 // ---------------------------------------------------------------------------
