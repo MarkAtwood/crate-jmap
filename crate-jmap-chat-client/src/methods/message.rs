@@ -11,6 +11,8 @@
 // SPECIAL: `message_create` additionally inspects `SetResponse.not_created` for
 // `error_type == "rateLimited"` and surfaces it as `ClientError::RateLimited`.
 
+use jmap_types::PatchObject;
+
 use super::{
     ChangesResponse, GetResponse, MessageCreateInput, MessagePatch, MessageQueryInput,
     QueryChangesResponse, QueryResponse, ReactionChange, SetResponse,
@@ -307,9 +309,13 @@ impl super::SessionClient {
                 }
             }
         }
+        // Wrap the constructed map in a PatchObject (RFC 8620 §5.3) before
+        // serializing. Wire bytes are unchanged because PatchObject is
+        // #[serde(transparent)]; the typed boundary documents the contract.
+        let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
         let args = serde_json::json!({
             "accountId": account_id,
-            "update": { id: serde_json::Value::Object(patch_map) },
+            "update": { id: patch_value },
         });
         let req = super::build_request("Message/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
