@@ -8,7 +8,10 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use std::collections::HashMap;
+
 use jmap_mail_client::EmailSubmissionSetParams;
+use jmap_types::PatchObject;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -120,10 +123,14 @@ async fn email_submission_set_on_success_update_email() {
         .await;
 
     let sc = helpers::make_client(&server).await;
+    // Patch the draft keyword off the email upon successful send.
+    // Oracle: RFC 8621 §7.5 — onSuccessUpdateEmail is Id[PatchObject].
+    let mut on_success = HashMap::new();
+    let mut patch_map = serde_json::Map::new();
+    patch_map.insert("keywords/$draft".to_owned(), serde_json::Value::Null);
+    on_success.insert("#k1490".to_owned(), PatchObject::from_map(patch_map));
     let params = EmailSubmissionSetParams {
-        // Patch the draft keyword off the email upon successful send.
-        // Oracle: RFC 8621 §7.5 — onSuccessUpdateEmail is Id[PatchObject].
-        on_success_update_email: Some(json!({"#k1490": {"keywords/$draft": null}})),
+        on_success_update_email: Some(on_success),
         on_success_destroy_email: None,
     };
     sc.email_submission_set(
