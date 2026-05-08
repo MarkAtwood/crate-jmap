@@ -290,6 +290,53 @@ pub trait CalendarsBackend: JmapBackend {
         async { (None, None) }
     }
 
+    /// Run a `CalendarEvent/query` request honouring the §5.11 extra
+    /// arguments (draft-ietf-jmap-calendars-26).
+    ///
+    /// Receives the standard query parameters (filter, sort, limit, position)
+    /// alongside the parsed [`CalendarEventQueryArgs`] carrying
+    /// `expandRecurrences` and `timeZone`. When
+    /// `args.expand_recurrences` is `true`, the backend MUST expand recurring
+    /// events into per-instance synthetic ids within the filter's
+    /// `[after, before]` window (§5.11) and SHOULD use `args.time_zone` (or
+    /// `Etc/UTC` when `None`) when evaluating the time-range conditions.
+    ///
+    /// Returns
+    /// [`QueryCalendarEventsError::ExpandDurationTooLarge`](QueryCalendarEventsError::ExpandDurationTooLarge)
+    /// when expansion is requested and the duration between `before` and
+    /// `after` exceeds the account's `maxExpandedQueryDuration` capability.
+    /// Returns
+    /// [`QueryCalendarEventsError::CannotCalculateOccurrences`](QueryCalendarEventsError::CannotCalculateOccurrences)
+    /// when a required recurrence cannot be expanded (e.g. unbounded
+    /// recurrence with no end). The handler maps these to method-level
+    /// `expandDurationTooLarge` / `cannotCalculateOccurrences` errors per
+    /// §10.7.3 / §10.7.4.
+    ///
+    /// The default implementation ignores `args` and delegates to
+    /// [`query_objects`](JmapBackend::query_objects). Backends that support
+    /// recurrence expansion MUST override this method.
+    fn query_calendar_events(
+        &self,
+        account_id: &jmap_types::Id,
+        filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
+        sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
+        limit: Option<u64>,
+        position: i64,
+        args: &CalendarEventQueryArgs,
+    ) -> impl std::future::Future<Output = Result<QueryResult, QueryCalendarEventsError<Self::Error>>>
+           + Send {
+        // Default ignores expandRecurrences/timeZone; backends with
+        // recurrence expansion override this method.
+        let _ = args;
+        async move {
+            self.query_objects::<jmap_calendars_types::CalendarEvent>(
+                account_id, filter, sort, limit, position,
+            )
+            .await
+            .map_err(QueryCalendarEventsError::Other)
+        }
+    }
+
     /// Set the default `Calendar` for the account
     /// (draft-ietf-jmap-calendars-26 §4.3 `onSuccessSetIsDefault`).
     ///
@@ -432,6 +479,52 @@ pub enum AvailabilityError<E: std::error::Error + 'static> {
     /// Rate limit exceeded.
     #[error("rate limit exceeded")]
     RateLimit,
+    /// An unexpected backend error.
+    #[error("backend error: {0}")]
+    Other(#[source] E),
+}
+
+/// Per-call arguments for `CalendarEvent/query` operations
+/// (draft-ietf-jmap-calendars-26 §5.11).
+///
+/// Carries the §5.11 extra args parsed from the JMAP request that need to be
+/// threaded to the backend.
+///
+/// Marked `#[non_exhaustive]` so future calendars-draft revisions can add
+/// fields without a SemVer break.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default)]
+pub struct CalendarEventQueryArgs {
+    /// `expandRecurrences` (default `false`). When `true`, the backend
+    /// expands recurring events into one synthetic id per instance within
+    /// the filter's `[after, before]` window. The handler validates that
+    /// `filter` is a single FilterCondition with both `before` and `after`
+    /// before invoking the backend.
+    pub expand_recurrences: bool,
+    /// `timeZone` (default `Etc/UTC` when `None`). Time zone used by the
+    /// backend when evaluating `before` / `after` conditions against
+    /// floating events.
+    pub time_zone: Option<String>,
+}
+
+/// Error type for [`CalendarsBackend::query_calendar_events`] backend calls
+/// (draft-ietf-jmap-calendars-26 §10.7.3, §10.7.4).
+#[non_exhaustive]
+#[derive(Debug, thiserror::Error)]
+pub enum QueryCalendarEventsError<E: std::error::Error + 'static> {
+    /// `expandRecurrences` was requested but `before - after` exceeds the
+    /// account's `maxExpandedQueryDuration` capability (§5.11, §10.7.3).
+    /// The handler maps this to a method-level `expandDurationTooLarge`
+    /// error.
+    #[error("query duration exceeds maxExpandedQueryDuration")]
+    ExpandDurationTooLarge,
+    /// The backend cannot expand a recurrence required to return results
+    /// (e.g. unbounded recurrence with no end-date constraint, or a
+    /// reference to a recurrence rule the backend does not understand).
+    /// The handler maps this to a method-level `cannotCalculateOccurrences`
+    /// error (§5.11, §10.7.4).
+    #[error("server cannot expand a recurrence required by the query")]
+    CannotCalculateOccurrences,
     /// An unexpected backend error.
     #[error("backend error: {0}")]
     Other(#[source] E),
