@@ -144,7 +144,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// Called by `Calendar/set` handler when `onDestroyRemoveEvents` is
     /// `false` (the default). If this returns `true`, the handler rejects the
-    /// destroy with a `calendarHasEvents` error rather than forwarding to
+    /// destroy with a `calendarHasEvent` error rather than forwarding to
     /// `destroy_object`.
     fn calendar_has_events(
         &self,

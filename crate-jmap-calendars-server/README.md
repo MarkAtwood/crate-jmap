@@ -118,7 +118,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// Called by Calendar/set before destroying a calendar when
     /// onDestroyRemoveEvents is false (the default). If true, the handler
-    /// rejects the destroy with a calendarHasEvents SetError.
+    /// rejects the destroy with a calendarHasEvent SetError.
     fn calendar_has_events(
         &self,
         account_id: &Id,
@@ -177,7 +177,7 @@ pub trait CalendarsBackend: JmapBackend {
 `BackendSetError<E>` is an enum over two variants:
 
 - `BackendSetError::SetError(SetError)` — a semantic RFC 8620 SetError
-  (`notFound`, `invalidProperties`, `forbidden`, `calendarHasEvents`, etc.)
+  (`notFound`, `invalidProperties`, `forbidden`, `calendarHasEvent`, etc.)
 - `BackendSetError::Other(E)` — a storage-layer error that becomes a
   `serverFail` response
 
