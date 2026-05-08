@@ -5,8 +5,8 @@ use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
 use crate::backend::{
-    BackendSetError, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
-    QueryCalendarEventsError,
+    BackendSetError, CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs,
+    CalendarsBackend, QueryCalendarEventsError,
 };
 use crate::helpers::{extract_account_id, set_error_value};
 
@@ -14,53 +14,128 @@ use crate::helpers::{extract_account_id, set_error_value};
 // CalendarEvent/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `CalendarEvent/get` method call (draft-ietf-jmap-calendars-26 §5.4).
+/// Handle a `CalendarEvent/get` method call (draft-ietf-jmap-calendars-26 §5.7).
 ///
-/// Extra args (`expandRecurrences`, `reducedParticipants`, `fetchCalendars`)
-/// are passed through to the generic handler which forwards them to the
-/// backend via the args `Value`.
+/// Implements the standard `/get` envelope (RFC 8620 §5.1) plus the §5.7
+/// extra arguments:
 ///
-/// If `utcStart` or `utcEnd` appear in the requested `properties` (or all
-/// properties are requested), `compute_utc_times` is called per event and
-/// the results are injected into the response list
-/// (draft-ietf-jmap-calendars-26 §5.2).
+/// - `recurrenceOverridesBefore`: UTCDateTime|null — filter overrides by
+///   upper recurrence-id bound (forwarded to the backend).
+/// - `recurrenceOverridesAfter`: UTCDateTime|null — filter overrides by
+///   lower recurrence-id bound (forwarded to the backend).
+/// - `reduceParticipants`: Boolean (default false) — return only owner /
+///   user's-identity participants (forwarded to the backend).
+/// - `timeZone`: TimeZoneId (default "Etc/UTC") — used to compute
+///   `utcStart` / `utcEnd` for floating events when those properties are
+///   requested. The handler injects the computed values via
+///   [`compute_utc_times`](crate::CalendarsBackend::compute_utc_times)
+///   so a backend that doesn't override
+///   [`get_calendar_events`](crate::CalendarsBackend::get_calendar_events)
+///   still produces correct UTC fields for the requested time zone.
 pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    // Determine whether utcStart or utcEnd are requested.
-    let want_utc = match args.get("properties") {
-        None | Some(Value::Null) => true, // all properties requested
-        Some(Value::Array(props)) => props.iter().any(|p| {
-            p.as_str()
-                .map(|s| s == "utcStart" || s == "utcEnd")
-                .unwrap_or(false)
-        }),
-        _ => false,
-    };
     let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
 
-    let (mut response, tail) =
-        jmap_server::handlers::handle_get::<CalendarEvent, B>(backend, args).await?;
+    // Standard /get parameters (RFC 8620 §5.1).
+    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
+                .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
+        ),
+    };
 
-    if want_utc {
-        if let Some(Value::Array(list)) = response.get_mut("list") {
-            for item in list.iter_mut() {
-                if let Ok(event) = serde_json::from_value::<CalendarEvent>(item.clone()) {
-                    let (utc_start, utc_end) =
-                        backend.compute_utc_times(&account_id, &event, None).await;
-                    if let Some(s) = utc_start {
-                        item["utcStart"] = Value::String(s);
-                    }
-                    if let Some(e) = utc_end {
-                        item["utcEnd"] = Value::String(e);
-                    }
-                }
+    let properties: Option<Vec<String>> = match args.remove("properties").unwrap_or(Value::Null) {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
+                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
+        ),
+    };
+
+    // §5.7 extras.
+    let get_args = CalendarEventGetArgs {
+        recurrence_overrides_before: args
+            .get("recurrenceOverridesBefore")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_owned()),
+        recurrence_overrides_after: args
+            .get("recurrenceOverridesAfter")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_owned()),
+        reduce_participants: args
+            .get("reduceParticipants")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+        time_zone: args
+            .get("timeZone")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_owned()),
+    };
+
+    // Whether utcStart/utcEnd appear in the response. Per §5.7, both are
+    // computed only when explicitly requested; when properties is null
+    // (all properties), the spec excludes them by default.
+    let want_utc = match properties.as_deref() {
+        None => false,
+        Some(props) => props.iter().any(|p| p == "utcStart" || p == "utcEnd"),
+    };
+
+    let ids_slice = ids.as_deref();
+    let (events, not_found) = backend
+        .get_calendar_events(&account_id, ids_slice, properties.as_deref(), &get_args)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    let state = backend
+        .get_state::<CalendarEvent>(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    // Serialize each event, then inject utcStart/utcEnd if requested.
+    // §5.7: the timeZone arg is used to compute these values; a None
+    // tz_hint defers to the event's own time_zone or the server default.
+    let mut list_json: Vec<Value> = Vec::with_capacity(events.len());
+    for event in &events {
+        let mut item = serde_json::to_value(event)
+            .map_err(|e| JmapError::server_fail(format!("event serialize failed: {e}")))?;
+        if want_utc {
+            let (utc_start, utc_end) = backend
+                .compute_utc_times(&account_id, event, get_args.time_zone.as_deref())
+                .await;
+            if let Some(s) = utc_start {
+                item["utcStart"] = Value::String(s);
+            }
+            if let Some(e) = utc_end {
+                item["utcEnd"] = Value::String(e);
             }
         }
+        list_json.push(item);
     }
 
-    Ok((response, tail))
+    Ok((
+        json!({
+            "accountId": account_id.as_ref(),
+            "state": state.as_ref(),
+            "list": list_json,
+            "notFound": not_found.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        }),
+        vec![],
+    ))
 }
 
 // ---------------------------------------------------------------------------

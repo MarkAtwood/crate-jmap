@@ -290,6 +290,54 @@ pub trait CalendarsBackend: JmapBackend {
         async { (None, None) }
     }
 
+    /// Fetch [`CalendarEvent`](jmap_calendars_types::CalendarEvent)s honouring
+    /// the §5.7 extra arguments (draft-ietf-jmap-calendars-26).
+    ///
+    /// Receives the standard get parameters (ids, properties) alongside the
+    /// parsed [`CalendarEventGetArgs`] carrying:
+    ///
+    /// - `recurrence_overrides_before` — when set, the backend MUST omit any
+    ///   recurrence override whose recurrence id (translated into UTC) is on
+    ///   or after this UTCDateTime.
+    /// - `recurrence_overrides_after` — when set, the backend MUST omit any
+    ///   recurrence override whose recurrence id (translated into UTC) is
+    ///   before this UTCDateTime.
+    /// - `reduce_participants` — when `true`, the backend MUST return only
+    ///   participants with the `"owner"` role or matching the user's
+    ///   ParticipantIdentities, in both the base event's `participants` and
+    ///   in any recurrence override.
+    /// - `time_zone` — the time zone (default `"Etc/UTC"` when `None`) used
+    ///   when computing `utcStart` / `utcEnd` for floating events. The
+    ///   handler also forwards this value to
+    ///   [`compute_utc_times`](Self::compute_utc_times) for consistency.
+    ///
+    /// Returns `(found, not_found)` like
+    /// [`get_objects`](JmapBackend::get_objects).
+    ///
+    /// The default implementation ignores `args` and delegates to
+    /// `get_objects::<CalendarEvent>`. Backends that filter overrides or
+    /// reduce participants MUST override this method.
+    fn get_calendar_events(
+        &self,
+        account_id: &jmap_types::Id,
+        ids: Option<&[jmap_types::Id]>,
+        properties: Option<&[String]>,
+        args: &CalendarEventGetArgs,
+    ) -> impl std::future::Future<
+        Output = Result<
+            (
+                Vec<jmap_calendars_types::CalendarEvent>,
+                Vec<jmap_types::Id>,
+            ),
+            Self::Error,
+        >,
+    > + Send {
+        // Default ignores §5.7 extras; backends that filter overrides or
+        // reduce participants override this method.
+        let _ = args;
+        self.get_objects::<jmap_calendars_types::CalendarEvent>(account_id, ids, properties)
+    }
+
     /// Run a `CalendarEvent/query` request honouring the §5.11 extra
     /// arguments (draft-ietf-jmap-calendars-26).
     ///
@@ -482,6 +530,35 @@ pub enum AvailabilityError<E: std::error::Error + 'static> {
     /// An unexpected backend error.
     #[error("backend error: {0}")]
     Other(#[source] E),
+}
+
+/// Per-call arguments for `CalendarEvent/get` operations
+/// (draft-ietf-jmap-calendars-26 §5.7).
+///
+/// Carries the §5.7 extras parsed from the JMAP request that need to be
+/// threaded to the backend.
+///
+/// Marked `#[non_exhaustive]` so future calendars-draft revisions can add
+/// fields without a SemVer break.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default)]
+pub struct CalendarEventGetArgs {
+    /// `recurrenceOverridesBefore`: only overrides whose recurrence id
+    /// (translated to UTC) is strictly before this UTCDateTime are returned.
+    /// `None` means no upper bound on the override id.
+    pub recurrence_overrides_before: Option<String>,
+    /// `recurrenceOverridesAfter`: only overrides whose recurrence id
+    /// (translated to UTC) is on or after this UTCDateTime are returned.
+    /// `None` means no lower bound on the override id.
+    pub recurrence_overrides_after: Option<String>,
+    /// `reduceParticipants` (default `false`). When `true`, the backend
+    /// returns only participants with the `"owner"` role or those matching
+    /// the user's ParticipantIdentities.
+    pub reduce_participants: bool,
+    /// `timeZone` (default `"Etc/UTC"` when `None`). Used for computing
+    /// `utcStart` / `utcEnd` of floating events when those properties are
+    /// requested. Has no effect if the response does not include them.
+    pub time_zone: Option<String>,
 }
 
 /// Per-call arguments for `CalendarEvent/query` operations
