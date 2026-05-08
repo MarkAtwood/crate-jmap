@@ -214,9 +214,7 @@ pub(crate) mod test_support {
             }))
             .expect("test fixture must deserialize");
             let mut guard = self.state.lock().unwrap();
-            let acct = guard
-                .entry(account_id.to_owned())
-                .or_default();
+            let acct = guard.entry(account_id.to_owned()).or_default();
             acct.notifications.insert(Id::from(notif_id), notif);
         }
     }

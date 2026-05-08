@@ -229,10 +229,8 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                         // proceed to destroy the calendar below
                     }
                     Err(e) => {
-                        not_destroyed.insert(
-                            id_str,
-                            json!({"type": "serverFail", "description": e}),
-                        );
+                        not_destroyed
+                            .insert(id_str, json!({"type": "serverFail", "description": e}));
                         continue;
                     }
                 }
@@ -318,11 +316,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
 
     // Step 3: for each event, destroy if single-calendar, else patch out this id.
     for event in events {
-        let n_calendars = event
-            .calendar_ids
-            .as_ref()
-            .map(|m| m.len())
-            .unwrap_or(0);
+        let n_calendars = event.calendar_ids.as_ref().map(|m| m.len()).unwrap_or(0);
 
         // The CalendarEvent's `id` is required for /set semantics — it should
         // always be Some on a real backend. If it's missing here we cannot
@@ -339,11 +333,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
             let mut patch_obj = serde_json::Map::new();
             patch_obj.insert(patch_key, Value::Null);
             backend
-                .update_object::<CalendarEvent>(
-                    account_id,
-                    &event_id,
-                    Value::Object(patch_obj),
-                )
+                .update_object::<CalendarEvent>(account_id, &event_id, Value::Object(patch_obj))
                 .await
                 .map_err(|e| match e {
                     BackendSetError::SetError(set_err) => {
@@ -514,7 +504,11 @@ mod tests {
         let destroyed = resp["destroyed"]
             .as_array()
             .expect("destroyed must be array");
-        assert_eq!(destroyed[0], json!("cal1"), "cal1 must be destroyed: {resp}");
+        assert_eq!(
+            destroyed[0],
+            json!("cal1"),
+            "cal1 must be destroyed: {resp}"
+        );
 
         // Event also destroyed — query MockBackend's CalendarEvent store directly.
         use jmap_server::JmapBackend;
@@ -570,7 +564,11 @@ mod tests {
         let destroyed = resp["destroyed"]
             .as_array()
             .expect("destroyed must be array");
-        assert_eq!(destroyed[0], json!("cal1"), "cal1 must be destroyed: {resp}");
+        assert_eq!(
+            destroyed[0],
+            json!("cal1"),
+            "cal1 must be destroyed: {resp}"
+        );
 
         // Event still exists, but cal1 must be gone from calendarIds and cal2
         // must remain.

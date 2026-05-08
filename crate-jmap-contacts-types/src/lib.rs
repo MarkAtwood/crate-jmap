@@ -388,9 +388,7 @@ mod tests {
         let card: ContactCard = serde_json::from_str(json).unwrap();
         assert_eq!(card.kind.as_deref(), Some("group"));
         let members = card.members.as_ref().unwrap();
-        assert!(
-            members["urn:uuid:03a0e51f-d1aa-4385-8a53-e29025acd8af"]
-        );
+        assert!(members["urn:uuid:03a0e51f-d1aa-4385-8a53-e29025acd8af"]);
         assert_eq!(members.len(), 2);
     }
 

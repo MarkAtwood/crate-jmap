@@ -783,10 +783,7 @@ mod tests {
         );
         // Client sends a pre-populated createdIds map.
         let mut initial = std::collections::HashMap::new();
-        initial.insert(
-            Id::from("client-old"),
-            Id::from("server-old"),
-        );
+        initial.insert(Id::from("client-old"), Id::from("server-old"));
         let req = JmapRequest::new(
             vec!["urn:ietf:params:jmap:core".into()],
             vec![("Foo/set".into(), json!({}), "c0".into())],
