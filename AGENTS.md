@@ -134,6 +134,19 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   `LICENSE-APACHE` files** to any crate or to the repo root. The TOML
   metadata is sufficient for crates.io and `cargo deny`. Do not "fix"
   this convention — it is intentional.
+- **Sloppy-Value pattern for IETF-defined nested objects**: type crates use
+  `Option<serde_json::Value>` for fields whose value shape is defined by an
+  external IETF spec (JSCalendar / RFC 8984, JSContact / RFC 9553, etc.)
+  and is large or extensible. Each affected crate's `PLAN.md` documents
+  the per-field rationale (e.g.
+  `crate-jmap-calendars-types/PLAN.md` §1–§8,
+  `crate-jmap-contacts-types/PLAN.md` §10). Do not "type out" these
+  sloppy fields without explicit user approval — doing so creates large
+  public types that drift as the upstream specs evolve. The preferred
+  hybrid is the calendars approach: keep the public field as
+  `serde_json::Value` for round-trip fidelity, and add parallel typed
+  sub-types in a sibling module (e.g. `jscalendar.rs`) that consumers
+  can opt into via `serde_json::from_value`.
 - **TLS stack**: this workspace uses **rustls**, NOT native-tls / openssl.
   Both `reqwest` and `tokio-tungstenite` MUST be declared with
   `default-features = false` and only `rustls-tls-*` features enabled.
