@@ -12,7 +12,7 @@ use jmap_types::UTCDate;
 /// - 2–6 days ago: `"Mon 14:00"` (weekday abbreviation + HH:MM)
 /// - Same year, older than 6 days: `"Apr 12"` (month abbreviation + day number)
 /// - Different year: `"Apr 12 2023"` (month + day + year)
-/// - Unparseable input: raw string returned unchanged
+/// - Unparsable input: raw string returned unchanged
 ///
 /// **UTC dates only.** Both `dt` and the implicit current time are treated as
 /// UTC wall-clock dates. Callers in non-UTC time zones that need local-day
@@ -122,7 +122,7 @@ mod tests {
         assert_eq!(format_receipt_timestamp_at(&dt, now()), "Mar 12");
     }
 
-    /// Oracle: unparseable string → returned unchanged (never panics).
+    /// Oracle: unparsable string → returned unchanged (never panics).
     #[test]
     fn format_parse_error() {
         let dt = UTCDate::from("not-a-date");

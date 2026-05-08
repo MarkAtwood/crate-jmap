@@ -1,0 +1,113 @@
+# Workspace CI — enforces the AGENTS.md pre-commit gate on every push and PR.
+#
+# Plan C scope (closes JMAP-sc1b.9): fmt + clippy + test + doc + typos on
+# stable Rust only, single ubuntu-latest runner. Each job runs in parallel so
+# total wall time is roughly the slowest job (~test).
+#
+# Deferred follow-ups, intentionally out of scope here:
+#   - Beta toolchain leg ............... bd:JMAP-gsr5
+#   - MSRV (1.75) build check .......... bd:JMAP-a2e3
+#   - cargo-deny supply-chain job ...... bd:JMAP-hge6 (blocked on bd:JMAP-sc1b.10
+#                                        which provisions deny.toml)
+# Each follow-up has a TODO marker below where the new job should slot in.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Avoid wasted CI minutes when a PR or branch sees rapid pushes — only the
+# latest run for a given ref is kept.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: short
+  # Pin the workspace test runtime to a predictable threadcount; default is
+  # the runner's logical CPU count which varies. Helps repeatable timing.
+  RUST_TEST_THREADS: "4"
+
+jobs:
+  # -------------------------------------------------------------------------
+  # fmt — verifies cargo fmt --all has been run before commit. Cheap (<5s).
+  # -------------------------------------------------------------------------
+  fmt:
+    name: fmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - name: cargo fmt --all -- --check
+        run: cargo fmt --all -- --check
+
+  # -------------------------------------------------------------------------
+  # clippy — workspace lint + tests, -D warnings. Matches AGENTS.md gate.
+  # -------------------------------------------------------------------------
+  clippy:
+    name: clippy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo clippy --workspace --tests -- -D warnings
+        run: cargo clippy --workspace --tests -- -D warnings
+
+  # -------------------------------------------------------------------------
+  # test — full workspace test suite. Slowest job; defines wall time.
+  # -------------------------------------------------------------------------
+  test:
+    name: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo test --workspace
+        run: cargo test --workspace
+
+  # -------------------------------------------------------------------------
+  # doc — rustdoc with -D warnings. Catches broken intra-doc links and
+  # stale references early. AGENTS.md mandates this for every locked crate.
+  # -------------------------------------------------------------------------
+  doc:
+    name: doc
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: -D warnings
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo doc --no-deps --workspace
+        run: cargo doc --no-deps --workspace
+
+  # -------------------------------------------------------------------------
+  # typos — catches embarrassing prose typos in code comments and docs.
+  # Uses the official crate-ci/typos action (handles install + invocation).
+  # -------------------------------------------------------------------------
+  typos:
+    name: typos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: crate-ci/typos@master
+
+  # TODO bd:JMAP-gsr5 — add `beta` matrix leg of the test job (continue-on-error,
+  # advisory only) to catch incoming Rust regressions before stable picks them up.
+
+  # TODO bd:JMAP-a2e3 — add `msrv` job using dtolnay/rust-toolchain@1.75 and
+  # `cargo check --workspace --all-features --locked` to guard against silent
+  # MSRV bumps from transitive-dep updates.
+
+  # TODO bd:JMAP-hge6 — add `deny` job once bd:JMAP-sc1b.10 lands a deny.toml,
+  # using EmbarkStudios/cargo-deny-action@v2 to enforce supply-chain policy.
