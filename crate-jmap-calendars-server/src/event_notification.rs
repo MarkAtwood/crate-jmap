@@ -60,6 +60,15 @@ pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
         ));
     };
 
+    // RFC 8620 §3.6.2: accountId not recognised → accountNotFound.
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     let old_state = backend
         .get_state::<CalendarEventNotification>(&account_id)
         .await
@@ -236,6 +245,17 @@ mod tests {
             .await
             .expect("must not return top-level error");
         assert_eq!(resp["notUpdated"]["n1"]["type"], "forbidden");
+    }
+
+    /// Oracle: CalendarEventNotification/set with unknown accountId returns
+    /// accountNotFound. Source: RFC 8620 §3.6.2.
+    #[tokio::test]
+    async fn set_unknown_account_returns_account_not_found() {
+        let backend = MockBackend::new();
+        let args = json!({ "accountId": "unknown" });
+        let result = handle_calendar_event_notification_set(&backend, args).await;
+        let err = result.expect_err("must return error for unknown account");
+        assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
 
     /// Oracle: destroy of a non-existent notification → notFound in notDestroyed.
