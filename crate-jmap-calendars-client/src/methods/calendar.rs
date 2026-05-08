@@ -90,6 +90,15 @@ impl super::SessionClient {
         destroy: Option<&[&str]>,
         on_destroy_remove_events: Option<bool>,
     ) -> Result<SetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {
+        if let Some(ref m) = create {
+            for k in m.keys() {
+                if k.is_empty() {
+                    return Err(jmap_base_client::ClientError::InvalidArgument(
+                        "calendar_set: create map key (creation id) may not be empty".into(),
+                    ));
+                }
+            }
+        }
         if let Some(ids) = destroy {
             for id in ids.iter() {
                 if id.is_empty() {

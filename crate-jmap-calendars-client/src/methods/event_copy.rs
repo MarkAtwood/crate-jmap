@@ -28,6 +28,13 @@ impl super::SessionClient {
                 "calendar_event_copy: from_account_id may not be empty".into(),
             ));
         }
+        for k in create.keys() {
+            if k.is_empty() {
+                return Err(jmap_base_client::ClientError::InvalidArgument(
+                    "calendar_event_copy: create map key (creation id) may not be empty".into(),
+                ));
+            }
+        }
         let (api_url, account_id) = self.session_parts()?;
         let create_val = serde_json::to_value(&create).map_err(|e| {
             jmap_base_client::ClientError::InvalidArgument(format!(

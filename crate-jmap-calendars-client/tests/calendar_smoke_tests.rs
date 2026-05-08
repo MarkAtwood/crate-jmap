@@ -196,3 +196,65 @@ async fn calendar_event_parse_smoke() {
         "notParsable must contain 'blob1'"
     );
 }
+
+/// Oracle: §5.10 / RFC 8620 §5.4 — `create` keys are caller-chosen
+/// creation ids. Empty creation ids would produce a malformed wire request,
+/// so calendar_event_copy MUST reject them client-side with InvalidArgument
+/// BEFORE making any HTTP call. The mock server has no expectations, so any
+/// HTTP request would result in a 404 from wiremock (which would still
+/// surface as a different error, not InvalidArgument).
+#[tokio::test]
+async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
+    let server = MockServer::start().await;
+    // Deliberately register no mock expectations. If the guard fails to fire,
+    // the call reaches wiremock and the test will fail with the wrong error.
+
+    let sc = helpers::make_client(&server).await;
+
+    let event: jmap_calendars_types::CalendarEvent = serde_json::from_value(json!({
+        "id": "src-event-id",
+    }))
+    .expect("CalendarEvent must deserialize from minimal fixture");
+    let mut create = std::collections::HashMap::new();
+    create.insert(String::new(), event); // empty creation id
+
+    let result = sc.calendar_event_copy("src_acc", create).await;
+    let err = result.expect_err("calendar_event_copy with empty creation id must error");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("creation id"),
+                "error message must mention 'creation id': {msg}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+}
+
+/// Oracle: §5.10 — `from_account_id` empty guard is exercised end-to-end.
+/// The check is the same shape as the creation-id guard but on a different
+/// field; pinning both ensures the validation chain is wired correctly.
+#[tokio::test]
+async fn calendar_event_copy_empty_from_account_returns_invalid_argument() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server).await;
+
+    let event: jmap_calendars_types::CalendarEvent = serde_json::from_value(json!({
+        "id": "src-event-id",
+    }))
+    .expect("CalendarEvent must deserialize");
+    let mut create = std::collections::HashMap::new();
+    create.insert("c1".to_owned(), event);
+
+    let result = sc.calendar_event_copy("", create).await;
+    let err = result.expect_err("empty from_account_id must error");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("from_account_id"),
+                "error message must mention 'from_account_id': {msg}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+}
