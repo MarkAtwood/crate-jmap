@@ -4,7 +4,7 @@
 //! it cannot be set back to true.
 
 use jmap_tasks_types::Task;
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, TasksBackend};
@@ -227,14 +227,26 @@ pub async fn handle_task_set<B: TasksBackend>(
                 })
                 .unwrap_or(false);
 
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError. Conversion runs
+            // after the isDraft and per-user-routing introspection above so
+            // those checks operate on the raw wire shape.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
             let update_result = if is_per_user_only {
-                backend
-                    .update_task_per_user(&account_id, &id, patch_val)
-                    .await
+                backend.update_task_per_user(&account_id, &id, patch).await
             } else {
-                backend
-                    .update_object::<Task>(&account_id, &id, patch_val)
-                    .await
+                backend.update_object::<Task>(&account_id, &id, patch).await
             };
 
             match update_result {
