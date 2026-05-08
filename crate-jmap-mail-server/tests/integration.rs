@@ -1350,7 +1350,10 @@ async fn identity_set_destroy_may_delete_false_is_forbidden() {
 
     // Bypass the handler to set mayDelete=false directly in the backend,
     // simulating a server-managed default identity the user cannot delete.
-    let patch = serde_json::json!({ "mayDelete": false });
+    let patch = serde_json::from_value::<jmap_types::PatchObject>(
+        serde_json::json!({ "mayDelete": false }),
+    )
+    .expect("PatchObject literal must deserialize");
     backend
         .update_object::<Identity>(&account_id, &identity_id, patch)
         .await

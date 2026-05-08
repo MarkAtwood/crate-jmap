@@ -14,7 +14,7 @@ use jmap_mail_types::{
     submission::{Address, Delivered, DeliveryStatus, Displayed, Envelope, UndoStatus},
     Email, EmailSubmission, Identity,
 };
-use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
@@ -428,8 +428,21 @@ pub async fn handle_submission_set<B: MailBackend>(
     // -----------------------------------------------------------------------
 
     if let Some(Value::Object(update_map)) = args.remove("update") {
-        for (id_str, patch) in update_map {
+        for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
             match process_update(backend, &account_id, &id, patch).await {
                 Ok(Some(obj)) => {
                     updated.insert(
@@ -550,13 +563,28 @@ pub async fn handle_submission_set<B: MailBackend>(
         // take ownership of the nested map via remove(). The clone is bounded to
         // the patch object, not the full args.
         if let Some(update_patches) = args.get("onSuccessUpdateEmail").and_then(|v| v.as_object()) {
-            for (sub_key, patch) in update_patches {
+            for (sub_key, patch_val) in update_patches {
                 let email_id = match submission_email_id_map.get(sub_key.as_str()) {
                     Some(id) => id.clone(),
                     None => continue, // Referenced operation did not succeed; skip.
                 };
+                // Convert wire-format Value into a typed PatchObject before
+                // the immutable-field guard. RFC 8620 §5.3.
+                let patch = match serde_json::from_value::<PatchObject>(patch_val.clone()) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        email_not_updated.insert(
+                            email_id.as_ref().to_owned(),
+                            json!({
+                                "type": "invalidPatch",
+                                "description": e.to_string()
+                            }),
+                        );
+                        continue;
+                    }
+                };
                 // Apply same immutable-field guard as handle_email_set patches.
-                if let Some(bad_field) = find_immutable_patch_key(patch) {
+                if let Some(bad_field) = find_immutable_patch_key(&patch) {
                     email_not_updated.insert(
                         email_id.as_ref().to_owned(),
                         json!({
@@ -567,7 +595,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     continue;
                 }
                 match backend
-                    .update_object::<Email>(&account_id, &email_id, patch.clone())
+                    .update_object::<Email>(&account_id, &email_id, patch)
                     .await
                 {
                     Ok(Some(obj)) => {
@@ -849,11 +877,12 @@ async fn process_update<B: MailBackend>(
     backend: &B,
     account_id: &Id,
     id: &Id,
-    patch: Value,
+    patch: PatchObject,
 ) -> Result<Option<EmailSubmission>, BackendSetError<B::Error>> {
     // RFC 8621 §7.5: only undoStatus may be changed in an update patch.
-    if let Some(obj) = patch.as_object() {
-        let bad: Vec<&str> = obj
+    {
+        let bad: Vec<&str> = patch
+            .as_map()
             .keys()
             .filter(|k| k.as_str() != "undoStatus")
             .map(|k| k.as_str())

@@ -5,7 +5,7 @@
 //! forbidden; only update of `"singleton"` is permitted.
 
 use jmap_mail_types::VacationResponse;
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
@@ -162,12 +162,26 @@ pub async fn handle_vacation_set<B: MailBackend>(
     // update — only "singleton" is a valid id.
     let mut updated = serde_json::Map::new();
     if let Some(Value::Object(update)) = args.remove("update") {
-        for (id, patch) in update {
+        for (id, patch_val) in update {
             if id != SINGLETON_ID {
                 let err = SetError::new(SetErrorType::NotFound);
                 not_updated.insert(id.clone(), set_error_value(&err));
                 continue;
             }
+
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id.clone(),
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
 
             let singleton_id = Id::from(SINGLETON_ID);
             match backend

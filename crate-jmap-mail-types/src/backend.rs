@@ -4,7 +4,7 @@
 //! violating the orphan rule (`JmapObject` is foreign but the mail types are
 //! local to this crate).
 
-use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
+use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // Property selector enums (server-side; no serde required)
@@ -134,7 +134,7 @@ impl JmapObject for crate::Mailbox {
 impl GetObject for crate::Mailbox {}
 
 impl SetObject for crate::Mailbox {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::Mailbox {
@@ -157,7 +157,7 @@ impl JmapObject for crate::Email {
 impl GetObject for crate::Email {}
 
 impl SetObject for crate::Email {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::Email {
@@ -173,7 +173,7 @@ impl JmapObject for crate::Identity {
 impl GetObject for crate::Identity {}
 
 impl SetObject for crate::Identity {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl JmapObject for crate::EmailSubmission {
@@ -184,7 +184,7 @@ impl JmapObject for crate::EmailSubmission {
 impl GetObject for crate::EmailSubmission {}
 
 impl SetObject for crate::EmailSubmission {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::EmailSubmission {
@@ -200,7 +200,7 @@ impl JmapObject for crate::VacationResponse {
 impl GetObject for crate::VacationResponse {}
 
 impl SetObject for crate::VacationResponse {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl JmapObject for crate::SearchSnippet {
@@ -219,5 +219,5 @@ impl GetObject for crate::sieve::SieveScript {}
 
 #[cfg(feature = "sieve")]
 impl SetObject for crate::sieve::SieveScript {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }

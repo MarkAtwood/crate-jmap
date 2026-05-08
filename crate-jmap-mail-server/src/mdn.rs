@@ -10,7 +10,7 @@ use jmap_mail_types::{
     mdn::{Mdn, MdnParseRequest, MdnSendRequest},
     Email, Identity,
 };
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
@@ -419,8 +419,23 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                     None => continue,
                 };
 
+                // Convert wire-format Value into a typed PatchObject before
+                // the immutable-field guard. RFC 8620 §5.3.
+                let patch_obj = match serde_json::from_value::<PatchObject>(patch.clone()) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        email_not_updated.insert(
+                            email_id.as_ref().to_owned(),
+                            json!({
+                                "type": "invalidPatch",
+                                "description": e.to_string()
+                            }),
+                        );
+                        continue;
+                    }
+                };
                 // Apply the same immutable-field guard as handle_email_set patches.
-                if let Some(bad_field) = find_immutable_patch_key(patch) {
+                if let Some(bad_field) = find_immutable_patch_key(&patch_obj) {
                     email_not_updated.insert(
                         email_id.as_ref().to_owned(),
                         json!({
@@ -432,7 +447,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 }
 
                 match backend
-                    .update_object::<Email>(&req.account_id, &email_id, patch.clone())
+                    .update_object::<Email>(&req.account_id, &email_id, patch_obj)
                     .await
                 {
                     Ok(Some(obj)) => {
