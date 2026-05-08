@@ -188,7 +188,8 @@ pub(crate) mod test_support {
     use jmap_types::{Id, State};
 
     use crate::backend::{
-        CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend, QueryCalendarEventsError,
+        CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
+        QueryCalendarEventsError,
     };
 
     #[derive(Debug)]
@@ -219,13 +220,25 @@ pub(crate) mod test_support {
     #[derive(Clone)]
     pub struct MockBackend {
         state: Arc<Mutex<HashMap<String, AccountState>>>,
+        /// Last `CalendarEventGetArgs` seen by `get_calendar_events`. Tests
+        /// inspect this to verify §5.7 args were threaded from the handler.
+        last_get_args: Arc<Mutex<Option<CalendarEventGetArgs>>>,
     }
 
     impl MockBackend {
         pub fn new() -> Self {
             Self {
                 state: Arc::new(Mutex::new(HashMap::new())),
+                last_get_args: Arc::new(Mutex::new(None)),
             }
+        }
+
+        /// Return and clear the last `CalendarEventGetArgs` recorded by
+        /// `get_calendar_events`. `None` if the method has not been called
+        /// since the last `take`.
+        #[allow(dead_code)]
+        pub fn take_last_get_args(&self) -> Option<CalendarEventGetArgs> {
+            self.last_get_args.lock().unwrap().take()
         }
 
         pub fn new_with_account(account_id: &str) -> Self {
@@ -667,6 +680,34 @@ pub(crate) mod test_support {
             }
             self.destroy_object::<jmap_calendars_types::CalendarEvent>(account_id, id)
                 .await
+        }
+
+        // §5.7 get_calendar_events: record args for test assertions and
+        // delegate to get_objects. Tests inspect take_last_get_args() to
+        // verify the handler parsed and forwarded each extra correctly.
+        async fn get_calendar_events(
+            &self,
+            account_id: &Id,
+            ids: Option<&[Id]>,
+            properties: Option<&[String]>,
+            args: &CalendarEventGetArgs,
+        ) -> Result<(Vec<jmap_calendars_types::CalendarEvent>, Vec<Id>), Self::Error> {
+            *self.last_get_args.lock().unwrap() = Some(args.clone());
+            self.get_objects::<jmap_calendars_types::CalendarEvent>(account_id, ids, properties)
+                .await
+        }
+
+        // §5.7 timeZone: echo the tz_hint back into utcStart so tests can
+        // verify the handler forwarded the timeZone arg (the previous
+        // implementation hardcoded None for tz_hint, which was a bug).
+        async fn compute_utc_times(
+            &self,
+            _account_id: &Id,
+            _event: &jmap_calendars_types::CalendarEvent,
+            tz_hint: Option<&str>,
+        ) -> (Option<String>, Option<String>) {
+            let tz = tz_hint.unwrap_or("Etc/UTC");
+            (Some(format!("tz={tz}")), Some(format!("tz={tz}")))
         }
 
         // §5.11 expandRecurrences: drive the two new error paths via
@@ -1803,6 +1844,253 @@ mod tests {
         assert!(
             args["ids"].as_array().unwrap().is_empty(),
             "no events seeded → ids must be empty: {args}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // CalendarEvent/get §5.7 extra args
+    //
+    // The MockBackend's get_calendar_events records the received
+    // CalendarEventGetArgs so tests can verify each extra was parsed and
+    // threaded. compute_utc_times echoes back the tz_hint so timeZone
+    // forwarding can be observed in the response.
+    // -----------------------------------------------------------------------
+
+    /// Oracle: §5.7 — `recurrenceOverridesBefore`, `recurrenceOverridesAfter`,
+    /// and `reduceParticipants` MUST be parsed from the request and forwarded
+    /// to the backend. Without this, a backend cannot honour the spec's
+    /// override-filter / participant-reduction semantics.
+    #[tokio::test]
+    async fn calendar_event_get_forwards_section_5_7_args_to_backend() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/get",
+            json!({
+                "accountId": "acc1",
+                "ids": null,
+                "recurrenceOverridesBefore": "2026-01-01T00:00:00Z",
+                "recurrenceOverridesAfter":  "2025-01-01T00:00:00Z",
+                "reduceParticipants": true,
+                "timeZone": "Europe/London"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        let recorded = backend
+            .take_last_get_args()
+            .expect("backend must have received get_args");
+        assert_eq!(
+            recorded.recurrence_overrides_before.as_deref(),
+            Some("2026-01-01T00:00:00Z"),
+            "recurrenceOverridesBefore must be forwarded"
+        );
+        assert_eq!(
+            recorded.recurrence_overrides_after.as_deref(),
+            Some("2025-01-01T00:00:00Z"),
+            "recurrenceOverridesAfter must be forwarded"
+        );
+        assert!(
+            recorded.reduce_participants,
+            "reduceParticipants:true must be forwarded"
+        );
+        assert_eq!(
+            recorded.time_zone.as_deref(),
+            Some("Europe/London"),
+            "timeZone must be forwarded"
+        );
+    }
+
+    /// Oracle: §5.7 — `timeZone` MUST be passed to `compute_utc_times` (the
+    /// prior implementation hardcoded `None` for `tz_hint`, ignoring the
+    /// client-supplied value). When `properties` requests `utcStart`, the
+    /// computed value must reflect the requested time zone.
+    #[tokio::test]
+    async fn calendar_event_get_time_zone_passed_to_compute_utc_times() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        // Seed a minimal event so the response list is non-empty.
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "ev1",
+            json!({
+                "id": "ev1",
+                "calendarIds": {"cal1": true},
+                "title": "Meeting",
+                "start": "2025-06-01T10:00:00",
+                "duration": "PT1H"
+            }),
+        );
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/get",
+            json!({
+                "accountId": "acc1",
+                "ids": ["ev1"],
+                "properties": ["id", "utcStart", "utcEnd"],
+                "timeZone": "America/New_York"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        let list = args["list"].as_array().expect("list array");
+        assert_eq!(list.len(), 1, "one event in response: {args}");
+        // The mock's compute_utc_times echoes "tz=<received>" so we can
+        // observe what tz_hint was passed.
+        assert_eq!(
+            list[0]["utcStart"], "tz=America/New_York",
+            "timeZone arg must be passed to compute_utc_times: {args}"
+        );
+        assert_eq!(
+            list[0]["utcEnd"], "tz=America/New_York",
+            "timeZone arg must be passed to compute_utc_times: {args}"
+        );
+    }
+
+    /// Oracle: §5.7 — when `timeZone` is absent, the backend receives
+    /// `None` and `compute_utc_times` defaults to `Etc/UTC`.
+    #[tokio::test]
+    async fn calendar_event_get_default_time_zone_is_etc_utc() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "ev1",
+            json!({
+                "id": "ev1",
+                "calendarIds": {"cal1": true},
+                "title": "Meeting",
+                "start": "2025-06-01T10:00:00",
+                "duration": "PT1H"
+            }),
+        );
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/get",
+            json!({
+                "accountId": "acc1",
+                "ids": ["ev1"],
+                "properties": ["id", "utcStart"]
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        // The backend sees None; the mock's compute_utc_times maps that
+        // to "Etc/UTC" when echoing.
+        assert_eq!(
+            args["list"][0]["utcStart"], "tz=Etc/UTC",
+            "default timeZone must be Etc/UTC: {args}"
+        );
+        let recorded = backend
+            .take_last_get_args()
+            .expect("backend must have received get_args");
+        assert!(
+            recorded.time_zone.is_none(),
+            "absent timeZone arg must remain None at the backend: {recorded:?}"
+        );
+    }
+
+    /// Oracle: §5.7 — when `properties` does not include `utcStart` or
+    /// `utcEnd`, `compute_utc_times` MUST NOT be invoked (or at least its
+    /// output MUST NOT appear in the response). Avoids leaking computed
+    /// fields into responses that didn't request them.
+    #[tokio::test]
+    async fn calendar_event_get_no_utc_when_not_requested() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "ev1",
+            json!({
+                "id": "ev1",
+                "calendarIds": {"cal1": true},
+                "title": "Meeting",
+                "start": "2025-06-01T10:00:00",
+                "duration": "PT1H"
+            }),
+        );
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/get",
+            json!({
+                "accountId": "acc1",
+                "ids": ["ev1"],
+                "properties": ["id", "title"]
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args["list"][0].get("utcStart").is_none(),
+            "utcStart must NOT appear when not in properties: {args}"
+        );
+        assert!(
+            args["list"][0].get("utcEnd").is_none(),
+            "utcEnd must NOT appear when not in properties: {args}"
+        );
+    }
+
+    /// Oracle: §5.7 — defaults from the spec: `reduceParticipants` defaults
+    /// to `false`, the recurrence-override bounds default to `None`. The
+    /// handler MUST construct `CalendarEventGetArgs` with these defaults
+    /// when the wire request omits each.
+    #[tokio::test]
+    async fn calendar_event_get_default_args() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/get",
+            json!({"accountId": "acc1", "ids": null}),
+            "c0",
+        );
+        let _ = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let recorded = backend
+            .take_last_get_args()
+            .expect("backend must have received get_args");
+        assert!(
+            recorded.recurrence_overrides_before.is_none(),
+            "recurrenceOverridesBefore default is None"
+        );
+        assert!(
+            recorded.recurrence_overrides_after.is_none(),
+            "recurrenceOverridesAfter default is None"
+        );
+        assert!(
+            !recorded.reduce_participants,
+            "reduceParticipants default is false"
+        );
+        assert!(
+            recorded.time_zone.is_none(),
+            "timeZone default is None (handler treats as Etc/UTC)"
         );
     }
 }
