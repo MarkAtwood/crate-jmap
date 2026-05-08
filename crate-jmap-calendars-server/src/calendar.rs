@@ -4,7 +4,7 @@
 //! `false`, destroying a Calendar that still has events is rejected with a
 //! `calendarHasEvent` SetError (not a top-level error).
 
-use jmap_calendars_types::Calendar;
+use jmap_calendars_types::{Calendar, CalendarEvent, CalendarEventFilterCondition};
 use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
@@ -207,6 +207,37 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 continue;
             }
 
+            // PLAN.md §5 / draft-ietf-jmap-calendars-26 §4.4: when
+            // onDestroyRemoveEvents is true, the handler is responsible for
+            // cleaning up events in this calendar before destroying the
+            // calendar itself. The backend is type-agnostic and has no
+            // onDestroyRemoveEvents concept.
+            //
+            // Steps:
+            //   1. Query CalendarEvents with calendarIds containing this id.
+            //   2. Fetch full event objects to inspect calendar_ids count.
+            //   3. For each event in only this calendar: destroy.
+            //      For each event in multiple calendars: patch out this id.
+            //   4. Destroy the Calendar.
+            //
+            // Any sub-step failure aborts with a serverFail SetError on the
+            // calendar destroy entry — a partial cleanup must not leave the
+            // calendar destroyed with dangling events.
+            if on_destroy_remove_events {
+                match cleanup_calendar_events(backend, &account_id, &id).await {
+                    Ok(()) => {
+                        // proceed to destroy the calendar below
+                    }
+                    Err(e) => {
+                        not_destroyed.insert(
+                            id_str,
+                            json!({"type": "serverFail", "description": e}),
+                        );
+                        continue;
+                    }
+                }
+            }
+
             match backend.destroy_object::<Calendar>(&account_id, &id).await {
                 Ok(()) => {
                     mutated = true;
@@ -248,6 +279,93 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
         }),
         vec![],
     ))
+}
+
+/// Clean up CalendarEvents in a Calendar before destroying the Calendar.
+///
+/// Implements PLAN.md §5 (draft-ietf-jmap-calendars-26 §4.4 onDestroyRemoveEvents):
+///   - Events whose `calendarIds` is just this calendar are destroyed.
+///   - Events with multiple calendarIds are patched to remove this calendar id.
+///
+/// Returns `Err(message)` on the first sub-step failure so the calling handler
+/// can surface a `serverFail` SetError on the calendar destroy entry. Partial
+/// cleanup is not acceptable: failing fast keeps the data store consistent.
+async fn cleanup_calendar_events<B: CalendarsBackend>(
+    backend: &B,
+    account_id: &Id,
+    calendar_id: &Id,
+) -> Result<(), String> {
+    // Step 1: query event ids whose calendarIds include this calendar.
+    // CalendarEventFilterCondition is #[non_exhaustive], so construct via
+    // Default + field assignment rather than a struct literal.
+    let mut filter = CalendarEventFilterCondition::default();
+    filter.in_calendar = Some(calendar_id.clone());
+    let event_ids: Vec<Id> = backend
+        .query_objects::<CalendarEvent>(account_id, Some(&filter), None, None, 0)
+        .await
+        .map_err(|e| e.to_string())?
+        .ids;
+
+    if event_ids.is_empty() {
+        return Ok(());
+    }
+
+    // Step 2: fetch full event objects to inspect calendar_ids count.
+    let (events, _not_found): (Vec<CalendarEvent>, _) = backend
+        .get_objects::<CalendarEvent>(account_id, Some(&event_ids), None)
+        .await
+        .map_err(|e| e.to_string())?;
+
+    // Step 3: for each event, destroy if single-calendar, else patch out this id.
+    for event in events {
+        let n_calendars = event
+            .calendar_ids
+            .as_ref()
+            .map(|m| m.len())
+            .unwrap_or(0);
+
+        // The CalendarEvent's `id` is required for /set semantics — it should
+        // always be Some on a real backend. If it's missing here we cannot
+        // address the event, so abort.
+        let event_id = match event.id.as_ref() {
+            Some(id) => id.clone(),
+            None => return Err("event missing id field during cleanup".to_owned()),
+        };
+
+        if n_calendars > 1 {
+            // Multi-calendar: PatchObject path "calendarIds/<id>" = null
+            // removes that key from the calendarIds map (RFC 8620 §5.3).
+            let patch_key = format!("calendarIds/{}", calendar_id.as_ref());
+            let mut patch_obj = serde_json::Map::new();
+            patch_obj.insert(patch_key, Value::Null);
+            backend
+                .update_object::<CalendarEvent>(
+                    account_id,
+                    &event_id,
+                    Value::Object(patch_obj),
+                )
+                .await
+                .map_err(|e| match e {
+                    BackendSetError::SetError(set_err) => {
+                        format!("update_object failed: {}", set_err.error_type)
+                    }
+                    BackendSetError::Other(err) => err.to_string(),
+                })?;
+        } else {
+            // Single-calendar (this one): destroy the event outright.
+            backend
+                .destroy_object::<CalendarEvent>(account_id, &event_id)
+                .await
+                .map_err(|e| match e {
+                    BackendSetError::SetError(set_err) => {
+                        format!("destroy_object failed: {}", set_err.error_type)
+                    }
+                    BackendSetError::Other(err) => err.to_string(),
+                })?;
+        }
+    }
+
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -359,5 +477,125 @@ mod tests {
             .expect("destroyed must be array");
         assert_eq!(destroyed.len(), 1, "cal1 must be destroyed: {resp}");
         assert_eq!(destroyed[0], json!("cal1"));
+    }
+
+    /// Oracle: PLAN.md §5 / draft-ietf-jmap-calendars-26 §4.4 —
+    /// onDestroyRemoveEvents:true must destroy events whose only calendar is
+    /// the one being deleted.
+    ///
+    /// Independent oracle: stored event count is observable via get_objects;
+    /// the assertion checks the post-condition (event gone) without ever
+    /// re-running the cleanup helper.
+    #[tokio::test]
+    async fn set_destroy_with_remove_events_destroys_single_calendar_event() {
+        let mut backend = MockBackend::new_with_account_and_events("acc1", "cal1");
+        // Seed a CalendarEvent that lives only in cal1.
+        backend.add_object(
+            "acc1",
+            "CalendarEvent",
+            "ev-only-cal1",
+            json!({
+                "id": "ev-only-cal1",
+                "calendarIds": { "cal1": true },
+                "title": "Only in cal1"
+            }),
+        );
+
+        let args = json!({
+            "accountId": "acc1",
+            "onDestroyRemoveEvents": true,
+            "destroy": ["cal1"],
+        });
+        let (resp, _) = handle_calendar_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+
+        // Calendar destroyed
+        let destroyed = resp["destroyed"]
+            .as_array()
+            .expect("destroyed must be array");
+        assert_eq!(destroyed[0], json!("cal1"), "cal1 must be destroyed: {resp}");
+
+        // Event also destroyed — query MockBackend's CalendarEvent store directly.
+        use jmap_server::JmapBackend;
+        let (events, not_found) = backend
+            .get_objects::<jmap_calendars_types::CalendarEvent>(
+                &Id::from("acc1"),
+                Some(&[Id::from("ev-only-cal1")]),
+                None,
+            )
+            .await
+            .expect("get_objects succeeds");
+        assert!(events.is_empty(), "event must have been destroyed");
+        assert_eq!(
+            not_found.len(),
+            1,
+            "ev-only-cal1 must appear in not_found: {not_found:?}"
+        );
+    }
+
+    /// Oracle: PLAN.md §5 / draft-ietf-jmap-calendars-26 §4.4 —
+    /// onDestroyRemoveEvents:true must NOT destroy events that live in
+    /// multiple calendars; instead, it must remove only the destroyed
+    /// calendar's id from each such event's `calendarIds` map.
+    ///
+    /// Independent oracle: stored event after the call must still exist with
+    /// `calendarIds` containing the *other* calendar id, but not the
+    /// destroyed one.
+    #[tokio::test]
+    async fn set_destroy_with_remove_events_unsets_multi_calendar_event() {
+        let mut backend = MockBackend::new_with_account_and_events("acc1", "cal1");
+        // Seed a CalendarEvent that lives in BOTH cal1 (destroyed) and cal2.
+        backend.add_object(
+            "acc1",
+            "CalendarEvent",
+            "ev-multi",
+            json!({
+                "id": "ev-multi",
+                "calendarIds": { "cal1": true, "cal2": true },
+                "title": "Lives in both"
+            }),
+        );
+
+        let args = json!({
+            "accountId": "acc1",
+            "onDestroyRemoveEvents": true,
+            "destroy": ["cal1"],
+        });
+        let (resp, _) = handle_calendar_set(&backend, args)
+            .await
+            .expect("must not return top-level error");
+
+        // Calendar destroyed.
+        let destroyed = resp["destroyed"]
+            .as_array()
+            .expect("destroyed must be array");
+        assert_eq!(destroyed[0], json!("cal1"), "cal1 must be destroyed: {resp}");
+
+        // Event still exists, but cal1 must be gone from calendarIds and cal2
+        // must remain.
+        use jmap_server::JmapBackend;
+        let (events, _) = backend
+            .get_objects::<jmap_calendars_types::CalendarEvent>(
+                &Id::from("acc1"),
+                Some(&[Id::from("ev-multi")]),
+                None,
+            )
+            .await
+            .expect("get_objects succeeds");
+        assert_eq!(events.len(), 1, "ev-multi must survive destroy");
+        let event = &events[0];
+        let calendar_ids = event
+            .calendar_ids
+            .as_ref()
+            .expect("calendarIds must remain");
+        assert!(
+            !calendar_ids.contains_key(&Id::from("cal1")),
+            "cal1 must be removed from calendarIds: {calendar_ids:?}"
+        );
+        assert!(
+            calendar_ids.contains_key(&Id::from("cal2")),
+            "cal2 must still be in calendarIds: {calendar_ids:?}"
+        );
     }
 }

@@ -362,16 +362,49 @@ pub(crate) mod test_support {
 
         async fn query_objects<O: QueryObject + Send + Sync>(
             &self,
-            _account_id: &Id,
-            _filter: Option<&O::Filter>,
+            account_id: &Id,
+            filter: Option<&O::Filter>,
             _sort: Option<&[O::Comparator]>,
             _limit: Option<u64>,
             _position: i64,
         ) -> Result<QueryResult, Self::Error> {
+            // Minimal filter implementation for the cleanup test path:
+            // for CalendarEvent with an `inCalendar` filter, return ids of
+            // stored events whose calendarIds map contains that calendar id.
+            // Other queries return empty (this mock isn't a full query engine).
+            let type_name = O::TYPE_NAME;
+            if type_name != "CalendarEvent" {
+                return Ok(QueryResult::new(vec![], 0, Some(0), State::from("0"), false));
+            }
+            let in_calendar: Option<String> = filter
+                .and_then(|f| serde_json::to_value(f).ok())
+                .and_then(|v| v.get("inCalendar").and_then(|c| c.as_str()).map(String::from));
+            let guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get(account_id.as_ref()) else {
+                return Ok(QueryResult::new(vec![], 0, Some(0), State::from("0"), false));
+            };
+            let Some(store) = acct.objects.get("CalendarEvent") else {
+                return Ok(QueryResult::new(vec![], 0, Some(0), State::from("0"), false));
+            };
+            let mut ids: Vec<Id> = Vec::new();
+            for (id, value) in store.iter() {
+                let matches = match &in_calendar {
+                    None => true,
+                    Some(target) => value
+                        .get("calendarIds")
+                        .and_then(|v| v.as_object())
+                        .map(|m| m.contains_key(target))
+                        .unwrap_or(false),
+                };
+                if matches {
+                    ids.push(id.clone());
+                }
+            }
+            let total = ids.len() as u64;
             Ok(QueryResult::new(
-                vec![],
+                ids,
                 0,
-                Some(0),
+                Some(total),
                 State::from("0"),
                 false,
             ))
@@ -409,13 +442,51 @@ pub(crate) mod test_support {
 
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
-            _account_id: &Id,
-            _id: &Id,
-            _patch: O::Patch,
+            account_id: &Id,
+            id: &Id,
+            patch: O::Patch,
         ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-            Err(BackendSetError::SetError(SetError::new(
-                SetErrorType::Forbidden,
-            )))
+            // Only CalendarEvent updates are implemented for the cleanup test
+            // path. Other types still return Forbidden (matching prior behaviour
+            // — no inline test relies on a successful update via MockBackend).
+            let type_name = O::TYPE_NAME;
+            if type_name != "CalendarEvent" {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::Forbidden,
+                )));
+            }
+            // Apply a JMAP PatchObject (RFC 8620 §5.3): top-level keys may
+            // contain "/" separators denoting nested paths, and a value of
+            // null at a leaf removes that leaf.
+            let patch_val: serde_json::Value = serde_json::to_value(&patch).map_err(|e| {
+                BackendSetError::Other(MockError(format!("patch serialize failed: {e}")))
+            })?;
+            let mut guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get_mut(account_id.as_ref()) else {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )));
+            };
+            let Some(store) = acct.objects.get_mut("CalendarEvent") else {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )));
+            };
+            let Some(stored) = store.get_mut(id) else {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )));
+            };
+            let Some(patch_map) = patch_val.as_object() else {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::InvalidPatch,
+                )));
+            };
+            for (path, value) in patch_map {
+                apply_patch_path(stored, path, value);
+            }
+            // Echo None: this mock does not surface server-set property deltas.
+            Ok(None)
         }
 
         async fn destroy_object<O: SetObject + Send + Sync>(
@@ -449,6 +520,37 @@ pub(crate) mod test_support {
                 .get(account_id.as_ref())
                 .map(|acct| acct.calendars_with_events.contains(calendar_id))
                 .unwrap_or(false)
+        }
+    }
+
+    /// Apply a single JMAP PatchObject path to a stored JSON object.
+    ///
+    /// `path` is a "/"-separated sequence of property names per RFC 8620 §5.3.
+    /// A `null` value at the leaf removes that leaf (PatchObject semantics);
+    /// any other value sets it. Missing intermediate objects are created.
+    /// Used only by MockBackend to support the onDestroyRemoveEvents test path.
+    fn apply_patch_path(target: &mut serde_json::Value, path: &str, value: &serde_json::Value) {
+        let parts: Vec<&str> = path.split('/').collect();
+        let mut cursor = target;
+        // Walk to the parent of the leaf, creating intermediate objects as needed.
+        for part in &parts[..parts.len().saturating_sub(1)] {
+            if !cursor.is_object() {
+                *cursor = serde_json::Value::Object(serde_json::Map::new());
+            }
+            let map = cursor.as_object_mut().expect("cursor is object");
+            cursor = map
+                .entry((*part).to_owned())
+                .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+        }
+        let leaf_key = parts.last().copied().unwrap_or("");
+        if !cursor.is_object() {
+            *cursor = serde_json::Value::Object(serde_json::Map::new());
+        }
+        let map = cursor.as_object_mut().expect("cursor is object");
+        if value.is_null() {
+            map.remove(leaf_key);
+        } else {
+            map.insert(leaf_key.to_owned(), value.clone());
         }
     }
 }
