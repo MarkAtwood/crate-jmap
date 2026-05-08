@@ -24,6 +24,7 @@ use jmap_types::Id;
 // ---------------------------------------------------------------------------
 
 /// RFC 8620 §5.1 — /get response.
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetResponse<T> {
@@ -34,6 +35,7 @@ pub struct GetResponse<T> {
 }
 
 /// RFC 8620 §5.5 — /query response.
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryResponse {
@@ -47,6 +49,7 @@ pub struct QueryResponse {
 }
 
 /// RFC 8620 §5.2 — /changes response.
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChangesResponse {
@@ -75,6 +78,7 @@ pub struct ChangesResponse {
 ///
 /// `created` and `notCreated` keys are creation ids (client-side strings).
 /// `updated`, `notUpdated`, `notDestroyed` keys are real record ids.
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 #[serde(bound(
@@ -94,6 +98,7 @@ pub struct SetResponse<T = serde_json::Value> {
 }
 
 /// A /set operation failure for a single object (RFC 8620 §5.3).
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SetError {
@@ -112,6 +117,7 @@ impl std::fmt::Display for SetError {
 }
 
 /// RFC 8620 §5.6 — /queryChanges response.
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryChangesResponse {
@@ -124,6 +130,7 @@ pub struct QueryChangesResponse {
 }
 
 /// A single item added to a query result set (RFC 8620 §5.6).
+#[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddedItem {
@@ -142,6 +149,7 @@ pub struct AddedItem {
 /// from that blob (a blob may contain multiple VEVENT components).
 /// `not_found` lists blob ids that were not found in the account.
 /// `not_parsable` lists blob ids that could not be parsed as iCalendar data.
+#[non_exhaustive]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarEventParseResponse {
@@ -160,6 +168,7 @@ pub struct CalendarEventParseResponse {
 ///
 /// `list` contains the busy periods for the queried principal within the
 /// requested time range.
+#[non_exhaustive]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrincipalGetAvailabilityResponse {
@@ -176,6 +185,7 @@ pub struct PrincipalGetAvailabilityResponse {
 ///
 /// All fields are optional. Pass `None` for any field to omit it from the
 /// request (the server uses its default).
+#[non_exhaustive]
 #[derive(Debug, Clone, Default)]
 pub struct CalendarEventGetParams {
     /// If `true`, expand recurring events into individual instances.
@@ -244,6 +254,7 @@ pub(crate) fn build_request(
 /// Obtain via [`JmapCalendarsExt::with_calendars_session`](crate::JmapCalendarsExt::with_calendars_session).
 /// All JMAP Calendars methods are available on this type without needing to pass
 /// `&Session` on every call.
+#[non_exhaustive]
 pub struct SessionClient {
     pub(crate) client: jmap_base_client::JmapClient,
     pub(crate) session: jmap_base_client::Session,
