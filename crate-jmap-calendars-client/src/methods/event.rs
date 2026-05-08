@@ -236,22 +236,11 @@ mod tests {
     use super::super::{build_request, CalendarEventGetParams, CALL_ID, USING_CALENDARS};
     use serde_json::json;
 
-    /// Oracle: empty ID in ids slice triggers the validation guard.
-    #[test]
-    fn calendar_event_get_empty_id_returns_invalid_argument() {
-        let ids: &[&str] = &[""];
-        let mut found_error = false;
-        for id in ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty id must trigger the InvalidArgument guard"
-        );
-    }
+    // The end-to-end InvalidArgument guard for empty `ids` slice elements
+    // lives in tests/calendar_smoke_tests.rs as a wiremock-backed test
+    // (calendar_event_get_empty_id_returns_invalid_argument). The previous
+    // inline unit test was a vacuous re-assertion of `"".is_empty()` and
+    // never exercised the production guard (JMAP-231o.7).
 
     /// Oracle: CalendarEvent/get with expandRecurrences sends the flag in args.
     /// Expected field name is "expandRecurrences" per draft §5.4.

@@ -231,6 +231,74 @@ async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
     }
 }
 
+/// Oracle: empty `ids` slice element MUST be rejected with
+/// `InvalidArgument` BEFORE any HTTP call. The mock server has no
+/// expectations registered, so any HTTP request would result in a 404 from
+/// wiremock — the test would still fail (different error), but with a
+/// distinct symptom from the validation-fired path.
+///
+/// Replaces a vacuous inline unit test that re-asserted `"".is_empty()`
+/// without actually invoking the public method (JMAP-231o.7).
+#[tokio::test]
+async fn calendar_get_empty_id_returns_invalid_argument() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server).await;
+
+    let result = sc.calendar_get(Some(&[""]), None).await;
+    let err = result.expect_err("calendar_get with empty id must error");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("ids element"),
+                "error message must mention 'ids element': {msg}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+}
+
+/// Oracle: parallel to calendar_get — `calendar_event_get` MUST reject an
+/// empty `ids` slice element with `InvalidArgument` before any HTTP call.
+/// Replaces a vacuous inline unit test (JMAP-231o.7).
+#[tokio::test]
+async fn calendar_event_get_empty_id_returns_invalid_argument() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server).await;
+
+    let result = sc.calendar_event_get(Some(&[""]), None, None).await;
+    let err = result.expect_err("calendar_event_get with empty id must error");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("ids element"),
+                "error message must mention 'ids element': {msg}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+}
+
+/// Oracle: parallel to calendar_get — `calendar_event_notification_get`
+/// MUST reject an empty `ids` slice element with `InvalidArgument` before
+/// any HTTP call. Replaces a vacuous inline unit test (JMAP-231o.7).
+#[tokio::test]
+async fn calendar_event_notification_get_empty_id_returns_invalid_argument() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server).await;
+
+    let result = sc.calendar_event_notification_get(Some(&[""]), None).await;
+    let err = result.expect_err("calendar_event_notification_get with empty id must error");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("ids element"),
+                "error message must mention 'ids element': {msg}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+}
+
 /// Oracle: §5.10 — `from_account_id` empty guard is exercised end-to-end.
 /// The check is the same shape as the creation-id guard but on a different
 /// field; pinning both ensures the validation chain is wired correctly.

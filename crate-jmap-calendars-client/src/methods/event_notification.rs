@@ -253,24 +253,13 @@ mod tests {
         assert!(destroy_arr.contains(&json!("notif2")));
     }
 
-    /// Oracle: empty ids element returns InvalidArgument for get.
-    #[test]
-    fn calendar_event_notification_get_empty_id_guard() {
-        let ids: &[&str] = &[""];
-        let mut found_error = false;
-        for id in ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty id must trigger the InvalidArgument guard"
-        );
-    }
-
-    // The InvalidArgument guard for empty since_state lives in
-    // calendar_event_notification_changes production code; testing it requires
-    // a wiremock-backed async harness. See JMAP-sc1b.64.
+    // The end-to-end InvalidArgument guard for empty `ids` slice elements
+    // lives in tests/calendar_smoke_tests.rs as a wiremock-backed test
+    // (calendar_event_notification_get_empty_id_returns_invalid_argument).
+    // The previous inline unit test was a vacuous re-assertion of
+    // `"".is_empty()` and never exercised the production guard (JMAP-231o.7).
+    //
+    // The InvalidArgument guard for empty since_state in
+    // calendar_event_notification_changes is also exercised end-to-end via
+    // wiremock; see JMAP-sc1b.64.
 }

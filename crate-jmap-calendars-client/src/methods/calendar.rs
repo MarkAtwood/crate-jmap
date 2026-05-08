@@ -151,27 +151,14 @@ mod tests {
     use super::super::{build_request, CALL_ID, USING_CALENDARS};
     use serde_json::json;
 
-    /// Oracle: empty ID in ids slice returns InvalidArgument.
-    /// Guard fires before any session lookup or network call.
-    #[test]
-    fn calendar_get_empty_id_returns_invalid_argument() {
-        let ids: &[&str] = &[""];
-        let mut found_error = false;
-        for id in ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty id must trigger the InvalidArgument guard"
-        );
-    }
-
-    // The InvalidArgument guard for empty since_state lives in calendar_changes
-    // production code; testing it requires a wiremock-backed async harness.
-    // See JMAP-sc1b.64.
+    // The end-to-end InvalidArgument guard for empty `ids` slice elements
+    // lives in tests/calendar_smoke_tests.rs as a wiremock-backed test
+    // (calendar_get_empty_id_returns_invalid_argument). The previous inline
+    // unit test was a vacuous re-assertion of `"".is_empty()` and never
+    // exercised the production guard at all (JMAP-231o.7).
+    //
+    // The InvalidArgument guard for empty since_state in calendar_changes
+    // is also exercised end-to-end via wiremock; see JMAP-sc1b.64.
 
     /// Oracle: Calendar/set with onDestroyRemoveEvents sends the flag in args.
     /// Expected: args object contains "onDestroyRemoveEvents": true.
