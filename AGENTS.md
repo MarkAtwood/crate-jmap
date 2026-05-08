@@ -128,6 +128,12 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
 - **`#[forbid(unsafe_code)]`** at every crate root.
 - **No `.unwrap()` or `.expect()`** in library code — propagate errors with `?`.
 - **Wire format**: camelCase JSON — `#[serde(rename_all = "camelCase")]` on all structs.
+- **Licensing**: the workspace `Cargo.toml` declares
+  `license = "MIT OR Apache-2.0"` at the workspace level, and every crate
+  inherits via `license.workspace = true`. **Do NOT add `LICENSE-MIT` or
+  `LICENSE-APACHE` files** to any crate or to the repo root. The TOML
+  metadata is sufficient for crates.io and `cargo deny`. Do not "fix"
+  this convention — it is intentional.
 
 ## Key Rules
 
@@ -135,6 +141,8 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
 - **No async** in `*-types` crates — no tokio, no futures.
 - **`crate-jmapchat-*`** directories in `../` are reference/inspiration only.
 - **Test oracles** must be independent of the code under test (RFC example JSON, OpenSSL output).
+- **Do NOT add LICENSE files** — the workspace TOML `license = "MIT OR Apache-2.0"`
+  declaration is the entire license-metadata story. See the Conventions list above.
 
 ## Non-Interactive Shell Commands
 
