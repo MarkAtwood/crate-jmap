@@ -8,6 +8,10 @@
 //   5. Call `self.call_internal(api_url, &req).await?`.
 //   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
+use std::collections::HashMap;
+
+use jmap_types::{Id, PatchObject};
+
 use super::{AddressBookSetParams, ChangesResponse, GetResponse, SetResponse};
 
 impl super::SessionClient {
@@ -74,13 +78,18 @@ impl super::SessionClient {
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
     /// optional; pass `None` to omit any operation from the request.
     ///
+    /// `update` is `Option<HashMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
+    /// format is unchanged from a plain JSON object because [`PatchObject`]
+    /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
+    /// key + null-leaf removal contract to the type system.
+    ///
     /// `params` carries the Contacts-specific extra arguments
     /// `onDestroyRemoveContents` and `onSuccessSetIsDefault`. Pass
     /// `None` (or `Some(Default::default())`) when neither is needed.
     pub async fn address_book_set(
         &self,
         create: Option<serde_json::Value>,
-        update: Option<serde_json::Value>,
+        update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<Vec<&str>>,
         params: Option<AddressBookSetParams>,
     ) -> Result<SetResponse<jmap_contacts_types::AddressBook>, jmap_base_client::ClientError> {
@@ -101,7 +110,11 @@ impl super::SessionClient {
             args["create"] = c;
         }
         if let Some(u) = update {
-            args["update"] = u;
+            args["update"] = serde_json::to_value(&u).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "address_book_set: serializing update map failed: {e}"
+                ))
+            })?;
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::Value::Array(

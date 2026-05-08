@@ -194,7 +194,7 @@ only wire data objects, not method arguments):
 pub struct AddressBookSetRequest {
     pub if_in_state: Option<State>,
     pub create: Option<HashMap<String, AddressBook>>,
-    pub update: Option<HashMap<Id, serde_json::Value>>,  // PatchObject
+    pub update: Option<HashMap<Id, jmap_types::PatchObject>>,  // RFC 8620 §5.3
     pub destroy: Option<Vec<Id>>,
     pub on_destroy_remove_contents: bool,                // default: false
     pub on_success_set_is_default: Option<Id>,           // RFC 9610 §2.3

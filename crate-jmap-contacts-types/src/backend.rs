@@ -9,7 +9,7 @@
 //! RFC 9610 does not define `AddressBook/query` or
 //! `AddressBook/queryChanges`.
 
-use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
+use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // Property selector enums (server-side; no serde required)
@@ -79,7 +79,7 @@ impl JmapObject for crate::AddressBook {
 impl GetObject for crate::AddressBook {}
 
 impl SetObject for crate::AddressBook {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 // AddressBook does NOT implement QueryObject — spec has no AddressBook/query.
@@ -92,7 +92,7 @@ impl JmapObject for crate::ContactCard {
 impl GetObject for crate::ContactCard {}
 
 impl SetObject for crate::ContactCard {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::ContactCard {
