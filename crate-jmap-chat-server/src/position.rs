@@ -6,7 +6,7 @@
 //! backends must enforce the (account, chatId) uniqueness constraint.
 
 use jmap_chat_types::ReadPosition;
-use jmap_types::{Id, Invocation, JmapError, State};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend};
@@ -216,8 +216,21 @@ pub async fn handle_position_set<B: ChatBackend>(
                 continue;
             }
 
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
             match backend
-                .update_object::<ReadPosition>(&account_id, &id, patch_val)
+                .update_object::<ReadPosition>(&account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {

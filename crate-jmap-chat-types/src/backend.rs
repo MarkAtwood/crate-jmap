@@ -4,7 +4,7 @@
 //! violating the orphan rule (`JmapObject` is foreign but the chat types are
 //! local to this crate).
 
-use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
+use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // Property selector enums (server-side; no serde required)
@@ -172,7 +172,7 @@ impl JmapObject for crate::Chat {
 impl GetObject for crate::Chat {}
 
 impl SetObject for crate::Chat {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::Chat {
@@ -188,7 +188,7 @@ impl JmapObject for crate::Message {
 impl GetObject for crate::Message {}
 
 impl SetObject for crate::Message {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::Message {
@@ -204,7 +204,7 @@ impl JmapObject for crate::Space {
 impl GetObject for crate::Space {}
 
 impl SetObject for crate::Space {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::Space {
@@ -220,7 +220,7 @@ impl JmapObject for crate::ChatContact {
 impl GetObject for crate::ChatContact {}
 
 impl SetObject for crate::ChatContact {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::ChatContact {
@@ -236,7 +236,7 @@ impl JmapObject for crate::ReadPosition {
 impl GetObject for crate::ReadPosition {}
 
 impl SetObject for crate::ReadPosition {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl JmapObject for crate::CustomEmoji {
@@ -247,7 +247,7 @@ impl JmapObject for crate::CustomEmoji {
 impl GetObject for crate::CustomEmoji {}
 
 impl SetObject for crate::CustomEmoji {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::CustomEmoji {
@@ -263,7 +263,7 @@ impl JmapObject for crate::SpaceInvite {
 impl GetObject for crate::SpaceInvite {}
 
 impl SetObject for crate::SpaceInvite {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl JmapObject for crate::SpaceBan {
@@ -274,7 +274,7 @@ impl JmapObject for crate::SpaceBan {
 impl GetObject for crate::SpaceBan {}
 
 impl SetObject for crate::SpaceBan {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl JmapObject for crate::PresenceStatus {
@@ -285,5 +285,5 @@ impl JmapObject for crate::PresenceStatus {
 impl GetObject for crate::PresenceStatus {}
 
 impl SetObject for crate::PresenceStatus {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }

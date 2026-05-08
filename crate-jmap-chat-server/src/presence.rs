@@ -6,7 +6,7 @@
 //! immutable and `updatedAt` is injected by the handler on every update.
 
 use jmap_chat_types::PresenceStatus;
-use jmap_types::{Id, Invocation, JmapError, State};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
@@ -177,11 +177,25 @@ pub async fn handle_presence_set<B: ChatBackend>(
                 continue;
             }
 
-            // Inject server-set updatedAt before forwarding to backend.
+            // Inject server-set updatedAt before forwarding to backend. The
+            // augmentation runs on the wire-format Value; conversion to
+            // PatchObject (RFC 8620 §5.3) happens after, at the call boundary.
             let mut patch = patch_val;
             if let Some(obj) = patch.as_object_mut() {
                 obj.insert("updatedAt".to_owned(), json!(now_utc_string()));
             }
+
+            // Convert to PatchObject; non-object values yield invalidPatch.
+            let patch = match serde_json::from_value::<PatchObject>(patch) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
 
             match backend
                 .update_object::<PresenceStatus>(&account_id, &id, patch)

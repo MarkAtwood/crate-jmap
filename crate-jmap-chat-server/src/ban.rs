@@ -5,7 +5,7 @@
 //! accepted from client request bodies.
 
 use jmap_chat_types::SpaceBan;
-use jmap_types::{Id, Invocation, JmapError, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend};
@@ -239,7 +239,7 @@ pub async fn handle_ban_set<B: ChatBackend>(
             }
 
             match backend
-                .update_object::<SpaceBan>(&account_id, &id, Value::Object(clean_patch))
+                .update_object::<SpaceBan>(&account_id, &id, PatchObject::from_map(clean_patch))
                 .await
             {
                 Ok(Some(obj)) => {
