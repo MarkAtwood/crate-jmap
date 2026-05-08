@@ -5,7 +5,10 @@ use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, CalendarsBackend};
-use crate::helpers::{extract_account_id, set_error_value};
+use crate::helpers::{
+    apply_default_change_to_response, extract_account_id, resolve_on_success_set_is_default,
+    set_error_value,
+};
 
 // ---------------------------------------------------------------------------
 // ParticipantIdentity/get
@@ -58,6 +61,11 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // §3.3: onSuccessSetIsDefault — Id|null. Captured here so we can resolve
+    // a possible "#createId" reference against the post-create state. The
+    // raw value is kept until after all CRUD ops succeed.
+    let on_success_set_is_default = args.remove("onSuccessSetIsDefault");
 
     let old_state = backend
         .get_state::<ParticipantIdentity>(&account_id)
@@ -190,6 +198,34 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                         id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
+                }
+            }
+        }
+    }
+
+    // §3.3: onSuccessSetIsDefault. Apply only if every CRUD attempt
+    // succeeded — if any not_* map has entries, the spec's "all creates,
+    // updates and destroys (if any) succeed without error" guard fails
+    // and the requested default change is skipped silently.
+    let all_succeeded =
+        not_created.is_empty() && not_updated.is_empty() && not_destroyed.is_empty();
+    if all_succeeded {
+        if let Some(raw) = on_success_set_is_default.as_ref() {
+            if let Some(target) = resolve_on_success_set_is_default(raw, &created) {
+                match backend
+                    .set_default_participant_identity(&account_id, &target)
+                    .await
+                {
+                    Ok(result) => {
+                        if apply_default_change_to_response(&mut created, &mut updated, &result) {
+                            mutated = true;
+                        }
+                    }
+                    Err(_e) => {
+                        // §3.3: silently swallow — "No error is returned to
+                        // the client". Genuine storage errors lose the
+                        // default change but do not fail the /set.
+                    }
                 }
             }
         }

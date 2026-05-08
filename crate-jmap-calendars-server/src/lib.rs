@@ -207,6 +207,11 @@ pub(crate) mod test_support {
         calendars_with_events: HashSet<Id>,
         /// Simple object store: type_name → id → serialized object.
         objects: HashMap<String, HashMap<Id, serde_json::Value>>,
+        /// Current default Calendar id (for §4.3 onSuccessSetIsDefault tests).
+        default_calendar: Option<Id>,
+        /// Current default ParticipantIdentity id (for §3.3
+        /// onSuccessSetIsDefault tests).
+        default_participant_identity: Option<Id>,
     }
 
     #[derive(Clone)]
@@ -271,12 +276,49 @@ pub(crate) mod test_support {
             id: &str,
             value: serde_json::Value,
         ) {
+            self.seed_object(account_id, type_name, id, value);
+        }
+
+        /// Seed a serialized object into the store via interior mutability.
+        ///
+        /// Like [`add_object`](Self::add_object) but takes `&self`, so callers
+        /// already holding an `Arc<MockBackend>` (e.g. dispatcher-driven tests)
+        /// can seed without unwrapping the `Arc`.
+        #[allow(dead_code)]
+        pub fn seed_object(
+            &self,
+            account_id: &str,
+            type_name: &str,
+            id: &str,
+            value: serde_json::Value,
+        ) {
             let mut guard = self.state.lock().unwrap();
             let acct = guard.entry(account_id.to_owned()).or_default();
             acct.objects
                 .entry(type_name.to_owned())
                 .or_default()
                 .insert(Id::from(id), value);
+        }
+
+        /// Set the mock's recorded "default Calendar" id for an account.
+        ///
+        /// Used by tests exercising §4.3 `onSuccessSetIsDefault` swap
+        /// semantics — the previously-default calendar must appear in
+        /// `updated` with `isDefault: false`.
+        #[allow(dead_code)]
+        pub fn set_default_calendar_for_test(&self, account_id: &str, default_id: Option<&str>) {
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard.entry(account_id.to_owned()).or_default();
+            acct.default_calendar = default_id.map(Id::from);
+        }
+
+        /// Read the mock's recorded "default Calendar" id for an account.
+        #[allow(dead_code)]
+        pub fn get_default_calendar_for_test(&self, account_id: &str) -> Option<Id> {
+            let guard = self.state.lock().unwrap();
+            guard
+                .get(account_id)
+                .and_then(|acct| acct.default_calendar.clone())
         }
     }
 
@@ -451,11 +493,41 @@ pub(crate) mod test_support {
     impl CalendarsBackend for MockBackend {
         async fn create_object<O: SetObject + Send + Sync>(
             &self,
-            _account_id: &Id,
+            account_id: &Id,
             _create_id: &str,
             obj: O,
         ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-            Ok((Id::from("mock-id-1"), obj))
+            // Persist the created object so subsequent operations
+            // (set_default_*, get, update, destroy) can find it. The mock
+            // assigns a unique id per call within a (account, type) namespace
+            // so creation-reference tests have a stable, predictable target.
+            let type_name = O::TYPE_NAME;
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard.entry(account_id.as_ref().to_owned()).or_default();
+            let store = acct.objects.entry(type_name.to_owned()).or_default();
+            let id = Id::from(format!("mock-{}-{}", type_name, store.len() + 1));
+            // Stamp the assigned id into the serialized form so:
+            // 1. The handler's response shows the real id (not "placeholder").
+            // 2. Subsequent get_objects calls return the object with id set.
+            // 3. The onSuccessSetIsDefault creation-ref path can resolve
+            //    "#createId" → assigned id via the response's "id" field.
+            let mut as_json = serde_json::to_value(&obj).map_err(|e| {
+                BackendSetError::Other(MockError(format!("create serialize failed: {e}")))
+            })?;
+            if let Some(map) = as_json.as_object_mut() {
+                map.insert(
+                    "id".to_owned(),
+                    serde_json::Value::String(id.as_ref().to_owned()),
+                );
+            }
+            store.insert(id.clone(), as_json.clone());
+            // Re-deserialize so the returned O carries the assigned id.
+            // If deserialization fails (shouldn't, since we just serialized
+            // the same shape), fall back to returning the original obj —
+            // the response will still show the assigned id via the JSON
+            // serialization in `created`.
+            let typed: O = serde_json::from_value(as_json).unwrap_or(obj);
+            Ok((id, typed))
         }
 
         async fn update_object<O: SetObject + Send + Sync>(
@@ -593,6 +665,62 @@ pub(crate) mod test_support {
             }
             self.destroy_object::<jmap_calendars_types::CalendarEvent>(account_id, id)
                 .await
+        }
+
+        // §4.3 onSuccessSetIsDefault for Calendar/set: track the default in
+        // AccountState. If the requested calendar id does not exist in the
+        // store, the spec says the change MUST be silently ignored — model
+        // this by returning new_default=None.
+        async fn set_default_calendar(
+            &self,
+            account_id: &Id,
+            calendar_id: &Id,
+        ) -> Result<crate::backend::SetDefaultResult, Self::Error> {
+            let mut guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get_mut(account_id.as_ref()) else {
+                return Ok(crate::backend::SetDefaultResult::default());
+            };
+            let exists = acct
+                .objects
+                .get("Calendar")
+                .map(|m| m.contains_key(calendar_id))
+                .unwrap_or(false);
+            if !exists {
+                return Ok(crate::backend::SetDefaultResult::default());
+            }
+            let previous = acct.default_calendar.replace(calendar_id.clone());
+            Ok(crate::backend::SetDefaultResult {
+                new_default: Some(calendar_id.clone()),
+                previous_default: previous,
+            })
+        }
+
+        // §3.3 onSuccessSetIsDefault for ParticipantIdentity/set: same
+        // contract as set_default_calendar but for ParticipantIdentity.
+        async fn set_default_participant_identity(
+            &self,
+            account_id: &Id,
+            identity_id: &Id,
+        ) -> Result<crate::backend::SetDefaultResult, Self::Error> {
+            let mut guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get_mut(account_id.as_ref()) else {
+                return Ok(crate::backend::SetDefaultResult::default());
+            };
+            let exists = acct
+                .objects
+                .get("ParticipantIdentity")
+                .map(|m| m.contains_key(identity_id))
+                .unwrap_or(false);
+            if !exists {
+                return Ok(crate::backend::SetDefaultResult::default());
+            }
+            let previous = acct
+                .default_participant_identity
+                .replace(identity_id.clone());
+            Ok(crate::backend::SetDefaultResult {
+                new_default: Some(identity_id.clone()),
+                previous_default: previous,
+            })
         }
     }
 
@@ -1256,6 +1384,229 @@ mod tests {
         assert!(
             args["created"].get("c1").is_some(),
             "create must succeed when sendSchedulingMessages is false: {args}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // onSuccessSetIsDefault (§3.3 ParticipantIdentity, §4.3 Calendar)
+    //
+    // The MockBackend tracks `default_calendar` and
+    // `default_participant_identity` per account, returning them in
+    // SetDefaultResult.previous_default. The lookup ignores ids that don't
+    // exist in the store (silent ignore per spec). These tests cover:
+    // (a) creation-reference resolution (#c1 → assigned id),
+    // (b) existing-id with previous default swap,
+    // (c) unknown id silently ignored, no response change,
+    // (d) default change skipped when any CRUD op failed,
+    // (e) ParticipantIdentity/set parallel path.
+    // -----------------------------------------------------------------------
+
+    /// Oracle: §4.3 — `Calendar/set` with `onSuccessSetIsDefault: "#c1"`
+    /// resolves the `#`-prefix as a creation reference and applies
+    /// `isDefault: true` to the corresponding `created` entry. The mock
+    /// has no previous default, so no `updated` entry is emitted.
+    #[tokio::test]
+    async fn calendar_set_default_via_creation_reference() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        // Calendar has many required (non-Option) fields per
+        // jmap_calendars_types::Calendar — the create object must carry all
+        // of them or the handler rejects with invalidProperties before any
+        // backend call. Spec example values (§4 type definition).
+        let req = single_call(
+            "Calendar/set",
+            json!({
+                "accountId": "acc1",
+                "create": {
+                    "c1": {
+                        "name": "My new calendar",
+                        "sortOrder": 0,
+                        "isSubscribed": true,
+                        "isVisible": true,
+                        "isDefault": false,
+                        "includeInAvailability": "all",
+                        "myRights": {
+                            "mayReadFreeBusy": true,
+                            "mayReadItems": true,
+                            "mayWriteAll": true,
+                            "mayWriteOwn": true,
+                            "mayUpdatePrivate": true,
+                            "mayRSVP": true,
+                            "mayShare": true,
+                            "mayDelete": true
+                        }
+                    }
+                },
+                "onSuccessSetIsDefault": "#c1"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["created"]["c1"]["isDefault"], true,
+            "created entry must reflect isDefault:true: {args}"
+        );
+        assert_eq!(
+            args["updated"],
+            serde_json::Value::Null,
+            "no previous default → no updated entry: {args}"
+        );
+    }
+
+    /// Oracle: §4.3 — `Calendar/set` with `onSuccessSetIsDefault: <existing id>`
+    /// emits an `updated.<id>` entry with `isDefault: true`. When a previous
+    /// default exists, that calendar appears in `updated` with
+    /// `isDefault: false` (the atomic-swap response contract).
+    #[tokio::test]
+    async fn calendar_set_default_swaps_previous_default() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        // Seed two calendars, mark cal-A as the current default.
+        backend.seed_object("acc1", "Calendar", "cal-A", json!({"id": "cal-A"}));
+        backend.seed_object("acc1", "Calendar", "cal-B", json!({"id": "cal-B"}));
+        backend.set_default_calendar_for_test("acc1", Some("cal-A"));
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Calendar/set",
+            json!({
+                "accountId": "acc1",
+                "onSuccessSetIsDefault": "cal-B"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["updated"]["cal-B"]["isDefault"], true,
+            "new default must appear in updated with isDefault:true: {args}"
+        );
+        assert_eq!(
+            args["updated"]["cal-A"]["isDefault"], false,
+            "previous default must appear in updated with isDefault:false: {args}"
+        );
+    }
+
+    /// Oracle: §4.3 — when `onSuccessSetIsDefault` references an id that
+    /// does not exist (or the change is forbidden), the server MUST silently
+    /// ignore the request. No response state changes; no top-level error.
+    #[tokio::test]
+    async fn calendar_set_default_unknown_id_silently_ignored() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Calendar/set",
+            json!({
+                "accountId": "acc1",
+                "onSuccessSetIsDefault": "no-such-calendar"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["updated"],
+            serde_json::Value::Null,
+            "no updated entries when target id is unknown: {args}"
+        );
+        assert_eq!(
+            args["created"],
+            serde_json::Value::Null,
+            "no created entries: {args}"
+        );
+    }
+
+    /// Oracle: §4.3 — "if all creates, updates and destroys (if any) succeed
+    /// without error" guard: when ANY CRUD op failed, the default change
+    /// MUST NOT be applied even though other entries may have succeeded.
+    /// Here a destroy of an unknown id fails, so the default-set is skipped.
+    #[tokio::test]
+    async fn calendar_set_default_skipped_when_destroy_fails() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        // Seed cal-B so it WOULD be a valid default target.
+        backend.seed_object("acc1", "Calendar", "cal-B", json!({"id": "cal-B"}));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Calendar/set",
+            json!({
+                "accountId": "acc1",
+                "destroy": ["does-not-exist"],
+                "onSuccessSetIsDefault": "cal-B"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert!(
+            args["notDestroyed"].get("does-not-exist").is_some(),
+            "destroy of unknown id must produce notDestroyed entry: {args}"
+        );
+        assert_eq!(
+            args["updated"],
+            serde_json::Value::Null,
+            "default change must be skipped when any op failed: {args}"
+        );
+        // Verify the mock's stored default is still unchanged.
+        assert!(
+            backend.get_default_calendar_for_test("acc1").is_none(),
+            "backend default must not have been updated"
+        );
+    }
+
+    /// Oracle: §3.3 — `ParticipantIdentity/set` with `onSuccessSetIsDefault`
+    /// against an existing identity emits the `updated.<id>` entry with
+    /// `isDefault: true`. Mirror of the Calendar/set path through the
+    /// `set_default_participant_identity` backend method.
+    #[tokio::test]
+    async fn participant_identity_set_default_existing_id() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        // Seed an identity to be made default.
+        backend.seed_object("acc1", "ParticipantIdentity", "pi-1", json!({"id": "pi-1"}));
+
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "ParticipantIdentity/set",
+            json!({
+                "accountId": "acc1",
+                "onSuccessSetIsDefault": "pi-1"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["updated"]["pi-1"]["isDefault"], true,
+            "ParticipantIdentity/set default must emit updated entry: {args}"
         );
     }
 }

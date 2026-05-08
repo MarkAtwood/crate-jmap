@@ -290,6 +290,54 @@ pub trait CalendarsBackend: JmapBackend {
         async { (None, None) }
     }
 
+    /// Set the default `Calendar` for the account
+    /// (draft-ietf-jmap-calendars-26 §4.3 `onSuccessSetIsDefault`).
+    ///
+    /// Called by `Calendar/set` after all create/update/destroy operations
+    /// succeed without error. Returns a [`SetDefaultResult`] describing what
+    /// the change actually accomplished:
+    /// - `new_default = Some(id)` — the default is now this id (which may be
+    ///   the same as `requested`, or different if the backend rewrote it).
+    /// - `new_default = None` — the request was silently ignored because
+    ///   the id was not found or the change was forbidden by policy
+    ///   (§4.3 says no error is returned to the client in that case).
+    /// - `previous_default` — the id of the calendar that WAS the default
+    ///   before this call, if any. Required so the handler can mark it
+    ///   `isDefault: false` in the response.
+    ///
+    /// `Err` is reserved for genuine backend storage failures. The handler
+    /// silently swallows storage errors per §4.3 ("No error is returned to
+    /// the client in this case") rather than escalating to `serverFail`.
+    ///
+    /// The default implementation returns an empty
+    /// [`SetDefaultResult`](SetDefaultResult::default), modelling a backend
+    /// that does not maintain a per-account default. Backends that DO
+    /// support defaults MUST override this method.
+    fn set_default_calendar(
+        &self,
+        _account_id: &jmap_types::Id,
+        _calendar_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<SetDefaultResult, Self::Error>> + Send {
+        async { Ok(SetDefaultResult::default()) }
+    }
+
+    /// Set the default `ParticipantIdentity` for the account
+    /// (draft-ietf-jmap-calendars-26 §3.3 `onSuccessSetIsDefault`).
+    ///
+    /// Same contract as [`set_default_calendar`](Self::set_default_calendar)
+    /// but for `ParticipantIdentity`. Silently ignores not-found / forbidden
+    /// per §3.3.
+    ///
+    /// The default implementation returns an empty
+    /// [`SetDefaultResult`](SetDefaultResult::default).
+    fn set_default_participant_identity(
+        &self,
+        _account_id: &jmap_types::Id,
+        _identity_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<SetDefaultResult, Self::Error>> + Send {
+        async { Ok(SetDefaultResult::default()) }
+    }
+
     /// Parse calendar event blobs (draft-ietf-jmap-calendars-26 §5.13).
     ///
     /// Returns parsed events for each blob, or classifies blobs as `notFound`
@@ -342,6 +390,30 @@ pub struct ParseResult {
     pub not_found: Vec<jmap_types::Id>,
     /// Blob IDs that could not be parsed as iCalendar data.
     pub not_parsable: Vec<jmap_types::Id>,
+}
+
+/// Result of [`set_default_calendar`](CalendarsBackend::set_default_calendar)
+/// or [`set_default_participant_identity`](CalendarsBackend::set_default_participant_identity)
+/// (draft-ietf-jmap-calendars-26 §3.3, §4.3 `onSuccessSetIsDefault`).
+///
+/// Both `new_default` and `previous_default` are `None` by default, modelling
+/// a backend that does not maintain a notion of "the default".
+///
+/// Marked `#[non_exhaustive]` so future calendars-draft revisions can add
+/// fields without a SemVer break for backends that construct the struct
+/// directly. Use [`SetDefaultResult::default()`] and assign individual fields.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default)]
+pub struct SetDefaultResult {
+    /// `Some(id)` if the default was successfully changed (or already this id).
+    /// `None` if the request was silently ignored (id not found or forbidden
+    /// by policy per §3.3 / §4.3) — the handler treats this as a no-op and
+    /// makes no response-state changes.
+    pub new_default: Option<jmap_types::Id>,
+    /// The id of the previous default, if any. The handler emits an
+    /// `updated.<previous_default>` entry with `isDefault: false` whenever
+    /// this differs from `new_default`, so clients see the swap atomically.
+    pub previous_default: Option<jmap_types::Id>,
 }
 
 /// Error type for [`CalendarsBackend::get_availability`] backend calls.
