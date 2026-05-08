@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
 
 /// The type of a FileNode (draft-ietf-jmap-filenode-13 §3.1, IANA "JMAP FileNode Types"

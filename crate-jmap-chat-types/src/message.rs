@@ -1,6 +1,6 @@
 //! Chat message, attachments, reactions, and delivery state types.
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::collections::HashMap;
 

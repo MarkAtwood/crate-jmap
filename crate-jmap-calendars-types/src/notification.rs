@@ -2,7 +2,7 @@
 //!
 //! Normative reference: draft-ietf-jmap-calendars-26 §7.
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
 
 /// Who made the change that triggered a [`CalendarEventNotification`]

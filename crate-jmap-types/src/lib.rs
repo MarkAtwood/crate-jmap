@@ -36,6 +36,12 @@ pub mod query;
 pub mod resultref;
 pub mod wire;
 
+// `string_enum` is a private module that hosts the [`impl_string_enum!`]
+// declarative macro. The macro itself is `#[macro_export]`-ed, so it is
+// reachable as `jmap_types::impl_string_enum!` regardless of this `mod`'s
+// visibility. See bd JMAP-wk77.
+mod string_enum;
+
 pub use backend::{GetObject, JmapObject, QueryObject, SetObject};
 pub use error::JmapError;
 pub use id::{Date, Id, State, UTCDate, ValidationError};

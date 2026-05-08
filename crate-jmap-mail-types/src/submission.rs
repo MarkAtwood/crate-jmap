@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// SMTP envelope address with optional MAIL FROM / RCPT TO parameters (RFC 8621 §7).

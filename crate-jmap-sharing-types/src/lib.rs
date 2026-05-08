@@ -33,9 +33,6 @@
 
 #![forbid(unsafe_code)]
 
-#[macro_use]
-mod string_enum;
-
 pub mod backend;
 pub mod capability;
 pub mod notification;

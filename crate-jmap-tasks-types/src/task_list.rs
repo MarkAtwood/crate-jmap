@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
 
 /// Special role of a TaskList (draft-tasks-06 §3).

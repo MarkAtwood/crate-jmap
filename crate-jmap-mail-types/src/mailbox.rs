@@ -3,7 +3,7 @@
 //! Provides [`Mailbox`], [`MailboxRole`], and [`MailboxRights`].
 //! Mailboxes are the folder containers for [`crate::Email`] objects.
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
 
 /// The role of a Mailbox, identifying its common purpose (RFC 8621 §2).
