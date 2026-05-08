@@ -71,6 +71,31 @@ pub use jmap_server::{
 /// stored `recurrenceOverrides` map; the handler does **not** pre-parse or
 /// restructure the path.  Backends must preserve unaffected override entries
 /// unchanged when applying a partial patch.
+///
+/// ## `sendSchedulingMessages` (draft-ietf-jmap-calendars-26 §5.9, §5.9.2)
+///
+/// `CalendarEvent/set` accepts a `sendSchedulingMessages` Boolean argument
+/// (default `false`). When `true`, the backend MUST send appropriate iTIP
+/// scheduling messages on success per §5.9.2. The handler parses this flag
+/// and routes create/update/destroy through the dedicated
+/// [`create_calendar_event`](Self::create_calendar_event),
+/// [`update_calendar_event`](Self::update_calendar_event), and
+/// [`destroy_calendar_event`](Self::destroy_calendar_event) methods, which
+/// receive the parsed [`CalendarEventSetArgs`] alongside the object/patch.
+///
+/// If the backend cannot deliver to at least one recipient (no usable
+/// `calendarAddress` URI), it MUST return a
+/// `BackendSetError::SetError` whose type is
+/// `SetErrorType::custom("noSupportedScheduleMethods")` for that operation
+/// per §10.7.2; the handler surfaces this verbatim in the corresponding
+/// `notCreated`/`notUpdated`/`notDestroyed` map entry.
+///
+/// Per-user-only updates (every patch key matches
+/// [`is_per_user_property`](Self::is_per_user_property)) bypass these
+/// methods and go through
+/// [`update_per_user_properties`](Self::update_per_user_properties) instead,
+/// since per-user changes do not generate iTIP REQUEST or CANCEL messages
+/// (§5.9.2.1).
 pub trait CalendarsBackend: JmapBackend {
     /// Create a new object of type `O`.
     ///
@@ -138,6 +163,94 @@ pub trait CalendarsBackend: JmapBackend {
         Output = Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>,
     > + Send {
         self.update_object::<jmap_calendars_types::CalendarEvent>(account_id, id, patch)
+    }
+
+    /// Create a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
+    /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-26 §5.9).
+    ///
+    /// Receives the per-call [`CalendarEventSetArgs`] in addition to the event
+    /// being created. When `args.send_scheduling_messages` is `true`, the
+    /// backend MUST send appropriate iTIP REQUEST/ADD messages on success
+    /// (§5.9.2.1), or return
+    /// `BackendSetError::SetError(SetError::new(SetErrorType::custom("noSupportedScheduleMethods")))`
+    /// when at least one recipient has no `calendarAddress` URI the server
+    /// can deliver to (§10.7.2).
+    ///
+    /// The default implementation ignores `args` and delegates to
+    /// [`create_object`](Self::create_object). Backends with iTIP delivery
+    /// support MUST override this method.
+    fn create_calendar_event(
+        &self,
+        account_id: &jmap_types::Id,
+        create_id: &str,
+        event: jmap_calendars_types::CalendarEvent,
+        args: &CalendarEventSetArgs,
+    ) -> impl std::future::Future<
+        Output = Result<
+            (jmap_types::Id, jmap_calendars_types::CalendarEvent),
+            BackendSetError<Self::Error>,
+        >,
+    > + Send {
+        // Default ignores scheduling args; backends with iTIP delivery override.
+        let _ = args;
+        self.create_object::<jmap_calendars_types::CalendarEvent>(account_id, create_id, event)
+    }
+
+    /// Apply a partial update to a
+    /// [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
+    /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-26 §5.9).
+    ///
+    /// Receives the per-call [`CalendarEventSetArgs`]. When
+    /// `args.send_scheduling_messages` is `true`, the backend MUST send
+    /// appropriate iTIP messages on success (REQUEST for non-per-user property
+    /// changes per §5.9.2.1), or return
+    /// `BackendSetError::SetError(SetError::new(SetErrorType::custom("noSupportedScheduleMethods")))`
+    /// when at least one recipient has no `calendarAddress` URI the server
+    /// can deliver to.
+    ///
+    /// Per-user-only updates (every patch key matches
+    /// [`is_per_user_property`](Self::is_per_user_property)) are routed
+    /// through [`update_per_user_properties`](Self::update_per_user_properties)
+    /// by the handler and never reach this method.
+    ///
+    /// The default implementation ignores `args` and delegates to
+    /// [`update_object`](Self::update_object). Backends with iTIP delivery
+    /// support MUST override this method.
+    fn update_calendar_event(
+        &self,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+        patch: serde_json::Value,
+        args: &CalendarEventSetArgs,
+    ) -> impl std::future::Future<
+        Output = Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>,
+    > + Send {
+        let _ = args;
+        self.update_object::<jmap_calendars_types::CalendarEvent>(account_id, id, patch)
+    }
+
+    /// Destroy a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
+    /// `CalendarEvent/set` semantics (draft-ietf-jmap-calendars-26 §5.9).
+    ///
+    /// Receives the per-call [`CalendarEventSetArgs`]. When
+    /// `args.send_scheduling_messages` is `true`, the backend MUST send
+    /// appropriate iTIP CANCEL or REPLY messages on success (§5.9.2.2 /
+    /// §5.9.2.4), or return
+    /// `BackendSetError::SetError(SetError::new(SetErrorType::custom("noSupportedScheduleMethods")))`
+    /// when at least one recipient has no `calendarAddress` URI the server
+    /// can deliver to.
+    ///
+    /// The default implementation ignores `args` and delegates to
+    /// [`destroy_object`](Self::destroy_object). Backends with iTIP delivery
+    /// support MUST override this method.
+    fn destroy_calendar_event(
+        &self,
+        account_id: &jmap_types::Id,
+        id: &jmap_types::Id,
+        args: &CalendarEventSetArgs,
+    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send {
+        let _ = args;
+        self.destroy_object::<jmap_calendars_types::CalendarEvent>(account_id, id)
     }
 
     /// Returns `true` if the given Calendar has any events.
@@ -250,4 +363,25 @@ pub enum AvailabilityError<E: std::error::Error + 'static> {
     /// An unexpected backend error.
     #[error("backend error: {0}")]
     Other(#[source] E),
+}
+
+/// Per-call arguments for `CalendarEvent/set` operations
+/// (draft-ietf-jmap-calendars-26 §5.9).
+///
+/// Carries args parsed from the JMAP request that need to be threaded to the
+/// backend on a per-create / per-update / per-destroy basis.
+///
+/// Marked `#[non_exhaustive]` so future calendars-draft revisions can add
+/// fields without a SemVer break for backends that construct the struct
+/// directly. Backends should use [`CalendarEventSetArgs::default()`] or
+/// pattern-match on individual fields rather than exhaustive struct patterns.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default)]
+pub struct CalendarEventSetArgs {
+    /// `sendSchedulingMessages` (draft-ietf-jmap-calendars-26 §5.9, default
+    /// `false`). When `true`, the backend MUST send appropriate iTIP
+    /// scheduling messages on success per §5.9.2, or return a
+    /// `noSupportedScheduleMethods` SetError when at least one recipient has
+    /// no `calendarAddress` URI the server can deliver to (§10.7.2).
+    pub send_scheduling_messages: bool,
 }

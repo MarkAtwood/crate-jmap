@@ -187,7 +187,7 @@ pub(crate) mod test_support {
     };
     use jmap_types::{Id, State};
 
-    use crate::backend::CalendarsBackend;
+    use crate::backend::{CalendarEventSetArgs, CalendarsBackend};
 
     #[derive(Debug)]
     pub struct MockError(pub String);
@@ -252,9 +252,7 @@ pub(crate) mod test_support {
         #[allow(dead_code)]
         pub fn add_notification(&mut self, account_id: &str, notif_id: &str) {
             let mut guard = self.state.lock().unwrap();
-            let acct = guard
-                .entry(account_id.to_owned())
-                .or_default();
+            let acct = guard.entry(account_id.to_owned()).or_default();
             acct.objects
                 .entry("CalendarEventNotification".to_owned())
                 .or_default()
@@ -274,9 +272,7 @@ pub(crate) mod test_support {
             value: serde_json::Value,
         ) {
             let mut guard = self.state.lock().unwrap();
-            let acct = guard
-                .entry(account_id.to_owned())
-                .or_default();
+            let acct = guard.entry(account_id.to_owned()).or_default();
             acct.objects
                 .entry(type_name.to_owned())
                 .or_default()
@@ -374,17 +370,39 @@ pub(crate) mod test_support {
             // Other queries return empty (this mock isn't a full query engine).
             let type_name = O::TYPE_NAME;
             if type_name != "CalendarEvent" {
-                return Ok(QueryResult::new(vec![], 0, Some(0), State::from("0"), false));
+                return Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ));
             }
             let in_calendar: Option<String> = filter
                 .and_then(|f| serde_json::to_value(f).ok())
-                .and_then(|v| v.get("inCalendar").and_then(|c| c.as_str()).map(String::from));
+                .and_then(|v| {
+                    v.get("inCalendar")
+                        .and_then(|c| c.as_str())
+                        .map(String::from)
+                });
             let guard = self.state.lock().unwrap();
             let Some(acct) = guard.get(account_id.as_ref()) else {
-                return Ok(QueryResult::new(vec![], 0, Some(0), State::from("0"), false));
+                return Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ));
             };
             let Some(store) = acct.objects.get("CalendarEvent") else {
-                return Ok(QueryResult::new(vec![], 0, Some(0), State::from("0"), false));
+                return Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ));
             };
             let mut ids: Vec<Id> = Vec::new();
             for (id, value) in store.iter() {
@@ -520,6 +538,61 @@ pub(crate) mod test_support {
                 .get(account_id.as_ref())
                 .map(|acct| acct.calendars_with_events.contains(calendar_id))
                 .unwrap_or(false)
+        }
+
+        // Scheduling-aware overrides: the mock has no iTIP delivery support,
+        // so any request to send scheduling messages produces the
+        // noSupportedScheduleMethods SetError per draft-ietf-jmap-calendars-26
+        // §5.9, §10.7.2. When sendSchedulingMessages is false the mock falls
+        // through to the generic create/update/destroy_object path used by
+        // every other test in this file.
+        async fn create_calendar_event(
+            &self,
+            account_id: &Id,
+            create_id: &str,
+            event: jmap_calendars_types::CalendarEvent,
+            args: &CalendarEventSetArgs,
+        ) -> Result<(Id, jmap_calendars_types::CalendarEvent), BackendSetError<Self::Error>>
+        {
+            if args.send_scheduling_messages {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::custom("noSupportedScheduleMethods"),
+                )));
+            }
+            self.create_object::<jmap_calendars_types::CalendarEvent>(account_id, create_id, event)
+                .await
+        }
+
+        async fn update_calendar_event(
+            &self,
+            account_id: &Id,
+            id: &Id,
+            patch: serde_json::Value,
+            args: &CalendarEventSetArgs,
+        ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>
+        {
+            if args.send_scheduling_messages {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::custom("noSupportedScheduleMethods"),
+                )));
+            }
+            self.update_object::<jmap_calendars_types::CalendarEvent>(account_id, id, patch)
+                .await
+        }
+
+        async fn destroy_calendar_event(
+            &self,
+            account_id: &Id,
+            id: &Id,
+            args: &CalendarEventSetArgs,
+        ) -> Result<(), BackendSetError<Self::Error>> {
+            if args.send_scheduling_messages {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::custom("noSupportedScheduleMethods"),
+                )));
+            }
+            self.destroy_object::<jmap_calendars_types::CalendarEvent>(account_id, id)
+                .await
         }
     }
 
@@ -983,6 +1056,206 @@ mod tests {
         assert!(
             prop_strs.contains(&"utcStart") && prop_strs.contains(&"start"),
             "must cite utcStart and start: {args}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // sendSchedulingMessages / noSupportedScheduleMethods (§5.9, §10.7.2)
+    //
+    // The MockBackend overrides create_calendar_event, update_calendar_event,
+    // and destroy_calendar_event to return SetError(noSupportedScheduleMethods)
+    // whenever args.send_scheduling_messages is true (i.e. behaves as a
+    // backend with no iTIP delivery support). When the flag is false (the
+    // default), it falls through to the generic create/update/destroy_object
+    // path. These tests pin both ends of the contract.
+    // -----------------------------------------------------------------------
+
+    /// Oracle: §5.9 + §10.7.2 — `CalendarEvent/set` create with
+    /// `sendSchedulingMessages: true` MUST surface a backend-issued
+    /// `noSupportedScheduleMethods` SetError under `notCreated.<createId>`,
+    /// not a top-level method error and not `serverFail`.
+    #[tokio::test]
+    async fn set_create_with_scheduling_no_supported_methods() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/set",
+            json!({
+                "accountId": "acc1",
+                "sendSchedulingMessages": true,
+                "create": {
+                    "c1": {
+                        "calendarIds": { "cal1": true },
+                        "title": "Team meeting",
+                        "start": "2024-06-15T10:00:00",
+                        "duration": "PT1H"
+                    }
+                }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notCreated"]["c1"]["type"], "noSupportedScheduleMethods",
+            "create must be rejected with noSupportedScheduleMethods: {args}"
+        );
+        // No success entries on this create.
+        assert_eq!(
+            args["created"],
+            serde_json::Value::Null,
+            "created must be null when scheduling fails: {args}"
+        );
+    }
+
+    /// Oracle: §5.9 + §10.7.2 — `CalendarEvent/set` update with
+    /// `sendSchedulingMessages: true` MUST surface
+    /// `noSupportedScheduleMethods` under `notUpdated.<id>`.
+    ///
+    /// The mock fails before the patch is applied, so no pre-existing event
+    /// is needed to exercise the wrapper path.
+    #[tokio::test]
+    async fn set_update_with_scheduling_no_supported_methods() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/set",
+            json!({
+                "accountId": "acc1",
+                "sendSchedulingMessages": true,
+                "update": {
+                    "ev1": { "title": "Renamed meeting" }
+                }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notUpdated"]["ev1"]["type"], "noSupportedScheduleMethods",
+            "update must be rejected with noSupportedScheduleMethods: {args}"
+        );
+    }
+
+    /// Oracle: §5.9 + §10.7.2 — `CalendarEvent/set` destroy with
+    /// `sendSchedulingMessages: true` MUST surface
+    /// `noSupportedScheduleMethods` under `notDestroyed.<id>` (CANCEL
+    /// scheduling messages cannot be sent).
+    #[tokio::test]
+    async fn set_destroy_with_scheduling_no_supported_methods() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/set",
+            json!({
+                "accountId": "acc1",
+                "sendSchedulingMessages": true,
+                "destroy": ["ev1"]
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(
+            args["notDestroyed"]["ev1"]["type"], "noSupportedScheduleMethods",
+            "destroy must be rejected with noSupportedScheduleMethods: {args}"
+        );
+    }
+
+    /// Oracle: §5.9 — `sendSchedulingMessages` defaults to `false`. Without
+    /// the arg, the create succeeds and the mock never produces a scheduling
+    /// error, proving the flag is parsed as `false` when absent.
+    #[tokio::test]
+    async fn set_create_without_scheduling_succeeds() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/set",
+            json!({
+                "accountId": "acc1",
+                "create": {
+                    "c1": {
+                        "calendarIds": { "cal1": true },
+                        "title": "Team meeting",
+                        "start": "2024-06-15T10:00:00",
+                        "duration": "PT1H"
+                    }
+                }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert!(
+            args["created"].get("c1").is_some(),
+            "create must succeed when sendSchedulingMessages is absent: {args}"
+        );
+        assert_eq!(
+            args["notCreated"],
+            serde_json::Value::Null,
+            "no notCreated entries when scheduling not requested: {args}"
+        );
+    }
+
+    /// Oracle: §5.9 — explicit `sendSchedulingMessages: false` is equivalent
+    /// to the default and the create succeeds. Pinning this guards against
+    /// a future regression where any non-true value (false, null, missing)
+    /// could be misparsed as true.
+    #[tokio::test]
+    async fn set_create_with_scheduling_false_succeeds() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/set",
+            json!({
+                "accountId": "acc1",
+                "sendSchedulingMessages": false,
+                "create": {
+                    "c1": {
+                        "calendarIds": { "cal1": true },
+                        "title": "Team meeting",
+                        "start": "2024-06-15T10:00:00",
+                        "duration": "PT1H"
+                    }
+                }
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert!(
+            args["created"].get("c1").is_some(),
+            "create must succeed when sendSchedulingMessages is false: {args}"
         );
     }
 }

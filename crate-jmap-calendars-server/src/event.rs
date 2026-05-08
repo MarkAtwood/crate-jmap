@@ -4,7 +4,7 @@ use jmap_calendars_types::CalendarEvent;
 use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, CalendarsBackend};
+use crate::backend::{BackendSetError, CalendarEventSetArgs, CalendarsBackend};
 use crate::helpers::{extract_account_id, set_error_value};
 
 // ---------------------------------------------------------------------------
@@ -108,6 +108,21 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
         }
     }
 
+    // §5.9: sendSchedulingMessages — Boolean (default false). When true, the
+    // backend MUST send iTIP scheduling messages on success of each
+    // create/update/destroy, or return a noSupportedScheduleMethods SetError
+    // (§10.7.2) when at least one recipient has no usable calendarAddress.
+    // Non-boolean values are treated as the default (false) per RFC 8620
+    // permissive parsing — strict rejection would be invalidArguments, but
+    // the spec defines no such requirement and we match Calendar/set's
+    // tolerance for unknown args.
+    let set_args = CalendarEventSetArgs {
+        send_scheduling_messages: args
+            .get("sendSchedulingMessages")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+    };
+
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
     let mut updated = serde_json::Map::new();
@@ -182,7 +197,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 }
             };
             match backend
-                .create_object::<CalendarEvent>(&account_id, &create_id, event)
+                .create_calendar_event(&account_id, &create_id, event, &set_args)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -256,13 +271,17 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 })
                 .unwrap_or(false);
 
+            // §5.9.2.1: per-user-only updates do not generate iTIP REQUEST
+            // messages, so they bypass scheduling. The non-per-user path
+            // routes through update_calendar_event so the backend sees the
+            // sendSchedulingMessages flag.
             let update_result = if is_per_user_only {
                 backend
                     .update_per_user_properties(&account_id, &id, patch_val)
                     .await
             } else {
                 backend
-                    .update_object::<CalendarEvent>(&account_id, &id, patch_val)
+                    .update_calendar_event(&account_id, &id, patch_val, &set_args)
                     .await
             };
 
@@ -301,7 +320,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             };
             let id = Id::from(id_str.as_str());
             match backend
-                .destroy_object::<CalendarEvent>(&account_id, &id)
+                .destroy_calendar_event(&account_id, &id, &set_args)
                 .await
             {
                 Ok(()) => {
