@@ -1,7 +1,7 @@
 //! Integration tests for `*/queryChanges` handlers and the `accountIds` filter
 //! (RFC 8620 §5.6, RFC 9670 §2.4.1).
 //!
-//! Tests 1–2 verify that an unparseable `sinceQueryState` produces a
+//! Tests 1–2 verify that an unparsable `sinceQueryState` produces a
 //! `cannotCalculateChanges` error for both Principal and ShareNotification.
 //!
 //! Test 3 verifies that the dispatcher correctly passes the `accountIds` filter
@@ -278,7 +278,7 @@ async fn principal_query_changes_cannot_calculate() {
     assert_eq!(
         args["type"].as_str(),
         Some("cannotCalculateChanges"),
-        "unparseable sinceQueryState must produce cannotCalculateChanges; got: {args}"
+        "unparsable sinceQueryState must produce cannotCalculateChanges; got: {args}"
     );
 }
 
@@ -328,7 +328,7 @@ async fn notification_query_changes_cannot_calculate() {
     assert_eq!(
         args["type"].as_str(),
         Some("cannotCalculateChanges"),
-        "unparseable sinceQueryState must produce cannotCalculateChanges; got: {args}"
+        "unparsable sinceQueryState must produce cannotCalculateChanges; got: {args}"
     );
 }
 

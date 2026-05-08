@@ -590,7 +590,7 @@ impl JmapBackend for MemoryBackend {
         _collapse_threads: bool,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         // Step 1: Validate since_query_state by parsing it as a u64 counter.
-        // An unparseable token means the client supplied a state we never issued;
+        // An unparsable token means the client supplied a state we never issued;
         // return cannotCalculateChanges (limit=0) per RFC 8620 §5.6.
         let _since: u64 = since_query_state
             .as_ref()

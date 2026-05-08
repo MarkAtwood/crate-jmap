@@ -1,0 +1,36 @@
+# typos-cli configuration for the jmap-* crate-family workspace.
+#
+# Wired into CI via .github/workflows/ci.yml:typos. Run locally with
+# `cargo install typos-cli` then `typos`. To suppress an additional false
+# positive, add it under [default.extend-words] (key = "found-word",
+# value = "found-word" preserves the original spelling).
+
+[default.extend-words]
+# `ser` — short alias for the helpers::ser serialize function exported by
+# jmap-server (see crate-jmap-server/README.md). Not a typo of `set`.
+ser = "ser"
+
+# `nd` — short variable binding for `not_destroyed` map references in test
+# code (e.g. crate-jmap-filenode-server/src/filenode.rs around line 1296).
+# Not a typo of `and`.
+nd = "nd"
+
+# `ue` — short variable binding for `unread_emails` map field in mail-server
+# integration test harness (crate-jmap-mail-server/tests/common/mod.rs).
+# Not a typo of `use` / `due`.
+ue = "ue"
+
+# `thr` — fixture identifier prefix used in the JMAP test fixtures (e.g.
+# `"threadId": "thr1"`), mirroring fixtures used in production JMAP test
+# suites. Not a typo of `the`.
+thr = "thr"
+
+# `alls` — appears as "catch-alls" in PLAN.md prose. Real English word
+# (plural of catch-all).
+alls = "alls"
+
+# `assigneee` — three-`e` spelling in JMAP Tasks draft §4.2.3 (verbatim
+# from the spec). The tasks-types README documents this spec typo so
+# implementors recognise it; we preserve the original misspelling rather
+# than silently normalising and confusing readers who go looking.
+assigneee = "assigneee"
