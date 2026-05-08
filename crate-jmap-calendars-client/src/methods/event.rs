@@ -151,8 +151,7 @@ impl super::SessionClient {
     /// Query CalendarEvent IDs with optional filter and sort
     /// (draft-ietf-jmap-calendars-26 §5.11).
     ///
-    /// - `filter`: typed
-    ///   [`CalendarEventFilterCondition`](jmap_calendars_types::CalendarEventFilterCondition).
+    /// - `filter`: typed [`CalendarEventFilterCondition`].
     ///   Pass `None` to omit the `filter` argument.
     /// - `sort`: typed comparator slice. Pass `None` to omit the `sort`
     ///   argument.

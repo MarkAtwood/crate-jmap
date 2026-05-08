@@ -117,8 +117,7 @@ impl super::SessionClient {
     /// Query CalendarEventNotification IDs with optional filter and sort
     /// (draft-ietf-jmap-calendars-26 §7.4).
     ///
-    /// - `filter`: typed
-    ///   [`NotificationFilterCondition`](jmap_calendars_types::NotificationFilterCondition).
+    /// - `filter`: typed [`NotificationFilterCondition`].
     /// - `sort`: comparator slice. CalendarEventNotification's Comparator
     ///   type in `jmap-calendars-types` is `serde_json::Value` because the
     ///   spec's sort properties for notifications are minimal (just
