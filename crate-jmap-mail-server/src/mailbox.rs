@@ -274,15 +274,13 @@ pub async fn handle_mailbox_query<B: MailBackend>(
             // parentId: three-way — absent = no filter; null = top-level only; string = specific parent.
             if let Some(ref pv) = filter_parent_id {
                 match pv {
-                    Value::Null => {
-                        if m.parent_id.is_some() {
-                            return false;
-                        }
+                    Value::Null if m.parent_id.is_some() => {
+                        return false;
                     }
-                    Value::String(id_str) => {
-                        if m.parent_id.as_ref().map(|p| p.as_ref()) != Some(id_str.as_str()) {
-                            return false;
-                        }
+                    Value::String(id_str)
+                        if m.parent_id.as_ref().map(|p| p.as_ref()) != Some(id_str.as_str()) =>
+                    {
+                        return false;
                     }
                     _ => {}
                 }

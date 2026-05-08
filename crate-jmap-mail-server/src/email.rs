@@ -1719,10 +1719,11 @@ async fn collapse_by_thread<B: MailBackend>(
 
     for id in ids {
         match thread_map.get(&id) {
-            Some(tid) => {
-                if seen_threads.insert(tid.clone()) {
-                    result.push(id);
-                }
+            Some(tid) if seen_threads.insert(tid.clone()) => {
+                result.push(id);
+            }
+            Some(_) => {
+                // Thread already seen — drop this id from the collapsed view.
             }
             None => {
                 // Email absent from thread map (concurrent delete). Skip it: without
