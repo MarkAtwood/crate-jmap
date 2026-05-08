@@ -8,6 +8,10 @@
 //   5. Call `self.call_internal(api_url, &req).await?`.
 //   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
+use std::collections::HashMap;
+
+use jmap_types::Id;
+
 use super::{ChangesResponse, GetResponse, SetResponse};
 
 impl super::SessionClient {
@@ -67,14 +71,22 @@ impl super::SessionClient {
 
     /// Create, update, or destroy Calendar objects (draft-ietf-jmap-calendars-26 §4.4).
     ///
-    /// `on_destroy_remove_events`: if `true`, destroying a calendar also
-    /// destroys all its events. If `false` (the default), the server MUST
-    /// reject a destroy if the calendar still has events
-    /// (`calendarHasEvents` error).
+    /// - `create`: map of creation id → typed [`Calendar`](jmap_calendars_types::Calendar)
+    ///   to create. Pass `None` to omit the `create` argument entirely.
+    /// - `update`: map of existing Calendar id → JSON Merge Patch
+    ///   (RFC 8620 §5.3 `PatchObject`). The patch is left untyped because
+    ///   keys may carry `/`-separated paths into nested fields, which the
+    ///   typed [`Calendar`](jmap_calendars_types::Calendar) struct cannot
+    ///   represent. Pass `None` to omit `update` entirely.
+    /// - `destroy`: list of Calendar ids to destroy.
+    /// - `on_destroy_remove_events`: if `true`, destroying a calendar also
+    ///   destroys all its events. If `false` (the default), the server MUST
+    ///   reject a destroy if the calendar still has events
+    ///   (`calendarHasEvent` error).
     pub async fn calendar_set(
         &self,
-        create: Option<serde_json::Value>,
-        update: Option<serde_json::Value>,
+        create: Option<HashMap<String, jmap_calendars_types::Calendar>>,
+        update: Option<HashMap<Id, serde_json::Value>>,
         destroy: Option<Vec<&str>>,
         on_destroy_remove_events: Option<bool>,
     ) -> Result<SetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {
@@ -92,10 +104,18 @@ impl super::SessionClient {
             "accountId": account_id,
         });
         if let Some(c) = create {
-            args["create"] = c;
+            args["create"] = serde_json::to_value(&c).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_set: serializing create map failed: {e}"
+                ))
+            })?;
         }
         if let Some(u) = update {
-            args["update"] = u;
+            args["update"] = serde_json::to_value(&u).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_set: serializing update map failed: {e}"
+                ))
+            })?;
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::Value::Array(

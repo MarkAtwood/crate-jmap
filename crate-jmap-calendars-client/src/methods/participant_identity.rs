@@ -1,5 +1,9 @@
 // JMAP Calendars — ParticipantIdentity/* method implementations on SessionClient.
 
+use std::collections::HashMap;
+
+use jmap_types::Id;
+
 use super::{ChangesResponse, GetResponse, SetResponse};
 
 impl super::SessionClient {
@@ -58,10 +62,17 @@ impl super::SessionClient {
 
     /// Create, update, or destroy ParticipantIdentity objects
     /// (draft-ietf-jmap-calendars-26 §3.3).
+    ///
+    /// - `create`: map of creation id → typed
+    ///   [`ParticipantIdentity`](jmap_calendars_types::ParticipantIdentity).
+    /// - `update`: map of existing identity id → JSON Merge Patch
+    ///   (RFC 8620 §5.3). Untyped because patch keys may carry
+    ///   `/`-separated paths into nested fields.
+    /// - `destroy`: list of identity ids to destroy.
     pub async fn participant_identity_set(
         &self,
-        create: Option<serde_json::Value>,
-        update: Option<serde_json::Value>,
+        create: Option<HashMap<String, jmap_calendars_types::ParticipantIdentity>>,
+        update: Option<HashMap<Id, serde_json::Value>>,
         destroy: Option<Vec<&str>>,
     ) -> Result<SetResponse<jmap_calendars_types::ParticipantIdentity>, jmap_base_client::ClientError>
     {
@@ -79,10 +90,18 @@ impl super::SessionClient {
             "accountId": account_id,
         });
         if let Some(c) = create {
-            args["create"] = c;
+            args["create"] = serde_json::to_value(&c).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "participant_identity_set: serializing create map failed: {e}"
+                ))
+            })?;
         }
         if let Some(u) = update {
-            args["update"] = u;
+            args["update"] = serde_json::to_value(&u).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "participant_identity_set: serializing update map failed: {e}"
+                ))
+            })?;
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::Value::Array(
