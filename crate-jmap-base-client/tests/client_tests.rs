@@ -771,3 +771,130 @@ fn test_extract_response_method_error() {
         "expected MethodError{{serverFail, Some(\"oops\")}}, got {err:?}"
     );
 }
+
+/// Oracle: RFC 8620 §3.2 + §3.6.1 — when a server emits both a success
+/// invocation and an "error" invocation under the same call_id, the error
+/// MUST take precedence. Returning the success would silently lose the
+/// failure indication. Independent oracle: hand-built JmapResponse with
+/// the documented multi-invocation pattern from RFC 8620 §3.2 line 876–880.
+#[test]
+fn test_extract_response_error_after_success_takes_precedence() {
+    let resp = jmap_types::JmapResponse::new(
+        vec![
+            (
+                "Mailbox/get".to_owned(),
+                serde_json::json!({
+                    "accountId": "A1",
+                    "state": "s1",
+                    "list": [],
+                    "notFound": []
+                }),
+                "r1".to_owned(),
+            ),
+            (
+                "error".to_owned(),
+                serde_json::json!({"type": "serverFail", "description": "implicit op failed"}),
+                "r1".to_owned(),
+            ),
+        ],
+        "sess1".into(),
+        None,
+    );
+
+    let err = jmap_base_client::client::extract_response::<serde_json::Value>(&resp, "r1")
+        .expect_err("error sibling must surface even with a success present");
+    assert!(
+        matches!(
+            &err,
+            ClientError::MethodError { error_type, .. } if error_type == "serverFail"
+        ),
+        "expected MethodError{{serverFail}}, got {err:?}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.8 example (lines 3158–3180) — a `Foo/copy` with
+/// `onSuccessDestroyOriginal: true` produces both the primary `Foo/copy`
+/// response and an implicit `Foo/set` response, both with the same call_id.
+/// When all matching invocations are successes, extract_response returns
+/// the FIRST one (the primary response). Independent oracle: spec example
+/// JSON shape, hand-built here.
+#[test]
+fn test_extract_response_first_success_when_no_error() {
+    let resp = jmap_types::JmapResponse::new(
+        vec![
+            (
+                "Todo/copy".to_owned(),
+                serde_json::json!({
+                    "fromAccountId": "x",
+                    "accountId": "y",
+                    "created": {"k5122": {"id": "DAf97"}},
+                    "oldState": "c1d64ecb038c",
+                    "newState": "33844835152b"
+                }),
+                "0".to_owned(),
+            ),
+            (
+                "Todo/set".to_owned(),
+                serde_json::json!({
+                    "accountId": "x",
+                    "oldState": "871903",
+                    "newState": "871909",
+                    "destroyed": ["a"]
+                }),
+                "0".to_owned(),
+            ),
+        ],
+        "sess1".into(),
+        None,
+    );
+
+    let v = jmap_base_client::client::extract_response::<serde_json::Value>(&resp, "0")
+        .expect("must succeed when all matches are successes");
+    assert_eq!(
+        v["fromAccountId"], "x",
+        "primary (first) response must be the Todo/copy result, got {v}"
+    );
+    assert!(
+        v.get("destroyed").is_none(),
+        "must NOT be the Todo/set result (which has 'destroyed' but no 'fromAccountId')"
+    );
+}
+
+/// Oracle: extension of the §3.2 multi-response rule — error precedence
+/// applies even when the error appears after several successful matches.
+/// Catches a regression where the implementation might short-circuit on
+/// the first match.
+#[test]
+fn test_extract_response_error_after_multiple_successes() {
+    let resp = jmap_types::JmapResponse::new(
+        vec![
+            (
+                "Todo/copy".to_owned(),
+                serde_json::json!({"fromAccountId": "x"}),
+                "r1".to_owned(),
+            ),
+            (
+                "Todo/set".to_owned(),
+                serde_json::json!({"accountId": "x"}),
+                "r1".to_owned(),
+            ),
+            (
+                "error".to_owned(),
+                serde_json::json!({"type": "rateLimit"}),
+                "r1".to_owned(),
+            ),
+        ],
+        "sess1".into(),
+        None,
+    );
+
+    let err = jmap_base_client::client::extract_response::<serde_json::Value>(&resp, "r1")
+        .expect_err("trailing error must take precedence over earlier successes");
+    assert!(
+        matches!(
+            &err,
+            ClientError::MethodError { error_type, .. } if error_type == "rateLimit"
+        ),
+        "expected MethodError{{rateLimit}}, got {err:?}"
+    );
+}
