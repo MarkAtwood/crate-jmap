@@ -2,7 +2,7 @@
 //!
 //! `Calendar/set` has special logic: if `onDestroyRemoveEvents` is absent or
 //! `false`, destroying a Calendar that still has events is rejected with a
-//! `calendarHasEvents` SetError (not a top-level error).
+//! `calendarHasEvent` SetError (not a top-level error).
 
 use jmap_calendars_types::Calendar;
 use jmap_types::{Id, Invocation, JmapError};
@@ -44,7 +44,7 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
 /// Special behaviour:
 /// - Parses `onDestroyRemoveEvents` (default `false`) from the request args.
 /// - If `false`, any calendar in the `destroy` list that still has events is
-///   rejected with a `calendarHasEvents` SetError (draft §4.4.1).
+///   rejected with a `calendarHasEvent` SetError (draft §4.4.1).
 /// - Create and update are forwarded to the backend normally.
 pub async fn handle_calendar_set<B: CalendarsBackend>(
     backend: &B,
@@ -181,7 +181,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             if !on_destroy_remove_events && backend.calendar_has_events(&account_id, &id).await {
                 not_destroyed.insert(
                     id_str,
-                    set_error_value(&SetError::new(SetErrorType::custom("calendarHasEvents"))),
+                    set_error_value(&SetError::new(SetErrorType::custom("calendarHasEvent"))),
                 );
                 continue;
             }
@@ -252,7 +252,7 @@ mod tests {
     }
 
     /// Oracle: Calendar/set with onDestroyRemoveEvents=false and a calendar that
-    /// has events → notDestroyed with "calendarHasEvents" error type.
+    /// has events → notDestroyed with "calendarHasEvent" error type.
     /// Source: draft-ietf-jmap-calendars-26 §4.4.1.
     #[tokio::test]
     async fn set_destroy_calendar_with_events_returns_calendar_has_events() {
@@ -271,8 +271,8 @@ mod tests {
             "notDestroyed must be present: {resp}"
         );
         assert_eq!(
-            not_destroyed["cal1"]["type"], "calendarHasEvents",
-            "must produce calendarHasEvents error: {resp}"
+            not_destroyed["cal1"]["type"], "calendarHasEvent",
+            "must produce calendarHasEvent error: {resp}"
         );
     }
 

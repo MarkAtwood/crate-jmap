@@ -615,7 +615,7 @@ mod tests {
 
     /// Oracle: Calendar/set destroy with calendar that has events and
     /// onDestroyRemoveEvents absent (default false) → notDestroyed with
-    /// `calendarHasEvents`.
+    /// `calendarHasEvent`.
     #[tokio::test]
     async fn calendar_set_destroy_with_events_returns_calendar_has_events() {
         let backend = Arc::new(MockBackend::new_with_account_and_events("acc1", "cal1"));
@@ -637,8 +637,8 @@ mod tests {
             "must not be a top-level error: {args}"
         );
         assert_eq!(
-            args["notDestroyed"]["cal1"]["type"], "calendarHasEvents",
-            "must produce calendarHasEvents: {args}"
+            args["notDestroyed"]["cal1"]["type"], "calendarHasEvent",
+            "must produce calendarHasEvent: {args}"
         );
     }
 
