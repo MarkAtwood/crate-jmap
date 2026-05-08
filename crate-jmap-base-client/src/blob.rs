@@ -181,7 +181,8 @@ impl JmapClient {
         content_type: &str,
     ) -> Result<BlobUploadResponse, ClientError> {
         crate::client::require_http_url(upload_url_template)?;
-        let ct_hv = HeaderValue::from_str(content_type).map_err(ClientError::InvalidHeaderValue)?;
+        let ct_hv =
+            HeaderValue::from_str(content_type).map_err(ClientError::from_invalid_header)?;
         let url = expand_url_template(upload_url_template, &[("accountId", account_id)])?;
 
         // Compute SHA-256 before handing ownership of data to the request body.
@@ -195,10 +196,10 @@ impl JmapClient {
                 .body(data),
         );
 
-        let resp = req.send().await.map_err(ClientError::Http)?;
+        let resp = req.send().await.map_err(ClientError::from_reqwest)?;
         let status = resp.status();
         Self::check_auth_status(status)?;
-        let resp = resp.error_for_status().map_err(ClientError::Http)?;
+        let resp = resp.error_for_status().map_err(ClientError::from_reqwest)?;
 
         let upload_limit = self.config.max_upload_body;
 
@@ -210,7 +211,7 @@ impl JmapClient {
                 });
             }
         }
-        let bytes = resp.bytes().await.map_err(ClientError::Http)?;
+        let bytes = resp.bytes().await.map_err(ClientError::from_reqwest)?;
         if bytes.len() as u64 > upload_limit {
             return Err(ClientError::ResponseTooLarge {
                 actual: bytes.len() as u64,
@@ -279,10 +280,10 @@ impl JmapClient {
 
         let req = self.inject_auth(self.http.get(&url).timeout(self.config.request_timeout));
 
-        let resp = req.send().await.map_err(ClientError::Http)?;
+        let resp = req.send().await.map_err(ClientError::from_reqwest)?;
         let status = resp.status();
         Self::check_auth_status(status)?;
-        let resp = resp.error_for_status().map_err(ClientError::Http)?;
+        let resp = resp.error_for_status().map_err(ClientError::from_reqwest)?;
 
         let download_limit = self.config.max_download_body;
 
@@ -304,7 +305,7 @@ impl JmapClient {
         let mut stream = resp.bytes_stream();
         let mut body: Vec<u8> = Vec::new();
         while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(ClientError::Http)?;
+            let chunk = chunk.map_err(ClientError::from_reqwest)?;
             let new_len = body.len() as u64 + chunk.len() as u64;
             if new_len > download_limit {
                 return Err(ClientError::ResponseTooLarge {

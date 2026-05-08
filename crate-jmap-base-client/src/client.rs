@@ -258,9 +258,11 @@ impl JmapClient {
         let req = self.inject_auth(self.http.get(url).timeout(self.config.request_timeout));
 
         let resp = {
-            let raw_resp = req.send().await.map_err(ClientError::Http)?;
+            let raw_resp = req.send().await.map_err(ClientError::from_reqwest)?;
             Self::check_auth_status(raw_resp.status())?;
-            raw_resp.error_for_status().map_err(ClientError::Http)?
+            raw_resp
+                .error_for_status()
+                .map_err(ClientError::from_reqwest)?
         };
 
         // Enforce size cap before reading. Content-Length can lie, so we check
@@ -270,7 +272,7 @@ impl JmapClient {
                 return Err(ClientError::ResponseTooLarge { actual: len, limit });
             }
         }
-        let bytes = resp.bytes().await.map_err(ClientError::Http)?;
+        let bytes = resp.bytes().await.map_err(ClientError::from_reqwest)?;
         if bytes.len() as u64 > limit {
             return Err(ClientError::ResponseTooLarge {
                 actual: bytes.len() as u64,
@@ -311,9 +313,11 @@ impl JmapClient {
         );
 
         let resp = {
-            let raw_resp = builder.send().await.map_err(ClientError::Http)?;
+            let raw_resp = builder.send().await.map_err(ClientError::from_reqwest)?;
             Self::check_auth_status(raw_resp.status())?;
-            raw_resp.error_for_status().map_err(ClientError::Http)?
+            raw_resp
+                .error_for_status()
+                .map_err(ClientError::from_reqwest)?
         };
 
         // Enforce size cap before reading.
@@ -322,7 +326,7 @@ impl JmapClient {
                 return Err(ClientError::ResponseTooLarge { actual: len, limit });
             }
         }
-        let bytes = resp.bytes().await.map_err(ClientError::Http)?;
+        let bytes = resp.bytes().await.map_err(ClientError::from_reqwest)?;
         if bytes.len() as u64 > limit {
             return Err(ClientError::ResponseTooLarge {
                 actual: bytes.len() as u64,
@@ -387,9 +391,9 @@ impl JmapClient {
         }
         let req = self.inject_auth(req);
 
-        let resp = req.send().await.map_err(ClientError::Http)?;
+        let resp = req.send().await.map_err(ClientError::from_reqwest)?;
         Self::check_auth_status(resp.status())?;
-        let resp = resp.error_for_status().map_err(ClientError::Http)?;
+        let resp = resp.error_for_status().map_err(ClientError::from_reqwest)?;
 
         // Verify Content-Type before streaming. A misconfigured server returning
         // application/json would silently produce no events (no SSE delimiter found).
@@ -486,7 +490,7 @@ impl JmapClient {
                     match stream.next().await {
                         None => return None,
                         Some(Err(e)) => {
-                            return Some((Err(ClientError::Http(e)), None));
+                            return Some((Err(ClientError::from_reqwest(e)), None));
                         }
                         Some(Ok(bytes)) => {
                             // Accumulate raw bytes first. A multi-byte UTF-8 codepoint
