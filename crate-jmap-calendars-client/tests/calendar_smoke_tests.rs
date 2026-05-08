@@ -122,18 +122,21 @@ async fn calendar_event_set_smoke() {
         .await;
 
     let sc = helpers::make_client(&server).await;
-    let create_obj = json!({
-        "newEv": {
-            "calendarIds": { "cal-1": true },
-            "title": "Team standup",
-            "start": "2024-06-15T09:00:00",
-            "duration": "PT30M",
-            "timeZone": "America/New_York",
-            "showWithoutTime": false
-        }
-    });
+    // CalendarEvent has all-Option fields, so a sparse JSON deserialization
+    // suffices to construct a typed event for the create map.
+    let event: jmap_calendars_types::CalendarEvent = serde_json::from_value(json!({
+        "calendarIds": { "cal-1": true },
+        "title": "Team standup",
+        "start": "2024-06-15T09:00:00",
+        "duration": "PT30M",
+        "timeZone": "America/New_York",
+        "showWithoutTime": false
+    }))
+    .expect("CalendarEvent must deserialize from spec example fields");
+    let mut create_map = std::collections::HashMap::new();
+    create_map.insert("newEv".to_owned(), event);
     let resp = sc
-        .calendar_event_set(Some(create_obj), None, None)
+        .calendar_event_set(Some(create_map), None, None)
         .await
         .expect("calendar_event_set_smoke: must succeed");
 

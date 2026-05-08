@@ -1,22 +1,26 @@
 // JMAP Calendars — CalendarEvent/copy method implementation on SessionClient.
 //
-// CalendarEvent/copy copies events between accounts (draft-ietf-jmap-calendars-26 §5.7).
+// CalendarEvent/copy copies events between accounts (draft-ietf-jmap-calendars-26 §5.10).
+
+use std::collections::HashMap;
 
 use super::SetResponse;
 
 impl super::SessionClient {
     /// Copy CalendarEvent objects from one account to another
-    /// (draft-ietf-jmap-calendars-26 §5.7).
+    /// (draft-ietf-jmap-calendars-26 §5.10).
     ///
     /// - `from_account_id`: the source account containing the events to copy.
-    /// - `create`: map of creation id → CalendarEvent patch object describing
-    ///   what to copy and any modifications to apply.
+    /// - `create`: map of creation id → typed
+    ///   [`CalendarEvent`](jmap_calendars_types::CalendarEvent) describing
+    ///   what to copy and any modifications to apply. Each event MUST carry
+    ///   the source `id` field (RFC 8620 §5.4 — `id` is the source record).
     ///
     /// The target account is the primary Calendars account from the session.
     pub async fn calendar_event_copy(
         &self,
         from_account_id: &str,
-        create: serde_json::Value,
+        create: HashMap<String, jmap_calendars_types::CalendarEvent>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
         if from_account_id.is_empty() {
@@ -25,10 +29,15 @@ impl super::SessionClient {
             ));
         }
         let (api_url, account_id) = self.session_parts()?;
+        let create_val = serde_json::to_value(&create).map_err(|e| {
+            jmap_base_client::ClientError::InvalidArgument(format!(
+                "calendar_event_copy: serializing create map failed: {e}"
+            ))
+        })?;
         let args = serde_json::json!({
             "fromAccountId": from_account_id,
             "accountId": account_id,
-            "create": create,
+            "create": create_val,
         });
         let req = super::build_request("CalendarEvent/copy", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;

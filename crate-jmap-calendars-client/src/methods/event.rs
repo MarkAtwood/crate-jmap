@@ -2,6 +2,11 @@
 //
 // Note: CalendarEvent/copy lives in event_copy.rs.
 
+use std::collections::HashMap;
+
+use jmap_calendars_types::{CalendarEventComparator, CalendarEventFilterCondition};
+use jmap_types::Id;
+
 use super::{
     CalendarEventGetParams, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse,
     SetResponse,
@@ -79,11 +84,19 @@ impl super::SessionClient {
     }
 
     /// Create, update, or destroy CalendarEvent objects
-    /// (draft-ietf-jmap-calendars-26 §5.6).
+    /// (draft-ietf-jmap-calendars-26 §5.9).
+    ///
+    /// - `create`: map of creation id → typed
+    ///   [`CalendarEvent`](jmap_calendars_types::CalendarEvent) to create.
+    /// - `update`: map of existing CalendarEvent id → JSON Merge Patch
+    ///   (RFC 8620 §5.3). Untyped because patch keys may carry
+    ///   `/`-separated paths into `recurrenceOverrides` etc., which the
+    ///   typed struct cannot represent.
+    /// - `destroy`: list of CalendarEvent ids to destroy.
     pub async fn calendar_event_set(
         &self,
-        create: Option<serde_json::Value>,
-        update: Option<serde_json::Value>,
+        create: Option<HashMap<String, jmap_calendars_types::CalendarEvent>>,
+        update: Option<HashMap<Id, serde_json::Value>>,
         destroy: Option<Vec<&str>>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
@@ -101,10 +114,18 @@ impl super::SessionClient {
             "accountId": account_id,
         });
         if let Some(c) = create {
-            args["create"] = c;
+            args["create"] = serde_json::to_value(&c).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_event_set: serializing create map failed: {e}"
+                ))
+            })?;
         }
         if let Some(u) = update {
-            args["update"] = u;
+            args["update"] = serde_json::to_value(&u).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_event_set: serializing update map failed: {e}"
+                ))
+            })?;
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::Value::Array(
@@ -121,12 +142,20 @@ impl super::SessionClient {
     /// Query CalendarEvent IDs with optional filter and sort
     /// (draft-ietf-jmap-calendars-26 §5.11).
     ///
-    /// `expand_recurrences`: if `true`, include individual recurrence instances
-    /// in the result set, each with a synthetic instance id (draft §5.11).
+    /// - `filter`: typed
+    ///   [`CalendarEventFilterCondition`](jmap_calendars_types::CalendarEventFilterCondition).
+    ///   Pass `None` to omit the `filter` argument.
+    /// - `sort`: typed comparator slice. Pass `None` to omit the `sort`
+    ///   argument.
+    /// - `expand_recurrences`: if `true`, include individual recurrence
+    ///   instances in the result set, each with a synthetic instance id.
+    ///   When `true`, `filter` MUST be `Some(_)` with both `before` and
+    ///   `after` set; otherwise the server returns `invalidArguments`
+    ///   (validated server-side per §5.11).
     pub async fn calendar_event_query(
         &self,
-        filter: Option<serde_json::Value>,
-        sort: Option<serde_json::Value>,
+        filter: Option<&CalendarEventFilterCondition>,
+        sort: Option<&[CalendarEventComparator]>,
         position: Option<u64>,
         limit: Option<u64>,
         expand_recurrences: Option<bool>,
@@ -136,10 +165,18 @@ impl super::SessionClient {
             "accountId": account_id,
         });
         if let Some(f) = filter {
-            args["filter"] = f;
+            args["filter"] = serde_json::to_value(f).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_event_query: serializing filter failed: {e}"
+                ))
+            })?;
         }
         if let Some(s) = sort {
-            args["sort"] = s;
+            args["sort"] = serde_json::to_value(s).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "calendar_event_query: serializing sort failed: {e}"
+                ))
+            })?;
         }
         if let Some(p) = position {
             args["position"] = p.into();
