@@ -187,7 +187,9 @@ pub(crate) mod test_support {
     };
     use jmap_types::{Id, State};
 
-    use crate::backend::{CalendarEventSetArgs, CalendarsBackend};
+    use crate::backend::{
+        CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend, QueryCalendarEventsError,
+    };
 
     #[derive(Debug)]
     pub struct MockError(pub String);
@@ -665,6 +667,43 @@ pub(crate) mod test_support {
             }
             self.destroy_object::<jmap_calendars_types::CalendarEvent>(account_id, id)
                 .await
+        }
+
+        // §5.11 expandRecurrences: drive the two new error paths via
+        // sentinel filter values so tests can trigger them deterministically:
+        // - in_calendar = "trigger-too-large" → ExpandDurationTooLarge
+        // - in_calendar = "trigger-cannot-calc" → CannotCalculateOccurrences
+        // Any other input falls through to the default (which delegates to
+        // query_objects). The args themselves are forwarded for inspection
+        // in tests but otherwise ignored by this mock.
+        async fn query_calendar_events(
+            &self,
+            account_id: &Id,
+            filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
+            sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
+            limit: Option<u64>,
+            position: i64,
+            args: &CalendarEventQueryArgs,
+        ) -> Result<jmap_server::QueryResult, QueryCalendarEventsError<Self::Error>> {
+            if let Some(f) = filter {
+                if let Some(in_cal) = f.in_calendar.as_ref() {
+                    match in_cal.as_ref() {
+                        "trigger-too-large" => {
+                            return Err(QueryCalendarEventsError::ExpandDurationTooLarge);
+                        }
+                        "trigger-cannot-calc" => {
+                            return Err(QueryCalendarEventsError::CannotCalculateOccurrences);
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            let _ = args; // happy path delegates to the generic backend
+            self.query_objects::<jmap_calendars_types::CalendarEvent>(
+                account_id, filter, sort, limit, position,
+            )
+            .await
+            .map_err(QueryCalendarEventsError::Other)
         }
 
         // §4.3 onSuccessSetIsDefault for Calendar/set: track the default in
@@ -1607,6 +1646,163 @@ mod tests {
         assert_eq!(
             args["updated"]["pi-1"]["isDefault"], true,
             "ParticipantIdentity/set default must emit updated entry: {args}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // CalendarEvent/query §5.11 expandRecurrences / timeZone
+    //
+    // The MockBackend's query_calendar_events override returns the §10.7.3
+    // / §10.7.4 errors when the filter's in_calendar matches a sentinel
+    // value, otherwise it falls through to the generic query_objects path.
+    // -----------------------------------------------------------------------
+
+    /// Oracle: §5.11 — `expandRecurrences: true` without `before` AND `after`
+    /// in the filter MUST be rejected with `invalidArguments` BEFORE any
+    /// backend call. The default value (false) is exercised by every other
+    /// test in this file.
+    #[tokio::test]
+    async fn calendar_event_query_expand_recurrences_requires_before_and_after() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        // Filter with only `before` and no `after` → rejected.
+        let req = single_call(
+            "CalendarEvent/query",
+            json!({
+                "accountId": "acc1",
+                "filter": { "before": "2025-01-01T00:00:00" },
+                "expandRecurrences": true
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert_eq!(
+            args["type"], "invalidArguments",
+            "expandRecurrences without before+after must be invalidArguments: {args}"
+        );
+    }
+
+    /// Oracle: §5.11 — `expandRecurrences: true` with no filter at all is
+    /// also rejected with `invalidArguments`.
+    #[tokio::test]
+    async fn calendar_event_query_expand_recurrences_requires_filter() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/query",
+            json!({
+                "accountId": "acc1",
+                "filter": null,
+                "expandRecurrences": true
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert_eq!(
+            args["type"], "invalidArguments",
+            "expandRecurrences with null filter must be invalidArguments: {args}"
+        );
+    }
+
+    /// Oracle: §10.7.3 — when the backend signals `ExpandDurationTooLarge`,
+    /// the handler MUST return a method-level `expandDurationTooLarge` error
+    /// (not `serverFail`).
+    #[tokio::test]
+    async fn calendar_event_query_expand_duration_too_large() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/query",
+            json!({
+                "accountId": "acc1",
+                "filter": {
+                    "inCalendar": "trigger-too-large",
+                    "before": "2030-01-01T00:00:00",
+                    "after":  "2020-01-01T00:00:00"
+                },
+                "expandRecurrences": true
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert_eq!(
+            args["type"], "expandDurationTooLarge",
+            "backend ExpandDurationTooLarge must surface as expandDurationTooLarge: {args}"
+        );
+    }
+
+    /// Oracle: §10.7.4 — when the backend signals
+    /// `CannotCalculateOccurrences`, the handler MUST return a method-level
+    /// `cannotCalculateOccurrences` error (not `serverFail`).
+    #[tokio::test]
+    async fn calendar_event_query_cannot_calculate_occurrences() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/query",
+            json!({
+                "accountId": "acc1",
+                "filter": {
+                    "inCalendar": "trigger-cannot-calc",
+                    "before": "2030-01-01T00:00:00",
+                    "after":  "2020-01-01T00:00:00"
+                },
+                "expandRecurrences": true
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert_eq!(
+            args["type"], "cannotCalculateOccurrences",
+            "backend CannotCalculateOccurrences must surface as cannotCalculateOccurrences: {args}"
+        );
+    }
+
+    /// Oracle: §5.11 — happy path with `expandRecurrences: true` and a valid
+    /// filter (both `before` and `after`) reaches the backend and returns
+    /// a normal /query response envelope. The mock returns an empty result
+    /// since there are no events in the store.
+    #[tokio::test]
+    async fn calendar_event_query_expand_recurrences_happy_path() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/query",
+            json!({
+                "accountId": "acc1",
+                "filter": {
+                    "before": "2025-12-31T23:59:59",
+                    "after":  "2025-01-01T00:00:00"
+                },
+                "expandRecurrences": true,
+                "timeZone": "America/New_York"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "must not be a top-level error: {args}"
+        );
+        assert_eq!(args["accountId"], "acc1");
+        assert!(
+            args["ids"].as_array().unwrap().is_empty(),
+            "no events seeded → ids must be empty: {args}"
         );
     }
 }

@@ -4,7 +4,10 @@ use jmap_calendars_types::CalendarEvent;
 use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, CalendarEventSetArgs, CalendarsBackend};
+use crate::backend::{
+    BackendSetError, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
+    QueryCalendarEventsError,
+};
 use crate::helpers::{extract_account_id, set_error_value};
 
 // ---------------------------------------------------------------------------
@@ -618,11 +621,153 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEvent/query` method call (draft-ietf-jmap-calendars-26 §5.11).
+///
+/// Implements the standard `/query` envelope (RFC 8620 §5.5) plus the §5.11
+/// extra arguments:
+///
+/// - `expandRecurrences`: Boolean, default `false`. When `true`, the filter
+///   MUST be a single FilterCondition (not a FilterOperator) carrying both
+///   `before` and `after` properties. The handler returns
+///   `invalidArguments` if either is missing.
+/// - `timeZone`: TimeZoneId, default `Etc/UTC`. Used by the backend when
+///   evaluating `before` / `after` against floating events.
+///
+/// Two new method-level errors may be returned per §10.7.3 / §10.7.4:
+///
+/// - `expandDurationTooLarge` — when `before - after` exceeds the account's
+///   `maxExpandedQueryDuration` capability.
+/// - `cannotCalculateOccurrences` — when the backend cannot expand a
+///   recurrence required to return results.
 pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     backend: &B,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query::<CalendarEvent, B>(backend, args).await
+    let account_id = extract_account_id(&args)?;
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+    let Value::Object(mut args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be a JSON object",
+        ));
+    };
+
+    // Standard /query parameters (RFC 8620 §5.5).
+    let calculate_total = args
+        .get("calculateTotal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let limit: Option<u64> = match args.get("limit") {
+        None | Some(Value::Null) => None,
+        Some(v) => match v.as_u64() {
+            Some(n) => Some(n),
+            None => {
+                return Err(JmapError::invalid_arguments(format!(
+                    "limit: expected a non-negative integer, got {v}"
+                )))
+            }
+        },
+    };
+
+    let position: i64 = match args.get("position") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
+            JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
+        })?,
+    };
+
+    // Filter deserialization: a wire FilterOperator cannot decode into the
+    // typed CalendarEventFilterCondition struct, so any non-FilterCondition
+    // input falls through to unsupportedFilter — which simultaneously
+    // satisfies the §5.11 "MUST be FilterCondition" rule.
+    let filter: Option<jmap_calendars_types::CalendarEventFilterCondition> =
+        match args.remove("filter").unwrap_or(Value::Null) {
+            Value::Null => None,
+            v => Some(serde_json::from_value(v).map_err(|_| JmapError::unsupported_filter())?),
+        };
+
+    let sort: Option<Vec<jmap_calendars_types::CalendarEventComparator>> =
+        match args.remove("sort").unwrap_or(Value::Null) {
+            Value::Null => None,
+            v => Some(
+                serde_json::from_value(v)
+                    .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
+            ),
+        };
+
+    // §5.11 extras.
+    let expand_recurrences = args
+        .get("expandRecurrences")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let time_zone = args
+        .get("timeZone")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_owned());
+
+    // §5.11: when expandRecurrences is true, the filter MUST be a single
+    // FilterCondition (verified by deserialization above) carrying BOTH
+    // `before` and `after`. A missing filter or a filter without both
+    // bounds would let the backend produce an unbounded number of synthetic
+    // ids, which the spec explicitly forbids.
+    if expand_recurrences {
+        let bounds_ok = filter
+            .as_ref()
+            .is_some_and(|f| f.before.is_some() && f.after.is_some());
+        if !bounds_ok {
+            return Err(JmapError::invalid_arguments(
+                "expandRecurrences requires a FilterCondition with both 'before' and 'after'",
+            ));
+        }
+    }
+
+    let query_args = CalendarEventQueryArgs {
+        expand_recurrences,
+        time_zone,
+    };
+
+    let result = match backend
+        .query_calendar_events(
+            &account_id,
+            filter.as_ref(),
+            sort.as_deref(),
+            limit,
+            position,
+            &query_args,
+        )
+        .await
+    {
+        Ok(r) => r,
+        Err(QueryCalendarEventsError::ExpandDurationTooLarge) => {
+            return Err(JmapError::custom("expandDurationTooLarge"));
+        }
+        Err(QueryCalendarEventsError::CannotCalculateOccurrences) => {
+            return Err(JmapError::custom("cannotCalculateOccurrences"));
+        }
+        Err(QueryCalendarEventsError::Other(e)) => {
+            return Err(JmapError::server_fail(e.to_string()));
+        }
+    };
+
+    let mut resp = json!({
+        "accountId": account_id.as_ref(),
+        "queryState": result.query_state.as_ref(),
+        "canCalculateChanges": result.can_calculate_changes,
+        "position": result.position,
+        "ids": result.ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+    });
+    if calculate_total {
+        if let Some(t) = result.total {
+            resp["total"] = json!(t);
+        }
+    }
+
+    Ok((resp, vec![]))
 }
 
 // ---------------------------------------------------------------------------
