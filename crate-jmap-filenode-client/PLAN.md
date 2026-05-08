@@ -159,7 +159,7 @@ These are thin wrappers that serialize to the correct JMAP wire format. Defined 
 pub struct FileNodeSetRequest {
     pub if_in_state: Option<State>,
     pub create: Option<HashMap<String, FileNode>>,
-    pub update: Option<HashMap<Id, serde_json::Value>>,  // patch map
+    pub update: Option<HashMap<Id, jmap_types::PatchObject>>,  // RFC 8620 §5.3
     pub destroy: Option<Vec<Id>>,
     // FileNode-specific top-level arguments
     pub on_destroy_remove_children: bool,   // default false

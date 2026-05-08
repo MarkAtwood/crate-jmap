@@ -9,7 +9,7 @@
 //! - [`handle_filenode_query_changes`]
 
 use jmap_filenode_types::{FileNode, NodeType};
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, FileNodeBackend};
@@ -446,7 +446,9 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             let id = Id::from(id_str.as_str());
 
             // Circular reference check: if the patch touches `parentId`,
-            // verify the move would not create a cycle.
+            // verify the move would not create a cycle. The introspection
+            // is on the wire-format Value because we have not yet bound
+            // the patch to PatchObject's stricter object-only contract.
             if let Some(new_parent_val) = patch_val.get("parentId") {
                 if let Some(new_parent_str) = new_parent_val.as_str() {
                     let new_parent_id = Id::from(new_parent_str);
@@ -475,8 +477,22 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             }
 
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
             match backend
-                .update_object::<FileNode>(&account_id, &id, patch_val)
+                .update_object::<FileNode>(&account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
