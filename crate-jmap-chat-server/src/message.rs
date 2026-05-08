@@ -1,7 +1,7 @@
 //! Message/* method handlers (JMAP Chat extension §Message).
 
 use jmap_chat_types::{DeliveryState, Message, SenderId};
-use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend};
@@ -494,8 +494,21 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
 
+            // Convert the augmented wire-format Value into a typed
+            // PatchObject (RFC 8620 §5.3). Non-object values yield
+            // invalidPatch.
+            let patch = match serde_json::from_value::<PatchObject>(augmented) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
             match backend
-                .update_object::<Message>(&account_id, &id, augmented)
+                .update_object::<Message>(&account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {

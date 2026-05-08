@@ -1,7 +1,7 @@
 //! CustomEmoji/* method handlers (JMAP Chat extension §CustomEmoji).
 
 use jmap_chat_types::CustomEmoji;
-use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend};
@@ -438,7 +438,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             }
 
             match backend
-                .update_object::<CustomEmoji>(&account_id, &id, Value::Object(clean_patch))
+                .update_object::<CustomEmoji>(&account_id, &id, PatchObject::from_map(clean_patch))
                 .await
             {
                 Ok(Some(obj)) => {

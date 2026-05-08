@@ -3,7 +3,7 @@
 use std::collections::{HashMap, HashSet};
 
 use jmap_chat_types::{Chat, ChatKind};
-use jmap_types::{Id, Invocation, JmapError, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
@@ -410,10 +410,20 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 continue;
             }
 
-            match backend
-                .update_object::<Chat>(&account_id, &id, patch_val)
-                .await
-            {
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+            match backend.update_object::<Chat>(&account_id, &id, patch).await {
                 Ok(Some(obj)) => {
                     mutated = true;
                     updated.insert(id_str, serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })));

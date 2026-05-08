@@ -1,7 +1,7 @@
 //! Space/* method handlers (JMAP Chat extension §Space).
 
 use jmap_chat_types::{Space, SpaceInvite};
-use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
@@ -441,7 +441,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             }
 
             match backend
-                .update_object::<Space>(&account_id, &id, Value::Object(clean_patch))
+                .update_object::<Space>(&account_id, &id, PatchObject::from_map(clean_patch))
                 .await
             {
                 Ok(Some(obj)) => {
@@ -673,8 +673,10 @@ pub async fn handle_space_join<B: ChatBackend>(
     // the same stale members list and overwrite each other. Production backends
     // MUST implement this as an atomic array-append (e.g. via a transaction or
     // compare-and-swap) to prevent membership loss.
+    let mut members_patch = serde_json::Map::new();
+    members_patch.insert("members".to_owned(), json!(new_members));
     backend
-        .update_object::<Space>(&account_id, &space_id, json!({"members": new_members}))
+        .update_object::<Space>(&account_id, &space_id, PatchObject::from_map(members_patch))
         .await
         .map_err(|e: jmap_server::BackendSetError<_>| JmapError::server_fail(e.to_string()))?;
 
@@ -723,8 +725,10 @@ pub async fn handle_space_join<B: ChatBackend>(
                 })
                 .collect()
         };
+        let mut deduped_patch = serde_json::Map::new();
+        deduped_patch.insert("members".to_owned(), json!(deduped));
         let _ = backend
-            .update_object::<Space>(&account_id, &space_id, json!({"members": deduped}))
+            .update_object::<Space>(&account_id, &space_id, PatchObject::from_map(deduped_patch))
             .await;
         return Err(JmapError::server_fail(
             "concurrent join detected; please retry",
@@ -734,8 +738,14 @@ pub async fn handle_space_join<B: ChatBackend>(
     // Apply the invite uses increment only on the success path (after TOCTOU check passes).
     // Deferring here prevents a race-loss from silently consuming an invite use.
     if let Some((invite_id, new_uses)) = invite_update {
+        let mut uses_patch = serde_json::Map::new();
+        uses_patch.insert("uses".to_owned(), json!(new_uses));
         backend
-            .update_object::<SpaceInvite>(&account_id, &invite_id, json!({"uses": new_uses}))
+            .update_object::<SpaceInvite>(
+                &account_id,
+                &invite_id,
+                PatchObject::from_map(uses_patch),
+            )
             .await
             .map_err(|e: jmap_server::BackendSetError<_>| JmapError::server_fail(e.to_string()))?;
     }
