@@ -1,6 +1,7 @@
 //! Private helper utilities — re-exported from jmap_server.
 use std::collections::HashSet;
 
+use jmap_types::PatchObject;
 use serde_json::Value;
 
 pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string, ser};
@@ -91,8 +92,8 @@ const IMMUTABLE_EMAIL_FIELDS: &[&str] = &[
 ///
 /// `IMMUTABLE_EMAIL_FIELDS` has 21 entries; a linear scan is simpler and fast
 /// enough that a static `HashSet` adds no benefit.
-pub(crate) fn find_immutable_patch_key(patch: &Value) -> Option<&'static str> {
-    let map = patch.as_object()?;
+pub(crate) fn find_immutable_patch_key(patch: &PatchObject) -> Option<&'static str> {
+    let map = patch.as_map();
     for key in map.keys() {
         for &field in IMMUTABLE_EMAIL_FIELDS {
             // Exact match, or sub-path "field/..." — both are immutable.

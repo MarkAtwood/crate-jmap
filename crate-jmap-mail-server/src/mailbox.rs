@@ -3,7 +3,7 @@
 use std::collections::HashSet;
 
 use jmap_mail_types::{Email, EmailFilter, EmailFilterCondition, Mailbox, MailboxFilterCondition};
-use jmap_types::{Id, Invocation, JmapError, State};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
@@ -741,8 +741,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // Returns the InvalidProperties error value if `patch` contains any
         // server-set field, or None if the patch is clean. Used in both passes
         // to avoid duplicating the check block.
-        let server_set_error = |patch: &Value| -> Option<Value> {
-            let obj = patch.as_object()?;
+        let server_set_error = |patch: &PatchObject| -> Option<Value> {
+            let obj = patch.as_map();
             let bad_props: Vec<String> = SERVER_SET
                 .iter()
                 .filter(|&&field| obj.contains_key(field))
@@ -758,8 +758,22 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         };
 
         // --- Pass 1: role-vacating updates (patch sets role: null) ---
-        for (id_str, patch) in vacating {
+        for (id_str, patch_val) in vacating {
             let id = Id::from(id_str.as_str());
+
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
 
             // Reject patches that touch server-set fields.
             if let Some(err) = server_set_error(&patch) {
@@ -806,8 +820,22 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         }
 
         // --- Pass 2: non-vacating updates ---
-        for (id_str, patch) in non_vacating {
+        for (id_str, patch_val) in non_vacating {
             let id = Id::from(id_str.as_str());
+
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
 
             // Reject patches that touch server-set fields.
             if let Some(err) = server_set_error(&patch) {
@@ -815,39 +843,38 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 continue;
             }
 
-            if let Some(obj) = patch.as_object() {
-                // Role uniqueness: check against pre-request state minus
-                // roles freed by successful pass-1 vacates, plus any role
-                // already claimed by an earlier update in this pass, plus
-                // any role claimed by the create loop.
-                if let Some(role_val) = obj.get("role").filter(|v| !v.is_null()) {
-                    if let Some(role_str) = role_val.as_str() {
-                        // Exclude the mailbox being updated (id) — it may
-                        // already hold this role and is about to change it.
-                        let role_taken = role_already_held(
-                            role_str,
-                            &all_mailboxes,
-                            &roles_successfully_vacated,
-                            Some(&id),
+            // Role uniqueness: check against pre-request state minus
+            // roles freed by successful pass-1 vacates, plus any role
+            // already claimed by an earlier update in this pass, plus
+            // any role claimed by the create loop.
+            let obj = patch.as_map();
+            if let Some(role_val) = obj.get("role").filter(|v| !v.is_null()) {
+                if let Some(role_str) = role_val.as_str() {
+                    // Exclude the mailbox being updated (id) — it may
+                    // already hold this role and is about to change it.
+                    let role_taken = role_already_held(
+                        role_str,
+                        &all_mailboxes,
+                        &roles_successfully_vacated,
+                        Some(&id),
+                    );
+                    let role_just_claimed = roles_claimed_this_request.contains(role_str);
+                    // MailboxRole always serializes as a bare JSON string (via
+                    // impl_string_enum!), so as_str() is always correct here.
+                    let role_just_created = created
+                        .values()
+                        .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
+                    if role_taken || role_just_claimed || role_just_created {
+                        not_updated.insert(
+                            id_str,
+                            set_error_value(
+                                &SetError::new(SetErrorType::InvalidProperties)
+                                    .with_properties(["role"]),
+                            ),
                         );
-                        let role_just_claimed = roles_claimed_this_request.contains(role_str);
-                        // MailboxRole always serializes as a bare JSON string (via
-                        // impl_string_enum!), so as_str() is always correct here.
-                        let role_just_created = created
-                            .values()
-                            .any(|v| v.get("role").and_then(|r| r.as_str()) == Some(role_str));
-                        if role_taken || role_just_claimed || role_just_created {
-                            not_updated.insert(
-                                id_str,
-                                set_error_value(
-                                    &SetError::new(SetErrorType::InvalidProperties)
-                                        .with_properties(["role"]),
-                                ),
-                            );
-                            continue;
-                        }
-                        roles_claimed_this_request.insert(role_str.to_owned());
+                        continue;
                     }
+                    roles_claimed_this_request.insert(role_str.to_owned());
                 }
             }
 
@@ -998,7 +1025,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         let key = format!("mailboxIds/{}", id.as_ref());
                         patch.insert(key, Value::Null);
                         match backend
-                            .update_object::<Email>(&account_id, &email.id, Value::Object(patch))
+                            .update_object::<Email>(
+                                &account_id,
+                                &email.id,
+                                PatchObject::from_map(patch),
+                            )
                             .await
                         {
                             Ok(_) => {}

@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use jmap_types::{Id, Invocation, JmapError, State};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
@@ -283,22 +283,34 @@ pub async fn handle_identity_set<B: MailBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
             // Reject patches that include immutable or server-set fields.
             // RFC 8621 §6.3: email is immutable; id and mayDelete are server-set.
             // Use find_immutable_patch_key-style logic: check exact match AND
             // sub-path prefix ("email/subfield" must be rejected as well as "email").
             const IDENTITY_READONLY: &[&str] = &["email", "id", "mayDelete"];
-            let bad_props: Vec<&str> = if let Some(obj) = patch_val.as_object() {
-                obj.keys()
-                    .filter_map(|k| {
-                        IDENTITY_READONLY.iter().copied().find(|&f| {
-                            k == f || (k.starts_with(f) && k.as_bytes().get(f.len()) == Some(&b'/'))
-                        })
+            let bad_props: Vec<&str> = patch
+                .as_map()
+                .keys()
+                .filter_map(|k| {
+                    IDENTITY_READONLY.iter().copied().find(|&f| {
+                        k == f || (k.starts_with(f) && k.as_bytes().get(f.len()) == Some(&b'/'))
                     })
-                    .collect()
-            } else {
-                vec![]
-            };
+                })
+                .collect();
             if !bad_props.is_empty() {
                 not_updated.insert(
                     id_str,
@@ -311,7 +323,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             }
 
             match backend
-                .update_object::<jmap_mail_types::Identity>(&account_id, &id, patch_val)
+                .update_object::<jmap_mail_types::Identity>(&account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {

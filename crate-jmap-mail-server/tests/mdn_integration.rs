@@ -179,12 +179,12 @@ async fn mdn_send_already_sent() {
     let identity_id = setup_identity(&backend, &account_id).await;
 
     // Pre-set $mdnsent on the email via Email/set so the handler sees it.
+    let patch = serde_json::from_value::<jmap_types::PatchObject>(
+        serde_json::json!({ "keywords/$mdnsent": true }),
+    )
+    .expect("PatchObject literal must deserialize");
     backend
-        .update_object::<jmap_mail_types::Email>(
-            &account_id,
-            &email_id,
-            serde_json::json!({ "keywords/$mdnsent": true }),
-        )
+        .update_object::<jmap_mail_types::Email>(&account_id, &email_id, patch)
         .await
         .expect("pre-set $mdnsent must succeed");
 

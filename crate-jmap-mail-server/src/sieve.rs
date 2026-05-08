@@ -21,7 +21,7 @@ const MAX_SIEVE_SCRIPTS: usize = 100;
 use std::collections::{HashMap, HashSet};
 
 use jmap_mail_types::SieveScript;
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
@@ -575,51 +575,57 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-        for (id_str, patch) in update_map {
+        for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
-            // R4: Reject direct isActive patches — it is server-set.
-            if let Some(obj) = patch.as_object() {
-                if obj.contains_key("isActive") {
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
                     not_updated.insert(
                         id_str,
-                        set_error_value(
-                            &SetError::new(SetErrorType::InvalidProperties)
-                                .with_properties(["isActive"])
-                                .with_description(
-                                    "isActive is server-set and must not be patched directly; \
-                                     use onSuccessActivateScript",
-                                ),
-                        ),
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
                     );
                     continue;
                 }
+            };
+
+            // R4: Reject direct isActive patches — it is server-set.
+            if patch.as_map().contains_key("isActive") {
+                not_updated.insert(
+                    id_str,
+                    set_error_value(
+                        &SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties(["isActive"])
+                            .with_description(
+                                "isActive is server-set and must not be patched directly; \
+                                 use onSuccessActivateScript",
+                            ),
+                    ),
+                );
+                continue;
             }
 
             // VR-backed script guard: reject blobId changes on the VR-backed script
             // (RFC 9661 §4). isActive changes are handled separately
             // by the activation state machine and are not blocked here.
             if let Some(ref vr_id) = vr_script_id {
-                if vr_id == &id {
-                    if let Some(obj) = patch.as_object() {
-                        if obj.contains_key("blobId") {
-                            not_updated.insert(
-                                id_str,
-                                set_error_value(
-                                    &SetError::new(SetErrorType::Forbidden).with_description(
-                                        "blobId of a VacationResponse-backed script cannot be \
-                                         updated via SieveScript/set",
-                                    ),
-                                ),
-                            );
-                            continue;
-                        }
-                    }
+                if vr_id == &id && patch.as_map().contains_key("blobId") {
+                    not_updated.insert(
+                        id_str,
+                        set_error_value(&SetError::new(SetErrorType::Forbidden).with_description(
+                            "blobId of a VacationResponse-backed script cannot be \
+                                 updated via SieveScript/set",
+                        )),
+                    );
+                    continue;
                 }
             }
 
             // R2: validate name character if patch contains "name".
-            if let Some(name_val) = patch.get("name") {
+            if let Some(name_val) = patch.as_map().get("name") {
                 if let Some(name_str) = name_val.as_str() {
                     if let Some(name_err) = validate_script_name(name_str) {
                         not_updated.insert(id_str, set_error_value(&name_err));
@@ -644,7 +650,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             }
 
             // If the patch includes blobId, check size then validate the new blob.
-            if let Some(new_blob_id_str) = patch.get("blobId").and_then(|v| v.as_str()) {
+            if let Some(new_blob_id_str) = patch.as_map().get("blobId").and_then(|v| v.as_str()) {
                 let new_blob_id = Id::from(new_blob_id_str);
 
                 // Size check: enforce maxSizeScript before syntax validation (spec §2.4).
@@ -732,7 +738,10 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             if let Some(active_script) = all_scripts.iter().find(|s| s.is_active) {
                 let active_id = active_script.id.clone();
                 let active_id_str = active_id.as_ref().to_owned();
-                let patch = json!({ "isActive": false });
+                // Build a one-key PatchObject {"isActive": false}.
+                let mut patch_map = serde_json::Map::new();
+                patch_map.insert("isActive".to_owned(), Value::Bool(false));
+                let patch = PatchObject::from_map(patch_map);
                 match backend
                     .update_object::<SieveScript>(&account_id, &active_id, patch)
                     .await
@@ -781,7 +790,9 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                         let active_id_str = active_id.as_ref().to_owned();
                         // Only deactivate if Step A hasn't already done so for this script.
                         if !updated.contains_key(&active_id_str) {
-                            let patch = json!({ "isActive": false });
+                            let mut patch_map = serde_json::Map::new();
+                            patch_map.insert("isActive".to_owned(), Value::Bool(false));
+                            let patch = PatchObject::from_map(patch_map);
                             match backend
                                 .update_object::<SieveScript>(&account_id, &active_id, patch)
                                 .await
@@ -809,7 +820,9 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 if !deactivation_failed {
                     // Activate the target script.
                     let target_id_str = target_id.as_ref().to_owned();
-                    let patch = json!({ "isActive": true });
+                    let mut patch_map = serde_json::Map::new();
+                    patch_map.insert("isActive".to_owned(), Value::Bool(true));
+                    let patch = PatchObject::from_map(patch_map);
                     match backend
                         .update_object::<SieveScript>(&account_id, target_id, patch)
                         .await

@@ -4,7 +4,7 @@
 use std::collections::{HashMap, HashSet};
 
 use jmap_mail_types::{Email, Keyword};
-use jmap_types::{Id, Invocation, JmapError, State, UTCDate};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
@@ -1051,8 +1051,22 @@ pub async fn handle_email_set<B: MailBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
             // Check for immutable field violations in the patch keys.
-            if let Some(bad_field) = find_immutable_patch_key(&patch_val) {
+            if let Some(bad_field) = find_immutable_patch_key(&patch) {
                 not_updated.insert(
                     id_str.clone(),
                     json!({
@@ -1064,7 +1078,7 @@ pub async fn handle_email_set<B: MailBackend>(
             }
 
             match backend
-                .update_object::<Email>(&account_id, &id, patch_val)
+                .update_object::<Email>(&account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -2288,7 +2302,23 @@ pub async fn handle_email_copy<B: MailBackend>(
         // appears in the map, apply the specified patch to the original.
         if let Some(mut on_success_update) = on_success_update_original {
             for (copy_id, source_id) in &copied_source_ids {
-                if let Some(patch) = on_success_update.remove(copy_id) {
+                if let Some(patch_val) = on_success_update.remove(copy_id) {
+                    // Convert wire-format Value into a typed PatchObject.
+                    // RFC 8620 §5.3: a PatchObject must be a JSON Object;
+                    // non-object values produce `invalidPatch`.
+                    let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                        Ok(p) => p,
+                        Err(e) => {
+                            email_not_updated.insert(
+                                source_id.as_ref().to_owned(),
+                                json!({
+                                    "type": "invalidPatch",
+                                    "description": e.to_string()
+                                }),
+                            );
+                            continue;
+                        }
+                    };
                     // Apply same immutable-field guard as handle_email_set patches.
                     if let Some(bad_field) = find_immutable_patch_key(&patch) {
                         email_not_updated.insert(
