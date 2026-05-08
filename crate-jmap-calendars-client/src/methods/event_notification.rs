@@ -81,9 +81,9 @@ impl super::SessionClient {
     /// Pass `destroy: None` to send an empty destroy list (no-op).
     pub async fn calendar_event_notification_set(
         &self,
-        destroy: Option<Vec<&str>>,
+        destroy: Option<&[&str]>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        if let Some(ref ids) = destroy {
+        if let Some(ids) = destroy {
             for id in ids.iter() {
                 if id.is_empty() {
                     return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -95,8 +95,8 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let destroy_val = match destroy {
             Some(ids) => serde_json::Value::Array(
-                ids.into_iter()
-                    .map(|id| serde_json::Value::String(id.to_owned()))
+                ids.iter()
+                    .map(|id| serde_json::Value::String((*id).to_owned()))
                     .collect(),
             ),
             None => serde_json::Value::Array(vec![]),
