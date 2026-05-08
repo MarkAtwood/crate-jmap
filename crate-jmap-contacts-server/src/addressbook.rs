@@ -9,7 +9,7 @@
 //! not define these methods for AddressBook.
 
 use jmap_contacts_types::AddressBook;
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ContactsBackend, SetError, SetErrorType};
@@ -161,8 +161,22 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
             match backend
-                .update_object::<AddressBook>(&account_id, &id, patch_val)
+                .update_object::<AddressBook>(&account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -263,7 +277,11 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                     Some(Id::from(id_str.as_str()))
                 };
                 if let Some(target_id) = resolved {
-                    let patch = json!({"isDefault": true});
+                    // Build a one-key PatchObject {"isDefault": true} via
+                    // the typed constructor. RFC 8620 §5.3.
+                    let mut patch_map = serde_json::Map::new();
+                    patch_map.insert("isDefault".to_owned(), Value::Bool(true));
+                    let patch = PatchObject::from_map(patch_map);
                     // §2.3: errors here are silently ignored.
                     match backend
                         .update_object::<AddressBook>(&account_id, &target_id, patch)
