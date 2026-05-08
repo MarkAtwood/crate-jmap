@@ -462,11 +462,17 @@ mod tests {
         let updated = resp.updated.expect("updated must be Some");
         assert_eq!(updated.len(), 2, "two ids in updated map");
         assert!(
-            updated.get(&Id::from("M1")).expect("M1 key present").is_none(),
+            updated
+                .get(&Id::from("M1"))
+                .expect("M1 key present")
+                .is_none(),
             "M1 value must be None (null)"
         );
         assert!(
-            updated.get(&Id::from("M2")).expect("M2 key present").is_none(),
+            updated
+                .get(&Id::from("M2"))
+                .expect("M2 key present")
+                .is_none(),
             "M2 value must be None (null)"
         );
     }

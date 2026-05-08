@@ -344,17 +344,22 @@ mod tests {
                 "ev2": null
             }
         });
-        let resp: SetResponse<jmap_calendars_types::CalendarEvent> =
-            serde_json::from_value(raw)
-                .expect("SetResponse must accept Id[Foo|null] per RFC 8620 §5.3");
+        let resp: SetResponse<jmap_calendars_types::CalendarEvent> = serde_json::from_value(raw)
+            .expect("SetResponse must accept Id[Foo|null] per RFC 8620 §5.3");
         let updated = resp.updated.expect("updated must be Some");
         assert_eq!(updated.len(), 2, "two ids in updated map");
         assert!(
-            updated.get(&Id::from("ev1")).expect("ev1 key present").is_none(),
+            updated
+                .get(&Id::from("ev1"))
+                .expect("ev1 key present")
+                .is_none(),
             "ev1 value must be None (null)"
         );
         assert!(
-            updated.get(&Id::from("ev2")).expect("ev2 key present").is_none(),
+            updated
+                .get(&Id::from("ev2"))
+                .expect("ev2 key present")
+                .is_none(),
             "ev2 value must be None (null)"
         );
     }
@@ -373,8 +378,8 @@ mod tests {
                 "ev1": { "id": "ev1", "title": "Meeting", "calendarIds": {"cal-1": true} }
             }
         });
-        let resp: SetResponse<serde_json::Value> = serde_json::from_value(raw)
-            .expect("SetResponse must accept Id[Foo] per RFC 8620 §5.3");
+        let resp: SetResponse<serde_json::Value> =
+            serde_json::from_value(raw).expect("SetResponse must accept Id[Foo] per RFC 8620 §5.3");
         let updated = resp.updated.expect("updated must be Some");
         let ev1 = updated
             .get(&Id::from("ev1"))

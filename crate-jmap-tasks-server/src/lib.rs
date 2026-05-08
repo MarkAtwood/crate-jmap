@@ -216,9 +216,7 @@ pub(crate) mod test_support {
             }))
             .expect("test fixture must deserialize");
             let mut guard = self.state.lock().unwrap();
-            let acct = guard
-                .entry(account_id.to_owned())
-                .or_default();
+            let acct = guard.entry(account_id.to_owned()).or_default();
             acct.notifications.insert(Id::from(notif_id), notif);
         }
 
@@ -232,9 +230,7 @@ pub(crate) mod test_support {
             }))
             .expect("task seed fixture must deserialize");
             let mut guard = self.state.lock().unwrap();
-            let acct = guard
-                .entry(account_id.to_owned())
-                .or_default();
+            let acct = guard.entry(account_id.to_owned()).or_default();
             acct.tasks.insert(Id::from(task_id), task);
         }
 
@@ -257,9 +253,7 @@ pub(crate) mod test_support {
             }))
             .expect("task list fixture must deserialize");
             let mut guard = self.state.lock().unwrap();
-            let acct = guard
-                .entry(account_id.to_owned())
-                .or_default();
+            let acct = guard.entry(account_id.to_owned()).or_default();
             acct.task_lists.insert(Id::from(list_id), task_list);
             // Add a task referencing the list
             let task: Task = serde_json::from_value(serde_json::json!({
