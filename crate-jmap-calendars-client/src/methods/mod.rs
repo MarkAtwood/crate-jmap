@@ -89,12 +89,18 @@ pub struct SetResponse<T = serde_json::Value> {
     pub account_id: Id,
     pub old_state: Option<String>,
     pub new_state: String,
+    /// `created` and `not_created` keys are creation ids (client-side
+    /// strings); RFC 8620 §5.3 specifies them as caller-supplied keys.
     pub created: Option<HashMap<String, T>>,
+    /// `updated`, `not_updated`, `not_destroyed` keys are server-assigned
+    /// record ids per RFC 8620 §5.3 (Id[Foo|null], Id[SetError]). Typing
+    /// them as `Id` lets callers use the keys interchangeably with ids
+    /// pulled from any `/get` response without an `Id::from(s)` round-trip.
     pub updated: Option<HashMap<Id, Option<T>>>,
     pub destroyed: Option<Vec<Id>>,
     pub not_created: Option<HashMap<String, SetError>>,
-    pub not_updated: Option<HashMap<String, SetError>>,
-    pub not_destroyed: Option<HashMap<String, SetError>>,
+    pub not_updated: Option<HashMap<Id, SetError>>,
+    pub not_destroyed: Option<HashMap<Id, SetError>>,
 }
 
 /// A /set operation failure for a single object (RFC 8620 §5.3).
@@ -398,6 +404,49 @@ mod tests {
             .as_ref()
             .expect("ev1 value must be Some when server reports deltas");
         assert_eq!(ev1["title"], json!("Meeting"));
+    }
+
+    /// Oracle: RFC 8620 §5.3 — `notUpdated` and `notDestroyed` are
+    /// `Id[SetError]` maps (server-assigned ids). The map keys MUST
+    /// deserialize as `Id`, not `String`, so callers can use them
+    /// interchangeably with ids from `/get` responses or the typed
+    /// `destroyed` array.
+    ///
+    /// Independent oracle: hand-written JSON shaped per the spec wire
+    /// definition; not derived from any code in this crate.
+    #[test]
+    fn set_response_not_updated_and_not_destroyed_keys_are_ids() {
+        let raw = json!({
+            "accountId": "acc1",
+            "oldState": "s1",
+            "newState": "s2",
+            "notUpdated": {
+                "ev-1": { "type": "stateMismatch" }
+            },
+            "notDestroyed": {
+                "ev-2": { "type": "notFound" }
+            }
+        });
+        let resp: SetResponse<serde_json::Value> = serde_json::from_value(raw)
+            .expect("SetResponse must accept Id[SetError] per RFC 8620 §5.3");
+        let not_updated = resp.not_updated.expect("notUpdated must be Some");
+        assert_eq!(
+            not_updated
+                .get(&Id::from("ev-1"))
+                .expect("ev-1 key present")
+                .error_type,
+            "stateMismatch",
+            "notUpdated key must deserialize as Id, not String"
+        );
+        let not_destroyed = resp.not_destroyed.expect("notDestroyed must be Some");
+        assert_eq!(
+            not_destroyed
+                .get(&Id::from("ev-2"))
+                .expect("ev-2 key present")
+                .error_type,
+            "notFound",
+            "notDestroyed key must deserialize as Id, not String"
+        );
     }
 
     /// Oracle: GetResponse<T> deserializes from RFC 8620 §5.1 shape.
