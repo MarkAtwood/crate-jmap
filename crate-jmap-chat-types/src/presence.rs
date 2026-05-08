@@ -1,6 +1,6 @@
 //! Presence state and PresenceStatus object.
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Presence state as defined by the spec.

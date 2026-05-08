@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 

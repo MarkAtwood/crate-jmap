@@ -6,7 +6,7 @@
 //! The generic [`Filter`], [`FilterOperator`], and [`Operator`] types used here
 //! are defined in `jmap-types::query` (RFC 8620 §5.5).
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 use crate::keyword::Keyword;

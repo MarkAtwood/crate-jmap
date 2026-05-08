@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{impl_string_enum, Id};
 use serde::{Deserialize, Serialize};
 
 /// Progress status of a Task (RFC 8984 §5.2.5).
