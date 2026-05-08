@@ -92,8 +92,13 @@ from the bound session.
 |---|---|---|
 | `principal_get_availability` | `(principal_id: &str, utc_start: &str, utc_end: &str, show_details: Option<bool>, event_properties: Option<&[&str]>)` | `PrincipalGetAvailabilityResponse` |
 
-`filter`, `sort`, `create`, and `update` parameters are `Option<serde_json::Value>`
-throughout. Pass `None` to omit them from the request.
+`filter` and `sort` parameters use typed conditions/comparators where defined,
+falling back to `Option<serde_json::Value>` for spec extensions not yet bound.
+`create` parameters are typed as `Option<HashMap<String, T>>` for the relevant
+JMAP object `T`. `update` parameters are typed as
+`Option<HashMap<Id, jmap_types::PatchObject>>` (RFC 8620 §5.3) — wire format is
+unchanged from a plain JSON object because `PatchObject` is
+`#[serde(transparent)]`. Pass `None` to omit any of these from the request.
 
 ## Extension trait
 

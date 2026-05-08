@@ -5,7 +5,7 @@
 use std::collections::HashMap;
 
 use jmap_calendars_types::{CalendarEventComparator, CalendarEventFilterCondition};
-use jmap_types::Id;
+use jmap_types::{Id, PatchObject};
 
 use super::{
     CalendarEventGetParams, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse,
@@ -88,15 +88,18 @@ impl super::SessionClient {
     ///
     /// - `create`: map of creation id → typed
     ///   [`CalendarEvent`](jmap_calendars_types::CalendarEvent) to create.
-    /// - `update`: map of existing CalendarEvent id → JSON Merge Patch
-    ///   (RFC 8620 §5.3). Untyped because patch keys may carry
-    ///   `/`-separated paths into `recurrenceOverrides` etc., which the
-    ///   typed struct cannot represent.
+    /// - `update`: map of existing CalendarEvent id → [`PatchObject`]
+    ///   (RFC 8620 §5.3). Wire format is unchanged from a plain JSON
+    ///   object because [`PatchObject`] is `#[serde(transparent)]`; the
+    ///   typed parameter exists to bind the JSON Pointer key + null-leaf
+    ///   removal contract to the type system. Patch keys may carry
+    ///   `/`-separated paths into `recurrenceOverrides` etc.; the
+    ///   server interprets them per the patched object's schema.
     /// - `destroy`: list of CalendarEvent ids to destroy.
     pub async fn calendar_event_set(
         &self,
         create: Option<HashMap<String, jmap_calendars_types::CalendarEvent>>,
-        update: Option<HashMap<Id, serde_json::Value>>,
+        update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<&[&str]>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {

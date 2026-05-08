@@ -654,7 +654,7 @@ pub(crate) mod test_support {
             &self,
             account_id: &Id,
             id: &Id,
-            patch: serde_json::Value,
+            patch: jmap_types::PatchObject,
             args: &CalendarEventSetArgs,
         ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>
         {

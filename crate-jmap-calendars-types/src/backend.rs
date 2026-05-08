@@ -4,7 +4,7 @@
 //! violating the orphan rule (`JmapObject` is foreign but the calendars types
 //! are local to this crate).
 
-use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
+use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // Property selector enums (server-side; no serde required)
@@ -91,7 +91,7 @@ impl JmapObject for crate::Calendar {
 impl GetObject for crate::Calendar {}
 
 impl SetObject for crate::Calendar {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::Calendar {
@@ -107,7 +107,7 @@ impl JmapObject for crate::CalendarEvent {
 impl GetObject for crate::CalendarEvent {}
 
 impl SetObject for crate::CalendarEvent {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::CalendarEvent {
@@ -123,10 +123,11 @@ impl JmapObject for crate::CalendarEventNotification {
 impl GetObject for crate::CalendarEventNotification {}
 
 /// `SetObject` for `CalendarEventNotification` is destroy-only.
-/// The `Patch` type is never used in practice; `serde_json::Value` is a
-/// safe placeholder that satisfies the trait bound.
+/// The `Patch` type is never used in practice; [`PatchObject`] is a
+/// safe placeholder that satisfies the trait bound while keeping the
+/// type-system contract aligned with sibling types (RFC 8620 §5.3).
 impl SetObject for crate::CalendarEventNotification {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::CalendarEventNotification {
@@ -142,7 +143,7 @@ impl JmapObject for crate::ParticipantIdentity {
 impl GetObject for crate::ParticipantIdentity {}
 
 impl SetObject for crate::ParticipantIdentity {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::ParticipantIdentity {
