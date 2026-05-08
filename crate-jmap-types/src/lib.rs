@@ -32,6 +32,7 @@ pub mod backend;
 pub mod error;
 pub mod id;
 pub mod methods;
+pub mod patch;
 pub mod query;
 pub mod resultref;
 pub mod wire;
@@ -49,6 +50,7 @@ pub use methods::{
     AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetError,
     SetResponse,
 };
+pub use patch::PatchObject;
 pub use query::{Filter, FilterOperator, Operator};
 pub use resultref::{Argument, ResultReference};
 pub use wire::{Invocation, JmapRequest, JmapResponse};
