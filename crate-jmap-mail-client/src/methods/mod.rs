@@ -13,6 +13,8 @@ pub mod submission;
 pub mod thread;
 pub mod vacation;
 
+use std::collections::HashMap;
+
 use jmap_types::Id;
 
 // ---------------------------------------------------------------------------
@@ -91,14 +93,15 @@ pub struct MailboxSetParams {
 #[derive(Debug, Default, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailSubmissionSetParams {
-    /// Map of creation key → `PatchObject` to apply to the associated Email
-    /// if the submission is created successfully (RFC 8621 §7.5).
+    /// Map of creation key → [`jmap_types::PatchObject`] to apply to the
+    /// associated Email if the submission is created successfully
+    /// (RFC 8621 §7.5).
     ///
     /// Keys that start with `"#"` are result references to creation keys in
-    /// the same `create` map.  Values are JSON Merge Patch objects.
-    /// `null` removes the field; the type is `Id[PatchObject]|null` on the wire.
+    /// the same `create` map. Wire format is unchanged from a plain JSON
+    /// object because `PatchObject` is `#[serde(transparent)]`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_success_update_email: Option<serde_json::Value>,
+    pub on_success_update_email: Option<HashMap<String, jmap_types::PatchObject>>,
 
     /// Email IDs (or `#`-prefixed creation keys) to destroy if the submission
     /// is created successfully (RFC 8621 §7.5).

@@ -16,6 +16,10 @@
 //   - Success hooks on /set:                         "onSuccessUpdateEmail",
 //                                                    "onSuccessDestroyEmail" (§7.5)
 
+use std::collections::HashMap;
+
+use jmap_types::{Id, PatchObject};
+
 use super::{
     ChangesResponse, EmailSubmissionSetParams, GetResponse, QueryChangesResponse, QueryResponse,
     SetResponse,
@@ -160,7 +164,7 @@ impl super::SessionClient {
     pub async fn email_submission_set(
         &self,
         create: Option<serde_json::Value>,
-        update: Option<serde_json::Value>,
+        update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<Vec<&str>>,
         if_in_state: Option<&str>,
         params: Option<EmailSubmissionSetParams>,
@@ -183,7 +187,11 @@ impl super::SessionClient {
         // These are method-level arguments, not nested under a key.
         if let Some(p) = params {
             if let Some(v) = p.on_success_update_email {
-                args["onSuccessUpdateEmail"] = v;
+                args["onSuccessUpdateEmail"] = serde_json::to_value(&v).map_err(|e| {
+                    jmap_base_client::ClientError::InvalidArgument(format!(
+                        "email_submission_set: serializing onSuccessUpdateEmail failed: {e}"
+                    ))
+                })?;
             }
             if let Some(v) = p.on_success_destroy_email {
                 args["onSuccessDestroyEmail"] = serde_json::Value::Array(
@@ -198,7 +206,11 @@ impl super::SessionClient {
             args["create"] = c;
         }
         if let Some(u) = update {
-            args["update"] = u;
+            args["update"] = serde_json::to_value(&u).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "email_submission_set: serializing update map failed: {e}"
+                ))
+            })?;
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::Value::Array(

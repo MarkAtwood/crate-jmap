@@ -14,6 +14,10 @@
 //   5. Call `self.call_internal(api_url, &req).await?`.
 //   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
+use std::collections::HashMap;
+
+use jmap_types::{Id, PatchObject};
+
 use super::{GetResponse, SetResponse};
 
 impl super::SessionClient {
@@ -42,16 +46,25 @@ impl super::SessionClient {
     /// ```
     ///
     /// `create` and `destroy` are not supported by `VacationResponse/set`.
+    ///
+    /// `update` is `Option<HashMap<Id, PatchObject>>` (RFC 8620 §5.3). The
+    /// usual shape is `{"singleton": <patch>}`. Wire format is unchanged
+    /// from a plain JSON object because [`PatchObject`] is
+    /// `#[serde(transparent)]`.
     pub async fn vacation_response_set(
         &self,
-        update: Option<serde_json::Value>,
+        update: Option<HashMap<Id, PatchObject>>,
     ) -> Result<SetResponse<jmap_mail_types::VacationResponse>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
         });
         if let Some(u) = update {
-            args["update"] = u;
+            args["update"] = serde_json::to_value(&u).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "vacation_response_set: serializing update map failed: {e}"
+                ))
+            })?;
         }
         let req = super::build_request("VacationResponse/set", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
