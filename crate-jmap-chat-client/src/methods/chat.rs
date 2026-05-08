@@ -8,6 +8,8 @@
 //   5. Call `self.call_internal(api_url, &req).await?`.
 //   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
+use jmap_types::PatchObject;
+
 use super::{
     AddMemberInput, ChangesResponse, ChatCreateInput, ChatPatch, ChatQueryInput, GetResponse,
     QueryChangesResponse, QueryResponse, SetResponse, TypingResponse, UpdateMemberRoleInput,
@@ -413,9 +415,14 @@ impl super::SessionClient {
             }
         }
 
+        // Wrap the constructed map in a PatchObject (RFC 8620 §5.3) before
+        // serializing. Wire bytes are unchanged because PatchObject is
+        // #[serde(transparent)]; the typed boundary documents that this
+        // value is a JMAP patch, not arbitrary JSON.
+        let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
         let args = serde_json::json!({
             "accountId": account_id,
-            "update": { id: serde_json::Value::Object(patch_map) },
+            "update": { id: patch_value },
         });
         let req = super::build_request("Chat/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
