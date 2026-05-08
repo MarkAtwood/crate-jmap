@@ -201,7 +201,7 @@ impl JmapClient {
         Self::check_auth_status(status)?;
         let resp = resp.error_for_status().map_err(ClientError::from_reqwest)?;
 
-        let upload_limit = self.config.max_upload_body;
+        let upload_limit = self.config.max_upload_response_body;
 
         if let Some(len) = resp.content_length() {
             if len > upload_limit {
