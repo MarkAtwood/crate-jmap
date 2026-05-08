@@ -161,8 +161,10 @@ impl SetError {
     /// fields `None` / empty. Use this when deserializing tests or when
     /// constructing a wire-shaped error from a typed source. Server crates
     /// that want a typed enum for construction should use
-    /// [`jmap_server::backend::SetError`] instead — this type is
-    /// deliberately String-typed for client-side parsing flexibility.
+    /// `jmap_server::backend::SetError` (declared in the `jmap-server`
+    /// crate, not linkable from here since `jmap-types` does not depend on
+    /// `jmap-server`) — this type is deliberately String-typed for
+    /// client-side parsing flexibility.
     pub fn new(error_type: impl Into<String>) -> Self {
         Self {
             error_type: error_type.into(),

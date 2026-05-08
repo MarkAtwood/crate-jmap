@@ -349,14 +349,12 @@ pub trait CalendarsBackend: JmapBackend {
     /// `[after, before]` window (§5.11) and SHOULD use `args.time_zone` (or
     /// `Etc/UTC` when `None`) when evaluating the time-range conditions.
     ///
-    /// Returns
-    /// [`QueryCalendarEventsError::ExpandDurationTooLarge`](QueryCalendarEventsError::ExpandDurationTooLarge)
-    /// when expansion is requested and the duration between `before` and
-    /// `after` exceeds the account's `maxExpandedQueryDuration` capability.
-    /// Returns
-    /// [`QueryCalendarEventsError::CannotCalculateOccurrences`](QueryCalendarEventsError::CannotCalculateOccurrences)
-    /// when a required recurrence cannot be expanded (e.g. unbounded
-    /// recurrence with no end). The handler maps these to method-level
+    /// Returns [`QueryCalendarEventsError::ExpandDurationTooLarge`] when
+    /// expansion is requested and the duration between `before` and `after`
+    /// exceeds the account's `maxExpandedQueryDuration` capability. Returns
+    /// [`QueryCalendarEventsError::CannotCalculateOccurrences`] when a
+    /// required recurrence cannot be expanded (e.g. unbounded recurrence
+    /// with no end). The handler maps these to method-level
     /// `expandDurationTooLarge` / `cannotCalculateOccurrences` errors per
     /// §10.7.3 / §10.7.4.
     ///

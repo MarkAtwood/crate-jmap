@@ -78,6 +78,11 @@ jobs:
   # -------------------------------------------------------------------------
   # doc — rustdoc with -D warnings. Catches broken intra-doc links and
   # stale references early. AGENTS.md mandates this for every locked crate.
+  #
+  # `--all-features` is required: feature-gated symbols (e.g. mail-server's
+  # `mdn` feature exposing `register_mdn_handlers` / `MdnBackend`) are
+  # referenced in lib.rs doc comments and would otherwise produce
+  # `unresolved link` errors when the gate is off.
   # -------------------------------------------------------------------------
   doc:
     name: doc
@@ -88,8 +93,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - name: cargo doc --no-deps --workspace
-        run: cargo doc --no-deps --workspace
+      - name: cargo doc --all-features --no-deps --workspace
+        run: cargo doc --all-features --no-deps --workspace
 
   # -------------------------------------------------------------------------
   # typos — catches embarrassing prose typos in code comments and docs.
