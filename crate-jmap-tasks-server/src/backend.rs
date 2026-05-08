@@ -12,6 +12,7 @@ pub use jmap_server::{
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use jmap_tasks_types::backend::{TaskListProperty, TaskNotificationProperty, TaskProperty};
+pub use jmap_types::PatchObject;
 
 // ---------------------------------------------------------------------------
 // TasksBackend trait
@@ -110,11 +111,11 @@ pub trait TasksBackend: JmapBackend {
         &self,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
-        patch: serde_json::Value,
+        patch: PatchObject,
     ) -> impl std::future::Future<
         Output = Result<Option<jmap_tasks_types::Task>, BackendSetError<Self::Error>>,
     > + Send {
-        // Task::Patch = serde_json::Value (see jmap_tasks_types backend.rs).
+        // Task::Patch = PatchObject (see jmap_tasks_types backend.rs).
         self.update_object::<jmap_tasks_types::Task>(account_id, id, patch)
     }
 

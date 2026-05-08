@@ -4,7 +4,7 @@
 //! violating the orphan rule (`JmapObject` is foreign but the tasks types are
 //! local to this crate).
 
-use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
+use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // Property selector enums (server-side; no serde required)
@@ -122,7 +122,7 @@ impl JmapObject for crate::TaskList {
 impl GetObject for crate::TaskList {}
 
 impl SetObject for crate::TaskList {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::TaskList {
@@ -138,7 +138,7 @@ impl JmapObject for crate::Task {
 impl GetObject for crate::Task {}
 
 impl SetObject for crate::Task {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::Task {
@@ -154,7 +154,7 @@ impl JmapObject for crate::TaskNotification {
 impl GetObject for crate::TaskNotification {}
 
 impl SetObject for crate::TaskNotification {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::TaskNotification {

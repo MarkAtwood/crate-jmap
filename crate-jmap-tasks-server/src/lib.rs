@@ -432,7 +432,7 @@ pub(crate) mod test_support {
             &self,
             account_id: &Id,
             id: &Id,
-            patch: serde_json::Value,
+            patch: jmap_types::PatchObject,
         ) -> Result<Option<Task>, BackendSetError<Self::Error>> {
             // Track that this per-user path was called.
             self.per_user_calls.fetch_add(1, Ordering::Relaxed);
