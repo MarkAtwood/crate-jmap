@@ -134,6 +134,17 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   `LICENSE-APACHE` files** to any crate or to the repo root. The TOML
   metadata is sufficient for crates.io and `cargo deny`. Do not "fix"
   this convention — it is intentional.
+- **TLS stack**: this workspace uses **rustls**, NOT native-tls / openssl.
+  Both `reqwest` and `tokio-tungstenite` MUST be declared with
+  `default-features = false` and only `rustls-tls-*` features enabled.
+  Rationale: openssl pulls in C code and a recurring stream of CVEs
+  (e.g. CVE-2026-42327, CVE-2026-44662 on rust-openssl 0.10.78). rustls is
+  pure Rust on top of the RustCrypto stack, has a smaller attack surface,
+  and aligns with this project's RustCrypto-first stance. Do not add
+  `native-tls`, `default-tls`, or any feature that would re-introduce
+  openssl as a transitive dependency. To verify, run
+  `cargo tree -i openssl --workspace` — it MUST report
+  "did not match any packages".
 
 ## Key Rules
 

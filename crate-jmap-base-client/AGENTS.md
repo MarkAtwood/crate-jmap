@@ -75,7 +75,7 @@ Run all four before considering any work done.
 | Decision | Choice |
 |---|---|
 | Auth | `AuthProvider` trait — transport and credentials are independent |
-| TLS | `TransportConfig` trait — `DefaultTransport` and `CustomCaTransport` |
+| TLS | `TransportConfig` trait — `DefaultTransport` and `CustomCaTransport`. Backed by rustls (NOT native-tls / openssl) — see workspace `AGENTS.md` "TLS stack" rule. `reqwest` and `tokio-tungstenite` are pinned with `default-features = false` and only `rustls-tls-*` features. |
 | Error type | `ClientError` enum with `#[non_exhaustive]` and `thiserror`; `Http` / `WebSocket` / `InvalidHeaderValue` variants wrap opaque `HttpError` / `WebSocketError` / `InvalidHeaderValueError` so `reqwest` and `tokio-tungstenite` stay private deps |
 | SSE framing | `SseStreamState` unfold loop with `scan_from` 3-byte overlap |
 | UTF-8 streaming | `raw_buf` + `decode_utf8_chunk` split-sequence handling |
