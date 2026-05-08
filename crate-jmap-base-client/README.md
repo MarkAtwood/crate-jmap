@@ -319,7 +319,7 @@ pub struct ClientConfig {
     pub max_session_body: u64,        // default: 1 MiB
     pub max_call_body: u64,           // default: 8 MiB
     pub max_download_body: u64,       // default: 64 MiB
-    pub max_upload_body: u64,         // default: 1 MiB
+    pub max_upload_response_body: u64, // default: 1 MiB (response only)
     pub max_sse_frame: usize,         // default: 1 MiB
 }
 ```

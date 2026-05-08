@@ -47,8 +47,13 @@ pub struct ClientConfig {
     pub max_call_body: u64,
     /// Maximum response body for download_blob(). Default: 64 MiB.
     pub max_download_body: u64,
-    /// Maximum response body for upload_blob() response parsing. Default: 1 MiB.
-    pub max_upload_body: u64,
+    /// Maximum size in bytes of the JSON response body returned by the
+    /// server in reply to `upload_blob()`. Does NOT cap the size of the
+    /// blob being uploaded — the JMAP server enforces that via its
+    /// `maxSizeUpload` capability. This field caps only the small JSON
+    /// envelope the server returns describing the stored blob.
+    /// Default: 1 MiB.
+    pub max_upload_response_body: u64,
     /// Maximum byte length of a single SSE frame (raw bytes and decoded text).
     /// Protects against memory exhaustion from a hostile or misbehaving server
     /// that sends a single very large frame. Must be > 0. Default: 1 MiB.
@@ -62,7 +67,7 @@ impl Default for ClientConfig {
             max_session_body: 1024 * 1024,
             max_call_body: 8 * 1024 * 1024,
             max_download_body: 64 * 1024 * 1024,
-            max_upload_body: 1024 * 1024,
+            max_upload_response_body: 1024 * 1024,
             max_sse_frame: 1024 * 1024,
         }
     }
@@ -95,9 +100,9 @@ impl ClientConfig {
                 "ClientConfig.max_download_body must be > 0".into(),
             ));
         }
-        if self.max_upload_body == 0 {
+        if self.max_upload_response_body == 0 {
             return Err(ClientError::InvalidArgument(
-                "ClientConfig.max_upload_body must be > 0".into(),
+                "ClientConfig.max_upload_response_body must be > 0".into(),
             ));
         }
         if self.request_timeout == std::time::Duration::ZERO {
