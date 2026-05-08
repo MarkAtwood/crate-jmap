@@ -15,6 +15,7 @@ pub use jmap_server::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
+pub use jmap_types::PatchObject;
 
 // ---------------------------------------------------------------------------
 // CalendarsBackend trait
@@ -158,7 +159,7 @@ pub trait CalendarsBackend: JmapBackend {
         &self,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
-        patch: serde_json::Value,
+        patch: PatchObject,
     ) -> impl std::future::Future<
         Output = Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>,
     > + Send {
@@ -220,7 +221,7 @@ pub trait CalendarsBackend: JmapBackend {
         &self,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
-        patch: serde_json::Value,
+        patch: PatchObject,
         args: &CalendarEventSetArgs,
     ) -> impl std::future::Future<
         Output = Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>,

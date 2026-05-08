@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{Id, PatchObject};
 
 use super::{ChangesResponse, GetResponse, SetResponse};
 
@@ -73,11 +73,11 @@ impl super::SessionClient {
     ///
     /// - `create`: map of creation id → typed [`Calendar`](jmap_calendars_types::Calendar)
     ///   to create. Pass `None` to omit the `create` argument entirely.
-    /// - `update`: map of existing Calendar id → JSON Merge Patch
-    ///   (RFC 8620 §5.3 `PatchObject`). The patch is left untyped because
-    ///   keys may carry `/`-separated paths into nested fields, which the
-    ///   typed [`Calendar`](jmap_calendars_types::Calendar) struct cannot
-    ///   represent. Pass `None` to omit `update` entirely.
+    /// - `update`: map of existing Calendar id → [`PatchObject`]
+    ///   (RFC 8620 §5.3). Wire format is unchanged from a plain JSON object
+    ///   because [`PatchObject`] is `#[serde(transparent)]`; the typed
+    ///   parameter exists to bind the JSON Pointer key + null-leaf-removal
+    ///   contract to the type system. Pass `None` to omit `update` entirely.
     /// - `destroy`: list of Calendar ids to destroy.
     /// - `on_destroy_remove_events`: if `true`, destroying a calendar also
     ///   destroys all its events. If `false` (the default), the server MUST
@@ -86,7 +86,7 @@ impl super::SessionClient {
     pub async fn calendar_set(
         &self,
         create: Option<HashMap<String, jmap_calendars_types::Calendar>>,
-        update: Option<HashMap<Id, serde_json::Value>>,
+        update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<&[&str]>,
         on_destroy_remove_events: Option<bool>,
     ) -> Result<SetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {

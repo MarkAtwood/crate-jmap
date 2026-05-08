@@ -2,7 +2,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{Id, PatchObject};
 
 use super::{ChangesResponse, GetResponse, SetResponse};
 
@@ -65,14 +65,16 @@ impl super::SessionClient {
     ///
     /// - `create`: map of creation id → typed
     ///   [`ParticipantIdentity`](jmap_calendars_types::ParticipantIdentity).
-    /// - `update`: map of existing identity id → JSON Merge Patch
-    ///   (RFC 8620 §5.3). Untyped because patch keys may carry
-    ///   `/`-separated paths into nested fields.
+    /// - `update`: map of existing identity id → [`PatchObject`]
+    ///   (RFC 8620 §5.3). Wire format is unchanged from a plain JSON
+    ///   object because [`PatchObject`] is `#[serde(transparent)]`; the
+    ///   typed parameter binds the JSON Pointer key + null-leaf removal
+    ///   contract to the type system.
     /// - `destroy`: list of identity ids to destroy.
     pub async fn participant_identity_set(
         &self,
         create: Option<HashMap<String, jmap_calendars_types::ParticipantIdentity>>,
-        update: Option<HashMap<Id, serde_json::Value>>,
+        update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<&[&str]>,
     ) -> Result<SetResponse<jmap_calendars_types::ParticipantIdentity>, jmap_base_client::ClientError>
     {

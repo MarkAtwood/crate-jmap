@@ -1,7 +1,7 @@
 //! CalendarEvent/* method handlers (draft-ietf-jmap-calendars-26 §5).
 
 use jmap_calendars_types::CalendarEvent;
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{
@@ -349,17 +349,35 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 })
                 .unwrap_or(false);
 
+            // Convert wire-format Value into a typed PatchObject at the
+            // backend boundary. RFC 8620 §5.3 mandates a PatchObject is a
+            // JSON Object; non-object values produce an `invalidPatch`
+            // SetError. Conversion happens AFTER the §5.9 utcStart/start
+            // and utcEnd/duration validation above, since those checks
+            // operate on the raw wire shape and are valid regardless of
+            // whether the value is a strict object.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
             // §5.9.2.1: per-user-only updates do not generate iTIP REQUEST
             // messages, so they bypass scheduling. The non-per-user path
             // routes through update_calendar_event so the backend sees the
             // sendSchedulingMessages flag.
             let update_result = if is_per_user_only {
                 backend
-                    .update_per_user_properties(&account_id, &id, patch_val)
+                    .update_per_user_properties(&account_id, &id, patch)
                     .await
             } else {
                 backend
-                    .update_calendar_event(&account_id, &id, patch_val, &set_args)
+                    .update_calendar_event(&account_id, &id, patch, &set_args)
                     .await
             };
 
@@ -1276,7 +1294,7 @@ mod tests {
             JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
             SetObject,
         };
-        use jmap_types::{Id, State};
+        use jmap_types::{Id, PatchObject, State};
 
         use crate::backend::CalendarsBackend;
 
@@ -1405,7 +1423,7 @@ mod tests {
                 &self,
                 _account_id: &Id,
                 _id: &Id,
-                _patch: serde_json::Value,
+                _patch: PatchObject,
             ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>
             {
                 *self.per_user_called.lock().unwrap() = true;

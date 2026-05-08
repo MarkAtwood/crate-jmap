@@ -346,7 +346,7 @@ pub struct SetResponse<T> {
 pub struct SetRequest<T> {
     pub if_in_state: Option<State>,
     pub create: Option<HashMap<String, T>>,
-    pub update: Option<HashMap<Id, serde_json::Value>>,  // PatchObject values
+    pub update: Option<HashMap<Id, jmap_types::PatchObject>>,  // RFC 8620 §5.3
     pub destroy: Option<Vec<Id>>,
 }
 

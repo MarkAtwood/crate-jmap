@@ -1,7 +1,7 @@
 //! ParticipantIdentity/* method handlers (draft-ietf-jmap-calendars-26 §3).
 
 use jmap_calendars_types::ParticipantIdentity;
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, CalendarsBackend};
@@ -145,8 +145,21 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 requires a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
             match backend
-                .update_object::<ParticipantIdentity>(&account_id, &id, patch_val)
+                .update_object::<ParticipantIdentity>(&account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
