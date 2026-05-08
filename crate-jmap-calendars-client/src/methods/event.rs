@@ -97,10 +97,10 @@ impl super::SessionClient {
         &self,
         create: Option<HashMap<String, jmap_calendars_types::CalendarEvent>>,
         update: Option<HashMap<Id, serde_json::Value>>,
-        destroy: Option<Vec<&str>>,
+        destroy: Option<&[&str]>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
-        if let Some(ref ids) = destroy {
+        if let Some(ids) = destroy {
             for id in ids.iter() {
                 if id.is_empty() {
                     return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -129,8 +129,8 @@ impl super::SessionClient {
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::Value::Array(
-                d.into_iter()
-                    .map(|id| serde_json::Value::String(id.to_owned()))
+                d.iter()
+                    .map(|id| serde_json::Value::String((*id).to_owned()))
                     .collect(),
             );
         }
