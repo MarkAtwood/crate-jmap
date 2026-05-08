@@ -3,7 +3,7 @@
 //! Defined here so `jmap-filenode-server` can use them without violating the
 //! orphan rule (`JmapObject` is foreign; `FileNode` is local to this crate).
 
-use jmap_types::{GetObject, JmapObject, QueryObject, SetObject};
+use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 
 // ---------------------------------------------------------------------------
 // Property selector enum
@@ -44,7 +44,7 @@ impl JmapObject for crate::FileNode {
 impl GetObject for crate::FileNode {}
 
 impl SetObject for crate::FileNode {
-    type Patch = serde_json::Value;
+    type Patch = PatchObject;
 }
 
 impl QueryObject for crate::FileNode {
