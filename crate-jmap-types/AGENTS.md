@@ -1,11 +1,27 @@
 # Agent Instructions — jmap-types
 
-This crate's public API, wire format, module layout, type names, field names,
-serde attributes, and design conventions are stabilized. Treat it as a high-care
-surface: changes here ripple through every downstream `jmap-*` crate. Prefer
-non-breaking additions (new variants on `#[non_exhaustive]` enums, new methods,
-new accessors) over reshaping existing types. Document any breaking change in
-the commit message and the relevant `PLAN.md`.
+## 🧬 Canonical foundation — every other crate mirrors this one
+
+This crate is the **foundation that the entire `jmap-*` family is cookie-cut
+from**. Every shared wire type (`Id`, `State`, `UTCDate`, `JmapError`,
+`JmapRequest`, `JmapResponse`, `Invocation`, `ResultReference`, `PatchObject`,
+`SetError`, etc.) lives here, and every downstream crate uses these types
+directly — they are not re-implemented elsewhere.
+
+**The propagation rule** (workspace AGENTS.md "Canonical Templates"):
+
+- Any change to a public type, field, variant, derive, serde attribute, or
+  doc-style here ripples through every downstream `jmap-*` crate. If you
+  change something here, plan the downstream propagation in the same pass
+  (or file a follow-up sweep bead before merging).
+- Any time you find yourself wanting to change a downstream crate in a way
+  that *would* be more consistent if it were grounded here, change here
+  first, then propagate.
+
+Prefer non-breaking additions (new variants on `#[non_exhaustive]` enums,
+new methods, new accessors) over reshaping existing types — every break
+here is amplified seven times by the extension-types crates and seven more
+times by the extension-server / extension-client crates.
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 

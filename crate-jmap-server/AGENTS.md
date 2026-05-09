@@ -1,5 +1,28 @@
 # Agent Instructions — jmap-server
 
+## 🧬 Canonical foundation server — every `*-server` extension uses this
+
+This crate is the **foundation that every `jmap-*-server` extension is built
+on**. The `Dispatcher`, `JmapHandler` trait, `JmapBackend` supertrait,
+`SetError` / `SetErrorType`, `BackendChangesError`, `BackendSetError`,
+`ChangesResult`, `QueryResult`, `QueryChangesResult`, and the standard
+`/get`, `/changes`, `/query`, `/queryChanges` handlers all live here.
+Extension `*-server` crates import these and add their own `Backend`
+trait + method handlers on top.
+
+**The propagation rule** (workspace AGENTS.md "Canonical Templates"):
+
+- Any reshape of `Dispatcher`, `JmapHandler`, `JmapBackend`, `SetError`
+  variants, or the standard handler signatures ripples through every
+  `*-server` extension crate. Plan the downstream propagation in the
+  same pass (or file a follow-up sweep bead before merging).
+- New variants on `#[non_exhaustive]` enums and new methods on traits
+  with default impls are the additive shape — no SemVer break, no
+  propagation churn.
+
+Prefer non-breaking changes. Reshape only when the workspace is bumping
+a major.
+
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
 ## Before Starting Any Work
