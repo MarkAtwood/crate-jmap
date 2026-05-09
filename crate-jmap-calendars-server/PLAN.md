@@ -72,27 +72,40 @@ calendars code.
 ## Capability URI
 
 `urn:ietf:params:jmap:calendars` — registered in IANA per draft §10.1.
+Re-exported from `jmap-calendars-types` as `JMAP_CALENDARS_URI`. Consumers
+advertise this in the session capabilities.
 
-Two additional capability URIs defined by the draft but handled at the server
-consumer level (not registered here):
-- `urn:ietf:params:jmap:principals:availability` — for Principal/getAvailability
-- `urn:ietf:params:jmap:calendars:parse` — for CalendarEvent/parse
+Two additional capability URIs defined by the draft are NOT advertised by
+this crate today; advertising them is the consumer's responsibility based on
+backend-specific support:
+- `urn:ietf:params:jmap:principals:availability` — for `Principal/getAvailability`.
+  The handler is registered (see `principal.rs`) and a default trivial backend
+  impl returns an empty list. Consumers that have a real availability source
+  should advertise this URI.
+- `urn:ietf:params:jmap:calendars:parse` — for `CalendarEvent/parse`. The
+  handler is registered unconditionally; the default `CalendarsBackend`
+  implementation classifies all blobs as `notParsable`. Consumers with real
+  iCalendar parsing should advertise this URI.
+
+TODO bd:JMAP-r3pg.21 — consider crate-local `pub const` for the registered URI
+rather than re-exporting from the types crate, to clarify the dependency
+direction.
 
 ## Method Coverage
 
-Total: 18 method registrations (plus 2 optional).
+Total: 19 method registrations (Calendar/query and Calendar/queryChanges
+are NOT registered today — see TODO below).
 
 | Object | Methods | Draft §§ | Backend path |
 |---|---|---|---|
 | Calendar | get, changes, set | §4.1, §4.2, §4.3 | standard CRUD |
-| Calendar | query, queryChanges | (implied §4, RFC 8620 §5.5–5.6) | standard query |
-| CalendarEvent | get | §5.7 | standard get + 4 extra args |
+| CalendarEvent | get | §5.7 | standard get + 4 extra args via `CalendarEventGetArgs` |
 | CalendarEvent | changes | §5.8 | standard changes |
-| CalendarEvent | set | §5.9 | standard set + sendSchedulingMessages |
+| CalendarEvent | set | §5.9 | standard set + `CalendarEventSetArgs` |
 | CalendarEvent | copy | §5.10 | `copy_event` |
-| CalendarEvent | query | §5.11 | standard query + expandRecurrences, timeZone |
+| CalendarEvent | query | §5.11 | standard query + `CalendarEventQueryArgs` (expandRecurrences, timeZone) |
 | CalendarEvent | queryChanges | §5.12 | standard queryChanges |
-| CalendarEvent | parse | §5.13 | `parse_event` (optional, `parse` feature) |
+| CalendarEvent | parse | §5.13 | `parse_calendar_event_blobs` (registered unconditionally; default impl returns notParsable) |
 | CalendarEventNotification | get | §7.1 | standard get |
 | CalendarEventNotification | changes | §7.2 | standard changes |
 | CalendarEventNotification | set | §7.3 | destroy-only; handler enforces |
@@ -100,7 +113,17 @@ Total: 18 method registrations (plus 2 optional).
 | CalendarEventNotification | queryChanges | §7.5 | standard queryChanges |
 | ParticipantIdentity | get | §3.1 | standard get |
 | ParticipantIdentity | changes | §3.2 | standard changes |
-| ParticipantIdentity | set | §3.3 | standard set + onSuccessSetIsDefault |
+| ParticipantIdentity | set | §3.3 | standard set + `onSuccessSetIsDefault` |
+| Principal | getAvailability | §2.2 | `get_availability` (default impl returns empty list) |
+
+Note: `Calendar/query` / `Calendar/queryChanges` are mentioned in the table
+header for completeness with the §4 / RFC 8620 §5.5–5.6 lineage but are NOT
+currently registered. If they are needed, they would be registered alongside
+the existing `Calendar/get` / `Calendar/changes` / `Calendar/set` handlers.
+
+The `register_calendars_handlers` doc comment in `lib.rs` cites "all 20"
+methods; the actual registration count is 19 (one off-by-one between the
+doc and the registrations) — minor doc bug, low priority.
 
 ## Key Design Decisions
 
@@ -191,17 +214,23 @@ calendar object (with updated `isDefault: true`) must appear in the response.
 ParticipantIdentity/set has the same pattern via `onSuccessSetIsDefault`
 (draft §3.3). The backend method for this is `set_default_participant_identity`.
 
-### 7. CalendarEvent/get extra arguments
+### 7. CalendarEvent/get / /query / /set extra arguments
 
-Draft §5.7 defines four extra arguments beyond standard `/get`:
-- `recurrenceOverridesBefore`: UTCDateTime|null — filter overrides by date
-- `recurrenceOverridesAfter`: UTCDateTime|null — filter overrides by date
-- `reduceParticipants`: Boolean — omit non-owner, non-user participants
-- `timeZone`: TimeZoneId — for utcStart/utcEnd calculation of floating events
+Three Args structs thread per-call extras into the backend:
 
-The handler passes these as a `CalendarEventGetArgs` struct to the backend
-method `get_calendar_events`. The backend is responsible for applying these
-filters and computing utcStart/utcEnd when requested.
+- `CalendarEventGetArgs` (draft §5.7): `recurrenceOverridesBefore`,
+  `recurrenceOverridesAfter`, `reduceParticipants`, `timeZone`.
+- `CalendarEventQueryArgs` (draft §5.11): `expandRecurrences`, `timeZone`,
+  plus the §5.11 windowing inputs.
+- `CalendarEventSetArgs` (draft §5.9): `sendSchedulingMessages` and any
+  related scheduling-side controls.
+
+The handlers parse the incoming arguments into these structs and forward
+them to `get_calendar_events`, `query_calendar_events`, and the
+create/update/destroy methods respectively. Backends apply filters,
+compute `utcStart`/`utcEnd` when requested, and emit the relevant errors
+(`expandDurationTooLarge`, `cannotCalculateOccurrences`,
+`noSupportedScheduleMethods`).
 
 ### 8. CalendarEvent/query expandRecurrences
 
@@ -236,15 +265,22 @@ a dedicated `copy_event` backend method that takes `from_account_id`,
 `event_id`, `to_account_id`, and `calendar_ids`. This is analogous to
 `Email/copy` in `jmap-mail-server`.
 
-### 11. CalendarEvent/parse is feature-gated
+### 11. CalendarEvent/parse — registered unconditionally with trivial default
 
-`CalendarEvent/parse` (draft §5.13) requires iCalendar parsing. It is gated
-behind a `parse` Cargo feature flag. When the feature is enabled, the handler
-is registered and calls a `parse_event` backend method. When disabled, the
-method is not registered.
+`CalendarEvent/parse` (draft §5.13) requires iCalendar parsing.
 
-Capability `urn:ietf:params:jmap:calendars:parse` must only be advertised in
-the session when the `parse` feature is enabled and the backend supports it.
+**Shipped reality (drift from earlier plan):** the `parse` Cargo feature
+flag was NOT implemented. `CalendarEvent/parse` is registered
+unconditionally in `register_calendars_handlers`. The
+`CalendarsBackend::parse_calendar_event_blobs` trait method has a default
+implementation that classifies all blobs as `notParsable`, so backends
+without iCalendar parsing degrade gracefully without the consumer needing
+to gate registration. Backends that want real parsing override the method.
+
+The capability URI `urn:ietf:params:jmap:calendars:parse` is therefore
+advertised by the consumer based on backend capability, not on a Cargo
+feature in this crate. There is no `[features]` section in
+`Cargo.toml` today.
 
 ### 12. Floating events and UTC time handling
 
@@ -258,7 +294,11 @@ the requested `timeZone` argument to the backend, which performs the conversion
 and returns the computed values when `utcStart`/`utcEnd` are in the requested
 properties list.
 
-## Planned Public API
+## Public API (shipped sketch)
+
+The full reference is `cargo doc -p jmap-calendars-server --no-deps`. This
+section sketches the trait and the supporting types as they exist today.
+Names that drifted from the original plan are marked **(drift)**.
 
 ```rust
 /// Storage backend for JMAP Calendars method handlers.
@@ -281,82 +321,58 @@ properties list.
 #[allow(async_fn_in_trait)]
 pub trait CalendarsBackend: JmapBackend {
     // ── Write operations (mirrors MailBackend) ──────────────────────────────
+    //
+    // create_object / update_object / destroy_object generic over O: SetObject.
+    // Signatures follow the MailBackend pattern; see `backend.rs` for details.
 
-    fn create_object<O: SetObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-        create_id: &str,
-        obj: O,
-    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
+    // ── Calendar-specific ────────────────────────────────────────────────────
 
-    fn update_object<O: SetObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-        id: &Id,
-        patch: O::Patch,
-    ) -> impl Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
-
-    fn destroy_object<O: SetObject + Send + Sync>(
-        &self,
-        account_id: &Id,
-        id: &Id,
-    ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
-
-    // ── Calendars-specific ──────────────────────────────────────────────────
-
-    /// CalendarEvent/get with extra draft §5.7 arguments.
-    /// Returns (found, not_found). Backend applies recurrenceOverrides
-    /// window filters and computes utcStart/utcEnd for floating events
-    /// using timeZone when those properties are requested.
+    /// `CalendarEvent/get` with extra draft §5.7 arguments. The handler parses
+    /// the wire-format args into [`CalendarEventGetArgs`] before calling.
     fn get_calendar_events(
         &self,
         account_id: &Id,
         ids: Option<&[Id]>,
-        properties: Option<&[&str]>,
+        properties: Option<&[String]>,
         args: &CalendarEventGetArgs,
     ) -> impl Future<Output = Result<(Vec<CalendarEvent>, Vec<Id>), Self::Error>> + Send;
 
-    /// CalendarEvent/copy (RFC 8620 §5.4): copy an event into another account.
-    /// Returns the new id and the created CalendarEvent in to_account_id.
-    fn copy_event(
+    /// `CalendarEvent/query` with extra draft §5.11 arguments. The handler
+    /// parses wire-format args into [`CalendarEventQueryArgs`] before calling.
+    fn query_calendar_events(
         &self,
-        from_account_id: &Id,
-        event_id: &Id,
-        to_account_id: &Id,
-        calendar_ids: &[Id],
+        // ... see backend.rs for full signature
+    ) -> impl Future<Output = Result<QueryResult, QueryCalendarEventsError<Self::Error>>> + Send;
+
+    /// `CalendarEvent/copy` (RFC 8620 §5.4).
+    fn copy_event(
+        // ... see backend.rs for full signature
     ) -> impl Future<Output = Result<(Id, CalendarEvent), BackendSetError<Self::Error>>> + Send;
 
-    /// CalendarEvent/parse (draft §5.13): parse iCalendar blob(s).
-    /// Called only when the `parse` feature is enabled.
-    /// Returns (parsed, not_found, not_parsable).
-    #[cfg(feature = "parse")]
-    fn parse_event(
+    /// `CalendarEvent/parse` (draft §5.13).
+    ///
+    /// **(drift)** Originally planned as `parse_event` behind a `parse`
+    /// Cargo feature flag. Shipped as `parse_calendar_event_blobs` registered
+    /// unconditionally with a trivial default impl that classifies all blobs
+    /// as `notParsable`. See §11 above.
+    fn parse_calendar_event_blobs(
         &self,
         account_id: &Id,
         blob_ids: &[Id],
-        properties: Option<&[&str]>,
-    ) -> impl Future<Output = Result<ParseEventResult, Self::Error>> + Send;
+        properties: Option<&[String]>,
+    ) -> impl Future<Output = Result<ParseResult, Self::Error>> + Send {
+        /* default: all blobs notParsable */
+    }
 
-    /// Set the default calendar for an account (Calendar/set onSuccessSetIsDefault).
-    /// If id is not found or the operation is not permitted, silently ignore.
-    fn set_default_calendar(
-        &self,
-        account_id: &Id,
-        calendar_id: &Id,
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
+    /// `Principal/getAvailability` (draft §2.2). Default impl returns empty.
+    fn get_availability(/* ... */) -> impl Future<...> + Send { /* default */ }
 
-    /// Set the default participant identity (ParticipantIdentity/set onSuccessSetIsDefault).
-    fn set_default_participant_identity(
-        &self,
-        account_id: &Id,
-        identity_id: &Id,
-    ) -> impl Future<Output = Result<(), Self::Error>> + Send;
-
-    /// Returns true if this backend supports CalendarEvent/parse.
-    fn supports_parse(&self) -> bool { false }
+    /// `onSuccessSetIsDefault` for both Calendar/set and ParticipantIdentity/set.
+    fn set_default_calendar(/* ... */) -> impl Future<Output = Result<SetDefaultResult, ...>> + Send;
+    fn set_default_participant_identity(/* ... */) -> impl Future<Output = Result<SetDefaultResult, ...>> + Send;
 }
 
-/// Extra arguments for CalendarEvent/get (draft §5.7).
+/// Extra arguments for `CalendarEvent/get` (draft §5.7).
 pub struct CalendarEventGetArgs {
     pub recurrence_overrides_before: Option<String>, // UTCDateTime
     pub recurrence_overrides_after: Option<String>,  // UTCDateTime
@@ -364,79 +380,125 @@ pub struct CalendarEventGetArgs {
     pub time_zone: Option<String>,                   // TimeZoneId
 }
 
-/// Result of CalendarEvent/parse (draft §5.13).
-pub struct ParseEventResult {
+/// Extra arguments for `CalendarEvent/query` (draft §5.11). Carries
+/// `expandRecurrences`, `timeZone`, and the windowing inputs.
+pub struct CalendarEventQueryArgs { /* see backend.rs */ }
+
+/// Extra arguments for `CalendarEvent/set` (draft §5.9). Carries
+/// `sendSchedulingMessages` and related scheduling controls.
+pub struct CalendarEventSetArgs { /* see backend.rs */ }
+
+/// Result of `CalendarEvent/parse` (draft §5.13).
+///
+/// **(drift)** Originally planned as `ParseEventResult`.
+///
+/// TODO bd:JMAP-r3pg.9 — add `#[non_exhaustive]` so future fields don't break SemVer.
+pub struct ParseResult {
     pub parsed: HashMap<Id, Vec<CalendarEvent>>,
     pub not_found: Vec<Id>,
     pub not_parsable: Vec<Id>,
 }
 
+/// Outcome of `set_default_calendar` / `set_default_participant_identity`.
+/// Carries the new default and (if changed) the previous default so the
+/// handler can emit the §3.3 / §4.3 response-mutation pair atomically.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default)]
+pub struct SetDefaultResult {
+    pub new_default: Option<Id>,
+    pub previous_default: Option<Id>,
+}
+
+/// Error type for `get_availability`.
+#[non_exhaustive]
+pub enum AvailabilityError<E: std::error::Error> {
+    NotFound, Forbidden, RangeTooLarge, /* ... */
+}
+
 /// Register all JMAP Calendars handlers with a jmap-server Dispatcher.
 ///
-/// After calling this, the dispatcher handles all 18 JMAP Calendars method
-/// names (plus CalendarEvent/parse if the `parse` feature is enabled and
-/// backend.supports_parse() returns true).
+/// After calling this, the dispatcher handles 19 method names (see the
+/// Method Coverage table above).
 pub fn register_calendars_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
 where
     B: CalendarsBackend + 'static,
     C: Clone + Send + 'static;
-
-pub use backend::{
-    BackendChangesError, BackendSetError,
-    ChangesResult, QueryResult, QueryChangesResult, AddedItem,
-    CalendarEventGetArgs, ParseEventResult,
-};
 ```
 
-## Module Layout
+## Module Layout (shipped)
 
 ```
 src/
-  lib.rs              re-exports; register_calendars_handlers
-  backend.rs          CalendarsBackend trait; CalendarEventGetArgs;
-                      ParseEventResult; BackendChangesError, BackendSetError,
-                      ChangesResult, QueryResult, QueryChangesResult
-  calendar.rs         Calendar/get, /changes, /set (onDestroyRemoveEvents +
-                      onSuccessSetIsDefault), /query, /queryChanges
-  event.rs            CalendarEvent/get (extra args), /changes, /set
-                      (recurrenceOverrides patch + sendSchedulingMessages),
-                      /copy, /query (expandRecurrences), /queryChanges
-  event_parse.rs      CalendarEvent/parse (feature-gated)
-  notification.rs     CalendarEventNotification/get, /changes, /set
-                      (destroy-only enforcement), /query, /queryChanges
-  participant.rs      ParticipantIdentity/get, /changes, /set
-                      (onSuccessSetIsDefault)
-  error.rs            CalendarSetError (calendarHasEvent, noSupportedScheduleMethods,
-                      expandDurationTooLarge, cannotCalculateOccurrences)
+  lib.rs                   re-exports; register_calendars_handlers macro
+  backend.rs               CalendarsBackend trait; CalendarEventGetArgs,
+                           CalendarEventQueryArgs, CalendarEventSetArgs;
+                           ParseResult, SetDefaultResult; AvailabilityError,
+                           QueryCalendarEventsError; re-exports of
+                           BackendChangesError/BackendSetError/etc. from jmap-server
+  calendar.rs              Calendar/get, /changes, /set (onDestroyRemoveEvents +
+                           onSuccessSetIsDefault); inline tests
+  event.rs                 CalendarEvent/get (extra args), /changes, /set
+                           (recurrenceOverrides patch + sendSchedulingMessages),
+                           /copy, /query (expandRecurrences), /queryChanges,
+                           /parse — all in one module
+  event_notification.rs    CalendarEventNotification/get, /changes, /set
+                           (destroy-only enforcement), /query, /queryChanges
+  participant_identity.rs  ParticipantIdentity/get, /changes, /set
+                           (onSuccessSetIsDefault)
+  principal.rs             Principal/getAvailability
+  helpers.rs (private)     set_error_value, resolve_on_success_set_is_default,
+                           apply_default_change_to_response,
+                           extract_account_id (re-export from jmap-server)
 ```
 
-## Test Strategy
+**Drift from earlier plan:**
+- `notification.rs` → `event_notification.rs` (clearer scoping).
+- `participant.rs` → `participant_identity.rs` (matches type name).
+- `event_parse.rs` was never separated; parse logic lives in `event.rs`
+  alongside the rest of CalendarEvent handling. Reasonable given the small
+  size of the parse handler.
+- `error.rs` was never created. Error names like `calendarHasEvent`,
+  `noSupportedScheduleMethods`, `expandDurationTooLarge`,
+  `cannotCalculateOccurrences` are produced inline via
+  `SetError::new(SetErrorType::custom("..."))` at the call sites. There is
+  no consolidated `CalendarSetError` type.
+- `principal.rs` is shipped but was not in the original plan.
 
-A `MemoryBackend` in `tests/common/mod.rs` provides an in-memory `HashMap`
-implementation of `CalendarsBackend`. This serves as both the test harness and
-the canonical example for implementors.
+## Test Strategy (shipped)
 
-Test files per object group:
+**Drift from earlier plan:** there is no `tests/` directory. Tests are
+inline `#[cfg(test)] mod tests` blocks within each handler file plus a
+`test_support` module providing `MockBackend`. This is the layout the
+crate actually ships:
 
 ```
-tests/
-  common/
-    mod.rs               MemoryBackend implementation
-  calendar_tests.rs
-  event_tests.rs
-  notification_tests.rs
-  participant_tests.rs
+src/
+  test_support module       MockBackend (in-memory CalendarsBackend impl,
+                            visible only via cfg(test))
+  calendar.rs               7 inline tests (Calendar/get/changes/set)
+  event.rs                  18 inline tests (CalendarEvent/* methods)
+  event_notification.rs     4 inline tests
+  participant_identity.rs   3 inline tests
+  principal.rs              3 inline tests
+  lib.rs                    31 inline tests (registration shape, end-to-end
+                            dispatch wiring across all 19 methods)
+  Total: 66 inline tests passing as of 2026-05-08.
 ```
 
 Test oracles come from draft-ietf-jmap-calendars-26 §8 example JSON (the spec
-includes full request/response pairs). Extract them verbatim from the spec and
-hardcode as `serde_json::json!({...})` literals. Never derive expected values
-from the implementation under test.
+includes full request/response pairs). Hardcoded as `serde_json::json!({...})`
+literals in the inline test modules. Never derive expected values from the
+implementation under test.
 
-Each test calls `register_calendars_handlers` with the `MemoryBackend`,
-constructs a `JmapRequest` matching the spec example, calls
-`Dispatcher::dispatch`, and asserts the response matches the spec example
-response.
+Each test constructs a `MockBackend`, registers the relevant handler(s),
+sends a `JmapRequest`-shaped argument map, and asserts the response.
+
+TODO bd:JMAP-r3pg.10 — `copy_successful_with_overrides` test has shadowed
+setup (dead code) and a weak oracle; tighten before any 0.2.0.
+
+TODO bd:JMAP-r3pg.20 — `test_support::MockBackend` is `pub(crate)` but tests
+in sibling files import via `crate::test_support`; the path could be
+cleaner.
 
 ### Non-trivial test cases to include
 
@@ -492,19 +554,60 @@ response.
 - `~/PROJECT/jmap-chat-spec/references/rfc8620.txt` — base protocol
   (set semantics §5.3, copy §5.4, query §5.5, queryChanges §5.6)
 
-## Dependencies
+## Dependencies (shipped)
+
+The shipped Cargo.toml uses workspace inheritance for all deps:
 
 ```toml
-jmap-types            = { path = "../crate-jmap-types" }
-jmap-calendars-types  = { path = "../crate-jmap-calendars-types" }
-jmap-server           = { path = "../crate-jmap-server" }
-serde      = { version = "1", features = ["derive"] }
-serde_json = "1"
-thiserror  = "2"
-tokio      = { version = "1", features = ["rt"] }
+[dependencies]
+jmap-types           = { workspace = true }
+jmap-calendars-types = { workspace = true }
+jmap-server          = { workspace = true }
+serde                = { workspace = true }
+serde_json           = { workspace = true }
+thiserror            = { workspace = true }
+tokio                = { workspace = true }
 
-[features]
-parse = []   # enables CalendarEvent/parse handler and backend method
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 ```
 
+**Drift from earlier plan:** there is NO `[features]` section. The `parse`
+feature flag was never implemented; `CalendarEvent/parse` is registered
+unconditionally with a default trivial impl (see §11). If iCalendar
+parsing becomes a feature this crate optionally enables, it would need to
+be re-introduced.
+
 No iCalendar parsing libraries. No HTTP client. No database drivers.
+
+TODO bd:JMAP-r3pg.22 — workspace `tokio` brings in `rt` by default, but
+this crate's library code does not need a runtime, only the `Future`
+re-exports. Consider narrowing the runtime surface.
+
+## Open Review Findings (JMAP-r3pg children)
+
+The /review-rusty pass on this crate filed 25 findings under JMAP-r3pg.
+P0/P1 children are closed; remaining items are tracked here for context:
+
+- **bd:JMAP-r3pg.9** (P2) — add `#[non_exhaustive]` to `ParseResult`.
+- **bd:JMAP-r3pg.10** (P2) — `copy_successful_with_overrides` test cleanup.
+- **bd:JMAP-r3pg.12** (P2) — extract /set output construction helper across
+  the 4 set handlers (calendar, event, event_notification, participant_identity).
+- **bd:JMAP-r3pg.14** (P3) — `extract_account_id` second pattern-match
+  destructures already-extracted args in /copy and /set.
+- **bd:JMAP-r3pg.15** (P3) — clarify per-user-property routing for the
+  all-null patch case in `event.rs`.
+- **bd:JMAP-r3pg.16** (P3) — `register_calendars_handlers` doc references
+  nonexistent `ClosureHandlerWithCtx` body in a misleading way.
+- **bd:JMAP-r3pg.18** (P3) — `Calendar/set` destroy silently ignores
+  non-string entries; RFC may require `invalidArguments`.
+- **bd:JMAP-r3pg.19** (P3) — `MockBackend` uses `std::sync::Mutex` inside
+  async fns; `tokio::sync::Mutex` would be safer.
+- **bd:JMAP-r3pg.20** (P4) — `pub(crate) test_support` import-path cleanup.
+- **bd:JMAP-r3pg.21** (P4) — capability URI re-export vs crate-local const.
+- **bd:JMAP-r3pg.22** (P4) — narrow tokio runtime feature surface.
+- **bd:JMAP-r3pg.24** (P4) — public fallible `handle_*` functions missing
+  `# Errors` rustdoc sections.
+- **bd:JMAP-r3pg.25** (P3) — `is_per_user_property` lives on the
+  `CalendarsBackend` trait with no `&self`; should be a free function or
+  in `jmap-calendars-types`.
