@@ -134,7 +134,7 @@ If you change a public API type or function signature, check that both consumers
 
 ## Restrictions
 
-- Do not commit or push without explicit user approval
+- Push freely — `git push`, no `pull --rebase` ritual (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create` for all tracking
 - Do not add features not in PLAN.md or not explicitly directed
 - Do not introduce dependencies beyond: serde, serde_json, tokio, http, thiserror

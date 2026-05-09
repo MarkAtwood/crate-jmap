@@ -1,48 +1,33 @@
 # Agent Instructions — jmap-base-client
 
-## 🔒 LOCKED CRATE — EXPLICIT PERMISSION REQUIRED BEFORE ANY CHANGE
-
 This crate has been reviewed and stabilized. Its public API, auth traits, wire
-behavior, error variants, configuration types, and test oracles are locked.
+behavior, error variants, configuration types, and test oracles are stabilized.
+Treat it as a high-care surface — every downstream `jmap-*-client` crate depends
+on it.
 
-**You may NOT, under any circumstances:**
-- Add, rename, or remove any public type, trait, method, or field
-- Change `ClientError` variants, their fields, or their `#[error]` strings
-- Change the `HttpError`, `WebSocketError`, or `InvalidHeaderValueError`
-  wrapper types' accessor signatures or `Display` output
-- Change `AuthProvider`, `TransportConfig`, or their method signatures
-- Change `ClientConfig` field names, types, or defaults
-- Change `JmapClient` method signatures (`new`, `new_plain`, `fetch_session`,
-  `call`, `subscribe_events`, `upload_blob`, `download_blob`)
-- Change `WsSession`, `WsFrame`, `SseFrame`, or `SseEvent` shapes
-- Change `Session`, `AccountInfo`, or `WebSocketCapability` field names or serde
-- Alter `#[non_exhaustive]` annotations
-- Modify test oracles or fixture files
-- Refactor or "clean up" any existing code
+Prefer non-breaking changes:
+- New accessor methods on `HttpError` / `WebSocketError` (the wrapper types are
+  `#[non_exhaustive]`)
+- New variants on existing `#[non_exhaustive]` enums
+- New methods on `JmapClient`, new fields on `ClientConfig` (also `#[non_exhaustive]`)
+- New free functions
 
-**You MAY** (these are explicitly allowed and do not require per-change
-approval, since `reqwest` and `tokio-tungstenite` are private dependencies
-of this crate after the SemVer-isolation work in JMAP-6lsm.22):
-- Bump `reqwest` major versions
-- Bump `tokio-tungstenite` major versions
-- Swap to a different HTTP or WebSocket library entirely
-- Add additional accessor methods to `HttpError` / `WebSocketError` (the
-  types are `#[non_exhaustive]`)
+Reshape carefully:
+- Changing `ClientError` variant fields, `AuthProvider` / `TransportConfig`
+  method signatures, or `JmapClient` method signatures is a SemVer break.
+  Bundle such changes with a `0.x.0 → 0.(x+1).0` version bump and a clear
+  changelog/upgrade-guide entry.
 
-…provided the `HttpError`, `WebSocketError`, and `InvalidHeaderValueError`
-public surface — accessor signatures, `Display` text, `Error::source` chain
-— remains unchanged across the swap. The whole point of the wrappers is
-that the underlying transport is replaceable without breaking downstream.
-
-**To make ANY change to this crate** you must first describe the exact change to
-the user and receive explicit written approval for that specific change. "Fixing
-a bug" or "improving the code" is not sufficient — stop and report, then wait.
+`reqwest` and `tokio-tungstenite` are private dependencies after the SemVer-isolation
+work in JMAP-6lsm.22 — `HttpError`, `WebSocketError`, and `InvalidHeaderValueError`
+wrap them so the transport is replaceable without breaking downstream. Bump those
+deps freely; just keep the wrapper accessor signatures, `Display` text, and
+`Error::source` chain stable across the swap.
 
 ## Before Starting Any Work
 
 1. Read `PLAN.md` — design rationale, public API, source material
 2. Run `bd ready` — check for open issues before creating new ones
-3. Ask the user for explicit permission before touching any source file
 
 ## What This Is
 
