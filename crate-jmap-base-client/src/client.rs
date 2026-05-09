@@ -58,6 +58,13 @@ pub struct ClientConfig {
     /// Protects against memory exhaustion from a hostile or misbehaving server
     /// that sends a single very large frame. Must be > 0. Default: 1 MiB.
     pub max_sse_frame: usize,
+    /// Maximum byte length of a single WebSocket message (and frame). Mirrors
+    /// `max_sse_frame` for the WebSocket transport. Used by
+    /// [`JmapClient::connect_ws_session`] and threaded through to
+    /// `tokio_tungstenite::tungstenite::protocol::WebSocketConfig`'s
+    /// `max_message_size` and `max_frame_size`. Must be > 0.
+    /// Default: 1 MiB. (bd:JMAP-6lsm.5)
+    pub max_ws_message: usize,
 }
 
 impl Default for ClientConfig {
@@ -69,6 +76,7 @@ impl Default for ClientConfig {
             max_download_body: 64 * 1024 * 1024,
             max_upload_response_body: 1024 * 1024,
             max_sse_frame: 1024 * 1024,
+            max_ws_message: 1024 * 1024,
         }
     }
 }
@@ -114,6 +122,11 @@ impl ClientConfig {
         if self.max_sse_frame == 0 {
             return Err(ClientError::InvalidArgument(
                 "ClientConfig.max_sse_frame must be > 0".into(),
+            ));
+        }
+        if self.max_ws_message == 0 {
+            return Err(ClientError::InvalidArgument(
+                "ClientConfig.max_ws_message must be > 0".into(),
             ));
         }
         Ok(())
@@ -547,6 +560,31 @@ impl JmapClient {
             },
         )
         .boxed())
+    }
+
+    /// Open a WebSocket connection to `ws_url` using this client's
+    /// configured `max_ws_message` byte cap.
+    ///
+    /// Convenience wrapper around [`crate::ws::connect_ws_with_limit`] that
+    /// passes [`ClientConfig::max_ws_message`] as the per-message /
+    /// per-frame byte cap. Mirrors the [`Self::subscribe_events`]
+    /// pattern of "the JmapClient method uses ClientConfig; the free
+    /// function takes an explicit value".
+    ///
+    /// `ws_url` must come from the session document's WebSocket capability
+    /// URL. `auth_header` is an optional `(name, value)` pair for the
+    /// upgrade request; the auth provider on this client is NOT used here
+    /// because some servers attach WebSocket auth via cookie or session
+    /// header rather than the same scheme as HTTP requests.
+    ///
+    /// Returns [`ClientError::InvalidArgument`] for non-`ws://`/`wss://` URLs.
+    /// See [`crate::ws::connect_ws_with_limit`] for full error semantics.
+    pub async fn connect_ws_session(
+        &self,
+        ws_url: &str,
+        auth_header: Option<(&str, &str)>,
+    ) -> Result<crate::ws::WsSession, ClientError> {
+        crate::ws::connect_ws_with_limit(ws_url, auth_header, self.config.max_ws_message).await
     }
 }
 

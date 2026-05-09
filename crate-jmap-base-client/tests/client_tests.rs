@@ -144,6 +144,55 @@ fn test_new_rejects_zero_max_call_body() {
     );
 }
 
+/// Oracle: config validation — max_ws_message == 0 must be rejected with
+/// InvalidArgument. tungstenite would otherwise treat `Some(0)` as "no
+/// message of any size is acceptable" which is a misconfiguration trap.
+/// JMAP-6lsm.5 added this field; test pins the validation contract.
+#[test]
+fn test_new_rejects_zero_max_ws_message() {
+    let mut config = jmap_base_client::client::ClientConfig::default();
+    config.max_ws_message = 0;
+    let result = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        "https://example.com",
+        config,
+    )
+    .map(|_| ());
+    assert!(
+        matches!(result, Err(ClientError::InvalidArgument(_))),
+        "max_ws_message == 0 must return InvalidArgument, got {result:?}"
+    );
+}
+
+/// Oracle: ClientConfig::default has max_ws_message = 1 MiB (parallel to
+/// max_sse_frame). Default values are part of the public contract; if a
+/// future change retunes the default this test breaks loudly so the
+/// change is deliberate.
+#[test]
+fn test_default_max_ws_message_is_1mib() {
+    let cfg = jmap_base_client::client::ClientConfig::default();
+    assert_eq!(cfg.max_ws_message, 1024 * 1024);
+    assert_eq!(cfg.max_sse_frame, 1024 * 1024);
+}
+
+/// Oracle: connect_ws_with_limit must reject max_message_bytes == 0 with
+/// InvalidArgument BEFORE attempting any I/O. Mirrors the ClientConfig
+/// validation; JMAP-6lsm.5.
+#[tokio::test]
+async fn test_connect_ws_with_limit_rejects_zero_max_message() {
+    let result = jmap_base_client::ws::connect_ws_with_limit("ws://localhost/", None, 0).await;
+    match result {
+        Err(jmap_base_client::ClientError::InvalidArgument(msg)) => {
+            assert!(
+                msg.contains("max_message_bytes"),
+                "error message must mention 'max_message_bytes': {msg}"
+            );
+        }
+        other => panic!("expected InvalidArgument(\"...max_message_bytes...\"), got {other:?}"),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // fetch_session
 // ---------------------------------------------------------------------------

@@ -38,7 +38,12 @@ struct WsRequestFrame<'a> {
 /// Maximum WebSocket message size (1 MiB), consistent with the SSE frame limit.
 /// Prevents a misbehaving or hostile server from forcing the client to buffer
 /// large messages over the event connection.
-const MAX_WS_MESSAGE_BYTES: usize = 1 << 20; // 1 MiB
+/// Default per-message / per-frame byte cap for WebSocket connections opened
+/// via [`connect_ws`] (which does not take a limit parameter). Callers that
+/// need a different cap should use [`connect_ws_with_limit`] or the
+/// [`crate::JmapClient::connect_ws_session`] convenience method which
+/// reads the `max_ws_message` field from `ClientConfig`. Default: 1 MiB.
+pub const DEFAULT_WS_MAX_MESSAGE_BYTES: usize = 1 << 20;
 
 /// A parsed frame received from the JMAP WebSocket.
 ///
@@ -280,10 +285,39 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
 /// The returned [`WsSession`] provides [`WsSession::next_frame`] for receiving
 /// events. The caller is responsible for reconnecting after disconnect with
 /// exponential backoff.
+///
+/// Uses [`DEFAULT_WS_MAX_MESSAGE_BYTES`] as the per-message / per-frame cap.
+/// Callers that need a different cap should use [`connect_ws_with_limit`] or
+/// [`crate::JmapClient::connect_ws_session`] (which reads `ClientConfig::max_ws_message`).
 pub async fn connect_ws(
     ws_url: &str,
     auth_header: Option<(&str, &str)>,
 ) -> Result<WsSession, crate::error::ClientError> {
+    connect_ws_with_limit(ws_url, auth_header, DEFAULT_WS_MAX_MESSAGE_BYTES).await
+}
+
+/// Establish a WebSocket connection with an explicit per-message / per-frame
+/// byte cap.
+///
+/// Same contract as [`connect_ws`] but lets the caller pin the
+/// `max_message_size` / `max_frame_size` config passed to tungstenite.
+/// Useful when the JMAP server is known to send larger pushes than the
+/// 1 MiB default (e.g. some Mailbox/changes push payloads on accounts with
+/// many mailboxes can exceed 1 MiB).
+///
+/// `max_message_bytes` MUST be > 0; tungstenite treats `Some(0)` as
+/// "no message of any size is acceptable" which is a misconfiguration trap.
+/// We surface `ClientError::InvalidArgument` instead.
+pub async fn connect_ws_with_limit(
+    ws_url: &str,
+    auth_header: Option<(&str, &str)>,
+    max_message_bytes: usize,
+) -> Result<WsSession, crate::error::ClientError> {
+    if max_message_bytes == 0 {
+        return Err(crate::error::ClientError::InvalidArgument(
+            "connect_ws_with_limit: max_message_bytes must be > 0".to_owned(),
+        ));
+    }
     // Validate scheme to prevent SSRF via a compromised or MITM'd session.
     // Case-insensitive check per RFC 3986 §3.1: lowercase the URL before
     // comparing so that `WS://` and `wss://` are both accepted.  The
@@ -312,8 +346,8 @@ pub async fn connect_ws(
 
     // WebSocketConfig is #[non_exhaustive] in tungstenite; use Default + field assignment.
     let mut config = WebSocketConfig::default();
-    config.max_message_size = Some(MAX_WS_MESSAGE_BYTES);
-    config.max_frame_size = Some(MAX_WS_MESSAGE_BYTES);
+    config.max_message_size = Some(max_message_bytes);
+    config.max_frame_size = Some(max_message_bytes);
 
     // Apply a 10-second connect timeout, consistent with the HTTP transport's
     // connect_timeout in DefaultTransport/CustomCaTransport.  tungstenite does
