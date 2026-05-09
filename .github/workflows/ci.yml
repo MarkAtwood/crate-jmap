@@ -1,13 +1,8 @@
 # Workspace CI — enforces the AGENTS.md pre-commit gate on every push and PR.
 #
-# Scope: fmt + clippy + test (stable + beta) + doc + typos + msrv, single
-# ubuntu-latest runner. Each job runs in parallel so total wall time is
-# roughly the slowest job (~test). Beta is advisory.
-#
-# Deferred follow-ups, intentionally out of scope here:
-#   - cargo-deny supply-chain job ...... bd:JMAP-hge6 (blocked on bd:JMAP-sc1b.10
-#                                        which provisions deny.toml)
-# Each follow-up has a TODO marker below where the new job should slot in.
+# Scope: fmt + clippy + test (stable + beta) + doc + typos + msrv + deny,
+# single ubuntu-latest runner. Each job runs in parallel so total wall
+# time is roughly the slowest job (~test). Beta is advisory.
 
 name: CI
 
@@ -138,5 +133,18 @@ jobs:
       - name: cargo check --workspace --all-features --locked
         run: cargo check --workspace --all-features --locked
 
-  # TODO bd:JMAP-hge6 — add `deny` job once bd:JMAP-sc1b.10 lands a deny.toml,
-  # using EmbarkStudios/cargo-deny-action@v2 to enforce supply-chain policy.
+  # -------------------------------------------------------------------------
+  # deny — supply-chain gate via cargo-deny: advisories / licenses / bans /
+  # sources. Configuration lives at workspace root in deny.toml. Failures
+  # block the merge so a new transitive dep introducing a forbidden license,
+  # a yanked version, an active RustSec advisory, or a non-crates.io source
+  # surfaces immediately on the PR.
+  # -------------------------------------------------------------------------
+  deny:
+    name: deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
