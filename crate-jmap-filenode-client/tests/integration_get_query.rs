@@ -8,6 +8,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -77,7 +78,7 @@ async fn file_node_get_with_fetch_parents() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .file_node_get(Some(&["fn1"]), None, Some(true))
+        .file_node_get(Some(&[Id::from("fn1")]), None, Some(true))
         .await
         .expect("file_node_get_with_fetch_parents: must succeed");
 
@@ -141,7 +142,7 @@ async fn file_node_get_without_fetch_parents_omits_field() {
         .await;
 
     let sc = helpers::make_client(&server).await;
-    sc.file_node_get(Some(&["fn2"]), None, None)
+    sc.file_node_get(Some(&[Id::from("fn2")]), None, None)
         .await
         .expect("file_node_get_without_fetch_parents_omits_field: must succeed");
 
@@ -193,7 +194,7 @@ async fn file_node_changes_returns_change_lists() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .file_node_changes("s3", None)
+        .file_node_changes(&State::from("s3"), None)
         .await
         .expect("file_node_changes_returns_change_lists: must succeed");
 
@@ -319,7 +320,7 @@ async fn file_node_query_changes_returns_added_and_removed() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .file_node_query_changes("qs1", None)
+        .file_node_query_changes(&State::from("qs1"), None)
         .await
         .expect("file_node_query_changes_returns_added_and_removed: must succeed");
 

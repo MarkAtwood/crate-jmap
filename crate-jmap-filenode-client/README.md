@@ -52,6 +52,12 @@ sc.file_node_set(
 # }
 ```
 
+Id parameters are typed `&jmap_types::Id` (or `&[jmap_types::Id]` for slices)
+to make invalid Ids unrepresentable. State tokens use `&jmap_types::State`.
+Construct Ids with `Id::new_validated(s)` to enforce RFC 8620 §1.2 syntax at
+the boundary, or with `Id::from(s)` when the value is known-valid (e.g.
+already came back from a server response).
+
 ## Methods
 
 All `pub async fn` on `SessionClient`:
