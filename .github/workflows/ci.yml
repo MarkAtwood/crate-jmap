@@ -1,12 +1,13 @@
 # Workspace CI — enforces the AGENTS.md pre-commit gate on every push and PR.
 #
-# Plan C scope (closes JMAP-sc1b.9): fmt + clippy + test + doc + typos on
-# stable Rust only, single ubuntu-latest runner. Each job runs in parallel so
-# total wall time is roughly the slowest job (~test).
+# Plan C scope (closes JMAP-sc1b.9): fmt + clippy + test (stable + beta) +
+# doc + typos, single ubuntu-latest runner. Each job runs in parallel so
+# total wall time is roughly the slowest job (~test). Beta is advisory.
 #
 # Deferred follow-ups, intentionally out of scope here:
-#   - Beta toolchain leg ............... bd:JMAP-gsr5
-#   - MSRV (1.75) build check .......... bd:JMAP-a2e3
+#   - MSRV (1.75) build check .......... bd:JMAP-a2e3 (blocked on bd:JMAP-ulfy
+#                                        — declared 1.75 doesn't match actual
+#                                        ~1.86 due to transitive deps)
 #   - cargo-deny supply-chain job ...... bd:JMAP-hge6 (blocked on bd:JMAP-sc1b.10
 #                                        which provisions deny.toml)
 # Each follow-up has a TODO marker below where the new job should slot in.
@@ -63,14 +64,23 @@ jobs:
         run: cargo clippy --workspace --tests -- -D warnings
 
   # -------------------------------------------------------------------------
-  # test — full workspace test suite. Slowest job; defines wall time.
+  # test — full workspace test suite on stable + beta. Slowest job; defines
+  # wall time. Beta is advisory (continue-on-error) — it surfaces incoming
+  # Rust regressions before stable picks them up but does not block merges.
+  # `fail-fast: false` keeps stable running when beta fails, otherwise the
+  # whole matrix would cancel and the merge gate would be lost.
   # -------------------------------------------------------------------------
   test:
-    name: test
+    name: test (${{ matrix.rust }})
     runs-on: ubuntu-latest
+    continue-on-error: ${{ matrix.rust == 'beta' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        rust: [stable, beta]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
       - name: cargo test --workspace
         run: cargo test --workspace
@@ -107,12 +117,11 @@ jobs:
       - uses: actions/checkout@v4
       - uses: crate-ci/typos@master
 
-  # TODO bd:JMAP-gsr5 — add `beta` matrix leg of the test job (continue-on-error,
-  # advisory only) to catch incoming Rust regressions before stable picks them up.
-
-  # TODO bd:JMAP-a2e3 — add `msrv` job using dtolnay/rust-toolchain@1.75 and
-  # `cargo check --workspace --all-features --locked` to guard against silent
-  # MSRV bumps from transitive-dep updates.
+  # TODO bd:JMAP-a2e3 (blocked on bd:JMAP-ulfy) — add `msrv` job using
+  # dtolnay/rust-toolchain@<MSRV> and `cargo check --workspace --all-features
+  # --locked` to guard against silent MSRV bumps from transitive-dep updates.
+  # The exact toolchain version waits on the Cargo.toml rust-version policy
+  # decision in JMAP-ulfy (declared 1.75 doesn't match actual ~1.86).
 
   # TODO bd:JMAP-hge6 — add `deny` job once bd:JMAP-sc1b.10 lands a deny.toml,
   # using EmbarkStudios/cargo-deny-action@v2 to enforce supply-chain policy.
