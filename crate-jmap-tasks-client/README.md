@@ -9,6 +9,7 @@ all 14 JMAP Tasks method names.
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_tasks_client::JmapTasksExt;
+use jmap_types::Id;
 
 # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 // 1. Build a JmapClient (auth, base URL — see jmap-base-client docs).
@@ -23,7 +24,9 @@ let sc = client.with_tasks_session(session);
 
 // 4. Call Tasks methods.
 let task_lists = sc.task_list_get(None, None).await?;
-let tasks = sc.task_get(Some(&["task1", "task2"]), None).await?;
+let tasks = sc
+    .task_get(Some(&[Id::from("task1"), Id::from("task2")]), None)
+    .await?;
 
 // Create a task.
 sc.task_set(
@@ -36,6 +39,12 @@ sc.task_set(
 # Ok(())
 # }
 ```
+
+Id parameters are typed `&jmap_types::Id` (or `&[jmap_types::Id]` for slices)
+to make invalid Ids unrepresentable. State tokens use `&jmap_types::State`.
+Construct Ids with `Id::new_validated(s)` to enforce RFC 8620 §1.2 syntax at
+the boundary, or with `Id::from(s)` when the value is known-valid (e.g.
+already came back from a server response).
 
 ## Methods
 

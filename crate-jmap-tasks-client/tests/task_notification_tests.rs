@@ -9,6 +9,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -55,7 +56,7 @@ async fn task_notification_get_round_trip() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .task_notification_get(Some(&["notif1"]), None)
+        .task_notification_get(Some(&[Id::from("notif1")]), None)
         .await
         .expect("task_notification_get_round_trip: must succeed");
 
@@ -131,7 +132,7 @@ async fn task_notification_changes_round_trip() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .task_notification_changes("sn1", None)
+        .task_notification_changes(&State::from("sn1"), None)
         .await
         .expect("task_notification_changes_round_trip: must succeed");
 
@@ -197,7 +198,7 @@ async fn task_notification_set_destroy_only_wire_format() {
         .await;
 
     let sc = helpers::make_client(&server).await;
-    sc.task_notification_set(vec!["notif1", "notif2"])
+    sc.task_notification_set(vec![Id::from("notif1"), Id::from("notif2")])
         .await
         .expect("task_notification_set_destroy_only_wire_format: must succeed");
 
@@ -395,7 +396,7 @@ async fn task_notification_query_changes_round_trip() {
         .await;
 
     let sc = helpers::make_client(&server).await;
-    sc.task_notification_query_changes("qs1", Some(20))
+    sc.task_notification_query_changes(&State::from("qs1"), Some(20))
         .await
         .expect("task_notification_query_changes_round_trip: must succeed");
 

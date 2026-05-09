@@ -4,6 +4,8 @@
 // the client would be rejected by the server with `forbidden`, but we
 // expose a typed API that only allows destroy to avoid client-side confusion.
 
+use jmap_types::{Id, State};
+
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
 
 impl super::SessionClient {
@@ -12,19 +14,10 @@ impl super::SessionClient {
     /// If `ids` is `None`, the server returns all TaskNotifications for the account.
     pub async fn task_notification_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_tasks_types::TaskNotification>, jmap_base_client::ClientError>
     {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "task_notification_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -40,10 +33,11 @@ impl super::SessionClient {
     /// (draft-tasks-06 §5.3).
     pub async fn task_notification_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: see task_list_changes.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "task_notification_changes: since_state may not be empty".into(),
             ));
@@ -69,15 +63,8 @@ impl super::SessionClient {
     /// Passing an empty `destroy` list is valid and produces an empty /set response.
     pub async fn task_notification_set(
         &self,
-        destroy: Vec<&str>,
+        destroy: Vec<Id>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        for id in destroy.iter() {
-            if id.is_empty() {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "task_notification_set: destroy element may not be empty".into(),
-                ));
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -122,10 +109,11 @@ impl super::SessionClient {
     /// (draft-tasks-06 §5.6).
     pub async fn task_notification_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see task_list_changes.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "task_notification_query_changes: since_query_state may not be empty".into(),
             ));
@@ -190,10 +178,9 @@ mod tests {
         );
     }
 
-    // The InvalidArgument guards for empty destroy IDs and empty since_state
-    // live in task_notification_set / task_notification_changes production
-    // code; testing them requires a wiremock-backed async harness.
-    // See JMAP-sc1b.64.
+    // The InvalidArgument guard for empty since_state lives in
+    // task_notification_changes production code; testing it requires a
+    // wiremock-backed async harness. See JMAP-sc1b.64.
 
     /// Oracle: USING_TASKS is used for TaskNotification/set request.
     #[test]
