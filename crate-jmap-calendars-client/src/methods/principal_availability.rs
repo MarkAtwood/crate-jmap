@@ -62,42 +62,12 @@ mod tests {
     // verify it; that requires wiremock and is out of scope for this crate
     // (no async test harness yet). See JMAP-sc1b.64.
 
-    /// Oracle: §2.2 wire field is "id", not "principalId".
-    #[test]
-    fn request_uses_id_key_not_principal_id() {
-        let args = json!({
-            "accountId": "acc1",
-            "id": "p-joe",
-            "utcStart": "2024-06-15T09:00:00Z",
-            "utcEnd": "2024-06-15T10:00:00Z",
-        });
-        let req = build_request("Principal/getAvailability", args, USING_AVAILABILITY);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let args_val = &v["methodCalls"][0][1];
-        assert!(args_val.get("id").is_some(), "must use 'id' key");
-        assert!(
-            args_val.get("principalId").is_none(),
-            "must NOT use 'principalId'"
-        );
-    }
-
-    /// Oracle: showDetails:None → key absent from request (not null).
-    #[test]
-    fn show_details_none_is_absent_from_request() {
-        let args = json!({
-            "accountId": "acc1",
-            "id": "p-joe",
-            "utcStart": "2024-06-15T09:00:00Z",
-            "utcEnd": "2024-06-15T10:00:00Z",
-        });
-        let req = build_request("Principal/getAvailability", args, USING_AVAILABILITY);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let args_val = &v["methodCalls"][0][1];
-        assert!(
-            args_val.get("showDetails").is_none(),
-            "showDetails must be absent when None"
-        );
-    }
+    // request_uses_id_key_not_principal_id and
+    // show_details_none_is_absent_from_request were vacuous: they hand-built
+    // args and fed them to build_request, never exercising the production
+    // principal_get_availability builder. Deleted in JMAP-231o.8. Real
+    // production-path coverage lives in
+    // tests/availability_tests.rs::principal_get_availability_round_trip.
 
     /// Oracle: USING_AVAILABILITY contains the principals:availability URI.
     #[test]

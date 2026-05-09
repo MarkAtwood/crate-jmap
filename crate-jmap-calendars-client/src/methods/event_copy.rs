@@ -52,30 +52,12 @@ impl super::SessionClient {
 // Tests
 // ---------------------------------------------------------------------------
 
-#[cfg(test)]
-mod tests {
-    use super::super::{build_request, CALL_ID, USING_CALENDARS};
-    use serde_json::json;
-
-    /// Oracle: CalendarEvent/copy request has correct method name, call_id, and
-    /// fromAccountId in args. Expected values from draft §5.7.
-    #[test]
-    fn calendar_event_copy_request_shape() {
-        let args = json!({
-            "fromAccountId": "src_acc",
-            "accountId": "dst_acc",
-            "create": {},
-        });
-        let req = build_request("CalendarEvent/copy", args, USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("CalendarEvent/copy"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-        assert_eq!(calls[0][1]["fromAccountId"], json!("src_acc"));
-        assert_eq!(calls[0][1]["accountId"], json!("dst_acc"));
-    }
-
-    // The InvalidArgument guard for empty from_account_id lives in
-    // calendar_event_copy production code; testing it requires a
-    // wiremock-backed async harness. See JMAP-sc1b.64.
-}
+// calendar_event_copy_request_shape was vacuous: it hand-built args and
+// fed them to build_request, never exercising the production
+// calendar_event_copy builder. Deleted in JMAP-231o.8.
+//
+// Real production-path coverage:
+//   - calendar_event_copy_empty_creation_id_returns_invalid_argument
+//   - calendar_event_copy_empty_from_account_returns_invalid_argument
+// Both in tests/calendar_smoke_tests.rs. End-to-end success-path
+// coverage for calendar_event_copy still needed; tracked under JMAP-231o.8.1.

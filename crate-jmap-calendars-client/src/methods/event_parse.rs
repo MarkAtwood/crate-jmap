@@ -46,42 +46,15 @@ mod tests {
     // production code; testing it requires a wiremock-backed async harness.
     // See JMAP-sc1b.64.
 
-    /// Oracle: blobIds must appear in the request with camelCase wire name.
-    #[test]
-    fn blob_ids_wire_name_is_camel_case() {
-        let args = json!({
-            "accountId": "acc1",
-            "blobIds": ["blob-1", "blob-2"],
-        });
-        let req = build_request("CalendarEvent/parse", args, USING_PARSE);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("CalendarEvent/parse"));
-        // blobIds (camelCase) must be present.
-        assert!(
-            calls[0][1]["blobIds"].is_array(),
-            "blobIds must be an array"
-        );
-        assert_eq!(calls[0][1]["blobIds"][0], json!("blob-1"));
-    }
-
-    /// Oracle: properties:None → key absent from request (not null).
-    #[test]
-    fn properties_none_is_absent_from_request() {
-        let args = json!({
-            "accountId": "acc1",
-            "blobIds": ["blob-1"],
-        });
-        let req = build_request("CalendarEvent/parse", args, USING_PARSE);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let args_val = &v["methodCalls"][0][1];
-        assert!(
-            args_val.get("properties").is_none(),
-            "properties must not be present when None"
-        );
-    }
+    // blob_ids_wire_name_is_camel_case and properties_none_is_absent_from_request
+    // were vacuous: they hand-built args and fed them to build_request,
+    // never exercising the production calendar_event_parse builder.
+    // Deleted in JMAP-231o.8. Real coverage:
+    // tests/calendar_smoke_tests.rs::calendar_event_parse_smoke.
 
     /// Oracle: USING_PARSE contains all 3 capability URIs including the parse extension.
+    /// This test legitimately exercises the USING_PARSE constant directly,
+    /// not pretending to test calendar_event_parse via build_request.
     #[test]
     fn using_parse_contains_parse_capability() {
         let req = build_request(

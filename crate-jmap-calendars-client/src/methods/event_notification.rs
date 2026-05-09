@@ -214,69 +214,18 @@ impl super::SessionClient {
 // Tests
 // ---------------------------------------------------------------------------
 
-#[cfg(test)]
-mod tests {
-    use super::super::{build_request, CALL_ID, USING_CALENDARS};
-    use serde_json::json;
-
-    /// Oracle: CalendarEventNotification/set with no destroy sends destroy:[] in args.
-    /// The spec mandates destroy-only — no create or update keys.
-    #[test]
-    fn calendar_event_notification_set_no_destroy_sends_empty_array() {
-        let destroy_val = serde_json::Value::Array(vec![]);
-        let args = json!({
-            "accountId": "acc1",
-            "destroy": destroy_val,
-        });
-        let req = build_request("CalendarEventNotification/set", args, USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-
-        assert_eq!(
-            calls[0][0],
-            json!("CalendarEventNotification/set"),
-            "method name"
-        );
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-
-        let method_args = &calls[0][1];
-        let destroy = method_args["destroy"]
-            .as_array()
-            .expect("destroy must be array");
-        assert!(destroy.is_empty(), "destroy must be empty when None passed");
-        assert!(
-            method_args.get("create").is_none(),
-            "create must not be present in destroy-only method"
-        );
-        assert!(
-            method_args.get("update").is_none(),
-            "update must not be present in destroy-only method"
-        );
-    }
-
-    /// Oracle: CalendarEventNotification/set with destroy list sends IDs.
-    #[test]
-    fn calendar_event_notification_set_with_destroy_sends_ids() {
-        let ids = ["notif1", "notif2"];
-        let destroy_val =
-            serde_json::Value::Array(ids.iter().copied().map(serde_json::Value::from).collect());
-        let args = json!({ "accountId": "acc1", "destroy": destroy_val });
-        let req = build_request("CalendarEventNotification/set", args, USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
-        assert_eq!(destroy_arr.len(), 2);
-        assert!(destroy_arr.contains(&json!("notif1")));
-        assert!(destroy_arr.contains(&json!("notif2")));
-    }
-
-    // The end-to-end InvalidArgument guard for empty `ids` slice elements
-    // lives in tests/calendar_smoke_tests.rs as a wiremock-backed test
-    // (calendar_event_notification_get_empty_id_returns_invalid_argument).
-    // The previous inline unit test was a vacuous re-assertion of
-    // `"".is_empty()` and never exercised the production guard (JMAP-231o.7).
-    //
-    // The InvalidArgument guard for empty since_state in
-    // calendar_event_notification_changes is also exercised end-to-end via
-    // wiremock; see JMAP-sc1b.64.
-}
+// calendar_event_notification_set_no_destroy_sends_empty_array and
+// calendar_event_notification_set_with_destroy_sends_ids were vacuous:
+// they hand-built args and fed them to build_request, never exercising
+// the production calendar_event_notification_set builder. Deleted in
+// JMAP-231o.8. The destroy-only enforcement (no create/update keys)
+// and the destroy IDs passthrough need wiremock smoke tests; tracked
+// under JMAP-231o.8.1.
+//
+// The end-to-end InvalidArgument guard for empty `ids` slice elements
+// lives in tests/calendar_smoke_tests.rs as a wiremock-backed test
+// (calendar_event_notification_get_empty_id_returns_invalid_argument).
+//
+// The InvalidArgument guard for empty since_state in
+// calendar_event_notification_changes is also exercised end-to-end via
+// wiremock; see JMAP-sc1b.64.

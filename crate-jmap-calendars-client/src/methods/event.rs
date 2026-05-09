@@ -227,55 +227,17 @@ impl super::SessionClient {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — see tests/calendar_smoke_tests.rs (wiremock-backed end-to-end)
 // ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::super::{build_request, CalendarEventGetParams, CALL_ID, USING_CALENDARS};
-    use serde_json::json;
-
-    // The end-to-end InvalidArgument guard for empty `ids` slice elements
-    // lives in tests/calendar_smoke_tests.rs as a wiremock-backed test
-    // (calendar_event_get_empty_id_returns_invalid_argument). The previous
-    // inline unit test was a vacuous re-assertion of `"".is_empty()` and
-    // never exercised the production guard (JMAP-231o.7).
-
-    /// Oracle: CalendarEvent/get with expandRecurrences sends the flag in args.
-    /// Expected field name is "expandRecurrences" per draft §5.4.
-    #[test]
-    fn calendar_event_get_params_expand_recurrences_in_args() {
-        let params = CalendarEventGetParams {
-            expand_recurrences: Some(true),
-            reduced_participants: None,
-            fetch_calendars: None,
-        };
-        let mut args = json!({ "accountId": "acc1", "ids": null, "properties": null });
-        if let Some(v) = params.expand_recurrences {
-            args["expandRecurrences"] = v.into();
-        }
-        let req = build_request("CalendarEvent/get", args, USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["expandRecurrences"], json!(true));
-    }
-
-    /// Oracle: CalendarEvent/query with expandRecurrences=true sends the flag.
-    /// Expected field name is "expandRecurrences" per draft §5.11.
-    #[test]
-    fn calendar_event_query_expand_recurrences_in_args() {
-        let mut args = json!({ "accountId": "acc1" });
-        args["expandRecurrences"] = true.into();
-        let req = build_request("CalendarEvent/query", args, USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("CalendarEvent/query"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-        assert_eq!(calls[0][1]["expandRecurrences"], json!(true));
-    }
-
-    // The InvalidArgument guards for empty since_state and since_query_state
-    // live in calendar_event_changes / calendar_event_query_changes production
-    // code; testing them requires a wiremock-backed async harness.
-    // See JMAP-sc1b.64.
-}
+//
+// Previous inline `mod tests` deleted in JMAP-231o.8: vacuous tests that
+// hand-built `args` and fed them to `build_request` without exercising
+// the production `calendar_event_*` builders.
+//
+// Production-path coverage in `tests/calendar_smoke_tests.rs`:
+//   - calendar_event_set_smoke (success path for /set)
+//   - calendar_event_get_empty_id_returns_invalid_argument (guard)
+//
+// Specific-flag passthrough (expandRecurrences on /get and /query,
+// since_state on /changes, etc.) needs wiremock smoke tests with
+// request-body assertions; tracked under JMAP-231o.8.1.
