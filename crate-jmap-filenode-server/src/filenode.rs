@@ -420,9 +420,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     mutated = true;
                     created.insert(
                         create_id,
-                        serde_json::to_value(&created_obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&created_obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -499,9 +498,8 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     mutated = true;
                     updated.insert(
                         id_str,
-                        serde_json::to_value(&obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Ok(None) => {
@@ -768,9 +766,8 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                     mutated = true;
                     copied.insert(
                         create_id,
-                        serde_json::to_value(&created_obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&created_obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {

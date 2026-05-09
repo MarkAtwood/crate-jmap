@@ -176,9 +176,8 @@ pub async fn handle_ban_set<B: ChatBackend>(
                     mutated = true;
                     created.insert(
                         create_id.clone(),
-                        serde_json::to_value(&created_obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&created_obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -244,7 +243,11 @@ pub async fn handle_ban_set<B: ChatBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })));
+                    updated.insert(
+                        id_str,
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
                 }
                 Ok(None) => {
                     mutated = true;

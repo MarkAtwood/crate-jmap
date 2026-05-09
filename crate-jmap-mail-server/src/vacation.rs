@@ -87,10 +87,7 @@ pub async fn handle_vacation_get<B: MailBackend>(
 
     let list_json: Vec<Value> = list
         .iter()
-        .map(|v| {
-            serde_json::to_value(v)
-                .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() }))
-        })
+        .map(|v| serde_json::to_value(v).expect("derive(Serialize) on plain data is infallible"))
         .collect();
 
     Ok((
@@ -191,7 +188,8 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 Ok(Some(obj)) => {
                     updated.insert(
                         id.clone(),
-                        serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                     mutated = true;
                 }
@@ -231,7 +229,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                 Ok(Some(obj)) => {
                                     updated.insert(
                                         id.clone(),
-                                        serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
+                                        serde_json::to_value(&obj).expect(
+                                            "derive(Serialize) on plain data is infallible",
+                                        ),
                                     );
                                     mutated = true;
                                 }

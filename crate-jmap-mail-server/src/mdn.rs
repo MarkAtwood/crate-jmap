@@ -453,9 +453,8 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                     Ok(Some(obj)) => {
                         email_updated.insert(
                             email_id.as_ref().to_owned(),
-                            serde_json::to_value(&obj).unwrap_or_else(
-                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                            ),
+                            serde_json::to_value(&obj)
+                                .expect("derive(Serialize) on plain data is infallible"),
                         );
                     }
                     Ok(None) => {

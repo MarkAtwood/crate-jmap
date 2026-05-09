@@ -657,9 +657,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         .await
                     {
                         Ok((_id, obj)) => {
-                            let obj_val = serde_json::to_value(&obj).unwrap_or_else(
-                                |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                            );
+                            let obj_val = serde_json::to_value(&obj)
+                                .expect("derive(Serialize) on plain data is infallible");
                             created.insert(create_id.clone(), obj_val);
                         }
                         Err(BackendSetError::SetError(se)) => {
@@ -798,9 +797,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     // beyond the patch, echo them in the updated map entry.
                     let entry = maybe_obj
                         .as_ref()
-                        .map(|o| serde_json::to_value(o).unwrap_or_else(
-                            |e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })
-                        ))
+                        .map(|o| {
+                            serde_json::to_value(o)
+                                .expect("derive(Serialize) on plain data is infallible")
+                        })
                         .unwrap_or(Value::Null);
                     updated.insert(id_str, entry);
                     if let Some(role) = current_role {
@@ -887,9 +887,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     // beyond the patch, echo them in the updated map entry.
                     let entry = maybe_obj
                         .as_ref()
-                        .map(|o| serde_json::to_value(o).unwrap_or_else(
-                            |e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })
-                        ))
+                        .map(|o| {
+                            serde_json::to_value(o)
+                                .expect("derive(Serialize) on plain data is infallible")
+                        })
                         .unwrap_or(Value::Null);
                     updated.insert(id_str, entry);
                 }

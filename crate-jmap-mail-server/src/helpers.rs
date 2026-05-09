@@ -46,9 +46,7 @@ pub(crate) fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value 
 /// Falls back to a `serverFail` object on the extremely unlikely event that
 /// `SetError`'s `Serialize` impl panics.
 pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {
-    serde_json::to_value(e).unwrap_or_else(
-        |err| serde_json::json!({ "type": "serverFail", "description": err.to_string() }),
-    )
+    serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 
 /// Immutable Email fields (RFC 8621 §5.5.4).
