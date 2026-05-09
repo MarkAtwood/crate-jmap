@@ -63,12 +63,13 @@ pub struct ClientConfig {
     /// **Memory residency note (bd:JMAP-6lsm.7):** because the raw byte
     /// buffer and the decoded text buffer are tracked separately, the
     /// in-flight footprint while parsing a single frame can momentarily
-    /// reach ~2 × `max_sse_frame` (raw bytes accumulated up to the limit
-    /// + decoded text not yet drained). If you tune this value for a tight
-    /// memory budget, plan for that 2× peak. The independent tracking is
-    /// correct for the streaming UTF-8 decoder (which needs the raw buffer
-    /// to be at least one full frame to handle split multi-byte sequences
-    /// across HTTP chunks); see `decode_utf8_chunk` for the rationale.
+    /// reach ~2 × `max_sse_frame` (raw bytes accumulated up to the limit,
+    /// plus decoded text not yet drained). If you tune this value for a
+    /// tight memory budget, plan for that 2× peak. The independent
+    /// tracking is correct for the streaming UTF-8 decoder (which needs
+    /// the raw buffer to be at least one full frame to handle split
+    /// multi-byte sequences across HTTP chunks); see `decode_utf8_chunk`
+    /// for the rationale.
     pub max_sse_frame: usize,
     /// Maximum byte length of a single WebSocket message (and frame). Mirrors
     /// `max_sse_frame` for the WebSocket transport. Used by
