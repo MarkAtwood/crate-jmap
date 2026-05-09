@@ -7,12 +7,17 @@ use crate::backend::SetDefaultResult;
 
 pub(crate) use jmap_server::extract_account_id;
 
-/// Serialize a [`SetError`] to a JSON value for inclusion in
+/// Serialize a [`crate::backend::SetError`] to a JSON value for inclusion in
 /// `notCreated`/`notUpdated`/`notDestroyed` maps.
+///
+/// `SetError` (re-exported from `jmap-server`) uses `#[derive(Serialize)]` on
+/// plain data, so `serde_json::to_value` is infallible; we assert that with
+/// `.expect()` rather than silently masking a hypothetical failure as
+/// `serverFail`. A `serverFail` description carrying a serde error string is
+/// not something any client knows to look at, and the fallback would also
+/// hide a real bug if a future custom `Serialize` impl ever did fail.
 pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {
-    serde_json::to_value(e).unwrap_or_else(
-        |err| serde_json::json!({ "type": "serverFail", "description": err.to_string() }),
-    )
+    serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 
 /// Resolve an `onSuccessSetIsDefault` argument value to the target [`Id`].

@@ -280,11 +280,12 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
+                    // CalendarEvent uses #[derive(Serialize)] on plain data;
+                    // to_value is infallible (JMAP-r3pg.13).
                     created.insert(
                         create_id,
-                        serde_json::to_value(&created_obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&created_obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -384,11 +385,11 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             match update_result {
                 Ok(Some(obj)) => {
                     mutated = true;
+                    // See create branch above (JMAP-r3pg.13).
                     updated.insert(
                         id_str,
-                        serde_json::to_value(&obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Ok(None) => {
@@ -618,9 +619,10 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 .await
             {
                 Ok((_new_id, created_obj)) => {
-                    let v = serde_json::to_value(&created_obj).unwrap_or_else(
-                        |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    // CalendarEvent uses #[derive(Serialize)] on plain data;
+                    // to_value is infallible (JMAP-r3pg.13).
+                    let v = serde_json::to_value(&created_obj)
+                        .expect("derive(Serialize) on plain data is infallible");
                     created.insert(create_id.clone(), v);
                     copied_pairs.push((create_id, source_id));
                 }
