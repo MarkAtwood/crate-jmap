@@ -37,11 +37,23 @@ impl super::SessionClient {
             }
         }
         let (api_url, account_id) = self.session_parts()?;
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-            "ids": ids,
-            "properties": properties,
-        });
+        // Omit `ids` / `properties` when None — see the matching comment on
+        // `calendar_get` for the rationale (consistent with set/changes/query).
+        let mut args = serde_json::json!({ "accountId": account_id });
+        if let Some(id_slice) = ids {
+            args["ids"] = serde_json::Value::Array(
+                id_slice
+                    .iter()
+                    .copied()
+                    .map(serde_json::Value::from)
+                    .collect(),
+            );
+        }
+        if let Some(props) = properties {
+            args["properties"] = serde_json::Value::Array(
+                props.iter().copied().map(serde_json::Value::from).collect(),
+            );
+        }
         if let Some(p) = params {
             if let Some(v) = p.expand_recurrences {
                 args["expandRecurrences"] = v.into();

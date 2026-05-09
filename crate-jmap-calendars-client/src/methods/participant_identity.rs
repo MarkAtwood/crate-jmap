@@ -25,11 +25,23 @@ impl super::SessionClient {
             }
         }
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
-            "accountId": account_id,
-            "ids": ids,
-            "properties": properties,
-        });
+        // Omit `ids` / `properties` when None — see the matching comment on
+        // `calendar_get` for the rationale.
+        let mut args = serde_json::json!({ "accountId": account_id });
+        if let Some(id_slice) = ids {
+            args["ids"] = serde_json::Value::Array(
+                id_slice
+                    .iter()
+                    .copied()
+                    .map(serde_json::Value::from)
+                    .collect(),
+            );
+        }
+        if let Some(props) = properties {
+            args["properties"] = serde_json::Value::Array(
+                props.iter().copied().map(serde_json::Value::from).collect(),
+            );
+        }
         let req = super::build_request("ParticipantIdentity/get", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

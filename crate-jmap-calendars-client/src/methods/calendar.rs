@@ -34,11 +34,27 @@ impl super::SessionClient {
             }
         }
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
-            "accountId": account_id,
-            "ids": ids,
-            "properties": properties,
-        });
+        // Omit `ids` / `properties` entirely when None rather than sending
+        // an explicit JSON null. RFC 8620 §5.1 accepts both shapes, but the
+        // crate's other builders (set/changes/query) consistently use the
+        // conditional-add idiom; matching it here keeps the wire request
+        // canonical and avoids "present-but-null vs absent" interop quirks
+        // in proxies / audit loggers.
+        let mut args = serde_json::json!({ "accountId": account_id });
+        if let Some(id_slice) = ids {
+            args["ids"] = serde_json::Value::Array(
+                id_slice
+                    .iter()
+                    .copied()
+                    .map(serde_json::Value::from)
+                    .collect(),
+            );
+        }
+        if let Some(props) = properties {
+            args["properties"] = serde_json::Value::Array(
+                props.iter().copied().map(serde_json::Value::from).collect(),
+            );
+        }
         let req = super::build_request("Calendar/get", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
