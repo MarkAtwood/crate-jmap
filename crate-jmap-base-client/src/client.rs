@@ -300,7 +300,7 @@ impl JmapClient {
 
         let session: Session = serde_json::from_slice(&bytes).map_err(ClientError::Parse)?;
 
-        validate_session_urls(&session)?;
+        validate_session_url_schemes(&session)?;
 
         Ok(session)
     }
@@ -738,7 +738,21 @@ pub(crate) fn require_http_url(url: &str) -> Result<(), ClientError> {
 /// Scheme comparison is case-insensitive per RFC 3986 §3.1: both `http://` and
 /// `HTTP://` are accepted.  Session URL templates may contain `{variable}`
 /// syntax that prevents full URL parsing, so only the scheme prefix is checked.
-fn validate_session_urls(session: &Session) -> Result<(), ClientError> {
+/// Validate the *schemes only* of the four session URL fields.
+///
+/// Three of the four (`upload_url`, `download_url`, `event_source_url`) are
+/// RFC 6570 URI templates carrying `{accountId}`, `{blobId}`, `{types}`,
+/// etc. They cannot be fully parsed as URLs without first being expanded
+/// with the relevant variables, but the scheme prefix is always concrete
+/// (templates put the scheme on the left of `://`). This function does the
+/// minimal check that the scheme prefix is `http://` or `https://` — it
+/// does NOT verify that the templates carry the required variables, that
+/// the host is well-formed, or that the path is reachable.
+///
+/// Renamed from `validate_session_urls` for accuracy (bd:JMAP-6lsm.23):
+/// the name implied stronger validation than the function actually
+/// performs.
+fn validate_session_url_schemes(session: &Session) -> Result<(), ClientError> {
     for url in [
         &session.api_url,
         &session.upload_url,
