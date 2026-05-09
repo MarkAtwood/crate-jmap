@@ -158,11 +158,13 @@ pub(crate) fn validate_id_field(
     value: &str,
     label: &str,
 ) -> Result<(), jmap_base_client::ClientError> {
-    jmap_types::Id::new_validated(value).map(|_| ()).map_err(|e| {
-        jmap_base_client::ClientError::InvalidArgument(format!(
-            "{label} is not a valid Id ({e})"
-        ))
-    })
+    jmap_types::Id::new_validated(value)
+        .map(|_| ())
+        .map_err(|e| {
+            jmap_base_client::ClientError::InvalidArgument(format!(
+                "{label} is not a valid Id ({e})"
+            ))
+        })
 }
 
 /// Validate every element of an Id slice as an RFC 8620 §1.2 Id.
@@ -179,11 +181,13 @@ pub(crate) fn validate_ids_field(
     field: &str,
 ) -> Result<(), jmap_base_client::ClientError> {
     for id in ids {
-        jmap_types::Id::new_validated(*id).map(|_| ()).map_err(|e| {
-            jmap_base_client::ClientError::InvalidArgument(format!(
-                "{context}: {field} element {id:?} is not a valid Id ({e})"
-            ))
-        })?;
+        jmap_types::Id::new_validated(*id)
+            .map(|_| ())
+            .map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "{context}: {field} element {id:?} is not a valid Id ({e})"
+                ))
+            })?;
     }
     Ok(())
 }
