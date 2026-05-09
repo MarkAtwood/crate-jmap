@@ -514,6 +514,57 @@ async fn test_upload_blob_response_size_cap() {
     );
 }
 
+/// Oracle: regression for bd:JMAP-6lsm.8 — when the server's reply
+/// `BlobUploadResponse.size` disagrees with the actual bytes uploaded,
+/// upload_blob MUST surface UnexpectedResponse rather than silently
+/// accept the buggy server's reported size. Independent oracle: a
+/// hand-crafted server response declaring size=0 for a 5-byte upload.
+#[tokio::test]
+async fn test_upload_blob_rejects_size_mismatch() {
+    let server = MockServer::start().await;
+
+    // Server returns a JSON BlobUploadResponse with size=0 even though
+    // the client uploads 5 bytes. No sha256 (most servers don't supply
+    // one), so size is the only integrity signal.
+    let buggy_resp =
+        r#"{"accountId":"account1","blobId":"B1","type":"application/octet-stream","size":0}"#;
+    Mock::given(method("POST"))
+        .and(path("/upload/account1/"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(buggy_resp))
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let template = format!("{}/upload/{{accountId}}/", server.uri());
+    let err = client
+        .upload_blob(
+            &template,
+            "account1",
+            bytes::Bytes::from(b"hello".to_vec()), // 5 bytes
+            "application/octet-stream",
+        )
+        .await
+        .expect_err("size mismatch must surface as an error");
+    match err {
+        ClientError::UnexpectedResponse(msg) => {
+            assert!(
+                msg.contains("size mismatch"),
+                "error must mention 'size mismatch': {msg}"
+            );
+            assert!(msg.contains("5"), "error must mention client size 5: {msg}");
+            assert!(msg.contains("0"), "error must mention server size 0: {msg}");
+        }
+        other => panic!("expected UnexpectedResponse, got {other:?}"),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // download_blob
 // ---------------------------------------------------------------------------
