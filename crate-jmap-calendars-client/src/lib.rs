@@ -2,6 +2,20 @@
 //!
 //! Depends on jmap-base-client for transport, auth, and session.
 //! Implements the 18-method surface described in draft-ietf-jmap-calendars-26.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! # use jmap_calendars_client::JmapCalendarsExt;
+//! # async fn example(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {
+//! let session = client.fetch_session().await?;
+//! let sc = client.with_calendars_session(session);
+//! // List all calendars in the primary account.
+//! let calendars = sc.calendar_get(None, None).await?;
+//! # let _ = calendars;
+//! # Ok(())
+//! # }
+//! ```
 
 #![forbid(unsafe_code)]
 
