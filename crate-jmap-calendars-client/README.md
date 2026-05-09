@@ -11,6 +11,7 @@ Implements 19 typed `async fn` methods on a session-bound client. Depends on
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_calendars_client::JmapCalendarsExt;
+use jmap_types::Id;
 
 # async fn run() -> Result<(), Box<dyn std::error::Error>> {
 // 1. Build the underlying HTTP client.
@@ -28,8 +29,8 @@ let calendars = sc.calendar_get(None, None).await?;
 println!("{} calendars", calendars.list.len());
 
 // 5. Parse a calendar blob into CalendarEvent objects.
-let blob_id = "blob-abc";
-let parsed = sc.calendar_event_parse(&[blob_id], None).await?;
+let blob_ids = [Id::new_validated("blob-abc")?];
+let parsed = sc.calendar_event_parse(&blob_ids, None).await?;
 if let Some(map) = parsed.parsed {
     for (id, events) in &map {
         println!("blob {id}: {} events", events.len());
@@ -38,6 +39,12 @@ if let Some(map) = parsed.parsed {
 # Ok(())
 # }
 ```
+
+Id parameters are typed `&jmap_types::Id` (or `&[jmap_types::Id]` for slices)
+to make invalid Ids unrepresentable. Construct Ids with
+`Id::new_validated(s)` to enforce RFC 8620 §1.2 syntax (1..=255 SAFE-CHARs)
+at the boundary, or with `Id::from(s)` when the value is known-valid (e.g.
+already came back from a server response).
 
 Re-create the `SessionClient` after each `fetch_session` call; a stale
 session will produce `unknownAccount` or similar errors from the server.
@@ -52,45 +59,49 @@ from the bound session.
 
 | Method | Signature | Returns |
 |---|---|---|
-| `calendar_get` | `(ids: Option<&[&str]>, properties: Option<&[&str]>)` | `GetResponse<Calendar>` |
-| `calendar_changes` | `(since_state: &str, max_changes: Option<u64>)` | `ChangesResponse` |
-| `calendar_set` | `(create, update, destroy, on_destroy_remove_events: Option<bool>)` | `SetResponse<Calendar>` |
+| `calendar_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<Calendar>` |
+| `calendar_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
+| `calendar_set` | `(create, update, destroy: Option<&[Id]>, on_destroy_remove_events: Option<bool>)` | `SetResponse<Calendar>` |
 
 ### CalendarEvent
 
 | Method | Signature | Returns |
 |---|---|---|
-| `calendar_event_get` | `(ids: Option<&[&str]>, properties: Option<&[&str]>, params: Option<CalendarEventGetParams>)` | `GetResponse<CalendarEvent>` |
-| `calendar_event_changes` | `(since_state: &str, max_changes: Option<u64>)` | `ChangesResponse` |
-| `calendar_event_set` | `(create, update, destroy: Option<Vec<&str>>)` | `SetResponse<CalendarEvent>` |
-| `calendar_event_copy` | `(from_account_id: &str, create: serde_json::Value)` | `SetResponse<CalendarEvent>` |
+| `calendar_event_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>, params: Option<CalendarEventGetParams>)` | `GetResponse<CalendarEvent>` |
+| `calendar_event_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
+| `calendar_event_set` | `(create, update, destroy: Option<&[Id]>)` | `SetResponse<CalendarEvent>` |
+| `calendar_event_copy` | `(from_account_id: &Id, create: HashMap<String, CalendarEvent>)` | `SetResponse<CalendarEvent>` |
 | `calendar_event_query` | `(filter, sort, position: Option<u64>, limit: Option<u64>, expand_recurrences: Option<bool>)` | `QueryResponse` |
-| `calendar_event_query_changes` | `(since_query_state: &str, max_changes: Option<u64>)` | `QueryChangesResponse` |
-| `calendar_event_parse` | `(blob_ids: &[&str], properties: Option<&[&str]>)` | `CalendarEventParseResponse` |
+| `calendar_event_query_changes` | `(since_query_state: &State, max_changes: Option<u64>)` | `QueryChangesResponse` |
+| `calendar_event_parse` | `(blob_ids: &[Id], properties: Option<&[&str]>)` | `CalendarEventParseResponse` |
 
 ### CalendarEventNotification
 
 | Method | Signature | Returns |
 |---|---|---|
-| `calendar_event_notification_get` | `(ids: Option<&[&str]>, properties: Option<&[&str]>)` | `GetResponse<CalendarEventNotification>` |
-| `calendar_event_notification_changes` | `(since_state: &str, max_changes: Option<u64>)` | `ChangesResponse` |
-| `calendar_event_notification_set` | `(destroy: Option<Vec<&str>>)` | `SetResponse` |
+| `calendar_event_notification_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<CalendarEventNotification>` |
+| `calendar_event_notification_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
+| `calendar_event_notification_set` | `(destroy: Option<&[Id]>)` | `SetResponse` |
 | `calendar_event_notification_query` | `(filter, sort, position: Option<u64>, limit: Option<u64>)` | `QueryResponse` |
-| `calendar_event_notification_query_changes` | `(since_query_state: &str, max_changes: Option<u64>)` | `QueryChangesResponse` |
+| `calendar_event_notification_query_changes` | `(since_query_state: &State, max_changes: Option<u64>)` | `QueryChangesResponse` |
 
 ### ParticipantIdentity
 
 | Method | Signature | Returns |
 |---|---|---|
-| `participant_identity_get` | `(ids: Option<&[&str]>, properties: Option<&[&str]>)` | `GetResponse<ParticipantIdentity>` |
-| `participant_identity_changes` | `(since_state: &str, max_changes: Option<u64>)` | `ChangesResponse` |
-| `participant_identity_set` | `(create, update, destroy: Option<Vec<&str>>)` | `SetResponse<ParticipantIdentity>` |
+| `participant_identity_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<ParticipantIdentity>` |
+| `participant_identity_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
+| `participant_identity_set` | `(create, update, destroy: Option<&[Id]>)` | `SetResponse<ParticipantIdentity>` |
 
 ### Principal
 
 | Method | Signature | Returns |
 |---|---|---|
-| `principal_get_availability` | `(principal_id: &str, utc_start: &str, utc_end: &str, show_details: Option<bool>, event_properties: Option<&[&str]>)` | `PrincipalGetAvailabilityResponse` |
+| `principal_get_availability` | `(principal_id: &Id, utc_start: &str, utc_end: &str, show_details: Option<bool>, event_properties: Option<&[&str]>)` | `PrincipalGetAvailabilityResponse` |
+
+`Id` and `State` here are `jmap_types::Id` and `jmap_types::State`. The
+`utc_start` / `utc_end` parameters of `principal_get_availability` remain
+`&str` pending a workspace-wide `UTCDate` newtype migration.
 
 `filter` and `sort` parameters use typed conditions/comparators where defined,
 falling back to `Option<serde_json::Value>` for spec extensions not yet bound.

@@ -142,55 +142,18 @@ pub(crate) fn build_request(
 // ---------------------------------------------------------------------------
 // Id validation (RFC 8620 §1.2)
 // ---------------------------------------------------------------------------
-
-/// Validate a single string field as an RFC 8620 §1.2 Id.
-///
-/// The previous half-measure `is_empty()` guards caught only empty strings;
-/// `Id::new_validated` enforces the full §1.2 syntax (1..=255 SAFE-CHARs).
-/// This means inputs like `"\x00bad"`, `" "`, `"#$%"`, or strings >255 octets
-/// are rejected client-side before any HTTP call rather than producing
-/// confusing server-side errors. Decision recorded on bd:JMAP-231o.6.
-///
-/// `label` is the human-readable identifier of the field for the error
-/// message (e.g. `"calendar_event_copy: from_account_id"`). The smoke tests
-/// rely on the field name appearing as a substring of the error message.
-pub(crate) fn validate_id_field(
-    value: &str,
-    label: &str,
-) -> Result<(), jmap_base_client::ClientError> {
-    jmap_types::Id::new_validated(value)
-        .map(|_| ())
-        .map_err(|e| {
-            jmap_base_client::ClientError::InvalidArgument(format!(
-                "{label} is not a valid Id ({e})"
-            ))
-        })
-}
-
-/// Validate every element of an Id slice as an RFC 8620 §1.2 Id.
-///
-/// See [`validate_id_field`] for the `Id::new_validated` rationale.
-///
-/// `context` is the method name (e.g. `"calendar_get"`); `field` is the
-/// argument name (e.g. `"ids"`, `"destroy"`, `"blobIds"`). The smoke tests
-/// assert on the substring `"<field> element"` so both pieces must appear
-/// in the error message.
-pub(crate) fn validate_ids_field(
-    ids: &[&str],
-    context: &str,
-    field: &str,
-) -> Result<(), jmap_base_client::ClientError> {
-    for id in ids {
-        jmap_types::Id::new_validated(*id)
-            .map(|_| ())
-            .map_err(|e| {
-                jmap_base_client::ClientError::InvalidArgument(format!(
-                    "{context}: {field} element {id:?} is not a valid Id ({e})"
-                ))
-            })?;
-    }
-    Ok(())
-}
+//
+// Earlier revisions exposed `validate_id_field` / `validate_ids_field`
+// helpers that wrapped `jmap_types::Id::new_validated` to guard the
+// `&str` / `&[&str]` parameters (decision recorded on bd:JMAP-231o.6).
+// The 0.2.0 typed-Id refactor (bd:JMAP-6by7) replaced those parameter
+// shapes with `&Id` / `&[Id]` directly; once values reach the method
+// body they are already validated by virtue of being typed `Id`s, so
+// the helpers became dead code and were removed in bd:JMAP-6by7.1.
+//
+// Callers that still need ad-hoc validation (e.g. when building Ids
+// from user input at a higher layer) should call
+// `jmap_types::Id::new_validated` directly.
 
 // ---------------------------------------------------------------------------
 // SessionClient — session-bound client

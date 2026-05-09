@@ -111,6 +111,7 @@ this section.
 ```rust
 use jmap_base_client::{ClientError, JmapClient, Session};
 use jmap_calendars_client::JmapCalendarsExt;
+use jmap_types::{Id, PatchObject, State};
 
 /// One-method extension trait. (drift: original plan put all 19 methods here.)
 pub trait JmapCalendarsExt {
@@ -127,61 +128,93 @@ impl SessionClient {
     // ── Calendar (3 methods) ────────────────────────────────────────────
     pub async fn calendar_get(
         &self,
-        ids: Option<&[&str]>,             // (drift: was Option<&[Id]>)
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<Calendar>, ClientError>;
-    pub async fn calendar_changes(/* ... */) -> Result<ChangesResponse, ClientError>;
+    pub async fn calendar_changes(
+        &self,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResponse, ClientError>;
     pub async fn calendar_set(
         &self,
         create: Option<HashMap<String, Calendar>>,
         update: Option<HashMap<Id, PatchObject>>,
-        destroy: Option<&[&str]>,
+        destroy: Option<&[Id]>,
         on_destroy_remove_events: Option<bool>,
     ) -> Result<SetResponse<Calendar>, ClientError>;
 
     // ── CalendarEvent (7 methods) ───────────────────────────────────────
     pub async fn calendar_event_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
         params: Option<CalendarEventGetParams>, // (drift: was CalendarEventGetArgs)
     ) -> Result<GetResponse<CalendarEvent>, ClientError>;
-    pub async fn calendar_event_changes(/* ... */) -> Result<ChangesResponse, ClientError>;
-    pub async fn calendar_event_set(/* ... */) -> Result<SetResponse<CalendarEvent>, ClientError>;
-    pub async fn calendar_event_copy(/* ... */) -> Result<SetResponse<CalendarEvent>, ClientError>;
+    pub async fn calendar_event_changes(/* &State since_state, ... */) -> Result<ChangesResponse, ClientError>;
+    pub async fn calendar_event_set(
+        &self,
+        create: Option<HashMap<String, CalendarEvent>>,
+        update: Option<HashMap<Id, PatchObject>>,
+        destroy: Option<&[Id]>,
+    ) -> Result<SetResponse<CalendarEvent>, ClientError>;
+    pub async fn calendar_event_copy(
+        &self,
+        from_account_id: &Id,
+        create: HashMap<String, CalendarEvent>,
+    ) -> Result<SetResponse<CalendarEvent>, ClientError>;
     pub async fn calendar_event_query(
         &self,
-        filter: Option<serde_json::Value>,  // (drift: was typed CalendarEventFilterCondition)
-        sort: Option<serde_json::Value>,    // (drift: was Option<&[Comparator]>)
-        position: Option<i64>,
+        filter: Option<&CalendarEventFilterCondition>,
+        sort: Option<&[CalendarEventComparator]>,
+        position: Option<u64>,
         limit: Option<u64>,
         expand_recurrences: Option<bool>,
-        time_zone: Option<&str>,
     ) -> Result<QueryResponse, ClientError>;
-    pub async fn calendar_event_query_changes(/* ... */) -> Result<QueryChangesResponse, ClientError>;
+    pub async fn calendar_event_query_changes(/* &State since_query_state, ... */) -> Result<QueryChangesResponse, ClientError>;
     pub async fn calendar_event_parse(
         &self,
-        blob_ids: &[&str],
+        blob_ids: &[Id],
         properties: Option<&[&str]>,
     ) -> Result<CalendarEventParseResponse, ClientError>;
 
     // ── CalendarEventNotification (5 methods) ───────────────────────────
-    pub async fn calendar_event_notification_get(/* ... */) -> Result<GetResponse<CalendarEventNotification>, ClientError>;
-    pub async fn calendar_event_notification_changes(/* ... */) -> Result<ChangesResponse, ClientError>;
+    pub async fn calendar_event_notification_get(
+        &self,
+        ids: Option<&[Id]>,
+        properties: Option<&[&str]>,
+    ) -> Result<GetResponse<CalendarEventNotification>, ClientError>;
+    pub async fn calendar_event_notification_changes(/* &State since_state, ... */) -> Result<ChangesResponse, ClientError>;
     pub async fn calendar_event_notification_set(
         &self,
-        destroy: Option<&[&str]>,           // destroy-only per draft §7.3
-    ) -> Result<SetResponse<CalendarEventNotification>, ClientError>;
+        destroy: Option<&[Id]>,             // destroy-only per draft §7.3
+    ) -> Result<SetResponse, ClientError>;
     pub async fn calendar_event_notification_query(/* ... */) -> Result<QueryResponse, ClientError>;
-    pub async fn calendar_event_notification_query_changes(/* ... */) -> Result<QueryChangesResponse, ClientError>;
+    pub async fn calendar_event_notification_query_changes(/* &State since_query_state, ... */) -> Result<QueryChangesResponse, ClientError>;
 
     // ── ParticipantIdentity (3 methods) ─────────────────────────────────
-    pub async fn participant_identity_get(/* ... */) -> Result<GetResponse<ParticipantIdentity>, ClientError>;
-    pub async fn participant_identity_changes(/* ... */) -> Result<ChangesResponse, ClientError>;
-    pub async fn participant_identity_set(/* ... */) -> Result<SetResponse<ParticipantIdentity>, ClientError>;
+    pub async fn participant_identity_get(
+        &self,
+        ids: Option<&[Id]>,
+        properties: Option<&[&str]>,
+    ) -> Result<GetResponse<ParticipantIdentity>, ClientError>;
+    pub async fn participant_identity_changes(/* &State since_state, ... */) -> Result<ChangesResponse, ClientError>;
+    pub async fn participant_identity_set(
+        &self,
+        create: Option<HashMap<String, ParticipantIdentity>>,
+        update: Option<HashMap<Id, PatchObject>>,
+        destroy: Option<&[Id]>,
+    ) -> Result<SetResponse<ParticipantIdentity>, ClientError>;
 
     // ── Principal (1 method) ────────────────────────────────────────────
-    pub async fn principal_get_availability(/* ... */) -> Result<PrincipalGetAvailabilityResponse, ClientError>;
+    pub async fn principal_get_availability(
+        &self,
+        principal_id: &Id,
+        utc_start: &str,                    // (UTCDate newtype migration pending)
+        utc_end: &str,
+        show_details: Option<bool>,
+        event_properties: Option<&[&str]>,
+    ) -> Result<PrincipalGetAvailabilityResponse, ClientError>;
 }
 ```
 
@@ -190,24 +223,20 @@ impl SessionClient {
 - **Extension trait shape**: 19 trait methods → 1 trait method
   (`with_calendars_session`) + 19 inherent methods on `SessionClient`. See
   the rationale and JMAP-231o.28 above.
-- **Id types**: `&Id` / `&[Id]` parameters → `&str` / `&[&str]`. Avoids
-  forcing callers to construct `Id` from string literals at the cost of
-  pushing validation to runtime guards inside each method.
-  As of 2026-05-09 those runtime guards delegate to `Id::new_validated`
-  for full RFC 8620 §1.2 syntax checking (closed bd:JMAP-231o.6, Option A).
-  This is **stopgap** scaffolding — the validate_id_field /
-  validate_ids_field helpers in `methods/mod.rs` and the 11 call sites are
-  throwaway code that **bd:JMAP-6by7 (0.2.0 typed-Id epic)** will delete
-  when method signatures move to `&Id` / `&[Id]`.
-- **State types**: `&State` parameters → `&str`. Same rationale as Id;
-  also subsumed by **bd:JMAP-6by7** (specifically JMAP-6by7.1).
-  Closes the standalone bd:JMAP-231o.3.
-- **SetRequest<T> / CopyRequest<T> / CalendarEventQueryRequest builder
-  structs** were dropped in favour of explicit per-method positional
-  arguments and raw `serde_json::Value` for filter/sort. Trade-off: less
-  type safety, simpler call sites, no nested-builder ergonomics issues.
-  TODO bd:JMAP-231o.22 — revisit whether typed filter/sort would be
-  worthwhile for 0.2.0.
+- **Id types**: parameters use `&Id` / `&[Id]` directly. The original plan
+  for typed Id parameters was briefly reverted to `&str` / `&[&str]` for
+  ergonomics (with internal `validate_id_field` / `validate_ids_field`
+  helpers as a 0.1.x stopgap), then restored to typed Id in the 0.2.0
+  refactor (bd:JMAP-6by7.1, 2026-05-09). The validate_*_field helpers and
+  their 11 call sites were deleted as part of the same refactor — they
+  became dead code under the typed parameters.
+- **State types**: parameters use `&State`. Migrated alongside the Id
+  refactor in bd:JMAP-6by7.1; closes the standalone bd:JMAP-231o.3.
+- **CalendarEvent filter / sort**: the 0.2.0 refactor restored typed
+  `&CalendarEventFilterCondition` and `&[CalendarEventComparator]` —
+  `serde_json::Value` was a transitional shape. TODO bd:JMAP-231o.22 still
+  applies to the *Notification/query* sort (kept as `&[serde_json::Value]`
+  because the spec defines minimal sort properties for notifications).
 - **CalendarEventGetArgs** (planned) → **CalendarEventGetParams** (shipped).
   Field names also changed: `reduce_participants: bool` → `reduced_participants:
   Option<bool>` etc. The Option<bool> shape is intentional (None = "do not
@@ -221,6 +250,9 @@ impl SessionClient {
 - **Wire-format hygiene**: /get methods now omit `ids` / `properties` when
   None rather than sending explicit JSON null (closed by JMAP-231o.10
   as of 2026-05-08).
+- **UTCDate types**: `principal_get_availability` still takes `utc_start` /
+  `utc_end` as `&str`. A workspace-wide UTCDate newtype migration is a
+  separate refactor.
 
 ## Module Layout (shipped)
 
@@ -301,16 +333,15 @@ of this PLAN.md sees both the pending design TODOs and the most
 recent design changes that motivate the shipped sketch above).
 
 - **bd:JMAP-231o.3** (P2) — state fields should use `jmap_types::State`
-  newtype. **Subsumed by bd:JMAP-6by7** (0.2.0 typed-Id epic); state-field
-  migration is part of the broader typed-parameter pass.
+  newtype. **Closed by bd:JMAP-6by7.1** (2026-05-09). Every State-shaped
+  parameter on `SessionClient` is now `&State`.
 - **bd:JMAP-231o.4** (P2) — this PLAN.md drift (closed by this rewrite).
 - **bd:JMAP-231o.6** (P2) — empty-string guards inconsistent across builders.
-  Closed 2026-05-09 with Option A (full internal validation via
-  `Id::new_validated`, `&str` API kept). Option C (typed `&[Id]` API) was
-  the technically-better choice; deferred to **bd:JMAP-6by7** (0.2.0
-  typed-Id epic). The validate_id_field / validate_ids_field helpers
-  added by this bead are throwaway scaffolding for the 0.1.x publish
-  window.
+  Originally closed 2026-05-09 with Option A (full internal validation via
+  `Id::new_validated`, `&str` API kept). Re-closed 2026-05-09 by
+  bd:JMAP-6by7.1, which restored the typed-Id API: the helper functions
+  and their 11 call sites are gone; validation now happens at the type
+  boundary (`Id::new_validated`) rather than inside each method.
 - **bd:JMAP-231o.8** (P2) — inline tests build args by hand and never hit
   production methods; vacuous.
 - **bd:JMAP-231o.9** (P2) — `calendar_event_notification_set` always sends

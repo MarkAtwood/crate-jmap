@@ -1,5 +1,7 @@
 //! Principal/getAvailability method (draft-ietf-jmap-calendars-26 §2.2).
 
+use jmap_types::Id;
+
 use super::{PrincipalGetAvailabilityResponse, SessionClient, CALL_ID, USING_AVAILABILITY};
 use jmap_base_client::ClientError;
 
@@ -9,17 +11,19 @@ impl SessionClient {
     ///
     /// The wire key for `principal_id` is `"id"` (not `"principalId"`) per §2.2.
     ///
+    /// `utc_start` and `utc_end` remain `&str` here pending a workspace-wide
+    /// `UTCDate` newtype migration (out of scope for the typed-Id epic).
+    ///
     /// # Errors
-    /// Returns `ClientError::InvalidArgument` if any required parameter is empty.
+    /// Returns `ClientError::InvalidArgument` if `utc_start` or `utc_end` is empty.
     pub async fn principal_get_availability(
         &self,
-        principal_id: &str,
+        principal_id: &Id,
         utc_start: &str,
         utc_end: &str,
         show_details: Option<bool>,
         event_properties: Option<&[&str]>,
     ) -> Result<PrincipalGetAvailabilityResponse, ClientError> {
-        super::validate_id_field(principal_id, "principal_get_availability: principal_id")?;
         if utc_start.is_empty() {
             return Err(ClientError::InvalidArgument(
                 "principal_get_availability: utc_start must not be empty".into(),
@@ -33,7 +37,7 @@ impl SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
-            "id": principal_id,          // §2.2 uses "id" not "principalId"
+            "id": principal_id.as_ref(),  // §2.2 uses "id" not "principalId"
             "utcStart": utc_start,
             "utcEnd": utc_end,
         });

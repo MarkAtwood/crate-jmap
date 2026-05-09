@@ -4,6 +4,8 @@
 
 use std::collections::HashMap;
 
+use jmap_types::Id;
+
 use super::SetResponse;
 
 impl super::SessionClient {
@@ -19,11 +21,10 @@ impl super::SessionClient {
     /// The target account is the primary Calendars account from the session.
     pub async fn calendar_event_copy(
         &self,
-        from_account_id: &str,
+        from_account_id: &Id,
         create: HashMap<String, jmap_calendars_types::CalendarEvent>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
-        super::validate_id_field(from_account_id, "calendar_event_copy: from_account_id")?;
         for k in create.keys() {
             if k.is_empty() {
                 return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -38,7 +39,7 @@ impl super::SessionClient {
             ))
         })?;
         let args = serde_json::json!({
-            "fromAccountId": from_account_id,
+            "fromAccountId": from_account_id.as_ref(),
             "accountId": account_id,
             "create": create_val,
         });
