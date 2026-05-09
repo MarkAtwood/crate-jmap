@@ -185,8 +185,13 @@ impl JmapClient {
             HeaderValue::from_str(content_type).map_err(ClientError::from_invalid_header)?;
         let url = expand_url_template(upload_url_template, &[("accountId", account_id)])?;
 
-        // Compute SHA-256 before handing ownership of data to the request body.
+        // Compute SHA-256 and capture size before handing ownership of data
+        // to the request body. local_size is used to cross-check the server's
+        // reported `size` after upload (bd:JMAP-6lsm.8) — when the server
+        // does not return sha256 (most do not), size is the only signal that
+        // the bytes we sent are the bytes the server stored.
         let local_sha256 = compute_sha256_hex(&data);
+        let local_size = data.len() as u64;
 
         let req = self.inject_auth(
             self.http
@@ -220,6 +225,24 @@ impl JmapClient {
         }
         let upload_resp: BlobUploadResponse =
             serde_json::from_slice(&bytes).map_err(ClientError::Parse)?;
+
+        // Defense-in-depth: cross-check the server's reported size against the
+        // bytes we actually uploaded (bd:JMAP-6lsm.8). When sha256 is present
+        // (below) it makes a size mismatch implausible because length is
+        // implicit in the digest, but most servers do not advertise the
+        // JMAP-CID sha256 capability — in that case `size` is the only
+        // signal that the upload was complete and intact. A mismatch
+        // surfaces as UnexpectedResponse rather than a typed variant; a
+        // future minor release may add ClientError::BlobSizeMismatch for
+        // structured matching, but keeping the variant set stable in 0.1.x
+        // is the conservative choice.
+        if upload_resp.size != local_size {
+            return Err(ClientError::UnexpectedResponse(format!(
+                "blob upload size mismatch: client uploaded {local_size} bytes, server reports \
+                 {server_size} bytes",
+                server_size = upload_resp.size,
+            )));
+        }
 
         if let Some(ref server_sha256) = upload_resp.sha256 {
             if !is_valid_sha256_hex(server_sha256) {
