@@ -38,89 +38,89 @@ All JMAP Chat methods are available as typed async methods on `SessionClient`:
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `chat_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<Chat>` |
-| `chat_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
+| `chat_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Chat>` |
+| `chat_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `chat_query` | `input: &ChatQueryInput` | `QueryResponse` |
-| `chat_query_changes` | `since_query_state: &str, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `chat_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
 | `chat_create` | `input: &ChatCreateInput<'_>` | `SetResponse` |
-| `chat_update` | `input: &ChatUpdateInput<'_>` | `SetResponse` |
-| `chat_destroy` | `ids: &[&str]` | `SetResponse` |
-| `chat_typing` | `chat_id: &str, typing: bool` | `TypingResponse` |
+| `chat_update` | `id: &Id, patch: &ChatPatch<'_>` | `SetResponse` |
+| `chat_destroy` | `ids: &[Id]` | `SetResponse` |
+| `chat_typing` | `chat_id: &Id, typing: bool` | `TypingResponse` |
 
 ### Message/*
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `message_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<Message>` |
-| `message_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
+| `message_get` | `ids: &[Id], properties: Option<&[&str]>` | `GetResponse<Message>` |
+| `message_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `message_query` | `input: &MessageQueryInput` | `QueryResponse` |
-| `message_query_changes` | `since_query_state: &str, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `message_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
 | `message_create` | `input: &MessageCreateInput<'_>` | `SetResponse` |
-| `message_update` | `input: &MessageUpdateInput<'_>` | `SetResponse` |
-| `message_destroy` | `ids: &[&str]` | `SetResponse` |
+| `message_update` | `id: &Id, patch: &MessagePatch<'_>` | `SetResponse` |
+| `message_destroy` | `ids: &[Id]` | `SetResponse` |
 
 ### Space/*
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `space_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<Space>` |
-| `space_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
+| `space_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Space>` |
+| `space_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `space_query` | `input: &SpaceQueryInput` | `QueryResponse` |
-| `space_query_changes` | `since_query_state: &str, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `space_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
 | `space_create` | `input: &SpaceCreateInput<'_>` | `SetResponse` |
-| `space_update` | `input: &SpaceUpdateInput<'_>` | `SetResponse` |
-| `space_destroy` | `ids: &[&str]` | `SetResponse` |
+| `space_update` | `id: &Id, patch: &SpacePatch<'_>` | `SetResponse` |
+| `space_destroy` | `ids: &[Id]` | `SetResponse` |
 | `space_join` | `input: &SpaceJoinInput<'_>` | `SpaceJoinResponse` |
 
 ### SpaceInvite/*
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `space_invite_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<SpaceInvite>` |
-| `space_invite_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
+| `space_invite_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<SpaceInvite>` |
+| `space_invite_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `space_invite_create` | `input: &SpaceInviteCreateInput<'_>` | `SetResponse` |
-| `space_invite_destroy` | `ids: &[&str]` | `SetResponse` |
+| `space_invite_destroy` | `ids: &[Id]` | `SetResponse` |
 
 ### SpaceBan/*
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `space_ban_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<SpaceBan>` |
-| `space_ban_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
+| `space_ban_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<SpaceBan>` |
+| `space_ban_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `space_ban_create` | `input: &SpaceBanCreateInput<'_>` | `SetResponse` |
-| `space_ban_destroy` | `ids: &[&str]` | `SetResponse` |
+| `space_ban_destroy` | `ids: &[Id]` | `SetResponse` |
 
 ### ChatContact/*
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `chat_contact_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<ChatContact>` |
-| `chat_contact_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
+| `chat_contact_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<ChatContact>` |
+| `chat_contact_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `chat_contact_query` | `input: &ChatContactQueryInput` | `QueryResponse` |
-| `chat_contact_query_changes` | `since_query_state: &str, max_changes: Option<u64>` | `QueryChangesResponse` |
-| `chat_contact_update` | `input: &ChatContactUpdateInput<'_>` | `SetResponse` |
+| `chat_contact_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `chat_contact_update` | `id: &Id, patch: &ChatContactPatch<'_>` | `SetResponse` |
 
 ### CustomEmoji/*
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `custom_emoji_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<CustomEmoji>` |
-| `custom_emoji_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
-| `custom_emoji_query` | `input: &CustomEmojiQueryInput` | `QueryResponse` |
-| `custom_emoji_query_changes` | `since_query_state: &str, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `custom_emoji_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<CustomEmoji>` |
+| `custom_emoji_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
+| `custom_emoji_query` | `input: &CustomEmojiQueryInput<'_>` | `QueryResponse` |
+| `custom_emoji_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
 | `custom_emoji_create` | `input: &CustomEmojiCreateInput<'_>` | `SetResponse` |
-| `custom_emoji_destroy` | `ids: &[&str]` | `SetResponse` |
+| `custom_emoji_destroy` | `ids: &[Id]` | `SetResponse` |
 
 ### ReadPosition/* and PresenceStatus/*
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `read_position_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<ReadPosition>` |
-| `read_position_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
-| `read_position_update` | `input: &ReadPositionUpdateInput<'_>` | `SetResponse` |
+| `read_position_get` | `ids: Option<&[Id]>` | `GetResponse<ReadPosition>` |
+| `read_position_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
+| `read_position_update` | `read_position_id: &Id, last_read_message_id: &Id` | `SetResponse` |
 | `presence_status_get` | _(none)_ | `GetResponse<PresenceStatus>` |
-| `presence_status_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
-| `presence_status_update` | `input: &PresenceStatusUpdateInput<'_>` | `SetResponse` |
+| `presence_status_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
+| `presence_status_update` | `id: &Id, patch: &PresenceStatusPatch<'_>` | `SetResponse` |
 
 ### Push subscriptions
 

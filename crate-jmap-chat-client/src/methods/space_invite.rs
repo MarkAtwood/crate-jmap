@@ -1,3 +1,5 @@
+use jmap_types::{Id, State};
+
 use super::{ChangesResponse, GetResponse, SetResponse, SpaceInviteCreateInput};
 
 impl super::SessionClient {
@@ -7,18 +9,9 @@ impl super::SessionClient {
     /// Pass `properties: None` to return all fields.
     pub async fn space_invite_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_chat_types::SpaceInvite>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "space_invite_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -36,10 +29,11 @@ impl super::SessionClient {
     /// as `since_state` until the flag is false.
     pub async fn space_invite_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: see `chat_changes`.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "space_invite_changes: since_state may not be empty".into(),
             ));
@@ -64,20 +58,10 @@ impl super::SessionClient {
         &self,
         input: &SpaceInviteCreateInput<'_>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        if input.space_id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "space_invite_create: space_id may not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut obj = serde_json::json!({ "spaceId": input.space_id });
         if let Some(ch) = input.default_channel_id {
-            if ch.is_empty() {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "space_invite_create: default_channel_id may not be empty".into(),
-                ));
-            }
-            obj["defaultChannelId"] = ch.into();
+            obj["defaultChannelId"] = ch.as_ref().into();
         }
         if let Some(ea) = input.expires_at {
             obj["expiresAt"] = ea.as_ref().into();
@@ -100,19 +84,12 @@ impl super::SessionClient {
     /// `ids` must be non-empty; the guard fires before any network call.
     pub async fn space_invite_destroy(
         &self,
-        ids: &[&str],
+        ids: &[Id],
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "space_invite_destroy: ids may not be empty".into(),
             ));
-        }
-        for id in ids.iter() {
-            if id.is_empty() {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "space_invite_destroy: ids element may not be empty".into(),
-                ));
-            }
         }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({

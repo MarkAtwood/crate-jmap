@@ -1,4 +1,4 @@
-use jmap_types::PatchObject;
+use jmap_types::{Id, PatchObject, State};
 
 use super::{
     ChangesResponse, GetResponse, PresenceStatusPatch, PushSubscriptionCreateInput,
@@ -12,17 +12,8 @@ impl super::SessionClient {
     /// The server creates one ReadPosition per Chat automatically.
     pub async fn read_position_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
     ) -> Result<GetResponse<jmap_chat_types::ReadPosition>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "read_position_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -43,24 +34,14 @@ impl super::SessionClient {
     /// `create` and `destroy` are forbidden by the spec; only `update` is issued.
     pub async fn read_position_update(
         &self,
-        read_position_id: &str,
-        last_read_message_id: &str,
+        read_position_id: &Id,
+        last_read_message_id: &Id,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        if read_position_id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "read_position_update: read_position_id may not be empty".into(),
-            ));
-        }
-        if last_read_message_id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "read_position_update: last_read_message_id may not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
             "update": {
-                read_position_id: { "lastReadMessageId": last_read_message_id }
+                read_position_id.as_ref(): { "lastReadMessageId": last_read_message_id }
             },
         });
         let req = super::build_request("ReadPosition/set", args, super::USING_CHAT);
@@ -78,7 +59,7 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
-            "ids": None::<&[&str]>,
+            "ids": None::<&[Id]>,
         });
         let req = super::build_request("PresenceStatus/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -90,10 +71,11 @@ impl super::SessionClient {
     /// `max_changes` may be `None` to let the server choose the limit (RFC 8620 §5.2).
     pub async fn read_position_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: see `chat_changes`.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "read_position_changes: since_state may not be empty".into(),
             ));
@@ -118,14 +100,9 @@ impl super::SessionClient {
     /// the patch and left unchanged server-side.
     pub async fn presence_status_update(
         &self,
-        id: &str,
+        id: &Id,
         patch: &PresenceStatusPatch<'_>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        if id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "presence_status_update: id may not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
         if let Some(p) = &patch.presence {
@@ -164,7 +141,7 @@ impl super::SessionClient {
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
         let args = serde_json::json!({
             "accountId": account_id,
-            "update": { id: patch_value },
+            "update": { id.as_ref(): patch_value },
         });
         let req = super::build_request("PresenceStatus/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -176,10 +153,11 @@ impl super::SessionClient {
     /// `max_changes` may be `None` to let the server choose the limit (RFC 8620 §5.2).
     pub async fn presence_status_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: see `chat_changes`.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "presence_status_changes: since_state may not be empty".into(),
             ));
@@ -244,7 +222,7 @@ impl super::SessionClient {
         if let Some(cp) = input.chat_push {
             let mut seen = std::collections::HashSet::new();
             for (account_id, _) in cp {
-                if !seen.insert(*account_id) {
+                if !seen.insert(account_id) {
                     return Err(jmap_base_client::ClientError::InvalidArgument(format!(
                         "push_subscription_create: duplicate accountId '{}' in chat_push",
                         account_id
@@ -254,7 +232,7 @@ impl super::SessionClient {
             let mut chat_push_map = serde_json::Map::new();
             for (account_id, config) in cp {
                 chat_push_map.insert(
-                    (*account_id).to_owned(),
+                    account_id.as_ref().to_owned(),
                     serde_json::to_value(config).map_err(jmap_base_client::ClientError::Parse)?,
                 );
             }

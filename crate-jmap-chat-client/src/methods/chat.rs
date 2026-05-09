@@ -1,14 +1,14 @@
 // JMAP Chat — Chat/* method implementations on SessionClient.
 //
 // Each method follows the standard five-step pattern:
-//   1. Validate arguments (empty-string guards, empty-slice guards).
+//   1. Validate arguments (defence-in-depth empty-state guards).
 //   2. Call `self.session_parts()?` → `(api_url, account_id)`.
 //   3. Build args JSON with `serde_json::json!({…})`.
 //   4. Call `build_request(method_name, args, USING_CHAT)`.
 //   5. Call `self.call_internal(api_url, &req).await?`.
 //   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
-use jmap_types::PatchObject;
+use jmap_types::{Id, PatchObject, State};
 
 use super::{
     AddMemberInput, ChangesResponse, ChatCreateInput, ChatPatch, ChatQueryInput, GetResponse,
@@ -22,18 +22,9 @@ impl super::SessionClient {
     /// Pass `properties: None` to return all fields.
     pub async fn chat_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_chat_types::Chat>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "chat_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -88,10 +79,14 @@ impl super::SessionClient {
     /// as `since_state` until the flag is false.
     pub async fn chat_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: even with the typed-`State` parameter (a transparent
+        // newtype around `String`), an empty state token is still a logically
+        // invalid value that should be caught client-side rather than producing
+        // a confusing server-side `cannotCalculateChanges` error.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "chat_changes: since_state may not be empty".into(),
             ));
@@ -120,14 +115,9 @@ impl super::SessionClient {
     /// responsibility.
     pub async fn chat_typing(
         &self,
-        chat_id: &str,
+        chat_id: &Id,
         typing: bool,
     ) -> Result<TypingResponse, jmap_base_client::ClientError> {
-        if chat_id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "chat_typing: chat_id must not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -146,10 +136,11 @@ impl super::SessionClient {
     /// since the given state. `max_changes` may be `None`.
     pub async fn chat_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see `chat_changes`.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "chat_query_changes: since_query_state may not be empty".into(),
             ));
@@ -187,11 +178,6 @@ impl super::SessionClient {
                 client_id,
                 contact_id,
             } => {
-                if contact_id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "chat_create: contact_id may not be empty".into(),
-                    ));
-                }
                 create_obj = serde_json::json!({
                     "kind": "direct",
                     "contactId": contact_id,
@@ -211,13 +197,6 @@ impl super::SessionClient {
                         "chat_create: name may not be empty".into(),
                     ));
                 }
-                for id in member_ids.iter() {
-                    if id.is_empty() {
-                        return Err(jmap_base_client::ClientError::InvalidArgument(
-                            "chat_create: member_ids element may not be empty".into(),
-                        ));
-                    }
-                }
                 let mut obj = serde_json::json!({
                     "kind": "group",
                     "name": name,
@@ -227,12 +206,7 @@ impl super::SessionClient {
                     obj["description"] = (*d).into();
                 }
                 if let Some(b) = avatar_blob_id {
-                    if b.is_empty() {
-                        return Err(jmap_base_client::ClientError::InvalidArgument(
-                            "chat_create: avatar_blob_id may not be empty".into(),
-                        ));
-                    }
-                    obj["avatarBlobId"] = (*b).into();
+                    obj["avatarBlobId"] = b.as_ref().into();
                 }
                 if let Some(s) = message_expiry_seconds {
                     obj["messageExpirySeconds"] = (*s).into();
@@ -246,11 +220,6 @@ impl super::SessionClient {
                 name,
                 description,
             } => {
-                if space_id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "chat_create: space_id may not be empty".into(),
-                    ));
-                }
                 if name.is_empty() {
                     return Err(jmap_base_client::ClientError::InvalidArgument(
                         "chat_create: name may not be empty".into(),
@@ -290,14 +259,9 @@ impl super::SessionClient {
     /// in `updated`.
     pub async fn chat_update(
         &self,
-        id: &str,
+        id: &Id,
         patch: &ChatPatch<'_>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        if id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "chat_update: id may not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
 
@@ -315,18 +279,9 @@ impl super::SessionClient {
             patch_map.insert("receiveTypingIndicators".into(), rti.into());
         }
         if let Some(ids) = patch.pinned_message_ids {
-            for pid in ids.iter() {
-                if pid.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "chat_update: pinned_message_ids element may not be empty".into(),
-                    ));
-                }
-            }
             patch_map.insert(
                 "pinnedMessageIds".into(),
-                serde_json::Value::Array(
-                    ids.iter().copied().map(serde_json::Value::from).collect(),
-                ),
+                serde_json::to_value(ids).expect("Id slice Serialize is infallible"),
             );
         }
         if let Some(s) = patch.message_expiry_seconds {
@@ -357,11 +312,6 @@ impl super::SessionClient {
                 let arr = members
                     .iter()
                     .map(|m: &AddMemberInput<'_>| {
-                        if m.id.is_empty() {
-                            return Err(jmap_base_client::ClientError::InvalidArgument(
-                                "chat_update: member id may not be empty".into(),
-                            ));
-                        }
                         let mut obj = serde_json::json!({ "id": m.id });
                         if let Some(ref role) = m.role {
                             obj["role"] = serde_json::to_value(role)
@@ -375,18 +325,9 @@ impl super::SessionClient {
         }
         if let Some(rm) = patch.remove_members {
             if !rm.is_empty() {
-                for rid in rm.iter() {
-                    if rid.is_empty() {
-                        return Err(jmap_base_client::ClientError::InvalidArgument(
-                            "chat_update: remove_members id may not be empty".into(),
-                        ));
-                    }
-                }
                 patch_map.insert(
                     "removeMembers".into(),
-                    serde_json::Value::Array(
-                        rm.iter().copied().map(serde_json::Value::from).collect(),
-                    ),
+                    serde_json::to_value(rm).expect("Id slice Serialize is infallible"),
                 );
             }
         }
@@ -395,11 +336,6 @@ impl super::SessionClient {
                 let arr = umr
                     .iter()
                     .map(|u: &UpdateMemberRoleInput<'_>| {
-                        if u.id.is_empty() {
-                            return Err(jmap_base_client::ClientError::InvalidArgument(
-                                "chat_update: update_member_roles id may not be empty".into(),
-                            ));
-                        }
                         Ok(serde_json::json!({
                             "id": u.id,
                             "role": serde_json::to_value(&u.role)
@@ -418,7 +354,7 @@ impl super::SessionClient {
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
         let args = serde_json::json!({
             "accountId": account_id,
-            "update": { id: patch_value },
+            "update": { id.as_ref(): patch_value },
         });
         let req = super::build_request("Chat/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -431,19 +367,12 @@ impl super::SessionClient {
     /// `ids` must be non-empty; the guard fires before any network call.
     pub async fn chat_destroy(
         &self,
-        ids: &[&str],
+        ids: &[Id],
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "chat_destroy: ids may not be empty".into(),
             ));
-        }
-        for id in ids.iter() {
-            if id.is_empty() {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "chat_destroy: ids element may not be empty".into(),
-                ));
-            }
         }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({

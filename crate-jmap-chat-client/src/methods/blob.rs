@@ -87,7 +87,7 @@ pub struct BlobConvertResponse {
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ImageConvertRecipe<'a> {
-    blob_id: &'a str,
+    blob_id: &'a Id,
     #[serde(rename = "type")]
     content_type: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -119,20 +119,13 @@ impl super::SessionClient {
     /// §6), to avoid information leakage.
     pub async fn blob_lookup(
         &self,
-        blob_ids: &[&str],
+        blob_ids: &[Id],
         type_names: Option<&[&str]>,
     ) -> Result<BlobLookupResponse, jmap_base_client::ClientError> {
         if blob_ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "blob_lookup: blob_ids may not be empty".into(),
             ));
-        }
-        for id in blob_ids.iter() {
-            if id.is_empty() {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "blob_lookup: blob_ids element may not be empty".into(),
-                ));
-            }
         }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
@@ -160,16 +153,11 @@ impl super::SessionClient {
     /// `response.not_created[CALL_ID]`.
     pub async fn blob_convert(
         &self,
-        from_blob_id: &str,
+        from_blob_id: &Id,
         content_type: &str,
         width: Option<u32>,
         height: Option<u32>,
     ) -> Result<BlobConvertResponse, jmap_base_client::ClientError> {
-        if from_blob_id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "blob_convert: from_blob_id may not be empty".into(),
-            ));
-        }
         if content_type.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "blob_convert: content_type may not be empty".into(),
@@ -218,8 +206,9 @@ mod tests {
     /// test circular.
     #[test]
     fn image_convert_recipe_wire_format() {
+        let blob_id = Id::from("Bxxx");
         let recipe = ImageConvertRecipe {
-            blob_id: "Bxxx",
+            blob_id: &blob_id,
             content_type: "image/webp",
             width: Some(100),
             height: None,

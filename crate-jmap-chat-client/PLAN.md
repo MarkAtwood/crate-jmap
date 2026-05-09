@@ -40,7 +40,7 @@ This crate is an extraction and adaptation.
 | Auth providers | `src/auth.rs` | `AuthProvider`, `BearerAuth`, `BasicAuth`, `NoneAuth`, `TransportConfig` — copy verbatim |
 | Error types | `src/error.rs` | `ClientError` — copy verbatim, update type imports |
 | JMAP wire helpers | `src/jmap.rs` | `JmapRequestBuilder`, `AccountInfo`, capability structs — adapt to use `jmap-types` wire types directly where possible |
-| Method impls | `src/methods/` | All files — update type imports; keep method signatures identical |
+| Method impls | `src/methods/` | All files — update type imports; method signatures use typed `&Id`/`&State` per bd:JMAP-6by7.3 |
 | WebSocket session | `src/ws/mod.rs` | `WsSession`, `WsFrame` — copy with type updates |
 | SSE | `src/sse.rs` | `SseEvent`, `SseFrame` — copy verbatim |
 | Blob | `src/blob.rs` | `BlobUploadResponse` — copy verbatim |
@@ -103,6 +103,33 @@ at that time.
 
 During the skeleton stage (before `jmap-base-client` is ready), `JmapChatClient` is a
 standalone struct in `src/client.rs`. The trait-based API is the target end state.
+
+## Typed-Id refactor (bd:JMAP-6by7.3)
+
+The `SessionClient` method API uses **typed `Id` and `State` parameters** end-to-end:
+
+- Id-shaped parameters: `&Id`, `&[Id]`, `Option<&[Id]>`, `Option<&'a Id>` etc.
+- State-shaped parameters: `&State`, `Option<&State>`.
+- Id-shaped fields on Input/Patch structs (`MessageCreateInput.chat_id`,
+  `ChatPatch.pinned_message_ids`, `SpaceAddMemberInput.id`, etc.) are also typed,
+  carrying the typed-Id boundary all the way to the call site.
+- Caller-chosen creation reference keys (the `client_id: Option<&'a str>` fields,
+  `with_client_id(id: &'a str)` methods) remain `String` / `&str` — they are not
+  JMAP Ids but caller-chosen creation references resolved by the server.
+- Display strings, descriptions, free-text filters, status text, message bodies,
+  invite codes, push device-client IDs, and push URLs remain `&str`.
+
+Consequences:
+- Inline empty-Id guards have been removed where the typed parameter makes the
+  empty case unrepresentable.
+- Empty-state guards remain (defence-in-depth) on every `&State` / `Option<&State>`
+  parameter.
+- Empty-slice guards remain on `/set` `destroy` ids (typed `&[Id]` does not make
+  the slice non-empty).
+
+This was the canonical-template propagation of the typed-Id work landed first
+in `jmap-calendars-client` (bd:JMAP-6by7.1) and the canonical
+`jmap-mail-client` template (bd:JMAP-6by7.2).
 
 ## Key Design Decisions vs. jmapchat-client
 

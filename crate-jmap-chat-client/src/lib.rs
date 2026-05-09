@@ -6,12 +6,14 @@
 //!
 //! ```rust,no_run
 //! # use jmap_chat_client::JmapChatExt;
+//! # use jmap_types::Id;
 //! # async fn example(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {
 //! let session = client.fetch_session().await?;
 //! let sc = client.with_chat_session(session);
 //! // Look up previously-uploaded blobs by their content-addressed hashes.
 //! // Pass `type_names: None` to accept any MIME type.
-//! let resolved = sc.blob_lookup(&["sha256-..."], None).await?;
+//! let blob_ids = [Id::from("sha256-...")];
+//! let resolved = sc.blob_lookup(&blob_ids, None).await?;
 //! # let _ = resolved;
 //! # Ok(())
 //! # }
