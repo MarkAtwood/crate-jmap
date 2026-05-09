@@ -34,10 +34,7 @@ impl SessionClient {
         });
         if let Some(props) = properties {
             args["properties"] = serde_json::Value::Array(
-                props
-                    .iter()
-                    .map(|s| serde_json::Value::String((*s).to_owned()))
-                    .collect(),
+                props.iter().copied().map(serde_json::Value::from).collect(),
             );
         }
         let req = super::build_request("CalendarEvent/parse", args, USING_PARSE);

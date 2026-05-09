@@ -46,10 +46,7 @@ impl SessionClient {
         }
         if let Some(props) = event_properties {
             args["eventProperties"] = serde_json::Value::Array(
-                props
-                    .iter()
-                    .map(|s| serde_json::Value::String((*s).to_owned()))
-                    .collect(),
+                props.iter().copied().map(serde_json::Value::from).collect(),
             );
         }
         let req = super::build_request("Principal/getAvailability", args, USING_AVAILABILITY);

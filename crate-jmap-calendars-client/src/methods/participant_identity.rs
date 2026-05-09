@@ -116,11 +116,8 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::Value::Array(
-                d.iter()
-                    .map(|id| serde_json::Value::String((*id).to_owned()))
-                    .collect(),
-            );
+            args["destroy"] =
+                serde_json::Value::Array(d.iter().copied().map(serde_json::Value::from).collect());
         }
         let req = super::build_request("ParticipantIdentity/set", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;
