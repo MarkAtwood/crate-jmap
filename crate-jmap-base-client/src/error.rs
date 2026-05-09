@@ -317,6 +317,25 @@ pub enum ClientError {
     UnexpectedResponse(String),
 
     /// Server rate-limited the request. `retry_after` indicates when to retry.
+    ///
+    /// **Note (bd:JMAP-6lsm.3): this base crate does not currently produce
+    /// this variant.** HTTP 429 responses fall through reqwest's
+    /// `error_for_status()` and surface as [`ClientError::Http`] instead.
+    /// The variant is part of the public contract so:
+    ///
+    /// 1. Extension crates that wrap or replace this crate's transport may
+    ///    detect 429 + parse `Retry-After` themselves and produce
+    ///    `RateLimited` from their own error-conversion code.
+    /// 2. Callers that want to handle rate limiting via this typed variant
+    ///    have a stable target to match on, even if the conversion logic
+    ///    lands later in a base-crate revision.
+    ///
+    /// If you encounter a 429 today, match on `ClientError::Http` and call
+    /// [`HttpError::status`] to confirm `Some(429)`. The base crate may
+    /// gain native 429 → `RateLimited` conversion in a future minor
+    /// release; the variant shape will not change in a backward-incompatible
+    /// way (it is `#[non_exhaustive]` via the enum-level annotation, so
+    /// extra fields can be added without a SemVer break).
     #[error("rate limited; retry after {retry_after}")]
     RateLimited { retry_after: jmap_types::UTCDate },
 }

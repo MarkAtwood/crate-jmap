@@ -133,12 +133,13 @@ impl WsSession {
     ///
     /// Returns `None` when the server has cleanly closed the connection.
     /// Returns `Some(Err(...))` on parse failure, transport error, RFC 8887
-    /// §4.1 violation (Binary frame), or starvation cap (more than
-    /// [`MAX_CONSECUTIVE_NON_TEXT_FRAMES`] consecutive Ping/Pong/Frame
-    /// messages). After a transport error the connection is broken and
-    /// `next_frame` must not be called again. After an
-    /// `UnexpectedResponse` error the underlying stream is still healthy
-    /// — the caller may choose to ignore it and retry, or to disconnect.
+    /// §4.1 violation (Binary frame), or starvation cap (more than 64
+    /// consecutive Ping/Pong/Frame messages — see the private
+    /// `MAX_CONSECUTIVE_NON_TEXT_FRAMES` constant for the exact value).
+    /// After a transport error the connection is broken and `next_frame`
+    /// must not be called again. After an `UnexpectedResponse` error the
+    /// underlying stream is still healthy — the caller may choose to
+    /// ignore it and retry, or to disconnect.
     pub async fn next_frame(&mut self) -> Option<Result<WsFrame, crate::error::ClientError>> {
         let mut consecutive_skips = 0usize;
         loop {
