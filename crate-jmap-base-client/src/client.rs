@@ -185,38 +185,11 @@ impl JmapClient {
         base_url: &str,
         config: ClientConfig,
     ) -> Result<Self, ClientError> {
-        if base_url.is_empty() {
-            return Err(ClientError::InvalidArgument(
-                "base_url may not be empty".into(),
-            ));
-        }
-        let parsed = url::Url::parse(base_url).map_err(|e| {
-            ClientError::InvalidArgument(format!("base_url is not a valid URL: {e}"))
-        })?;
-        let scheme = parsed.scheme();
-        if scheme != "http" && scheme != "https" {
-            return Err(ClientError::InvalidArgument(format!(
-                "base_url scheme must be http or https, got: {scheme:?}"
-            )));
-        }
-        let path = parsed.path();
-        // url::Url::path() returns "/" for root-only URLs (no path segments);
-        // any value other than "/" means the URL contains an explicit path component.
-        if path != "/" {
-            return Err(ClientError::InvalidArgument(format!(
-                "base_url must not have a path component, got: {path:?}"
-            )));
-        }
-        if parsed.query().is_some() {
-            return Err(ClientError::InvalidArgument(
-                "base_url must not have a query string".into(),
-            ));
-        }
-        if parsed.fragment().is_some() {
-            return Err(ClientError::InvalidArgument(
-                "base_url must not have a fragment".into(),
-            ));
-        }
+        // Parse-don't-validate: parse_base_url returns a fully-validated
+        // url::Url so the constructor body can read as four facts (parse,
+        // validate config, build transport, construct Self) rather than
+        // a procedure (bd:JMAP-6lsm.26).
+        let parsed = parse_base_url(base_url)?;
         config.validate()?;
         let http = transport.build_client()?;
         Ok(Self {
@@ -732,6 +705,63 @@ fn url_scheme(url: &str) -> Option<&str> {
 fn is_http_or_https(url: &str) -> bool {
     url_scheme(url)
         .is_some_and(|s| s.eq_ignore_ascii_case("http") || s.eq_ignore_ascii_case("https"))
+}
+
+/// Parse and validate a JMAP base URL.
+///
+/// The input must be:
+/// - non-empty
+/// - syntactically valid (parses with [`url::Url::parse`])
+/// - http or https scheme (case-insensitive per RFC 3986 §3.1)
+/// - origin-only: no explicit path component, no query string, no fragment.
+///   "Origin" here means scheme + host + optional port — the form a JMAP
+///   server is identified by. Trailing slashes are accepted (the URL
+///   parser normalizes them away).
+///
+/// Examples that PASS: `https://jmap.example.com`,
+/// `https://jmap.example.com/`, `https://10.0.0.1:8008`,
+/// `http://localhost:8080`.
+///
+/// Examples that FAIL: `""`, `https://example.com/api`,
+/// `https://example.com?query=1`, `https://example.com#fragment`,
+/// `ftp://example.com`.
+///
+/// Extracted from [`JmapClient::new`] so the constructor reads as
+/// 'parse-don't-validate' rather than a six-step inline procedure
+/// (bd:JMAP-6lsm.26).
+fn parse_base_url(base_url: &str) -> Result<url::Url, ClientError> {
+    if base_url.is_empty() {
+        return Err(ClientError::InvalidArgument(
+            "base_url may not be empty".into(),
+        ));
+    }
+    let parsed = url::Url::parse(base_url)
+        .map_err(|e| ClientError::InvalidArgument(format!("base_url is not a valid URL: {e}")))?;
+    let scheme = parsed.scheme();
+    if scheme != "http" && scheme != "https" {
+        return Err(ClientError::InvalidArgument(format!(
+            "base_url scheme must be http or https, got: {scheme:?}"
+        )));
+    }
+    let path = parsed.path();
+    // url::Url::path() returns "/" for root-only URLs (no path segments);
+    // any value other than "/" means the URL contains an explicit path component.
+    if path != "/" {
+        return Err(ClientError::InvalidArgument(format!(
+            "base_url must not have a path component, got: {path:?}"
+        )));
+    }
+    if parsed.query().is_some() {
+        return Err(ClientError::InvalidArgument(
+            "base_url must not have a query string".into(),
+        ));
+    }
+    if parsed.fragment().is_some() {
+        return Err(ClientError::InvalidArgument(
+            "base_url must not have a fragment".into(),
+        ));
+    }
+    Ok(parsed)
 }
 
 /// Validate that `url` uses an http or https scheme.
