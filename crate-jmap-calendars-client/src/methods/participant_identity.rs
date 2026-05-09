@@ -129,39 +129,13 @@ impl super::SessionClient {
 // Tests
 // ---------------------------------------------------------------------------
 
-#[cfg(test)]
-mod tests {
-    use super::super::{build_request, CALL_ID, USING_CALENDARS};
-    use serde_json::json;
-
-    /// Oracle: ParticipantIdentity/get request has correct method name.
-    #[test]
-    fn participant_identity_get_request_shape() {
-        let args = json!({ "accountId": "acc1", "ids": null, "properties": null });
-        let req = build_request("ParticipantIdentity/get", args, USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("ParticipantIdentity/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-        let using = v["using"].as_array().expect("using");
-        assert!(using.contains(&json!("urn:ietf:params:jmap:calendars")));
-    }
-
-    // The InvalidArgument guard for empty since_state lives in
-    // participant_identity_changes production code; testing it requires
-    // a wiremock-backed async harness. See JMAP-sc1b.64.
-
-    /// Oracle: ParticipantIdentity/set with destroy sends destroy array.
-    #[test]
-    fn participant_identity_set_destroy_request_shape() {
-        let destroy_val = serde_json::Value::Array(vec![json!("pid1"), json!("pid2")]);
-        let mut args = json!({ "accountId": "acc1" });
-        args["destroy"] = destroy_val;
-        let req = build_request("ParticipantIdentity/set", args, USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("ParticipantIdentity/set"));
-        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
-        assert_eq!(destroy_arr.len(), 2);
-    }
-}
+// participant_identity_get_request_shape and
+// participant_identity_set_destroy_request_shape were vacuous: they
+// hand-built args and fed them to build_request, never exercising the
+// production participant_identity_get / _set builders. Deleted in
+// JMAP-231o.8. Real production-path coverage needs wiremock smoke tests;
+// tracked under JMAP-231o.8.1.
+//
+// The InvalidArgument guard for empty since_state lives in
+// participant_identity_changes production code; testing it requires a
+// wiremock-backed async harness. See JMAP-sc1b.64.

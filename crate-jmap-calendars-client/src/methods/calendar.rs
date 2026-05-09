@@ -144,51 +144,23 @@ impl super::SessionClient {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — see tests/calendar_smoke_tests.rs (wiremock-backed end-to-end)
 // ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::super::{build_request, CALL_ID, USING_CALENDARS};
-    use serde_json::json;
-
-    // The end-to-end InvalidArgument guard for empty `ids` slice elements
-    // lives in tests/calendar_smoke_tests.rs as a wiremock-backed test
-    // (calendar_get_empty_id_returns_invalid_argument). The previous inline
-    // unit test was a vacuous re-assertion of `"".is_empty()` and never
-    // exercised the production guard at all (JMAP-231o.7).
-    //
-    // The InvalidArgument guard for empty since_state in calendar_changes
-    // is also exercised end-to-end via wiremock; see JMAP-sc1b.64.
-
-    /// Oracle: Calendar/set with onDestroyRemoveEvents sends the flag in args.
-    /// Expected: args object contains "onDestroyRemoveEvents": true.
-    #[test]
-    fn calendar_set_on_destroy_remove_events_in_args() {
-        let mut args = json!({ "accountId": "acc1" });
-        args["onDestroyRemoveEvents"] = true.into();
-        let req = build_request("Calendar/set", args, USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Calendar/set"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-        assert_eq!(
-            calls[0][1]["onDestroyRemoveEvents"],
-            json!(true),
-            "flag must be present"
-        );
-    }
-
-    /// Oracle: Calendar/get request has correct method name and using array.
-    #[test]
-    fn calendar_get_request_shape() {
-        let args = json!({ "accountId": "acc1", "ids": null, "properties": null });
-        let req = build_request("Calendar/get", args, USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Calendar/get"));
-        assert_eq!(calls[0][2], json!(CALL_ID));
-        let using = v["using"].as_array().expect("using");
-        assert!(using.contains(&json!("urn:ietf:params:jmap:calendars")));
-    }
-}
+//
+// The previous inline `mod tests` was a collection of vacuous tests that
+// hand-built `args` Values and fed them to `build_request`, never
+// exercising the production `calendar_*` builders. Deleted in
+// JMAP-231o.8.
+//
+// Production-path coverage for this module lives in
+// `tests/calendar_smoke_tests.rs`:
+//   - calendar_get_smoke (success path)
+//   - calendar_get_empty_id_returns_invalid_argument (guard path)
+//
+// `calendar_set` lost specific-flag coverage (`onDestroyRemoveEvents`)
+// during this cleanup; tracked under JMAP-231o.8's follow-up bead
+// (JMAP-231o.8.1) for a wiremock smoke test that asserts on the
+// outgoing request body.
+//
+// `build_request`, `CALL_ID`, and `USING_CALENDARS` themselves have
+// their own focused tests in `methods/mod.rs`.
