@@ -702,6 +702,84 @@ async fn test_subscribe_events_rejects_wrong_content_type() {
     }
 }
 
+/// Oracle: regression for bd:JMAP-6lsm.2 — RFC 7231 §3.1.1.1 / RFC 9110 §8.3
+/// say the media-type essence is bounded by ';', SP, HTAB, or end-of-string.
+/// A naive `starts_with("text/event-stream")` accepts "text/event-streamish",
+/// silently produces no events, and the caller sees an apparently-quiet
+/// stream. The fix must reject the suffix-extension case before streaming
+/// starts. The independent oracle is the spec; the test feeds a hand-written
+/// invalid Content-Type that *would* have passed the old prefix check.
+#[tokio::test]
+async fn test_subscribe_events_rejects_event_stream_suffix() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/events"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                // Trailing "ish" makes the subtype "event-streamish", not
+                // "event-stream". Pre-fix code would accept this.
+                .insert_header("Content-Type", "text/event-streamish")
+                .set_body_bytes(b"data: hi\n\n".to_vec()),
+        )
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let event_url = format!("{}/events", server.uri());
+    let result = client.subscribe_events(&event_url, None).await;
+    match result {
+        Ok(_) => panic!("text/event-streamish must be rejected, not silently accepted"),
+        Err(ref e) => assert!(
+            matches!(e, ClientError::UnexpectedResponse(_)),
+            "expected UnexpectedResponse for streamish suffix, got {e:?}"
+        ),
+    }
+}
+
+/// Oracle: positive case for bd:JMAP-6lsm.2 — Content-Type with a parameter
+/// like `text/event-stream; charset=utf-8` MUST be accepted (RFC 7231
+/// §3.1.1.1 allows parameters after ';'). The bugfix splits on ';' or
+/// whitespace and compares the essence; without that split, a parameterised
+/// header would still pass the (now stricter) check, but pinning this case
+/// keeps the boundary explicit so a future "tighten further" mistake doesn't
+/// silently break parameterised media types.
+#[tokio::test]
+async fn test_subscribe_events_accepts_charset_parameter() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/events"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("Content-Type", "text/event-stream; charset=utf-8")
+                // Single complete event so the stream returns Some(Ok(_)).
+                .set_body_bytes(b"data: hi\n\n".to_vec()),
+        )
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let event_url = format!("{}/events", server.uri());
+    // Should construct the stream successfully even with the charset param.
+    let _stream = client
+        .subscribe_events(&event_url, None)
+        .await
+        .expect("subscribe_events must accept text/event-stream; charset=utf-8");
+}
+
 // ---------------------------------------------------------------------------
 // extract_response
 // ---------------------------------------------------------------------------
