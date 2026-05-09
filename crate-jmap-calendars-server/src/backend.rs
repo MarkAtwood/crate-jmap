@@ -477,6 +477,15 @@ pub trait CalendarsBackend: JmapBackend {
 // ---------------------------------------------------------------------------
 
 /// Result of a `CalendarEvent/parse` operation (draft-ietf-jmap-calendars-26 §5.13).
+///
+/// Marked `#[non_exhaustive]` so future calendars-draft revisions (e.g. an
+/// iCalendar parse-warnings vector or a per-blob error map) can be added
+/// without a SemVer break for backends that construct the struct directly.
+/// External crates must use [`ParseResult::new`] rather than struct-literal
+/// syntax. Mirrors the `MdnParseResult` precedent in the locked sister crate
+/// `jmap-mail-server` (see `crate-jmap-mail-server/src/mdn.rs`).
+#[non_exhaustive]
+#[derive(Debug)]
 pub struct ParseResult {
     /// Successfully parsed: blobId → list of parsed [`CalendarEvent`](jmap_calendars_types::CalendarEvent)s.
     pub parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
@@ -484,6 +493,24 @@ pub struct ParseResult {
     pub not_found: Vec<jmap_types::Id>,
     /// Blob IDs that could not be parsed as iCalendar data.
     pub not_parsable: Vec<jmap_types::Id>,
+}
+
+impl ParseResult {
+    /// Construct a `ParseResult`.
+    ///
+    /// Required because the struct is `#[non_exhaustive]` — external crates
+    /// cannot use struct-literal syntax.
+    pub fn new(
+        parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
+        not_found: Vec<jmap_types::Id>,
+        not_parsable: Vec<jmap_types::Id>,
+    ) -> Self {
+        Self {
+            parsed,
+            not_found,
+            not_parsable,
+        }
+    }
 }
 
 /// Result of [`set_default_calendar`](CalendarsBackend::set_default_calendar)
