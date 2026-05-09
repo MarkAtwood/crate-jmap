@@ -697,31 +697,43 @@ fn decode_utf8_chunk(raw: &mut Vec<u8>, buf: &mut String) {
     }
 }
 
-/// Extract the URL scheme as a lowercase ASCII string.
+/// Extract the URL scheme as a borrowed slice of `url`.
 ///
-/// Returns the prefix before `"://"`, lowercased per RFC 3986 §3.1 (schemes
-/// are case-insensitive). Returns an empty string if `"://"` is not present.
-/// URL templates containing `{variable}` syntax are handled correctly because
-/// the extraction is a prefix scan, not a full URL parse.
-fn url_scheme(url: &str) -> String {
-    url.find("://")
-        .map(|i| url[..i].to_ascii_lowercase())
-        .unwrap_or_default()
+/// Returns the prefix before `"://"`. The returned slice is in the
+/// *original* case of the input (callers must use [`str::eq_ignore_ascii_case`]
+/// for the comparison per RFC 3986 §3.1, which says only schemes are
+/// case-insensitive). Returns `None` if `"://"` is not present in `url`.
+/// URL templates containing `{variable}` syntax are handled correctly
+/// because the extraction is a prefix scan, not a full URL parse.
+///
+/// Returning a borrowed slice rather than a `to_ascii_lowercase()` String
+/// avoids allocating on every scheme check; previously each call to
+/// `url_scheme` produced a fresh String the size of the URL prefix
+/// (bd:JMAP-6lsm.10).
+fn url_scheme(url: &str) -> Option<&str> {
+    url.split_once("://").map(|(scheme, _)| scheme)
+}
+
+/// `true` if `url`'s scheme prefix is `http` or `https` (case-insensitive,
+/// RFC 3986 §3.1).
+fn is_http_or_https(url: &str) -> bool {
+    url_scheme(url)
+        .is_some_and(|s| s.eq_ignore_ascii_case("http") || s.eq_ignore_ascii_case("https"))
 }
 
 /// Validate that `url` uses an http or https scheme.
 ///
 /// Called at the top of each public method that accepts a URL parameter
 /// (`call`, `subscribe_events`, `upload_blob`, `download_blob`).  This is a
-/// defense-in-depth check: the primary protection is [`validate_session_urls`]
-/// which rejects bad URLs in the Session document at fetch time.  This check
-/// makes each individual call site self-defending against accidentally passing
-/// a non-http URL (e.g. from a test fixture or a misused API).
+/// defense-in-depth check: the primary protection is
+/// [`validate_session_url_schemes`] which rejects bad URLs in the Session
+/// document at fetch time.  This check makes each individual call site
+/// self-defending against accidentally passing a non-http URL (e.g. from a
+/// test fixture or a misused API).
 ///
 /// Returns [`ClientError::InvalidArgument`] if the scheme is not http/https.
 pub(crate) fn require_http_url(url: &str) -> Result<(), ClientError> {
-    let scheme = url_scheme(url);
-    if scheme != "http" && scheme != "https" {
+    if !is_http_or_https(url) {
         return Err(ClientError::InvalidArgument(format!(
             "URL must have http or https scheme, got: {url:?}"
         )));
@@ -729,15 +741,6 @@ pub(crate) fn require_http_url(url: &str) -> Result<(), ClientError> {
     Ok(())
 }
 
-/// Validate that all URL fields in `session` use an http or https scheme.
-///
-/// Returns `ClientError::InvalidSession` if any URL has a non-http/https scheme.
-/// This prevents a malicious server from injecting non-HTTP URLs into subsequent
-/// requests (e.g. `file://`, `ftp://`).
-///
-/// Scheme comparison is case-insensitive per RFC 3986 §3.1: both `http://` and
-/// `HTTP://` are accepted.  Session URL templates may contain `{variable}`
-/// syntax that prevents full URL parsing, so only the scheme prefix is checked.
 /// Validate the *schemes only* of the four session URL fields.
 ///
 /// Three of the four (`upload_url`, `download_url`, `event_source_url`) are
@@ -759,8 +762,7 @@ fn validate_session_url_schemes(session: &Session) -> Result<(), ClientError> {
         &session.download_url,
         &session.event_source_url,
     ] {
-        let scheme = url_scheme(url);
-        if scheme != "http" && scheme != "https" {
+        if !is_http_or_https(url) {
             return Err(ClientError::InvalidSession(format!(
                 "session URL has non-http/https scheme: {:?}",
                 url
