@@ -66,8 +66,7 @@ impl JmapRequestBuilder {
         let call_id = call_id.into();
         if !self.call_ids.insert(call_id.clone()) {
             return Err(ClientError::InvalidArgument(format!(
-                "JmapRequestBuilder: duplicate call_id {:?}",
-                call_id
+                "JmapRequestBuilder: duplicate call_id {call_id:?}"
             )));
         }
         self.method_calls.push((method.into(), args, call_id));
