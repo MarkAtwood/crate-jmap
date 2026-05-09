@@ -80,19 +80,103 @@ pub struct WsSession {
     stream: futures::stream::SplitStream<Inner>,
 }
 
+/// Maximum number of consecutive non-Text non-Close non-Binary frames
+/// (Ping, Pong, Frame, etc.) `next_frame` will silently skip in a single call.
+///
+/// Tungstenite handles ping/pong at the protocol layer, so seeing them at the
+/// `Message` layer is unusual but legal — we skip them. A misbehaving or
+/// hostile server that floods the stream with no-op frames could otherwise
+/// starve a caller of `next_frame` indefinitely; this cap surfaces an
+/// `UnexpectedResponse` error before that can happen. 64 is high enough that
+/// a normal connection never trips it (typical SSE/WS streams interleave at
+/// most a handful of pings between data frames) and low enough that the
+/// caller doesn't wait long if a bad server is talking nonsense.
+///
+/// `Binary` frames are NOT counted here — they violate RFC 8887 §4.1 and
+/// surface as `UnexpectedResponse` immediately on the first occurrence.
+const MAX_CONSECUTIVE_NON_TEXT_FRAMES: usize = 64;
+
+/// Classify a single tungstenite [`Message`] into a [`MessageDisposition`]
+/// that tells the [`WsSession::next_frame`] loop what to do with it.
+///
+/// Extracted as a free function so the policy is unit-testable without a
+/// real WebSocket: see the inline test module. Pure function over the
+/// message variant.
+fn classify_message(msg: &Message) -> MessageDisposition {
+    match msg {
+        Message::Text(_) => MessageDisposition::Text,
+        Message::Close(_) => MessageDisposition::Close,
+        Message::Binary(_) => MessageDisposition::Binary,
+        // Ping, Pong, Frame, and any future variants: skip, but count.
+        _ => MessageDisposition::Skip,
+    }
+}
+
+/// Decision a `next_frame` loop iteration takes after looking at one
+/// [`Message`]. See [`classify_message`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum MessageDisposition {
+    /// Text frame: hand to `parse_ws_frame` and return its result.
+    Text,
+    /// Close frame: end the stream by returning `None`.
+    Close,
+    /// Binary frame: violates RFC 8887 §4.1; surface as
+    /// `UnexpectedResponse` immediately on the first occurrence.
+    Binary,
+    /// Ping / Pong / Frame / future variants: silently skip and continue
+    /// the loop, subject to [`MAX_CONSECUTIVE_NON_TEXT_FRAMES`].
+    Skip,
+}
+
 impl WsSession {
     /// Receive the next parsed frame from the server.
     ///
     /// Returns `None` when the server has cleanly closed the connection.
-    /// Returns `Some(Err(...))` on parse failure or transport error. After a
-    /// transport error the connection is broken; do not call `next_frame` again.
+    /// Returns `Some(Err(...))` on parse failure, transport error, RFC 8887
+    /// §4.1 violation (Binary frame), or starvation cap (more than
+    /// [`MAX_CONSECUTIVE_NON_TEXT_FRAMES`] consecutive Ping/Pong/Frame
+    /// messages). After a transport error the connection is broken and
+    /// `next_frame` must not be called again. After an
+    /// `UnexpectedResponse` error the underlying stream is still healthy
+    /// — the caller may choose to ignore it and retry, or to disconnect.
     pub async fn next_frame(&mut self) -> Option<Result<WsFrame, crate::error::ClientError>> {
+        let mut consecutive_skips = 0usize;
         loop {
-            match self.stream.next().await? {
-                Ok(Message::Text(text)) => return Some(parse_ws_frame(&text)),
-                Ok(Message::Close(_)) => return None,
-                Ok(_) => continue, // Ping / Pong / Binary: silently skip
+            let msg = match self.stream.next().await? {
+                Ok(m) => m,
                 Err(e) => return Some(Err(crate::error::ClientError::from_ws(e))),
+            };
+            match classify_message(&msg) {
+                MessageDisposition::Text => {
+                    let Message::Text(text) = msg else {
+                        // Unreachable: classify_message returned Text only for
+                        // Message::Text. Defensive in case the variant grows.
+                        return Some(Err(crate::error::ClientError::UnexpectedResponse(
+                            "WebSocket: classify_message returned Text for non-Text variant".into(),
+                        )));
+                    };
+                    return Some(parse_ws_frame(&text));
+                }
+                MessageDisposition::Close => return None,
+                MessageDisposition::Binary => {
+                    // RFC 8887 §4.1: JMAP only uses text frames. Surface the
+                    // violation; underlying stream is still healthy so the
+                    // caller can choose to retry next_frame if it wants.
+                    return Some(Err(crate::error::ClientError::UnexpectedResponse(
+                        "WebSocket: server sent Binary frame; RFC 8887 §4.1 mandates text frames"
+                            .into(),
+                    )));
+                }
+                MessageDisposition::Skip => {
+                    consecutive_skips = consecutive_skips.saturating_add(1);
+                    if consecutive_skips > MAX_CONSECUTIVE_NON_TEXT_FRAMES {
+                        return Some(Err(crate::error::ClientError::UnexpectedResponse(
+                            format!(
+                                "WebSocket: exceeded {MAX_CONSECUTIVE_NON_TEXT_FRAMES} consecutive non-text frames; possible server misbehaviour"
+                            ),
+                        )));
+                    }
+                }
             }
         }
     }
@@ -419,5 +503,58 @@ mod tests {
                 other => panic!("expected InvalidArgument for {bad_url:?}, got {other:?}"),
             }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // classify_message — bd:JMAP-6lsm.6
+    // -----------------------------------------------------------------------
+
+    /// Oracle: Text frames classify as Text. The independent oracle is
+    /// the next_frame contract in the docstring above.
+    #[test]
+    fn classify_text_message() {
+        let m = Message::Text("hi".into());
+        assert_eq!(classify_message(&m), MessageDisposition::Text);
+    }
+
+    /// Oracle: Close frames classify as Close, ending the stream.
+    #[test]
+    fn classify_close_message() {
+        let m = Message::Close(None);
+        assert_eq!(classify_message(&m), MessageDisposition::Close);
+    }
+
+    /// Oracle: Binary frames violate RFC 8887 §4.1 and must classify as
+    /// Binary so the next_frame loop surfaces UnexpectedResponse rather
+    /// than silently skipping (the bug JMAP-6lsm.6 fixes). The independent
+    /// oracle is RFC 8887 §4.1.
+    #[test]
+    fn classify_binary_message_is_not_skipped() {
+        let m = Message::Binary(vec![1, 2, 3].into());
+        assert_eq!(classify_message(&m), MessageDisposition::Binary);
+        assert_ne!(
+            classify_message(&m),
+            MessageDisposition::Skip,
+            "Binary must NOT be silently skipped (RFC 8887 §4.1)"
+        );
+    }
+
+    /// Oracle: Ping/Pong frames classify as Skip. Tungstenite handles
+    /// them at the protocol layer, so seeing them at the Message layer
+    /// is unusual but legal — skip and continue.
+    #[test]
+    fn classify_ping_pong_messages_are_skipped() {
+        let ping = Message::Ping(vec![].into());
+        let pong = Message::Pong(vec![].into());
+        assert_eq!(classify_message(&ping), MessageDisposition::Skip);
+        assert_eq!(classify_message(&pong), MessageDisposition::Skip);
+    }
+
+    /// Tripwire: the consecutive-skip cap is the documented value.
+    /// A future retune will fail this test loudly so the change is
+    /// visible in CI. Documented value is 64 (see the const docstring).
+    #[test]
+    fn consecutive_skip_cap_matches_documented_value() {
+        assert_eq!(MAX_CONSECUTIVE_NON_TEXT_FRAMES, 64);
     }
 }
