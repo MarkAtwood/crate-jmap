@@ -84,7 +84,30 @@ impl super::SessionClient {
     /// and update operations with `forbidden` SetErrors. This method only sends
     /// `destroy` to prevent constructing invalid requests.
     ///
-    /// Pass `destroy: None` to send an empty destroy list (no-op).
+    /// **Network call is unconditional.** Both `destroy: None` and
+    /// `destroy: Some(&[])` produce a wire request with `"destroy": []` and
+    /// always make an HTTP round-trip to the server. The response will
+    /// trivially have `oldState == newState` and empty `destroyed` /
+    /// `notDestroyed` maps — an uninteresting round-trip that still costs
+    /// latency and counts against any rate limit.
+    ///
+    /// **If you want to avoid the round-trip, filter your list and skip
+    /// this call entirely** when there is nothing to destroy:
+    ///
+    /// ```ignore
+    /// if !ids.is_empty() {
+    ///     let _ = sc.calendar_event_notification_set(Some(&ids)).await?;
+    /// }
+    /// ```
+    ///
+    /// Rationale (bd:JMAP-231o.9): the alternative — short-circuiting and
+    /// synthesizing an empty `SetResponse` client-side without a network
+    /// call — would require fabricating `oldState`/`newState` tokens with
+    /// no way to know the current value, which would be wrong and
+    /// confusing if the caller then used the synthesized state for
+    /// optimistic concurrency. Keeping the call unconditional preserves
+    /// state-token correctness; the caller is in the best position to
+    /// decide whether to skip the call entirely.
     pub async fn calendar_event_notification_set(
         &self,
         destroy: Option<&[&str]>,
