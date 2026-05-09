@@ -2,6 +2,20 @@
 //!
 //! Depends on jmap-base-client for transport, auth, and session.
 //! See PLAN.md for the full implementation plan.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! # use jmap_filenode_client::JmapFileNodeExt;
+//! # async fn example(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {
+//! let session = client.fetch_session().await?;
+//! let sc = client.with_filenode_session(session);
+//! // Fetch FileNode metadata. None ids = fetch all in the primary account.
+//! let nodes = sc.file_node_get(None, None, None).await?;
+//! # let _ = nodes;
+//! # Ok(())
+//! # }
+//! ```
 
 #![forbid(unsafe_code)]
 

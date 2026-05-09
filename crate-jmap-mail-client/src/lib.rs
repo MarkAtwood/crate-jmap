@@ -2,6 +2,20 @@
 //!
 //! Depends on jmap-base-client for transport, auth, and session.
 //! See PLAN.md for the full implementation plan.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! # use jmap_mail_client::JmapMailExt;
+//! # async fn example(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {
+//! let session = client.fetch_session().await?;
+//! let sc = client.with_mail_session(session);
+//! // Fetch Email metadata. None ids = fetch all (typically scoped via /query first).
+//! let emails = sc.email_get(None, None, None).await?;
+//! # let _ = emails;
+//! # Ok(())
+//! # }
+//! ```
 
 #![forbid(unsafe_code)]
 

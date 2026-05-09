@@ -2,6 +2,20 @@
 //!
 //! Depends on jmap-base-client for transport, auth, and session.
 //! See PLAN.md for the full implementation plan.
+//!
+//! # Usage
+//!
+//! ```rust,no_run
+//! # use jmap_contacts_client::JmapContactsExt;
+//! # async fn example(client: jmap_base_client::JmapClient) -> Result<(), jmap_base_client::ClientError> {
+//! let session = client.fetch_session().await?;
+//! let sc = client.with_contacts_session(session);
+//! // List all address books in the primary account.
+//! let address_books = sc.address_book_get(None, None).await?;
+//! # let _ = address_books;
+//! # Ok(())
+//! # }
+//! ```
 
 #![forbid(unsafe_code)]
 
