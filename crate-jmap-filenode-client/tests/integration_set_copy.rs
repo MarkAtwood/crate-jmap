@@ -7,6 +7,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -158,7 +159,7 @@ async fn file_node_set_destroy_node_has_children_error() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .file_node_set(None, None, Some(vec!["node-abc"]), None)
+        .file_node_set(None, None, Some(vec![Id::from("node-abc")]), None)
         .await
         .expect("file_node_set_destroy_node_has_children_error: must succeed");
 
@@ -233,7 +234,7 @@ async fn file_node_copy_with_on_exists_rename() {
     let sc = helpers::make_client(&server).await;
     let resp = sc
         .file_node_copy(
-            "source-account",
+            &Id::from("source-account"),
             json!({
                 "copy1": { "id": "original-node-x", "parentId": null }
             }),

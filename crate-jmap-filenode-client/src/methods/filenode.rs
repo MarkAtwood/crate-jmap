@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, State};
 
 // ---------------------------------------------------------------------------
 // FileNode-specific input types
@@ -71,19 +71,10 @@ impl super::SessionClient {
     /// nodes of the requested IDs.
     pub async fn file_node_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
         fetch_parents: Option<bool>,
     ) -> Result<GetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "file_node_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
@@ -105,10 +96,12 @@ impl super::SessionClient {
     /// `new_state` as `since_state` until the flag is false.
     pub async fn file_node_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: an empty State token has no meaning on the wire
+        // even though State is a typed newtype.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "file_node_changes: since_state may not be empty".into(),
             ));
@@ -143,18 +136,9 @@ impl super::SessionClient {
         &self,
         create: Option<serde_json::Value>,
         update: Option<HashMap<Id, PatchObject>>,
-        destroy: Option<Vec<&str>>,
+        destroy: Option<Vec<Id>>,
         params: Option<FileNodeSetParams>,
     ) -> Result<SetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
-        if let Some(ref ids) = destroy {
-            for id in ids.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "file_node_set: destroy element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
@@ -170,11 +154,7 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::Value::Array(
-                d.into_iter()
-                    .map(|id| serde_json::Value::String(id.to_owned()))
-                    .collect(),
-            );
+            args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
         }
         if let Some(p) = params {
             let params_val = serde_json::to_value(&p).map_err(|e| {
@@ -209,17 +189,12 @@ impl super::SessionClient {
     /// - `compare_case_insensitively`: case-folding for name collisions.
     pub async fn file_node_copy(
         &self,
-        from_account_id: &str,
+        from_account_id: &Id,
         create: serde_json::Value,
         on_destroy_remove_children: Option<bool>,
         on_exists: Option<FileNodeOnExists>,
         compare_case_insensitively: Option<bool>,
     ) -> Result<SetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
-        if from_account_id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "file_node_copy: from_account_id may not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "fromAccountId": from_account_id,
@@ -288,10 +263,11 @@ impl super::SessionClient {
     /// result set since the given state. `max_changes` may be `None`.
     pub async fn file_node_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see file_node_changes.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "file_node_query_changes: since_query_state may not be empty".into(),
             ));
@@ -322,23 +298,13 @@ mod tests {
 
     // ── Empty-string guards ─────────────────────────────────────────────────
 
-    /// Oracle: empty ID in ids slice must trigger the InvalidArgument guard.
-    /// Guard fires before any session lookup or network call.
-    #[test]
-    fn file_node_get_empty_id_guard() {
-        let ids: &[&str] = &[""];
-        let mut found_error = false;
-        for id in ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty id must trigger the InvalidArgument guard"
-        );
-    }
+    // The `file_node_get_empty_id_guard` inline smoke test was removed by the
+    // JMAP-6by7.6 typed-Id refactor. It was vacuous because it only iterated
+    // a local `&[""]` slice and asserted `is_empty()` found the empty value,
+    // without invoking any production method. Under typed `&[Id]` parameters,
+    // an empty-Id input is impossible to express through the API
+    // (`Id::new_validated("")` returns `Err` at the call site) so the bug it
+    // pretended to test is unrepresentable.
 
     // The InvalidArgument guards for empty since_state, since_query_state,
     // destroy IDs, and from_account_id live in the FileNode production code;
