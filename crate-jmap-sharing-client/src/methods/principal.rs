@@ -1,7 +1,7 @@
 // JMAP Sharing — Principal/* method implementations on SessionClient.
 //
 // Each method follows the standard five-step pattern:
-//   1. Validate arguments (empty-string guards).
+//   1. Validate arguments (defence-in-depth empty-state guards).
 //   2. Call `self.session_parts()?` → `(api_url, account_id)`.
 //   3. Build args JSON with `serde_json::json!({…})`.
 //   4. Call `build_request(method_name, args, USING_SHARING)`.
@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, State};
 
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
 
@@ -21,18 +21,9 @@ impl super::SessionClient {
     /// Pass `properties: None` to return all fields.
     pub async fn principal_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_sharing_types::Principal>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "principal_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -53,10 +44,14 @@ impl super::SessionClient {
     /// `cannotCalculateChanges` if change tracking is unavailable.
     pub async fn principal_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: even with the typed-`State` parameter (a transparent
+        // newtype around `String`), an empty state token is still a logically
+        // invalid value that should be caught client-side rather than producing
+        // a confusing server-side `cannotCalculateChanges` error.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "principal_changes: since_state may not be empty".into(),
             ));
@@ -91,17 +86,8 @@ impl super::SessionClient {
         &self,
         create: Option<serde_json::Value>,
         update: Option<HashMap<Id, PatchObject>>,
-        destroy: Option<Vec<&str>>,
+        destroy: Option<Vec<Id>>,
     ) -> Result<SetResponse<jmap_sharing_types::Principal>, jmap_base_client::ClientError> {
-        if let Some(ref ids) = destroy {
-            for id in ids.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "principal_set: destroy element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
@@ -117,11 +103,7 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::Value::Array(
-                d.into_iter()
-                    .map(|id| serde_json::Value::String(id.to_owned()))
-                    .collect(),
-            );
+            args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
         }
         let req = super::build_request("Principal/set", args, super::USING_SHARING);
         let resp = self.call_internal(api_url, &req).await?;
@@ -167,10 +149,11 @@ impl super::SessionClient {
     /// result set since the given state. `max_changes` may be `None`.
     pub async fn principal_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see `principal_changes`.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "principal_query_changes: since_query_state may not be empty".into(),
             ));
@@ -198,70 +181,18 @@ mod tests {
     use super::super::{build_request, CALL_ID, USING_SHARING};
     use serde_json::json;
 
-    /// Oracle: empty ID in ids slice returns InvalidArgument.
-    /// This guard fires before any session lookup or network call.
-    /// Expected error kind: ClientError::InvalidArgument — per base client spec.
-    #[test]
-    fn principal_get_empty_id_returns_invalid_argument() {
-        // Test the validation guard directly without needing SessionClient.
-        let ids: &[&str] = &[""];
-        let mut found_error = false;
-        for id in ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty id must trigger the InvalidArgument guard"
-        );
-    }
-
-    /// Oracle: empty since_state returns InvalidArgument.
-    /// Guard fires before any session or network call.
-    #[test]
-    fn principal_changes_empty_since_state_returns_invalid_argument() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = {
-            if since_state.is_empty() {
-                Err(jmap_base_client::ClientError::InvalidArgument(
-                    "principal_changes: since_state may not be empty".into(),
-                ))
-            } else {
-                Ok(())
-            }
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_state must produce InvalidArgument"
-        );
-    }
-
-    /// Oracle: empty since_query_state returns InvalidArgument.
-    #[test]
-    fn principal_query_changes_empty_state_returns_invalid_argument() {
-        let since_query_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = {
-            if since_query_state.is_empty() {
-                Err(jmap_base_client::ClientError::InvalidArgument(
-                    "principal_query_changes: since_query_state may not be empty".into(),
-                ))
-            } else {
-                Ok(())
-            }
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_query_state must produce InvalidArgument"
-        );
-    }
+    // Inline guard smoke tests (e.g. `principal_get_empty_id_returns_invalid_argument`,
+    // `principal_changes_empty_since_state_returns_invalid_argument`,
+    // `principal_query_changes_empty_state_returns_invalid_argument`) were
+    // removed by the JMAP-6by7.7 typed-Id refactor. They were vacuous because
+    // they only iterated a local `&[""]` slice (or duplicated the guard's
+    // `is_empty()` check) and asserted `is_empty()` found the empty value,
+    // without invoking any production method. Under typed `&[Id]` / `Vec<Id>`
+    // parameters, an empty-Id input is impossible to express through the API
+    // (`Id::new_validated("")` returns `Err` at the call site) so the bug
+    // they pretended to test is unrepresentable. Defence-in-depth empty-state
+    // guards still live in the production code (`principal_changes`,
+    // `principal_query_changes`) using `as_ref().is_empty()`.
 
     /// Oracle: Principal/get request has correct method name and using array.
     /// Expected JSON shape from RFC 8620 §3.3.
