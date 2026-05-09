@@ -9,8 +9,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
 use crate::helpers::{
-    extract_account_id, filter_properties, find_immutable_patch_key, not_found_json, ser,
-    set_error_value,
+    extract_account_id, filter_properties, finalize_set_response, find_immutable_patch_key,
+    not_found_json, ser, set_error_value,
 };
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
@@ -1143,28 +1143,19 @@ pub async fn handle_email_set<B: MailBackend>(
         }
     }
 
-    let new_state = if mutated {
-        backend
-            .get_state::<Email>(&account_id)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
-    } else {
-        old_state.clone()
-    };
-
-    let resp = json!({
-        "accountId": account_id.as_ref(),
-        "oldState": old_state.as_ref(),
-        "newState": new_state.as_ref(),
-        "created": if created.is_empty() { Value::Null } else { Value::Object(created) },
-        "updated": if updated.is_empty() { Value::Null } else { Value::Object(updated) },
-        "destroyed": if destroyed_list.is_empty() { Value::Null } else { Value::Array(destroyed_list) },
-        "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
-        "notUpdated": if not_updated.is_empty() { Value::Null } else { Value::Object(not_updated) },
-        "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
-    });
-
-    Ok((resp, vec![]))
+    finalize_set_response::<B, Email>(
+        backend,
+        &account_id,
+        old_state,
+        mutated,
+        created,
+        updated,
+        destroyed_list,
+        not_created,
+        not_updated,
+        not_destroyed,
+    )
+    .await
 }
 
 // ---------------------------------------------------------------------------

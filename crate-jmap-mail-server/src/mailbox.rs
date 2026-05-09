@@ -7,7 +7,10 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, filter_properties, not_found_json, ser, set_error_value};
+use crate::helpers::{
+    extract_account_id, filter_properties, finalize_set_response, not_found_json, ser,
+    set_error_value,
+};
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)
@@ -1067,57 +1070,29 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         }
     }
 
-    // Fetch new state after all mutations.
-    let new_state = backend
-        .get_state::<Mailbox>(&account_id)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
-    let created_out = if created.is_empty() {
-        Value::Null
-    } else {
-        Value::Object(created)
-    };
-    let not_created_out = if not_created.is_empty() {
-        Value::Null
-    } else {
-        Value::Object(not_created)
-    };
-    let updated_out = if updated.is_empty() {
-        Value::Null
-    } else {
-        Value::Object(updated)
-    };
-    let not_updated_out = if not_updated.is_empty() {
-        Value::Null
-    } else {
-        Value::Object(not_updated)
-    };
-    let destroyed_out = if destroyed.is_empty() {
-        Value::Null
-    } else {
-        Value::Array(destroyed.into_iter().map(Value::String).collect())
-    };
-    let not_destroyed_out = if not_destroyed.is_empty() {
-        Value::Null
-    } else {
-        Value::Object(not_destroyed)
-    };
-
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "oldState": current_state.as_ref(),
-            "newState": new_state.as_ref(),
-            "created": created_out,
-            "notCreated": not_created_out,
-            "updated": updated_out,
-            "notUpdated": not_updated_out,
-            "destroyed": destroyed_out,
-            "notDestroyed": not_destroyed_out,
-        }),
-        vec![],
-    ))
+    // `mutated` is computed from the result accumulators (matches sieve.rs and
+    // the calendars-server canonical). Lets the helper skip the `get_state`
+    // round-trip when every operation failed.
+    //
+    // `destroyed: Vec<String>` is converted to `Vec<Value>` here because the
+    // helper's signature uses the canonical `Vec<Value>` shape — pushing the
+    // conversion to the call site keeps the helper identical across all
+    // extension-server siblings.
+    let mutated = !created.is_empty() || !updated.is_empty() || !destroyed.is_empty();
+    let destroyed_list: Vec<Value> = destroyed.into_iter().map(Value::String).collect();
+    finalize_set_response::<B, Mailbox>(
+        backend,
+        &account_id,
+        current_state,
+        mutated,
+        created,
+        updated,
+        destroyed_list,
+        not_created,
+        not_updated,
+        not_destroyed,
+    )
+    .await
 }
 
 // ---------------------------------------------------------------------------

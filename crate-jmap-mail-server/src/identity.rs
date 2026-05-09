@@ -6,7 +6,10 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
-use crate::helpers::{extract_account_id, filter_properties, not_found_json, ser, set_error_value};
+use crate::helpers::{
+    extract_account_id, filter_properties, finalize_set_response, not_found_json, ser,
+    set_error_value,
+};
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
 ///
@@ -420,27 +423,17 @@ pub async fn handle_identity_set<B: MailBackend>(
         }
     }
 
-    // Fetch new state if anything changed.
-    let new_state = if mutated {
-        backend
-            .get_state::<jmap_mail_types::Identity>(&account_id)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
-    } else {
-        old_state.clone()
-    };
-
-    let resp = json!({
-        "accountId": account_id.as_ref(),
-        "oldState": old_state.as_ref(),
-        "newState": new_state.as_ref(),
-        "created": if created.is_empty() { Value::Null } else { Value::Object(created) },
-        "updated": if updated.is_empty() { Value::Null } else { Value::Object(updated) },
-        "destroyed": if destroyed_list.is_empty() { Value::Null } else { Value::Array(destroyed_list) },
-        "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
-        "notUpdated": if not_updated.is_empty() { Value::Null } else { Value::Object(not_updated) },
-        "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
-    });
-
-    Ok((resp, vec![]))
+    finalize_set_response::<B, jmap_mail_types::Identity>(
+        backend,
+        &account_id,
+        old_state,
+        mutated,
+        created,
+        updated,
+        destroyed_list,
+        not_created,
+        not_updated,
+        not_destroyed,
+    )
+    .await
 }
