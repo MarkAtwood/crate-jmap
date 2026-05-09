@@ -332,12 +332,16 @@ pub async fn connect_ws_with_limit(
         ));
     }
     // Validate scheme to prevent SSRF via a compromised or MITM'd session.
-    // Case-insensitive check per RFC 3986 §3.1: lowercase the URL before
-    // comparing so that `WS://` and `wss://` are both accepted.  The
-    // original (unmodified) URL is passed to tungstenite and kept in error
-    // messages for diagnostics.
-    let ws_url_lc = ws_url.to_ascii_lowercase();
-    if !ws_url_lc.starts_with("ws://") && !ws_url_lc.starts_with("wss://") {
+    // Case-insensitive check per RFC 3986 §3.1: only the SCHEME component is
+    // case-insensitive, not the path/query — so split off the scheme and
+    // compare with eq_ignore_ascii_case rather than lowercasing the whole
+    // URL. Lowercasing the whole URL allocated a fresh String the size of
+    // the URL on every connect (bd:JMAP-6lsm.9). The original (unmodified)
+    // URL is passed to tungstenite and kept in error messages for diagnostics.
+    let scheme_ok = ws_url
+        .split_once("://")
+        .is_some_and(|(s, _)| s.eq_ignore_ascii_case("ws") || s.eq_ignore_ascii_case("wss"));
+    if !scheme_ok {
         return Err(crate::error::ClientError::InvalidArgument(format!(
             "WebSocket URL must start with ws:// or wss://, got: {ws_url:?}"
         )));
