@@ -58,16 +58,12 @@ impl super::SessionClient {
         });
         if let Some(tids) = thread_ids {
             args["threadIds"] = serde_json::Value::Array(
-                tids.iter()
-                    .map(|id| serde_json::Value::String((*id).to_owned()))
-                    .collect(),
+                tids.iter().copied().map(serde_json::Value::from).collect(),
             );
         }
         if let Some(eids) = email_ids {
             args["emailIds"] = serde_json::Value::Array(
-                eids.iter()
-                    .map(|id| serde_json::Value::String((*id).to_owned()))
-                    .collect(),
+                eids.iter().copied().map(serde_json::Value::from).collect(),
             );
         }
         let req = super::build_request("SearchSnippet/get", args, super::USING_MAIL);

@@ -237,10 +237,7 @@ impl super::SessionClient {
         }
         if let Some(types) = input.types {
             create_obj["types"] = serde_json::Value::Array(
-                types
-                    .iter()
-                    .map(|t| serde_json::Value::String((*t).to_owned()))
-                    .collect(),
+                types.iter().copied().map(serde_json::Value::from).collect(),
             );
         }
         let has_chat_push = input.chat_push.is_some();

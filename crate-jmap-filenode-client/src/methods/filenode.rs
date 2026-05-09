@@ -478,7 +478,8 @@ mod tests {
         let destroy_val = serde_json::Value::Array(
             destroy_ids
                 .iter()
-                .map(|id| serde_json::Value::String((*id).to_owned()))
+                .copied()
+                .map(serde_json::Value::from)
                 .collect(),
         );
         let mut args = json!({ "accountId": "acc1" });
