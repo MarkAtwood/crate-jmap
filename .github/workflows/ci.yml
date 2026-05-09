@@ -77,7 +77,13 @@ jobs:
         rust: [stable, beta]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@${{ matrix.rust }}
+      # The toolchain selector goes in `with:` rather than after `@` because
+      # GitHub Actions evaluates the `uses:` reference statically, before the
+      # matrix context is available. dtolnay/rust-toolchain accepts the
+      # `toolchain` input for exactly this case.
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ matrix.rust }}
       - uses: Swatinem/rust-cache@v2
       - name: cargo test --workspace
         run: cargo test --workspace
