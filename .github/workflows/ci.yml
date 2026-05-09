@@ -1,13 +1,10 @@
 # Workspace CI — enforces the AGENTS.md pre-commit gate on every push and PR.
 #
-# Plan C scope (closes JMAP-sc1b.9): fmt + clippy + test (stable + beta) +
-# doc + typos, single ubuntu-latest runner. Each job runs in parallel so
-# total wall time is roughly the slowest job (~test). Beta is advisory.
+# Scope: fmt + clippy + test (stable + beta) + doc + typos + msrv, single
+# ubuntu-latest runner. Each job runs in parallel so total wall time is
+# roughly the slowest job (~test). Beta is advisory.
 #
 # Deferred follow-ups, intentionally out of scope here:
-#   - MSRV (1.75) build check .......... bd:JMAP-a2e3 (blocked on bd:JMAP-ulfy
-#                                        — declared 1.75 doesn't match actual
-#                                        ~1.86 due to transitive deps)
 #   - cargo-deny supply-chain job ...... bd:JMAP-hge6 (blocked on bd:JMAP-sc1b.10
 #                                        which provisions deny.toml)
 # Each follow-up has a TODO marker below where the new job should slot in.
@@ -117,11 +114,23 @@ jobs:
       - uses: actions/checkout@v4
       - uses: crate-ci/typos@master
 
-  # TODO bd:JMAP-a2e3 (blocked on bd:JMAP-ulfy) — add `msrv` job using
-  # dtolnay/rust-toolchain@<MSRV> and `cargo check --workspace --all-features
-  # --locked` to guard against silent MSRV bumps from transitive-dep updates.
-  # The exact toolchain version waits on the Cargo.toml rust-version policy
-  # decision in JMAP-ulfy (declared 1.75 doesn't match actual ~1.86).
+  # -------------------------------------------------------------------------
+  # msrv — verify the workspace actually compiles on the declared minimum
+  # supported Rust version. The declared MSRV is 1.88 (see Cargo.toml
+  # [workspace.package] rust-version, and bd:JMAP-ulfy for the policy
+  # decision history). `--locked` prevents surprise dep upgrades during
+  # the check; if a dep update silently bumps the actual MSRV above 1.88,
+  # this job fails and the bump becomes visible.
+  # -------------------------------------------------------------------------
+  msrv:
+    name: msrv (1.88)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@1.88.0
+      - uses: Swatinem/rust-cache@v2
+      - name: cargo check --workspace --all-features --locked
+        run: cargo check --workspace --all-features --locked
 
   # TODO bd:JMAP-hge6 — add `deny` job once bd:JMAP-sc1b.10 lands a deny.toml,
   # using EmbarkStudios/cargo-deny-action@v2 to enforce supply-chain policy.
