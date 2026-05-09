@@ -127,11 +127,8 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::Value::Array(
-                d.iter()
-                    .map(|id| serde_json::Value::String((*id).to_owned()))
-                    .collect(),
-            );
+            args["destroy"] =
+                serde_json::Value::Array(d.iter().copied().map(serde_json::Value::from).collect());
         }
         if let Some(flag) = on_destroy_remove_events {
             args["onDestroyRemoveEvents"] = flag.into();

@@ -94,11 +94,9 @@ impl super::SessionClient {
         }
         let (api_url, account_id) = self.session_parts()?;
         let destroy_val = match destroy {
-            Some(ids) => serde_json::Value::Array(
-                ids.iter()
-                    .map(|id| serde_json::Value::String((*id).to_owned()))
-                    .collect(),
-            ),
+            Some(ids) => {
+                serde_json::Value::Array(ids.iter().copied().map(serde_json::Value::from).collect())
+            }
             None => serde_json::Value::Array(vec![]),
         };
         let args = serde_json::json!({
@@ -237,11 +235,8 @@ mod tests {
     #[test]
     fn calendar_event_notification_set_with_destroy_sends_ids() {
         let ids = ["notif1", "notif2"];
-        let destroy_val = serde_json::Value::Array(
-            ids.iter()
-                .map(|id| serde_json::Value::String((*id).to_owned()))
-                .collect(),
-        );
+        let destroy_val =
+            serde_json::Value::Array(ids.iter().copied().map(serde_json::Value::from).collect());
         let args = json!({ "accountId": "acc1", "destroy": destroy_val });
         let req = build_request("CalendarEventNotification/set", args, USING_CALENDARS);
         let v = serde_json::to_value(&req).expect("serialize");
