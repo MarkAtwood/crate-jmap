@@ -34,3 +34,8 @@ alls = "alls"
 # implementors recognise it; we preserve the original misspelling rather
 # than silently normalising and confusing readers who go looking.
 assigneee = "assigneee"
+
+# `hge` — appears as part of beads (bd) issue identifiers like `JMAP-hge6`.
+# typos suggests it should be `he`; preserve as-is so cross-references in
+# commit messages, comments, and docstrings to bead IDs stay accurate.
+hge = "hge"
