@@ -8,6 +8,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -49,7 +50,10 @@ async fn task_get_sends_ids_and_properties() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .task_get(Some(&["task1"]), Some(&["id", "title", "isDraft"]))
+        .task_get(
+            Some(&[Id::from("task1")]),
+            Some(&["id", "title", "isDraft"]),
+        )
         .await
         .expect("task_get_sends_ids_and_properties: must succeed");
 
@@ -174,7 +178,7 @@ async fn task_changes_paginated() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .task_changes("s5", Some(10))
+        .task_changes(&State::from("s5"), Some(10))
         .await
         .expect("task_changes_paginated: must succeed");
 
@@ -304,7 +308,7 @@ async fn task_copy_includes_from_account_id() {
 
     let sc = helpers::make_client(&server).await;
     sc.task_copy(
-        "srcacc",
+        &Id::from("srcacc"),
         json!({"c1": {"id": "task-src1", "taskListId": "list1"}}),
     )
     .await
@@ -428,7 +432,7 @@ async fn task_query_changes_round_trip() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .task_query_changes("qs1", Some(5))
+        .task_query_changes(&State::from("qs1"), Some(5))
         .await
         .expect("task_query_changes_round_trip: must succeed");
 

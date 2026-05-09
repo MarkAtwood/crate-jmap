@@ -8,6 +8,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -130,7 +131,7 @@ async fn task_list_changes_sends_since_state() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .task_list_changes("state-1", Some(50))
+        .task_list_changes(&State::from("state-1"), Some(50))
         .await
         .expect("task_list_changes_sends_since_state: must succeed");
 
@@ -200,7 +201,7 @@ async fn task_list_set_on_destroy_remove_tasks_round_trip() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .task_list_set(None, None, Some(vec!["list1"]), Some(true))
+        .task_list_set(None, None, Some(vec![Id::from("list1")]), Some(true))
         .await
         .expect("task_list_set_on_destroy_remove_tasks_round_trip: must succeed");
 

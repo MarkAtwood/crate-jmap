@@ -1,7 +1,7 @@
 // JMAP Tasks — TaskList/* method implementations on SessionClient.
 //
 // Each method follows the standard five-step pattern:
-//   1. Validate arguments (empty-string guards).
+//   1. Validate arguments (defence-in-depth empty-state guards).
 //   2. Call `self.session_parts()?` → `(api_url, account_id)`.
 //   3. Build args JSON with `serde_json::json!({…})`.
 //   4. Call `build_request(method_name, args, USING_TASKS)`.
@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, State};
 
 use super::{ChangesResponse, GetResponse, SetResponse};
 
@@ -21,18 +21,9 @@ impl super::SessionClient {
     /// Pass `properties: None` to return all fields.
     pub async fn task_list_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_tasks_types::TaskList>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "task_list_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -50,10 +41,14 @@ impl super::SessionClient {
     /// as `since_state` until the flag is false.
     pub async fn task_list_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: even with the typed-`State` parameter (a transparent
+        // newtype around `String`), an empty state token is still a logically
+        // invalid value that should be caught client-side rather than producing
+        // a confusing server-side `cannotCalculateChanges` error.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "task_list_changes: since_state may not be empty".into(),
             ));
@@ -88,18 +83,9 @@ impl super::SessionClient {
         &self,
         create: Option<serde_json::Value>,
         update: Option<HashMap<Id, PatchObject>>,
-        destroy: Option<Vec<&str>>,
+        destroy: Option<Vec<Id>>,
         on_destroy_remove_tasks: Option<bool>,
     ) -> Result<SetResponse<jmap_tasks_types::TaskList>, jmap_base_client::ClientError> {
-        if let Some(ref ids) = destroy {
-            for id in ids.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "task_list_set: destroy element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
@@ -115,11 +101,7 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::Value::Array(
-                d.into_iter()
-                    .map(|id| serde_json::Value::String(id.to_owned()))
-                    .collect(),
-            );
+            args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
         }
         if let Some(v) = on_destroy_remove_tasks {
             args["onDestroyRemoveTasks"] = v.into();
@@ -139,22 +121,13 @@ mod tests {
     use super::super::{build_request, CALL_ID, USING_TASKS};
     use serde_json::json;
 
-    /// Oracle: empty ID in ids slice returns InvalidArgument.
-    #[test]
-    fn task_list_get_empty_id_returns_invalid_argument() {
-        let ids: &[&str] = &[""];
-        let mut found_error = false;
-        for id in ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty id must trigger the InvalidArgument guard"
-        );
-    }
+    // The `task_list_get_empty_id_returns_invalid_argument` inline smoke test
+    // was removed by the JMAP-6by7.5 typed-Id refactor. It was vacuous because
+    // it only iterated a local `&[""]` slice and asserted `is_empty()` found
+    // the empty value, without invoking any production method. Under typed
+    // `&[Id]` parameters, an empty-Id input is impossible to express through
+    // the API (`Id::new_validated("")` returns `Err` at the call site) so the
+    // bug it pretended to test is unrepresentable.
 
     // The InvalidArgument guard for empty since_state lives in task_list_changes
     // production code; testing it requires a wiremock-backed async harness.
