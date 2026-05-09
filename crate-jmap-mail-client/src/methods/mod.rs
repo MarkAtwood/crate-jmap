@@ -68,7 +68,7 @@ pub struct EmailCopyParams {
     pub on_success_destroy_original: Option<bool>,
     /// If-in-state guard for the source account destroy step (RFC 8620 §5.4).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub destroy_from_if_in_state: Option<String>,
+    pub destroy_from_if_in_state: Option<jmap_types::State>,
 }
 
 /// Extra args for Mailbox/set (RFC 8621 §2.5).

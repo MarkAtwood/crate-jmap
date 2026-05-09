@@ -79,6 +79,15 @@ wrap with `async-trait 0.1` at that time.
 
 ## Planned Public API
 
+The shipped API uses the `SessionClient` shape (extension trait returns a
+session-bound client; methods are inherent on `SessionClient`). Id-shaped
+parameters are `&Id` / `&[Id]` / `Option<&[Id]>` and state-shaped parameters
+are `&State` since bd:JMAP-6by7.2 (2026-05-09); the brief drift to
+`&str` / `&[&str]` from earlier 0.1.x preview revisions was reverted in
+that bead. The sketch below uses the trait-method shape from the original
+plan; the actual shipped API on `SessionClient` is documented in the
+README "Registered methods" table.
+
 ```rust
 use jmap_base_client::{ClientError, JmapClient};
 use jmap_mail_types::{Email, Mailbox, Thread, Identity, EmailSubmission, SearchSnippet};

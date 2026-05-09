@@ -3,7 +3,7 @@
 // Implements RFC 8621 §7.1-7.5.
 //
 // Each method follows the standard six-step pattern:
-//   1. Validate arguments (empty-string guards).
+//   1. Validate arguments (defence-in-depth empty-state guards).
 //   2. Call `self.session_parts()?` → `(api_url, account_id)`.
 //   3. Build args JSON with `serde_json::json!({…})`.
 //   4. Call `build_request(method_name, args, USING_MAIL)`.
@@ -18,7 +18,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, State};
 
 use super::{
     ChangesResponse, EmailSubmissionSetParams, GetResponse, QueryChangesResponse, QueryResponse,
@@ -32,19 +32,9 @@ impl super::SessionClient {
     /// Pass `properties: None` to return all fields.
     pub async fn email_submission_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_mail_types::EmailSubmission>, jmap_base_client::ClientError> {
-        // Guard: reject empty-string ids — the server would treat them as unknown.
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "email_submission_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -60,11 +50,11 @@ impl super::SessionClient {
     /// (RFC 8621 §7.2 — EmailSubmission/changes).
     pub async fn email_submission_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        // Guard: an empty since_state is not a valid JMAP state string.
-        if since_state.is_empty() {
+        // Defence-in-depth: see `thread_changes`.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "email_submission_changes: since_state may not be empty".into(),
             ));
@@ -120,13 +110,13 @@ impl super::SessionClient {
     /// (RFC 8621 §7.4 — EmailSubmission/queryChanges).
     pub async fn email_submission_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
         filter: Option<serde_json::Value>,
         sort: Option<serde_json::Value>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        // Guard: an empty since_query_state is not a valid query state string.
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see `thread_changes`.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "email_submission_query_changes: since_query_state may not be empty".into(),
             ));
@@ -165,20 +155,10 @@ impl super::SessionClient {
         &self,
         create: Option<serde_json::Value>,
         update: Option<HashMap<Id, PatchObject>>,
-        destroy: Option<Vec<&str>>,
-        if_in_state: Option<&str>,
+        destroy: Option<Vec<Id>>,
+        if_in_state: Option<&State>,
         params: Option<EmailSubmissionSetParams>,
     ) -> Result<SetResponse<jmap_mail_types::EmailSubmission>, jmap_base_client::ClientError> {
-        // Guard: reject empty-string IDs in the destroy list.
-        if let Some(ref ids) = destroy {
-            for id in ids.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "email_submission_set: destroy element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
@@ -200,7 +180,7 @@ impl super::SessionClient {
             }
         }
         if let Some(s) = if_in_state {
-            args["ifInState"] = serde_json::Value::String(s.to_owned());
+            args["ifInState"] = serde_json::Value::String(s.as_ref().to_owned());
         }
         if let Some(c) = create {
             args["create"] = c;
@@ -213,11 +193,7 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::Value::Array(
-                d.into_iter()
-                    .map(|id| serde_json::Value::String(id.to_owned()))
-                    .collect(),
-            );
+            args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
         }
         let req = super::build_request("EmailSubmission/set", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
@@ -234,46 +210,15 @@ mod tests {
     use super::super::{build_request, CALL_ID, USING_MAIL};
     use serde_json::json;
 
-    // ── Guard tests ──────────────────────────────────────────────────────────
-
-    /// Oracle: empty ID in ids slice triggers the validation guard.
-    #[test]
-    fn submission_get_empty_id_guard() {
-        let ids: &[&str] = &["valid", ""];
-        let mut found_error = false;
-        for id in ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty id in ids slice must trigger InvalidArgument guard"
-        );
-    }
+    // submission_get_empty_id_guard and submission_set_empty_destroy_id_guard
+    // were deleted in JMAP-6by7.2 (typed-Id refactor): under `Option<&[Id]>`
+    // and `Option<Vec<Id>>` the empty-Id case becomes impossible to express
+    // through the typed API.
 
     // The InvalidArgument guards for empty since_state and since_query_state
     // live in email_submission_changes / email_submission_query_changes
     // production code; testing them requires a wiremock-backed async harness.
     // See JMAP-sc1b.64.
-
-    /// Oracle: empty destroy element triggers the validation guard.
-    #[test]
-    fn submission_set_empty_destroy_id_guard() {
-        let destroy: Vec<&str> = vec!["sub1", ""];
-        let mut found_error = false;
-        for id in destroy.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty destroy id must trigger InvalidArgument guard"
-        );
-    }
 
     // ── Request shape tests ──────────────────────────────────────────────────
 

@@ -1,7 +1,7 @@
 // JMAP Mail — Mailbox/* method implementations on SessionClient.
 //
 // Each method follows the standard five-step pattern:
-//   1. Validate arguments (empty-string guards).
+//   1. Validate arguments (defence-in-depth empty-state guards).
 //   2. Call `self.session_parts()?` → `(api_url, account_id)`.
 //   3. Build args JSON with `serde_json::json!({…})`.
 //   4. Call `build_request(method_name, args, USING_MAIL)`.
@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, State};
 
 use super::{
     ChangesResponse, GetResponse, MailboxSetParams, QueryChangesResponse, QueryResponse,
@@ -24,18 +24,9 @@ impl super::SessionClient {
     /// Pass `properties: None` to return all fields.
     pub async fn mailbox_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_mail_types::Mailbox>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "mailbox_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -50,10 +41,11 @@ impl super::SessionClient {
     /// Fetch changes to Mailbox objects since `since_state` (RFC 8621 §2.2 — Mailbox/changes).
     pub async fn mailbox_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: see `thread_changes`.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "mailbox_changes: since_state may not be empty".into(),
             ));
@@ -85,18 +77,9 @@ impl super::SessionClient {
         &self,
         create: Option<serde_json::Value>,
         update: Option<HashMap<Id, PatchObject>>,
-        destroy: Option<Vec<&str>>,
+        destroy: Option<Vec<Id>>,
         params: Option<MailboxSetParams>,
     ) -> Result<SetResponse<jmap_mail_types::Mailbox>, jmap_base_client::ClientError> {
-        if let Some(ref ids) = destroy {
-            for id in ids.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "mailbox_set: destroy element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
@@ -117,11 +100,7 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::Value::Array(
-                d.into_iter()
-                    .map(|id| serde_json::Value::String(id.to_owned()))
-                    .collect(),
-            );
+            args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
         }
         let req = super::build_request("Mailbox/set", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
@@ -164,10 +143,11 @@ impl super::SessionClient {
     /// (RFC 8621 §2.4 — Mailbox/queryChanges).
     pub async fn mailbox_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see `thread_changes`.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "mailbox_query_changes: since_query_state may not be empty".into(),
             ));
@@ -195,22 +175,9 @@ mod tests {
     use super::super::{build_request, CALL_ID, USING_MAIL};
     use serde_json::json;
 
-    /// Oracle: empty ID in ids slice triggers the validation guard.
-    #[test]
-    fn mailbox_get_empty_id_returns_invalid_argument() {
-        let ids: &[&str] = &[""];
-        let mut found_error = false;
-        for id in ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty id must trigger the InvalidArgument guard"
-        );
-    }
+    // mailbox_get_empty_id_returns_invalid_argument was deleted in JMAP-6by7.2
+    // (typed-Id refactor): under `Option<&[Id]>` the empty-Id case becomes
+    // impossible to express through the typed API.
 
     // The InvalidArgument guard for empty since_state lives in mailbox_changes
     // production code; testing it requires a wiremock-backed async harness.
