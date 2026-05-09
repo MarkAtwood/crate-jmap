@@ -1,0 +1,106 @@
+# cargo-deny config for the jmap-* workspace.
+#
+# Run `cargo deny check` locally; CI integration is JMAP-hge6.
+# Schema reference: https://embarkstudios.github.io/cargo-deny/
+
+# ---------------------------------------------------------------------------
+# Advisories — RustSec advisory database
+# ---------------------------------------------------------------------------
+#
+# `vulnerability = "deny"` blocks any dep with a known security advisory.
+# `unmaintained = "warn"` flags abandoned crates without blocking — gives
+# the maintainer time to migrate before a hard block in a follow-up tightening.
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+yanked = "deny"
+ignore = []
+
+# ---------------------------------------------------------------------------
+# Licenses — explicit allow-list, deny anything else
+# ---------------------------------------------------------------------------
+#
+# The allow-list is the standard RustCrypto / mainstream-ecosystem profile.
+# When a new dep introduces a license outside this set, `cargo deny` will
+# fail and the maintainer must explicitly evaluate the license rather than
+# silently accept it.
+#
+# License decisions:
+# - MIT / Apache-2.0 / BSD-2 / BSD-3 / ISC / Zlib: standard permissive
+# - Unicode-DFS-2016 / Unicode-3.0: unicode-ident, icu_*; the
+#   Unicode license is permissive and standard for ICU stack
+# - MPL-2.0: webpki-roots ships under MPL-2.0 (file-level copyleft);
+#   acceptable because we use it as-is without modifying webpki-roots' source
+# - CDLA-Permissive-2.0: webpki-root-certs uses this
+# - 0BSD: tinyvec_macros, etc.
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BSL-1.0",
+    "CC0-1.0",
+    "CDLA-Permissive-2.0",
+    "ISC",
+    "MPL-2.0",
+    "OpenSSL",
+    "Unicode-3.0",
+    "Unicode-DFS-2016",
+    "Zlib",
+    "0BSD",
+]
+confidence-threshold = 0.93
+exceptions = []
+
+# Per-crate license clarifications when a SPDX expression is ambiguous or
+# the crate ships a non-standard license file. Empty until needed.
+[[licenses.clarify]]
+name = "ring"
+expression = "MIT AND ISC AND OpenSSL"
+license-files = [{ path = "LICENSE", hash = 0xbd0eed23 }]
+
+# ---------------------------------------------------------------------------
+# Bans — duplicate versions, specific deps to forbid
+# ---------------------------------------------------------------------------
+#
+# `multiple-versions = "warn"` is the pragmatic setting for a 25-crate
+# workspace: hard-deny would constantly fight transitive dep version skew
+# (e.g. multiple `syn` major versions). Warn surfaces the duplicates so the
+# maintainer can address the worst offenders without breaking on every
+# upstream version bump.
+[bans]
+multiple-versions = "warn"
+# Wildcards are denied for crates.io deps (a wildcard version means "anything
+# the registry provides", which is a supply-chain risk) but ALLOWED for path
+# deps within this workspace. The path = "../crate-jmap-foo" pattern in
+# workspace.dependencies has no version because all sibling crates ship from
+# the same git tree; that's not a registry pull.
+wildcards = "deny"
+allow-wildcard-paths = true
+highlight = "all"
+
+# Hard bans: deps we explicitly do NOT want in the workspace.
+# - openssl / openssl-sys / native-tls: workspace AGENTS.md mandates rustls;
+#   any path that pulls openssl in is a SemVer-isolation regression.
+deny = [
+    { name = "openssl" },
+    { name = "openssl-sys" },
+    { name = "native-tls" },
+]
+skip = []
+skip-tree = []
+
+# ---------------------------------------------------------------------------
+# Sources — only allow crates.io
+# ---------------------------------------------------------------------------
+#
+# Block git deps and unknown registries. crates.io is the only source for
+# 0.1.x publish-track deps; if we adopt a path-dep upstream during dev,
+# add it explicitly here with a ref pin.
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
