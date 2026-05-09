@@ -1,7 +1,7 @@
 // JMAP Contacts — ContactCard/* method implementations on SessionClient.
 //
 // Each method follows the standard five-step pattern:
-//   1. Validate arguments (empty-string guards).
+//   1. Validate arguments (defence-in-depth empty-state guards).
 //   2. Call `self.session_parts()?` → `(api_url, account_id)`.
 //   3. Build args JSON with `serde_json::json!({…})`.
 //   4. Call `build_request(method_name, args, USING_CONTACTS)`.
@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, State};
 
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
 
@@ -21,18 +21,9 @@ impl super::SessionClient {
     /// Pass `properties: None` to return all fields.
     pub async fn contact_card_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_contacts_types::ContactCard>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "contact_card_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -51,10 +42,11 @@ impl super::SessionClient {
     /// `new_state` as `since_state` until the flag is false.
     pub async fn contact_card_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: see `address_book_changes`.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "contact_card_changes: since_state may not be empty".into(),
             ));
@@ -86,17 +78,8 @@ impl super::SessionClient {
         &self,
         create: Option<serde_json::Value>,
         update: Option<HashMap<Id, PatchObject>>,
-        destroy: Option<Vec<&str>>,
+        destroy: Option<Vec<Id>>,
     ) -> Result<SetResponse<jmap_contacts_types::ContactCard>, jmap_base_client::ClientError> {
-        if let Some(ref ids) = destroy {
-            for id in ids.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "contact_card_set: destroy element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
@@ -112,11 +95,7 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] = serde_json::Value::Array(
-                d.into_iter()
-                    .map(|id| serde_json::Value::String(id.to_owned()))
-                    .collect(),
-            );
+            args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
         }
         let req = super::build_request("ContactCard/set", args, super::USING_CONTACTS);
         let resp = self.call_internal(api_url, &req).await?;
@@ -128,18 +107,11 @@ impl super::SessionClient {
     /// `from_account_id` is the source account. `create` is a map of
     /// caller-supplied creation keys to copy descriptors. The server assigns
     /// new IDs in the destination account.
-    ///
-    /// Returns `InvalidArgument` if `from_account_id` is empty.
     pub async fn contact_card_copy(
         &self,
-        from_account_id: &str,
+        from_account_id: &Id,
         create: serde_json::Value,
     ) -> Result<SetResponse<jmap_contacts_types::ContactCard>, jmap_base_client::ClientError> {
-        if from_account_id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "contact_card_copy: from_account_id may not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "fromAccountId": from_account_id,
@@ -191,10 +163,11 @@ impl super::SessionClient {
     /// result set since the given state. `max_changes` may be `None`.
     pub async fn contact_card_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see `contact_card_changes`.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "contact_card_query_changes: since_query_state may not be empty".into(),
             ));
@@ -222,108 +195,20 @@ mod tests {
     use super::super::{build_request, CALL_ID, USING_CONTACTS};
     use serde_json::json;
 
-    /// Oracle: empty ID in ids slice triggers the validation guard.
-    #[test]
-    fn contact_card_get_empty_id_returns_invalid_argument() {
-        let ids: &[&str] = &[""];
-        let mut found_error = false;
-        for id in ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty id must trigger the InvalidArgument guard"
-        );
-    }
-
-    /// Oracle: empty since_state returns InvalidArgument.
-    #[test]
-    fn contact_card_changes_empty_since_state_returns_invalid_argument() {
-        let since_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = {
-            if since_state.is_empty() {
-                Err(jmap_base_client::ClientError::InvalidArgument(
-                    "contact_card_changes: since_state may not be empty".into(),
-                ))
-            } else {
-                Ok(())
-            }
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_state must produce InvalidArgument"
-        );
-    }
-
-    /// Oracle: empty from_account_id in contact_card_copy returns InvalidArgument.
-    /// Guard fires before any session lookup or network call.
-    #[test]
-    fn contact_card_copy_empty_from_account_id_returns_invalid_argument() {
-        let from_account_id = "";
-        let result: Result<(), jmap_base_client::ClientError> = {
-            if from_account_id.is_empty() {
-                Err(jmap_base_client::ClientError::InvalidArgument(
-                    "contact_card_copy: from_account_id may not be empty".into(),
-                ))
-            } else {
-                Ok(())
-            }
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty from_account_id must produce InvalidArgument"
-        );
-    }
-
-    /// Oracle: non-empty from_account_id passes the guard.
-    #[test]
-    fn contact_card_copy_non_empty_from_account_id_passes_guard() {
-        let from_account_id = "srcAcc1";
-        let result: Result<(), jmap_base_client::ClientError> = {
-            if from_account_id.is_empty() {
-                Err(jmap_base_client::ClientError::InvalidArgument(
-                    "contact_card_copy: from_account_id may not be empty".into(),
-                ))
-            } else {
-                Ok(())
-            }
-        };
-        assert!(
-            result.is_ok(),
-            "non-empty from_account_id must pass the guard"
-        );
-    }
-
-    /// Oracle: empty since_query_state returns InvalidArgument.
-    #[test]
-    fn contact_card_query_changes_empty_state_returns_invalid_argument() {
-        let since_query_state = "";
-        let result: Result<(), jmap_base_client::ClientError> = {
-            if since_query_state.is_empty() {
-                Err(jmap_base_client::ClientError::InvalidArgument(
-                    "contact_card_query_changes: since_query_state may not be empty".into(),
-                ))
-            } else {
-                Ok(())
-            }
-        };
-        assert!(
-            matches!(
-                result,
-                Err(jmap_base_client::ClientError::InvalidArgument(_))
-            ),
-            "empty since_query_state must produce InvalidArgument"
-        );
-    }
+    // Inline guard smoke tests (e.g.
+    // `contact_card_get_empty_id_returns_invalid_argument`,
+    // `contact_card_changes_empty_since_state_returns_invalid_argument`,
+    // `contact_card_copy_empty_from_account_id_returns_invalid_argument`,
+    // `contact_card_copy_non_empty_from_account_id_passes_guard`,
+    // `contact_card_query_changes_empty_state_returns_invalid_argument`)
+    // were removed by the JMAP-6by7.4 typed-Id refactor. They were
+    // vacuous because they only iterated a local `&[""]` slice (or
+    // duplicated the guard's `is_empty()` check) and asserted
+    // `is_empty()` found the empty value, without invoking any
+    // production method. Under typed `&Id` / `&[Id]` / `&State`
+    // parameters, an empty-Id input is impossible to express through
+    // the API (`Id::new_validated("")` returns `Err` at the call site)
+    // so the bug they pretended to test is unrepresentable.
 
     /// Oracle: ContactCard/get request has correct method name and CALL_ID.
     /// Expected method name is "ContactCard/get" per RFC 9610 §3.1.

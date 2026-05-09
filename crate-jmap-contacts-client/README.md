@@ -9,6 +9,7 @@ on [`jmap-base-client`] for transport, authentication, and session management.
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_contacts_client::{JmapContactsExt, AddressBookSetParams};
 use jmap_contacts_types::ContactCard;
+use jmap_types::{Id, State};
 use serde_json::json;
 
 #[tokio::main]
@@ -80,6 +81,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
+Id parameters are typed `&jmap_types::Id` (or `&[jmap_types::Id]` for slices)
+to make invalid Ids unrepresentable. State tokens use `&jmap_types::State`.
+Construct Ids with `Id::new_validated(s)` to enforce RFC 8620 §1.2 syntax at
+the boundary, or with `Id::from(s)` when the value is known-valid (e.g.
+already came back from a server response).
+
 After constructing a `SessionClient` via `with_contacts_session`, all JMAP
 Contacts methods are available without passing `&Session` on every call. If the
 session expires, re-fetch with `JmapClient::fetch_session` and construct a new
@@ -128,8 +135,9 @@ is needed.
 
 Every method follows the same five-step pattern:
 
-1. Validate arguments (empty-string guards return `InvalidArgument` before any
-   network call).
+1. Validate arguments (defence-in-depth empty-state guards return
+   `InvalidArgument` before any network call; Id-shaped parameters are
+   typed `&Id` / `&[Id]` so empty-Id inputs are unrepresentable).
 2. Call `session_parts()` to extract `(api_url, account_id)` from the bound
    session.
 3. Build the JMAP method arguments as a `serde_json::Value`.
