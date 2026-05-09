@@ -72,9 +72,33 @@ pub(crate) fn build_request(
 /// `SessionClient` with the updated session. Reusing a stale `SessionClient`
 /// after session expiry will result in `unknownAccount` or similar errors
 /// from the server.
+///
+/// `Clone` is derived because `JmapClient` is itself cheap-to-clone (it
+/// already implements `Clone` and `with_tasks_session` clones one
+/// internally), enabling parallel-task fan-out with one bound session.
+///
+/// `Debug` is implemented manually to redact the inner `JmapClient` (which
+/// holds an HTTP client and is intentionally not `Debug` in
+/// `jmap-base-client`); only the `Session` is shown. This lets callers
+/// embed a `SessionClient` in a `#[derive(Debug)]` struct without manual
+/// impls of their own.
+#[non_exhaustive]
+#[derive(Clone)]
 pub struct SessionClient {
     pub(crate) client: jmap_base_client::JmapClient,
     pub(crate) session: jmap_base_client::Session,
+}
+
+impl std::fmt::Debug for SessionClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SessionClient")
+            // The inner JmapClient is not Debug — show a placeholder so
+            // callers know it is present without leaking HTTP-client
+            // internals.
+            .field("client", &"<JmapClient>")
+            .field("session", &self.session)
+            .finish()
+    }
 }
 
 impl SessionClient {
