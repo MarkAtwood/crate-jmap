@@ -95,7 +95,7 @@ impl JmapRequestBuilder {
 /// (e.g. JMAP Chat `ownerUserId`) are surfaced by extension crates that
 /// parse the `capabilities` and `accounts` maps.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
     /// Map of capability URI → capability object (RFC 8620 §2).
@@ -170,7 +170,7 @@ impl Session {
 
 /// Per-account metadata in a JMAP Session (RFC 8620 §2).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountInfo {
     /// Human-readable account name (e.g. the owner's email address).
