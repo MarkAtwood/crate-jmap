@@ -27,6 +27,14 @@ use crate::error::ClientError;
 /// or a client certificate).  For custom per-request credentials only,
 /// implement [`AuthProvider`] instead.  [`DefaultTransport`] covers the common
 /// case of publicly-trusted TLS with no custom certificates.
+///
+/// **Maintainer note (bd:JMAP-6lsm.19):** if you add a new method to this
+/// trait, update the manual blanket impl for `Box<dyn TransportConfig>` at
+/// the bottom of this file. The crate ships a hand-written forwarding impl
+/// for the boxed trait object so callers can store heterogeneous transport
+/// configurations behind a single type. Adding a method here without
+/// mirroring it on the blanket impl silently breaks the
+/// `JmapClient::new(Box::<dyn TransportConfig>::new(...))` call shape.
 pub trait TransportConfig: Send + Sync {
     /// Build the [`reqwest::Client`] for this transport configuration.
     fn build_client(&self) -> Result<reqwest::Client, ClientError>;
@@ -93,6 +101,14 @@ impl TransportConfig for CustomCaTransport {
 /// it contains credentials.
 ///
 /// [`auth_header`]: AuthProvider::auth_header
+///
+/// **Maintainer note (bd:JMAP-6lsm.19):** if you add a new method to this
+/// trait, update BOTH manual blanket impls — `Box<dyn AuthProvider>` and
+/// `Arc<dyn AuthProvider>` — at the bottom of this file. The crate
+/// supports both Box and Arc trait-object call shapes (e.g. for sharing
+/// one credential source across multiple `JmapClient`s), and a missing
+/// blanket method silently breaks one of those shapes without breaking
+/// the other.
 pub trait AuthProvider: Send + Sync {
     /// Return an optional `(header-name, header-value)` pair to attach to
     /// every request.
