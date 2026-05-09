@@ -6,6 +6,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -101,8 +102,9 @@ async fn email_submission_get_specific_ids() {
         .await;
 
     let sc = helpers::make_client(&server).await;
+    let ids = [Id::from("ES-abc")];
     let resp = sc
-        .email_submission_get(Some(&["ES-abc"]), None)
+        .email_submission_get(Some(&ids), None)
         .await
         .expect("email_submission_get_specific_ids: must succeed");
 
@@ -156,8 +158,9 @@ async fn email_submission_changes_round_trip() {
         .await;
 
     let sc = helpers::make_client(&server).await;
+    let since = State::from("s10");
     let resp = sc
-        .email_submission_changes("s10", None)
+        .email_submission_changes(&since, None)
         .await
         .expect("email_submission_changes_round_trip: must succeed");
 
@@ -200,7 +203,8 @@ async fn email_submission_changes_no_max_changes() {
         .await;
 
     let sc = helpers::make_client(&server).await;
-    sc.email_submission_changes("s1", None)
+    let since = State::from("s1");
+    sc.email_submission_changes(&since, None)
         .await
         .expect("email_submission_changes_no_max_changes: must succeed");
 

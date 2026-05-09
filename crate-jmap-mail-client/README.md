@@ -9,6 +9,7 @@ async methods.
 ```rust
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_mail_client::{JmapMailExt, EmailGetParams};
+use jmap_types::Id;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -24,8 +25,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         fetch_text_body_values: Some(true),
         ..Default::default()
     };
+    let ids = [Id::new_validated("e1")?, Id::new_validated("e2")?];
     let resp: jmap_mail_client::GetResponse<jmap_mail_types::Email> =
-        mail.email_get(Some(&["e1", "e2"]), None, Some(params)).await?;
+        mail.email_get(Some(&ids), None, Some(params)).await?;
 
     for email in &resp.list {
         println!("{}: {:?}", email.id, email.subject);
@@ -33,6 +35,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 ```
+
+Id parameters are typed `&jmap_types::Id` (or `&[jmap_types::Id]` for slices)
+to make invalid Ids unrepresentable. State tokens use `&jmap_types::State`.
+Construct Ids with `Id::new_validated(s)` to enforce RFC 8620 §1.2 syntax at
+the boundary, or with `Id::from(s)` when the value is known-valid (e.g.
+already came back from a server response).
 
 After calling `JmapMailExt::with_mail_session(session)` the returned
 [`SessionClient`] carries the session and makes it available to all methods
@@ -47,30 +55,32 @@ All 26 RFC 8621 method names are available as typed async methods on
 
 | Method | Parameters | Returns |
 |---|---|---|
-| `email_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>, params: Option<EmailGetParams>` | `GetResponse<Email>` |
-| `email_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
-| `email_set` | `create: Option<Value>, update: Option<Value>, destroy: Option<Vec<&str>>, if_in_state: Option<&str>` | `SetResponse<Email>` |
+| `email_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>, params: Option<EmailGetParams>` | `GetResponse<Email>` |
+| `email_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
+| `email_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>` | `SetResponse<Email>` |
 | `email_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>, collapse_threads: Option<bool>` | `QueryResponse` |
-| `email_query_changes` | `since_query_state: &str, max_changes: Option<u64>, collapse_threads: Option<bool>` | `QueryChangesResponse` |
+| `email_query_changes` | `since_query_state: &State, max_changes: Option<u64>, collapse_threads: Option<bool>` | `QueryChangesResponse` |
 | `email_copy` | `params: EmailCopyParams, create: Value` | `SetResponse<Email>` |
-| `mailbox_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<Mailbox>` |
-| `mailbox_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
-| `mailbox_set` | `create: Option<Value>, update: Option<Value>, destroy: Option<Vec<&str>>, params: Option<MailboxSetParams>` | `SetResponse<Mailbox>` |
+| `mailbox_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Mailbox>` |
+| `mailbox_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
+| `mailbox_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, params: Option<MailboxSetParams>` | `SetResponse<Mailbox>` |
 | `mailbox_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>` | `QueryResponse` |
-| `mailbox_query_changes` | `since_query_state: &str, max_changes: Option<u64>` | `QueryChangesResponse` |
-| `thread_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<Thread>` |
-| `thread_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
-| `identity_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<Identity>` |
-| `identity_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
-| `identity_set` | `create: Option<Value>, update: Option<Value>, destroy: Option<Vec<&str>>` | `SetResponse<Identity>` |
-| `search_snippet_get` | `account_id: Option<&str>, filter: Value, thread_ids: Option<&[&str]>, email_ids: Option<&[&str]>` | `Value` |
-| `email_submission_get` | `ids: Option<&[&str]>, properties: Option<&[&str]>` | `GetResponse<EmailSubmission>` |
-| `email_submission_changes` | `since_state: &str, max_changes: Option<u64>` | `ChangesResponse` |
+| `mailbox_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `thread_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Thread>` |
+| `thread_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
+| `identity_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Identity>` |
+| `identity_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
+| `identity_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>` | `SetResponse<Identity>` |
+| `search_snippet_get` | `account_id: Option<&Id>, filter: Value, thread_ids: Option<&[Id]>, email_ids: Option<&[Id]>` | `Value` |
+| `email_submission_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<EmailSubmission>` |
+| `email_submission_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `email_submission_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>` | `QueryResponse` |
-| `email_submission_query_changes` | `since_query_state: &str, max_changes: Option<u64>, filter: Option<Value>` | `QueryChangesResponse` |
-| `email_submission_set` | `create: Option<Value>, update: Option<Value>, destroy: Option<Vec<&str>>, if_in_state: Option<&str>, params: Option<EmailSubmissionSetParams>` | `SetResponse<EmailSubmission>` |
+| `email_submission_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<Value>` | `QueryChangesResponse` |
+| `email_submission_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<EmailSubmissionSetParams>` | `SetResponse<EmailSubmission>` |
 | `vacation_response_get` | _(none)_ | `GetResponse<VacationResponse>` |
 | `vacation_response_set` | `update: Option<Value>` | `SetResponse<VacationResponse>` |
+
+`Id` and `State` here are `jmap_types::Id` and `jmap_types::State`.
 
 `Email/import` and `Email/parse` are not yet implemented as typed methods; use
 `jmap_base_client::JmapClient::call` directly with a `JmapRequestBuilder` for
@@ -147,8 +157,10 @@ parameter is given. Use `SetResponse<Email>` to get typed created/updated maps.
 
 Every method on `SessionClient` follows the same six-step pipeline:
 
-1. **Validate arguments** — empty-string guards fire before any I/O, returning
-   `ClientError::InvalidArgument` immediately.
+1. **Validate arguments** — defence-in-depth empty-state guards fire before any
+   I/O, returning `ClientError::InvalidArgument` immediately. Id-shaped
+   parameters are typed `&Id` / `&[Id]` and validated by construction
+   (`Id::new_validated`); the production code does not re-validate Id syntax.
 2. **`session_parts()`** — extracts `(api_url, account_id)` from the bound
    session; returns `ClientError::InvalidSession` if there is no primary account
    for `urn:ietf:params:jmap:mail`.

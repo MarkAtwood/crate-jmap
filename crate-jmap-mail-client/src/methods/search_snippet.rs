@@ -6,12 +6,14 @@
 // We therefore return `serde_json::Value` and let the caller deserialize.
 //
 // Each method follows the standard five-step pattern:
-//   1. Validate arguments (empty-string guards).
+//   1. Validate arguments (defence-in-depth empty-state guards).
 //   2. Call `self.session_parts()?` → `(api_url, account_id)`.
 //   3. Build args JSON with `serde_json::json!({…})`.
 //   4. Call `build_request(method_name, args, USING_MAIL)`.
 //   5. Call `self.call_internal(api_url, &req).await?`.
 //   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
+
+use jmap_types::Id;
 
 impl super::SessionClient {
     /// Fetch SearchSnippet objects (RFC 8621 §5 — SearchSnippet/get).
@@ -27,44 +29,25 @@ impl super::SessionClient {
     /// `response["list"].as_array()`.
     pub async fn search_snippet_get(
         &self,
-        account_id: Option<&str>,
+        account_id: Option<&Id>,
         filter: serde_json::Value,
-        thread_ids: Option<&[&str]>,
-        email_ids: Option<&[&str]>,
+        thread_ids: Option<&[Id]>,
+        email_ids: Option<&[Id]>,
     ) -> Result<serde_json::Value, jmap_base_client::ClientError> {
-        if let Some(id_slice) = thread_ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "search_snippet_get: thread_ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
-        if let Some(id_slice) = email_ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "search_snippet_get: email_ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, session_account_id) = self.session_parts()?;
-        let effective_account_id = account_id.unwrap_or(session_account_id);
+        let effective_account_id: &str =
+            account_id.map(AsRef::as_ref).unwrap_or(session_account_id);
         let mut args = serde_json::json!({
             "accountId": effective_account_id,
             "filter": filter,
         });
         if let Some(tids) = thread_ids {
-            args["threadIds"] = serde_json::Value::Array(
-                tids.iter().copied().map(serde_json::Value::from).collect(),
-            );
+            args["threadIds"] =
+                serde_json::to_value(tids).expect("Id slice Serialize is infallible");
         }
         if let Some(eids) = email_ids {
-            args["emailIds"] = serde_json::Value::Array(
-                eids.iter().copied().map(serde_json::Value::from).collect(),
-            );
+            args["emailIds"] =
+                serde_json::to_value(eids).expect("Id slice Serialize is infallible");
         }
         let req = super::build_request("SearchSnippet/get", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
@@ -119,22 +102,9 @@ mod tests {
         assert!(tids.contains(&json!("t1")));
     }
 
-    /// Oracle: empty email_id in email_ids slice triggers validation guard.
-    #[test]
-    fn search_snippet_get_empty_email_id_returns_invalid_argument() {
-        let email_ids: &[&str] = &[""];
-        let mut found_error = false;
-        for id in email_ids.iter() {
-            if id.is_empty() {
-                found_error = true;
-                break;
-            }
-        }
-        assert!(
-            found_error,
-            "empty email_id must trigger the InvalidArgument guard"
-        );
-    }
+    // search_snippet_get_empty_email_id_returns_invalid_argument was deleted in
+    // JMAP-6by7.2 (typed-Id refactor): under `Option<&[Id]>` the empty-Id case
+    // becomes impossible to express through the typed API.
 
     /// Oracle: SearchSnippet response JSON deserializes into SearchSnippet list.
     /// RFC 8621 §5 example response shape.

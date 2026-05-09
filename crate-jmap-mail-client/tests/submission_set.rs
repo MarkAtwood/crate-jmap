@@ -217,37 +217,10 @@ async fn email_submission_set_no_on_success_when_none() {
     );
 }
 
-/// Test 4: EmailSubmission/set with an empty-string destroy ID returns InvalidArgument
-/// before any network call is made.
-///
-/// Oracle: submission.rs guard — empty element in destroy slice produces
-/// ClientError::InvalidArgument before session_parts() is called.
-#[tokio::test]
-async fn email_submission_set_destroy_with_empty_id_guard() {
-    let server = MockServer::start().await;
-    // No mock registered — the guard fires before the HTTP request.
-
-    let sc = helpers::make_client(&server).await;
-    let result = sc
-        .email_submission_set(None, None, Some(vec![""]), None, None)
-        .await;
-
-    assert!(
-        matches!(
-            result,
-            Err(jmap_base_client::ClientError::InvalidArgument(_))
-        ),
-        "empty destroy id must produce ClientError::InvalidArgument, got: {result:?}"
-    );
-
-    // Confirm no network request was made — the guard fired client-side.
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("received_requests must return Some");
-    assert!(
-        reqs.is_empty(),
-        "no request must be sent when guard fires: got {} requests",
-        reqs.len()
-    );
-}
+// email_submission_set_destroy_with_empty_id_guard was deleted in JMAP-6by7.2
+// (typed-Id refactor): the test passed `Some(vec![""])` to assert that the
+// empty-string destroy id was rejected. Under typed-Id, `destroy: Option<Vec<Id>>`
+// makes the call site itself a compile error — `""` is not an `Id` and the
+// only fallible path (`Id::new_validated("")`) returns Err at the test's
+// input-construction site. The bug is impossible to express through the
+// typed API.

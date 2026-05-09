@@ -6,6 +6,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_types::State;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -139,8 +140,9 @@ async fn email_submission_query_changes_round_trip() {
         .await;
 
     let sc = helpers::make_client(&server).await;
+    let since = State::from("qs1");
     let resp = sc
-        .email_submission_query_changes("qs1", None, None, None)
+        .email_submission_query_changes(&since, None, None, None)
         .await
         .expect("email_submission_query_changes_round_trip: must succeed");
 
@@ -188,8 +190,9 @@ async fn email_submission_query_changes_with_filter_and_sort() {
         .await;
 
     let sc = helpers::make_client(&server).await;
+    let since = State::from("qs5");
     sc.email_submission_query_changes(
-        "qs5",
+        &since,
         None,
         Some(json!({"undoStatus": "pending"})),
         Some(json!([{"property": "sentAt", "isAscending": false}])),
