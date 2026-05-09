@@ -1,5 +1,7 @@
 //! CalendarEvent/parse method (draft-ietf-jmap-calendars-26 §5.13).
 
+use jmap_types::Id;
+
 use super::{CalendarEventParseResponse, SessionClient, CALL_ID, USING_PARSE};
 use jmap_base_client::ClientError;
 
@@ -8,11 +10,10 @@ impl SessionClient {
     /// (draft-ietf-jmap-calendars-26 §5.13 — CalendarEvent/parse).
     ///
     /// # Errors
-    /// Returns `ClientError::InvalidArgument` if `blob_ids` is empty or contains
-    /// any empty string.
+    /// Returns `ClientError::InvalidArgument` if `blob_ids` is an empty slice.
     pub async fn calendar_event_parse(
         &self,
-        blob_ids: &[&str],
+        blob_ids: &[Id],
         properties: Option<&[&str]>,
     ) -> Result<CalendarEventParseResponse, ClientError> {
         if blob_ids.is_empty() {
@@ -20,11 +21,11 @@ impl SessionClient {
                 "calendar_event_parse: blob_ids must not be empty".into(),
             ));
         }
-        super::validate_ids_field(blob_ids, "calendar_event_parse", "blob_ids")?;
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
-            "blobIds": blob_ids,
+            "blobIds": serde_json::to_value(blob_ids)
+                .expect("Id slice Serialize is infallible"),
         });
         if let Some(props) = properties {
             args["properties"] = serde_json::Value::Array(

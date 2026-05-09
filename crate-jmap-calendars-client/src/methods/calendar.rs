@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, State};
 
 use super::{ChangesResponse, GetResponse, SetResponse};
 
@@ -21,12 +21,9 @@ impl super::SessionClient {
     /// return all fields.
     pub async fn calendar_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            super::validate_ids_field(id_slice, "calendar_get", "ids")?;
-        }
         let (api_url, account_id) = self.session_parts()?;
         // Omit `ids` / `properties` entirely when None rather than sending
         // an explicit JSON null. RFC 8620 §5.1 accepts both shapes, but the
@@ -36,13 +33,7 @@ impl super::SessionClient {
         // in proxies / audit loggers.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::Value::Array(
-                id_slice
-                    .iter()
-                    .copied()
-                    .map(serde_json::Value::from)
-                    .collect(),
-            );
+            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
         }
         if let Some(props) = properties {
             args["properties"] = serde_json::Value::Array(
@@ -58,10 +49,12 @@ impl super::SessionClient {
     /// (draft-ietf-jmap-calendars-26 §4.2).
     pub async fn calendar_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: `State::new_validated` rejects empty strings, but
+        // `State::from` does not. Guard against pathological constructions.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "calendar_changes: since_state may not be empty".into(),
             ));
@@ -69,7 +62,7 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
-            "sinceState": since_state,
+            "sinceState": since_state.as_ref(),
         });
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
@@ -97,7 +90,7 @@ impl super::SessionClient {
         &self,
         create: Option<HashMap<String, jmap_calendars_types::Calendar>>,
         update: Option<HashMap<Id, PatchObject>>,
-        destroy: Option<&[&str]>,
+        destroy: Option<&[Id]>,
         on_destroy_remove_events: Option<bool>,
     ) -> Result<SetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {
         if let Some(ref m) = create {
@@ -108,9 +101,6 @@ impl super::SessionClient {
                     ));
                 }
             }
-        }
-        if let Some(destroy_ids) = destroy {
-            super::validate_ids_field(destroy_ids, "calendar_set", "destroy")?;
         }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
@@ -131,8 +121,7 @@ impl super::SessionClient {
             })?;
         }
         if let Some(d) = destroy {
-            args["destroy"] =
-                serde_json::Value::Array(d.iter().copied().map(serde_json::Value::from).collect());
+            args["destroy"] = serde_json::to_value(d).expect("Id slice Serialize is infallible");
         }
         if let Some(flag) = on_destroy_remove_events {
             args["onDestroyRemoveEvents"] = flag.into();

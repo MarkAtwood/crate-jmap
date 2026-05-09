@@ -5,6 +5,7 @@
 // This method accepts only `destroy` to prevent constructing invalid requests.
 
 use jmap_calendars_types::NotificationFilterCondition;
+use jmap_types::{Id, State};
 
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
 
@@ -13,27 +14,18 @@ impl super::SessionClient {
     /// (draft-ietf-jmap-calendars-26 §7.1).
     pub async fn calendar_event_notification_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<
         GetResponse<jmap_calendars_types::CalendarEventNotification>,
         jmap_base_client::ClientError,
     > {
-        if let Some(id_slice) = ids {
-            super::validate_ids_field(id_slice, "calendar_event_notification_get", "ids")?;
-        }
         let (api_url, account_id) = self.session_parts()?;
         // Omit `ids` / `properties` when None — see the matching comment on
         // `calendar_get` for the rationale.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::Value::Array(
-                id_slice
-                    .iter()
-                    .copied()
-                    .map(serde_json::Value::from)
-                    .collect(),
-            );
+            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
         }
         if let Some(props) = properties {
             args["properties"] = serde_json::Value::Array(
@@ -53,10 +45,11 @@ impl super::SessionClient {
     /// (draft-ietf-jmap-calendars-26 §7.2).
     pub async fn calendar_event_notification_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: see `calendar_event_changes`.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "calendar_event_notification_changes: since_state may not be empty".into(),
             ));
@@ -64,7 +57,7 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
-            "sinceState": since_state,
+            "sinceState": since_state.as_ref(),
         });
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
@@ -100,6 +93,8 @@ impl super::SessionClient {
     /// }
     /// ```
     ///
+    /// (`ids` here is `Vec<jmap_types::Id>`.)
+    ///
     /// Rationale (bd:JMAP-231o.9): the alternative — short-circuiting and
     /// synthesizing an empty `SetResponse` client-side without a network
     /// call — would require fabricating `oldState`/`newState` tokens with
@@ -110,16 +105,11 @@ impl super::SessionClient {
     /// decide whether to skip the call entirely.
     pub async fn calendar_event_notification_set(
         &self,
-        destroy: Option<&[&str]>,
+        destroy: Option<&[Id]>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        if let Some(destroy_ids) = destroy {
-            super::validate_ids_field(destroy_ids, "calendar_event_notification_set", "destroy")?;
-        }
         let (api_url, account_id) = self.session_parts()?;
         let destroy_val = match destroy {
-            Some(ids) => {
-                serde_json::Value::Array(ids.iter().copied().map(serde_json::Value::from).collect())
-            }
+            Some(ids) => serde_json::to_value(ids).expect("Id slice Serialize is infallible"),
             None => serde_json::Value::Array(vec![]),
         };
         let args = serde_json::json!({
@@ -183,10 +173,11 @@ impl super::SessionClient {
     /// `since_query_state` (draft-ietf-jmap-calendars-26 §7.5).
     pub async fn calendar_event_notification_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see `calendar_event_changes`.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "calendar_event_notification_query_changes: since_query_state may not be empty"
                     .into(),
@@ -195,7 +186,7 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
-            "sinceQueryState": since_query_state,
+            "sinceQueryState": since_query_state.as_ref(),
         });
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();

@@ -9,6 +9,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -184,8 +185,9 @@ async fn calendar_event_parse_smoke() {
         .await;
 
     let sc = helpers::make_client(&server).await;
+    let blob_ids = [Id::from("blob1")];
     let resp = sc
-        .calendar_event_parse(&["blob1"], None)
+        .calendar_event_parse(&blob_ids, None)
         .await
         .expect("calendar_event_parse_smoke: must succeed");
 
@@ -218,7 +220,8 @@ async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
     let mut create = std::collections::HashMap::new();
     create.insert(String::new(), event); // empty creation id
 
-    let result = sc.calendar_event_copy("src_acc", create).await;
+    let from_account = Id::from("src_acc");
+    let result = sc.calendar_event_copy(&from_account, create).await;
     let err = result.expect_err("calendar_event_copy with empty creation id must error");
     match err {
         jmap_base_client::ClientError::InvalidArgument(msg) => {
@@ -231,98 +234,26 @@ async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
     }
 }
 
-/// Oracle: empty `ids` slice element MUST be rejected with
-/// `InvalidArgument` BEFORE any HTTP call. The mock server has no
-/// expectations registered, so any HTTP request would result in a 404 from
-/// wiremock — the test would still fail (different error), but with a
-/// distinct symptom from the validation-fired path.
-///
-/// Replaces a vacuous inline unit test that re-asserted `"".is_empty()`
-/// without actually invoking the public method (JMAP-231o.7).
-#[tokio::test]
-async fn calendar_get_empty_id_returns_invalid_argument() {
-    let server = MockServer::start().await;
-    let sc = helpers::make_client(&server).await;
-
-    let result = sc.calendar_get(Some(&[""]), None).await;
-    let err = result.expect_err("calendar_get with empty id must error");
-    match err {
-        jmap_base_client::ClientError::InvalidArgument(msg) => {
-            assert!(
-                msg.contains("ids element"),
-                "error message must mention 'ids element': {msg}"
-            );
-        }
-        other => panic!("expected InvalidArgument, got {other:?}"),
-    }
-}
-
-/// Oracle: parallel to calendar_get — `calendar_event_get` MUST reject an
-/// empty `ids` slice element with `InvalidArgument` before any HTTP call.
-/// Replaces a vacuous inline unit test (JMAP-231o.7).
-#[tokio::test]
-async fn calendar_event_get_empty_id_returns_invalid_argument() {
-    let server = MockServer::start().await;
-    let sc = helpers::make_client(&server).await;
-
-    let result = sc.calendar_event_get(Some(&[""]), None, None).await;
-    let err = result.expect_err("calendar_event_get with empty id must error");
-    match err {
-        jmap_base_client::ClientError::InvalidArgument(msg) => {
-            assert!(
-                msg.contains("ids element"),
-                "error message must mention 'ids element': {msg}"
-            );
-        }
-        other => panic!("expected InvalidArgument, got {other:?}"),
-    }
-}
-
-/// Oracle: parallel to calendar_get — `calendar_event_notification_get`
-/// MUST reject an empty `ids` slice element with `InvalidArgument` before
-/// any HTTP call. Replaces a vacuous inline unit test (JMAP-231o.7).
-#[tokio::test]
-async fn calendar_event_notification_get_empty_id_returns_invalid_argument() {
-    let server = MockServer::start().await;
-    let sc = helpers::make_client(&server).await;
-
-    let result = sc.calendar_event_notification_get(Some(&[""]), None).await;
-    let err = result.expect_err("calendar_event_notification_get with empty id must error");
-    match err {
-        jmap_base_client::ClientError::InvalidArgument(msg) => {
-            assert!(
-                msg.contains("ids element"),
-                "error message must mention 'ids element': {msg}"
-            );
-        }
-        other => panic!("expected InvalidArgument, got {other:?}"),
-    }
-}
-
-/// Oracle: §5.10 — `from_account_id` empty guard is exercised end-to-end.
-/// The check is the same shape as the creation-id guard but on a different
-/// field; pinning both ensures the validation chain is wired correctly.
-#[tokio::test]
-async fn calendar_event_copy_empty_from_account_returns_invalid_argument() {
-    let server = MockServer::start().await;
-    let sc = helpers::make_client(&server).await;
-
-    let event: jmap_calendars_types::CalendarEvent = serde_json::from_value(json!({
-        "id": "src-event-id",
-    }))
-    .expect("CalendarEvent must deserialize");
-    let mut create = std::collections::HashMap::new();
-    create.insert("c1".to_owned(), event);
-
-    let result = sc.calendar_event_copy("", create).await;
-    let err = result.expect_err("empty from_account_id must error");
-    match err {
-        jmap_base_client::ClientError::InvalidArgument(msg) => {
-            assert!(
-                msg.contains("from_account_id"),
-                "error message must mention 'from_account_id': {msg}"
-            );
-        }
-        other => panic!("expected InvalidArgument, got {other:?}"),
-    }
-}
+// The following tests were deleted in JMAP-6by7.1 (typed-Id refactor):
+//
+//   - calendar_get_empty_id_returns_invalid_argument
+//   - calendar_event_get_empty_id_returns_invalid_argument
+//   - calendar_event_notification_get_empty_id_returns_invalid_argument
+//   - calendar_event_copy_empty_from_account_returns_invalid_argument
+//
+// They asserted that the `validate_id_field` / `validate_ids_field`
+// helpers rejected `""` passed as a `&str` / `&[&str]` argument. Once the
+// method signatures changed to `&Id` / `&[Id]`, the tests would have to
+// construct an `Id` whose internal value is `""`. `Id::new_validated("")`
+// returns `Err` at the test's input-construction site, so the tests
+// would fail before reaching the production code being tested. The
+// callers *could* go through `Id::from("")` (which doesn't validate),
+// but at that point they're explicitly bypassing the type-system
+// guarantee and the client crate has no contract to second-guess them.
+// The bug becomes impossible to express through the typed API, so the
+// tests are unnecessary.
+//
+// The `calendar_event_copy_empty_creation_id_returns_invalid_argument`
+// test above is preserved because creation-reference keys in the `create`
+// map remain `String`, not `Id` — the empty-key guard is still
+// meaningful and still has a real test path.

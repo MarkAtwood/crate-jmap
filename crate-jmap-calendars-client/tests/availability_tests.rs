@@ -6,6 +6,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -39,9 +40,10 @@ async fn principal_get_availability_round_trip() {
         .await;
 
     let sc = helpers::make_client(&server).await;
+    let principal_id = Id::from("p-joe");
     let resp = sc
         .principal_get_availability(
-            "p-joe",
+            &principal_id,
             "2024-06-15T09:00:00Z",
             "2024-06-15T10:00:00Z",
             None,
