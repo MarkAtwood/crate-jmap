@@ -325,9 +325,7 @@ impl super::SessionClient {
             patch_map.insert(
                 "pinnedMessageIds".into(),
                 serde_json::Value::Array(
-                    ids.iter()
-                        .map(|pid| serde_json::Value::String((*pid).to_owned()))
-                        .collect(),
+                    ids.iter().copied().map(serde_json::Value::from).collect(),
                 ),
             );
         }
@@ -387,9 +385,7 @@ impl super::SessionClient {
                 patch_map.insert(
                     "removeMembers".into(),
                     serde_json::Value::Array(
-                        rm.iter()
-                            .map(|rid| serde_json::Value::String((*rid).to_owned()))
-                            .collect(),
+                        rm.iter().copied().map(serde_json::Value::from).collect(),
                     ),
                 );
             }

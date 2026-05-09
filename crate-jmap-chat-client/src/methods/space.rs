@@ -313,9 +313,7 @@ impl super::SessionClient {
                                 }
                                 obj["roleIds"] = serde_json::Value::Array(
                                     role_ids
-                                        .iter()
-                                        .map(|rid| serde_json::Value::String((*rid).to_owned()))
-                                        .collect(),
+                                        .iter().copied().map(serde_json::Value::from).collect(),
                                 );
                             }
                             Ok(obj)
@@ -337,9 +335,7 @@ impl super::SessionClient {
                 patch_map.insert(
                     "removeMembers".into(),
                     serde_json::Value::Array(
-                        rm.iter()
-                            .map(|rid| serde_json::Value::String((*rid).to_owned()))
-                            .collect(),
+                        rm.iter().copied().map(serde_json::Value::from).collect(),
                     ),
                 );
             }
@@ -374,9 +370,7 @@ impl super::SessionClient {
                                 }
                                 obj["roleIds"] = serde_json::Value::Array(
                                     role_ids
-                                        .iter()
-                                        .map(|rid| serde_json::Value::String((*rid).to_owned()))
-                                        .collect(),
+                                        .iter().copied().map(serde_json::Value::from).collect(),
                                 );
                             }
                             if let Some(entry) = u
@@ -436,9 +430,7 @@ impl super::SessionClient {
                 patch_map.insert(
                     "removeChannels".into(),
                     serde_json::Value::Array(
-                        rc.iter()
-                            .map(|cid| serde_json::Value::String((*cid).to_owned()))
-                            .collect(),
+                        rc.iter().copied().map(serde_json::Value::from).collect(),
                     ),
                 );
             }
