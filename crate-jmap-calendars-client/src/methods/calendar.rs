@@ -25,13 +25,7 @@ impl super::SessionClient {
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {
         if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "calendar_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
+            super::validate_ids_field(id_slice, "calendar_get", "ids")?;
         }
         let (api_url, account_id) = self.session_parts()?;
         // Omit `ids` / `properties` entirely when None rather than sending
@@ -115,14 +109,8 @@ impl super::SessionClient {
                 }
             }
         }
-        if let Some(ids) = destroy {
-            for id in ids.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "calendar_set: destroy element may not be empty".into(),
-                    ));
-                }
-            }
+        if let Some(destroy_ids) = destroy {
+            super::validate_ids_field(destroy_ids, "calendar_set", "destroy")?;
         }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({

@@ -19,11 +19,10 @@ impl SessionClient {
         show_details: Option<bool>,
         event_properties: Option<&[&str]>,
     ) -> Result<PrincipalGetAvailabilityResponse, ClientError> {
-        if principal_id.is_empty() {
-            return Err(ClientError::InvalidArgument(
-                "principal_get_availability: principal_id must not be empty".into(),
-            ));
-        }
+        super::validate_id_field(
+            principal_id,
+            "principal_get_availability: principal_id",
+        )?;
         if utc_start.is_empty() {
             return Err(ClientError::InvalidArgument(
                 "principal_get_availability: utc_start must not be empty".into(),

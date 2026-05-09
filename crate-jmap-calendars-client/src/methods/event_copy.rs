@@ -23,11 +23,7 @@ impl super::SessionClient {
         create: HashMap<String, jmap_calendars_types::CalendarEvent>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
-        if from_account_id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "calendar_event_copy: from_account_id may not be empty".into(),
-            ));
-        }
+        super::validate_id_field(from_account_id, "calendar_event_copy: from_account_id")?;
         for k in create.keys() {
             if k.is_empty() {
                 return Err(jmap_base_client::ClientError::InvalidArgument(
