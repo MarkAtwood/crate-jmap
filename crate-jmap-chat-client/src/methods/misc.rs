@@ -15,10 +15,12 @@ impl super::SessionClient {
         ids: Option<&[Id]>,
     ) -> Result<GetResponse<jmap_chat_types::ReadPosition>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
-            "accountId": account_id,
-            "ids": ids,
-        });
+        // Omit `ids` when None — see the matching comment on `chat_get` for
+        // the rationale. ReadPosition/get has no `properties` parameter.
+        let mut args = serde_json::json!({ "accountId": account_id });
+        if let Some(id_slice) = ids {
+            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+        }
         let req = super::build_request("ReadPosition/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

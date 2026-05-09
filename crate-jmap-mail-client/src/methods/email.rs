@@ -30,11 +30,21 @@ impl super::SessionClient {
         params: Option<EmailGetParams>,
     ) -> Result<GetResponse<jmap_mail_types::Email>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let mut args = serde_json::json!({
-            "accountId": account_id,
-            "ids": ids,
-            "properties": properties,
-        });
+        // Omit `ids` / `properties` entirely when None rather than sending
+        // an explicit JSON null. RFC 8620 §5.1 accepts both shapes, but the
+        // crate's other builders (set/changes/query) consistently use the
+        // conditional-add idiom; matching it here keeps the wire request
+        // canonical and avoids "present-but-null vs absent" interop quirks
+        // in proxies / audit loggers.
+        let mut args = serde_json::json!({ "accountId": account_id });
+        if let Some(id_slice) = ids {
+            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+        }
+        if let Some(props) = properties {
+            args["properties"] = serde_json::Value::Array(
+                props.iter().copied().map(serde_json::Value::from).collect(),
+            );
+        }
         if let Some(p) = params {
             let pv = serde_json::to_value(p).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(

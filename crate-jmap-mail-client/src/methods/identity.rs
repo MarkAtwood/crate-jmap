@@ -25,11 +25,17 @@ impl super::SessionClient {
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_mail_types::Identity>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
-            "accountId": account_id,
-            "ids": ids,
-            "properties": properties,
-        });
+        // Omit `ids` / `properties` when None — see the matching comment on
+        // `email_get` for the rationale (consistent with set/changes/query).
+        let mut args = serde_json::json!({ "accountId": account_id });
+        if let Some(id_slice) = ids {
+            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+        }
+        if let Some(props) = properties {
+            args["properties"] = serde_json::Value::Array(
+                props.iter().copied().map(serde_json::Value::from).collect(),
+            );
+        }
         let req = super::build_request("Identity/get", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

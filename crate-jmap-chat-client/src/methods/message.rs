@@ -34,11 +34,18 @@ impl super::SessionClient {
             ));
         }
         let (api_url, account_id) = self.session_parts()?;
-        let args = serde_json::json!({
+        // Omit `properties` when None — see the matching comment on
+        // `chat_get` for the rationale. `ids` is required (non-Option) so it
+        // is always present in the request.
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "ids": ids,
-            "properties": properties,
         });
+        if let Some(props) = properties {
+            args["properties"] = serde_json::Value::Array(
+                props.iter().copied().map(serde_json::Value::from).collect(),
+            );
+        }
         let req = super::build_request("Message/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
