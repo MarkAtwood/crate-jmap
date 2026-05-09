@@ -8,7 +8,7 @@ use crate::backend::{
     BackendSetError, CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs,
     CalendarsBackend, QueryCalendarEventsError,
 };
-use crate::helpers::{extract_account_id, set_error_value};
+use crate::helpers::{extract_account_id, finalize_set_response, set_error_value};
 
 // ---------------------------------------------------------------------------
 // CalendarEvent/get
@@ -437,29 +437,19 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
         }
     }
 
-    let new_state = if mutated {
-        backend
-            .get_state::<CalendarEvent>(&account_id)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
-    } else {
-        old_state.clone()
-    };
-
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "oldState": old_state.as_ref(),
-            "newState": new_state.as_ref(),
-            "created":      if created.is_empty()        { Value::Null } else { Value::Object(created) },
-            "updated":      if updated.is_empty()        { Value::Null } else { Value::Object(updated) },
-            "destroyed":    if destroyed_list.is_empty() { Value::Null } else { Value::Array(destroyed_list) },
-            "notCreated":   if not_created.is_empty()    { Value::Null } else { Value::Object(not_created) },
-            "notUpdated":   if not_updated.is_empty()    { Value::Null } else { Value::Object(not_updated) },
-            "notDestroyed": if not_destroyed.is_empty()  { Value::Null } else { Value::Object(not_destroyed) },
-        }),
-        vec![],
-    ))
+    finalize_set_response::<B, CalendarEvent>(
+        backend,
+        &account_id,
+        old_state,
+        mutated,
+        created,
+        updated,
+        destroyed_list,
+        not_created,
+        not_updated,
+        not_destroyed,
+    )
+    .await
 }
 
 // ---------------------------------------------------------------------------
