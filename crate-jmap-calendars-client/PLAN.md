@@ -191,12 +191,17 @@ impl SessionClient {
   (`with_calendars_session`) + 19 inherent methods on `SessionClient`. See
   the rationale and JMAP-231o.28 above.
 - **Id types**: `&Id` / `&[Id]` parameters → `&str` / `&[&str]`. Avoids
-  forcing callers to construct `Id` from string literals; the empty-string
-  guard is enforced inside each builder. TODO bd:JMAP-231o.6 — empty-string
-  guards are inconsistent across methods.
-- **State types**: `&State` parameters → `&str`. Same rationale as Id.
-  TODO bd:JMAP-231o.3 — consider migrating state-bearing fields back to
-  `jmap_types::State` newtype now that JMAP-231o was filed.
+  forcing callers to construct `Id` from string literals at the cost of
+  pushing validation to runtime guards inside each method.
+  As of 2026-05-09 those runtime guards delegate to `Id::new_validated`
+  for full RFC 8620 §1.2 syntax checking (closed bd:JMAP-231o.6, Option A).
+  This is **stopgap** scaffolding — the validate_id_field /
+  validate_ids_field helpers in `methods/mod.rs` and the 11 call sites are
+  throwaway code that **bd:JMAP-6by7 (0.2.0 typed-Id epic)** will delete
+  when method signatures move to `&Id` / `&[Id]`.
+- **State types**: `&State` parameters → `&str`. Same rationale as Id;
+  also subsumed by **bd:JMAP-6by7** (specifically JMAP-6by7.1).
+  Closes the standalone bd:JMAP-231o.3.
 - **SetRequest<T> / CopyRequest<T> / CalendarEventQueryRequest builder
   structs** were dropped in favour of explicit per-method positional
   arguments and raw `serde_json::Value` for filter/sort. Trade-off: less
@@ -296,9 +301,16 @@ of this PLAN.md sees both the pending design TODOs and the most
 recent design changes that motivate the shipped sketch above).
 
 - **bd:JMAP-231o.3** (P2) — state fields should use `jmap_types::State`
-  newtype.
+  newtype. **Subsumed by bd:JMAP-6by7** (0.2.0 typed-Id epic); state-field
+  migration is part of the broader typed-parameter pass.
 - **bd:JMAP-231o.4** (P2) — this PLAN.md drift (closed by this rewrite).
 - **bd:JMAP-231o.6** (P2) — empty-string guards inconsistent across builders.
+  Closed 2026-05-09 with Option A (full internal validation via
+  `Id::new_validated`, `&str` API kept). Option C (typed `&[Id]` API) was
+  the technically-better choice; deferred to **bd:JMAP-6by7** (0.2.0
+  typed-Id epic). The validate_id_field / validate_ids_field helpers
+  added by this bead are throwaway scaffolding for the 0.1.x publish
+  window.
 - **bd:JMAP-231o.8** (P2) — inline tests build args by hand and never hit
   production methods; vacuous.
 - **bd:JMAP-231o.9** (P2) — `calendar_event_notification_set` always sends
