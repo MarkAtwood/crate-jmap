@@ -140,6 +140,55 @@ pub(crate) fn build_request(
 }
 
 // ---------------------------------------------------------------------------
+// Id validation (RFC 8620 §1.2)
+// ---------------------------------------------------------------------------
+
+/// Validate a single string field as an RFC 8620 §1.2 Id.
+///
+/// The previous half-measure `is_empty()` guards caught only empty strings;
+/// `Id::new_validated` enforces the full §1.2 syntax (1..=255 SAFE-CHARs).
+/// This means inputs like `"\x00bad"`, `" "`, `"#$%"`, or strings >255 octets
+/// are rejected client-side before any HTTP call rather than producing
+/// confusing server-side errors. Decision recorded on bd:JMAP-231o.6.
+///
+/// `label` is the human-readable identifier of the field for the error
+/// message (e.g. `"calendar_event_copy: from_account_id"`). The smoke tests
+/// rely on the field name appearing as a substring of the error message.
+pub(crate) fn validate_id_field(
+    value: &str,
+    label: &str,
+) -> Result<(), jmap_base_client::ClientError> {
+    jmap_types::Id::new_validated(value).map(|_| ()).map_err(|e| {
+        jmap_base_client::ClientError::InvalidArgument(format!(
+            "{label} is not a valid Id ({e})"
+        ))
+    })
+}
+
+/// Validate every element of an Id slice as an RFC 8620 §1.2 Id.
+///
+/// See [`validate_id_field`] for the `Id::new_validated` rationale.
+///
+/// `context` is the method name (e.g. `"calendar_get"`); `field` is the
+/// argument name (e.g. `"ids"`, `"destroy"`, `"blobIds"`). The smoke tests
+/// assert on the substring `"<field> element"` so both pieces must appear
+/// in the error message.
+pub(crate) fn validate_ids_field(
+    ids: &[&str],
+    context: &str,
+    field: &str,
+) -> Result<(), jmap_base_client::ClientError> {
+    for id in ids {
+        jmap_types::Id::new_validated(*id).map(|_| ()).map_err(|e| {
+            jmap_base_client::ClientError::InvalidArgument(format!(
+                "{context}: {field} element {id:?} is not a valid Id ({e})"
+            ))
+        })?;
+    }
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // SessionClient — session-bound client
 // ---------------------------------------------------------------------------
 

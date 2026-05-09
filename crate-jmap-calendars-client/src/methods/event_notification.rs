@@ -20,13 +20,7 @@ impl super::SessionClient {
         jmap_base_client::ClientError,
     > {
         if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "calendar_event_notification_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
+            super::validate_ids_field(id_slice, "calendar_event_notification_get", "ids")?;
         }
         let (api_url, account_id) = self.session_parts()?;
         // Omit `ids` / `properties` when None — see the matching comment on
@@ -95,14 +89,12 @@ impl super::SessionClient {
         &self,
         destroy: Option<&[&str]>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        if let Some(ids) = destroy {
-            for id in ids.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "calendar_event_notification_set: destroy element may not be empty".into(),
-                    ));
-                }
-            }
+        if let Some(destroy_ids) = destroy {
+            super::validate_ids_field(
+                destroy_ids,
+                "calendar_event_notification_set",
+                "destroy",
+            )?;
         }
         let (api_url, account_id) = self.session_parts()?;
         let destroy_val = match destroy {

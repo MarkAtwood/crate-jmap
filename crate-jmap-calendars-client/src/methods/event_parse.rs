@@ -20,13 +20,7 @@ impl SessionClient {
                 "calendar_event_parse: blob_ids must not be empty".into(),
             ));
         }
-        for id in blob_ids {
-            if id.is_empty() {
-                return Err(ClientError::InvalidArgument(
-                    "calendar_event_parse: blob_ids element must not be empty".into(),
-                ));
-            }
-        }
+        super::validate_ids_field(blob_ids, "calendar_event_parse", "blob_ids")?;
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
