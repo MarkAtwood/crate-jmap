@@ -61,396 +61,287 @@ thiserror             = "2"
 
 No direct reqwest/tokio dependency — all I/O goes through `jmap-base-client`.
 
-## Extension Trait Pattern
+## Extension Trait + SessionClient Pattern (shipped)
 
-Cross-crate inherent impls are not valid Rust (orphan rule). To add methods to
-`JmapClient` from this crate, we use an **extension trait**:
+The shipped design has **drifted** from the original "fat extension trait"
+sketched below. The extension trait was simplified to a single method:
 
 ```rust
 pub trait JmapCalendarsExt {
-    async fn calendar_get(...) -> Result<...>;
-    // ...
+    fn with_calendars_session(&self, session: Session) -> SessionClient;
 }
 
-impl JmapCalendarsExt for JmapClient {
-    async fn calendar_get(...) -> Result<...> { ... }
-}
+impl JmapCalendarsExt for JmapClient { /* one-line clone + bind */ }
 ```
 
-Callers must bring the trait into scope: `use jmap_calendars_client::JmapCalendarsExt;`
+`SessionClient` then carries inherent (not trait) methods for all 19 calendar
+operations. This shape was chosen because:
 
-Rust 1.75 AFIT (async fn in trait, via RPITIT) is used — no `async-trait` crate
-needed. This works because we do not need `dyn JmapCalendarsExt`. If dyn
-dispatch is ever required, wrap with `async-trait 0.1` at that time.
+- Every calendar method needs `(api_url, account_id)` from the bound session;
+  taking `&Session` on every call would be repetitive.
+- The 19 inherent methods compose more naturally with `cargo doc`, autocomplete,
+  and IDE navigation than 19 trait-method declarations.
+- The single-method extension trait still satisfies the orphan rule for
+  attaching `with_calendars_session` to `JmapClient`.
 
-## Planned Public API
+Callers do:
+```rust
+use jmap_calendars_client::JmapCalendarsExt;
+let session = client.fetch_session(...).await?;
+let sc = client.with_calendars_session(session);
+let resp = sc.calendar_get(None, None).await?;
+```
+
+TODO bd:JMAP-231o.28 — the single-method trait could be replaced with an
+inherent `JmapClient::with_calendars_session` if we ever want to drop the
+`use jmap_calendars_client::JmapCalendarsExt;` import. Defensible either
+way; left as-is for now.
+
+Rust 1.75 AFIT (async fn in trait, via RPITIT) is used for the underlying
+backend trait calls — no `async-trait` crate needed.
+
+## Public API (shipped sketch)
+
+The full reference is `cargo doc -p jmap-calendars-client --no-deps`. This
+section sketches the trait + 19 SessionClient methods as they exist today.
+Naming and signatures that drifted from the original plan are marked
+**(drift)**. Most drift is reflected in the design-decision log below
+this section.
 
 ```rust
-use jmap_base_client::{ClientError, JmapClient};
-use jmap_calendars_types::{
-    Calendar, CalendarEvent, CalendarEventNotification, ParticipantIdentity,
-};
-use jmap_types::{Id, State};
+use jmap_base_client::{ClientError, JmapClient, Session};
+use jmap_calendars_client::JmapCalendarsExt;
 
-/// Extension trait adding JMAP Calendars methods to [`JmapClient`].
-///
-/// Import to use: `use jmap_calendars_client::JmapCalendarsExt;`
+/// One-method extension trait. (drift: original plan put all 19 methods here.)
 pub trait JmapCalendarsExt {
-    // ── Calendar ─────────────────────────────────────────────────────────────
+    fn with_calendars_session(&self, session: Session) -> SessionClient;
+}
 
-    /// Calendar/get (draft §4.1). ids=None fetches all.
-    async fn calendar_get(
+/// Bound (JmapClient, Session) pair. All 19 method calls live here as
+/// inherent methods rather than trait methods. Cheap to clone.
+#[non_exhaustive]
+#[derive(Clone)]
+pub struct SessionClient { /* fields are pub(crate) */ }
+
+impl SessionClient {
+    // ── Calendar (3 methods) ────────────────────────────────────────────
+    pub async fn calendar_get(
         &self,
-        account_id: &Id,
-        ids: Option<&[Id]>,
+        ids: Option<&[&str]>,             // (drift: was Option<&[Id]>)
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<Calendar>, ClientError>;
-
-    /// Calendar/changes (draft §4.2).
-    async fn calendar_changes(
+    pub async fn calendar_changes(/* ... */) -> Result<ChangesResponse, ClientError>;
+    pub async fn calendar_set(
         &self,
-        account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
-    ) -> Result<ChangesResponse, ClientError>;
-
-    /// Calendar/set (draft §4.3).
-    /// on_destroy_remove_events and on_success_set_is_default are extra args.
-    async fn calendar_set(
-        &self,
-        account_id: &Id,
-        req: SetRequest<Calendar>,
-        on_destroy_remove_events: bool,
-        on_success_set_is_default: Option<&str>,
+        create: Option<HashMap<String, Calendar>>,
+        update: Option<HashMap<Id, PatchObject>>,
+        destroy: Option<&[&str]>,
+        on_destroy_remove_events: Option<bool>,
     ) -> Result<SetResponse<Calendar>, ClientError>;
 
-    /// Calendar/query (RFC 8620 §5.5, applied to Calendar).
-    async fn calendar_query(
+    // ── CalendarEvent (7 methods) ───────────────────────────────────────
+    pub async fn calendar_event_get(
         &self,
-        account_id: &Id,
-        filter: Option<serde_json::Value>,
-        sort: Option<&[CalendarComparator]>,
-        position: Option<i64>,
-        limit: Option<u64>,
-    ) -> Result<QueryResponse, ClientError>;
-
-    /// Calendar/queryChanges (RFC 8620 §5.6, applied to Calendar).
-    async fn calendar_query_changes(
-        &self,
-        account_id: &Id,
-        since_query_state: &State,
-        filter: Option<serde_json::Value>,
-        sort: Option<&[CalendarComparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-    ) -> Result<QueryChangesResponse, ClientError>;
-
-    // ── CalendarEvent ─────────────────────────────────────────────────────────
-
-    /// CalendarEvent/get (draft §5.7). Includes extra arguments.
-    async fn calendar_event_get(
-        &self,
-        account_id: &Id,
-        ids: Option<&[Id]>,
+        ids: Option<&[&str]>,
         properties: Option<&[&str]>,
-        args: CalendarEventGetArgs,
+        params: Option<CalendarEventGetParams>, // (drift: was CalendarEventGetArgs)
     ) -> Result<GetResponse<CalendarEvent>, ClientError>;
-
-    /// CalendarEvent/changes (draft §5.8).
-    async fn calendar_event_changes(
+    pub async fn calendar_event_changes(/* ... */) -> Result<ChangesResponse, ClientError>;
+    pub async fn calendar_event_set(/* ... */) -> Result<SetResponse<CalendarEvent>, ClientError>;
+    pub async fn calendar_event_copy(/* ... */) -> Result<SetResponse<CalendarEvent>, ClientError>;
+    pub async fn calendar_event_query(
         &self,
-        account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
-    ) -> Result<ChangesResponse, ClientError>;
-
-    /// CalendarEvent/set (draft §5.9).
-    /// send_scheduling_messages is the extra draft argument.
-    async fn calendar_event_set(
-        &self,
-        account_id: &Id,
-        req: SetRequest<CalendarEvent>,
-        send_scheduling_messages: bool,
-    ) -> Result<SetResponse<CalendarEvent>, ClientError>;
-
-    /// CalendarEvent/copy (draft §5.10, RFC 8620 §5.4).
-    async fn calendar_event_copy(
-        &self,
-        from_account_id: &Id,
-        to_account_id: &Id,
-        req: CopyRequest<CalendarEvent>,
-    ) -> Result<CopyResponse<CalendarEvent>, ClientError>;
-
-    /// CalendarEvent/query (draft §5.11). Includes expandRecurrences and timeZone.
-    async fn calendar_event_query(
-        &self,
-        account_id: &Id,
-        req: CalendarEventQueryRequest,
-    ) -> Result<QueryResponse, ClientError>;
-
-    /// CalendarEvent/queryChanges (draft §5.12).
-    async fn calendar_event_query_changes(
-        &self,
-        account_id: &Id,
-        since_query_state: &State,
-        filter: Option<CalendarEventFilterCondition>,
-        sort: Option<&[CalendarEventComparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-        expand_recurrences: bool,
-        time_zone: Option<&str>,
-    ) -> Result<QueryChangesResponse, ClientError>;
-
-    // ── CalendarEventNotification ─────────────────────────────────────────────
-
-    /// CalendarEventNotification/get (draft §7.1).
-    async fn notification_get(
-        &self,
-        account_id: &Id,
-        ids: Option<&[Id]>,
-        properties: Option<&[&str]>,
-    ) -> Result<GetResponse<CalendarEventNotification>, ClientError>;
-
-    /// CalendarEventNotification/changes (draft §7.2).
-    async fn notification_changes(
-        &self,
-        account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
-    ) -> Result<ChangesResponse, ClientError>;
-
-    /// CalendarEventNotification/set (draft §7.3). Only destroy is supported.
-    /// The caller should only put ids in `destroy`; any create/update will
-    /// be rejected by the server with forbidden.
-    async fn notification_destroy(
-        &self,
-        account_id: &Id,
-        ids: &[Id],
-    ) -> Result<SetResponse<CalendarEventNotification>, ClientError>;
-
-    /// CalendarEventNotification/query (draft §7.4).
-    async fn notification_query(
-        &self,
-        account_id: &Id,
-        filter: Option<NotificationFilterCondition>,
-        sort: Option<&[NotificationComparator]>,
+        filter: Option<serde_json::Value>,  // (drift: was typed CalendarEventFilterCondition)
+        sort: Option<serde_json::Value>,    // (drift: was Option<&[Comparator]>)
         position: Option<i64>,
         limit: Option<u64>,
+        expand_recurrences: Option<bool>,
+        time_zone: Option<&str>,
     ) -> Result<QueryResponse, ClientError>;
-
-    /// CalendarEventNotification/queryChanges (draft §7.5).
-    async fn notification_query_changes(
+    pub async fn calendar_event_query_changes(/* ... */) -> Result<QueryChangesResponse, ClientError>;
+    pub async fn calendar_event_parse(
         &self,
-        account_id: &Id,
-        since_query_state: &State,
-        filter: Option<NotificationFilterCondition>,
-        sort: Option<&[NotificationComparator]>,
-        max_changes: Option<u64>,
-        up_to_id: Option<&Id>,
-    ) -> Result<QueryChangesResponse, ClientError>;
-
-    // ── ParticipantIdentity ───────────────────────────────────────────────────
-
-    /// ParticipantIdentity/get (draft §3.1). ids=None fetches all.
-    async fn participant_identity_get(
-        &self,
-        account_id: &Id,
-        ids: Option<&[Id]>,
+        blob_ids: &[&str],
         properties: Option<&[&str]>,
-    ) -> Result<GetResponse<ParticipantIdentity>, ClientError>;
+    ) -> Result<CalendarEventParseResponse, ClientError>;
 
-    /// ParticipantIdentity/changes (draft §3.2).
-    async fn participant_identity_changes(
+    // ── CalendarEventNotification (5 methods) ───────────────────────────
+    pub async fn calendar_event_notification_get(/* ... */) -> Result<GetResponse<CalendarEventNotification>, ClientError>;
+    pub async fn calendar_event_notification_changes(/* ... */) -> Result<ChangesResponse, ClientError>;
+    pub async fn calendar_event_notification_set(
         &self,
-        account_id: &Id,
-        since_state: &State,
-        max_changes: Option<u64>,
-    ) -> Result<ChangesResponse, ClientError>;
+        destroy: Option<&[&str]>,           // destroy-only per draft §7.3
+    ) -> Result<SetResponse<CalendarEventNotification>, ClientError>;
+    pub async fn calendar_event_notification_query(/* ... */) -> Result<QueryResponse, ClientError>;
+    pub async fn calendar_event_notification_query_changes(/* ... */) -> Result<QueryChangesResponse, ClientError>;
 
-    /// ParticipantIdentity/set (draft §3.3).
-    /// on_success_set_is_default is the extra draft argument.
-    async fn participant_identity_set(
-        &self,
-        account_id: &Id,
-        req: SetRequest<ParticipantIdentity>,
-        on_success_set_is_default: Option<&str>,
-    ) -> Result<SetResponse<ParticipantIdentity>, ClientError>;
-}
+    // ── ParticipantIdentity (3 methods) ─────────────────────────────────
+    pub async fn participant_identity_get(/* ... */) -> Result<GetResponse<ParticipantIdentity>, ClientError>;
+    pub async fn participant_identity_changes(/* ... */) -> Result<ChangesResponse, ClientError>;
+    pub async fn participant_identity_set(/* ... */) -> Result<SetResponse<ParticipantIdentity>, ClientError>;
 
-impl JmapCalendarsExt for JmapClient {
-    // implementations in calendar.rs, event.rs, notification.rs, participant.rs
+    // ── Principal (1 method) ────────────────────────────────────────────
+    pub async fn principal_get_availability(/* ... */) -> Result<PrincipalGetAvailabilityResponse, ClientError>;
 }
 ```
 
-### Supporting request/response types
+### Drift summary (original plan → shipped)
 
-```rust
-/// Extra arguments for CalendarEvent/get beyond the standard /get (draft §5.7).
-pub struct CalendarEventGetArgs {
-    /// Filter recurrence overrides to those before this UTC datetime.
-    pub recurrence_overrides_before: Option<String>,
-    /// Filter recurrence overrides to those on or after this UTC datetime.
-    pub recurrence_overrides_after: Option<String>,
-    /// If true, only return owner/self participants (default false).
-    pub reduce_participants: bool,
-    /// Time zone for utcStart/utcEnd of floating events (default "Etc/UTC").
-    pub time_zone: Option<String>,
-}
+- **Extension trait shape**: 19 trait methods → 1 trait method
+  (`with_calendars_session`) + 19 inherent methods on `SessionClient`. See
+  the rationale and JMAP-231o.28 above.
+- **Id types**: `&Id` / `&[Id]` parameters → `&str` / `&[&str]`. Avoids
+  forcing callers to construct `Id` from string literals; the empty-string
+  guard is enforced inside each builder. TODO bd:JMAP-231o.6 — empty-string
+  guards are inconsistent across methods.
+- **State types**: `&State` parameters → `&str`. Same rationale as Id.
+  TODO bd:JMAP-231o.3 — consider migrating state-bearing fields back to
+  `jmap_types::State` newtype now that JMAP-231o was filed.
+- **SetRequest<T> / CopyRequest<T> / CalendarEventQueryRequest builder
+  structs** were dropped in favour of explicit per-method positional
+  arguments and raw `serde_json::Value` for filter/sort. Trade-off: less
+  type safety, simpler call sites, no nested-builder ergonomics issues.
+  TODO bd:JMAP-231o.22 — revisit whether typed filter/sort would be
+  worthwhile for 0.2.0.
+- **CalendarEventGetArgs** (planned) → **CalendarEventGetParams** (shipped).
+  Field names also changed: `reduce_participants: bool` → `reduced_participants:
+  Option<bool>` etc. The Option<bool> shape is intentional (None = "do not
+  send the field"); see TODO bd:JMAP-231o.32.
+- **Method count**: 18 → 19. CalendarEvent/parse and Principal/getAvailability
+  were added to the spec / draft after the original plan was written.
+- **SetResponse fields**: shipped uses `Option<HashMap>` for created/updated
+  (None when key absent on the wire) rather than always-present empty maps.
+  TODO bd:JMAP-231o.27 — debate whether always-present (default to
+  empty) would be friendlier to callers.
+- **Wire-format hygiene**: /get methods now omit `ids` / `properties` when
+  None rather than sending explicit JSON null (closed by JMAP-231o.10
+  as of 2026-05-08).
 
-/// Full request struct for CalendarEvent/query (draft §5.11).
-pub struct CalendarEventQueryRequest {
-    pub filter: Option<CalendarEventFilterCondition>,
-    pub sort: Option<Vec<CalendarEventComparator>>,
-    pub position: Option<i64>,
-    pub limit: Option<u64>,
-    /// If true, server expands recurring events within filter window.
-    /// Requires filter.after and filter.before to be set.
-    pub expand_recurrences: bool,
-    /// Time zone for before/after filter conditions (default "Etc/UTC").
-    pub time_zone: Option<String>,
-}
-
-/// Standard JMAP get response.
-pub struct GetResponse<T> {
-    pub account_id: Id,
-    pub state: State,
-    pub list: Vec<T>,
-    pub not_found: Vec<Id>,
-}
-
-/// Standard JMAP changes response.
-pub struct ChangesResponse {
-    pub account_id: Id,
-    pub old_state: State,
-    pub new_state: State,
-    pub has_more_changes: bool,
-    pub created: Vec<Id>,
-    pub updated: Vec<Id>,
-    pub destroyed: Vec<Id>,
-}
-
-/// Standard JMAP set response.
-pub struct SetResponse<T> {
-    pub account_id: Id,
-    pub old_state: Option<State>,
-    pub new_state: State,
-    pub created: HashMap<String, T>,
-    pub updated: HashMap<Id, Option<T>>,
-    pub destroyed: Vec<Id>,
-    pub not_created: HashMap<String, SetError>,
-    pub not_updated: HashMap<Id, SetError>,
-    pub not_destroyed: HashMap<Id, SetError>,
-}
-
-/// Standard JMAP set request.
-pub struct SetRequest<T> {
-    pub if_in_state: Option<State>,
-    pub create: Option<HashMap<String, T>>,
-    pub update: Option<HashMap<Id, jmap_types::PatchObject>>,  // RFC 8620 §5.3
-    pub destroy: Option<Vec<Id>>,
-}
-
-/// Standard JMAP query response.
-pub struct QueryResponse {
-    pub account_id: Id,
-    pub query_state: State,
-    pub can_calculate_changes: bool,
-    pub position: u64,
-    pub ids: Vec<Id>,
-    pub total: Option<u64>,
-    pub limit: Option<u64>,
-}
-
-/// Standard JMAP queryChanges response.
-pub struct QueryChangesResponse {
-    pub account_id: Id,
-    pub old_query_state: State,
-    pub new_query_state: State,
-    pub total: Option<u64>,
-    pub removed: Vec<Id>,
-    pub added: Vec<AddedItem>,
-}
-
-/// Standard JMAP copy request.
-pub struct CopyRequest<T> {
-    pub if_from_in_state: Option<State>,
-    pub if_in_state: Option<State>,
-    pub create: HashMap<String, T>,
-    pub on_success_destroy_original: bool,
-    pub destroy_from_if_in_state: Option<State>,
-}
-
-/// Standard JMAP copy response.
-pub struct CopyResponse<T> {
-    pub account_id: Id,
-    pub from_account_id: Id,
-    pub old_state: Option<State>,
-    pub new_state: State,
-    pub created: HashMap<String, T>,
-    pub not_created: HashMap<String, SetError>,
-}
-```
-
-## Module Layout
+## Module Layout (shipped)
 
 ```
 src/
-  lib.rs            pub trait JmapCalendarsExt; impl JmapCalendarsExt for JmapClient;
-                    re-exports of all public types
-  calendar.rs       Calendar/get, /changes, /set, /query, /queryChanges
-                    CalendarComparator type
-  event.rs          CalendarEvent/get (CalendarEventGetArgs), /changes, /set,
-                    /copy, /query (CalendarEventQueryRequest),
-                    /queryChanges. CalendarEventComparator type.
-  notification.rs   CalendarEventNotification/get, /changes, /set (destroy),
-                    /query, /queryChanges. NotificationFilterCondition,
-                    NotificationComparator types.
-  participant.rs    ParticipantIdentity/get, /changes, /set
-  types.rs          GetResponse, ChangesResponse, SetResponse, SetRequest,
-                    QueryResponse, QueryChangesResponse, CopyRequest,
-                    CopyResponse, AddedItem, SetError
+  lib.rs                       pub trait JmapCalendarsExt (one method);
+                               impl for JmapClient; re-exports the response
+                               types and SessionClient
+  methods/
+    mod.rs                     pub struct SessionClient + Clone + manual Debug;
+                               build_request helper; CalendarEventGetParams,
+                               CalendarEventParseResponse, PrincipalGet-
+                               AvailabilityResponse type definitions; CALL_ID
+                               + USING_* capability arrays; std response types
+                               re-exported from jmap-base-client
+                               (GetResponse, ChangesResponse, SetResponse,
+                               QueryResponse, QueryChangesResponse)
+    calendar.rs                Calendar/get, /changes, /set
+    event.rs                   CalendarEvent/get, /changes, /set, /query,
+                               /queryChanges
+    event_copy.rs              CalendarEvent/copy
+    event_notification.rs      CalendarEventNotification/get, /changes, /set,
+                               /query, /queryChanges
+    event_parse.rs             CalendarEvent/parse
+    participant_identity.rs    ParticipantIdentity/get, /changes, /set
+    principal_availability.rs  Principal/getAvailability
 ```
 
-## Test Strategy
+**Drift from earlier plan:**
+- `notification.rs` → `event_notification.rs` (clearer scoping).
+- `participant.rs` → `participant_identity.rs` (matches type name).
+- `calendar.rs` no longer carries `Calendar/query` / `Calendar/queryChanges`
+  — those methods are not registered in the shipped client.
+- `types.rs` was never created. Standard JMAP response types
+  (`GetResponse`, `SetResponse`, etc.) come from `jmap-base-client` and are
+  re-exported through `methods/mod.rs`. Calendar-specific response types
+  (`CalendarEventParseResponse`, `PrincipalGetAvailabilityResponse`) live in
+  `methods/mod.rs` directly.
+- `event_copy.rs`, `event_parse.rs`, `principal_availability.rs` are
+  shipped modules not in the original plan.
 
-- All tests use `wiremock` (or equivalent mock HTTP layer) via
-  `jmap-base-client`'s HTTP layer — no live network required
-- Request serialization tests: construct a typed request, verify the JSON
-  serialized to the mock server matches the spec example from draft §8
-- Response deserialization tests: feed the spec example JSON responses from
-  draft §8 into the typed methods and verify the resulting structs
+## Test Strategy (shipped)
+
+Tests live in two places:
+
+- **Inline `#[cfg(test)] mod tests` blocks** in each `methods/*.rs` file.
+  These currently exercise `build_request` shape (method name, capability
+  URIs, CALL_ID), and a few argument-handling assertions. They do NOT
+  drive the production `SessionClient` methods — see TODO below.
+- **`tests/calendar_smoke_tests.rs`** at the crate root, using `wiremock`.
+  These DO call the production `SessionClient` methods through a mocked
+  HTTP layer.
 
 ### Primary test oracles
 
-**draft §8.1 — Fetching initial data**: The spec provides both the full
-`methodCalls` request array and the server response. Use these as:
-- Serialize oracle: verify `calendar_get` + `participant_identity_get` +
-  `calendar_event_query` + `calendar_event_get` produce the exact JSON in Fig. 7
-- Deserialize oracle: feed the response JSON and verify `GetResponse<Calendar>`,
-  `GetResponse<ParticipantIdentity>`, `QueryResponse`, `GetResponse<CalendarEvent>`
+**draft §8.1–§8.4** — the spec provides full `methodCalls` request and
+response pairs. The smoke tests use these as wire-format oracles. The
+inline tests use hand-written JSON literals for the same shapes.
 
-**draft §8.2 — Creating an event**: The spec shows a `CalendarEvent/set`
-create request and response. Use as:
-- Serialize oracle for `calendar_event_set` with a new CalendarEvent
-- Deserialize oracle for `SetResponse<CalendarEvent>`
+### Open follow-ups
 
-**draft §8.3 — Snoozing an alert**: Shows a `CalendarEvent/set` update with
-a PatchObject that modifies alert acknowledged time and adds a snooze alert.
-Use as oracle for PatchObject serialization in `SetRequest.update`.
+- TODO bd:JMAP-231o.7 — guard tests assert the implementation's own guard
+  rather than an independent oracle (vacuous).
+- TODO bd:JMAP-231o.8 — many inline `_request_shape` tests build args
+  by hand and pass them to `build_request`, never exercising the
+  production `calendar_*` / `event_*` builder code paths. Those tests
+  are reassuring-looking but vacuous; rewriting them to call the
+  `SessionClient` methods is the work tracked in JMAP-231o.8.
+- TODO bd:JMAP-231o.11 — the `helpers_compile` test runs three times
+  because of `#[path]` include.
 
-**draft §8.4 — Changing the default calendar**: Shows `Calendar/set` with
-`onSuccessSetIsDefault`. Use as oracle for that extra argument.
+## Review Findings (JMAP-231o children)
 
-### Additional test cases
+The /review-rusty pass on this crate filed 37 findings under JMAP-231o.
+P0/P1 children are closed. The list below records remaining open items
+plus recently-closed items that touched public-API shape (so a reader
+of this PLAN.md sees both the pending design TODOs and the most
+recent design changes that motivate the shipped sketch above).
 
-- `CalendarEventGetArgs` with `reduceParticipants: true` serializes correctly
-- `CalendarEventQueryRequest` with `expandRecurrences: true` requires both
-  `filter.after` and `filter.before` (validate at call site, not just server)
-- `notification_destroy` produces a set request with only `destroy` populated
-- `participant_identity_set` with `onSuccessSetIsDefault` serializes the extra
-  field correctly
-- `SetRequest` with a PatchObject update serializes the nested map correctly
-- `CopyRequest` serializes `onSuccessDestroyOriginal` correctly
+- **bd:JMAP-231o.3** (P2) — state fields should use `jmap_types::State`
+  newtype.
+- **bd:JMAP-231o.4** (P2) — this PLAN.md drift (closed by this rewrite).
+- **bd:JMAP-231o.6** (P2) — empty-string guards inconsistent across builders.
+- **bd:JMAP-231o.8** (P2) — inline tests build args by hand and never hit
+  production methods; vacuous.
+- **bd:JMAP-231o.9** (P2) — `calendar_event_notification_set` always sends
+  `destroy: []` even when caller passes `None`; debate short-circuit vs
+  documenting.
+- **bd:JMAP-231o.10** (P2) — `/get` builders sent `ids: null` / `properties:
+  null` explicitly when `None` (closed 2026-05-08; consistent with /set
+  conditional-add idiom).
+- **bd:JMAP-231o.11** (P3) — `helpers_compile` test runs three times.
+- **bd:JMAP-231o.13** (P3) — `session_parts` lifetime ergonomics.
+- **bd:JMAP-231o.14** (P2) — `CALL_ID` is hard-coded to `"r1"`; pipelining
+  callers would collide.
+- **bd:JMAP-231o.15** (P3) — README has no doc-test of usage example.
+- **bd:JMAP-231o.16** (P3) — capability URI const naming.
+- **bd:JMAP-231o.17** (P3) — wire key `id` (not `principalId`) for
+  `Principal/getAvailability` — has explicit comment + test.
+- **bd:JMAP-231o.18** (P3) — `calendar_event_notification_set` is
+  destroy-only; doc nuance.
+- **bd:JMAP-231o.19** (P2) — verbose `(*id).to_owned()` in 7 sites
+  (closed 2026-05-08; replaced with `Value::from`).
+- **bd:JMAP-231o.20** (P3) — `for id in id_slice.iter()` could drop `.iter()`.
+- **bd:JMAP-231o.24** (P3) — `session_parts` returns `&str` pair.
+- **bd:JMAP-231o.25** (P3) — `build_request` allocates `Vec<String>` per call.
+- **bd:JMAP-231o.26** (P2) — `ClientError::InvalidArgument` carries free-form
+  `String`; could be structured.
+- **bd:JMAP-231o.27** (P2) — `SetResponse` fields default to `None`; debate
+  defaulting to empty maps.
+- **bd:JMAP-231o.28** (P3) — single-method extension trait shape.
+- **bd:JMAP-231o.29** (P2) — `SessionClient` missing Debug, Clone derives
+  (closed 2026-05-08; added Clone derive + manual Debug).
+- **bd:JMAP-231o.30** (P4) — `as implicit implicit-fetch` doc typo + factual
+  error.
+- **bd:JMAP-231o.31** (P3) — `ChangesResponse` fields not Option (spec says
+  may be empty arrays, treated as empty).
+- **bd:JMAP-231o.32** (P4) — `Option<bool>` flags have no third state.
+- **bd:JMAP-231o.33** (P4) — `methods/mod.rs` lacks module-level docs on
+  public types.
+- **bd:JMAP-231o.34** (P3) — public fallible methods missing `# Errors`
+  rustdoc sections.
+- **bd:JMAP-231o.35** (P4) — type names not backtick-quoted in doc comments.
+- **bd:JMAP-231o.36** (P4) — `make_client` is async but has no `.await`.
+- **bd:JMAP-231o.37** (P4) — `make_client` uses `.expect()` rather than
+  propagating as test failure.
 
 ## Spec References
 
