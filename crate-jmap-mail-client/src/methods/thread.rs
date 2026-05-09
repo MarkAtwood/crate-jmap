@@ -75,7 +75,6 @@ impl super::SessionClient {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, CALL_ID, USING_MAIL};
     use serde_json::json;
 
     // thread_get_empty_id_returns_invalid_argument was deleted in JMAP-6by7.2
@@ -86,35 +85,17 @@ mod tests {
     // production code; testing it requires a wiremock-backed async harness.
     // See JMAP-sc1b.64.
 
-    /// Oracle: Thread/get request has correct method name and call id.
-    #[test]
-    fn thread_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": ["t1", "t2"],
-            "properties": null,
-        });
-        let req = build_request("Thread/get", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Thread/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-        let ids = calls[0][1]["ids"].as_array().expect("ids array");
-        assert_eq!(ids.len(), 2);
-    }
-
-    /// Oracle: Thread/changes request includes sinceState.
-    #[test]
-    fn thread_changes_request_includes_since_state() {
-        let args = json!({
-            "accountId": "acc1",
-            "sinceState": "state77",
-        });
-        let req = build_request("Thread/changes", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["sinceState"], json!("state77"));
-    }
+    // Deleted in JMAP-tco1.5 as Pattern E (vacuous inline tests):
+    //   - thread_get_request_shape
+    //   - thread_changes_request_includes_since_state
+    // Each hand-built `args = json!({...})` and fed it to `build_request`,
+    // never invoking the `thread_get` / `thread_changes` production builders.
+    // Real production-path coverage for these methods is tracked as a
+    // wiremock-smoke gap under JMAP-uuoi (no `tests/thread_*.rs` smoke
+    // file exists yet).
+    //
+    // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
+    // own focused tests in `methods/mod.rs`.
 
     /// Oracle: Thread deserialization from RFC 8621 §3 shape.
     /// RFC 8621 §3.1: Thread has id and emailIds fields.

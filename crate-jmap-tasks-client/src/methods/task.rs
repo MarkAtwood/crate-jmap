@@ -169,43 +169,38 @@ impl super::SessionClient {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — see tests/task_tests.rs (wiremock-backed end-to-end)
 // ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::super::{build_request, CALL_ID, USING_TASKS};
-    use serde_json::json;
-
-    // The `task_get_empty_id_returns_invalid_argument` inline smoke test was
-    // removed by the JMAP-6by7.5 typed-Id refactor. It was vacuous because
-    // it only iterated a local `&[""]` slice and asserted `is_empty()` found
-    // the empty value, without invoking any production method. Under typed
-    // `&[Id]` parameters, an empty-Id input is impossible to express through
-    // the API (`Id::new_validated("")` returns `Err` at the call site) so the
-    // bug it pretended to test is unrepresentable.
-
-    // The InvalidArgument guards for empty since_state and from_account_id
-    // live in task_changes / task_copy production code; testing them requires
-    // a wiremock-backed async harness. See JMAP-sc1b.64.
-
-    /// Oracle: Task/copy request includes fromAccountId in args.
-    #[test]
-    fn task_copy_request_includes_from_account_id() {
-        let args = json!({
-            "fromAccountId": "srcacc",
-            "accountId": "dstacc",
-            "create": {},
-        });
-        let req = build_request("Task/copy", args, USING_TASKS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Task/copy"));
-        assert_eq!(calls[0][1]["fromAccountId"], json!("srcacc"));
-        assert_eq!(calls[0][2], json!(CALL_ID));
-    }
-
-    // The InvalidArgument guard for empty since_query_state lives in
-    // task_query_changes production code; testing it requires a
-    // wiremock-backed async harness. See JMAP-sc1b.64.
-}
+//
+// `task_copy_request_includes_from_account_id` was vacuous: it hand-built
+// `args` Values and fed them to `build_request`, never exercising the
+// production `task_copy` builder. Deleted in JMAP-tco1.20.
+//
+// Real production-path coverage:
+//   - task_get_sends_ids_and_properties
+//   - task_get_all_ids_null
+//   - task_changes_paginated
+//   - task_set_create_round_trip
+//   - task_copy_includes_from_account_id
+//   - task_query_with_filter
+//   - task_query_changes_round_trip
+// in tests/task_tests.rs.
+//
+// Specific-flag passthrough coverage that may be lost is tracked
+// under JMAP-uuoi for follow-up wiremock smoke tests.
+//
+// `build_request`, `CALL_ID`, and `USING_TASKS` themselves have their
+// own focused tests in `methods/mod.rs`.
+//
+// The InvalidArgument guards for empty since_state, from_account_id, and
+// since_query_state live in task_changes / task_copy / task_query_changes
+// production code; testing them requires a wiremock-backed async harness.
+// See JMAP-sc1b.64.
+//
+// The `task_get_empty_id_returns_invalid_argument` inline smoke test was
+// removed by the JMAP-6by7.5 typed-Id refactor. It was vacuous because
+// it only iterated a local `&[""]` slice and asserted `is_empty()` found
+// the empty value, without invoking any production method. Under typed
+// `&[Id]` parameters, an empty-Id input is impossible to express through
+// the API (`Id::new_validated("")` returns `Err` at the call site) so the
+// bug it pretended to test is unrepresentable.

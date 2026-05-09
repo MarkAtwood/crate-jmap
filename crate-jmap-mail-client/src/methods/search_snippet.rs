@@ -61,50 +61,25 @@ impl super::SessionClient {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, CALL_ID, USING_MAIL};
     use serde_json::json;
-
-    /// Oracle: SearchSnippet/get request shape includes filter and emailIds.
-    /// Expected from RFC 8621 §5.
-    #[test]
-    fn search_snippet_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "filter": {"text": "hello"},
-            "emailIds": ["e1", "e2"],
-        });
-        let req = build_request("SearchSnippet/get", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("SearchSnippet/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-        assert_eq!(calls[0][1]["filter"]["text"], json!("hello"));
-        let eids = calls[0][1]["emailIds"].as_array().expect("emailIds array");
-        assert_eq!(eids.len(), 2);
-    }
-
-    /// Oracle: SearchSnippet/get request with threadIds.
-    #[test]
-    fn search_snippet_get_with_thread_ids_request_shape() {
-        let mut args = json!({
-            "accountId": "acc1",
-            "filter": {"inMailbox": "mb1"},
-        });
-        args["threadIds"] = json!(["t1", "t2"]);
-
-        let req = build_request("SearchSnippet/get", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("SearchSnippet/get"));
-        let tids = calls[0][1]["threadIds"]
-            .as_array()
-            .expect("threadIds array");
-        assert!(tids.contains(&json!("t1")));
-    }
 
     // search_snippet_get_empty_email_id_returns_invalid_argument was deleted in
     // JMAP-6by7.2 (typed-Id refactor): under `Option<&[Id]>` the empty-Id case
     // becomes impossible to express through the typed API.
+
+    // Deleted in JMAP-tco1.5 as Pattern E (vacuous inline tests):
+    //   - search_snippet_get_request_shape
+    //   - search_snippet_get_with_thread_ids_request_shape
+    // Each hand-built `args = json!({...})` and fed it to `build_request`,
+    // never invoking the `search_snippet_get` production builder. Real
+    // production-path coverage for this method is tracked as a wiremock-smoke
+    // gap under JMAP-uuoi (no `tests/search_snippet_*.rs` smoke file exists
+    // yet). Specific-flag passthrough coverage that may be lost
+    // (`emailIds` vs `threadIds` scoping) is tracked under JMAP-uuoi for
+    // follow-up wiremock smoke tests.
+    //
+    // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
+    // own focused tests in `methods/mod.rs`.
 
     /// Oracle: SearchSnippet response JSON deserializes into SearchSnippet list.
     /// RFC 8621 §5 example response shape.

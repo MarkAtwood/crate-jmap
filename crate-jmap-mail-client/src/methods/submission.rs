@@ -213,7 +213,6 @@ impl super::SessionClient {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, CALL_ID, USING_MAIL};
     use serde_json::json;
 
     // submission_get_empty_id_guard and submission_set_empty_destroy_id_guard
@@ -226,125 +225,41 @@ mod tests {
     // production code; testing them requires a wiremock-backed async harness.
     // See JMAP-sc1b.64.
 
-    // ── Request shape tests ──────────────────────────────────────────────────
-
-    /// Oracle: EmailSubmission/get request has correct method name and call id.
-    /// Expected method name from RFC 8621 §7.1.
-    #[test]
-    fn submission_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": null,
-            "properties": null,
-        });
-        let req = build_request("EmailSubmission/get", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("EmailSubmission/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-    }
-
-    /// Oracle: EmailSubmission/changes request carries sinceState.
-    /// Expected key name from RFC 8620 §5.2.
-    #[test]
-    fn submission_changes_request_shape() {
-        let mut args = json!({ "accountId": "acc1" });
-        args["sinceState"] = json!("s10");
-        args["maxChanges"] = json!(50_u64);
-
-        let req = build_request("EmailSubmission/changes", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("EmailSubmission/changes"));
-        assert_eq!(calls[0][1]["sinceState"], json!("s10"));
-        assert_eq!(calls[0][1]["maxChanges"], json!(50_u64));
-    }
-
-    /// Oracle: EmailSubmission/query with filter sends filter in args.
-    #[test]
-    fn submission_query_request_includes_filter() {
-        // Filter field names from RFC 8621 §7.3.
-        let filter = json!({"undoStatus": "pending"});
-        let mut args = json!({ "accountId": "acc1" });
-        args["filter"] = filter;
-
-        let req = build_request("EmailSubmission/query", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("EmailSubmission/query"));
-        assert_eq!(calls[0][1]["filter"]["undoStatus"], json!("pending"));
-    }
-
-    /// Oracle: EmailSubmission/queryChanges request carries sinceQueryState.
-    /// Expected key name from RFC 8620 §5.6.
-    #[test]
-    fn submission_query_changes_request_shape() {
-        let mut args = json!({ "accountId": "acc1" });
-        args["sinceQueryState"] = json!("qs1");
-
-        let req = build_request("EmailSubmission/queryChanges", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("EmailSubmission/queryChanges"));
-        assert_eq!(calls[0][1]["sinceQueryState"], json!("qs1"));
-    }
-
-    /// Oracle: EmailSubmission/set with onSuccessUpdateEmail in args.
-    /// Expected key names from RFC 8621 §7.5.
-    #[test]
-    fn submission_set_on_success_update_email_request_shape() {
-        // onSuccessUpdateEmail is a map from creation key → PatchObject.
-        // The creation key is prefixed with "#" for a result reference, or a
-        // plain string for a literal Id. Wire format: Id[PatchObject].
-        let mut args = json!({ "accountId": "acc1" });
-        args["onSuccessUpdateEmail"] = json!({
-            "#s1": { "keywords/$draft": null }
-        });
-        args["create"] = json!({
-            "s1": {
-                "identityId": "ident1",
-                "emailId": "eml1"
-            }
-        });
-
-        let req = build_request("EmailSubmission/set", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("EmailSubmission/set"));
-        assert!(
-            calls[0][1]["onSuccessUpdateEmail"].is_object(),
-            "onSuccessUpdateEmail must be an object"
-        );
-        assert!(
-            calls[0][1]["onSuccessUpdateEmail"]["#s1"].is_object(),
-            "onSuccessUpdateEmail must contain the creation key"
-        );
-    }
-
-    /// Oracle: EmailSubmission/set with onSuccessDestroyEmail in args.
-    /// Expected key name from RFC 8621 §7.5.
-    #[test]
-    fn submission_set_on_success_destroy_email_request_shape() {
-        let mut args = json!({ "accountId": "acc1" });
-        // onSuccessDestroyEmail is an array of Email IDs or #-creation-keys.
-        args["onSuccessDestroyEmail"] = json!(["#s1"]);
-        args["create"] = json!({
-            "s1": {
-                "identityId": "ident1",
-                "emailId": "eml-draft"
-            }
-        });
-
-        let req = build_request("EmailSubmission/set", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("EmailSubmission/set"));
-        let destroy_arr = calls[0][1]["onSuccessDestroyEmail"]
-            .as_array()
-            .expect("onSuccessDestroyEmail array");
-        assert_eq!(destroy_arr.len(), 1);
-        assert_eq!(destroy_arr[0], json!("#s1"));
-    }
+    // Deleted in JMAP-tco1.5 as Pattern E (vacuous inline tests):
+    //   - submission_get_request_shape
+    //   - submission_changes_request_shape
+    //   - submission_query_request_includes_filter
+    //   - submission_query_changes_request_shape
+    //   - submission_set_on_success_update_email_request_shape
+    //   - submission_set_on_success_destroy_email_request_shape
+    // Each hand-built `args = json!({...})` and fed it to `build_request`,
+    // never invoking the `email_submission_get` / `email_submission_changes` /
+    // `email_submission_query` / `email_submission_query_changes` /
+    // `email_submission_set` production builders.
+    //
+    // Real production-path coverage:
+    //   - tests/submission_get_changes.rs:
+    //       email_submission_get_round_trip,
+    //       email_submission_get_specific_ids,
+    //       email_submission_changes_round_trip,
+    //       email_submission_changes_no_max_changes
+    //   - tests/submission_query.rs:
+    //       email_submission_query_with_filter,
+    //       email_submission_query_no_filter,
+    //       email_submission_query_changes_round_trip,
+    //       email_submission_query_changes_with_filter_and_sort
+    //   - tests/submission_set.rs:
+    //       email_submission_set_create_round_trip,
+    //       email_submission_set_on_success_update_email,
+    //       email_submission_set_no_on_success_when_none
+    //
+    // Specific-flag passthrough coverage that may be lost (`onSuccessDestroyEmail`)
+    // is tracked under JMAP-uuoi for a follow-up wiremock smoke test —
+    // there is no current wiremock test that asserts the
+    // `onSuccessDestroyEmail` array field reaches the wire.
+    //
+    // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
+    // own focused tests in `methods/mod.rs`.
 
     // ── Response deserialization tests ───────────────────────────────────────
 

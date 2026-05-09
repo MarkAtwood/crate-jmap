@@ -166,112 +166,46 @@ impl super::SessionClient {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — see tests/notification_*_tests.rs (wiremock-backed end-to-end)
 // ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::super::{build_request, CALL_ID, USING_SHARING};
-    use serde_json::json;
-
-    // Inline guard smoke tests (e.g. `share_notification_get_empty_id_returns_invalid_argument`,
-    // `share_notification_changes_empty_state_returns_invalid_argument`,
-    // `share_notification_query_changes_empty_state_returns_invalid_argument`)
-    // were removed by the JMAP-6by7.7 typed-Id refactor. They were vacuous
-    // because they only iterated a local `&[""]` slice (or duplicated the
-    // guard's `is_empty()` check) and asserted `is_empty()` found the empty
-    // value, without invoking any production method. Under typed `&[Id]` /
-    // `Vec<Id>` parameters, an empty-Id input is impossible to express
-    // through the API (`Id::new_validated("")` returns `Err` at the call
-    // site) so the bug they pretended to test is unrepresentable.
-    // Defence-in-depth empty-state guards still live in the production code
-    // (`share_notification_changes`, `share_notification_query_changes`)
-    // using `as_ref().is_empty()`.
-
-    /// Oracle: share_notification_set with no destroy sends destroy:[] in args.
-    /// The spec requires destroy-only — no create or update keys present.
-    /// Expected: args has "destroy" key, does NOT have "create" or "update".
-    #[test]
-    fn share_notification_set_no_destroy_sends_empty_array() {
-        let destroy_val = serde_json::Value::Array(vec![]);
-        let args = json!({
-            "accountId": "acc1",
-            "destroy": destroy_val,
-        });
-        let req = build_request("ShareNotification/set", args, USING_SHARING);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-
-        assert_eq!(calls[0][0], json!("ShareNotification/set"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-
-        let method_args = &calls[0][1];
-        // destroy must be present as empty array
-        let destroy = method_args["destroy"]
-            .as_array()
-            .expect("destroy must be array");
-        assert!(destroy.is_empty(), "destroy must be empty when None passed");
-        // create and update must NOT be present
-        assert!(
-            method_args.get("create").is_none(),
-            "create must not be present"
-        );
-        assert!(
-            method_args.get("update").is_none(),
-            "update must not be present"
-        );
-    }
-
-    /// Oracle: share_notification_set with destroy list sends destroy array.
-    /// Expected: destroy array contains the listed IDs.
-    #[test]
-    fn share_notification_set_with_destroy_sends_ids() {
-        let ids = ["notif1", "notif2"];
-        let destroy_val =
-            serde_json::Value::Array(ids.iter().copied().map(serde_json::Value::from).collect());
-        let args = json!({
-            "accountId": "acc1",
-            "destroy": destroy_val,
-        });
-        let req = build_request("ShareNotification/set", args, USING_SHARING);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
-        assert_eq!(destroy_arr.len(), 2);
-        assert!(destroy_arr.contains(&json!("notif1")));
-        assert!(destroy_arr.contains(&json!("notif2")));
-    }
-
-    /// Oracle: ShareNotification/get request has correct method name and CALL_ID.
-    /// Expected method name is "ShareNotification/get" per RFC 9670 §3.1.
-    #[test]
-    fn share_notification_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": null,
-            "properties": null,
-        });
-        let req = build_request("ShareNotification/get", args, USING_SHARING);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("ShareNotification/get"));
-        assert_eq!(calls[0][2], json!(CALL_ID));
-    }
-
-    /// Oracle: ShareNotification/query with filter sends filter in args.
-    #[test]
-    fn share_notification_query_request_includes_filter() {
-        let filter = json!({"objectType": "Mailbox"});
-        let mut args = json!({ "accountId": "acc1" });
-        args["filter"] = filter;
-
-        let req = build_request("ShareNotification/query", args, USING_SHARING);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(
-            calls[0][1]["filter"]["objectType"],
-            json!("Mailbox"),
-            "filter objectType must be present"
-        );
-    }
-}
+//
+// `share_notification_set_no_destroy_sends_empty_array`,
+// `share_notification_set_with_destroy_sends_ids`,
+// `share_notification_get_request_shape`, and
+// `share_notification_query_request_includes_filter` were vacuous: they
+// hand-built `args` Values and fed them to `build_request`, never
+// exercising the production `share_notification_get` /
+// `share_notification_set` / `share_notification_query` /
+// `share_notification_changes` / `share_notification_query_changes`
+// builders. Deleted in JMAP-tco1.30.
+//
+// Real production-path coverage:
+//   - `share_notification_get_round_trip` and
+//     `share_notification_changes_sends_since_state` in
+//     tests/notification_get_changes_tests.rs
+//   - `share_notification_set_destroy_only_wire` and
+//     `share_notification_set_empty_destroy` in
+//     tests/notification_set_tests.rs
+//   - `share_notification_query_with_filter` and
+//     `share_notification_query_changes_round_trip` in
+//     tests/notification_query_tests.rs
+//
+// Specific-flag passthrough coverage that may be lost is tracked
+// under JMAP-uuoi for follow-up wiremock smoke tests.
+//
+// `build_request`, `CALL_ID`, and `USING_SHARING` themselves have their
+// own focused tests in `methods/mod.rs`.
+//
+// Inline guard smoke tests (e.g. `share_notification_get_empty_id_returns_invalid_argument`,
+// `share_notification_changes_empty_state_returns_invalid_argument`,
+// `share_notification_query_changes_empty_state_returns_invalid_argument`)
+// were removed earlier by the JMAP-6by7.7 typed-Id refactor. They were
+// vacuous because they only iterated a local `&[""]` slice (or
+// duplicated the guard's `is_empty()` check) and asserted `is_empty()`
+// found the empty value, without invoking any production method. Under
+// typed `&[Id]` / `Vec<Id>` parameters, an empty-Id input is impossible
+// to express through the API (`Id::new_validated("")` returns `Err` at
+// the call site) so the bug they pretended to test is unrepresentable.
+// Defence-in-depth empty-state guards still live in the production code
+// (`share_notification_changes`, `share_notification_query_changes`)
+// using `as_ref().is_empty()`.

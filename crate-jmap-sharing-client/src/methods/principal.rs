@@ -183,97 +183,46 @@ impl super::SessionClient {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — see tests/principal_*_tests.rs (wiremock-backed end-to-end)
 // ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::super::{build_request, CALL_ID, USING_SHARING};
-    use serde_json::json;
-
-    // Inline guard smoke tests (e.g. `principal_get_empty_id_returns_invalid_argument`,
-    // `principal_changes_empty_since_state_returns_invalid_argument`,
-    // `principal_query_changes_empty_state_returns_invalid_argument`) were
-    // removed by the JMAP-6by7.7 typed-Id refactor. They were vacuous because
-    // they only iterated a local `&[""]` slice (or duplicated the guard's
-    // `is_empty()` check) and asserted `is_empty()` found the empty value,
-    // without invoking any production method. Under typed `&[Id]` / `Vec<Id>`
-    // parameters, an empty-Id input is impossible to express through the API
-    // (`Id::new_validated("")` returns `Err` at the call site) so the bug
-    // they pretended to test is unrepresentable. Defence-in-depth empty-state
-    // guards still live in the production code (`principal_changes`,
-    // `principal_query_changes`) using `as_ref().is_empty()`.
-
-    /// Oracle: Principal/get request has correct method name and using array.
-    /// Expected JSON shape from RFC 8620 §3.3.
-    #[test]
-    fn principal_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": null,
-            "properties": null,
-        });
-        let req = build_request("Principal/get", args, USING_SHARING);
-        let v = serde_json::to_value(&req).expect("serialize");
-
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Principal/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-
-        let using = v["using"].as_array().expect("using");
-        assert!(using.contains(&json!("urn:ietf:params:jmap:principals")));
-    }
-
-    /// Oracle: Principal/changes request includes sinceState in args.
-    /// Expected: args object has "sinceState" key with the provided value.
-    #[test]
-    fn principal_changes_request_includes_since_state() {
-        let args = json!({
-            "accountId": "acc1",
-            "sinceState": "state42",
-        });
-        let req = build_request("Principal/changes", args, USING_SHARING);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["sinceState"], json!("state42"));
-    }
-
-    /// Oracle: principal_set with destroy list sends destroy array in args.
-    /// Expected: destroy is a JSON array of string IDs.
-    #[test]
-    fn principal_set_destroy_request_shape() {
-        let destroy_ids = ["id1", "id2"];
-        let destroy_val = serde_json::Value::Array(
-            destroy_ids
-                .iter()
-                .copied()
-                .map(serde_json::Value::from)
-                .collect(),
-        );
-        let mut args = json!({ "accountId": "acc1" });
-        args["destroy"] = destroy_val;
-
-        let req = build_request("Principal/set", args, USING_SHARING);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Principal/set"));
-        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
-        assert_eq!(destroy_arr.len(), 2);
-        assert!(destroy_arr.contains(&json!("id1")));
-        assert!(destroy_arr.contains(&json!("id2")));
-    }
-
-    /// Oracle: principal_query with filter sends filter in args.
-    /// Expected: args contains the filter object.
-    #[test]
-    fn principal_query_request_includes_filter() {
-        let filter = json!({"name": "Alice"});
-        let mut args = json!({ "accountId": "acc1" });
-        args["filter"] = filter.clone();
-
-        let req = build_request("Principal/query", args, USING_SHARING);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["filter"]["name"], json!("Alice"));
-    }
-}
+//
+// `principal_get_request_shape`,
+// `principal_changes_request_includes_since_state`,
+// `principal_set_destroy_request_shape`, and
+// `principal_query_request_includes_filter` were vacuous: they
+// hand-built `args` Values and fed them to `build_request`, never
+// exercising the production `principal_get` / `principal_changes` /
+// `principal_set` / `principal_query` / `principal_query_changes`
+// builders. Deleted in JMAP-tco1.30.
+//
+// Real production-path coverage:
+//   - `principal_get_round_trip`,
+//     `principal_get_specific_ids_sends_array`, and
+//     `principal_changes_sends_since_state` in
+//     tests/principal_get_changes_tests.rs
+//   - `principal_set_destroy_round_trip` and
+//     `principal_set_create_returns_forbidden` in
+//     tests/principal_set_tests.rs
+//   - `principal_query_with_filter` and
+//     `principal_query_changes_round_trip` in
+//     tests/principal_query_tests.rs
+//
+// Specific-flag passthrough coverage that may be lost is tracked
+// under JMAP-uuoi for follow-up wiremock smoke tests.
+//
+// `build_request`, `CALL_ID`, and `USING_SHARING` themselves have their
+// own focused tests in `methods/mod.rs`.
+//
+// Inline guard smoke tests (e.g. `principal_get_empty_id_returns_invalid_argument`,
+// `principal_changes_empty_since_state_returns_invalid_argument`,
+// `principal_query_changes_empty_state_returns_invalid_argument`) were
+// removed earlier by the JMAP-6by7.7 typed-Id refactor. They were
+// vacuous because they only iterated a local `&[""]` slice (or
+// duplicated the guard's `is_empty()` check) and asserted `is_empty()`
+// found the empty value, without invoking any production method. Under
+// typed `&[Id]` / `Vec<Id>` parameters, an empty-Id input is impossible
+// to express through the API (`Id::new_validated("")` returns `Err` at
+// the call site) so the bug they pretended to test is unrepresentable.
+// Defence-in-depth empty-state guards still live in the production code
+// (`principal_changes`, `principal_query_changes`) using
+// `as_ref().is_empty()`.
