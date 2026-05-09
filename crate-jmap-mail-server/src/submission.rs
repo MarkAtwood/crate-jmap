@@ -447,7 +447,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Ok(Some(obj)) => {
                     updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Ok(None) => {
@@ -601,7 +602,8 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Ok(Some(obj)) => {
                         email_updated.insert(
                             email_id.as_ref().to_owned(),
-                            serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
+                            serde_json::to_value(&obj)
+                                .expect("derive(Serialize) on plain data is infallible"),
                         );
                     }
                     Ok(None) => {
@@ -865,8 +867,7 @@ async fn process_create<B: MailBackend>(
         })?;
 
     // create_object guarantees created_obj.id == server_id; serialize as-is.
-    Ok(serde_json::to_value(&created_obj)
-        .unwrap_or_else(|e| json!({ "type": "serverFail", "description": e.to_string() })))
+    Ok(serde_json::to_value(&created_obj).expect("derive(Serialize) on plain data is infallible"))
 }
 
 /// Process a single update entry in an `EmailSubmission/set` request.

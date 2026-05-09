@@ -258,9 +258,8 @@ pub async fn handle_identity_set<B: MailBackend>(
                     // serialize the full object (id is already correct).
                     created.insert(
                         create_id,
-                        serde_json::to_value(&created_obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&created_obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -328,7 +327,11 @@ pub async fn handle_identity_set<B: MailBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(id_str, serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })));
+                    updated.insert(
+                        id_str,
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
                 }
                 Ok(None) => {
                     mutated = true;

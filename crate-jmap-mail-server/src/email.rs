@@ -1085,7 +1085,8 @@ pub async fn handle_email_set<B: MailBackend>(
                     mutated = true;
                     updated.insert(
                         id_str.clone(),
-                        serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Ok(None) => {
@@ -2014,9 +2015,8 @@ pub async fn handle_email_parse<B: MailBackend>(
     for blob_id in &blob_ids {
         match backend.parse_email(&account_id, blob_id).await {
             Ok(email) => {
-                let mut val = serde_json::to_value(&email).unwrap_or_else(
-                    |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                );
+                let mut val = serde_json::to_value(&email)
+                    .expect("derive(Serialize) on plain data is infallible");
                 apply_body_value_args(&mut val, &body_fetch_args, &body_prop_set);
                 let mut obj = filter_properties(&val, &effective_props);
                 // Inject dynamic header: property results (mirrors handle_email_get).
@@ -2337,7 +2337,8 @@ pub async fn handle_email_copy<B: MailBackend>(
                         Ok(Some(obj)) => {
                             email_updated.insert(
                                 source_id.as_ref().to_owned(),
-                                serde_json::to_value(&obj).unwrap_or_else(|e| serde_json::json!({ "type": "serverFail", "description": e.to_string() })),
+                                serde_json::to_value(&obj)
+                                    .expect("derive(Serialize) on plain data is infallible"),
                             );
                         }
                         Ok(None) => {

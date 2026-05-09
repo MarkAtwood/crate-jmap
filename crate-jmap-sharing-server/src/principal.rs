@@ -117,9 +117,8 @@ pub async fn handle_principal_set<B: SharingBackend>(
                     mutated = true;
                     created.insert(
                         create_id,
-                        serde_json::to_value(&created_obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&created_obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -164,9 +163,8 @@ pub async fn handle_principal_set<B: SharingBackend>(
                     mutated = true;
                     updated.insert(
                         id_str,
-                        serde_json::to_value(&obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Ok(None) => {
