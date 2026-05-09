@@ -104,7 +104,7 @@ async fn contact_card_query_changes_round_trip() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .contact_card_query_changes("qs5", None)
+        .contact_card_query_changes(&jmap_types::State::from("qs5"), None)
         .await
         .expect("contact_card_query_changes_round_trip: must succeed");
 

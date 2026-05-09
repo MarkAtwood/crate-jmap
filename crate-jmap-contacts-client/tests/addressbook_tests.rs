@@ -98,7 +98,7 @@ async fn addressbook_changes_sends_since_state() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .address_book_changes("s10", None)
+        .address_book_changes(&jmap_types::State::from("s10"), None)
         .await
         .expect("addressbook_changes_sends_since_state: must succeed");
 
@@ -235,7 +235,12 @@ async fn addressbook_set_on_destroy_remove_contents() {
         on_success_set_is_default: None,
     };
     let resp = sc
-        .address_book_set(None, None, Some(vec!["ab-old"]), Some(params))
+        .address_book_set(
+            None,
+            None,
+            Some(vec![jmap_types::Id::from("ab-old")]),
+            Some(params),
+        )
         .await
         .expect("addressbook_set_on_destroy_remove_contents: must succeed");
 

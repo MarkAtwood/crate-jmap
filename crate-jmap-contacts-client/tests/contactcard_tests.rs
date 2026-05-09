@@ -86,7 +86,7 @@ async fn contact_card_changes_sends_since_state() {
 
     let sc = helpers::make_client(&server).await;
     let resp = sc
-        .contact_card_changes("s20", None)
+        .contact_card_changes(&jmap_types::State::from("s20"), None)
         .await
         .expect("contact_card_changes_sends_since_state: must succeed");
 
@@ -219,7 +219,7 @@ async fn contact_card_copy_round_trip() {
         }
     });
     let resp = sc
-        .contact_card_copy("src-account-1", create_obj)
+        .contact_card_copy(&jmap_types::Id::from("src-account-1"), create_obj)
         .await
         .expect("contact_card_copy_round_trip: must succeed");
 
