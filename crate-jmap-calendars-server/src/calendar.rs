@@ -139,11 +139,13 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
+                    // Calendar uses #[derive(Serialize)] on plain data; to_value
+                    // is infallible. Asserting rather than masking would-be
+                    // failures as `serverFail` (per JMAP-r3pg.13).
                     created.insert(
                         create_id,
-                        serde_json::to_value(&created_obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&created_obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -185,11 +187,11 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
+                    // See create branch above (JMAP-r3pg.13).
                     updated.insert(
                         id_str,
-                        serde_json::to_value(&obj).unwrap_or_else(
-                            |e| json!({ "type": "serverFail", "description": e.to_string() }),
-                        ),
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
                 Ok(None) => {
