@@ -6,6 +6,7 @@
 #[path = "common/mod.rs"]
 mod common;
 
+use jmap_types::State;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -100,7 +101,7 @@ async fn principal_query_changes_round_trip() {
 
     let sc = common::make_client(&server).await;
     let resp = sc
-        .principal_query_changes("qs1", None)
+        .principal_query_changes(&State::from("qs1"), None)
         .await
         .expect("principal_query_changes_round_trip: must succeed");
 

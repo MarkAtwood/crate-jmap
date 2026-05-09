@@ -8,6 +8,7 @@ Typed client methods for JMAP Sharing ([RFC 9670]). Depends on
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
 use jmap_sharing_client::JmapSharingExt;
+use jmap_types::Id;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -39,7 +40,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 7. Dismiss a share notification (destroy-only — no create or update).
-    sharing.share_notification_set(Some(vec!["notif-id-1"])).await?;
+    sharing.share_notification_set(Some(vec![Id::from("notif-id-1")])).await?;
 
     Ok(())
 }
@@ -49,6 +50,12 @@ After constructing a `SessionClient` via `with_sharing_session`, all JMAP
 Sharing methods are available without passing `&Session` on every call. If the
 session expires, re-fetch with `JmapClient::fetch_session` and construct a new
 `SessionClient`.
+
+Id parameters are typed `&jmap_types::Id` (or `&[jmap_types::Id]` for slices)
+to make invalid Ids unrepresentable. State tokens use `&jmap_types::State`.
+Construct Ids with `Id::new_validated(s)` to enforce RFC 8620 §1.2 syntax at
+the boundary, or with `Id::from(s)` when the value is known-valid (e.g.
+already came back from a server response).
 
 ## Registered methods
 
@@ -75,8 +82,10 @@ create and update operations with `forbidden`. This prevents constructing
 requests that the server will always reject.
 
 ```rust
+use jmap_types::Id;
+
 // Dismiss one notification:
-sharing.share_notification_set(Some(vec!["notif-id-1"])).await?;
+sharing.share_notification_set(Some(vec![Id::from("notif-id-1")])).await?;
 
 // Send an empty destroy (no-op, still a valid /set call):
 sharing.share_notification_set(None).await?;

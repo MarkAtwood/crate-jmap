@@ -8,6 +8,7 @@
 #[path = "common/mod.rs"]
 mod common;
 
+use jmap_types::State;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -87,7 +88,7 @@ async fn share_notification_changes_sends_since_state() {
 
     let sc = common::make_client(&server).await;
     let resp = sc
-        .share_notification_changes("n-s1", None)
+        .share_notification_changes(&State::from("n-s1"), None)
         .await
         .expect("share_notification_changes_sends_since_state: must succeed");
 

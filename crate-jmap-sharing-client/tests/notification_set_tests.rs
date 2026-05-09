@@ -10,6 +10,7 @@
 #[path = "common/mod.rs"]
 mod common;
 
+use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -48,7 +49,7 @@ async fn share_notification_set_destroy_only_wire() {
 
     let sc = common::make_client(&server).await;
     let resp = sc
-        .share_notification_set(Some(vec!["notif-1"]))
+        .share_notification_set(Some(vec![Id::from("notif-1")]))
         .await
         .expect("share_notification_set_destroy_only_wire: must succeed");
 

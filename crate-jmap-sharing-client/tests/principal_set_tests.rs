@@ -6,6 +6,7 @@
 #[path = "common/mod.rs"]
 mod common;
 
+use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -43,7 +44,7 @@ async fn principal_set_destroy_round_trip() {
 
     let sc = common::make_client(&server).await;
     let resp = sc
-        .principal_set(None, None, Some(vec!["p-joe"]))
+        .principal_set(None, None, Some(vec![Id::from("p-joe")]))
         .await
         .expect("principal_set_destroy_round_trip: must succeed");
 

@@ -6,6 +6,7 @@
 #[path = "common/mod.rs"]
 mod common;
 
+use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -104,7 +105,7 @@ async fn principal_get_specific_ids_sends_array() {
         .await;
 
     let sc = common::make_client(&server).await;
-    sc.principal_get(Some(&["p-joe"]), None)
+    sc.principal_get(Some(&[Id::from("p-joe")]), None)
         .await
         .expect("principal_get_specific_ids_sends_array: must succeed");
 
@@ -152,7 +153,7 @@ async fn principal_changes_sends_since_state() {
 
     let sc = common::make_client(&server).await;
     let resp = sc
-        .principal_changes("s1", None)
+        .principal_changes(&State::from("s1"), None)
         .await
         .expect("principal_changes_sends_since_state: must succeed");
 

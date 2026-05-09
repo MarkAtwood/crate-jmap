@@ -7,6 +7,7 @@
 #[path = "common/mod.rs"]
 mod common;
 
+use jmap_types::State;
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -101,7 +102,7 @@ async fn share_notification_query_changes_round_trip() {
 
     let sc = common::make_client(&server).await;
     let resp = sc
-        .share_notification_query_changes("nqs1", None)
+        .share_notification_query_changes(&State::from("nqs1"), None)
         .await
         .expect("share_notification_query_changes_round_trip: must succeed");
 
