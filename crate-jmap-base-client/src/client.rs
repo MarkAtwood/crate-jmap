@@ -410,7 +410,17 @@ impl JmapClient {
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or("")
                 .to_ascii_lowercase();
-            if !ct.starts_with("text/event-stream") {
+            // RFC 7231 §3.1.1.1 / RFC 9110 §8.3: the media-type "essence" (type
+            // + "/" + subtype) is bounded by ';', SP, HTAB, or end-of-string.
+            // A naive starts_with("text/event-stream") would accept
+            // "text/event-streamish" or "text/event-stream2" — exactly the bug
+            // JMAP-6lsm.2 flagged. Split off the parameter list / trailing
+            // whitespace and compare the essence exactly.
+            let essence = ct
+                .split(|c: char| c == ';' || c.is_whitespace())
+                .next()
+                .unwrap_or("");
+            if essence != "text/event-stream" {
                 return Err(ClientError::UnexpectedResponse(format!(
                     "subscribe_events: expected Content-Type text/event-stream, got: {ct:?}"
                 )));
