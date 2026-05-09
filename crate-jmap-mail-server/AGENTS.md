@@ -1,5 +1,25 @@
 # Agent Instructions — jmap-mail-server
 
+## 🧬 Canonical extension-server template — siblings mirror this one
+
+This crate is the **canonical template for the extension-server family**.
+Every other `jmap-*-server` extension crate (chat, calendars, tasks, contacts,
+filenode, sharing) is cookie-cut from this one — same module layout, same
+`Backend` trait shape, same handler-registration pattern, same `/set`
+boilerplate, same error-mapping helpers, same test-harness layout.
+Differences are *only* the spec content (RFC 8621 here; the calendars
+draft in calendars-server; etc.).
+
+**The propagation rule** (workspace AGENTS.md "Canonical Templates"):
+
+- If you reshape an extension-server sibling in a way that diverges from
+  this crate, **change this crate first, then propagate** to every other
+  extension-server sibling in the same pass.
+- If you change this crate, **propagate the change to every extension-server
+  sibling** in the same pass (or file a follow-up sweep bead before merging).
+- A divergent sibling without a matching change here is a regression of
+  the cookie-cutter intent — review will catch it.
+
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
 ## Before Starting Any Work

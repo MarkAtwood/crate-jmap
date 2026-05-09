@@ -1,28 +1,35 @@
 # Agent Instructions — jmap-base-client
 
-This crate has been reviewed and stabilized. Its public API, auth traits, wire
-behavior, error variants, configuration types, and test oracles are stabilized.
-Treat it as a high-care surface — every downstream `jmap-*-client` crate depends
-on it.
+## 🧬 Canonical foundation client — every `*-client` extension uses this
 
-Prefer non-breaking changes:
-- New accessor methods on `HttpError` / `WebSocketError` (the wrapper types are
-  `#[non_exhaustive]`)
-- New variants on existing `#[non_exhaustive]` enums
-- New methods on `JmapClient`, new fields on `ClientConfig` (also `#[non_exhaustive]`)
-- New free functions
+This crate is the **foundation that every `jmap-*-client` extension is built
+on**. The auth traits (`AuthProvider`, `TransportConfig`), the transport
+(`JmapClient`), the SSE/WebSocket plumbing, the `ClientError` variant set,
+and the wrapper-types abstraction (`HttpError`, `WebSocketError`,
+`InvalidHeaderValueError`) all live here. Extension `*-client` crates
+import these and add their own `Jmap*Ext` extension trait + `SessionClient`
+on top.
 
-Reshape carefully:
-- Changing `ClientError` variant fields, `AuthProvider` / `TransportConfig`
-  method signatures, or `JmapClient` method signatures is a SemVer break.
-  Bundle such changes with a `0.x.0 → 0.(x+1).0` version bump and a clear
-  changelog/upgrade-guide entry.
+**The propagation rule** (workspace AGENTS.md "Canonical Templates"):
 
-`reqwest` and `tokio-tungstenite` are private dependencies after the SemVer-isolation
-work in JMAP-6lsm.22 — `HttpError`, `WebSocketError`, and `InvalidHeaderValueError`
-wrap them so the transport is replaceable without breaking downstream. Bump those
-deps freely; just keep the wrapper accessor signatures, `Display` text, and
-`Error::source` chain stable across the swap.
+- Any reshape of `ClientError` variants, `AuthProvider` / `TransportConfig`
+  method signatures, `JmapClient` method signatures, or `ClientConfig`
+  field set ripples through every `*-client` extension crate. Plan the
+  downstream propagation in the same pass (or file a follow-up sweep
+  bead before merging).
+- New accessor methods on `HttpError` / `WebSocketError` (the wrapper types
+  are `#[non_exhaustive]`), new variants on existing `#[non_exhaustive]`
+  enums, new methods on `JmapClient`, and new fields on `ClientConfig` are
+  the additive shape — no SemVer break, no propagation churn.
+
+Prefer non-breaking changes. Reshape only when the workspace is bumping
+a major (e.g. the JMAP-6by7 typed-Id epic).
+
+`reqwest` and `tokio-tungstenite` are private dependencies after the
+SemVer-isolation work in JMAP-6lsm.22 — `HttpError`, `WebSocketError`, and
+`InvalidHeaderValueError` wrap them so the transport is replaceable without
+breaking downstream. Bump those deps freely; just keep the wrapper accessor
+signatures, `Display` text, and `Error::source` chain stable across the swap.
 
 ## Before Starting Any Work
 

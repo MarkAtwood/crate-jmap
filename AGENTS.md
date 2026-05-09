@@ -39,6 +39,44 @@ jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.
 
+## Canonical Templates (cookie-cutter consistency)
+
+The 25 `jmap-*` crates are deliberately cookie-cutter siblings: every type
+crate looks like every other type crate, every server crate looks like
+every other server crate, every client crate looks like every other client
+crate, **modulo only the differences mandated by the relevant RFC or
+draft**. Identical idioms, identical helper names, identical doc-comment
+style, identical test layout. The differences should be the specific
+JMAP capability the crate covers, nothing else.
+
+To enforce that, certain crates are anointed as **canonical templates** for
+their family. When you change a non-canonical sibling and the change
+diverges from the canonical template, the rule is: **change the canonical
+first, then propagate**. When you change the canonical, the rule is:
+**propagate the change to every sibling in the same pass** (or file a
+follow-up sweep bead before merging).
+
+| Family | Canonical | Siblings (must mirror) |
+|---|---|---|
+| Foundation types | `jmap-types` | (none — sole foundation) |
+| Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types` |
+| Foundation server | `jmap-server` | (none — sole foundation) |
+| Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-sharing-server` |
+| Foundation client | `jmap-base-client` | (none — sole foundation) |
+| Extension client | `jmap-mail-client` | `jmap-chat-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-sharing-client` |
+
+`jmap-chat-types` is *also* a canonical reference for the JMAP Chat draft
+specifically (its wire format is normative for that extension), even
+though the broader extension-types family takes its idiom shape from
+`jmap-mail-types`.
+
+Each canonical crate's `AGENTS.md` carries a short canonical-template
+banner reminding contributors of the propagation rule. **The previous
+"LOCKED — explicit permission required" framing was misleading**: those
+banners were never about API stability lockdown; they were about
+divergence prevention. The new wording makes the consistency intent
+explicit.
+
 ## Build & Test
 
 ```bash

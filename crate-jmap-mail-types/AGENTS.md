@@ -1,12 +1,29 @@
 # Agent Instructions — jmap-mail-types
 
-This crate's public API, wire format, module layout, type names, field names,
-serde attributes, and design conventions are stabilized. Treat it as a high-care
-surface: RFC 8621 wire compatibility depends on the type names and serde
-attributes here matching the spec exactly. Prefer non-breaking additions
-(new variants on `#[non_exhaustive]` enums, new methods, new accessors) over
-reshaping existing types. Document any breaking change in the commit message
-and the relevant `PLAN.md`.
+## 🧬 Canonical extension-types template — siblings mirror this one
+
+This crate is the **canonical template for the extension-types family**.
+Every other `jmap-*-types` extension crate (chat, calendars, tasks, contacts,
+filenode, sharing) is cookie-cut from this one — same module layout, same
+type-naming idioms, same doc-comment style, same test layout, same serde
+attribute patterns. Differences are *only* the spec content (RFC 8621 here;
+the JMAP Chat draft in chat-types; etc.).
+
+**The propagation rule** (workspace AGENTS.md "Canonical Templates"):
+
+- If you find yourself reshaping an extension-types sibling in a way that
+  diverges from this crate, **change this crate first, then propagate** to
+  every other extension-types sibling in the same pass.
+- If you change this crate, **propagate the change to every extension-types
+  sibling** in the same pass (or file a follow-up sweep bead before merging).
+- A divergent sibling without a matching change here is a regression of the
+  cookie-cutter intent — `cargo test --workspace` won't catch it; review will.
+
+RFC 8621 wire compatibility depends on the type names and serde attributes
+here matching the spec exactly, so prefer non-breaking additions (new
+variants on `#[non_exhaustive]` enums, new methods, new accessors) over
+reshaping existing types. Every break here is amplified six times by the
+sibling extension-types crates plus their downstream server/client crates.
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 

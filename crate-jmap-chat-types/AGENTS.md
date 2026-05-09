@@ -1,12 +1,36 @@
 # Agent Instructions — jmap-chat-types
 
-This crate's public API, wire format, module layout, type names, field names,
-serde attributes, and design conventions are stabilized. Treat it as a high-care
-surface: the JMAP Chat draft wire compatibility depends on the type names and
-serde attributes here matching the spec exactly. Prefer non-breaking additions
-(new variants on `#[non_exhaustive]` enums, new methods, new accessors) over
-reshaping existing types. Document any breaking change in the commit message
-and the relevant `PLAN.md`.
+## 🧬 Canonical for the JMAP Chat draft (also mirrors `jmap-mail-types` shape)
+
+Two roles for this crate:
+
+1. **Canonical for the JMAP Chat extension wire format.** The type names,
+   serde attributes, and field structure here are normative for the
+   JMAP Chat draft. The `crate-jmapchat-types` reference implementation
+   in `~/PROJECT/crate-jmapchat-server/` is the historical extraction
+   source; this crate is the workspace-canonical version.
+2. **Sibling under `jmap-mail-types`'s extension-types template.** The
+   broader extension-types family (chat, calendars, tasks, contacts,
+   filenode, sharing) takes its idiom shape from `jmap-mail-types` per
+   the workspace AGENTS.md "Canonical Templates" table. So shape (module
+   layout, doc-style, test layout, helper patterns) mirrors `jmap-mail-types`;
+   *content* (the actual types, fields, and wire format) is normative
+   for JMAP Chat.
+
+**The propagation rules**:
+
+- If you change something CONTENT-related here (types, fields, serde
+  attributes, wire format), it does NOT propagate to other extension-types
+  siblings — those have their own RFC/draft content. But it DOES need to
+  flow into `crate-jmap-chat-server/` and `crate-jmap-chat-client/`.
+- If you change something SHAPE-related here (module layout, helper
+  pattern, doc-comment style, test layout), check that it matches
+  `jmap-mail-types`. If it doesn't, the change should land in
+  `jmap-mail-types` first and then propagate to all extension-types
+  siblings — see workspace AGENTS.md "Canonical Templates".
+
+Prefer non-breaking additions (new variants on `#[non_exhaustive]` enums,
+new methods, new accessors) over reshaping existing types.
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
