@@ -9,7 +9,7 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, set_error_value};
+use crate::helpers::{extract_account_id, finalize_set_response, set_error_value};
 
 const SINGLETON_ID: &str = "singleton";
 
@@ -313,27 +313,21 @@ pub async fn handle_vacation_set<B: MailBackend>(
         }
     }
 
-    let new_state = if mutated {
-        backend
-            .get_state::<VacationResponse>(&account_id)
-            .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
-    } else {
-        old_state.clone()
-    };
-
-    Ok((
-        json!({
-            "accountId": account_id.as_ref(),
-            "oldState": old_state.as_ref(),
-            "newState": new_state.as_ref(),
-            "created": Value::Null,
-            "updated": if updated.is_empty() { Value::Null } else { Value::Object(updated) },
-            "destroyed": Value::Null,
-            "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
-            "notUpdated": if not_updated.is_empty() { Value::Null } else { Value::Object(not_updated) },
-            "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
-        }),
-        vec![],
-    ))
+    // VacationResponse is a singleton: created/destroyed are always empty by
+    // construction (see the rejection branches above), so the helper's
+    // empty-map → Value::Null conversion produces the same JSON the inline
+    // hardcode used to.
+    finalize_set_response::<B, VacationResponse>(
+        backend,
+        &account_id,
+        old_state,
+        mutated,
+        serde_json::Map::new(),
+        updated,
+        Vec::new(),
+        not_created,
+        not_updated,
+        not_destroyed,
+    )
+    .await
 }

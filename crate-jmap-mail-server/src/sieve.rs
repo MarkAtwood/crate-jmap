@@ -25,7 +25,9 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, filter_properties, set_error_value};
+use crate::helpers::{
+    extract_account_id, filter_properties, finalize_set_response, set_error_value,
+};
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
 /// and `SieveScript/validate` operations (RFC 9661).
@@ -874,26 +876,27 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
         }
     }
 
-    // Step 8: Get new_state.
-    let new_state = backend
-        .get_state::<SieveScript>(&account_id)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
-    // Step 9: Build response.
-    let resp = json!({
-        "accountId": account_id.as_ref(),
-        "oldState": old_state.as_ref(),
-        "newState": new_state.as_ref(),
-        "created": if created.is_empty() { Value::Null } else { Value::Object(created) },
-        "updated": if updated.is_empty() { Value::Null } else { Value::Object(updated) },
-        "destroyed": if destroyed.is_empty() { Value::Null } else { Value::Array(destroyed) },
-        "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
-        "notUpdated": if not_updated.is_empty() { Value::Null } else { Value::Object(not_updated) },
-        "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
-    });
-
-    Ok((resp, vec![]))
+    // Step 8: Build response.
+    //
+    // `mutated` is computed from the result accumulators rather than tracked
+    // through the handler body — equivalent in effect, since the only way an
+    // entry lands in `created`/`updated`/`destroyed` is on a successful
+    // backend mutation. Lets the helper skip the `get_state` round-trip when
+    // every operation failed (matches the gating in calendars-server).
+    let mutated = !created.is_empty() || !updated.is_empty() || !destroyed.is_empty();
+    finalize_set_response::<B, SieveScript>(
+        backend,
+        &account_id,
+        old_state,
+        mutated,
+        created,
+        updated,
+        destroyed,
+        not_created,
+        not_updated,
+        not_destroyed,
+    )
+    .await
 }
 
 // ---------------------------------------------------------------------------
