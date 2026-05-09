@@ -178,65 +178,30 @@ impl super::SessionClient {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, CALL_ID, USING_MAIL};
     use serde_json::json;
 
     // mailbox_get_empty_id_returns_invalid_argument was deleted in JMAP-6by7.2
     // (typed-Id refactor): under `Option<&[Id]>` the empty-Id case becomes
     // impossible to express through the typed API.
 
-    // The InvalidArgument guard for empty since_state lives in mailbox_changes
-    // production code; testing it requires a wiremock-backed async harness.
-    // See JMAP-sc1b.64.
+    // The InvalidArgument guards for empty since_state and since_query_state
+    // live in mailbox_changes / mailbox_query_changes production code; testing
+    // them requires a wiremock-backed async harness. See JMAP-sc1b.64.
 
-    /// Oracle: Mailbox/get request has correct method name.
-    #[test]
-    fn mailbox_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": null,
-            "properties": null,
-        });
-        let req = build_request("Mailbox/get", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Mailbox/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-    }
-
-    /// Oracle: Mailbox/set with onDestroyRemoveEmails in args.
-    /// Expected key name from RFC 8621 §2.5.
-    #[test]
-    fn mailbox_set_on_destroy_remove_emails_request_shape() {
-        let mut args = json!({ "accountId": "acc1" });
-        args["onDestroyRemoveEmails"] = json!(true);
-        args["destroy"] = json!(["mb1"]);
-
-        let req = build_request("Mailbox/set", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Mailbox/set"));
-        assert_eq!(calls[0][1]["onDestroyRemoveEmails"], json!(true));
-        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
-        assert_eq!(destroy_arr.len(), 1);
-    }
-
-    /// Oracle: Mailbox/query with filter sends filter in args.
-    #[test]
-    fn mailbox_query_request_includes_filter() {
-        let filter = json!({"role": "inbox"});
-        let mut args = json!({ "accountId": "acc1" });
-        args["filter"] = filter;
-
-        let req = build_request("Mailbox/query", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["filter"]["role"], json!("inbox"));
-    }
-
-    // The InvalidArgument guard for empty since_query_state lives in
-    // mailbox_query_changes production code; testing it requires a
-    // wiremock-backed async harness. See JMAP-sc1b.64.
+    // Deleted in JMAP-tco1.5 as Pattern E (vacuous inline tests):
+    //   - mailbox_get_request_shape
+    //   - mailbox_set_on_destroy_remove_emails_request_shape
+    //   - mailbox_query_request_includes_filter
+    // Each hand-built `args = json!({...})` and fed it to `build_request`,
+    // never invoking the `mailbox_get` / `mailbox_set` / `mailbox_query`
+    // production builders. Real production-path coverage for these methods
+    // is tracked as a wiremock-smoke gap under JMAP-uuoi (no
+    // `tests/mailbox_*.rs` smoke file exists yet). Specific-flag passthrough
+    // coverage that may be lost (e.g. `onDestroyRemoveEmails`) is also
+    // tracked under JMAP-uuoi for follow-up wiremock smoke tests.
+    //
+    // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
+    // own focused tests in `methods/mod.rs`.
 
     /// Oracle: Mailbox deserialization from RFC 8621 §2 example.
     #[test]

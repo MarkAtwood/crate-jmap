@@ -109,7 +109,6 @@ impl super::SessionClient {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, CALL_ID, USING_MAIL};
     use serde_json::json;
 
     // identity_get_empty_id_returns_invalid_argument was deleted in JMAP-6by7.2
@@ -120,46 +119,17 @@ mod tests {
     // production code; testing it requires a wiremock-backed async harness.
     // See JMAP-sc1b.64.
 
-    /// Oracle: Identity/get request shape is correct.
-    #[test]
-    fn identity_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": null,
-            "properties": null,
-        });
-        let req = build_request("Identity/get", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Identity/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-    }
-
-    /// Oracle: Identity/set with create and destroy sends correct keys.
-    #[test]
-    fn identity_set_request_shape() {
-        let create_val = json!({"k1": {"name": "Work", "email": "work@example.com"}});
-        let destroy_val = serde_json::Value::Array(
-            vec!["id-old"]
-                .into_iter()
-                .map(|id| serde_json::Value::String(id.to_owned()))
-                .collect(),
-        );
-        let mut args = json!({ "accountId": "acc1" });
-        args["create"] = create_val;
-        args["destroy"] = destroy_val;
-
-        let req = build_request("Identity/set", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Identity/set"));
-        assert_eq!(
-            calls[0][1]["create"]["k1"]["email"],
-            json!("work@example.com")
-        );
-        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
-        assert!(destroy_arr.contains(&json!("id-old")));
-    }
+    // Deleted in JMAP-tco1.5 as Pattern E (vacuous inline tests):
+    //   - identity_get_request_shape
+    //   - identity_set_request_shape
+    // Each hand-built `args = json!({...})` and fed it to `build_request`,
+    // never invoking the `identity_get` / `identity_set` production builders.
+    // Real production-path coverage for these methods is tracked as a
+    // wiremock-smoke gap under JMAP-uuoi (no `tests/identity_*.rs` smoke
+    // file exists yet).
+    //
+    // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
+    // own focused tests in `methods/mod.rs`.
 
     /// Oracle: Identity deserialization from RFC 8621 §6 example.
     #[test]

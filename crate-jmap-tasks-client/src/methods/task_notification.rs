@@ -139,62 +139,30 @@ impl super::SessionClient {
 }
 
 // ---------------------------------------------------------------------------
-// Tests
+// Tests — see tests/task_notification_tests.rs (wiremock-backed end-to-end)
 // ---------------------------------------------------------------------------
-
-#[cfg(test)]
-mod tests {
-    use super::super::{build_request, CALL_ID, USING_TASKS};
-    use serde_json::json;
-
-    /// Oracle: TaskNotification/set destroy-only request serializes destroy array.
-    ///
-    /// A TaskNotification/set request must send only `destroy` (no create/update).
-    /// Expected: args contains "destroy" key with the id list; no "create" or "update".
-    #[test]
-    fn task_notification_set_destroy_only_serialization() {
-        let destroy_ids = vec!["notif1", "notif2"];
-        let args = json!({
-            "accountId": "acc1",
-            "destroy": destroy_ids,
-        });
-        let req = build_request("TaskNotification/set", args, USING_TASKS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-
-        assert_eq!(calls[0][0], json!("TaskNotification/set"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-
-        let method_args = &calls[0][1];
-        // Must have destroy
-        let destroy = method_args["destroy"]
-            .as_array()
-            .expect("destroy must be array");
-        assert_eq!(destroy.len(), 2);
-        assert!(destroy.contains(&json!("notif1")));
-        assert!(destroy.contains(&json!("notif2")));
-        // Must NOT have create or update
-        assert!(
-            method_args.get("create").is_none() || method_args["create"].is_null(),
-            "destroy-only set must not include create"
-        );
-        assert!(
-            method_args.get("update").is_none() || method_args["update"].is_null(),
-            "destroy-only set must not include update"
-        );
-    }
-
-    // The InvalidArgument guard for empty since_state lives in
-    // task_notification_changes production code; testing it requires a
-    // wiremock-backed async harness. See JMAP-sc1b.64.
-
-    /// Oracle: USING_TASKS is used for TaskNotification/set request.
-    #[test]
-    fn task_notification_set_uses_tasks_capability() {
-        let args = json!({ "accountId": "acc1", "destroy": [] });
-        let req = build_request("TaskNotification/set", args, USING_TASKS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let using = v["using"].as_array().expect("using");
-        assert!(using.contains(&json!("urn:ietf:params:jmap:tasks")));
-    }
-}
+//
+// `task_notification_set_destroy_only_serialization` and
+// `task_notification_set_uses_tasks_capability` were vacuous: they
+// hand-built `args` Values and fed them to `build_request`, never
+// exercising the production `task_notification_set` builder. Deleted in
+// JMAP-tco1.20.
+//
+// Real production-path coverage:
+//   - task_notification_get_round_trip
+//   - task_notification_changes_round_trip
+//   - task_notification_set_destroy_only_wire_format
+//   - task_notification_set_empty_destroy_succeeds
+//   - task_notification_query_with_filter
+//   - task_notification_query_changes_round_trip
+// in tests/task_notification_tests.rs.
+//
+// Specific-flag passthrough coverage that may be lost is tracked
+// under JMAP-uuoi for follow-up wiremock smoke tests.
+//
+// `build_request`, `CALL_ID`, and `USING_TASKS` themselves have their
+// own focused tests in `methods/mod.rs`.
+//
+// The InvalidArgument guard for empty since_state lives in
+// task_notification_changes production code; testing it requires a
+// wiremock-backed async harness. See JMAP-sc1b.64.

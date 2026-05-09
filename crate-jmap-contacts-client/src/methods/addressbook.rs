@@ -135,7 +135,6 @@ impl super::SessionClient {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, AddressBookSetParams, CALL_ID, USING_CONTACTS};
     use serde_json::json;
 
     // Inline guard smoke tests (e.g. `address_book_get_empty_id_returns_invalid_argument`,
@@ -148,86 +147,28 @@ mod tests {
     // `&[Id]` / `Vec<Id>` parameters, an empty-Id input is impossible to
     // express through the API (`Id::new_validated("")` returns `Err` at
     // the call site) so the bug they pretended to test is unrepresentable.
-
-    /// Oracle: AddressBook/get request has correct method name and CALL_ID.
-    /// Expected method name is "AddressBook/get" per RFC 9610 §2.1.
-    #[test]
-    fn address_book_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": null,
-            "properties": null,
-        });
-        let req = build_request("AddressBook/get", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("AddressBook/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-
-        let using = v["using"].as_array().expect("using");
-        assert!(using.contains(&json!("urn:ietf:params:jmap:contacts")));
-    }
-
-    /// Oracle: AddressBook/changes request includes sinceState in args.
-    /// Expected: args object has "sinceState" key with the provided value.
-    #[test]
-    fn address_book_changes_request_includes_since_state() {
-        let args = json!({
-            "accountId": "acc1",
-            "sinceState": "state42",
-        });
-        let req = build_request("AddressBook/changes", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["sinceState"], json!("state42"));
-    }
-
-    /// Oracle: AddressBook/set with destroy list sends destroy array in args.
-    #[test]
-    fn address_book_set_destroy_request_shape() {
-        let destroy_ids = ["id1", "id2"];
-        let destroy_val = serde_json::Value::Array(
-            destroy_ids
-                .iter()
-                .copied()
-                .map(serde_json::Value::from)
-                .collect(),
-        );
-        let mut args = json!({ "accountId": "acc1" });
-        args["destroy"] = destroy_val;
-
-        let req = build_request("AddressBook/set", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("AddressBook/set"));
-        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
-        assert_eq!(destroy_arr.len(), 2);
-        assert!(destroy_arr.contains(&json!("id1")));
-        assert!(destroy_arr.contains(&json!("id2")));
-    }
-
-    /// Oracle: AddressBook/set with onDestroyRemoveContents sends the field.
-    /// Expected: JSON key is "onDestroyRemoveContents" per RFC 9610 §2.3.
-    #[test]
-    fn address_book_set_params_on_destroy_serializes() {
-        let params = AddressBookSetParams {
-            on_destroy_remove_contents: Some(true),
-            on_success_set_is_default: None,
-        };
-        let mut args = json!({ "accountId": "acc1" });
-        if let Some(v) = params.on_destroy_remove_contents {
-            args["onDestroyRemoveContents"] = v.into();
-        }
-        let req = build_request("AddressBook/set", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(
-            calls[0][1]["onDestroyRemoveContents"],
-            json!(true),
-            "onDestroyRemoveContents must be true"
-        );
-    }
+    //
+    // Additionally, `address_book_get_request_shape`,
+    // `address_book_changes_request_includes_since_state`,
+    // `address_book_set_destroy_request_shape`, and
+    // `address_book_set_params_on_destroy_serializes` were vacuous: they
+    // hand-built `args` Values and fed them to `build_request`, never
+    // exercising the production `address_book_*` builders. Deleted in
+    // JMAP-tco1.15.
+    //
+    // Real production-path coverage:
+    //   - addressbook_get_round_trip
+    //   - addressbook_changes_sends_since_state
+    //   - addressbook_set_create_round_trip
+    //   - addressbook_set_on_destroy_remove_contents
+    // in tests/addressbook_tests.rs (wiremock-backed end-to-end).
+    //
+    // Specific-flag passthrough coverage that may be lost is tracked
+    // under JMAP-uuoi for follow-up wiremock smoke tests.
+    //
+    // `build_request`, `CALL_ID`, and `USING_CONTACTS` themselves have
+    // their own focused tests in `methods/mod.rs`, including a
+    // dedicated `AddressBookSetParams` serialization test.
 
     /// Oracle: AddressBook deserialization from RFC 9610 §4.1 example.
     /// Expected JSON taken verbatim from spec §4.1.

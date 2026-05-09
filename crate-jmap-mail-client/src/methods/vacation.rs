@@ -78,72 +78,24 @@ impl super::SessionClient {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, CALL_ID, USING_MAIL};
     use serde_json::json;
 
-    /// Oracle: VacationResponse/get request uses ids:["singleton"] per RFC 8621 §8.
-    /// The singleton pattern means there is always exactly one VacationResponse.
-    #[test]
-    fn vacation_response_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": ["singleton"],
-        });
-        let req = build_request("VacationResponse/get", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("VacationResponse/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-        let ids = calls[0][1]["ids"].as_array().expect("ids array");
-        assert_eq!(ids.len(), 1, "must request exactly one id");
-        assert_eq!(ids[0], json!("singleton"), "must request singleton id");
-    }
-
-    /// Oracle: VacationResponse/set request includes update but no create/destroy.
-    /// RFC 8621 §8 — only update is supported.
-    #[test]
-    fn vacation_response_set_request_shape() {
-        let update = json!({
-            "singleton": {
-                "isEnabled": true,
-                "subject": "Out of office"
-            }
-        });
-        let mut args = json!({ "accountId": "acc1" });
-        args["update"] = update;
-
-        let req = build_request("VacationResponse/set", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("VacationResponse/set"), "method name");
-        assert_eq!(
-            calls[0][1]["update"]["singleton"]["isEnabled"],
-            json!(true),
-            "isEnabled must be in update"
-        );
-        assert!(
-            calls[0][1].get("create").is_none() || calls[0][1]["create"].is_null(),
-            "create must not be present"
-        );
-        assert!(
-            calls[0][1].get("destroy").is_none() || calls[0][1]["destroy"].is_null(),
-            "destroy must not be present"
-        );
-    }
-
-    /// Oracle: VacationResponse/set with no update sends only accountId.
-    #[test]
-    fn vacation_response_set_no_update_sends_account_id_only() {
-        let args = json!({ "accountId": "acc1" });
-        let req = build_request("VacationResponse/set", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["accountId"], json!("acc1"));
-        assert!(
-            calls[0][1].get("update").is_none() || calls[0][1]["update"].is_null(),
-            "update must not be present when None passed"
-        );
-    }
+    // Deleted in JMAP-tco1.5 as Pattern E (vacuous inline tests):
+    //   - vacation_response_get_request_shape
+    //   - vacation_response_set_request_shape
+    //   - vacation_response_set_no_update_sends_account_id_only
+    // Each hand-built `args = json!({...})` and fed it to `build_request`,
+    // never invoking the `vacation_response_get` / `vacation_response_set`
+    // production builders. The third was a "None field is absent" tautology
+    // on hand-built args. Real production-path coverage for these methods
+    // is tracked as a wiremock-smoke gap under JMAP-uuoi (no
+    // `tests/vacation_*.rs` smoke file exists yet). The singleton-id-passing
+    // and no-create/no-destroy invariants of `VacationResponse/{get,set}`
+    // (RFC 8621 §8) are tracked under JMAP-uuoi for a follow-up wiremock
+    // smoke test.
+    //
+    // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
+    // own focused tests in `methods/mod.rs`.
 
     /// Oracle: VacationResponse deserialization from RFC 8621 §8 shape.
     #[test]

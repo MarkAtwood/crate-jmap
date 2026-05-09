@@ -300,9 +300,38 @@ impl super::SessionClient {
 // Tests
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Tests — see tests/integration_get_query.rs and tests/integration_set_copy.rs
+// (wiremock-backed end-to-end)
+// ---------------------------------------------------------------------------
+//
+// `file_node_get_request_shape`, `file_node_query_with_depth_includes_depth_in_args`,
+// `file_node_query_without_depth_omits_depth`,
+// `file_node_changes_request_includes_since_state`,
+// `file_node_set_destroy_request_shape`,
+// `file_node_copy_request_includes_from_account_id`,
+// `file_node_copy_with_on_destroy_remove_children_includes_key`, and
+// `file_node_copy_without_on_destroy_remove_children_omits_key` were vacuous:
+// they hand-built `args` Values and fed them to `build_request`, never
+// exercising the production `file_node_get`, `file_node_query`,
+// `file_node_changes`, `file_node_set`, or `file_node_copy` builders.
+// Deleted in JMAP-tco1.25.
+//
+// Real production-path coverage:
+//   - tests/integration_get_query.rs (wiremock-backed FileNode/get and
+//     FileNode/query)
+//   - tests/integration_set_copy.rs (wiremock-backed FileNode/set and
+//     FileNode/copy)
+//
+// Specific-flag passthrough coverage that may be lost is tracked
+// under JMAP-uuoi for follow-up wiremock smoke tests.
+//
+// `build_request`, `CALL_ID`, and `USING_FILENODE` themselves have their
+// own focused tests in `methods/mod.rs`.
+
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, QueryResponse, SetResponse, CALL_ID, USING_FILENODE};
+    use super::super::{QueryResponse, SetResponse};
     use super::{FileNodeOnExists, FileNodeSetParams};
     use serde_json::json;
 
@@ -376,158 +405,6 @@ mod tests {
         assert_eq!(val["onDestroyRemoveChildren"], json!(false));
         assert_eq!(val["onExists"], json!("replace"));
         assert_eq!(val["compareCaseInsensitively"], json!(true));
-    }
-
-    // ── Request shape oracles ───────────────────────────────────────────────
-
-    /// Oracle: FileNode/get request has correct method name and using array.
-    /// Expected JSON shape from RFC 8620 §3.3.
-    #[test]
-    fn file_node_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": null,
-            "properties": null,
-        });
-        let req = build_request("FileNode/get", args, USING_FILENODE);
-        let v = serde_json::to_value(&req).expect("serialize");
-
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("FileNode/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-
-        let using = v["using"].as_array().expect("using");
-        assert!(using.contains(&json!("urn:ietf:params:jmap:filenode")));
-    }
-
-    /// Oracle: FileNode/query with depth includes depth in args JSON.
-    /// Expected: args object has "depth" key with the provided numeric value.
-    /// Source: draft-ietf-jmap-filenode-13 §3.2.5.
-    #[test]
-    fn file_node_query_with_depth_includes_depth_in_args() {
-        let mut args = json!({ "accountId": "acc1" });
-        args["depth"] = 2u64.into();
-
-        let req = build_request("FileNode/query", args, USING_FILENODE);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(
-            calls[0][1]["depth"],
-            json!(2),
-            "depth must appear in args with value 2"
-        );
-    }
-
-    /// Oracle: FileNode/query without depth omits depth from args.
-    /// Expected: args object lacks "depth" key when not supplied.
-    #[test]
-    fn file_node_query_without_depth_omits_depth() {
-        let args = json!({ "accountId": "acc1" });
-        let req = build_request("FileNode/query", args, USING_FILENODE);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert!(
-            calls[0][1].get("depth").is_none(),
-            "depth must be absent when not supplied"
-        );
-    }
-
-    /// Oracle: FileNode/changes request includes sinceState in args.
-    /// Expected: args object has "sinceState" key with the provided value.
-    #[test]
-    fn file_node_changes_request_includes_since_state() {
-        let args = json!({
-            "accountId": "acc1",
-            "sinceState": "state42",
-        });
-        let req = build_request("FileNode/changes", args, USING_FILENODE);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["sinceState"], json!("state42"));
-    }
-
-    /// Oracle: FileNode/set with destroy list sends destroy array in args.
-    /// Expected: destroy is a JSON array of string IDs.
-    #[test]
-    fn file_node_set_destroy_request_shape() {
-        let destroy_ids = ["id1", "id2"];
-        let destroy_val = serde_json::Value::Array(
-            destroy_ids
-                .iter()
-                .copied()
-                .map(serde_json::Value::from)
-                .collect(),
-        );
-        let mut args = json!({ "accountId": "acc1" });
-        args["destroy"] = destroy_val;
-
-        let req = build_request("FileNode/set", args, USING_FILENODE);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("FileNode/set"));
-        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
-        assert_eq!(destroy_arr.len(), 2);
-        assert!(destroy_arr.contains(&json!("id1")));
-        assert!(destroy_arr.contains(&json!("id2")));
-    }
-
-    /// Oracle: FileNode/copy request includes fromAccountId in args.
-    /// Expected: args object has "fromAccountId" key.
-    /// Source: draft-ietf-jmap-filenode-13 §3.2.4.
-    #[test]
-    fn file_node_copy_request_includes_from_account_id() {
-        let args = json!({
-            "fromAccountId": "source-account",
-            "accountId": "dest-account",
-            "create": {},
-        });
-        let req = build_request("FileNode/copy", args, USING_FILENODE);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("FileNode/copy"), "method name");
-        assert_eq!(
-            calls[0][1]["fromAccountId"],
-            json!("source-account"),
-            "fromAccountId must be present"
-        );
-    }
-
-    /// Oracle: FileNode/copy with onDestroyRemoveChildren=true includes the key
-    /// in the request (draft-ietf-jmap-filenode-13 §3.2.4).
-    #[test]
-    fn file_node_copy_with_on_destroy_remove_children_includes_key() {
-        let mut args = json!({
-            "fromAccountId": "source",
-            "accountId": "dest",
-            "create": {},
-        });
-        args["onDestroyRemoveChildren"] = json!(true);
-        let req = build_request("FileNode/copy", args, USING_FILENODE);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(
-            calls[0][1]["onDestroyRemoveChildren"],
-            json!(true),
-            "onDestroyRemoveChildren must appear when set to true"
-        );
-    }
-
-    /// Oracle: FileNode/copy with onDestroyRemoveChildren=None must NOT include
-    /// the key in the request.
-    #[test]
-    fn file_node_copy_without_on_destroy_remove_children_omits_key() {
-        let args = json!({
-            "fromAccountId": "source",
-            "accountId": "dest",
-            "create": {},
-        });
-        let req = build_request("FileNode/copy", args, USING_FILENODE);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert!(
-            calls[0][1].get("onDestroyRemoveChildren").is_none(),
-            "onDestroyRemoveChildren must be absent when None"
-        );
     }
 
     // ── Response deserialization oracles ────────────────────────────────────

@@ -233,7 +233,6 @@ impl super::SessionClient {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, CALL_ID, USING_MAIL};
     use serde_json::json;
 
     // email_get_empty_id_returns_invalid_argument was deleted in JMAP-6by7.2
@@ -244,96 +243,20 @@ mod tests {
     // live in email_changes / email_query_changes production code; testing them
     // requires a wiremock-backed async harness. See JMAP-sc1b.64.
 
-    /// Oracle: Email/get request has correct method name and using array.
-    /// Expected JSON shape from RFC 8620 §3.3.
-    #[test]
-    fn email_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": ["e1", "e2"],
-            "properties": ["id", "subject"],
-        });
-        let req = build_request("Email/get", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Email/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-
-        let using = v["using"].as_array().expect("using");
-        assert!(using.contains(&json!("urn:ietf:params:jmap:mail")));
-        assert!(using.contains(&json!("urn:ietf:params:jmap:core")));
-    }
-
-    /// Oracle: Email/changes request includes sinceState in args.
-    #[test]
-    fn email_changes_request_includes_since_state() {
-        let args = json!({
-            "accountId": "acc1",
-            "sinceState": "state42",
-        });
-        let req = build_request("Email/changes", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["sinceState"], json!("state42"));
-    }
-
-    /// Oracle: Email/set with destroy list sends destroy array in args.
-    #[test]
-    fn email_set_destroy_request_shape() {
-        let destroy_ids = ["e1", "e2"];
-        let destroy_val = serde_json::Value::Array(
-            destroy_ids
-                .iter()
-                .copied()
-                .map(serde_json::Value::from)
-                .collect(),
-        );
-        let mut args = json!({ "accountId": "acc1" });
-        args["destroy"] = destroy_val;
-
-        let req = build_request("Email/set", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Email/set"));
-        let destroy_arr = calls[0][1]["destroy"].as_array().expect("destroy array");
-        assert_eq!(destroy_arr.len(), 2);
-        assert!(destroy_arr.contains(&json!("e1")));
-        assert!(destroy_arr.contains(&json!("e2")));
-    }
-
-    /// Oracle: Email/copy request carries fromAccountId.
-    /// Expected from RFC 8621 §4.7.
-    #[test]
-    fn email_copy_request_shape() {
-        let args = json!({
-            "accountId": "acc-dest",
-            "fromAccountId": "acc-src",
-            "create": { "k1": { "id": "e1" } },
-            "onSuccessDestroyOriginal": true,
-        });
-        let req = build_request("Email/copy", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Email/copy"), "method name");
-        assert_eq!(calls[0][1]["fromAccountId"], json!("acc-src"));
-        assert_eq!(calls[0][1]["onSuccessDestroyOriginal"], json!(true));
-    }
-
-    /// Oracle: Email/query request with collapseThreads.
-    #[test]
-    fn email_query_request_shape() {
-        let mut args = json!({ "accountId": "acc1" });
-        args["collapseThreads"] = json!(true);
-        args["filter"] = json!({"inMailbox": "mb1"});
-
-        let req = build_request("Email/query", args, USING_MAIL);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("Email/query"));
-        assert_eq!(calls[0][1]["collapseThreads"], json!(true));
-        assert_eq!(calls[0][1]["filter"]["inMailbox"], json!("mb1"));
-    }
+    // Deleted in JMAP-tco1.5 as Pattern E (vacuous inline tests):
+    //   - email_get_request_shape
+    //   - email_changes_request_includes_since_state
+    //   - email_set_destroy_request_shape
+    //   - email_copy_request_shape
+    //   - email_query_request_shape
+    // Each hand-built `args = json!({...})` and fed it to `build_request`,
+    // never invoking the `email_get` / `email_changes` / `email_set` /
+    // `email_copy` / `email_query` production builders. Real production-path
+    // coverage for these methods is tracked as a wiremock-smoke gap under
+    // JMAP-uuoi (no `tests/email_*.rs` smoke files exist yet).
+    //
+    // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
+    // own focused tests in `methods/mod.rs`.
 
     /// Oracle: Email deserialization from RFC 8621 §4 example JSON subset.
     /// Only fields present in the fixture are checked; Email has many optional fields.

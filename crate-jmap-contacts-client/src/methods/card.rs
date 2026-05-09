@@ -198,7 +198,6 @@ impl super::SessionClient {
 
 #[cfg(test)]
 mod tests {
-    use super::super::{build_request, CALL_ID, USING_CONTACTS};
     use serde_json::json;
 
     // Inline guard smoke tests (e.g.
@@ -215,103 +214,32 @@ mod tests {
     // parameters, an empty-Id input is impossible to express through
     // the API (`Id::new_validated("")` returns `Err` at the call site)
     // so the bug they pretended to test is unrepresentable.
-
-    /// Oracle: ContactCard/get request has correct method name and CALL_ID.
-    /// Expected method name is "ContactCard/get" per RFC 9610 §3.1.
-    #[test]
-    fn contact_card_get_request_shape() {
-        let args = json!({
-            "accountId": "acc1",
-            "ids": null,
-            "properties": null,
-        });
-        let req = build_request("ContactCard/get", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("ContactCard/get"), "method name");
-        assert_eq!(calls[0][2], json!(CALL_ID), "call id");
-    }
-
-    /// Oracle: ContactCard/changes request includes sinceState.
-    #[test]
-    fn contact_card_changes_request_includes_since_state() {
-        let args = json!({
-            "accountId": "acc1",
-            "sinceState": "state99",
-        });
-        let req = build_request("ContactCard/changes", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["sinceState"], json!("state99"));
-    }
-
-    /// Oracle: ContactCard/copy request includes fromAccountId.
-    /// Expected: args contain "fromAccountId" per RFC 8620 §5.4.
-    #[test]
-    fn contact_card_copy_request_includes_from_account_id() {
-        let args = json!({
-            "fromAccountId": "srcAcc1",
-            "accountId": "dstAcc2",
-            "create": {
-                "k1": {"id": "card1", "addressBookIds": {"ab1": true}}
-            }
-        });
-        let req = build_request("ContactCard/copy", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][0], json!("ContactCard/copy"), "method name");
-        assert_eq!(calls[0][1]["fromAccountId"], json!("srcAcc1"));
-        assert_eq!(calls[0][1]["accountId"], json!("dstAcc2"));
-    }
-
-    /// Oracle: ContactCard/query with filter sends filter in args.
-    #[test]
-    fn contact_card_query_request_includes_filter() {
-        let filter = json!({"inAddressBook": "ab1"});
-        let mut args = json!({ "accountId": "acc1" });
-        args["filter"] = filter.clone();
-
-        let req = build_request("ContactCard/query", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(calls[0][1]["filter"]["inAddressBook"], json!("ab1"));
-    }
-
-    /// Oracle: ContactCard/query with sort sends sort in args.
-    #[test]
-    fn contact_card_query_request_includes_sort() {
-        let sort = json!([{"property": "name/surname", "isAscending": true}]);
-        let mut args = json!({ "accountId": "acc1" });
-        args["sort"] = sort;
-
-        let req = build_request("ContactCard/query", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(
-            calls[0][1]["sort"][0]["property"],
-            json!("name/surname"),
-            "sort property must be name/surname"
-        );
-    }
-
-    /// Oracle: ContactCard/queryChanges request includes sinceQueryState.
-    #[test]
-    fn contact_card_query_changes_request_includes_since_query_state() {
-        let args = json!({
-            "accountId": "acc1",
-            "sinceQueryState": "qs42",
-        });
-        let req = build_request("ContactCard/queryChanges", args, USING_CONTACTS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let calls = v["methodCalls"].as_array().expect("methodCalls");
-        assert_eq!(
-            calls[0][0],
-            json!("ContactCard/queryChanges"),
-            "method name"
-        );
-        assert_eq!(calls[0][1]["sinceQueryState"], json!("qs42"));
-    }
+    //
+    // Additionally, `contact_card_get_request_shape`,
+    // `contact_card_changes_request_includes_since_state`,
+    // `contact_card_copy_request_includes_from_account_id`,
+    // `contact_card_query_request_includes_filter`,
+    // `contact_card_query_request_includes_sort`, and
+    // `contact_card_query_changes_request_includes_since_query_state`
+    // were vacuous: they hand-built `args` Values and fed them to
+    // `build_request`, never exercising the production `contact_card_*`
+    // builders. Deleted in JMAP-tco1.15.
+    //
+    // Real production-path coverage:
+    //   - contact_card_get_round_trip
+    //   - contact_card_changes_sends_since_state
+    //   - contact_card_set_create_round_trip
+    //   - contact_card_copy_round_trip
+    // in tests/contactcard_tests.rs, and
+    //   - contact_card_query_with_filter
+    //   - contact_card_query_changes_round_trip
+    // in tests/contactcard_query_tests.rs (wiremock-backed end-to-end).
+    //
+    // Specific-flag passthrough coverage that may be lost is tracked
+    // under JMAP-uuoi for follow-up wiremock smoke tests.
+    //
+    // `build_request`, `CALL_ID`, and `USING_CONTACTS` themselves have
+    // their own focused tests in `methods/mod.rs`.
 
     /// Oracle: ContactCard deserialization from RFC 9610 §4.1 example.
     /// Expected JSON taken verbatim from spec §4.1.
