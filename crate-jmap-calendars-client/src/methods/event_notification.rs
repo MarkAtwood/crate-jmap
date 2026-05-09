@@ -90,11 +90,7 @@ impl super::SessionClient {
         destroy: Option<&[&str]>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if let Some(destroy_ids) = destroy {
-            super::validate_ids_field(
-                destroy_ids,
-                "calendar_event_notification_set",
-                "destroy",
-            )?;
+            super::validate_ids_field(destroy_ids, "calendar_event_notification_set", "destroy")?;
         }
         let (api_url, account_id) = self.session_parts()?;
         let destroy_val = match destroy {

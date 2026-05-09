@@ -377,11 +377,11 @@ async fn thread_changes_from_zero_returns_all() {
 
     // Oracle: "updated" and "destroyed" must be empty for a fresh account.
     assert!(
-        resp["updated"].as_array().map_or(true, |a| a.is_empty()),
+        resp["updated"].as_array().is_none_or(|a| a.is_empty()),
         "updated must be empty"
     );
     assert!(
-        resp["destroyed"].as_array().map_or(true, |a| a.is_empty()),
+        resp["destroyed"].as_array().is_none_or(|a| a.is_empty()),
         "destroyed must be empty"
     );
 
@@ -2482,7 +2482,7 @@ async fn submission_set_invalid_identity_fails() {
     assert!(
         set_resp["created"]
             .as_object()
-            .map_or(true, |m| !m.contains_key("s0")),
+            .is_none_or(|m| !m.contains_key("s0")),
         "s0 must not be in created"
     );
 
@@ -3121,9 +3121,7 @@ async fn email_set_update_immutable_field_rejected() {
         .expect("Email/set update must return a response");
 
     assert!(
-        upd_resp["updated"]
-            .as_object()
-            .map_or(true, |m| m.is_empty()),
+        upd_resp["updated"].as_object().is_none_or(|m| m.is_empty()),
         "updated must be empty when immutable field is patched"
     );
     let not_updated = upd_resp["notUpdated"]
@@ -3192,7 +3190,7 @@ async fn email_set_update_keywords() {
     assert!(
         upd_resp["notUpdated"]
             .as_object()
-            .map_or(true, |m| m.is_empty()),
+            .is_none_or(|m| m.is_empty()),
         "notUpdated must be empty on successful keyword update"
     );
     assert!(
@@ -3622,9 +3620,7 @@ async fn submission_set_update_only_undo_status_allowed() {
 
     // Oracle: updated map must be empty.
     assert!(
-        upd_resp["updated"]
-            .as_object()
-            .map_or(true, |m| m.is_empty()),
+        upd_resp["updated"].as_object().is_none_or(|m| m.is_empty()),
         "updated must be empty when non-undoStatus field is patched"
     );
 }
@@ -3799,10 +3795,7 @@ async fn keyword_255_chars_accepted() {
         .await
         .expect("Email/set must not return a JmapError");
     assert!(
-        resp["notCreated"].is_null()
-            || resp["notCreated"]
-                .as_object()
-                .map_or(true, |m| m.is_empty()),
+        resp["notCreated"].is_null() || resp["notCreated"].as_object().is_none_or(|m| m.is_empty()),
         "255-byte keyword must be accepted; notCreated: {:?}",
         resp["notCreated"]
     );
@@ -3946,10 +3939,7 @@ async fn keyword_tilde_accepted() {
         .await
         .expect("Email/set must not return a JmapError");
     assert!(
-        resp["notCreated"].is_null()
-            || resp["notCreated"]
-                .as_object()
-                .map_or(true, |m| m.is_empty()),
+        resp["notCreated"].is_null() || resp["notCreated"].as_object().is_none_or(|m| m.is_empty()),
         "keyword '~' must be accepted; notCreated: {:?}",
         resp["notCreated"]
     );
@@ -3982,10 +3972,7 @@ async fn keyword_dollar_sign_accepted() {
         .await
         .expect("Email/set must not return a JmapError");
     assert!(
-        resp["notCreated"].is_null()
-            || resp["notCreated"]
-                .as_object()
-                .map_or(true, |m| m.is_empty()),
+        resp["notCreated"].is_null() || resp["notCreated"].as_object().is_none_or(|m| m.is_empty()),
         "keyword '$seen' must be accepted; notCreated: {:?}",
         resp["notCreated"]
     );
@@ -8920,7 +8907,7 @@ async fn conformance_mailbox_set_update_name() {
     // Oracle: id must appear in updated, not in notUpdated.
     let not_updated = resp["notUpdated"].as_object();
     assert!(
-        not_updated.map_or(true, |m| !m.contains_key(folder_b_id.as_str())),
+        not_updated.is_none_or(|m| !m.contains_key(folder_b_id.as_str())),
         "folderB must not be in notUpdated; got: {:?}",
         resp["notUpdated"]
     );
@@ -8990,7 +8977,7 @@ async fn conformance_mailbox_set_destroy() {
     // Oracle: notDestroyed must not contain the id.
     let not_destroyed = destroy_resp["notDestroyed"].as_object();
     assert!(
-        not_destroyed.map_or(true, |m| !m.contains_key(mb_id.as_str())),
+        not_destroyed.is_none_or(|m| !m.contains_key(mb_id.as_str())),
         "id must not appear in notDestroyed; got: {:?}",
         destroy_resp["notDestroyed"]
     );
@@ -10162,7 +10149,7 @@ async fn conformance_email_set_update_mailbox_ids() {
     assert!(
         mailbox_ids
             .get("inbox")
-            .map_or(true, |v| !v.as_bool().unwrap_or(false)),
+            .is_none_or(|v| !v.as_bool().unwrap_or(false)),
         "email must no longer be in inbox; mailboxIds: {mailbox_ids:?}"
     );
 }
@@ -10886,7 +10873,7 @@ async fn conformance_email_changes_after_update() {
     assert!(
         upd_resp["notUpdated"]
             .as_object()
-            .map_or(true, |m| m.is_empty()),
+            .is_none_or(|m| m.is_empty()),
         "update must succeed; notUpdated must be empty"
     );
 
@@ -11038,7 +11025,7 @@ async fn conformance_mailbox_changes_after_email_count_change() {
     assert!(
         upd_resp["notUpdated"]
             .as_object()
-            .map_or(true, |m| m.is_empty()),
+            .is_none_or(|m| m.is_empty()),
         "inbox update must succeed; notUpdated must be empty; resp={upd_resp:?}"
     );
 
@@ -11402,17 +11389,13 @@ async fn vacation_set_concurrent_creates_are_idempotent() {
 
     assert!(
         resp1["notUpdated"].is_null()
-            || resp1["notUpdated"]
-                .as_object()
-                .map_or(true, |m| m.is_empty()),
+            || resp1["notUpdated"].as_object().is_none_or(|m| m.is_empty()),
         "first upsert must not produce notUpdated errors; got: {:?}",
         resp1["notUpdated"]
     );
     assert!(
         resp2["notUpdated"].is_null()
-            || resp2["notUpdated"]
-                .as_object()
-                .map_or(true, |m| m.is_empty()),
+            || resp2["notUpdated"].as_object().is_none_or(|m| m.is_empty()),
         "second upsert must not produce notUpdated errors; got: {:?}",
         resp2["notUpdated"]
     );

@@ -164,7 +164,7 @@ async fn file_node_set_destroy_node_has_children_error() {
 
     // destroyed must be absent (server rejected the operation).
     assert!(
-        resp.destroyed.is_none() || resp.destroyed.as_ref().map_or(true, |v| v.is_empty()),
+        resp.destroyed.is_none() || resp.destroyed.as_ref().is_none_or(|v| v.is_empty()),
         "destroyed must be empty or None when destroy fails"
     );
 
