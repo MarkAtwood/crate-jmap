@@ -51,13 +51,12 @@ rm -f file              # NOT: rm file
 rm -rf dir              # NOT: rm -r dir
 ```
 
-## Git Commit Policy
+## Git Commit and Push Policy
 
-git commit and git push require explicit user approval.
-
-**Exception — fix/test loops**: When operating in a review or fix loop (invoked via a
-`~/PROMPT-*.md` prompt or beads workflow), committing after each fix is permitted without
-asking. Push to remote still requires explicit user confirmation.
+Commit and push freely — see workspace `AGENTS.md` "Git Commit and Push Policy".
+The agent is the only writer to `origin/main`, so the default is `git push` with
+no `pull --rebase` ritual. Exceptions (force-push, secrets, unrequested files)
+are listed in the workspace policy.
 
 ## Beads Issue Tracker
 

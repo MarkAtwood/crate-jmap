@@ -1,22 +1,11 @@
 # Agent Instructions — jmap-types
 
-## 🔒 LOCKED CRATE — EXPLICIT PERMISSION REQUIRED BEFORE ANY CHANGE
-
 This crate's public API, wire format, module layout, type names, field names,
-serde attributes, and design conventions are **locked and stabilized**.
-
-**You may NOT, under any circumstances:**
-- Add, rename, or remove any public type, field, or variant
-- Change any serde attribute, derive, or wire format
-- Change constructor signatures or add/remove constructors
-- Add, remove, or upgrade dependencies
-- Alter `#[non_exhaustive]` annotations
-- Modify test oracles or fixture files
-- Refactor or "clean up" any existing code
-
-**To make ANY change to this crate** you must first describe the exact change to
-the user and receive explicit written approval for that specific change. "Fixing
-a bug" or "improving the code" is not sufficient — stop and report, then wait.
+serde attributes, and design conventions are stabilized. Treat it as a high-care
+surface: changes here ripple through every downstream `jmap-*` crate. Prefer
+non-breaking additions (new variants on `#[non_exhaustive]` enums, new methods,
+new accessors) over reshaping existing types. Document any breaking change in
+the commit message and the relevant `PLAN.md`.
 
 This project uses **bd** (beads) for issue tracking. Run `bd prime` for full workflow context.
 
@@ -102,7 +91,7 @@ Run all four before considering any work done.
 
 ## Restrictions
 
-- Do not commit or push without explicit user approval
+- Push freely — `git push`, no `pull --rebase` ritual (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add dependencies beyond serde, serde_json, thiserror
 - Do not add async, tokio, or axum

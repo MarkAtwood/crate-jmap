@@ -39,22 +39,6 @@ jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.
 
-## Locked Crates
-
-The following crates are **locked** — public API, wire format, type names, field names,
-serde attributes, and design conventions are stabilized. Agents must not modify them
-without explicit per-change user approval:
-
-| Crate | Directory |
-|---|---|
-| `jmap-types` | `crate-jmap-types/` |
-| `jmap-mail-types` | `crate-jmap-mail-types/` |
-| `jmap-chat-types` | `crate-jmap-chat-types/` |
-| `jmap-base-client` | `crate-jmap-base-client/` |
-| `jmap-mail-server` | `crate-jmap-mail-server/` |
-
-Each crate's `AGENTS.md` lists the full restriction. When in doubt: stop and ask.
-
 ## Build & Test
 
 ```bash
@@ -180,14 +164,20 @@ rm -rf directory        cp -rf source dest
 
 Other commands that may prompt: `scp`/`ssh` — use `-o BatchMode=yes`; `apt-get` — use `-y`.
 
-## Git Commit Policy
+## Git Commit and Push Policy
 
-Always ask before `git commit` or `git push`.
+Commit freely after completing logical units of work — no need to ask permission per
+commit. Push freely too: just `git push`. The agent is the only thing pushing to
+`origin/main`, so there is no `pull --rebase` ritual to dance through before each
+push. If the push fails because someone else snuck a commit in (rare but possible),
+*then* run `git pull --rebase && git push` — but make the simple `git push` the
+default.
 
-**Exception — fix/test loops**: When operating in a review or fix loop (e.g. invoked via a
-`~/PROMPT-*.md` prompt, a beads workflow, or any iterative fix-test cycle), committing code
-changes after each fix is permitted without asking. Pushing to remote still requires explicit
-user confirmation.
+Exceptions where you should still pause:
+- `git push --force` to `main` — never without explicit user instruction.
+- Any push that would land secrets, credentials, or `.env`-shaped files.
+- Any commit that creates files the user explicitly did not ask for (the
+  "don't make doc files unless asked" rule still applies regardless of push policy).
 
 ## Beads Issue Tracker
 
@@ -223,10 +213,11 @@ until `git push` succeeds.
 3. **Update issue status** — close finished work, update in-progress items
 4. **Push to remote**:
    ```bash
-   git pull --rebase
-   bd dolt push
-   git push
-   git status  # MUST show "up to date with origin"
+   git push                         # simple push; no pull --rebase ritual
+   bd dolt push                     # only if a Dolt remote is configured
+   git status                       # MUST show "up to date with origin"
    ```
+   If `git push` is rejected because someone else pushed in the meantime
+   (rare — agent is the only writer), then `git pull --rebase && git push`.
 5. **Clean up** — clear stashes, prune remote branches
 6. **Hand off** — provide context for next session

@@ -82,7 +82,7 @@ Run all four before considering any work done.
 
 ## Restrictions
 
-- Do not commit or push without explicit user approval
+- Push freely — `git push`, no `pull --rebase` ritual (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
 - Do not add dependencies beyond: jmap-types, jmap-mail-types, jmap-server, tokio, thiserror
 - Do not add auth logic or role checks inside handlers
