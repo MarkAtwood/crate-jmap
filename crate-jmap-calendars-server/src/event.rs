@@ -1082,9 +1082,22 @@ mod tests {
     /// Oracle: RFC 8620 §5.4 — a successful copy merges client-supplied
     /// property overrides onto the source event. `created` contains the new
     /// object; `notCreated` is null.
+    /// Oracle: CalendarEvent/copy with a client-supplied override on a
+    /// non-id property (here, `title`) MUST overlay that override on the
+    /// serialized source event before the create. Source: RFC 8620 §5.4 ("the
+    /// id property is the source object's id; any other properties in the
+    /// create object override the source"). Independent oracle: the test
+    /// supplies a known source title and a distinct override title, then
+    /// asserts the response carries the override. The handler-side merge is
+    /// at event.rs around the `merged.insert(k, v)` loop.
+    ///
+    /// Two accounts are required for /copy (`fromAccountId` ≠ `accountId`)
+    /// to actually exercise the cross-account merge path. Both must pass
+    /// the `account_exists` check at the top of the handler.
     #[tokio::test]
     async fn copy_successful_with_overrides() {
         let mut backend = MockBackend::new_with_account("src");
+        // Seed the source event in src.
         backend.add_object(
             "src",
             "CalendarEvent",
@@ -1095,23 +1108,14 @@ mod tests {
                 "calendarIds": { "cal1": true }
             }),
         );
-        // Destination account also exists (same backend, different account key).
+        // Register dst as a real account. add_object's underlying seed_object
+        // uses entry().or_default() on the account map, so this both creates
+        // the account entry (so account_exists("dst") returns true) and seeds
+        // a placeholder object that is unrelated to the copy target.
         backend.add_object("dst", "CalendarEvent", "_placeholder_", json!({}));
-        // Ensure dst account exists in the mock.
-        let mut backend = MockBackend::new_with_account("src");
-        backend.add_object(
-            "src",
-            "CalendarEvent",
-            "ev1",
-            json!({
-                "id": "ev1",
-                "title": "Original Title",
-                "calendarIds": { "cal1": true }
-            }),
-        );
-        // For dst we need a registered account — re-use src account as both src and dst.
+
         let args = json!({
-            "accountId": "src",
+            "accountId": "dst",
             "fromAccountId": "src",
             "create": {
                 "c1": {
@@ -1120,6 +1124,7 @@ mod tests {
                 }
             }
         });
+
         let (resp, extra) = handle_calendar_event_copy(&backend, args, "c0")
             .await
             .expect("must not return top-level error");
@@ -1129,9 +1134,36 @@ mod tests {
             serde_json::Value::Null,
             "notCreated must be null: {resp}"
         );
-        assert!(
-            resp["created"]["c1"].is_object(),
-            "created must contain c1: {resp}"
+
+        let created_c1 = &resp["created"]["c1"];
+        assert!(created_c1.is_object(), "created must contain c1: {resp}");
+
+        // The override MUST have been applied: title is the client value,
+        // not the source value. This is what makes this test specifically
+        // about overrides — without this assertion, "copy_successful" with
+        // no override would exercise the same code path.
+        assert_eq!(
+            created_c1["title"], "Overridden Title",
+            "client override of `title` must be applied: {resp}"
+        );
+
+        // The non-overridden field MUST come from the source: client
+        // supplied no `calendarIds`, so the source's `calendarIds` carries
+        // through the merge. This pins the "merge, not replace" semantic.
+        assert_eq!(
+            created_c1["calendarIds"]["cal1"], true,
+            "non-overridden source field must carry through the merge: {resp}"
+        );
+
+        // The server MUST assign a fresh id, not re-use the source id. The
+        // handler strips client-supplied `id` before the create_object call
+        // (RFC 8620 §5.3), and MockBackend assigns mock-<type>-<n>.
+        let assigned_id = created_c1["id"]
+            .as_str()
+            .expect("created.c1.id must be a string");
+        assert_ne!(
+            assigned_id, "ev1",
+            "server must assign a fresh id, not the source id: {resp}"
         );
     }
 
