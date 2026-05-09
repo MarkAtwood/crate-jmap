@@ -3,6 +3,8 @@
 // Spec: JMAP Chat draft §4.16 (CustomEmoji/get, /changes, /set, /query, /queryChanges)
 // Capability: urn:ietf:params:jmap:chat
 
+use jmap_types::{Id, State};
+
 use super::{
     ChangesResponse, CustomEmojiCreateInput, CustomEmojiQueryInput, GetResponse,
     QueryChangesResponse, QueryResponse, SetResponse,
@@ -15,18 +17,9 @@ impl super::SessionClient {
     /// (Space-specific and server-global).
     pub async fn custom_emoji_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_chat_types::CustomEmoji>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "custom_emoji_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -42,10 +35,11 @@ impl super::SessionClient {
     /// (RFC 8620 §5.2 / JMAP Chat §4.16 CustomEmoji/changes).
     pub async fn custom_emoji_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: see `chat_changes`.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "custom_emoji_changes: since_state may not be empty".into(),
             ));
@@ -75,23 +69,13 @@ impl super::SessionClient {
                 "custom_emoji_create: name may not be empty".into(),
             ));
         }
-        if input.blob_id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "custom_emoji_create: blob_id may not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut create_obj = serde_json::json!({
             "name": input.name,
             "blobId": input.blob_id,
         });
         if let Some(sid) = input.space_id {
-            if sid.is_empty() {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "custom_emoji_create: space_id may not be empty".into(),
-                ));
-            }
-            create_obj["spaceId"] = sid.into();
+            create_obj["spaceId"] = sid.as_ref().into();
         }
         let client_id = super::resolve_client_id(input.client_id);
         let args = serde_json::json!({
@@ -108,19 +92,12 @@ impl super::SessionClient {
     /// `ids` must be non-empty; the guard fires before any network call.
     pub async fn custom_emoji_destroy(
         &self,
-        ids: &[&str],
+        ids: &[Id],
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         if ids.is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "custom_emoji_destroy: ids may not be empty".into(),
             ));
-        }
-        for id in ids.iter() {
-            if id.is_empty() {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "custom_emoji_destroy: ids element may not be empty".into(),
-                ));
-            }
         }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
@@ -142,11 +119,6 @@ impl super::SessionClient {
             "accountId": account_id,
         });
         if let Some(sid) = input.filter_space_id {
-            if sid.is_empty() {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "custom_emoji_query: filter_space_id may not be empty".into(),
-                ));
-            }
             args["filter"] = serde_json::json!({ "spaceId": sid });
         }
         if let Some(p) = input.position {
@@ -164,10 +136,11 @@ impl super::SessionClient {
     /// (RFC 8620 §5.6 / JMAP Chat §4.16 CustomEmoji/queryChanges).
     pub async fn custom_emoji_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see `chat_changes`.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "custom_emoji_query_changes: since_query_state may not be empty".into(),
             ));

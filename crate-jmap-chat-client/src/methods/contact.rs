@@ -1,4 +1,4 @@
-use jmap_types::PatchObject;
+use jmap_types::{Id, PatchObject, State};
 
 use super::{
     ChangesResponse, ChatContactPatch, ChatContactQueryInput, GetResponse, QueryChangesResponse,
@@ -11,18 +11,9 @@ impl super::SessionClient {
     /// If `ids` is `None`, returns all ChatContacts for the account.
     pub async fn chat_contact_get(
         &self,
-        ids: Option<&[&str]>,
+        ids: Option<&[Id]>,
         properties: Option<&[&str]>,
     ) -> Result<GetResponse<jmap_chat_types::ChatContact>, jmap_base_client::ClientError> {
-        if let Some(id_slice) = ids {
-            for id in id_slice.iter() {
-                if id.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "chat_contact_get: ids element may not be empty".into(),
-                    ));
-                }
-            }
-        }
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
             "accountId": account_id,
@@ -37,10 +28,11 @@ impl super::SessionClient {
     /// Fetch changes to ChatContact objects since `since_state` (RFC 8620 §5.2).
     pub async fn chat_contact_changes(
         &self,
-        since_state: &str,
+        since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
-        if since_state.is_empty() {
+        // Defence-in-depth: see `chat_changes`.
+        if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "chat_contact_changes: since_state may not be empty".into(),
             ));
@@ -64,14 +56,9 @@ impl super::SessionClient {
     /// Create and destroy are not supported by spec; the server returns `forbidden`.
     pub async fn chat_contact_update(
         &self,
-        id: &str,
+        id: &Id,
         patch: &ChatContactPatch<'_>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
-        if id.is_empty() {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "chat_contact_update: id may not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut patch_map = serde_json::Map::new();
         if let Some(b) = patch.blocked {
@@ -90,7 +77,7 @@ impl super::SessionClient {
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
         let args = serde_json::json!({
             "accountId": account_id,
-            "update": { id: patch_value },
+            "update": { id.as_ref(): patch_value },
         });
         let req = super::build_request("ChatContact/set", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -148,10 +135,11 @@ impl super::SessionClient {
     /// (RFC 8620 §5.6 / ChatContact/queryChanges).
     pub async fn chat_contact_query_changes(
         &self,
-        since_query_state: &str,
+        since_query_state: &State,
         max_changes: Option<u64>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        if since_query_state.is_empty() {
+        // Defence-in-depth: see `chat_changes`.
+        if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "chat_contact_query_changes: since_query_state may not be empty".into(),
             ));

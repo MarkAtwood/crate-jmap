@@ -316,11 +316,11 @@ pub struct ChatQueryInput {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct MessageQueryInput<'a> {
-    pub chat_id: Option<&'a str>,
+    pub chat_id: Option<&'a Id>,
     pub has_mention: Option<bool>,
     pub has_attachment: Option<bool>,
     pub text: Option<&'a str>,
-    pub thread_root_id: Option<&'a str>,
+    pub thread_root_id: Option<&'a Id>,
     /// Only include messages received after this time (exclusive).
     pub after: Option<&'a jmap_types::UTCDate>,
     /// Only include messages received before this time (exclusive).
@@ -347,19 +347,19 @@ impl<'a> MessageQueryInput<'a> {
 pub struct MessageCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
-    pub chat_id: &'a str,
+    pub chat_id: &'a Id,
     pub body: &'a str,
     /// MIME type for the message body.
     pub body_type: crate::types::BodyType,
     /// RFC 3339 timestamp.
     pub sent_at: &'a jmap_types::UTCDate,
-    pub reply_to: Option<&'a str>,
+    pub reply_to: Option<&'a Id>,
 }
 
 impl<'a> MessageCreateInput<'a> {
     /// Create a `MessageCreateInput` with required fields; optional fields default to `None`.
     pub fn new(
-        chat_id: &'a str,
+        chat_id: &'a Id,
         body: &'a str,
         body_type: crate::types::BodyType,
         sent_at: &'a jmap_types::UTCDate,
@@ -381,7 +381,7 @@ impl<'a> MessageCreateInput<'a> {
     }
 
     /// Set the message this one replies to.
-    pub fn with_reply_to(mut self, id: &'a str) -> Self {
+    pub fn with_reply_to(mut self, id: &'a Id) -> Self {
         self.reply_to = Some(id);
         self
     }
@@ -453,7 +453,7 @@ pub struct PresenceStatusPatch<'a> {
 pub struct CustomEmojiQueryInput<'a> {
     /// Filter to a specific Space's custom emojis. `None` returns all emojis
     /// visible to the account (Space-specific + server-global).
-    pub filter_space_id: Option<&'a str>,
+    pub filter_space_id: Option<&'a Id>,
     pub position: Option<u64>,
     pub limit: Option<u64>,
 }
@@ -467,14 +467,14 @@ pub struct CustomEmojiCreateInput<'a> {
     /// Shortcode name without colons (e.g., `catjam`).
     pub name: &'a str,
     /// blobId of the emoji image (already uploaded).
-    pub blob_id: &'a str,
+    pub blob_id: &'a Id,
     /// If `Some`, limits the emoji to the given Space. `None` = server-global.
-    pub space_id: Option<&'a str>,
+    pub space_id: Option<&'a Id>,
 }
 
 impl<'a> CustomEmojiCreateInput<'a> {
     /// Create a `CustomEmojiCreateInput` with required fields; optional fields default to `None`.
-    pub fn new(name: &'a str, blob_id: &'a str) -> Self {
+    pub fn new(name: &'a str, blob_id: &'a Id) -> Self {
         Self {
             client_id: None,
             name,
@@ -496,15 +496,15 @@ impl<'a> CustomEmojiCreateInput<'a> {
 pub struct SpaceInviteCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
-    pub space_id: &'a str,
-    pub default_channel_id: Option<&'a str>,
+    pub space_id: &'a Id,
+    pub default_channel_id: Option<&'a Id>,
     pub expires_at: Option<&'a jmap_types::UTCDate>,
     pub max_uses: Option<u64>,
 }
 
 impl<'a> SpaceInviteCreateInput<'a> {
     /// Create a `SpaceInviteCreateInput` with required fields; optional fields default to `None`.
-    pub fn new(space_id: &'a str) -> Self {
+    pub fn new(space_id: &'a Id) -> Self {
         Self {
             client_id: None,
             space_id,
@@ -533,16 +533,16 @@ impl<'a> SpaceInviteCreateInput<'a> {
 pub struct SpaceBanCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
-    pub space_id: &'a str,
+    pub space_id: &'a Id,
     /// ChatContact.id of the user to ban.
-    pub user_id: &'a str,
+    pub user_id: &'a Id,
     pub reason: Option<&'a str>,
     pub expires_at: Option<&'a jmap_types::UTCDate>,
 }
 
 impl<'a> SpaceBanCreateInput<'a> {
     /// Create a `SpaceBanCreateInput` with required fields; optional fields default to `None`.
-    pub fn new(space_id: &'a str, user_id: &'a str) -> Self {
+    pub fn new(space_id: &'a Id, user_id: &'a Id) -> Self {
         Self {
             client_id: None,
             space_id,
@@ -608,7 +608,7 @@ pub struct SpaceCreateInput<'a> {
     /// Display name for the Space.
     pub name: &'a str,
     pub description: Option<&'a str>,
-    pub icon_blob_id: Option<&'a str>,
+    pub icon_blob_id: Option<&'a Id>,
 }
 
 impl<'a> SpaceCreateInput<'a> {
@@ -650,7 +650,7 @@ pub enum SpaceJoinInput<'a> {
     /// Redeem a SpaceInvite by its `code` field (not its `id`).
     InviteCode(&'a str),
     /// Join a public Space directly by its JMAP id.
-    SpaceId(&'a str),
+    SpaceId(&'a Id),
 }
 
 /// One entry in the `addMembers` patch key for `Chat/set` update.
@@ -658,14 +658,14 @@ pub enum SpaceJoinInput<'a> {
 #[derive(Debug)]
 pub struct AddMemberInput<'a> {
     /// ChatContact.id of the member to add.
-    pub id: &'a str,
+    pub id: &'a Id,
     /// Role for the new member. `None` lets the server apply the default (`"member"`).
     pub role: Option<crate::types::ChatMemberRole>,
 }
 
 impl<'a> AddMemberInput<'a> {
     /// Create an `AddMemberInput`; `role` defaults to `None` (server assigns default).
-    pub fn new(id: &'a str) -> Self {
+    pub fn new(id: &'a Id) -> Self {
         Self { id, role: None }
     }
 
@@ -681,14 +681,14 @@ impl<'a> AddMemberInput<'a> {
 #[derive(Debug)]
 pub struct UpdateMemberRoleInput<'a> {
     /// ChatContact.id of the member to update.
-    pub id: &'a str,
+    pub id: &'a Id,
     /// New role for this member.
     pub role: crate::types::ChatMemberRole,
 }
 
 impl<'a> UpdateMemberRoleInput<'a> {
     /// Create an `UpdateMemberRoleInput` with the target member and their new role.
-    pub fn new(id: &'a str, role: crate::types::ChatMemberRole) -> Self {
+    pub fn new(id: &'a Id, role: crate::types::ChatMemberRole) -> Self {
         Self { id, role }
     }
 }
@@ -706,7 +706,7 @@ pub enum ChatCreateInput<'a> {
         /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
         client_id: Option<&'a str>,
         /// ChatContact.id of the other participant.
-        contact_id: &'a str,
+        contact_id: &'a Id,
     },
     /// Create a group chat.
     Group {
@@ -715,9 +715,9 @@ pub enum ChatCreateInput<'a> {
         /// Display name for the group.
         name: &'a str,
         /// ChatContact.ids of initial non-owner members.
-        member_ids: &'a [&'a str],
+        member_ids: &'a [Id],
         description: Option<&'a str>,
-        avatar_blob_id: Option<&'a str>,
+        avatar_blob_id: Option<&'a Id>,
         message_expiry_seconds: Option<u64>,
     },
     /// Create a channel chat inside a Space.
@@ -725,7 +725,7 @@ pub enum ChatCreateInput<'a> {
         /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
         client_id: Option<&'a str>,
         /// The Space this channel belongs to.
-        space_id: &'a str,
+        space_id: &'a Id,
         /// Display name for the channel.
         name: &'a str,
         description: Option<&'a str>,
@@ -748,7 +748,7 @@ pub struct ChatPatch<'a> {
     pub mute_until: Patch<&'a jmap_types::UTCDate>,
     pub receive_typing_indicators: Option<bool>,
     /// Replace the entire pinned-message list. `Some(&[])` clears all pins.
-    pub pinned_message_ids: Option<&'a [&'a str]>,
+    pub pinned_message_ids: Option<&'a [Id]>,
     /// Spec defines this as `UnsignedInt` (non-nullable).
     pub message_expiry_seconds: Option<u64>,
     pub receipt_sharing: Option<bool>,
@@ -757,11 +757,11 @@ pub struct ChatPatch<'a> {
     /// `Patch::Clear` clears; `Patch::Set(s)` sets (group chats, admin only).
     pub description: Patch<&'a str>,
     /// `Patch::Clear` clears; `Patch::Set(id)` sets (group chats, admin only).
-    pub avatar_blob_id: Patch<&'a str>,
+    pub avatar_blob_id: Patch<&'a Id>,
     /// Members to add (group chats, admin only). `None` = no change.
     pub add_members: Option<&'a [AddMemberInput<'a>]>,
     /// ChatContact.ids to remove (group chats, admin only). `None` = no change.
-    pub remove_members: Option<&'a [&'a str]>,
+    pub remove_members: Option<&'a [Id]>,
     /// Role changes for existing members (group chats, admin only). `None` = no change.
     pub update_member_roles: Option<&'a [UpdateMemberRoleInput<'a>]>,
 }
@@ -771,14 +771,14 @@ pub struct ChatPatch<'a> {
 #[derive(Debug)]
 pub struct SpaceAddMemberInput<'a> {
     /// ChatContact.id of the member to add.
-    pub id: &'a str,
+    pub id: &'a Id,
     /// Initial role IDs for the new member. `None` grants no extra roles beyond `@everyone`.
-    pub role_ids: Option<&'a [&'a str]>,
+    pub role_ids: Option<&'a [Id]>,
 }
 
 impl<'a> SpaceAddMemberInput<'a> {
     /// Create a `SpaceAddMemberInput`; `role_ids` defaults to `None`.
-    pub fn new(id: &'a str) -> Self {
+    pub fn new(id: &'a Id) -> Self {
         Self { id, role_ids: None }
     }
 }
@@ -788,15 +788,15 @@ impl<'a> SpaceAddMemberInput<'a> {
 #[derive(Debug)]
 pub struct SpaceUpdateMemberInput<'a> {
     /// ChatContact.id of the member to update.
-    pub id: &'a str,
-    pub role_ids: Option<&'a [&'a str]>,
+    pub id: &'a Id,
+    pub role_ids: Option<&'a [Id]>,
     /// `Patch::Clear` clears the nick; `Patch::Set(s)` sets it.
     pub nick: Patch<&'a str>,
 }
 
 impl<'a> SpaceUpdateMemberInput<'a> {
     /// Create a `SpaceUpdateMemberInput`; optional fields default to `None`/`Keep`.
-    pub fn new(id: &'a str) -> Self {
+    pub fn new(id: &'a Id) -> Self {
         Self {
             id,
             role_ids: None,
@@ -810,7 +810,7 @@ impl<'a> SpaceUpdateMemberInput<'a> {
 #[derive(Debug)]
 pub struct SpaceAddChannelInput<'a> {
     pub name: &'a str,
-    pub category_id: Option<&'a str>,
+    pub category_id: Option<&'a Id>,
     pub position: Option<u64>,
     pub topic: Option<&'a str>,
 }
@@ -842,19 +842,19 @@ pub struct SpacePatch<'a> {
     /// `Patch::Clear` clears; `Patch::Set(s)` sets.
     pub description: Patch<&'a str>,
     /// `Patch::Clear` clears; `Patch::Set(id)` sets.
-    pub icon_blob_id: Patch<&'a str>,
+    pub icon_blob_id: Patch<&'a Id>,
     pub is_public: Option<bool>,
     pub is_publicly_previewable: Option<bool>,
     /// Members to add (`manage_members` required). `None` = no change.
     pub add_members: Option<&'a [SpaceAddMemberInput<'a>]>,
     /// ChatContact.ids to remove (`manage_members` required). `None` = no change.
-    pub remove_members: Option<&'a [&'a str]>,
+    pub remove_members: Option<&'a [Id]>,
     /// Member updates (`manage_members` required). `None` = no change.
     pub update_members: Option<&'a [SpaceUpdateMemberInput<'a>]>,
     /// Channels to add (`manage_channels` required). `None` = no change.
     pub add_channels: Option<&'a [SpaceAddChannelInput<'a>]>,
     /// Channel Chat ids to remove (`manage_channels` required). `None` = no change.
-    pub remove_channels: Option<&'a [&'a str]>,
+    pub remove_channels: Option<&'a [Id]>,
 }
 
 /// Input parameters for `PushSubscription/set` create (RFC 8620 §7.2).
@@ -879,7 +879,7 @@ pub struct PushSubscriptionCreateInput<'a> {
     pub types: Option<&'a [&'a str]>,
     /// Per-account ChatPushConfig entries for inline push. Each entry is
     /// `(accountId, config)`. Pass `None` to omit the `chatPush` property.
-    pub chat_push: Option<&'a [(&'a str, jmap_chat_types::ChatPushConfig)]>,
+    pub chat_push: Option<&'a [(&'a Id, jmap_chat_types::ChatPushConfig)]>,
 }
 
 impl<'a> PushSubscriptionCreateInput<'a> {
@@ -910,7 +910,7 @@ impl<'a> PushSubscriptionCreateInput<'a> {
     /// Attach per-account ChatPushConfig entries for inline push.
     pub fn with_chat_push(
         mut self,
-        chat_push: &'a [(&'a str, jmap_chat_types::ChatPushConfig)],
+        chat_push: &'a [(&'a Id, jmap_chat_types::ChatPushConfig)],
     ) -> Self {
         self.chat_push = Some(chat_push);
         self
