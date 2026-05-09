@@ -230,13 +230,25 @@ impl WsSession {
 }
 
 /// Parse a raw WebSocket text frame into a `WsFrame`.
+///
+/// Two passes over `text`:
+///
+/// 1. Parse to [`serde_json::Value`] to extract `@type` (and to keep a
+///    structured fallback alive for the Unknown branch).
+/// 2. For the typed branches (`StateChange`, `Response`), call
+///    [`serde_json::from_str`] directly against the original `text`.
+///
+/// The previous shape `let raw = val.clone(); from_value::<T>(val)` paid a
+/// deep Value clone on every successful frame even though `raw` was thrown
+/// away. For 1-MiB-cap WS messages on a hot push path, the clone allocates
+/// a HashMap per `Value::Object` and a `String` per `Value::String` and
+/// dropped them moments later. Two text parses are cheaper for typical
+/// payload shapes than one parse + one deep Value clone, and the borrow
+/// checker no longer needs ownership tricks (bd:JMAP-6lsm.11).
 fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
     let val: serde_json::Value =
         serde_json::from_str(text).map_err(crate::error::ClientError::Parse)?;
 
-    // Pre-extract type_name as owned String before moving val into from_value.
-    // The borrow checker prevents borrowing val (for @type) and moving val
-    // (into from_value) in the same expression, so ownership must be taken first.
     let type_name = val
         .get("@type")
         .and_then(|v| v.as_str())
@@ -245,24 +257,25 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
 
     match type_name.as_str() {
         // A malformed StateChange is degraded to Unknown rather than a
-        // transport error. A single bad server frame must not kill the entire
-        // WebSocket connection; only tungstenite transport errors warrant
-        // a reconnect.
-        "StateChange" => {
-            let raw = val.clone();
-            match serde_json::from_value::<StateChange>(val) {
-                Ok(sc) => Ok(WsFrame::StateChange(sc)),
-                Err(_) => Ok(WsFrame::Unknown { type_name, raw }),
-            }
-        }
+        // transport error. A single bad server frame must not kill the
+        // entire WebSocket connection; only tungstenite transport errors
+        // warrant a reconnect. The `val` we already parsed is the Unknown
+        // payload — no clone needed.
+        "StateChange" => match serde_json::from_str::<StateChange>(text) {
+            Ok(sc) => Ok(WsFrame::StateChange(sc)),
+            Err(_) => Ok(WsFrame::Unknown {
+                type_name,
+                raw: val,
+            }),
+        },
         // Same degradation policy for malformed Response frames.
-        "Response" => {
-            let raw = val.clone();
-            match serde_json::from_value::<jmap_types::JmapResponse>(val) {
-                Ok(r) => Ok(WsFrame::Response(r)),
-                Err(_) => Ok(WsFrame::Unknown { type_name, raw }),
-            }
-        }
+        "Response" => match serde_json::from_str::<jmap_types::JmapResponse>(text) {
+            Ok(r) => Ok(WsFrame::Response(r)),
+            Err(_) => Ok(WsFrame::Unknown {
+                type_name,
+                raw: val,
+            }),
+        },
         _ => Ok(WsFrame::Unknown {
             type_name,
             raw: val,
