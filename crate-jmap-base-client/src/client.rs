@@ -764,8 +764,7 @@ fn validate_session_url_schemes(session: &Session) -> Result<(), ClientError> {
     ] {
         if !is_http_or_https(url) {
             return Err(ClientError::InvalidSession(format!(
-                "session URL has non-http/https scheme: {:?}",
-                url
+                "session URL has non-http/https scheme: {url:?}"
             )));
         }
     }
