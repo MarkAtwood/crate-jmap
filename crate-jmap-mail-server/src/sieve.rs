@@ -18,11 +18,11 @@ pub(crate) const SIEVE_ERR_IS_ACTIVE: &str = "sieveIsActive";
 /// but for the test backend a hard ceiling of 100 is a reasonable default.
 const MAX_SIEVE_SCRIPTS: usize = 100;
 
-use std::collections::{HashMap, HashSet};
-
 use jmap_mail_types::SieveScript;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use serde::Deserialize;
 use serde_json::{json, Value};
+use std::collections::{HashMap, HashSet};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
@@ -174,7 +174,7 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
     let ids: Option<Vec<Id>> = match args.get("ids").unwrap_or(&Value::Null) {
         Value::Null => None,
         v => Some(
-            serde_json::from_value(v.clone())
+            Vec::<Id>::deserialize(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
     };
@@ -182,7 +182,7 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
     let properties: Option<Vec<String>> = match args.get("properties").unwrap_or(&Value::Null) {
         Value::Null => None,
         v => Some(
-            serde_json::from_value(v.clone())
+            Vec::<String>::deserialize(v)
                 .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
         ),
     };

@@ -2,6 +2,7 @@
 
 use jmap_mail_types::{query::EmailFilter, SearchSnippet};
 use jmap_types::{Id, Invocation, JmapError};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::MailBackend;
@@ -43,7 +44,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     }
 
     let email_ids: Vec<Id> = match args.get("emailIds") {
-        Some(v) if !v.is_null() => serde_json::from_value(v.clone())
+        Some(v) if !v.is_null() => Vec::<Id>::deserialize(v)
             .map_err(|_| JmapError::invalid_arguments("emailIds must be an Id array"))?,
         _ => return Err(JmapError::invalid_arguments("emailIds is required")),
     };
@@ -54,7 +55,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     let condition = match args.get("filter") {
         None | Some(Value::Null) => None,
         Some(v) => {
-            let filter: EmailFilter = serde_json::from_value(v.clone())
+            let filter = EmailFilter::deserialize(v)
                 .map_err(|_| JmapError::invalid_arguments("invalid filter"))?;
             match filter {
                 jmap_mail_types::query::Filter::Condition(c) => Some(c),

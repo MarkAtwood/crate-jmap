@@ -15,6 +15,7 @@ use jmap_mail_types::{
     Email, EmailSubmission, Identity,
 };
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
@@ -153,7 +154,7 @@ pub async fn handle_submission_query<B: MailBackend>(
     let filter: Option<EmailSubmissionFilter> = match args.get("filter") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            EmailSubmissionFilter::deserialize(v)
                 .map_err(|e| JmapError::invalid_arguments(e.to_string()))?,
         ),
     };
@@ -571,7 +572,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                 };
                 // Convert wire-format Value into a typed PatchObject before
                 // the immutable-field guard. RFC 8620 §5.3.
-                let patch = match serde_json::from_value::<PatchObject>(patch_val.clone()) {
+                let patch = match PatchObject::deserialize(patch_val) {
                     Ok(p) => p,
                     Err(e) => {
                         email_not_updated.insert(
@@ -789,7 +790,7 @@ async fn process_create<B: MailBackend>(
             }
             Envelope::new(mail_from, rcpt_to)
         }
-        Some(v) => serde_json::from_value(v.clone()).map_err(|e| {
+        Some(v) => Envelope::deserialize(v).map_err(|e| {
             CreateError::SetError(
                 SetError::new(SetErrorType::InvalidProperties)
                     .with_properties(["envelope"])

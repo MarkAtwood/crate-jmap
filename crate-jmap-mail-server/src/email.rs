@@ -5,6 +5,7 @@ use std::collections::{HashMap, HashSet};
 
 use jmap_mail_types::{Email, Keyword};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend};
@@ -1369,7 +1370,7 @@ fn parse_mailbox_ids(entry: &Value, rfc_ref: &str) -> Result<Vec<Id>, Value> {
 fn parse_keywords_field(entry: &Value) -> Result<Vec<Keyword>, Value> {
     let raw_keywords_map: HashMap<String, bool> = match entry.get("keywords") {
         None | Some(Value::Null) => HashMap::new(),
-        Some(v) => match serde_json::from_value(v.clone()) {
+        Some(v) => match HashMap::<String, bool>::deserialize(v) {
             Ok(kws) => kws,
             Err(_) => {
                 return Err(json!({"type": "invalidProperties", "properties": ["keywords"]}));
@@ -1474,7 +1475,7 @@ async fn build_email_from_create<B: MailBackend>(
     // same as keywords, so the stored object never has false mailboxId entries.
     let mailbox_ids: HashMap<Id, bool> = obj_val
         .get("mailboxIds")
-        .and_then(|v| serde_json::from_value::<HashMap<Id, bool>>(v.clone()).ok())
+        .and_then(|v| HashMap::<Id, bool>::deserialize(v).ok())
         .map(|m| m.into_iter().filter(|(_, v)| *v).collect())
         .unwrap_or_default();
 
@@ -1482,7 +1483,7 @@ async fn build_email_from_create<B: MailBackend>(
     // filter to true entries only.
     let raw_keywords: HashMap<String, bool> = match obj_val.get("keywords") {
         None | Some(Value::Null) => HashMap::new(),
-        Some(v) => serde_json::from_value(v.clone())
+        Some(v) => HashMap::<String, bool>::deserialize(v)
             .map_err(|_| "keywords: invalid keyword or format".to_owned())?,
     };
     let keywords =
@@ -1497,7 +1498,7 @@ async fn build_email_from_create<B: MailBackend>(
     let in_reply_to: Option<Vec<String>> = match obj_val.get("inReplyTo") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            Vec::<String>::deserialize(v)
                 .map_err(|_| "inReplyTo: must be an array of strings".to_owned())?,
         ),
     };
@@ -1505,7 +1506,7 @@ async fn build_email_from_create<B: MailBackend>(
     let references: Option<Vec<String>> = match obj_val.get("references") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
-            serde_json::from_value(v.clone())
+            Vec::<String>::deserialize(v)
                 .map_err(|_| "references: must be an array of strings".to_owned())?,
         ),
     };
