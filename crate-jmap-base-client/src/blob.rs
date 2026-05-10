@@ -1,5 +1,7 @@
 //! Blob upload/download operations and supporting types (RFC 8620 §6.1, §6.2)
 
+use std::borrow::Cow;
+
 use futures::StreamExt as _;
 use jmap_types::Id;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
@@ -126,15 +128,27 @@ pub fn expand_url_template(template: &str, vars: &[(&str, &str)]) -> Result<Stri
 }
 
 /// Percent-encode a string value per RFC 3986 §2.3 unreserved character set.
-fn percent_encode(value: &str) -> String {
-    let mut out = String::with_capacity(value.len());
-    for byte in value.bytes() {
-        if byte.is_ascii_alphanumeric()
-            || byte == b'-'
-            || byte == b'.'
-            || byte == b'_'
-            || byte == b'~'
-        {
+///
+/// The return type is [`Cow<'_, str>`](Cow) so the common JMAP case — inputs
+/// that contain only unreserved characters (alphanumeric / `-` / `.` / `_` /
+/// `~`) such as account ids and blob ids — borrows the input slice and
+/// performs no allocation. Inputs that contain any byte requiring percent-
+/// escape allocate a fresh string with the encoded form.
+fn percent_encode(value: &str) -> Cow<'_, str> {
+    // Fast path: scan for the first byte that needs escaping. If none, no
+    // allocation is required.
+    let first_escape = value.bytes().position(|b| !is_unreserved(b));
+    let Some(first) = first_escape else {
+        return Cow::Borrowed(value);
+    };
+
+    // Allocate only when at least one byte needs escaping. Reserve at least
+    // enough capacity for the unchanged prefix plus the three-byte encoding
+    // of the first escaped byte; further escapes will grow as needed.
+    let mut out = String::with_capacity(value.len() + 2);
+    out.push_str(&value[..first]);
+    for byte in value.as_bytes()[first..].iter().copied() {
+        if is_unreserved(byte) {
             out.push(char::from(byte));
         } else {
             out.push('%');
@@ -142,7 +156,12 @@ fn percent_encode(value: &str) -> String {
             out.push(hex_nibble_upper(byte & 0x0f));
         }
     }
-    out
+    Cow::Owned(out)
+}
+
+/// Returns `true` if `byte` is in the RFC 3986 §2.3 unreserved set.
+fn is_unreserved(byte: u8) -> bool {
+    byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'.' || byte == b'_' || byte == b'~'
 }
 
 /// Returns the uppercase hex character for `nibble` (0–15).
@@ -466,6 +485,49 @@ mod tests {
         )
         .expect("extra vars must be silently ignored");
         assert_eq!(result, "https://example.com/upload/acc1/");
+    }
+
+    // Oracle: RFC 3986 §2.3 — for inputs containing only unreserved
+    // characters (alphanumeric / `-` / `.` / `_` / `~`), percent_encode
+    // MUST return Cow::Borrowed without allocating. Verified by the
+    // matches! check against the Cow::Borrowed variant.
+    #[test]
+    fn percent_encode_unreserved_input_borrows() {
+        let input = "abc.DEF_123-xyz~tilde";
+        let result = percent_encode(input);
+        assert!(matches!(result, Cow::Borrowed(_)));
+        assert_eq!(result.as_ref(), input);
+    }
+
+    // Oracle: RFC 3986 §2.1 — inputs that contain any byte outside the
+    // unreserved set MUST be returned as Cow::Owned with each non-unreserved
+    // byte percent-escaped using uppercase hex (§2.1 mandates uppercase).
+    #[test]
+    fn percent_encode_with_space_is_owned_and_uppercase() {
+        let input = "hello world";
+        let result = percent_encode(input);
+        assert!(matches!(result, Cow::Owned(_)));
+        assert_eq!(result.as_ref(), "hello%20world");
+    }
+
+    // Oracle: RFC 3986 §2.1 — slash 0x2F encodes as %2F (uppercase hex).
+    // Mixed-content input MUST preserve the unreserved prefix verbatim
+    // and escape only the disallowed bytes.
+    #[test]
+    fn percent_encode_mixed_input_preserves_prefix() {
+        let input = "image/png";
+        let result = percent_encode(input);
+        assert!(matches!(result, Cow::Owned(_)));
+        assert_eq!(result.as_ref(), "image%2Fpng");
+    }
+
+    // Oracle: degenerate empty input. An empty string has no bytes requiring
+    // escape, so percent_encode MUST borrow it without allocation.
+    #[test]
+    fn percent_encode_empty_input_borrows() {
+        let result = percent_encode("");
+        assert!(matches!(result, Cow::Borrowed(_)));
+        assert_eq!(result.as_ref(), "");
     }
 
     // Oracle: tests/fixtures/blob/upload_response.json — hand-written fixture
