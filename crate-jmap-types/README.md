@@ -21,6 +21,38 @@ spec requires.
 | `ResultReference` | §9 | Reference to a prior method's result |
 | `Argument<T>` | §9 | A method argument that is either a value or a `ResultReference` |
 
+The `query` module also re-exports the generic filter algebra used across the
+crate family: `Filter<T>`, `FilterOperator<T>`, and `Operator` (RFC 8620 §5.5).
+
+## Filter extensibility
+
+Filter and comparator types in this crate — the generic `Filter<T>`,
+`FilterOperator<T>`, and `Operator` — are **intentionally not extensible** via
+vendor "extras" fields. A filter clause the server does not understand silently
+breaks query correctness: the client gets the wrong set of records back with no
+error signal. So these types deliberately have no `extra` catch-all field, and
+`Operator` has no `Unknown(String)` variant. The same exclusion applies to
+every per-object `FilterCondition` / `Comparator` / `ComparatorProperty` type
+in the downstream `jmap-*-types` crates.
+
+Vendors who need to filter on custom fields have two options:
+
+- **IETF-track (recommended).** Use `draft-ietf-jmap-metadata` (capability URI
+  `urn:ietf:params:jmap:metadata`), which defines a `Metadata` / `Annotation`
+  companion object keyed by `(relatedType, relatedId)` with capability-declared
+  schema (`metadataTypes` / `maxDepth`) and a `Metadata/query` `textMatch`
+  filter. This is the workspace's recommended path for vendor data that needs
+  to be queryable; the implementation tracker is bd JMAP-06zp.
+- **Pre-IETF escape.** If you cannot wait for the metadata draft, escape the
+  filter tree to `serde_json::Value` or fork the per-crate `FilterCondition`
+  type. See
+  [`crate-jmap-calendars-types/PLAN.md`](../crate-jmap-calendars-types/PLAN.md)
+  for the hybrid sloppy-value pattern.
+
+This policy is part of the workspace extras-preservation policy documented in
+the workspace [`AGENTS.md`](../AGENTS.md); the filter-algebra exclusion
+decision is bd JMAP-lbdy.
+
 ## Why
 
 Client crates and server crates both need these types, but neither should pull in

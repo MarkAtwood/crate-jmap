@@ -53,6 +53,34 @@ Property enum types re-exported from the `backend` sub-module:
 Capability URI string constants: `JMAP_CALENDARS_URI`,
 `JMAP_CALENDARS_PARSE_URI`, `JMAP_PRINCIPALS_AVAILABILITY_URI`.
 
+## Filter extensibility
+
+Filter and comparator types in this crate — `CalendarFilterCondition`,
+`CalendarEventFilterCondition`, `CalendarEventComparator`,
+`NotificationFilterCondition`, and the generic `Filter<T>` / `Operator`
+re-exported from `jmap-types` — are **intentionally not extensible** via
+vendor "extras" fields. A filter clause the server does not understand
+silently breaks query correctness: the client gets the wrong set of records
+back with no error signal. So these types deliberately have no `extra`
+catch-all field.
+
+Vendors who need to filter on custom fields have two options:
+
+- **IETF-track (recommended).** Use `draft-ietf-jmap-metadata` (capability URI
+  `urn:ietf:params:jmap:metadata`), which defines a `Metadata` / `Annotation`
+  companion object keyed by `(relatedType, relatedId)` with capability-declared
+  schema (`metadataTypes` / `maxDepth`) and a `Metadata/query` `textMatch`
+  filter. This is the workspace's recommended path for vendor data that needs
+  to be queryable; the implementation tracker is bd JMAP-06zp.
+- **Pre-IETF escape.** If you cannot wait for the metadata draft, escape the
+  filter tree to `serde_json::Value` or fork the `FilterCondition` types.
+  See [`PLAN.md`](PLAN.md) in this crate for the hybrid sloppy-value pattern
+  this crate already uses for JSCalendar-shaped fields.
+
+This policy is part of the workspace extras-preservation policy documented in
+the workspace [`AGENTS.md`](../AGENTS.md); the filter-algebra exclusion
+decision is bd JMAP-lbdy.
+
 ## Spec coverage
 
 ### draft-ietf-jmap-calendars-26

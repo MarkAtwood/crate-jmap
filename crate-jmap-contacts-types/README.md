@@ -23,6 +23,33 @@ JSContact sub-objects (`Name`, `EmailAddress`, `Phone`, `Address`, etc.) are
 `ContactCard` are `Option<serde_json::Value>` — see
 [Known Limitations](#known-limitations) below.
 
+## Filter extensibility
+
+Filter and comparator types in this crate — `ContactCardFilterCondition`,
+`ContactCardComparator`, and the generic `Filter<T>` / `Operator` re-exported
+from `jmap-types` — are **intentionally not extensible** via vendor "extras"
+fields. A filter clause the server does not understand silently breaks query
+correctness: the client gets the wrong set of records back with no error
+signal. So these types deliberately have no `extra` catch-all field.
+
+Vendors who need to filter on custom fields have two options:
+
+- **IETF-track (recommended).** Use `draft-ietf-jmap-metadata` (capability URI
+  `urn:ietf:params:jmap:metadata`), which defines a `Metadata` / `Annotation`
+  companion object keyed by `(relatedType, relatedId)` with capability-declared
+  schema (`metadataTypes` / `maxDepth`) and a `Metadata/query` `textMatch`
+  filter. This is the workspace's recommended path for vendor data that needs
+  to be queryable; the implementation tracker is bd JMAP-06zp.
+- **Pre-IETF escape.** If you cannot wait for the metadata draft, escape the
+  filter tree to `serde_json::Value` or fork the `ContactCardFilterCondition`
+  type. See
+  [`crate-jmap-calendars-types/PLAN.md`](../crate-jmap-calendars-types/PLAN.md)
+  for the hybrid sloppy-value pattern.
+
+This policy is part of the workspace extras-preservation policy documented in
+the workspace [`AGENTS.md`](../AGENTS.md); the filter-algebra exclusion
+decision is bd JMAP-lbdy.
+
 ## Spec coverage
 
 | Feature | Status |

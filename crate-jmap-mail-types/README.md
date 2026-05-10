@@ -52,6 +52,36 @@ between `jmap-types` (shared wire primitives from RFC 8620) and `jmap-mail-serve
 | `SearchSnippetProperty` | — | Enum of legal `SearchSnippet` property names |
 | `VacationResponseProperty` | — | Enum of legal `VacationResponse` property names |
 
+## Filter extensibility
+
+Filter and comparator types in this crate — `EmailFilterCondition`,
+`EmailComparator`, `ComparatorProperty`, `EmailSubmissionFilterCondition`,
+`MailboxFilterCondition`, and the generic `Filter<T>` / `Operator` re-exported
+from `jmap-types` — are **intentionally not extensible** via vendor "extras"
+fields. A filter clause the server does not understand silently breaks query
+correctness: the client gets the wrong set of records back with no error
+signal. So these types deliberately have no `extra` catch-all field, and
+control enums (`Operator`, `ComparatorProperty`) have no generic
+`Unknown(String)` variant for query dispatch.
+
+Vendors who need to filter on custom fields have two options:
+
+- **IETF-track (recommended).** Use `draft-ietf-jmap-metadata` (capability URI
+  `urn:ietf:params:jmap:metadata`), which defines a `Metadata` / `Annotation`
+  companion object keyed by `(relatedType, relatedId)` with capability-declared
+  schema (`metadataTypes` / `maxDepth`) and a `Metadata/query` `textMatch`
+  filter. This is the workspace's recommended path for vendor data that needs
+  to be queryable; the implementation tracker is bd JMAP-06zp.
+- **Pre-IETF escape.** If you cannot wait for the metadata draft, escape the
+  filter tree to `serde_json::Value` or fork the `EmailFilterCondition` type.
+  See
+  [`crate-jmap-calendars-types/PLAN.md`](../crate-jmap-calendars-types/PLAN.md)
+  for the hybrid sloppy-value pattern.
+
+This policy is part of the workspace extras-preservation policy documented in
+the workspace [`AGENTS.md`](../AGENTS.md); the filter-algebra exclusion
+decision is bd JMAP-lbdy.
+
 ## Optional Features
 
 Two Cargo features gate optional RFC extension modules. Both are off by default;
