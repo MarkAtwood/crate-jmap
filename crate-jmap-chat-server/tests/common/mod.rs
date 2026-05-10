@@ -371,8 +371,8 @@ impl ChatBackend for MemoryBackend {
         let mut val = serde_json::to_value(&obj)
             .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
         val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
-        let stored_obj: O = O::deserialize(&val)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let stored_obj: O =
+            O::deserialize(&val).map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
 
         inner.known_accounts.insert(account_id.as_ref().to_owned());
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
