@@ -337,7 +337,7 @@ mod tests {
             "list": [{"id": "x", "name": "First"}],
             "notFound": ["missing1"]
         });
-        let resp: GetResponse<serde_json::Value> = serde_json::from_value(raw.clone()).unwrap();
+        let resp = GetResponse::<serde_json::Value>::deserialize(&raw).unwrap();
         assert_eq!(resp.account_id.as_ref(), "A1");
         assert_eq!(resp.state, "s42");
         assert_eq!(resp.list.len(), 1);
@@ -453,7 +453,7 @@ mod tests {
             "invalidRecipients": ["bad@", "no@no"],
             "maxSize": 10485760
         });
-        let err: SetError = serde_json::from_value(raw.clone()).unwrap();
+        let err = SetError::deserialize(&raw).unwrap();
         assert_eq!(err.error_type, "alreadyExists");
         assert_eq!(err.description.as_deref(), Some("conflict"));
         assert_eq!(err.properties.as_ref().unwrap()[0], "name");
@@ -501,7 +501,7 @@ mod tests {
             "description": "slow-mode active",
             "serverRetryAfter": "2026-01-01T00:00:00Z"
         });
-        let err: SetError = serde_json::from_value(raw.clone()).unwrap();
+        let err = SetError::deserialize(&raw).unwrap();
         assert_eq!(err.error_type, "rateLimited");
         assert_eq!(err.description.as_deref(), Some("slow-mode active"));
         assert_eq!(
@@ -600,7 +600,7 @@ mod tests {
     #[test]
     fn added_item_round_trips() {
         let raw = json!({"id": "foo", "index": 7});
-        let item: AddedItem = serde_json::from_value(raw.clone()).unwrap();
+        let item = AddedItem::deserialize(&raw).unwrap();
         assert_eq!(item.id.as_ref(), "foo");
         assert_eq!(item.index, 7);
         assert_eq!(serde_json::to_value(&item).unwrap(), raw);
