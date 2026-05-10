@@ -5,6 +5,7 @@
 
 use jmap_tasks_types::Task;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, TasksBackend};
@@ -42,7 +43,7 @@ pub async fn handle_task_get<B: TasksBackend>(
     if want_utc {
         if let Some(Value::Array(list)) = response.get_mut("list") {
             for item in list.iter_mut() {
-                if let Ok(task) = serde_json::from_value::<Task>(item.clone()) {
+                if let Ok(task) = Task::deserialize(&*item) {
                     let (utc_start, utc_due) = backend.compute_task_utc_times(&task, None);
                     if let Some(s) = utc_start {
                         item["utcStart"] = Value::String(s);
