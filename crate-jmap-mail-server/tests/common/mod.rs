@@ -2618,7 +2618,7 @@ fn parse_disposition_field(value: &str) -> Option<serde_json::Value> {
 
     // RFC 8098 §3.2.6 allows modifiers after a '/' in the disposition-type token,
     // e.g. "displayed/error". Extract only the part before the first '/' as the type.
-    let type_base = type_part.splitn(2, '/').next()?.trim();
+    let type_base = type_part.split('/').next()?.trim();
     if !matches!(
         type_base,
         "deleted" | "dispatched" | "displayed" | "processed"
