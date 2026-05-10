@@ -493,7 +493,8 @@ impl JmapBackend for MemoryBackend {
                     .map(|map| {
                         map.iter()
                             .filter_map(|(id, val)| {
-                                let sub: EmailSubmission = EmailSubmission::deserialize(val).ok()?;
+                                let sub: EmailSubmission =
+                                    EmailSubmission::deserialize(val).ok()?;
                                 let matches = match (sf, &top_level_sub_sets) {
                                     (Filter::Condition(cond), Some(sets)) => {
                                         submission_matches_condition(&sub, cond, sets)

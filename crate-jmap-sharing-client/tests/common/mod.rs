@@ -68,5 +68,3 @@ pub fn make_client(server: &MockServer) -> jmap_sharing_client::SessionClient {
     .expect("make_client: JmapClient construction must succeed");
     client.with_sharing_session(make_session(server))
 }
-
-

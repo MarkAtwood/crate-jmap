@@ -150,7 +150,11 @@ async fn mdn_send_success() {
 
     // Oracle: after onSuccessUpdateEmail, fetching the email shows $mdnsent: true.
     let (emails, not_found) = backend
-        .get_objects::<jmap_mail_types::Email>(&account_id, Some(std::slice::from_ref(&email_id)), None)
+        .get_objects::<jmap_mail_types::Email>(
+            &account_id,
+            Some(std::slice::from_ref(&email_id)),
+            None,
+        )
         .await
         .expect("get_objects must succeed");
     assert!(
