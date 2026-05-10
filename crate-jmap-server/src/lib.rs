@@ -12,7 +12,7 @@ pub use jmap_types::{
 
 pub mod backend;
 pub mod handlers;
-pub(crate) mod helpers;
+mod helpers;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
