@@ -311,7 +311,8 @@ fn calendar_event_scalar_fields() {
     assert_eq!(ev.color.as_deref(), Some("red"));
 }
 
-/// CalendarEvent with recurrenceOverrides as serde_json::Value round-trips.
+/// CalendarEvent with recurrenceOverrides round-trips through the typed
+/// `HashMap<String, PatchObject>` envelope.
 /// Oracle: RFC 8984 §4.3.2 recurrenceOverrides description.
 #[test]
 fn calendar_event_recurrence_overrides_passthrough() {
@@ -338,9 +339,69 @@ fn calendar_event_recurrence_overrides_passthrough() {
         .recurrence_overrides
         .as_ref()
         .expect("recurrenceOverrides");
-    // Verify the key exists in the passthrough value.
-    let key = &overrides["2024-06-22T09:00:00"];
-    assert_eq!(key["title"], "Rescheduled meeting");
+    // Verify the key exists in the typed PatchObject envelope.
+    let patch = overrides
+        .get("2024-06-22T09:00:00")
+        .expect("override key present");
+    assert_eq!(
+        patch.as_map().get("title"),
+        Some(&serde_json::Value::String("Rescheduled meeting".to_owned()))
+    );
+}
+
+/// Wire format for `recurrenceOverrides` is byte-identical between the old
+/// `Option<Value>` shape and the new `Option<HashMap<String, PatchObject>>`
+/// shape, because `PatchObject` is `#[serde(transparent)]`.
+/// Oracle: hand-written JSON literal (independent of the type under test).
+#[test]
+fn calendar_event_recurrence_overrides_wire_format_is_object_map() {
+    let json = r#"{
+        "id": "ev-rt-overrides",
+        "calendarIds": {"cal-001": true},
+        "recurrenceOverrides": {
+            "2024-06-22T09:00:00": {"title": "Rescheduled"}
+        }
+    }"#;
+    let ev: CalendarEvent = serde_json::from_str(json).expect("deserialize");
+    let out: serde_json::Value = serde_json::to_value(&ev).expect("serialize");
+    let expected: serde_json::Value = serde_json::from_str(json).expect("expected as Value");
+    // Compare structurally — both serializations carry the same JSON object map.
+    assert_eq!(
+        out["recurrenceOverrides"], expected["recurrenceOverrides"],
+        "wire format must be byte-identical for object-map input"
+    );
+}
+
+/// CalendarEvent with localizations round-trips through the typed
+/// `HashMap<String, PatchObject>` envelope.
+/// Oracle: RFC 8984 §4.6 localizations description.
+#[test]
+fn calendar_event_localizations_passthrough() {
+    let json = r#"{
+        "id": "ev-loc",
+        "calendarIds": {"cal-001": true},
+        "title": "Lunch",
+        "localizations": {
+            "fr": {"title": "Déjeuner"},
+            "es": {"title": "Almuerzo"}
+        }
+    }"#;
+    let ev: CalendarEvent = serde_json::from_str(json).expect("localizations CalendarEvent");
+    let locs = ev.localizations.as_ref().expect("localizations");
+    let fr = locs.get("fr").expect("fr override");
+    assert_eq!(
+        fr.as_map().get("title"),
+        Some(&serde_json::Value::String("Déjeuner".to_owned()))
+    );
+    let es = locs.get("es").expect("es override");
+    assert_eq!(
+        es.as_map().get("title"),
+        Some(&serde_json::Value::String("Almuerzo".to_owned()))
+    );
+    // Wire format byte-identical via PatchObject's #[serde(transparent)].
+    let out: serde_json::Value = serde_json::to_value(&ev).expect("serialize");
+    let expected: serde_json::Value = serde_json::from_str(json).expect("expected as Value");
+    assert_eq!(out["localizations"], expected["localizations"]);
 }
 
 /// CalendarEvent round-trip preserves all present fields.
@@ -467,7 +528,13 @@ fn notification_deserialize() {
     assert_eq!(n.is_draft, Some(false));
     assert_eq!(n.event["title"], "Original Title");
     let patch = n.event_patch.as_ref().expect("eventPatch");
-    assert_eq!(patch["title"], "New Title");
+    assert_eq!(
+        patch.as_map().get("title"),
+        Some(&serde_json::Value::String("New Title".to_owned()))
+    );
+    // Wire format byte-identical via PatchObject's #[serde(transparent)].
+    let out: serde_json::Value = serde_json::to_value(&n).expect("serialize notification");
+    assert_eq!(out["eventPatch"]["title"], "New Title");
 }
 
 /// A `created` notification has no eventPatch.

@@ -8,7 +8,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{Id, PatchObject};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -226,9 +226,12 @@ pub struct MdnSendRequest {
     pub send: HashMap<String, Mdn>,
     /// Patches to apply to Email objects on successful send.
     ///
-    /// Keys are Email IDs; values are PatchObjects (RFC 8620 §5.3).
+    /// Keys are Email IDs (or `#creationId` references resolved by the
+    /// dispatcher); values are PatchObjects (RFC 8620 §5.3). Both
+    /// [`Id`] and [`PatchObject`] are `#[serde(transparent)]`, so the
+    /// wire format is byte-identical to a `HashMap<String, Object>`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_success_update_email: Option<HashMap<String, Value>>,
+    pub on_success_update_email: Option<HashMap<Id, PatchObject>>,
 }
 
 /// Response object for `MDN/send` (RFC 9007 §3.1).
@@ -411,6 +414,74 @@ mod tests {
         assert_eq!(req.identity_id.as_ref(), "idt1");
         assert!(req.send.contains_key("k1"));
         assert!(req.on_success_update_email.is_none());
+    }
+
+    /// Verify MdnSendRequest round-trips with `onSuccessUpdateEmail`
+    /// populated — the typed shape `HashMap<Id, PatchObject>` MUST be
+    /// wire-byte-identical to a `HashMap<String, Object>` because both
+    /// `Id` and `PatchObject` are `#[serde(transparent)]`.
+    ///
+    /// Oracle: hand-written JSON literal taken from RFC 9007 §3.1
+    /// (`onSuccessUpdateEmail` field shape) and RFC 8620 §5.3
+    /// (PatchObject path-key syntax with the `keywords/$mdnsent`
+    /// example used in the MDN/send acceptance flow).
+    #[test]
+    fn mdn_send_request_on_success_update_email_roundtrip() {
+        // Raw-string fence is `r##"..."##` because the JSON body itself
+        // contains a `#` (in the `#k1` creation-id reference key) — a
+        // single-`#` raw-string fence would terminate prematurely.
+        let json = r##"{
+            "accountId": "acc1",
+            "identityId": "idt1",
+            "send": {
+                "k1": {
+                    "forEmailId": "e1",
+                    "disposition": {
+                        "actionMode": "manual-action",
+                        "sendingMode": "mdn-sent-manually",
+                        "type": "displayed"
+                    }
+                }
+            },
+            "onSuccessUpdateEmail": {
+                "#k1": { "keywords/$mdnsent": true }
+            }
+        }"##;
+        let req: MdnSendRequest = serde_json::from_str(json).unwrap();
+
+        // Verify the typed shape: Id key, PatchObject value.
+        let patches = req
+            .on_success_update_email
+            .as_ref()
+            .expect("onSuccessUpdateEmail must deserialize as Some");
+        let key = Id::from("#k1");
+        let patch = patches
+            .get(&key)
+            .expect("patch for #k1 must be present after round-trip");
+        assert_eq!(
+            patch.as_map().get("keywords/$mdnsent"),
+            Some(&serde_json::json!(true)),
+            "patch leaf must round-trip the boolean true"
+        );
+        assert_eq!(patch.as_map().len(), 1, "exactly one leaf in the patch");
+
+        // Re-serialize and compare just the `onSuccessUpdateEmail` subtree
+        // structurally. Comparing the whole document would also pick up the
+        // pre-existing `Mdn::include_original_message` serialise-default
+        // behaviour, which is unrelated to this migration.
+        //
+        // Equality of these two subtrees proves that both `Id`
+        // (the map key type) and `PatchObject` (the map value type) are
+        // wire-byte-identical to plain `String` and `Object` — i.e. that
+        // `#[serde(transparent)]` is doing what we claim it does.
+        let re_serialized = serde_json::to_value(&req).unwrap();
+        let original: serde_json::Value = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            re_serialized.get("onSuccessUpdateEmail"),
+            original.get("onSuccessUpdateEmail"),
+            "onSuccessUpdateEmail must round-trip wire-byte-identical \
+             through HashMap<Id, PatchObject>"
+        );
     }
 
     /// Verify MdnParseResponse round-trips with camelCase field names.

@@ -198,10 +198,16 @@ concrete typed structs:
 
 | Field | Why `Value` |
 |---|---|
-| `recurrenceOverrides` | Values are PatchObjects — `String → *` maps where values can be arbitrary JSON or null (RFC 8620 §7). Typing the patch targets exhaustively would require an enum of every possible CalendarEvent field. |
-| `localizations` | Values are also PatchObjects keyed by language tag; same reasoning. |
 | `timeZones` | Custom VTIMEZONE definitions (RFC 8984 §4.7.2) are a complex nested format requiring a full timezone parser. Almost no caller needs to construct these. |
 | `locations`, `virtualLocations`, `links`, `participants`, `alerts`, `recurrenceRules`, `excludedRecurrenceRules`, `keywords`, `categories`, `replyTo`, `relatedTo` | JSCalendar defines these as open-ended maps/arrays where values are rich nested objects. Concrete types for each exist in the `jscalendar` module; callers that need typed access deserialize the `Value` themselves using those types. |
+
+The fields `recurrenceOverrides` and `localizations` use a typed envelope —
+`Option<HashMap<String, jmap_types::PatchObject>>` — because they ARE
+RFC 8620 §5.3 PatchObjects at the JMAP layer.  The outer envelope is
+typed; the inner `PatchObject` leaves remain `serde_json::Value` to
+preserve per-leaf JSCalendar shape flexibility.  Wire format is
+byte-identical to a plain JSON object map via `PatchObject`'s
+`#[serde(transparent)]`.
 
 This is the correct representation, not laziness — do not change these to
 typed structs without reading RFC 8984 §3.3 on extensibility.
@@ -221,12 +227,16 @@ pub ical_component: Option<String>,
 
 ## Known Limitations
 
-- **`recurrenceOverrides`, `localizations`, `timeZones`, `links`, `participants`,
-  `alerts`, `locations`, `virtualLocations`** use `HashMap<String, serde_json::Value>`
-  or `Option<serde_json::Value>` because JSCalendar defines these as open-ended maps
-  where values are complex nested objects. Callers needing typed access must
-  deserialize the `Value` themselves using the concrete types in the `jscalendar`
-  module.
+- **`timeZones`, `links`, `participants`, `alerts`, `locations`,
+  `virtualLocations`** use `Option<serde_json::Value>` because JSCalendar
+  defines these as open-ended maps where values are complex nested
+  objects. Callers needing typed access must deserialize the `Value`
+  themselves using the concrete types in the `jscalendar` module.
+- **`recurrenceOverrides`, `localizations`** use
+  `Option<HashMap<String, jmap_types::PatchObject>>`: the outer envelope
+  is typed (RFC 8620 §5.3 PatchObject) while inner leaves remain `Value`
+  for JSCalendar shape flexibility. Construct via
+  `PatchObject::from_map(...)` or `Map::into()`.
 
 - **`iCalComponent: Option<String>`** carries raw base64-encoded iCalendar data
   with no validation. The crate does not parse or validate the iCalendar content;

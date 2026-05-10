@@ -175,7 +175,7 @@ A field absent from the server response must not fail deserialization.
 | `recurrence_id_time_zone` | `recurrenceIdTimeZone` | `Option<String>` |
 | `recurrence_rules` | `recurrenceRules` | `Option<Vec<serde_json::Value>>` |
 | `excluded_recurrence_rules` | `excludedRecurrenceRules` | `Option<Vec<serde_json::Value>>` |
-| `recurrence_overrides` | `recurrenceOverrides` | `Option<HashMap<String, serde_json::Value>>` |
+| `recurrence_overrides` | `recurrenceOverrides` | `Option<HashMap<String, jmap_types::PatchObject>>` | per-instance PatchObject overrides |
 | `excluded` | `excluded` | `Option<bool>` |
 
 **JSCalendar Sharing/Scheduling Properties** (RFC 8984 §4.4, gated on assignees extension for participants):
@@ -201,7 +201,7 @@ A field absent from the server response must not fail deserialization.
 
 | Rust field | Wire name | Type |
 |---|---|---|
-| `localizations` | `localizations` | `Option<HashMap<String, serde_json::Value>>` |
+| `localizations` | `localizations` | `Option<HashMap<String, jmap_types::PatchObject>>` | BCP 47 language tag → PatchObject |
 
 **JSCalendar Time Zone Properties** (RFC 8984 §4.7):
 
@@ -278,7 +278,7 @@ catch-all handles vendor-specific and future IANA-registered values.
 | `task_id` | `taskId` | `Id` | id of the Task this notification is about |
 | `is_draft` | `isDraft` | `Option<bool>` | only for created/updated |
 | `task` | `task` | `Option<serde_json::Value>` | Task data before change (updated/destroyed) or after (created) |
-| `task_patch` | `taskPatch` | `Option<serde_json::Value>` | PatchObject; updated only |
+| `task_patch` | `taskPatch` | `Option<jmap_types::PatchObject>` | RFC 8620 §5.3 PatchObject; updated only |
 
 `NotificationType` enum: `Created`, `Updated`, `Destroyed`. Wire: `"created"`,
 `"updated"`, `"destroyed"`.

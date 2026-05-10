@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{Id, PatchObject};
 use serde::{Deserialize, Serialize};
 
 /// A JMAP ContactCard object (RFC 9610 §3).
@@ -150,9 +150,15 @@ pub struct ContactCard {
     pub media: Option<serde_json::Value>,
 
     // ── RFC 9553 §2.7 Multilingual ───────────────────────────────────────
-    /// Localization patches map: language-tag → PatchObject.
+    /// Localization patches map: BCP 47 language-tag →
+    /// [`PatchObject`](jmap_types::PatchObject).
+    ///
+    /// Wire format is byte-identical to a plain JSON object via
+    /// `#[serde(transparent)]` on `PatchObject`. The typed shape enforces the
+    /// outer object-map structure at the type system level; inner patch
+    /// values remain opaque JSON (per RFC 8620 §5.3).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub localizations: Option<serde_json::Value>,
+    pub localizations: Option<HashMap<String, PatchObject>>,
 
     // ── RFC 9553 §2.8 Additional ─────────────────────────────────────────
     /// Anniversaries map: id → Anniversary object.

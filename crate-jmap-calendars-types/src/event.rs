@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{Id, PatchObject};
 use serde::{Deserialize, Serialize};
 
 /// A JMAP CalendarEvent object (draft-ietf-jmap-calendars-26 §5; RFC 8984 §5.1).
@@ -24,6 +24,15 @@ use serde::{Deserialize, Serialize};
 /// while preserving full round-trip fidelity.  Consumers that need to
 /// manipulate these fields should parse the `Value` using the concrete types in
 /// [`crate::jscalendar`].
+///
+/// ## PatchObject envelopes
+///
+/// `recurrenceOverrides` and `localizations` are typed as
+/// `Option<HashMap<String, jmap_types::PatchObject>>`: the outer envelope
+/// is JMAP-level (RFC 8620 §5.3 PatchObject) while the inner leaves stay
+/// `serde_json::Value` to preserve per-leaf JSCalendar flexibility.  Wire
+/// format is byte-identical to the prior opaque `Option<Value>` shape via
+/// `#[serde(transparent)]` on `PatchObject`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -188,9 +197,17 @@ pub struct CalendarEvent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub excluded_recurrence_rules: Option<serde_json::Value>,
 
-    /// Map of `LocalDateTime` string → PatchObject for per-occurrence overrides.
+    /// Map of `LocalDateTime` string → [`PatchObject`] for per-occurrence
+    /// overrides (RFC 8984 §4.3.2).
+    ///
+    /// Outer envelope is typed at the JMAP level: keys are LocalDateTime
+    /// strings and values are JMAP `PatchObject` (RFC 8620 §5.3) wire
+    /// objects.  The inner `PatchObject` leaves remain `serde_json::Value`
+    /// so per-occurrence overrides retain full JSCalendar shape flexibility
+    /// (Sloppy-Value at the leaf, typed at the envelope).  Wire format is
+    /// byte-identical via `#[serde(transparent)]`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recurrence_overrides: Option<serde_json::Value>,
+    pub recurrence_overrides: Option<HashMap<String, PatchObject>>,
 
     /// If `true`, this occurrence is excluded from the series.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -235,9 +252,17 @@ pub struct CalendarEvent {
     pub alerts: Option<serde_json::Value>,
 
     // ── JSCalendar multilingual properties (RFC 8984 §4.6) ───────────────────
-    /// Map of language tag → PatchObject for per-language overrides.
+    /// Map of language tag → [`PatchObject`] for per-language overrides
+    /// (RFC 8984 §4.6).
+    ///
+    /// Outer envelope is typed at the JMAP level: keys are BCP 47 language
+    /// tags and values are JMAP `PatchObject` (RFC 8620 §5.3) wire objects.
+    /// The inner `PatchObject` leaves remain `serde_json::Value` so per-
+    /// language overrides retain full JSCalendar shape flexibility (Sloppy-
+    /// Value at the leaf, typed at the envelope).  Wire format is byte-
+    /// identical via `#[serde(transparent)]`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub localizations: Option<serde_json::Value>,
+    pub localizations: Option<HashMap<String, PatchObject>>,
 
     // ── JSCalendar time zone properties (RFC 8984 §4.7) ───────────────────────
     /// IANA time zone id for the event's start/end times.

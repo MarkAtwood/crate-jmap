@@ -6,7 +6,7 @@
 //! task lists the user is subscribed to.  Notifications are stored in the
 //! same Account as the Task that was changed.
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{impl_string_enum, Id, PatchObject};
 use serde::{Deserialize, Serialize};
 
 use crate::task::Person;
@@ -84,8 +84,10 @@ pub struct TaskNotification {
 
     /// A patch encoding the change between `task` and the state after the
     /// update.  Present for `updated` notifications only.
+    ///
+    /// Encoded as a `PatchObject` (RFC 8620 §5.3).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub task_patch: Option<serde_json::Value>,
+    pub task_patch: Option<PatchObject>,
 }
 
 /// Filter condition for `TaskNotification/query` (draft-tasks-06 §5.5.1).

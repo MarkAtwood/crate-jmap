@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{impl_string_enum, Id, PatchObject};
 use serde::{Deserialize, Serialize};
 
 /// Progress status of a Task (RFC 8984 §5.2.5).
@@ -320,7 +320,7 @@ pub struct Task {
 
     /// Map of LocalDateTime → PatchObject for per-instance overrides.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub recurrence_overrides: Option<HashMap<String, serde_json::Value>>,
+    pub recurrence_overrides: Option<HashMap<String, PatchObject>>,
 
     /// If true, this instance is excluded from the recurrence set.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -372,7 +372,7 @@ pub struct Task {
     // Gated on the multilingual extension at the handler layer.
     /// Map of BCP 47 language tag → patch object for localised property values.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub localizations: Option<HashMap<String, serde_json::Value>>,
+    pub localizations: Option<HashMap<String, PatchObject>>,
 
     // --- JSCalendar Time Zone Properties (RFC 8984 §4.7) ---
     /// IANA Time Zone Database id for interpreting `start` and `due`.

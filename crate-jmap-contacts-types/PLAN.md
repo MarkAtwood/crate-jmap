@@ -127,13 +127,24 @@ The contacts draft (§3.3.1) defines filter conditions with field names like
 contain forward slashes.  In Rust, they map to struct fields with
 `#[serde(rename = "name/given")]` attributes.
 
-### 10. PartialDate, Localization, and other JSContact value shapes
+### 10. PartialDate and other JSContact value shapes
 
-RFC 9553 defines several value shapes (e.g. `PartialDate` for anniversaries,
-`PatchObject` for localizations) that ride inside the JSContact collection
-fields. Because those fields are `serde_json::Value` on `ContactCard`, this
-crate does not represent them as typed structs. Wire shapes pass through serde
-untouched; semantic validation lives in the handler or the caller.
+RFC 9553 defines several value shapes (e.g. `PartialDate` for anniversaries)
+that ride inside the JSContact collection fields. Because those fields are
+`serde_json::Value` on `ContactCard`, this crate does not represent them as
+typed structs. Wire shapes pass through serde untouched; semantic validation
+lives in the handler or the caller.
+
+**Exception — typed envelope for `localizations`:** the `localizations` field
+was promoted from `Option<serde_json::Value>` to
+`Option<HashMap<String, jmap_types::PatchObject>>` per JMAP-46s0 (epic
+JMAP-trmz, the cross-extension PatchObject typed-envelope sweep). This
+matches the canonical shape in `jmap-tasks-types::Task::localizations` and
+encodes the RFC 9553 §2.7 contract — `language-tag → PatchObject` — at the
+type system level. The wire format is byte-identical to the previous
+`Value` shape via `#[serde(transparent)]` on `PatchObject`; only the outer
+object-map structure is now enforced at deserialize time. Inner patch
+values remain opaque per RFC 8620 §5.3.
 
 ### 11. Enum catch-alls — open-ended string enums via `string_enum!`
 
@@ -212,7 +223,7 @@ pub struct ContactCard {
     pub directories: Option<serde_json::Value>,
     pub links: Option<serde_json::Value>,
     pub media: Option<serde_json::Value>,
-    pub localizations: Option<serde_json::Value>,
+    pub localizations: Option<HashMap<String, jmap_types::PatchObject>>,
     pub anniversaries: Option<serde_json::Value>,
     pub keywords: Option<HashMap<String, bool>>,
     pub notes: Option<serde_json::Value>,
