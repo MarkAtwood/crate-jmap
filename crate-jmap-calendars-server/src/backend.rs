@@ -92,8 +92,8 @@ pub use jmap_types::PatchObject;
 /// `notCreated`/`notUpdated`/`notDestroyed` map entry.
 ///
 /// Per-user-only updates (every patch key matches
-/// [`is_per_user_property`](Self::is_per_user_property)) bypass these
-/// methods and go through
+/// [`is_per_user_calendar_event_property`](jmap_calendars_types::is_per_user_calendar_event_property))
+/// bypass these methods and go through
 /// [`update_per_user_properties`](Self::update_per_user_properties) instead,
 /// since per-user changes do not generate iTIP REQUEST or CANCEL messages
 /// (§5.9.2.1).
@@ -135,19 +135,6 @@ pub trait CalendarsBackend: JmapBackend {
     /// called internally by the handler library. Backends that support all
     /// types unconditionally can return `true` always.
     fn supports_type<O: JmapObject>(&self) -> bool;
-
-    /// Returns `true` if `prop` is a per-user [`CalendarEvent`](jmap_calendars_types::CalendarEvent) property
-    /// (draft-ietf-jmap-calendars-26 §5.4).
-    ///
-    /// Per-user properties — `keywords`, `color`, `freeBusyStatus`,
-    /// `useDefaultAlerts`, and `alerts` — belong to the authenticated user and
-    /// MUST NOT change the shared `updated` timestamp when patched.
-    fn is_per_user_property(prop: &str) -> bool {
-        matches!(
-            prop,
-            "keywords" | "color" | "freeBusyStatus" | "useDefaultAlerts" | "alerts"
-        )
-    }
 
     /// Apply a patch that contains only per-user [`CalendarEvent`](jmap_calendars_types::CalendarEvent) properties
     /// (draft-ietf-jmap-calendars-26 §5.4).
@@ -210,8 +197,9 @@ pub trait CalendarsBackend: JmapBackend {
     /// can deliver to.
     ///
     /// Per-user-only updates (every patch key matches
-    /// [`is_per_user_property`](Self::is_per_user_property)) are routed
-    /// through [`update_per_user_properties`](Self::update_per_user_properties)
+    /// [`is_per_user_calendar_event_property`](jmap_calendars_types::is_per_user_calendar_event_property))
+    /// are routed through
+    /// [`update_per_user_properties`](Self::update_per_user_properties)
     /// by the handler and never reach this method.
     ///
     /// The default implementation ignores `args` and delegates to

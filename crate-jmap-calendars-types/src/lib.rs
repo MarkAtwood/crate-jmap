@@ -58,6 +58,6 @@ pub use participant_identity::ParticipantIdentity;
 // ── Backend re-exports ────────────────────────────────────────────────────────
 
 pub use backend::{
-    CalendarEventNotificationProperty, CalendarEventProperty, CalendarProperty,
-    ParticipantIdentityProperty,
+    is_per_user_calendar_event_property, CalendarEventNotificationProperty, CalendarEventProperty,
+    CalendarProperty, ParticipantIdentityProperty, PER_USER_CALENDAR_EVENT_PROPERTIES,
 };

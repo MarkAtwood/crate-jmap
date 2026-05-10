@@ -54,6 +54,39 @@ pub enum CalendarEventProperty {
     Status,
 }
 
+/// Names of [`CalendarEvent`](crate::CalendarEvent) properties that the JMAP
+/// Calendars draft (draft-ietf-jmap-calendars-26 §5.4) classifies as
+/// **per-user**.
+///
+/// Per-user properties belong to the authenticated user's view of the event;
+/// patching them MUST NOT change the shared `updated` timestamp on the
+/// underlying object. Backends serving multiple users SHOULD store these
+/// separately from the shared event body.
+///
+/// This list mirrors the IANA-registered set in §10.8.2 of the draft and is
+/// intentionally not exposed as a typed enum because several of these
+/// properties — `keywords`, `color`, `freeBusyStatus`, `alerts` — are
+/// reserved as future additions to [`CalendarEventProperty`] but not yet
+/// enumerated there.
+pub const PER_USER_CALENDAR_EVENT_PROPERTIES: &[&str] = &[
+    "keywords",
+    "color",
+    "freeBusyStatus",
+    "useDefaultAlerts",
+    "alerts",
+];
+
+/// Returns `true` if `name` is a per-user [`CalendarEvent`](crate::CalendarEvent)
+/// property name per draft-ietf-jmap-calendars-26 §5.4.
+///
+/// See [`PER_USER_CALENDAR_EVENT_PROPERTIES`] for the full set. This is a
+/// wire-protocol property classification: the spec list is fixed by IANA
+/// registration and backends MUST NOT redefine it.
+#[must_use]
+pub fn is_per_user_calendar_event_property(name: &str) -> bool {
+    PER_USER_CALENDAR_EVENT_PROPERTIES.contains(&name)
+}
+
 /// Property selector for [`crate::CalendarEventNotification`] `/get`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
@@ -149,4 +182,57 @@ impl SetObject for crate::ParticipantIdentity {
 impl QueryObject for crate::ParticipantIdentity {
     type Filter = serde_json::Value;
     type Comparator = serde_json::Value;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Pinning test: the per-user property list MUST match the IANA-registered
+    /// set in draft-ietf-jmap-calendars-26 §5.4 / §10.8.2 exactly. Update this
+    /// table only when the spec list itself changes.
+    #[test]
+    fn per_user_calendar_event_properties_match_spec() {
+        assert_eq!(
+            PER_USER_CALENDAR_EVENT_PROPERTIES,
+            &[
+                "keywords",
+                "color",
+                "freeBusyStatus",
+                "useDefaultAlerts",
+                "alerts"
+            ]
+        );
+    }
+
+    #[test]
+    fn is_per_user_classifies_spec_properties_as_true() {
+        for name in PER_USER_CALENDAR_EVENT_PROPERTIES {
+            assert!(
+                is_per_user_calendar_event_property(name),
+                "expected {name} to be classified per-user"
+            );
+        }
+    }
+
+    #[test]
+    fn is_per_user_classifies_shared_properties_as_false() {
+        // Spot-check a few shared (non-per-user) properties from the draft.
+        for shared in &["id", "title", "start", "duration", "calendarIds", "uid"] {
+            assert!(
+                !is_per_user_calendar_event_property(shared),
+                "expected {shared} to be classified shared"
+            );
+        }
+    }
+
+    #[test]
+    fn is_per_user_rejects_unknown_property() {
+        assert!(!is_per_user_calendar_event_property(""));
+        assert!(!is_per_user_calendar_event_property("notARealProperty"));
+        // Property-path forms like "alerts/abc" are NOT classified per-user;
+        // the routing logic must look at the top-level patch key after
+        // expanding any nested path.
+        assert!(!is_per_user_calendar_event_property("alerts/abc"));
+    }
 }

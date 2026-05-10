@@ -356,7 +356,10 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             // must NOT be routed to the per-user code path.
             let is_per_user_only = patch_val
                 .as_object()
-                .map(|m| m.iter().all(|(k, _)| B::is_per_user_property(k)))
+                .map(|m| {
+                    m.iter()
+                        .all(|(k, _)| jmap_calendars_types::is_per_user_calendar_event_property(k))
+                })
                 .unwrap_or(false);
 
             // Convert wire-format Value into a typed PatchObject at the
