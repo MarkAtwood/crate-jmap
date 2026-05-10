@@ -207,11 +207,17 @@ Other commands that may prompt: `scp`/`ssh` — use `-o BatchMode=yes`; `apt-get
 Commit freely after completing logical units of work — no need to ask permission per
 commit. Push freely too: just `git push`. The agent is the only thing pushing to
 `origin/main`, so there is no `pull --rebase` ritual to dance through before each
-push. If the push fails because someone else snuck a commit in (rare but possible),
-*then* run `git pull --rebase && git push` — but make the simple `git push` the
-default.
+push.
 
-Exceptions where you should still pause:
+If a push is rejected for any reason — non-fast-forward, network, auth, anything —
+**stop and ask the human**. Do NOT run `git pull --rebase`, do NOT merge, do NOT
+force-push, do NOT `git reset` to "recover". Those operations are all in the same
+family of history-rewriting moves that have destroyed work in this repo before, and
+they must never be invoked from a script or by an agent without explicit human
+authorization for that specific recovery action. Local commits are safe sitting on
+the local branch; leave them there and ask.
+
+Exceptions where you should still pause even on the happy path:
 - `git push --force` to `main` — never without explicit user instruction.
 - Any push that would land secrets, credentials, or `.env`-shaped files.
 - Any commit that creates files the user explicitly did not ask for (the
@@ -251,11 +257,12 @@ until `git push` succeeds.
 3. **Update issue status** — close finished work, update in-progress items
 4. **Push to remote**:
    ```bash
-   git push                         # simple push; no pull --rebase ritual
+   git push                         # plain push only; do NOT add pull --rebase
    bd dolt push                     # only if a Dolt remote is configured
    git status                       # MUST show "up to date with origin"
    ```
-   If `git push` is rejected because someone else pushed in the meantime
-   (rare — agent is the only writer), then `git pull --rebase && git push`.
+   If `git push` is rejected for any reason, **stop and ask the human**. Do not
+   `pull --rebase`, do not merge, do not force-push, do not `git reset`. See the
+   "Git Commit and Push Policy" section above for why.
 5. **Clean up** — clear stashes, prune remote branches
 6. **Hand off** — provide context for next session
