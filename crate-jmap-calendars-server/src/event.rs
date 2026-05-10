@@ -339,15 +339,15 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 
             let id = Id::from(id_str.as_str());
 
-            // §5.4: if every top-level patch key is a per-user property
-            // (or null), route to update_per_user_properties so the backend
-            // can store it without touching the shared updated timestamp.
+            // §5.4: if every top-level patch key is a per-user property,
+            // route to update_per_user_properties so the backend can store
+            // it without touching the shared updated timestamp. Routing is
+            // by property identity only: clearing a shared property
+            // (`{"title": null}`) is still a shared-property mutation and
+            // must NOT be routed to the per-user code path.
             let is_per_user_only = patch_val
                 .as_object()
-                .map(|m| {
-                    m.iter()
-                        .all(|(k, v)| v.is_null() || B::is_per_user_property(k))
-                })
+                .map(|m| m.iter().all(|(k, _)| B::is_per_user_property(k)))
                 .unwrap_or(false);
 
             // Convert wire-format Value into a typed PatchObject at the
@@ -1560,6 +1560,38 @@ mod tests {
         assert!(
             !*backend.per_user_called.lock().unwrap(),
             "update_per_user_properties must NOT be called for a mixed patch"
+        );
+    }
+
+    /// Regression for JMAP-r3pg.15: a patch that *clears* shared properties
+    /// (all values null, all keys are shared) must route to the shared
+    /// `update_object` path, NOT `update_per_user_properties`. The earlier
+    /// routing predicate accepted `v.is_null()` as a per-user match, which
+    /// would have mis-routed `{"title": null, "description": null}` to the
+    /// per-user code path even though both keys are shared properties.
+    ///
+    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — the per-user property set
+    /// is fixed (`keywords`, `color`, `freeBusyStatus`, `useDefaultAlerts`,
+    /// `alerts`); routing is by property identity, not by value.
+    #[tokio::test]
+    async fn set_update_clear_shared_properties_routes_to_update_object() {
+        let backend = routing::TrackingBackend::new();
+        let args = json!({
+            "accountId": "acc",
+            "update": {
+                "ev1": { "title": null, "description": null }
+            }
+        });
+        let _ = handle_calendar_event_set(&backend, args).await;
+
+        assert!(
+            *backend.update_called.lock().unwrap(),
+            "update_object must be called when shared properties are cleared"
+        );
+        assert!(
+            !*backend.per_user_called.lock().unwrap(),
+            "update_per_user_properties must NOT be called when shared \
+             properties are cleared"
         );
     }
 
