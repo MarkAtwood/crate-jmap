@@ -14,7 +14,6 @@ categories = ["network-programming", "asynchronous", "api-bindings"]
 jmap-types = { workspace = true }
 jmap-sharing-types = { workspace = true }
 jmap-base-client = { workspace = true }
-serde = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]

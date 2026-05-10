@@ -148,3 +148,17 @@ jobs:
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
+
+  # -------------------------------------------------------------------------
+  # machete — detects dependencies declared in Cargo.toml but never used in
+  # the crate's source. Catches the "I added it for one experiment and
+  # forgot to remove it" failure mode and the "declared in workspace.deps
+  # template but no consumer" failure mode. Cheap (<10s). See bd:JMAP-sc1b.58
+  # for the motivating workspace survey.
+  # -------------------------------------------------------------------------
+  machete:
+    name: machete
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: bnjbvr/cargo-machete@main
