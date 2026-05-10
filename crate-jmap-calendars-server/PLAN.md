@@ -605,9 +605,5 @@ P0/P1 children are closed; remaining items are tracked here for context:
   async fns; `tokio::sync::Mutex` would be safer.
 - **bd:JMAP-r3pg.20** (P4) — `pub(crate) test_support` import-path cleanup.
 - **bd:JMAP-r3pg.21** (P4) — capability URI re-export vs crate-local const.
-- **bd:JMAP-r3pg.22** (P4) — narrow tokio runtime feature surface.
 - **bd:JMAP-r3pg.24** (P4) — public fallible `handle_*` functions missing
   `# Errors` rustdoc sections.
-- **bd:JMAP-r3pg.25** (P3) — `is_per_user_property` lives on the
-  `CalendarsBackend` trait with no `&self`; should be a free function or
-  in `jmap-calendars-types`.

@@ -86,19 +86,11 @@ pub trait CalendarsBackend: JmapBackend {
 
     // --- Calendar-specific introspection ---
 
-    /// Returns true if prop is a per-user CalendarEvent property (draft §5.4).
-    ///
-    /// Per-user properties — keywords, color, freeBusyStatus,
-    /// useDefaultAlerts, and alerts — MUST NOT affect the shared `updated`
-    /// timestamp when patched.
-    ///
-    /// Default: matches exactly those five property names.
-    fn is_per_user_property(prop: &str) -> bool {
-        matches!(
-            prop,
-            "keywords" | "color" | "freeBusyStatus" | "useDefaultAlerts" | "alerts"
-        )
-    }
+    // Per-user-property classification lives in jmap-calendars-types as the
+    // free function `is_per_user_calendar_event_property` and the constant
+    // slice `PER_USER_CALENDAR_EVENT_PROPERTIES`. It is wire-protocol
+    // metadata (draft-ietf-jmap-calendars-26 §5.4 / §10.8.2) and intentionally
+    // not a trait method, so backends cannot redefine the spec list.
 
     /// Apply a patch consisting only of per-user CalendarEvent properties
     /// (draft §5.4).
