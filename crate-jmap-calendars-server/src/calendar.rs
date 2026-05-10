@@ -215,10 +215,18 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     // destroy
     // -----------------------------------------------------------------------
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
+        // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
+        // Reject the whole request if any element is non-string rather than
+        // silently skipping it, which would produce a misleading response.
+        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
+            return Err(JmapError::invalid_arguments(format!(
+                "destroy: every element must be a string Id; got {bad}"
+            )));
+        }
         for id_val in destroy_arr {
             let id_str = match id_val.as_str() {
                 Some(s) => s.to_owned(),
-                None => continue,
+                None => continue, // unreachable: validated above
             };
             let id = Id::from(id_str.as_str());
 
@@ -637,6 +645,29 @@ mod tests {
         assert!(
             calendar_ids.contains_key(&Id::from("cal2")),
             "cal2 must still be in calendarIds: {calendar_ids:?}"
+        );
+    }
+
+    /// JMAP-r3pg.18 — RFC 8620 §5.3: every element of the destroy array MUST
+    /// be a string Id. A non-string element (here `null`) must be rejected
+    /// with an `invalidArguments` method-error rather than silently skipped.
+    ///
+    /// Oracle: the response is a `JmapError`, not a successful set response;
+    /// the error type is `invalidArguments` per RFC 8620 §3.6.1.
+    #[tokio::test]
+    async fn set_destroy_rejects_non_string_entry() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": ["valid-id", null, "another-id"],
+        });
+        let err = handle_calendar_set(&backend, args)
+            .await
+            .expect_err("destroy with non-string entry must error");
+        let err_json = serde_json::to_value(&err).expect("serialize JmapError");
+        assert_eq!(
+            err_json["type"], "invalidArguments",
+            "non-string destroy entry must yield invalidArguments: {err_json}"
         );
     }
 }
