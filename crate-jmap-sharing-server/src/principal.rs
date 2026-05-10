@@ -130,6 +130,15 @@ pub async fn handle_principal_set<B: SharingBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_created.insert(
+                        create_id,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -180,6 +189,15 @@ pub async fn handle_principal_set<B: SharingBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -215,6 +233,15 @@ pub async fn handle_principal_set<B: SharingBackend>(
                     not_destroyed.insert(
                         id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }

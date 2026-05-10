@@ -437,6 +437,15 @@ pub async fn handle_message_set<B: ChatBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -531,6 +540,15 @@ pub async fn handle_message_set<B: ChatBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -566,6 +584,15 @@ pub async fn handle_message_set<B: ChatBackend>(
                     not_destroyed.insert(
                         id_str.to_owned(),
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str.to_owned(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }

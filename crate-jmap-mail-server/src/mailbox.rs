@@ -673,6 +673,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                 json!({ "type": "serverFail", "description": e.to_string() }),
                             );
                         }
+                        Err(_) => {
+                            not_created.insert(
+                                create_id.clone(),
+                                json!({
+                                    "type": "serverFail",
+                                    "description": "unhandled backend error variant",
+                                }),
+                            );
+                        }
                     }
                 }
             }
@@ -819,6 +828,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
 
@@ -904,6 +922,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     not_updated.insert(
                         id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }
@@ -1018,6 +1045,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                                     "batch_destroy_emails {email_id}: {e}"
                                 )));
                             }
+                            Some(_) => {
+                                return Err(JmapError::server_fail(format!(
+                                    "batch_destroy_emails {email_id}: unhandled backend error variant"
+                                )));
+                            }
                         }
                     }
                 }
@@ -1043,6 +1075,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             Err(BackendSetError::Other(e)) => {
                                 return Err(JmapError::server_fail(e.to_string()));
                             }
+                            Err(_) => {
+                                return Err(JmapError::server_fail(
+                                    "unhandled backend error variant",
+                                ));
+                            }
                         }
                     }
                 }
@@ -1064,6 +1101,15 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     not_destroyed.insert(
                         id_str.to_owned(),
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str.to_owned(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }

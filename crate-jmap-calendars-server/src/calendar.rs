@@ -157,6 +157,15 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_created.insert(
+                        create_id,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -205,6 +214,15 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     not_updated.insert(
                         id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }
@@ -280,6 +298,15 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     not_destroyed.insert(
                         id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }
@@ -391,6 +418,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
                         format!("update_object failed: {}", set_err.error_type)
                     }
                     BackendSetError::Other(err) => err.to_string(),
+                    _ => "update_object failed: unhandled backend error variant".to_owned(),
                 })?;
         } else {
             // Single-calendar (this one): destroy the event outright.
@@ -402,6 +430,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
                         format!("destroy_object failed: {}", set_err.error_type)
                     }
                     BackendSetError::Other(err) => err.to_string(),
+                    _ => "destroy_object failed: unhandled backend error variant".to_owned(),
                 })?;
         }
     }

@@ -141,6 +141,15 @@ pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }

@@ -270,6 +270,7 @@ impl<'de> serde::Deserialize<'de> for SetErrorType {
 }
 
 /// Error type returned by create/update/destroy backend methods.
+#[non_exhaustive]
 #[derive(Debug)]
 pub enum BackendSetError<E> {
     /// A well-typed JMAP [`SetError`] to place verbatim in the

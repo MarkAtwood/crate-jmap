@@ -139,6 +139,15 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_created.insert(
+                        create_id,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -185,6 +194,15 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -219,6 +237,15 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                     not_destroyed.insert(
                         id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }
