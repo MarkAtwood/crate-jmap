@@ -195,7 +195,7 @@ mod tests {
     #[test]
     fn principal_roundtrip() {
         let json = rfc_principal_json();
-        let p: Principal = serde_json::from_value(json.clone()).expect("deserialize");
+        let p = Principal::deserialize(&json).expect("deserialize");
         let serialized = serde_json::to_value(&p).expect("serialize");
         let p2: Principal = serde_json::from_value(serialized).expect("deserialize again");
         assert_eq!(p, p2);
@@ -330,8 +330,7 @@ mod tests {
             "type": "individual",
             "timeZone": "UTC"
         });
-        let fc: PrincipalFilterCondition =
-            serde_json::from_value(json.clone()).expect("deserialize filter");
+        let fc = PrincipalFilterCondition::deserialize(&json).expect("deserialize filter");
         assert_eq!(fc.name.as_deref(), Some("Joe"));
         assert_eq!(fc.email.as_deref(), Some("joe@example.com"));
         assert_eq!(fc.type_, Some(PrincipalType::Individual));

@@ -88,7 +88,7 @@ mod tests {
     #[test]
     fn principals_capability_roundtrip() {
         let json = json!({ "currentUserPrincipalId": "P42" });
-        let cap: PrincipalsCapability = serde_json::from_value(json.clone()).expect("deserialize");
+        let cap = PrincipalsCapability::deserialize(&json).expect("deserialize");
         let serialized = serde_json::to_value(&cap).expect("serialize");
         let cap2: PrincipalsCapability =
             serde_json::from_value(serialized).expect("deserialize again");
@@ -102,8 +102,8 @@ mod tests {
             "accountIdForPrincipal": "acc-principals",
             "principalId": "P2342fnddd20"
         });
-        let cap: PrincipalsOwnerCapability =
-            serde_json::from_value(json.clone()).expect("deserialize PrincipalsOwnerCapability");
+        let cap = PrincipalsOwnerCapability::deserialize(&json)
+            .expect("deserialize PrincipalsOwnerCapability");
         assert_eq!(cap.account_id_for_principal, "acc-principals");
         assert_eq!(cap.principal_id, "P2342fnddd20");
 

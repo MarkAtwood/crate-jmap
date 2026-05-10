@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn notification_roundtrip() {
         let json = rfc_notification_new_share_json();
-        let n: ShareNotification = serde_json::from_value(json.clone()).expect("deserialize");
+        let n = ShareNotification::deserialize(&json).expect("deserialize");
         let serialized = serde_json::to_value(&n).expect("serialize");
         let n2: ShareNotification = serde_json::from_value(serialized).expect("deserialize again");
         assert_eq!(n, n2);
@@ -284,8 +284,7 @@ mod tests {
             "objectType": "Mailbox",
             "objectAccountId": "acc1"
         });
-        let fc: ShareNotificationFilterCondition =
-            serde_json::from_value(json.clone()).expect("deserialize");
+        let fc = ShareNotificationFilterCondition::deserialize(&json).expect("deserialize");
         let reserialized = serde_json::to_value(&fc).expect("serialize");
         assert_eq!(reserialized["objectType"], json["objectType"]);
         assert_eq!(reserialized["objectAccountId"], json["objectAccountId"]);
