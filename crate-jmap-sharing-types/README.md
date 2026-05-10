@@ -20,6 +20,34 @@ Serde-annotated Rust types for JMAP Sharing ([RFC 9670]): `Principal` and
 | `JMAP_PRINCIPALS_URI` const (`"urn:ietf:params:jmap:principals"`) | `capability` | RFC 9670 §1.5 |
 | `JMAP_PRINCIPALS_OWNER_URI` const (`"urn:ietf:params:jmap:principals:owner"`) | `capability` | RFC 9670 §1.5 |
 
+## Filter extensibility
+
+Filter types in this crate — `PrincipalFilterCondition`,
+`ShareNotificationFilterCondition`, and the generic `Filter<T>` / `Operator`
+re-exported from `jmap-types` — are **intentionally not extensible** via
+vendor "extras" fields. A filter clause the server does not understand
+silently breaks query correctness: the client gets the wrong set of records
+back with no error signal. So these types deliberately have no `extra`
+catch-all field.
+
+Vendors who need to filter on custom fields have two options:
+
+- **IETF-track (recommended).** Use `draft-ietf-jmap-metadata` (capability URI
+  `urn:ietf:params:jmap:metadata`), which defines a `Metadata` / `Annotation`
+  companion object keyed by `(relatedType, relatedId)` with capability-declared
+  schema (`metadataTypes` / `maxDepth`) and a `Metadata/query` `textMatch`
+  filter. This is the workspace's recommended path for vendor data that needs
+  to be queryable; the implementation tracker is bd JMAP-06zp.
+- **Pre-IETF escape.** If you cannot wait for the metadata draft, escape the
+  filter tree to `serde_json::Value` or fork the `FilterCondition` types.
+  See
+  [`crate-jmap-calendars-types/PLAN.md`](../crate-jmap-calendars-types/PLAN.md)
+  for the hybrid sloppy-value pattern.
+
+This policy is part of the workspace extras-preservation policy documented in
+the workspace [`AGENTS.md`](../AGENTS.md); the filter-algebra exclusion
+decision is bd JMAP-lbdy.
+
 ## Usage
 
 ### Principal deserialization
