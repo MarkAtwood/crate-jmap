@@ -3,10 +3,52 @@
 //! Provides [`Filter`], [`FilterOperator`], and [`Operator`].
 //! Object-specific filter conditions (e.g. `EmailFilterCondition`) are
 //! defined in their respective type crates.
+//!
+//! # Filter algebra is excluded from extras preservation
+//!
+//! The filter algebra defined in this module is **intentionally not extensible**
+//! via the workspace "extras preservation" policy. See [`Filter`],
+//! [`FilterOperator`], and [`Operator`] for details. The same exclusion applies
+//! to every per-object `FilterCondition` / `Comparator` / `ComparatorProperty`
+//! type in the downstream `jmap-*-types` crates (see workspace `AGENTS.md`,
+//! bd JMAP-lbdy "Decision: filter algebra excluded").
 
 use serde::{Deserialize, Serialize};
 
 /// Logical operator for combining filter conditions (RFC 8620 §5.5).
+///
+/// # Excluded from extras preservation
+///
+/// This enum is **out of scope** for the workspace extras-preservation policy:
+/// it carries no `Unknown(String)` catch-all variant, and backends must
+/// dispatch on its known variants (`AND`, `OR`, `NOT`) to evaluate a filter
+/// tree. An `Unknown` operator would be meaningless — a server that cannot
+/// interpret the operator cannot evaluate the filter, and silently round-
+/// tripping it back to the client would yield wrong query results.
+///
+/// More broadly, filter algebra (this enum and the per-object
+/// `FilterCondition` / `Comparator` types) is excluded because unrecognised
+/// filter clauses are a query-correctness hazard: silently dropping or
+/// round-tripping a clause the server does not understand can return the
+/// wrong set of records to the client without any error signal.
+///
+/// ## What to do instead
+///
+/// **IETF-track path.** Vendors who need both capability-level declaration
+/// and filterability for custom fields should use
+/// `draft-ietf-jmap-metadata` (capability URI
+/// `urn:ietf:params:jmap:metadata`), which defines a `Metadata` / `Annotation`
+/// companion object keyed by `(relatedType, relatedId)` with schema discovery
+/// via the capability's `metadataTypes` / `maxDepth` properties and a
+/// `Metadata/query` filter. Workspace implementation tracker: bd JMAP-06zp.
+///
+/// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
+/// either escape the filter tree to `serde_json::Value` or fork the
+/// per-crate `FilterCondition` type. See
+/// `crate-jmap-calendars-types/PLAN.md` for the hybrid sloppy-value
+/// pattern.
+///
+/// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
@@ -26,6 +68,32 @@ pub enum Operator {
 /// because serde untagged tries variants in declaration order.
 /// `FilterOperator<T>` requires an `"operator"` field and fails fast without
 /// it, allowing the deserializer to fall through to `Condition(T)`.
+///
+/// # Excluded from extras preservation
+///
+/// This type is **out of scope** for the workspace extras-preservation
+/// policy: it carries no flatten-extras `extra` field, and the per-object
+/// condition type `T` is also expected to be non-extensible. Filter clauses
+/// the server does not understand are a query-correctness hazard — silently
+/// preserving an unrecognised clause and round-tripping it back to the
+/// client can return the wrong set of records with no error signal.
+///
+/// ## What to do instead
+///
+/// **IETF-track path.** Vendors who need both capability-level declaration
+/// and filterability for custom fields should use
+/// `draft-ietf-jmap-metadata` (capability URI
+/// `urn:ietf:params:jmap:metadata`), which defines a filterable
+/// `Metadata` / `Annotation` companion object. Workspace implementation
+/// tracker: bd JMAP-06zp.
+///
+/// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
+/// either escape the filter tree to `serde_json::Value` or fork the
+/// per-crate `FilterCondition` type. See
+/// `crate-jmap-calendars-types/PLAN.md` for the hybrid sloppy-value
+/// pattern.
+///
+/// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
@@ -37,6 +105,17 @@ pub enum Filter<T> {
 }
 
 /// Logical combination of filters (RFC 8620 §5.5).
+///
+/// # Excluded from extras preservation
+///
+/// This type is **out of scope** for the workspace extras-preservation
+/// policy: it carries no flatten-extras `extra` field, and its
+/// [`Operator`] field is a closed control enum that backends must dispatch
+/// on. See [`Operator`] and [`Filter`] for the rationale and for the two
+/// recommended paths (`draft-ietf-jmap-metadata`, bd JMAP-06zp; or the
+/// pre-IETF sloppy-value escape).
+///
+/// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FilterOperator<T> {

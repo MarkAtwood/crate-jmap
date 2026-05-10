@@ -32,6 +32,33 @@ pub type EmailSubmissionFilter = Filter<crate::submission::EmailSubmissionFilter
 /// Do not add `#[serde(deny_unknown_fields)]` — it breaks `#[serde(untagged)]`
 /// deserialization when `EmailFilterCondition` is used inside `Filter<T>`.
 ///
+/// # Excluded from extras preservation
+///
+/// This type is **out of scope** for the workspace extras-preservation
+/// policy: it carries no flatten-extras `extra` field. Filter clauses the
+/// server does not understand are a query-correctness hazard — silently
+/// preserving an unrecognised clause and round-tripping it back to the
+/// client can return the wrong set of records with no error signal.
+///
+/// ## What to do instead
+///
+/// **IETF-track path.** Vendors who need both capability-level declaration
+/// and filterability for custom fields should use
+/// `draft-ietf-jmap-metadata` (capability URI
+/// `urn:ietf:params:jmap:metadata`), which defines a filterable
+/// `Metadata` / `Annotation` companion object keyed by
+/// `(relatedType, relatedId)` with schema discovery via the capability's
+/// `metadataTypes` / `maxDepth` properties and a `Metadata/query`
+/// `textMatch` filter. Workspace implementation tracker: bd JMAP-06zp.
+///
+/// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
+/// either escape the filter tree to `serde_json::Value` or fork
+/// `EmailFilterCondition`. See
+/// `crate-jmap-calendars-types/PLAN.md` for the hybrid sloppy-value
+/// pattern.
+///
+/// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
+///
 /// # Construction from outside this crate
 ///
 /// The struct is `#[non_exhaustive]`: struct literal syntax and functional
@@ -166,6 +193,38 @@ pub struct EmailFilterCondition {
 ///
 /// Unknown property names from the server are preserved in
 /// [`Other`](ComparatorProperty::Other) so they round-trip correctly.
+///
+/// # Excluded from extras preservation
+///
+/// This enum is **out of scope** for the workspace extras-preservation
+/// policy: it is a control enum that backends must dispatch on to
+/// determine the sort order, so a generic `Unknown(String)` catch-all
+/// would be meaningless for query execution. The `Other(String)` variant
+/// exists only to preserve unknown property names for client-side
+/// round-tripping; servers cannot meaningfully sort by an unrecognised
+/// property without a registered extension.
+///
+/// More broadly, filter / comparator algebra is excluded because
+/// unrecognised clauses are a query-correctness hazard: silently dropping
+/// or round-tripping a clause the server does not understand can return
+/// the wrong set of records to the client without any error signal.
+///
+/// ## What to do instead
+///
+/// **IETF-track path.** Vendors who need both capability-level declaration
+/// and filterability for custom fields should use
+/// `draft-ietf-jmap-metadata` (capability URI
+/// `urn:ietf:params:jmap:metadata`), which defines a filterable
+/// `Metadata` / `Annotation` companion object. Workspace implementation
+/// tracker: bd JMAP-06zp.
+///
+/// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
+/// either escape to `serde_json::Value` or fork the per-crate
+/// `FilterCondition` / `ComparatorProperty` types. See
+/// `crate-jmap-calendars-types/PLAN.md` for the hybrid sloppy-value
+/// pattern.
+///
+/// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ComparatorProperty {
@@ -213,6 +272,18 @@ impl_string_enum!(ComparatorProperty, "an Email comparator property string",
 /// ([`ComparatorProperty::HasKeyword`], [`ComparatorProperty::AllInThreadHaveKeyword`],
 /// [`ComparatorProperty::SomeInThreadHaveKeyword`]), the `keyword` field
 /// **MUST** also be set.  `is_ascending` defaults to `true` per RFC 8620 §5.5.
+///
+/// # Excluded from extras preservation
+///
+/// This type is **out of scope** for the workspace extras-preservation
+/// policy: it carries no flatten-extras `extra` field, and its
+/// [`ComparatorProperty`] field is a closed control enum that backends
+/// must dispatch on. See [`ComparatorProperty`] and
+/// [`EmailFilterCondition`] for the rationale and for the two recommended
+/// paths (`draft-ietf-jmap-metadata`, bd JMAP-06zp; or the pre-IETF
+/// sloppy-value escape).
+///
+/// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 ///
 /// # Construction
 ///
