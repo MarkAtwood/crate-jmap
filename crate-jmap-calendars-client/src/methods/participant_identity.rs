@@ -7,7 +7,7 @@ use jmap_types::{Id, PatchObject, State};
 use super::{ChangesResponse, GetResponse, SetResponse};
 
 impl super::SessionClient {
-    /// Fetch ParticipantIdentity objects by IDs
+    /// Fetch `ParticipantIdentity` objects by IDs
     /// (draft-ietf-jmap-calendars-26 §3.1).
     pub async fn participant_identity_get(
         &self,
@@ -32,7 +32,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to ParticipantIdentity objects since `since_state`
+    /// Fetch changes to `ParticipantIdentity` objects since `since_state`
     /// (draft-ietf-jmap-calendars-26 §3.2).
     pub async fn participant_identity_changes(
         &self,
@@ -58,7 +58,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create, update, or destroy ParticipantIdentity objects
+    /// Create, update, or destroy `ParticipantIdentity` objects
     /// (draft-ietf-jmap-calendars-26 §3.3).
     ///
     /// - `create`: map of creation id → typed

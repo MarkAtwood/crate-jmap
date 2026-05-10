@@ -87,8 +87,10 @@ pub struct CalendarEventGetParams {
     /// If `true`, participants are filtered to those relevant to the
     /// authenticated user (reducedParticipants draft §5.4).
     pub reduced_participants: Option<bool>,
-    /// If `true`, the referenced Calendar objects are included in the
-    /// response as implicit implicit implicit-fetch (draft §5.4).
+    /// If `true`, the server SHOULD also include `Calendar/get`-style
+    /// responses for the `Calendar` objects referenced by returned events
+    /// (draft §5.4 `fetchCalendars` argument). The fetched calendars are
+    /// emitted as additional `methodResponses` entries, not inlined.
     pub fetch_calendars: Option<bool>,
 }
 

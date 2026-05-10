@@ -9,7 +9,7 @@ use jmap_types::Id;
 use super::SetResponse;
 
 impl super::SessionClient {
-    /// Copy CalendarEvent objects from one account to another
+    /// Copy `CalendarEvent` objects from one account to another
     /// (draft-ietf-jmap-calendars-26 §5.10).
     ///
     /// - `from_account_id`: the source account containing the events to copy.

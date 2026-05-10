@@ -13,7 +13,7 @@ use super::{
 };
 
 impl super::SessionClient {
-    /// Fetch CalendarEvent objects by IDs (draft-ietf-jmap-calendars-26 §5.4).
+    /// Fetch `CalendarEvent` objects by IDs (draft-ietf-jmap-calendars-26 §5.4).
     ///
     /// Pass `ids: None` to fetch all events. `params` carries
     /// CalendarEvent-specific extra arguments:
@@ -55,7 +55,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to CalendarEvent objects since `since_state`
+    /// Fetch changes to `CalendarEvent` objects since `since_state`
     /// (draft-ietf-jmap-calendars-26 §5.5).
     pub async fn calendar_event_changes(
         &self,
@@ -82,19 +82,19 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Create, update, or destroy CalendarEvent objects
+    /// Create, update, or destroy `CalendarEvent` objects
     /// (draft-ietf-jmap-calendars-26 §5.9).
     ///
     /// - `create`: map of creation id → typed
     ///   [`CalendarEvent`](jmap_calendars_types::CalendarEvent) to create.
-    /// - `update`: map of existing CalendarEvent id → [`PatchObject`]
+    /// - `update`: map of existing `CalendarEvent` id → [`PatchObject`]
     ///   (RFC 8620 §5.3). Wire format is unchanged from a plain JSON
     ///   object because [`PatchObject`] is `#[serde(transparent)]`; the
     ///   typed parameter exists to bind the JSON Pointer key + null-leaf
     ///   removal contract to the type system. Patch keys may carry
     ///   `/`-separated paths into `recurrenceOverrides` etc.; the
     ///   server interprets them per the patched object's schema.
-    /// - `destroy`: list of CalendarEvent ids to destroy.
+    /// - `destroy`: list of `CalendarEvent` ids to destroy.
     pub async fn calendar_event_set(
         &self,
         create: Option<HashMap<String, jmap_calendars_types::CalendarEvent>>,
@@ -137,7 +137,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query CalendarEvent IDs with optional filter and sort
+    /// Query `CalendarEvent` IDs with optional filter and sort
     /// (draft-ietf-jmap-calendars-26 §5.11).
     ///
     /// - `filter`: typed [`CalendarEventFilterCondition`].
@@ -189,7 +189,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch query-result changes for CalendarEvent since `since_query_state`
+    /// Fetch query-result changes for `CalendarEvent` since `since_query_state`
     /// (draft-ietf-jmap-calendars-26 §5.12).
     pub async fn calendar_event_query_changes(
         &self,
