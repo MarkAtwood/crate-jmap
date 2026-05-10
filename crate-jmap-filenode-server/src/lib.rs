@@ -53,9 +53,10 @@ pub use jmap_filenode_types::JMAP_FILENODE_URI;
 /// `FileNode/get`, `FileNode/changes`, `FileNode/set`,
 /// `FileNode/copy`, `FileNode/query`, `FileNode/queryChanges`.
 ///
-/// `CallerCtx` IS now forwarded as `_ctx` to each closure.  Handler bodies
-/// still receive only `(b, ci, a)`; `_ctx` is available for custom use by
-/// backends that register handlers individually via [`ClosureHandlerWithCtx`].
+/// The dispatcher's `CallerCtx` (`C`) is forwarded into each registered
+/// handler. Backends that need to read it from inside a method body can
+/// register a custom [`ClosureHandlerWithCtx`] directly on the dispatcher
+/// instead of using this convenience function.
 pub fn register_filenode_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
 where
     B: FileNodeBackend + 'static,
