@@ -369,7 +369,7 @@ pub(crate) mod test_support {
                     // Return all objects of this type.
                     let mut found = Vec::new();
                     for v in store.values() {
-                        if let Ok(obj) = serde_json::from_value::<O>(v.clone()) {
+                        if let Ok(obj) = O::deserialize(v) {
                             found.push(obj);
                         }
                     }
@@ -380,7 +380,7 @@ pub(crate) mod test_support {
                     let mut not_found = Vec::new();
                     for id in id_slice {
                         match store.get(id) {
-                            Some(v) => match serde_json::from_value::<O>(v.clone()) {
+                            Some(v) => match O::deserialize(v) {
                                 Ok(obj) => found.push(obj),
                                 Err(_) => not_found.push(id.clone()),
                             },

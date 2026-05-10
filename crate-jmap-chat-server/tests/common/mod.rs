@@ -156,7 +156,7 @@ impl JmapBackend for MemoryBackend {
                 let mut list = Vec::new();
                 if let Some(m) = map {
                     for val in m.values() {
-                        match serde_json::from_value::<O>(val.clone()) {
+                        match O::deserialize(val) {
                             Ok(obj) => list.push(obj),
                             Err(e) => return Err(MemoryError(e.to_string())),
                         }
@@ -169,7 +169,7 @@ impl JmapBackend for MemoryBackend {
                 let mut not_found = Vec::new();
                 for id in id_slice {
                     match map.and_then(|m| m.get(id)) {
-                        Some(val) => match serde_json::from_value::<O>(val.clone()) {
+                        Some(val) => match O::deserialize(val) {
                             Ok(obj) => found.push(obj),
                             Err(e) => return Err(MemoryError(e.to_string())),
                         },
@@ -371,7 +371,7 @@ impl ChatBackend for MemoryBackend {
         let mut val = serde_json::to_value(&obj)
             .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
         val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
-        let stored_obj: O = serde_json::from_value(val.clone())
+        let stored_obj: O = O::deserialize(&val)
             .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
 
         inner.known_accounts.insert(account_id.as_ref().to_owned());
