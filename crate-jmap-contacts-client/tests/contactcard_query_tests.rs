@@ -40,7 +40,7 @@ async fn contact_card_query_with_filter() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let filter = json!({"inAddressBook": "ab1"});
     let resp = sc
         .contact_card_query(Some(filter), None, None, None)
@@ -102,7 +102,7 @@ async fn contact_card_query_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .contact_card_query_changes(&jmap_types::State::from("qs5"), None)
         .await

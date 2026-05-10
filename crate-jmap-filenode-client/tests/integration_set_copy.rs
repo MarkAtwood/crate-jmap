@@ -63,7 +63,7 @@ async fn file_node_set_create_with_params() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let params = FileNodeSetParams {
         on_destroy_remove_children: Some(true),
         on_exists: Some(FileNodeOnExists::Replace),
@@ -157,7 +157,7 @@ async fn file_node_set_destroy_node_has_children_error() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .file_node_set(None, None, Some(vec![Id::from("node-abc")]), None)
         .await
@@ -231,7 +231,7 @@ async fn file_node_copy_with_on_exists_rename() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .file_node_copy(
             &Id::from("source-account"),

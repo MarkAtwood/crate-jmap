@@ -50,7 +50,7 @@ async fn email_submission_get_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .email_submission_get(None, None)
         .await
@@ -101,7 +101,7 @@ async fn email_submission_get_specific_ids() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let ids = [Id::from("ES-abc")];
     let resp = sc
         .email_submission_get(Some(&ids), None)
@@ -157,7 +157,7 @@ async fn email_submission_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let since = State::from("s10");
     let resp = sc
         .email_submission_changes(&since, None)
@@ -202,7 +202,7 @@ async fn email_submission_changes_no_max_changes() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let since = State::from("s1");
     sc.email_submission_changes(&since, None)
         .await

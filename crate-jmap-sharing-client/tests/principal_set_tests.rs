@@ -42,7 +42,7 @@ async fn principal_set_destroy_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let resp = sc
         .principal_set(None, None, Some(vec![Id::from("p-joe")]))
         .await
@@ -97,7 +97,7 @@ async fn principal_set_create_returns_forbidden() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let create_obj = json!({
         "c1": {
             "type": "individual",

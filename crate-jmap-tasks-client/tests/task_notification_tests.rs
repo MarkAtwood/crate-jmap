@@ -54,7 +54,7 @@ async fn task_notification_get_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_notification_get(Some(&[Id::from("notif1")]), None)
         .await
@@ -130,7 +130,7 @@ async fn task_notification_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_notification_changes(&State::from("sn1"), None)
         .await
@@ -197,7 +197,7 @@ async fn task_notification_set_destroy_only_wire_format() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     sc.task_notification_set(vec![Id::from("notif1"), Id::from("notif2")])
         .await
         .expect("task_notification_set_destroy_only_wire_format: must succeed");
@@ -269,7 +269,7 @@ async fn task_notification_set_empty_destroy_succeeds() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     sc.task_notification_set(vec![])
         .await
         .expect("task_notification_set_empty_destroy_succeeds: must succeed");
@@ -330,7 +330,7 @@ async fn task_notification_query_with_filter() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_notification_query(
             Some(json!({"type": "created", "taskIds": ["task1"]})),
@@ -395,7 +395,7 @@ async fn task_notification_query_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     sc.task_notification_query_changes(&State::from("qs1"), Some(20))
         .await
         .expect("task_notification_query_changes_round_trip: must succeed");

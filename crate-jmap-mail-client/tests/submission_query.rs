@@ -38,7 +38,7 @@ async fn email_submission_query_with_filter() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .email_submission_query(Some(json!({"identityIds": ["I1"]})), None, None, None)
         .await
@@ -89,7 +89,7 @@ async fn email_submission_query_no_filter() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .email_submission_query(None, None, None, None)
         .await
@@ -139,7 +139,7 @@ async fn email_submission_query_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     let resp = sc
         .email_submission_query_changes(&since, None, None, None)
@@ -189,7 +189,7 @@ async fn email_submission_query_changes_with_filter_and_sort() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let since = State::from("qs5");
     sc.email_submission_query_changes(
         &since,

@@ -49,7 +49,7 @@ pub fn make_session(server: &MockServer) -> jmap_base_client::Session {
 /// for wiremock test servers which do not verify auth headers.
 ///
 /// The extension trait method is [`JmapSharingExt::with_sharing_session`].
-pub async fn make_client(server: &MockServer) -> jmap_sharing_client::SessionClient {
+pub fn make_client(server: &MockServer) -> jmap_sharing_client::SessionClient {
     use jmap_sharing_client::JmapSharingExt;
     let client = jmap_base_client::JmapClient::new(
         jmap_base_client::DefaultTransport,
@@ -78,17 +78,5 @@ mod tests {
             Some("u33084183"),
             "primary account must be u33084183"
         );
-    }
-
-    /// Confirms that make_client builds successfully — construction must succeed
-    /// regardless of whether the mock server handles any requests.
-    ///
-    /// Oracle: RFC 8620 §2.1 session shape — apiUrl, accounts, primaryAccounts fields.
-    #[tokio::test]
-    async fn helpers_compile() {
-        let server = MockServer::start().await;
-        let sc = make_client(&server).await;
-        // SessionClient is opaque — confirming construction succeeds
-        let _ = sc;
     }
 }

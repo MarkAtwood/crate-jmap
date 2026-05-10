@@ -40,7 +40,7 @@ pub fn make_session(server: &MockServer) -> jmap_base_client::Session {
 ///
 /// Uses `DefaultTransport` (standard TLS) and `NoneAuth` (no credentials) — appropriate
 /// for wiremock test servers which do not verify auth headers.
-pub async fn make_client(server: &MockServer) -> jmap_tasks_client::SessionClient {
+pub fn make_client(server: &MockServer) -> jmap_tasks_client::SessionClient {
     use jmap_tasks_client::JmapTasksExt;
     let client = jmap_base_client::JmapClient::new(
         jmap_base_client::DefaultTransport,
@@ -50,21 +50,4 @@ pub async fn make_client(server: &MockServer) -> jmap_tasks_client::SessionClien
     )
     .expect("make_client: JmapClient construction must succeed");
     client.with_tasks_session(make_session(server))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    /// Confirms that make_session and make_client build successfully and the session
-    /// deserializes from the RFC 8620 §2.1 shape.
-    ///
-    /// Oracle: RFC 8620 §2.1 session JSON shape — apiUrl, accounts, primaryAccounts fields.
-    #[tokio::test]
-    async fn helpers_compile() {
-        let server = MockServer::start().await;
-        let sc = make_client(&server).await;
-        // SessionClient should be usable (the struct is opaque — just confirming construction)
-        let _ = sc;
-    }
 }
