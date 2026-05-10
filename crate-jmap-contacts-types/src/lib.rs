@@ -429,6 +429,28 @@ mod tests {
         assert!(serialized.get("kind").is_none());
     }
 
+    /// `localizations` round-trips as a `HashMap<String, PatchObject>` and
+    /// is byte-identical on the wire (proving `#[serde(transparent)]` on
+    /// `PatchObject` introduces no wrapper key).
+    ///
+    /// Oracle: hand-written JSON modelled on RFC 9553 §2.7.1 localizations
+    /// (BCP 47 language tag keys → PatchObject values).
+    #[test]
+    fn contact_card_localizations_patch_object_transparent() {
+        let json = r#"{"localizations":{"de":{"name/full":"Joe Bloggs (DE)"}}}"#;
+        let card: ContactCard = serde_json::from_str(json).expect("deserialize");
+
+        let locs = card.localizations.as_ref().expect("localizations present");
+        let de = locs.get("de").expect("de locale present");
+        assert_eq!(
+            de.as_map().get("name/full").and_then(|v| v.as_str()),
+            Some("Joe Bloggs (DE)"),
+        );
+
+        let serialized = serde_json::to_string(&card).expect("serialize");
+        assert_eq!(serialized, json);
+    }
+
     // ── ContactCardFilterCondition ───────────────────────────────────────
 
     /// Verify that slash-keyed filter fields serialize with the correct wire

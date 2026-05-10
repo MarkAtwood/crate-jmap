@@ -224,6 +224,75 @@ fn task_roundtrip() {
     assert_eq!(original, recovered);
 }
 
+/// `recurrenceOverrides` round-trips as a `HashMap<String, PatchObject>`
+/// without altering wire shape — proves `PatchObject`'s
+/// `#[serde(transparent)]` attribute is in effect.
+///
+/// Oracle: hand-written JSON modelled on RFC 8984 §4.3.3 recurrenceOverrides
+/// (LocalDateTime keys → PatchObject values).
+///
+/// Uses a single outer key so the outer `HashMap`'s iteration order is
+/// irrelevant. The inner `PatchObject` wraps a `serde_json::Map`, which —
+/// without the `preserve_order` feature on `serde_json` — is a `BTreeMap`
+/// and emits keys in alphabetical order. The fixture is therefore written
+/// with alphabetically-sorted inner keys so a byte-equal round-trip is
+/// deterministic.
+#[test]
+fn task_recurrence_overrides_patch_object_transparent() {
+    let json = r#"{"recurrenceOverrides":{"2024-03-15T09:00:00":{"start":"2024-03-15T10:00:00","title":"Rescheduled"}}}"#;
+    let task: Task = serde_json::from_str(json).expect("deserialize");
+
+    // Deserialized into typed PatchObject, accessible via .as_map().
+    let overrides = task
+        .recurrence_overrides
+        .as_ref()
+        .expect("recurrenceOverrides present");
+    let patch = overrides
+        .get("2024-03-15T09:00:00")
+        .expect("override key present");
+    assert_eq!(
+        patch.as_map().get("title").and_then(|v| v.as_str()),
+        Some("Rescheduled")
+    );
+    assert_eq!(
+        patch.as_map().get("start").and_then(|v| v.as_str()),
+        Some("2024-03-15T10:00:00")
+    );
+
+    // Re-serialize and compare to input byte-for-byte. This proves
+    // #[serde(transparent)] is doing its job — PatchObject does not
+    // introduce any wrapper key on the wire.
+    let serialized = serde_json::to_string(&task).expect("serialize");
+    assert_eq!(serialized, json);
+}
+
+/// `localizations` round-trips as a `HashMap<String, PatchObject>`.
+///
+/// Oracle: hand-written JSON modelled on RFC 8984 §4.6.1 localizations
+/// (BCP 47 language tag keys → PatchObject values). Inner keys are written
+/// in alphabetical order so the byte-equal round-trip is deterministic
+/// (see `task_recurrence_overrides_patch_object_transparent` for the
+/// underlying reason).
+#[test]
+fn task_localizations_patch_object_transparent() {
+    let json = r#"{"localizations":{"de":{"description":"Beschreibung","title":"Aufgabe"}}}"#;
+    let task: Task = serde_json::from_str(json).expect("deserialize");
+
+    let locs = task.localizations.as_ref().expect("localizations present");
+    let de = locs.get("de").expect("de locale present");
+    assert_eq!(
+        de.as_map().get("title").and_then(|v| v.as_str()),
+        Some("Aufgabe")
+    );
+    assert_eq!(
+        de.as_map().get("description").and_then(|v| v.as_str()),
+        Some("Beschreibung")
+    );
+
+    let serialized = serde_json::to_string(&task).expect("serialize");
+    assert_eq!(serialized, json);
+}
+
 // ─── TaskProgress ────────────────────────────────────────────────────────────
 
 /// All RFC 8984 §5.2.5 progress values deserialize correctly.
@@ -309,6 +378,28 @@ fn notification_deserialize() {
     assert_eq!(notif.is_draft, Some(false));
     assert!(notif.task.is_some());
     assert!(notif.task_patch.is_none());
+}
+
+/// `task_patch` round-trips as a `PatchObject` without altering wire shape.
+///
+/// Oracle: hand-written JSON modelled on draft-tasks-06 §5.1 (taskPatch is a
+/// PatchObject per RFC 8620 §5.3). Single top-level patch key keeps the
+/// serialization deterministic.
+#[test]
+fn notification_task_patch_patch_object_transparent() {
+    let json = r#"{"id":"notif002","created":"2020-01-10T08:00:00Z","changedBy":{"@type":"Person","name":"Alice"},"type":"updated","taskId":"taskid001","taskPatch":{"title":"New title"}}"#;
+    let notif: TaskNotification = serde_json::from_str(json).expect("notification");
+
+    let patch = notif.task_patch.as_ref().expect("taskPatch present");
+    assert_eq!(
+        patch.as_map().get("title").and_then(|v| v.as_str()),
+        Some("New title")
+    );
+
+    // Byte-for-byte round-trip: PatchObject's #[serde(transparent)] must
+    // emit the inner Map directly, with no wrapper key.
+    let serialized = serde_json::to_string(&notif).expect("serialize");
+    assert_eq!(serialized, json);
 }
 
 /// `NotificationType` known values deserialize correctly.

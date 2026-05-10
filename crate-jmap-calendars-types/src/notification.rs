@@ -2,7 +2,7 @@
 //!
 //! Normative reference: draft-ietf-jmap-calendars-26 §7.
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{impl_string_enum, Id, PatchObject};
 use serde::{Deserialize, Serialize};
 
 /// Who made the change that triggered a [`CalendarEventNotification`]
@@ -95,8 +95,11 @@ pub struct CalendarEventNotification {
 
     /// A PatchObject encoding the change between `event` and the state after
     /// the update.  Present for `updated` notifications only.
+    ///
+    /// Wire format is byte-identical to a plain JSON object via
+    /// [`PatchObject`]'s `#[serde(transparent)]`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub event_patch: Option<serde_json::Value>,
+    pub event_patch: Option<PatchObject>,
 }
 
 /// Push-notification payload emitted when a calendar alert fires

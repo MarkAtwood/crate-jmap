@@ -147,7 +147,7 @@ responses) except where mandated by the spec.
 | `recurrenceIdTimeZone` | `String\|null` | required if recurrenceId present |
 | `recurrenceRules` | `Vec<RecurrenceRule>\|null` | |
 | `excludedRecurrenceRules` | `Vec<RecurrenceRule>\|null` | |
-| `recurrenceOverrides` | `HashMap<String, serde_json::Value>\|null` | PatchObject map; keys are LocalDateTime strings |
+| `recurrenceOverrides` | `HashMap<String, jmap_types::PatchObject>\|null` | typed PatchObject envelope; keys are LocalDateTime strings (RFC 8620 §5.3 PatchObject; inner leaves remain `Value`) |
 | `excluded` | `bool\|null` | default false; marks excluded override |
 
 **JSCalendar scheduling/sharing properties** (RFC 8984 §4.4):
@@ -172,7 +172,7 @@ responses) except where mandated by the spec.
 
 | Field | Wire type | Notes |
 |---|---|---|
-| `localizations` | `HashMap<String, serde_json::Value>\|null` | lang→PatchObject |
+| `localizations` | `HashMap<String, jmap_types::PatchObject>\|null` | lang→typed PatchObject envelope (RFC 8620 §5.3 PatchObject; inner leaves remain `Value`) |
 
 **JSCalendar time zone** (RFC 8984 §4.7):
 
@@ -283,7 +283,7 @@ responses) except where mandated by the spec.
 | `calendarEventId` | `Id` | base event id |
 | `isDraft` | `bool\|null` | present for created/updated |
 | `event` | `CalendarEvent` | data before change (updated/destroyed) or after (created) |
-| `eventPatch` | `serde_json::Value\|null` | PatchObject; present for updated only |
+| `eventPatch` | `jmap_types::PatchObject\|null` | typed PatchObject (RFC 8620 §5.3); present for updated only |
 
 `Person` sub-object (draft §7):
 
@@ -372,18 +372,43 @@ for roundtrip fidelity but skipped during CalendarEvent/set creates (server
 sets it). Use `#[serde(default, skip_serializing_if = "Option::is_none")]`
 pervasively.
 
-### 2. recurrenceOverrides uses serde_json::Value for the PatchObject values
+### 2. recurrenceOverrides and localizations use a typed PatchObject envelope
 
-The keys of `recurrenceOverrides` are LocalDateTime strings. Each value is a
-JSCalendar PatchObject — itself a `String → *` map where the values can be
-arbitrary JSON (or null, meaning remove). Using `serde_json::Value` for the
-inner PatchObject values avoids defining an exhaustive enum of all possible
-patch targets while preserving round-trip fidelity. This is the correct
-representation: do not try to deserialize patch values into typed structs.
+The keys of `recurrenceOverrides` are LocalDateTime strings; the keys of
+`localizations` are BCP 47 language tags. In both cases each value is a
+JSCalendar PatchObject — itself a `String → *` map where the leaf values
+can be arbitrary JSON (or null, meaning remove).
 
-Clients that need to construct patches build them as `serde_json::Map`. The
-handler layer (in `jmap-calendars-server`) applies JMAP patch semantics
-(RFC 8620 §5.3) to the stored CalendarEvent before passing it to the backend.
+These fields are typed as `Option<HashMap<String, jmap_types::PatchObject>>`:
+
+- The **outer envelope** is JMAP-typed: each value is the
+  [`jmap_types::PatchObject`] newtype (RFC 8620 §5.3), which is
+  `#[serde(transparent)]` over `serde_json::Map<String, Value>`. This binds
+  the PatchObject contract — JSON Pointer key semantics with implicit
+  leading `/`, null-leaf removal — to the type system at the
+  envelope/value boundary.
+- The **inner leaves** remain `serde_json::Value`. Patch values can target
+  arbitrary JSCalendar paths (`alerts/abc/offset`, `participants/xyz/role`,
+  …) and the leaf values themselves carry the full JSCalendar shape
+  flexibility. Defining an exhaustive enum of patch targets is impractical
+  and would drift as JSCalendar (RFC 8984) evolves. This is the
+  Sloppy-Value pattern at the leaf, typed at the envelope.
+
+Wire format is byte-identical to a plain JSON object map via `PatchObject`'s
+`#[serde(transparent)]`. The change from the prior opaque `Option<Value>`
+shape is a tightening at the type system level — invalid wire shapes (a
+JSON array stored where an object is expected) now fail deserialization,
+which would always have been spec-violating.
+
+Clients that need to construct patches build them as `serde_json::Map` and
+wrap with `PatchObject::from_map(...)`. The handler layer (in
+`jmap-calendars-server`) applies JMAP patch semantics (RFC 8620 §5.3) to
+the stored CalendarEvent before passing it to the backend.
+
+Cookie-cutter note: this matches the canonical shape used by
+`jmap-tasks-types::Task::recurrence_overrides` and
+`jmap-tasks-types::Task::localizations`. See bd JMAP-trmz for the
+workspace-wide PatchObject typed-envelope sweep.
 
 ### 3. AlertTrigger uses internally-tagged serde via @type
 
@@ -491,7 +516,8 @@ Priority test cases:
 - `Calendar`: deserialize spec §8.1 response; verify all fields
 - `CalendarRights`: verify all 8 boolean fields serialize/deserialize correctly
 - `CalendarEvent`: deserialize RFC 8984 §6.9 recurring event with overrides;
-  verify `recurrenceOverrides` keys and PatchObject values
+  verify `recurrenceOverrides` keys and typed `PatchObject` values via
+  `patch.as_map().get(...)`
 - `RecurrenceRule`: verify `frequency`, `byDay` with NDay objects, `count`,
   `until`
 - `Alert` with `OffsetTrigger`: verify `@type` tag and `offset`/`relativeTo`
