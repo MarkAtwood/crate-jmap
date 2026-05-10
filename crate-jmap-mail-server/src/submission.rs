@@ -464,6 +464,15 @@ pub async fn handle_submission_set<B: MailBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -505,6 +514,15 @@ pub async fn handle_submission_set<B: MailBackend>(
                     not_destroyed.insert(
                         id_str.to_owned(),
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str.to_owned(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }
@@ -620,6 +638,15 @@ pub async fn handle_submission_set<B: MailBackend>(
                             json!({ "type": "serverFail", "description": e.to_string() }),
                         );
                     }
+                    Err(_) => {
+                        email_not_updated.insert(
+                            email_id.as_ref().to_owned(),
+                            json!({
+                                "type": "serverFail",
+                                "description": "unhandled backend error variant",
+                            }),
+                        );
+                    }
                 }
             }
         }
@@ -650,6 +677,15 @@ pub async fn handle_submission_set<B: MailBackend>(
                         email_not_destroyed.insert(
                             email_id.as_ref().to_owned(),
                             json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                    }
+                    Err(_) => {
+                        email_not_destroyed.insert(
+                            email_id.as_ref().to_owned(),
+                            json!({
+                                "type": "serverFail",
+                                "description": "unhandled backend error variant",
+                            }),
                         );
                     }
                 }
@@ -865,6 +901,7 @@ async fn process_create<B: MailBackend>(
         .map_err(|e| match e {
             BackendSetError::SetError(set_err) => CreateError::SetError(set_err),
             BackendSetError::Other(inner) => CreateError::Server(inner.to_string()),
+            _ => CreateError::Server("unhandled backend error variant".to_owned()),
         })?;
 
     // create_object guarantees created_obj.id == server_id; serialize as-is.

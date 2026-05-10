@@ -1041,6 +1041,15 @@ pub async fn handle_email_set<B: MailBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -1103,6 +1112,15 @@ pub async fn handle_email_set<B: MailBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str.clone(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -1138,6 +1156,15 @@ pub async fn handle_email_set<B: MailBackend>(
                     not_destroyed.insert(
                         id_str.to_owned(),
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str.to_owned(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }
@@ -1852,6 +1879,15 @@ pub async fn handle_email_import<B: MailBackend>(
                     json!({ "type": "serverFail", "description": e.to_string() }),
                 );
             }
+            Err(_) => {
+                not_created.insert(
+                    import_id,
+                    json!({
+                        "type": "serverFail",
+                        "description": "unhandled backend error variant",
+                    }),
+                );
+            }
         }
     }
 
@@ -2218,6 +2254,15 @@ pub async fn handle_email_copy<B: MailBackend>(
                     json!({ "type": "serverFail", "description": e.to_string() }),
                 );
             }
+            Err(_) => {
+                not_created.insert(
+                    copy_id,
+                    json!({
+                        "type": "serverFail",
+                        "description": "unhandled backend error variant",
+                    }),
+                );
+            }
         }
     }
 
@@ -2286,6 +2331,15 @@ pub async fn handle_email_copy<B: MailBackend>(
                             json!({ "type": "serverFail", "description": e.to_string() }),
                         );
                     }
+                    Err(_) => {
+                        email_not_destroyed.insert(
+                            source_id.as_ref().to_owned(),
+                            json!({
+                                "type": "serverFail",
+                                "description": "unhandled backend error variant",
+                            }),
+                        );
+                    }
                 }
             }
         }
@@ -2344,6 +2398,15 @@ pub async fn handle_email_copy<B: MailBackend>(
                             email_not_updated.insert(
                                 source_id.as_ref().to_owned(),
                                 json!({ "type": "serverFail", "description": e.to_string() }),
+                            );
+                        }
+                        Err(_) => {
+                            email_not_updated.insert(
+                                source_id.as_ref().to_owned(),
+                                json!({
+                                    "type": "serverFail",
+                                    "description": "unhandled backend error variant",
+                                }),
                             );
                         }
                     }

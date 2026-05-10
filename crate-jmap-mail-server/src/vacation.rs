@@ -280,6 +280,11 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                 Err(BackendSetError::Other(e)) => {
                                     return Err(JmapError::server_fail(e.to_string()));
                                 }
+                                Err(_) => {
+                                    return Err(JmapError::server_fail(
+                                        "unhandled backend error variant",
+                                    ));
+                                }
                             }
                         }
                         Err(BackendSetError::SetError(e)) => {
@@ -288,6 +293,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
                         Err(BackendSetError::Other(e)) => {
                             return Err(JmapError::server_fail(e.to_string()));
                         }
+                        Err(_) => {
+                            return Err(JmapError::server_fail("unhandled backend error variant"));
+                        }
                     }
                 }
                 Err(BackendSetError::SetError(e)) => {
@@ -295,6 +303,9 @@ pub async fn handle_vacation_set<B: MailBackend>(
                 }
                 Err(BackendSetError::Other(e)) => {
                     return Err(JmapError::server_fail(e.to_string()));
+                }
+                Err(_) => {
+                    return Err(JmapError::server_fail("unhandled backend error variant"));
                 }
             }
         }

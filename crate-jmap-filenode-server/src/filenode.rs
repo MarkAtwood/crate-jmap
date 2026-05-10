@@ -264,6 +264,16 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                                 );
                                                 continue;
                                             }
+                                            Err(_) => {
+                                                not_created.insert(
+                                                    create_id,
+                                                    json!({
+                                                        "type": "serverFail",
+                                                        "description": "unhandled backend error variant",
+                                                    }),
+                                                );
+                                                continue;
+                                            }
                                         }
                                     }
                                     Err(e) => {
@@ -433,6 +443,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_created.insert(
+                        create_id,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -513,6 +532,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     not_updated.insert(
                         id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }
@@ -600,6 +628,17 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                     cascade_failed = true;
                                     break;
                                 }
+                                Err(_) => {
+                                    not_destroyed.insert(
+                                        id_str.clone(),
+                                        json!({
+                                            "type": "serverFail",
+                                            "description": "unhandled backend error variant",
+                                        }),
+                                    );
+                                    cascade_failed = true;
+                                    break;
+                                }
                             }
                         }
                         if cascade_failed {
@@ -628,6 +667,15 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     not_destroyed.insert(
                         id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }
@@ -775,6 +823,15 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                     not_copied.insert(
                         create_id,
                         json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_copied.insert(
+                        create_id,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
                     );
                 }
             }
