@@ -940,7 +940,7 @@ pub mod space;
 pub fn server_retry_after(err: &SetError) -> Option<jmap_types::UTCDate> {
     err.extra
         .get("serverRetryAfter")
-        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .and_then(|v| jmap_types::UTCDate::deserialize(v).ok())
 }
 
 // ---------------------------------------------------------------------------

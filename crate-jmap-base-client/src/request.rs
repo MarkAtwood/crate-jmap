@@ -158,7 +158,7 @@ impl Session {
         let Some(raw) = self.capabilities.get("urn:ietf:params:jmap:websocket") else {
             return Ok(None);
         };
-        serde_json::from_value::<WebSocketCapability>(raw.clone())
+        WebSocketCapability::deserialize(raw)
             .map(Some)
             .map_err(ClientError::Parse)
     }

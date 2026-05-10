@@ -160,7 +160,7 @@ impl ChatSessionExt for jmap_base_client::Session {
         else {
             return Ok(None);
         };
-        serde_json::from_value::<ChatCapability>(raw.clone())
+        ChatCapability::deserialize(raw)
             .map(Some)
             .map_err(jmap_base_client::ClientError::Parse)
     }
@@ -178,7 +178,7 @@ impl ChatSessionExt for jmap_base_client::Session {
         else {
             return Ok(None);
         };
-        serde_json::from_value::<ChatPushCapability>(raw.clone())
+        ChatPushCapability::deserialize(raw)
             .map(Some)
             .map_err(jmap_base_client::ClientError::Parse)
     }
