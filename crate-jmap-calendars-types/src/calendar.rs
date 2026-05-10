@@ -145,6 +145,30 @@ pub struct Calendar {
 /// Filter condition for `Calendar/query` (draft-ietf-jmap-calendars-26 §4.3).
 ///
 /// All fields are optional; a condition with no fields set matches every Calendar.
+///
+/// # Excluded from extras preservation
+///
+/// This type is **out of scope** for the workspace extras-preservation
+/// policy: it carries no flatten-extras `extra` field. Filter clauses the
+/// server does not understand are a query-correctness hazard — silently
+/// preserving an unrecognised clause and round-tripping it back to the
+/// client can return the wrong set of records with no error signal.
+///
+/// ## What to do instead
+///
+/// **IETF-track path.** Vendors who need both capability-level declaration
+/// and filterability for custom fields should use
+/// `draft-ietf-jmap-metadata` (capability URI
+/// `urn:ietf:params:jmap:metadata`), which defines a filterable
+/// `Metadata` / `Annotation` companion object. Workspace implementation
+/// tracker: bd JMAP-06zp.
+///
+/// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
+/// either escape the filter tree to `serde_json::Value` or fork the
+/// `FilterCondition` type. See `crate-jmap-calendars-types/PLAN.md` for
+/// the hybrid sloppy-value pattern.
+///
+/// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

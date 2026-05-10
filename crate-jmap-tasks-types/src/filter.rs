@@ -17,6 +17,17 @@ use serde::{Deserialize, Serialize};
 /// The spec §4.13 is a stub referencing the Calendars spec, so common JMAP
 /// comparator fields are included based on JMAP base §5.5 and the Calendars
 /// analogue.
+///
+/// # Excluded from extras preservation
+///
+/// This type is **out of scope** for the workspace extras-preservation
+/// policy: it carries no flatten-extras `extra` field, and its `property`
+/// field is consumed by backend dispatch to determine sort order. See
+/// `TaskFilterCondition` in `task.rs` for the rationale and for the two
+/// recommended paths (`draft-ietf-jmap-metadata`, bd JMAP-06zp; or the
+/// pre-IETF sloppy-value escape).
+///
+/// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -38,6 +49,18 @@ pub struct TaskComparator {
 ///
 /// The spec mandates that the `"created"` property MUST be supported for
 /// sorting.
+///
+/// # Excluded from extras preservation
+///
+/// This type is **out of scope** for the workspace extras-preservation
+/// policy: it carries no flatten-extras `extra` field, and its `property`
+/// field is consumed by backend dispatch to determine sort order. See
+/// `TaskNotificationFilterCondition` in `notification.rs` for the
+/// rationale and for the two recommended paths
+/// (`draft-ietf-jmap-metadata`, bd JMAP-06zp; or the pre-IETF
+/// sloppy-value escape).
+///
+/// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
