@@ -49,6 +49,14 @@ pub fn make_session(server: &MockServer) -> jmap_base_client::Session {
 /// for wiremock test servers which do not verify auth headers.
 ///
 /// The extension trait method is [`JmapSharingExt::with_sharing_session`].
+//
+// `#[allow(dead_code)]` is required because `cargo` compiles each
+// integration-test file in `tests/` as a separate binary, and each binary
+// independently checks for unused items in `mod common;`. Binaries that
+// don't call `make_client` (notably `helpers_smoke.rs`) would otherwise
+// trigger `dead_code`. This is a documented cargo limitation; see
+// https://doc.rust-lang.org/cargo/reference/cargo-targets.html#integration-tests
+#[allow(dead_code)]
 pub fn make_client(server: &MockServer) -> jmap_sharing_client::SessionClient {
     use jmap_sharing_client::JmapSharingExt;
     let client = jmap_base_client::JmapClient::new(
@@ -61,22 +69,4 @@ pub fn make_client(server: &MockServer) -> jmap_sharing_client::SessionClient {
     client.with_sharing_session(make_session(server))
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    /// Confirms that make_session deserializes correctly and the primary account
-    /// id matches the RFC 8620 §2.1 session shape.
-    ///
-    /// Oracle: RFC 8620 §2.1 — primaryAccounts field maps capability URI to account id.
-    #[tokio::test]
-    async fn build_session_has_correct_primary_account() {
-        let server = MockServer::start().await;
-        let session = make_session(&server);
-        assert_eq!(
-            session.primary_account_id("urn:ietf:params:jmap:principals"),
-            Some("u33084183"),
-            "primary account must be u33084183"
-        );
-    }
-}
