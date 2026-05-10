@@ -105,6 +105,7 @@ pub use jmap_server::{ClosureHandler, ClosureHandlerWithCtx};
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
+#[deny(clippy::await_holding_lock)]
 pub(crate) mod test_support {
     //! In-memory mock backend for unit tests.
     //!

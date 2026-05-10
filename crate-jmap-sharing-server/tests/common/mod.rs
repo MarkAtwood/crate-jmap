@@ -2,8 +2,14 @@
 //!
 //! Each integration test binary includes this module with `mod common;`.
 //! Dead-code warnings are suppressed because not all items are used in every binary.
+//!
+//! `std::sync::Mutex` is used here for simplicity. The `await_holding_lock`
+//! lint enforces that no lock guard is held across an `.await`. If a future
+//! change needs that, switch to `tokio::sync::Mutex` instead of disabling
+//! the lint.
 #![allow(dead_code)]
 #![allow(async_fn_in_trait)]
+#![deny(clippy::await_holding_lock)]
 
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
