@@ -6,7 +6,7 @@ use super::{CalendarEventParseResponse, SessionClient, CALL_ID, USING_PARSE};
 use jmap_base_client::ClientError;
 
 impl SessionClient {
-    /// Parse calendar event blobs into CalendarEvent objects
+    /// Parse calendar event blobs into `CalendarEvent` objects
     /// (draft-ietf-jmap-calendars-26 §5.13 — CalendarEvent/parse).
     ///
     /// # Errors

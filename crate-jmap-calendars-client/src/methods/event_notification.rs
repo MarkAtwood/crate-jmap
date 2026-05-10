@@ -10,7 +10,7 @@ use jmap_types::{Id, State};
 use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse};
 
 impl super::SessionClient {
-    /// Fetch CalendarEventNotification objects by IDs
+    /// Fetch `CalendarEventNotification` objects by IDs
     /// (draft-ietf-jmap-calendars-26 §7.1).
     pub async fn calendar_event_notification_get(
         &self,
@@ -41,7 +41,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch changes to CalendarEventNotification objects since `since_state`
+    /// Fetch changes to `CalendarEventNotification` objects since `since_state`
     /// (draft-ietf-jmap-calendars-26 §7.2).
     pub async fn calendar_event_notification_changes(
         &self,
@@ -71,10 +71,10 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Destroy CalendarEventNotification objects (draft-ietf-jmap-calendars-26 §7.3).
+    /// Destroy `CalendarEventNotification` objects (draft-ietf-jmap-calendars-26 §7.3).
     ///
     /// CalendarEventNotification/set is destroy-only: the server rejects create
-    /// and update operations with `forbidden` SetErrors. This method only sends
+    /// and update operations with `forbidden` `SetErrors`. This method only sends
     /// `destroy` to prevent constructing invalid requests.
     ///
     /// **Network call is unconditional.** Both `destroy: None` and
@@ -125,11 +125,11 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Query CalendarEventNotification IDs with optional filter and sort
+    /// Query `CalendarEventNotification` IDs with optional filter and sort
     /// (draft-ietf-jmap-calendars-26 §7.4).
     ///
     /// - `filter`: typed [`NotificationFilterCondition`].
-    /// - `sort`: comparator slice. CalendarEventNotification's Comparator
+    /// - `sort`: comparator slice. `CalendarEventNotification`'s Comparator
     ///   type in `jmap-calendars-types` is `serde_json::Value` because the
     ///   spec's sort properties for notifications are minimal (just
     ///   `created`); the slice is forwarded as-is.
@@ -169,7 +169,7 @@ impl super::SessionClient {
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 
-    /// Fetch query-result changes for CalendarEventNotification since
+    /// Fetch query-result changes for `CalendarEventNotification` since
     /// `since_query_state` (draft-ietf-jmap-calendars-26 §7.5).
     pub async fn calendar_event_notification_query_changes(
         &self,
