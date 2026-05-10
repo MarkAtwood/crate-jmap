@@ -48,7 +48,7 @@ async fn task_get_sends_ids_and_properties() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_get(
             Some(&[Id::from("task1")]),
@@ -124,7 +124,7 @@ async fn task_get_all_ids_null() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     sc.task_get(None, None)
         .await
         .expect("task_get_all_ids_null: must succeed");
@@ -176,7 +176,7 @@ async fn task_changes_paginated() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_changes(&State::from("s5"), Some(10))
         .await
@@ -243,7 +243,7 @@ async fn task_set_create_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_set(
             Some(json!({"k1": {"title": "New task", "isDraft": true}})),
@@ -306,7 +306,7 @@ async fn task_copy_includes_from_account_id() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     sc.task_copy(
         &Id::from("srcacc"),
         json!({"c1": {"id": "task-src1", "taskListId": "list1"}}),
@@ -367,7 +367,7 @@ async fn task_query_with_filter() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_query(
             Some(json!({"after": "2026-01-01T00:00:00Z"})),
@@ -430,7 +430,7 @@ async fn task_query_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_query_changes(&State::from("qs1"), Some(5))
         .await

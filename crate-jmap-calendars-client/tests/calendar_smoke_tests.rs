@@ -66,7 +66,7 @@ async fn calendar_get_smoke() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .calendar_get(None, None)
         .await
@@ -122,7 +122,7 @@ async fn calendar_event_set_smoke() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     // CalendarEvent has all-Option fields, so a sparse JSON deserialization
     // suffices to construct a typed event for the create map.
     let event: jmap_calendars_types::CalendarEvent = serde_json::from_value(json!({
@@ -184,7 +184,7 @@ async fn calendar_event_parse_smoke() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let blob_ids = [Id::from("blob1")];
     let resp = sc
         .calendar_event_parse(&blob_ids, None)
@@ -211,7 +211,7 @@ async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
     // Deliberately register no mock expectations. If the guard fails to fire,
     // the call reaches wiremock and the test will fail with the wrong error.
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
 
     let event: jmap_calendars_types::CalendarEvent = serde_json::from_value(json!({
         "id": "src-event-id",

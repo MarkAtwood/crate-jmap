@@ -39,7 +39,7 @@ async fn principal_get_availability_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let principal_id = Id::from("p-joe");
     let resp = sc
         .principal_get_availability(

@@ -40,7 +40,7 @@ async fn principal_query_with_filter() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let resp = sc
         .principal_query(Some(json!({"type": "individual"})), None, None, None)
         .await
@@ -99,7 +99,7 @@ async fn principal_query_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let resp = sc
         .principal_query_changes(&State::from("qs1"), None)
         .await

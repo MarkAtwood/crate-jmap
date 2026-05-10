@@ -36,7 +36,7 @@ async fn share_notification_get_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let resp = sc
         .share_notification_get(None, None)
         .await
@@ -86,7 +86,7 @@ async fn share_notification_changes_sends_since_state() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let resp = sc
         .share_notification_changes(&State::from("n-s1"), None)
         .await

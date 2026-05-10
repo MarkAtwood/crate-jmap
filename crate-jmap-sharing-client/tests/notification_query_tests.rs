@@ -41,7 +41,7 @@ async fn share_notification_query_with_filter() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let resp = sc
         .share_notification_query(Some(json!({"objectType": "Mailbox"})), None, None, None)
         .await
@@ -100,7 +100,7 @@ async fn share_notification_query_changes_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let resp = sc
         .share_notification_query_changes(&State::from("nqs1"), None)
         .await

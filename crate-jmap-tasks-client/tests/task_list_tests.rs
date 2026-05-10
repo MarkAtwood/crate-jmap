@@ -57,7 +57,7 @@ async fn task_list_get_sends_correct_wire_request() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_list_get(None, None)
         .await
@@ -129,7 +129,7 @@ async fn task_list_changes_sends_since_state() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_list_changes(&State::from("state-1"), Some(50))
         .await
@@ -199,7 +199,7 @@ async fn task_list_set_on_destroy_remove_tasks_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .task_list_set(None, None, Some(vec![Id::from("list1")]), Some(true))
         .await
@@ -271,7 +271,7 @@ async fn task_list_set_without_on_destroy_omits_field() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     sc.task_list_set(None, None, None, None)
         .await
         .expect("task_list_set_without_on_destroy_omits_field: must succeed");

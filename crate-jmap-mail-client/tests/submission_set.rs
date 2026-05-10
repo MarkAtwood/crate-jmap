@@ -55,7 +55,7 @@ async fn email_submission_set_create_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .email_submission_set(
             Some(json!({
@@ -122,7 +122,7 @@ async fn email_submission_set_on_success_update_email() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     // Patch the draft keyword off the email upon successful send.
     // Oracle: RFC 8621 §7.5 — onSuccessUpdateEmail is Id[PatchObject].
     let mut on_success = HashMap::new();
@@ -194,7 +194,7 @@ async fn email_submission_set_no_on_success_when_none() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     sc.email_submission_set(None, None, None, None, None)
         .await
         .expect("email_submission_set_no_on_success_when_none: must succeed");

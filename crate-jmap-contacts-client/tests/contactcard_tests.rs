@@ -42,7 +42,7 @@ async fn contact_card_get_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .contact_card_get(None, None)
         .await
@@ -84,7 +84,7 @@ async fn contact_card_changes_sends_since_state() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .contact_card_changes(&jmap_types::State::from("s20"), None)
         .await
@@ -149,7 +149,7 @@ async fn contact_card_set_create_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     // Minimal JSContact card fixture per RFC 9553 §2.
     let create_obj = json!({
         "newCard": {
@@ -211,7 +211,7 @@ async fn contact_card_copy_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let create_obj = json!({
         "k1": {
             "id": "source-card-id",

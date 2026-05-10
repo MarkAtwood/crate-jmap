@@ -47,7 +47,7 @@ async fn share_notification_set_destroy_only_wire() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let resp = sc
         .share_notification_set(Some(vec![Id::from("notif-1")]))
         .await
@@ -124,7 +124,7 @@ async fn share_notification_set_empty_destroy() {
         .mount(&server)
         .await;
 
-    let sc = common::make_client(&server).await;
+    let sc = common::make_client(&server);
     let resp = sc
         .share_notification_set(None)
         .await

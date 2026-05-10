@@ -52,7 +52,7 @@ async fn addressbook_get_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .address_book_get(None, None)
         .await
@@ -96,7 +96,7 @@ async fn addressbook_changes_sends_since_state() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .address_book_changes(&jmap_types::State::from("s10"), None)
         .await
@@ -172,7 +172,7 @@ async fn addressbook_set_create_round_trip() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let create_obj = json!({
         "newAb": {
             "name": "Work",
@@ -229,7 +229,7 @@ async fn addressbook_set_on_destroy_remove_contents() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let params = jmap_contacts_client::AddressBookSetParams {
         on_destroy_remove_contents: Some(true),
         on_success_set_is_default: None,

@@ -76,7 +76,7 @@ async fn file_node_get_with_fetch_parents() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .file_node_get(Some(&[Id::from("fn1")]), None, Some(true))
         .await
@@ -141,7 +141,7 @@ async fn file_node_get_without_fetch_parents_omits_field() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     sc.file_node_get(Some(&[Id::from("fn2")]), None, None)
         .await
         .expect("file_node_get_without_fetch_parents_omits_field: must succeed");
@@ -192,7 +192,7 @@ async fn file_node_changes_returns_change_lists() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .file_node_changes(&State::from("s3"), None)
         .await
@@ -249,7 +249,7 @@ async fn file_node_query_with_depth_and_filter() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .file_node_query(
             Some(json!({ "parentId": "dir1" })),
@@ -318,7 +318,7 @@ async fn file_node_query_changes_returns_added_and_removed() {
         .mount(&server)
         .await;
 
-    let sc = helpers::make_client(&server).await;
+    let sc = helpers::make_client(&server);
     let resp = sc
         .file_node_query_changes(&State::from("qs1"), None)
         .await
