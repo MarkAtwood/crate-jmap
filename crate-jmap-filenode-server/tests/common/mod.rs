@@ -2,6 +2,12 @@
 //!
 //! All state lives inside `Arc<Mutex<MemoryState>>` so it is cheaply cloneable
 //! across async tasks.  Not for production use.
+//!
+//! `std::sync::Mutex` is used here for simplicity. The `await_holding_lock`
+//! lint enforces that no lock guard is held across an `.await`. If a future
+//! change needs that, switch to `tokio::sync::Mutex` instead of disabling
+//! the lint.
+#![deny(clippy::await_holding_lock)]
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};

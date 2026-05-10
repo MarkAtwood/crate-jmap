@@ -176,8 +176,15 @@ pub use jmap_server::{ClosureHandler, ClosureHandlerWithCtx};
 // ---------------------------------------------------------------------------
 
 #[cfg(test)]
+#[deny(clippy::await_holding_lock)]
 pub(crate) mod test_support {
     //! In-memory mock backend for unit tests.
+    //!
+    //! `std::sync::Mutex` is used here for simplicity. Every lock is dropped
+    //! before any `.await` (the `await_holding_lock` lint enforces this at
+    //! the module level). If a future change needs to hold the lock across
+    //! an `.await`, switch to `tokio::sync::Mutex` instead of disabling the
+    //! lint.
 
     use std::collections::{HashMap, HashSet};
     use std::sync::{Arc, Mutex};

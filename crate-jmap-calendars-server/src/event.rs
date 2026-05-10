@@ -1318,6 +1318,12 @@ mod tests {
     /// `per_user_called` is set when `update_per_user_properties` is
     /// invoked; `update_called` is set when `update_object` is invoked.
     /// Both flags start as `false`.
+    ///
+    /// `std::sync::Mutex` is used here for simplicity. The
+    /// `await_holding_lock` lint enforces that no lock guard is held across
+    /// an `.await`. If a future change needs that, switch to
+    /// `tokio::sync::Mutex` instead of disabling the lint.
+    #[deny(clippy::await_holding_lock)]
     mod routing {
         use std::sync::{Arc, Mutex};
 
