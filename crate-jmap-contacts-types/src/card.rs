@@ -151,7 +151,7 @@ pub struct ContactCard {
 
     // ── RFC 9553 §2.7 Multilingual ───────────────────────────────────────
     /// Localization patches map: BCP 47 language-tag →
-    /// [`PatchObject`](jmap_types::PatchObject).
+    /// [`PatchObject`].
     ///
     /// Wire format is byte-identical to a plain JSON object via
     /// `#[serde(transparent)]` on `PatchObject`. The typed shape enforces the
