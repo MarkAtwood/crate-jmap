@@ -26,6 +26,7 @@ use jmap_mail_types::{
     Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, SearchSnippet,
 };
 use jmap_types::{Id, State, UTCDate};
+use serde::Deserialize;
 
 // ---------------------------------------------------------------------------
 // Internal state
@@ -267,7 +268,7 @@ impl JmapBackend for MemoryBackend {
             for id in ids {
                 match store.get(id) {
                     Some(val) => {
-                        let obj: O = serde_json::from_value(val.clone()).map_err(|e| {
+                        let obj: O = O::deserialize(val).map_err(|e| {
                             MemoryError(format!("deserialize {}: {e}", O::TYPE_NAME))
                         })?;
                         found.push(obj);
@@ -277,7 +278,7 @@ impl JmapBackend for MemoryBackend {
             }
         } else {
             for val in store.values() {
-                let obj: O = serde_json::from_value(val.clone())
+                let obj: O = O::deserialize(val)
                     .map_err(|e| MemoryError(format!("deserialize {}: {e}", O::TYPE_NAME)))?;
                 found.push(obj);
             }
@@ -461,7 +462,7 @@ impl JmapBackend for MemoryBackend {
                     .map(|map| {
                         map.iter()
                             .filter_map(|(id, val)| {
-                                let email: Email = serde_json::from_value(val.clone()).ok()?;
+                                let email: Email = Email::deserialize(val).ok()?;
                                 if email_matches_filter(&email, ef, top_level_excluded_set.as_ref())
                                 {
                                     let received = val
@@ -492,8 +493,7 @@ impl JmapBackend for MemoryBackend {
                     .map(|map| {
                         map.iter()
                             .filter_map(|(id, val)| {
-                                let sub: EmailSubmission =
-                                    serde_json::from_value(val.clone()).ok()?;
+                                let sub: EmailSubmission = EmailSubmission::deserialize(val).ok()?;
                                 let matches = match (sf, &top_level_sub_sets) {
                                     (Filter::Condition(cond), Some(sets)) => {
                                         submission_matches_condition(&sub, cond, sets)
@@ -729,7 +729,7 @@ impl MailBackend for MemoryBackend {
                 );
             }
         }
-        let created_obj: O = serde_json::from_value(val.clone()).map_err(|e| {
+        let created_obj: O = O::deserialize(&val).map_err(|e| {
             BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
         })?;
 
