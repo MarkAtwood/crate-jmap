@@ -9,6 +9,7 @@ members = [
     "crate-jmap-tasks-types",
     "crate-jmap-filenode-types",
     "crate-jmap-sharing-types",
+    "crate-jmap-jscalendar-types",
     "crate-jmap-server",
     "crate-jmap-mail-server",
     "crate-jmap-chat-server",
@@ -59,6 +60,7 @@ jmap-calendars-types   = { path = "crate-jmap-calendars-types",  version = "0.1"
 jmap-tasks-types       = { path = "crate-jmap-tasks-types",      version = "0.1" }
 jmap-filenode-types    = { path = "crate-jmap-filenode-types",   version = "0.1" }
 jmap-sharing-types     = { path = "crate-jmap-sharing-types",    version = "0.1" }
+jmap-jscalendar-types  = { path = "crate-jmap-jscalendar-types", version = "0.1" }
 jmap-mime              = { path = "crate-jmap-mime",             version = "0.1" }
 jmap-server            = { path = "crate-jmap-server",           version = "0.1" }
 jmap-mail-server       = { path = "crate-jmap-mail-server",      version = "0.1" }
