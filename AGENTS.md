@@ -246,6 +246,34 @@ The only permitted markdown planning artifact is a crate's `PLAN.md`, which is a
 design document checked into the repo — not a scratchpad. Use `bd remember` for persistent
 knowledge and `bd create` for all task tracking.
 
+### Turn questions into beads
+
+When you hit an ambiguity you cannot resolve autonomously — an ambiguous
+spec passage, two plausible API shapes, an unclear destructive-action
+scope, a choice between non-equivalent refactors — **do not invoke the
+interactive `question` tool**. Instead:
+
+```bash
+bd update <id> --add-label human \
+   --add-comment "<the question, including any options considered and your recommendation if you have one>" \
+   --status open
+```
+
+…and move on to the next ready bead. The verbatim rule is: **"turn
+questions into beads that say there is a question to be asked"**.
+
+Rationale: `bd-spin`'s permission overlay denies the interactive
+`question` tool, so invoking it from inside a `/do-beads` session
+deadlocks the entire outer loop. Even in interactive sessions, a
+`human`-labeled bead is a durable record the human can pick up
+on their next pass, whereas an interactive question is lost when
+the session ends. Stalling the ready frontier on one ambiguous
+decision is the failure mode; filing-and-continuing is the
+recovery.
+
+Apply this rule recursively: any subagent you spawn must also
+file-and-continue rather than ask.
+
 ## Session Completion
 
 **When ending a work session**, you MUST complete ALL steps below. Work is NOT complete
