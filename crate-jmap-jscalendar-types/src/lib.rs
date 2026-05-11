@@ -30,7 +30,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 // ── Scalar wrappers ───────────────────────────────────────────────────────────
@@ -202,9 +202,10 @@ pub struct RecurrenceRule {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub count: Option<u64>,
 
-    /// The recurrence ends on or before this `LocalDateTime`.
+    /// The recurrence ends on or before this `LocalDateTime`
+    /// (RFC 8984 §4.3.3 — `until` is a LocalDateTime, NOT a UTC date-time).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub until: Option<String>,
+    pub until: Option<LocalDateTime>,
 }
 
 // ── Location and VirtualLocation ─────────────────────────────────────────────
@@ -445,7 +446,7 @@ pub struct Participant {
     ///
     /// Context: Participant — per-participant iTIP tracking, not event-level.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub schedule_updated: Option<String>,
+    pub schedule_updated: Option<UTCDate>,
 
     /// iTIP status codes from the most recent scheduling message sent to this
     /// participant (RFC 8984 §4.4.6).
@@ -468,8 +469,8 @@ pub struct OffsetTrigger {
     #[serde(rename = "@type")]
     pub at_type: String,
 
-    /// Duration offset from `relative_to` (SignedDuration string).
-    pub offset: String,
+    /// Duration offset from `relative_to`.
+    pub offset: SignedDuration,
 
     /// Whether to measure from `"start"` or `"end"` of the event.
     /// Default is `"start"`.
@@ -487,7 +488,7 @@ pub struct AbsoluteTrigger {
     pub at_type: String,
 
     /// The absolute UTC date-time at which to trigger the alert.
-    pub when: String,
+    pub when: UTCDate,
 }
 
 /// Alert trigger — either offset-based, absolute, or an unknown future type
@@ -561,7 +562,7 @@ pub struct Alert {
 
     /// UTC date-time when the user acknowledged this alert, or `null`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub acknowledged: Option<String>,
+    pub acknowledged: Option<UTCDate>,
 
     /// Related alerts (e.g. for snooze chains); keys are alert ids.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -570,4 +571,94 @@ pub struct Alert {
     /// How to present the alert: `"display"` or `"email"` (default `"display"`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
+}
+
+#[cfg(test)]
+mod tests {
+    //! Wire-format regression tests for the newtype-typed temporal fields
+    //! introduced by bd:JMAP-sc1b.74.
+    //!
+    //! These tests deserialize hand-built JSON whose shape matches
+    //! RFC 8984 examples, then re-serialize and compare. The oracle is the
+    //! input JSON — never the code under test. They exist to catch a
+    //! regression where the newtype loses its transparent serde behaviour
+    //! (e.g. by adding a second field) and wraps the value in `[…]` or
+    //! `{"0": …}` on the wire.
+    use super::*;
+    use serde_json::json;
+
+    /// Oracle: `RecurrenceRule.until` serializes as a bare LocalDateTime
+    /// string (RFC 8984 §4.3.3 example shape), not a wrapped array or
+    /// object.
+    #[test]
+    fn recurrence_rule_until_is_bare_string_on_the_wire() {
+        let raw = json!({
+            "@type": "RecurrenceRule",
+            "frequency": "monthly",
+            "until": "2024-12-31T23:59:59"
+        });
+        let rule: RecurrenceRule =
+            serde_json::from_value(raw.clone()).expect("RecurrenceRule must deserialize");
+        // Sanity-check that the canary value really did land in the field.
+        assert_eq!(
+            rule.until.as_ref().map(AsRef::as_ref),
+            Some("2024-12-31T23:59:59"),
+            "until must deserialize into a LocalDateTime carrying the wire string"
+        );
+
+        let round_tripped = serde_json::to_value(&rule).expect("serialize must succeed");
+        assert_eq!(
+            round_tripped["until"],
+            json!("2024-12-31T23:59:59"),
+            "until must serialize as a bare string; got {round_tripped:?}"
+        );
+    }
+
+    /// Oracle: `OffsetTrigger.offset` serializes as a bare SignedDuration
+    /// string (RFC 8984 §4.5.2 example: `"-PT15M"`).
+    #[test]
+    fn offset_trigger_offset_is_bare_string_on_the_wire() {
+        let raw = json!({
+            "@type": "OffsetTrigger",
+            "offset": "-PT15M"
+        });
+        let trigger: OffsetTrigger =
+            serde_json::from_value(raw).expect("OffsetTrigger must deserialize");
+        assert_eq!(
+            trigger.offset.as_ref(),
+            "-PT15M",
+            "offset must deserialize into a SignedDuration"
+        );
+
+        let round_tripped = serde_json::to_value(&trigger).expect("serialize must succeed");
+        assert_eq!(
+            round_tripped["offset"],
+            json!("-PT15M"),
+            "offset must serialize as a bare string; got {round_tripped:?}"
+        );
+    }
+
+    /// Oracle: `AbsoluteTrigger.when` serializes as a bare UTC date-time
+    /// string (RFC 8984 §4.5.2 example: `"2024-06-15T08:45:00Z"`).
+    #[test]
+    fn absolute_trigger_when_is_bare_string_on_the_wire() {
+        let raw = json!({
+            "@type": "AbsoluteTrigger",
+            "when": "2024-06-15T08:45:00Z"
+        });
+        let trigger: AbsoluteTrigger =
+            serde_json::from_value(raw).expect("AbsoluteTrigger must deserialize");
+        assert_eq!(
+            trigger.when.as_ref(),
+            "2024-06-15T08:45:00Z",
+            "when must deserialize into a UTCDate"
+        );
+
+        let round_tripped = serde_json::to_value(&trigger).expect("serialize must succeed");
+        assert_eq!(
+            round_tripped["when"],
+            json!("2024-06-15T08:45:00Z"),
+            "when must serialize as a bare string; got {round_tripped:?}"
+        );
+    }
 }
