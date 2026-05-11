@@ -84,6 +84,18 @@ fn parse_email(raw: &[u8]) -> jmap_mail_types::Email {
 }
 ```
 
+## Examples
+
+A runnable end-to-end demo lives in [`examples/parse_eml.rs`](examples/parse_eml.rs):
+
+```sh
+cargo run --example parse_eml -p jmap-mime
+```
+
+It parses a hand-supplied multipart/alternative .eml fixture, maps it into
+`JmapBodyFields`, and prints the `textBody` / `htmlBody` / `attachments`
+shape plus a decoded `bodyValues` entry for the first text part.
+
 ## Known Limitations
 
 - **RFC 2047 encoded-word decoding is `mime_tree`'s responsibility.** Headers
