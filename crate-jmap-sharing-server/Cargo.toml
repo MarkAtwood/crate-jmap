@@ -10,6 +10,14 @@ description = "JMAP Sharing method handlers — Principal and ShareNotification 
 keywords = ["jmap", "rfc9670", "server", "sharing"]
 categories = ["network-programming", "web-programming::http-server"]
 
+[features]
+# Public, feature-gated in-memory reference implementation of SharingBackend.
+# Not production — intended as a reference impl, integration-test harness, and
+# documentation example. API stability is opt-in via this feature and may
+# break across minor versions pre-1.0. Mirrors the canonical
+# jmap-mail-server `memory` feature (JMAP-hwdv.1).
+memory = []
+
 [dependencies]
 jmap-types = { workspace = true }
 jmap-sharing-types = { workspace = true }
@@ -18,3 +26,7 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# Tests use the public MemoryBackend reference impl from `src/memory.rs`.
+# Self-dep with the `memory` feature ensures integration tests get the
+# reference impl without exposing it to downstream users by default.
+jmap-sharing-server = { workspace = true, features = ["memory"] }

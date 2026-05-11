@@ -936,6 +936,7 @@ name = "jmap-sharing-server"
 version = "0.1.1"
 dependencies = [
  "jmap-server",
+ "jmap-sharing-server",
  "jmap-sharing-types",
  "jmap-types",
  "serde_json",
