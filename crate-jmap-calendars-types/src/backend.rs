@@ -14,19 +14,33 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum CalendarProperty {
+    /// The `id` property (draft-ietf-jmap-calendars-26 §4).
     Id,
+    /// The `name` property (draft-ietf-jmap-calendars-26 §4).
     Name,
+    /// The `description` property (draft-ietf-jmap-calendars-26 §4).
     Description,
+    /// The `color` property (draft-ietf-jmap-calendars-26 §4).
     Color,
+    /// The `sortOrder` property (draft-ietf-jmap-calendars-26 §4).
     SortOrder,
+    /// The `isSubscribed` property (draft-ietf-jmap-calendars-26 §4).
     IsSubscribed,
+    /// The `isVisible` property (draft-ietf-jmap-calendars-26 §4).
     IsVisible,
+    /// The `isDefault` property (draft-ietf-jmap-calendars-26 §4).
     IsDefault,
+    /// The `includeInAvailability` property (draft-ietf-jmap-calendars-26 §4).
     IncludeInAvailability,
+    /// The `defaultAlertsWithTime` property (draft-ietf-jmap-calendars-26 §4).
     DefaultAlertsWithTime,
+    /// The `defaultAlertsWithoutTime` property (draft-ietf-jmap-calendars-26 §4).
     DefaultAlertsWithoutTime,
+    /// The `timeZone` property (draft-ietf-jmap-calendars-26 §4).
     TimeZone,
+    /// The `shareWith` property (draft-ietf-jmap-calendars-26 §4).
     ShareWith,
+    /// The `myRights` property (draft-ietf-jmap-calendars-26 §4).
     MyRights,
 }
 
@@ -34,23 +48,41 @@ pub enum CalendarProperty {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum CalendarEventProperty {
+    /// The `id` property (draft-ietf-jmap-calendars-26 §5).
     Id,
+    /// The `baseEventId` property (draft-ietf-jmap-calendars-26 §5).
     BaseEventId,
+    /// The `calendarIds` property (draft-ietf-jmap-calendars-26 §5).
     CalendarIds,
+    /// The `isDraft` property (draft-ietf-jmap-calendars-26 §5).
     IsDraft,
+    /// The `isOrigin` property (draft-ietf-jmap-calendars-26 §5).
     IsOrigin,
+    /// The `utcStart` property (draft-ietf-jmap-calendars-26 §5).
     UtcStart,
+    /// The `utcEnd` property (draft-ietf-jmap-calendars-26 §5).
     UtcEnd,
+    /// The `useDefaultAlerts` property (draft-ietf-jmap-calendars-26 §5).
     UseDefaultAlerts,
+    /// The `mayInviteSelf` property (draft-ietf-jmap-calendars-26 §5.1.1).
     MayInviteSelf,
+    /// The `mayInviteOthers` property (draft-ietf-jmap-calendars-26 §5.1.2).
     MayInviteOthers,
+    /// The `hideAttendees` property (draft-ietf-jmap-calendars-26 §5.1.3).
     HideAttendees,
+    /// The `blobId` property (draft-ietf-jmap-calendars-26 §10.9.14).
     BlobId,
+    /// The `uid` property, inherited from the JSCalendar Event object (RFC 8984 §4.1.2).
     Uid,
+    /// The `title` property, inherited from the JSCalendar Event object (RFC 8984 §4.2.1).
     Title,
+    /// The `description` property, inherited from the JSCalendar Event object (RFC 8984 §4.2.2).
     Description,
+    /// The `start` property, inherited from the JSCalendar Event object (RFC 8984 §5.1.1).
     Start,
+    /// The `duration` property, inherited from the JSCalendar Event object (RFC 8984 §5.1.2).
     Duration,
+    /// The `status` property, inherited from the JSCalendar Event object (RFC 8984 §5.1.3).
     Status,
 }
 
@@ -91,14 +123,23 @@ pub fn is_per_user_calendar_event_property(name: &str) -> bool {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum CalendarEventNotificationProperty {
+    /// The `id` property (draft-ietf-jmap-calendars-26 §7).
     Id,
+    /// The `created` property (draft-ietf-jmap-calendars-26 §7).
     Created,
+    /// The `changedBy` property (draft-ietf-jmap-calendars-26 §7).
     ChangedBy,
+    /// The `comment` property (draft-ietf-jmap-calendars-26 §7).
     Comment,
+    /// The `type` property (draft-ietf-jmap-calendars-26 §7).
     Type,
+    /// The `calendarEventId` property (draft-ietf-jmap-calendars-26 §7).
     CalendarEventId,
+    /// The `isDraft` property (draft-ietf-jmap-calendars-26 §7).
     IsDraft,
+    /// The `event` property (draft-ietf-jmap-calendars-26 §7).
     Event,
+    /// The `eventPatch` property (draft-ietf-jmap-calendars-26 §7).
     EventPatch,
 }
 
@@ -106,9 +147,13 @@ pub enum CalendarEventNotificationProperty {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ParticipantIdentityProperty {
+    /// The `id` property (draft-ietf-jmap-calendars-26 §3).
     Id,
+    /// The `name` property (draft-ietf-jmap-calendars-26 §3).
     Name,
+    /// The `calendarAddress` property (draft-ietf-jmap-calendars-26 §3).
     CalendarAddress,
+    /// The `isDefault` property (draft-ietf-jmap-calendars-26 §3).
     IsDefault,
 }
 
