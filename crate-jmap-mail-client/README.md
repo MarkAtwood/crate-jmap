@@ -84,7 +84,7 @@ All 26 RFC 8621 method names are available as typed async methods on
 
 `Email/import` and `Email/parse` are not yet implemented as typed methods; use
 `jmap_base_client::JmapClient::call` directly with a `JmapRequestBuilder` for
-those methods.
+those methods. Typed wrapper implementation is tracked under `bd:JMAP-g7wu.4`.
 
 ## EmailSubmissionSetParams
 
@@ -182,8 +182,8 @@ Every method on `SessionClient` follows the same six-step pipeline:
   separately using `jmap_base_client::JmapClient::upload_blob` first and then
   pass a `blob_id` string to the method. RFC 8621 §5.8 `Email/parse` similarly
   operates on a blob already in the store. Both methods can be called via
-  `JmapRequestBuilder` / `JmapClient::call` directly today; typed wrappers are
-  deferred to a future version.
+  `JmapRequestBuilder` / `JmapClient::call` directly today; typed wrapper
+  implementation is tracked under `bd:JMAP-g7wu.4`.
 - **Partial `Email/get` via `properties` filtering breaks deserialization.**
   `Email` has six required metadata fields (`id`, `blob_id`, `thread_id`,
   `mailbox_ids`, `keywords`, `size`, `received_at`). If the server omits any of

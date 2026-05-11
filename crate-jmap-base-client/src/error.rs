@@ -327,8 +327,8 @@ pub enum ClientError {
     ///    detect 429 + parse `Retry-After` themselves and produce
     ///    `RateLimited` from their own error-conversion code.
     /// 2. Callers that want to handle rate limiting via this typed variant
-    ///    have a stable target to match on, even if the conversion logic
-    ///    lands later in a base-crate revision.
+    ///    have a stable target to match on, even before the conversion
+    ///    logic lands here (tracked under `bd:JMAP-6lsm.3`).
     ///
     /// If you encounter a 429 today, match on `ClientError::Http` and call
     /// [`HttpError::status`] to confirm `Some(429)`. The base crate may

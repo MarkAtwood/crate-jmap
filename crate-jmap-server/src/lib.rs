@@ -267,8 +267,8 @@ pub type BackendCallFn<B> =
 ///
 /// If per-request auth context is needed, register handlers individually
 /// via [`Dispatcher::register`] with a closure that explicitly uses `ctx`.
-/// Adding `CallerCtx` forwarding to `ClosureHandler` itself would be a
-/// breaking API change, deferred to a future version.
+/// Adding `CallerCtx` forwarding to `ClosureHandler` itself is an API
+/// change tracked under `bd:JMAP-g7wu.1.4`.
 pub struct ClosureHandler<B: Send + Sync + 'static> {
     pub backend: Arc<B>,
     pub call_fn: Box<BackendCallFn<B>>,

@@ -251,8 +251,8 @@ If you need per-request context — auth identity, tenant id, rate-limit token
 — inside one of the standard `handle_*` functions, implement
 `JmapHandler<C>` directly and register with
 `dispatcher.register(method_name, Arc::new(your_handler))`. Forwarding
-`CallerCtx` into `MailBackend` itself would be a breaking change to this
-crate's trait API and is deferred to a future version.
+`CallerCtx` into `MailBackend` itself is an API change tracked under
+`bd:JMAP-g7wu.1.1` (canonical for the extension-server family).
 
 ## Capability URIs
 

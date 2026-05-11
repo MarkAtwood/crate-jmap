@@ -303,7 +303,7 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
         AsAddresses => {
             #[cfg(debug_assertions)]
             eprintln!(
-                "[jmap-mail-server] header form AsAddresses not yet implemented — returning null"
+                "[jmap-mail-server] header form AsAddresses not yet implemented (bd:JMAP-g7wu.5) — returning null"
             );
             Value::Null
         }
@@ -313,7 +313,7 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
         AsGroupedAddresses => {
             #[cfg(debug_assertions)]
             eprintln!(
-                "[jmap-mail-server] header form AsGroupedAddresses not yet implemented — returning null"
+                "[jmap-mail-server] header form AsGroupedAddresses not yet implemented (bd:JMAP-g7wu.5) — returning null"
             );
             Value::Null
         }
@@ -322,7 +322,7 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
         // change to return an error before production use.
         AsDate => {
             #[cfg(debug_assertions)]
-            eprintln!("[jmap-mail-server] header form AsDate not yet implemented — returning null");
+            eprintln!("[jmap-mail-server] header form AsDate not yet implemented (bd:JMAP-g7wu.5) — returning null");
             Value::Null
         }
         // Returns null silently — validate_header_form accepts AsMessageIds for message-id
@@ -331,7 +331,7 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
         AsMessageIds => {
             #[cfg(debug_assertions)]
             eprintln!(
-                "[jmap-mail-server] header form AsMessageIds not yet implemented — returning null"
+                "[jmap-mail-server] header form AsMessageIds not yet implemented (bd:JMAP-g7wu.5) — returning null"
             );
             Value::Null
         }
@@ -340,7 +340,7 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
         // return an error before production use.
         AsURLs => {
             #[cfg(debug_assertions)]
-            eprintln!("[jmap-mail-server] header form AsURLs not yet implemented — returning null");
+            eprintln!("[jmap-mail-server] header form AsURLs not yet implemented (bd:JMAP-g7wu.5) — returning null");
             Value::Null
         }
     }

@@ -251,8 +251,8 @@ impl SessionClient {
   None rather than sending explicit JSON null (closed by JMAP-231o.10
   as of 2026-05-08).
 - **UTCDate types**: `principal_get_availability` still takes `utc_start` /
-  `utc_end` as `&str`. A workspace-wide UTCDate newtype migration is a
-  separate refactor.
+  `utc_end` as `&str`. Workspace-wide UTCDate newtype migration tracked
+  under `bd:JMAP-g7wu.9`.
 
 ## Module Layout (shipped)
 

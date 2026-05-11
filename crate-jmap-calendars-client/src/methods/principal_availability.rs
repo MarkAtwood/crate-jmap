@@ -11,8 +11,8 @@ impl SessionClient {
     ///
     /// The wire key for `principal_id` is `"id"` (not `"principalId"`) per §2.2.
     ///
-    /// `utc_start` and `utc_end` remain `&str` here pending a workspace-wide
-    /// `UTCDate` newtype migration (out of scope for the typed-Id epic).
+    /// `utc_start` and `utc_end` remain `&str` here pending the workspace-wide
+    /// `UTCDate` newtype migration tracked under `bd:JMAP-g7wu.9`.
     ///
     /// # Errors
     /// Returns `ClientError::InvalidArgument` if `utc_start` or `utc_end` is empty.
