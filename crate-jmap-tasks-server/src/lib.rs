@@ -15,6 +15,16 @@
 //! register_tasks_handlers(&mut dispatcher, Arc::new(backend));
 //! # }
 //! ```
+//!
+//! # `memory` feature (reference implementation)
+//!
+//! Enable the `memory` feature to expose the `memory::MemoryBackend`
+//! reference implementation of [`TasksBackend`]. This is the same backend
+//! used by this crate's own integration tests, intended for downstream
+//! contributors to study and for smoke tests / examples that do not want
+//! to stand up a real database. **Not production.** API stability is
+//! opt-in via this feature and may break across minor versions while the
+//! crate is pre-1.0.
 
 #![forbid(unsafe_code)]
 
@@ -24,6 +34,12 @@ use jmap_server::{Dispatcher, HandlerFuture, JmapHandler};
 
 pub mod backend;
 mod helpers;
+/// In-memory reference implementation of [`TasksBackend`].
+///
+/// Gated behind `feature = "memory"`. Not production. See [`memory`] for
+/// the full module documentation.
+#[cfg(feature = "memory")]
+pub mod memory;
 pub mod task;
 pub mod task_list;
 pub mod task_notification;
