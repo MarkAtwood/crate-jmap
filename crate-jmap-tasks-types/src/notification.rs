@@ -6,7 +6,7 @@
 //! task lists the user is subscribed to.  Notifications are stored in the
 //! same Account as the Task that was changed.
 
-use jmap_types::{impl_string_enum, Id, PatchObject};
+use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 use crate::task::Person;
@@ -51,7 +51,7 @@ pub struct TaskNotification {
     pub id: Id,
 
     /// When this notification was created (UTCDate).
-    pub created: String,
+    pub created: UTCDate,
 
     /// Who made the change (Person object as defined in draft-tasks-06 §4.2.3).
     pub changed_by: Person,
@@ -124,11 +124,11 @@ pub struct TaskNotification {
 pub struct TaskNotificationFilterCondition {
     /// Notification `created` time must be on or after this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub after: Option<String>,
+    pub after: Option<UTCDate>,
 
     /// Notification `created` time must be before this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub before: Option<String>,
+    pub before: Option<UTCDate>,
 
     /// Notification `type` must equal this string.
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]

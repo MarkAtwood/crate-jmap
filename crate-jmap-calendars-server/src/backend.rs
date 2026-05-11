@@ -258,8 +258,9 @@ pub trait CalendarsBackend: JmapBackend {
     /// event's `start`/`duration` fields and time zone into UTC
     /// (draft-ietf-jmap-calendars-26 §5.2).
     ///
-    /// Returns `(utc_start, utc_end)` as RFC 3339 strings, or `None` for each
-    /// if the corresponding data is absent or the time zone is unknown.
+    /// Returns `(utc_start, utc_end)` as [`UTCDate`](jmap_types::UTCDate) values,
+    /// or `None` for each if the corresponding data is absent or the time zone
+    /// is unknown.
     ///
     /// The default implementation returns `(None, None)` — backends that do not
     /// support time-zone conversion accept this behaviour and callers will omit
@@ -275,7 +276,8 @@ pub trait CalendarsBackend: JmapBackend {
         _account_id: &jmap_types::Id,
         _event: &jmap_calendars_types::CalendarEvent,
         _tz_hint: Option<&str>,
-    ) -> impl std::future::Future<Output = (Option<String>, Option<String>)> + Send {
+    ) -> impl std::future::Future<Output = (Option<jmap_types::UTCDate>, Option<jmap_types::UTCDate>)>
+           + Send {
         async { (None, None) }
     }
 
@@ -444,13 +446,16 @@ pub trait CalendarsBackend: JmapBackend {
 
     /// Fetch availability data for a principal (draft-ietf-jmap-calendars-26 §2.2).
     ///
+    /// `utc_start` and `utc_end` are [`UTCDate`](jmap_types::UTCDate) values
+    /// (RFC 8620 §1.4 wire form) bounding the half-open interval queried.
+    ///
     /// The default implementation returns an empty list.
     fn get_availability(
         &self,
         _account_id: &jmap_types::Id,
         _principal_id: &jmap_types::Id,
-        _utc_start: &str,
-        _utc_end: &str,
+        _utc_start: &jmap_types::UTCDate,
+        _utc_end: &jmap_types::UTCDate,
         _show_details: bool,
         _event_properties: Option<&[String]>,
     ) -> impl std::future::Future<

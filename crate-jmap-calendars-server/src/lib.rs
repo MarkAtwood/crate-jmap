@@ -713,9 +713,12 @@ pub(crate) mod test_support {
             _account_id: &Id,
             _event: &jmap_calendars_types::CalendarEvent,
             tz_hint: Option<&str>,
-        ) -> (Option<String>, Option<String>) {
+        ) -> (Option<jmap_types::UTCDate>, Option<jmap_types::UTCDate>) {
             let tz = tz_hint.unwrap_or("Etc/UTC");
-            (Some(format!("tz={tz}")), Some(format!("tz={tz}")))
+            (
+                Some(jmap_types::UTCDate::from(format!("tz={tz}"))),
+                Some(jmap_types::UTCDate::from(format!("tz={tz}"))),
+            )
         }
 
         // §5.11 expandRecurrences: drive the two new error paths via

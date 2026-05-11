@@ -2,7 +2,7 @@
 //!
 //! Normative reference: draft-ietf-jmap-calendars-26 §7.
 
-use jmap_types::{impl_string_enum, Id, PatchObject};
+use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Who made the change that triggered a [`CalendarEventNotification`]
@@ -65,7 +65,7 @@ pub struct CalendarEventNotification {
     pub id: Id,
 
     /// UTC date-time when this notification was created.
-    pub created: String,
+    pub created: UTCDate,
 
     /// Who made the change.
     pub changed_by: Person,
@@ -176,11 +176,11 @@ pub struct CalendarAlert {
 pub struct NotificationFilterCondition {
     /// Notification `created` time must be on or after this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub after: Option<String>,
+    pub after: Option<UTCDate>,
 
     /// Notification `created` time must be before this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub before: Option<String>,
+    pub before: Option<UTCDate>,
 
     /// Notification `type` must equal this string.
     #[serde(rename = "type", skip_serializing_if = "Option::is_none")]

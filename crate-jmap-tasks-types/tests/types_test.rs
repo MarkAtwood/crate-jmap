@@ -163,7 +163,10 @@ fn task_simple_rfc8984_example() {
         task.uid.as_deref(),
         Some("2a358cee-6489-4f14-a57f-c104db4dc2f2")
     );
-    assert_eq!(task.updated.as_deref(), Some("2020-01-09T14:32:01Z"));
+    assert_eq!(
+        task.updated.as_ref().map(AsRef::as_ref),
+        Some("2020-01-09T14:32:01Z")
+    );
     assert_eq!(task.title.as_deref(), Some("Do something"));
 }
 
@@ -358,8 +361,14 @@ fn task_filter_condition_populated() {
     );
     assert_eq!(cond.is_draft, Some(false));
     assert_eq!(cond.progress.as_deref(), Some("needs-action"));
-    assert_eq!(cond.after.as_deref(), Some("2024-01-01T00:00:00Z"));
-    assert_eq!(cond.before.as_deref(), Some("2025-01-01T00:00:00Z"));
+    assert_eq!(
+        cond.after.as_ref().map(AsRef::as_ref),
+        Some("2024-01-01T00:00:00Z")
+    );
+    assert_eq!(
+        cond.before.as_ref().map(AsRef::as_ref),
+        Some("2025-01-01T00:00:00Z")
+    );
 }
 
 // ─── TaskNotification ────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@
 mod helpers;
 
 use jmap_calendars_types::NotificationFilterCondition;
-use jmap_types::{Id, State};
+use jmap_types::{Id, State, UTCDate};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -273,7 +273,7 @@ async fn calendar_event_notification_query_filter_passthrough() {
 
     let sc = helpers::make_client(&server);
     let mut filter = NotificationFilterCondition::default();
-    filter.after = Some("2024-06-01T00:00:00Z".to_owned());
+    filter.after = Some(UTCDate::from("2024-06-01T00:00:00Z"));
     filter.notification_type = Some("invitation".to_owned());
     filter.calendar_event_ids = Some(vec![Id::from("ev-1")]);
     let sort = [json!({ "property": "created", "isAscending": false })];

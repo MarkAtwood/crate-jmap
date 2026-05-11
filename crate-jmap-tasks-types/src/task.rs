@@ -7,7 +7,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{impl_string_enum, Id, PatchObject};
+use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Progress status of a Task (RFC 8984 §5.2.5).
@@ -83,7 +83,7 @@ pub struct CheckItem {
 
     /// When this item was last updated (UTCDateTime).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated: Option<String>,
+    pub updated: Option<UTCDate>,
 
     /// Whether this item has been completed.
     pub is_complete: bool,
@@ -125,11 +125,11 @@ pub struct Comment {
 
     /// When this comment was created (UTCDateTime).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created: Option<String>,
+    pub created: Option<UTCDate>,
 
     /// When this comment was last updated (UTCDateTime).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated: Option<String>,
+    pub updated: Option<UTCDate>,
 
     /// Author of this comment.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -192,11 +192,11 @@ pub struct Task {
     /// UTC start time, computed by the server from `start` + `time_zone`.
     /// Not included in default responses; must be requested explicitly.
     #[serde(rename = "utcStart", skip_serializing_if = "Option::is_none")]
-    pub utc_start: Option<String>,
+    pub utc_start: Option<UTCDate>,
 
     /// UTC due time, computed by the server.  Not in default response.
     #[serde(rename = "utcDue", skip_serializing_if = "Option::is_none")]
-    pub utc_due: Option<String>,
+    pub utc_due: Option<UTCDate>,
 
     /// Client UI sort position; lower values sort first.  0 ≤ n < 2^31.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -251,11 +251,11 @@ pub struct Task {
 
     /// When this task was first created (UTCDateTime; RFC 8984 §4.1.5).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created: Option<String>,
+    pub created: Option<UTCDate>,
 
     /// When this task was last updated (UTCDateTime; RFC 8984 §4.1.6).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated: Option<String>,
+    pub updated: Option<UTCDate>,
 
     /// Sequence number for iTIP scheduling (RFC 8984 §4.1.7).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -414,7 +414,7 @@ pub struct Task {
 
     /// When `progress` was last updated (UTCDateTime; RFC 8984 §5.2.6).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub progress_updated: Option<String>,
+    pub progress_updated: Option<UTCDate>,
 
     // --- Tasks-draft-defined JSCalendar properties (draft-tasks-06 §4.2) ---
     /// Estimated work in story points / complexity units (draft-tasks-06 §4.2.1).
@@ -497,11 +497,11 @@ pub struct TaskFilterCondition {
 
     /// Task `due` date must be on or after this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub after: Option<String>,
+    pub after: Option<UTCDate>,
 
     /// Task `due` date must be before this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub before: Option<String>,
+    pub before: Option<UTCDate>,
 
     /// If true/false, filter by whether the task is a draft.
     #[serde(skip_serializing_if = "Option::is_none")]
