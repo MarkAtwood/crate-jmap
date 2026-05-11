@@ -18,7 +18,8 @@ pub mod methods;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{
-    ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient, SetResponse,
+    AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient,
+    SetError, SetResponse,
 };
 
 // ---------------------------------------------------------------------------
