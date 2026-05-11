@@ -10,6 +10,7 @@ Read the crate's `PLAN.md` before touching its code.
 | Directory | Crate | Role |
 |---|---|---|
 | `crate-jmap-types/` | `jmap-types` | Shared wire types — foundation, no async |
+| `crate-jmap-jscalendar-types/` | `jmap-jscalendar-types` | RFC 8984 JSCalendar typed sub-types — shared foundation, consumed by Calendars and Tasks. No async, no JMAP dep |
 | `crate-jmap-mail-types/` | `jmap-mail-types` | RFC 8621 data types, no async |
 | `crate-jmap-chat-types/` | `jmap-chat-types` | JMAP Chat extension types, no async |
 | `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers |
@@ -35,13 +36,18 @@ jmap-types      — shared wire types: Id, JmapRequest/Response, ResultReference
     └── jmap-chat-types     — JMAP Chat extension types: Chat, Message, Space, etc. No async.
             ├── jmap-chat-server   — Chat method handlers, ChatBackend trait.
             └── (jmap-chat-client also depends on this)
+
+jmap-jscalendar-types  — RFC 8984 JSCalendar typed sub-types: LocalDateTime, Duration,
+                         RecurrenceRule, Location, Participant, Alert, etc. No JMAP dep, no async.
+    ├── jmap-calendars-types   — consumes + re-exports as `jscalendar` module alias.
+    └── jmap-tasks-types       — (planned, JMAP-yfpq) will consume the same shared sub-types.
 ```
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.
 
 ## Canonical Templates (cookie-cutter consistency)
 
-The 25 `jmap-*` crates are deliberately cookie-cutter siblings: every type
+The 26 `jmap-*` crates are deliberately cookie-cutter siblings: every type
 crate looks like every other type crate, every server crate looks like
 every other server crate, every client crate looks like every other client
 crate, **modulo only the differences mandated by the relevant RFC or

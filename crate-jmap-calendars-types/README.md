@@ -46,6 +46,14 @@ JSCalendar ([RFC 8984]).
 | `PrincipalsAvailabilityCapability` | `capability` | draft §2.2 |
 | `PrincipalsAvailabilityAccountCapability` | `capability` | draft §2.2 |
 
+The types in the `jscalendar` module (rows above with module = `jscalendar`) live in
+the [`jmap-jscalendar-types`] crate and are re-exported here for backward-compatible
+access. The re-export is available both as flat re-exports (`jmap_calendars_types::Location`)
+and as a module alias (`jmap_calendars_types::jscalendar::Location`). The same sub-types
+are consumed by `jmap-tasks-types` (planned).
+
+[`jmap-jscalendar-types`]: https://crates.io/crates/jmap-jscalendar-types
+
 Property enum types re-exported from the `backend` sub-module:
 `CalendarProperty`, `CalendarEventProperty`, `CalendarEventNotificationProperty`,
 `ParticipantIdentityProperty`.
