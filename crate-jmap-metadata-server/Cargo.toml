@@ -1,0 +1,32 @@
+[package]
+name = "jmap-metadata-server"
+version = "0.1.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Object Metadata method handlers — Metadata/get/changes/set/query/queryChanges (draft-ietf-jmap-metadata-01)"
+keywords = ["jmap", "draft-jmap-metadata", "server", "metadata"]
+categories = ["network-programming", "web-programming::http-server"]
+
+[features]
+# Public, feature-gated in-memory reference implementation of MetadataBackend.
+# Not production — intended as a reference impl, integration-test harness, and
+# documentation example. API stability is opt-in via this feature and may
+# break across minor versions pre-1.0. Mirrors the canonical
+# jmap-mail-server `memory` feature (JMAP-hwdv.1).
+memory = []
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-metadata-types = { workspace = true }
+jmap-server = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# Tests use the public MemoryBackend reference impl from `src/memory.rs`.
+# Self-dep with the `memory` feature ensures integration tests get the
+# reference impl without exposing it to downstream users by default.
+jmap-metadata-server = { workspace = true, features = ["memory"] }
