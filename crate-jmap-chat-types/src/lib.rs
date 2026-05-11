@@ -46,6 +46,7 @@ pub mod position;
 pub mod presence;
 pub mod push;
 pub mod space;
+pub mod space_set;
 
 pub use backend::{
     ChatContactProperty, ChatProperty, CustomEmojiProperty, MessageProperty,
@@ -67,3 +68,6 @@ pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};
 pub use push::{ChatMessageEntry, ChatMessagePush, ChatPushConfig};
 pub use space::{Category, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
+pub use space_set::{
+    CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch, SpacePatchOp,
+};
