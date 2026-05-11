@@ -168,6 +168,7 @@ fn ser_opt_keyword_set<S: serde::Serializer>(
 /// The server reports the new Email's `id`, `blobId` (may differ from the
 /// caller-supplied blob id if the server normalised the message), `threadId`,
 /// and `size` for each successfully imported message.
+#[non_exhaustive]
 #[derive(Debug, Clone, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailImportCreated {
