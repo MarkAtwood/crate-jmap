@@ -27,7 +27,7 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::Id;
+use crate::{Id, State};
 
 // ---------------------------------------------------------------------------
 // /get
@@ -47,7 +47,7 @@ pub struct GetResponse<T> {
     /// The account the response refers to.
     pub account_id: Id,
     /// Opaque state token for this object type at the time of the response.
-    pub state: String,
+    pub state: State,
     /// The fetched objects, one per id that was found.
     pub list: Vec<T>,
     /// Ids that were requested but not found. `null` on the wire is treated
@@ -88,9 +88,9 @@ pub struct ChangesResponse {
     /// The account the response refers to.
     pub account_id: Id,
     /// The state token the client passed in.
-    pub old_state: String,
+    pub old_state: State,
     /// The current (or next-page) state token.
-    pub new_state: String,
+    pub new_state: State,
     /// `true` if there are more changes the client must page through.
     pub has_more_changes: bool,
     /// Ids of objects created since `old_state`.
@@ -250,9 +250,9 @@ pub struct SetResponse<T = serde_json::Value> {
     /// State token before this `/set` was applied. Optional because some
     /// servers omit it on no-op responses (per RFC 8620 §5.3 the field is
     /// nullable).
-    pub old_state: Option<String>,
+    pub old_state: Option<State>,
     /// State token after this `/set`.
-    pub new_state: String,
+    pub new_state: State,
     /// Successfully created objects, keyed by caller-supplied creation id.
     pub created: Option<HashMap<String, T>>,
     /// Successfully updated objects, keyed by record id. The value is

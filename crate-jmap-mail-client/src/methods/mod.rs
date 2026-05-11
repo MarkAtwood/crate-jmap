@@ -15,7 +15,7 @@ pub mod vacation;
 
 use std::collections::HashMap;
 
-use jmap_types::Id;
+use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
 // Response types (RFC 8620 §5)
@@ -190,9 +190,9 @@ pub struct EmailImportResponse {
     pub account_id: Id,
     /// State token before the import, or `null` if the server cannot supply one.
     #[serde(default)]
-    pub old_state: Option<String>,
+    pub old_state: Option<State>,
     /// State token after the import.
-    pub new_state: String,
+    pub new_state: State,
     /// Successfully imported Emails keyed by creation id.
     #[serde(default)]
     pub created: Option<HashMap<String, EmailImportCreated>>,
