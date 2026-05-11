@@ -844,3 +844,52 @@ fn filter_condition_roundtrip() {
     assert_eq!(cond.name_match, back.name_match);
     assert_eq!(cond.ancestor_id, back.ancestor_id); // None
 }
+
+// ── Extras-preservation policy tests (JMAP-lbdy.7) ──────────────────────────
+
+/// `FilesRights.extra` captures vendor fields and preserves them across
+/// deserialize/serialize round-trip.
+#[test]
+fn files_rights_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "mayRead": true,
+        "mayAddChildren": false,
+        "mayRename": false,
+        "mayDelete": false,
+        "mayModifyContent": false,
+        "mayShare": false,
+        "acmeCorpMayPin": true
+    });
+    let r: FilesRights = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        r.extra.get("acmeCorpMayPin").and_then(|v| v.as_bool()),
+        Some(true)
+    );
+    let back = serde_json::to_value(&r).unwrap();
+    assert_eq!(back["acmeCorpMayPin"], true);
+}
+
+/// `FileNode.extra` captures vendor fields and preserves them across
+/// deserialize/serialize round-trip.
+#[test]
+fn file_node_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "id": "n1",
+        "parentId": null,
+        "blobId": null,
+        "target": null,
+        "size": null,
+        "name": "Documents",
+        "type": null,
+        "shareWith": null,
+        "role": null,
+        "acmeCorpStorageClass": "warm"
+    });
+    let n: FileNode = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        n.extra.get("acmeCorpStorageClass").and_then(|v| v.as_str()),
+        Some("warm")
+    );
+    let back = serde_json::to_value(&n).unwrap();
+    assert_eq!(back["acmeCorpStorageClass"], "warm");
+}
