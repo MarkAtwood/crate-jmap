@@ -61,6 +61,8 @@ All 26 RFC 8621 method names are available as typed async methods on
 | `email_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>, collapse_threads: Option<bool>` | `QueryResponse` |
 | `email_query_changes` | `since_query_state: &State, max_changes: Option<u64>, collapse_threads: Option<bool>` | `QueryChangesResponse` |
 | `email_copy` | `params: EmailCopyParams, create: Value` | `SetResponse<Email>` |
+| `email_import` | `emails: &HashMap<String, EmailImportInput>, if_in_state: Option<&State>` | `EmailImportResponse` |
+| `email_parse` | `blob_ids: &[Id], params: Option<EmailParseParams>` | `EmailParseResponse` |
 | `mailbox_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Mailbox>` |
 | `mailbox_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `mailbox_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, params: Option<MailboxSetParams>` | `SetResponse<Mailbox>` |
@@ -81,10 +83,6 @@ All 26 RFC 8621 method names are available as typed async methods on
 | `vacation_response_set` | `update: Option<Value>` | `SetResponse<VacationResponse>` |
 
 `Id` and `State` here are `jmap_types::Id` and `jmap_types::State`.
-
-`Email/import` and `Email/parse` are not yet implemented as typed methods; use
-`jmap_base_client::JmapClient::call` directly with a `JmapRequestBuilder` for
-those methods. Typed wrapper implementation is tracked under `bd:JMAP-g7wu.4`.
 
 ## EmailSubmissionSetParams
 
@@ -177,13 +175,11 @@ Every method on `SessionClient` follows the same six-step pipeline:
 
 ## Known Limitations
 
-- **`email_import` and `email_parse` not implemented as typed methods.** RFC
-  8621 §5.7 `Email/import` requires the caller to upload the raw message blob
-  separately using `jmap_base_client::JmapClient::upload_blob` first and then
-  pass a `blob_id` string to the method. RFC 8621 §5.8 `Email/parse` similarly
-  operates on a blob already in the store. Both methods can be called via
-  `JmapRequestBuilder` / `JmapClient::call` directly today; typed wrapper
-  implementation is tracked under `bd:JMAP-g7wu.4`.
+- **`email_import` requires a separately uploaded blob.** RFC 8621 §4.8
+  `Email/import` operates on a previously uploaded raw RFC 5322 message;
+  callers must upload the raw bytes via `jmap_base_client::JmapClient`'s
+  blob-upload API and pass the resulting `blob_id` to `EmailImportInput`.
+  Likewise, `email_parse` operates on blobs already in the store.
 - **Partial `Email/get` via `properties` filtering breaks deserialization.**
   `Email` has six required metadata fields (`id`, `blob_id`, `thread_id`,
   `mailbox_ids`, `keywords`, `size`, `received_at`). If the server omits any of

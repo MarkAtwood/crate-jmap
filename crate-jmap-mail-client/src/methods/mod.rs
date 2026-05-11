@@ -111,6 +111,148 @@ pub struct EmailSubmissionSetParams {
     pub on_success_destroy_email: Option<Vec<String>>,
 }
 
+/// Per-creation EmailImport object for [`Email/import`](super::SessionClient::email_import)
+/// (RFC 8621 §4.8).
+///
+/// The raw [RFC 5322] message must already have been uploaded as a blob; the
+/// caller passes that blob's id here. At least one mailbox id MUST be
+/// supplied; the empty case is rejected by `email_import` as `InvalidArgument`.
+///
+/// [RFC 5322]: https://www.rfc-editor.org/rfc/rfc5322
+#[derive(Debug, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailImportInput<'a> {
+    /// Blob id of the uploaded raw RFC 5322 message.
+    pub blob_id: &'a Id,
+    /// Mailbox ids the new Email is assigned to. Wire shape is `{id: true}`;
+    /// callers supply the set as a slice. At least one id is required (RFC 8621 §4.8).
+    #[serde(serialize_with = "ser_mailbox_id_set")]
+    pub mailbox_ids: &'a [Id],
+    /// Keywords to apply to the Email. Wire shape is `{keyword: true}`.
+    /// Defaults to an empty map per RFC 8621 §4.8 when `None`.
+    #[serde(
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "ser_opt_keyword_set"
+    )]
+    pub keywords: Option<&'a [&'a str]>,
+    /// `receivedAt` to set on the imported Email. Defaults to the most recent
+    /// `Received` header or import time per RFC 8621 §4.8 when `None`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub received_at: Option<&'a jmap_types::UTCDate>,
+}
+
+fn ser_mailbox_id_set<S: serde::Serializer>(ids: &&[Id], s: S) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeMap;
+    let mut m = s.serialize_map(Some(ids.len()))?;
+    for id in *ids {
+        m.serialize_entry(id.as_ref(), &true)?;
+    }
+    m.end()
+}
+
+fn ser_opt_keyword_set<S: serde::Serializer>(
+    kws: &Option<&[&str]>,
+    s: S,
+) -> Result<S::Ok, S::Error> {
+    use serde::ser::SerializeMap;
+    let kws = kws.expect("skip_serializing_if guarantees Some");
+    let mut m = s.serialize_map(Some(kws.len()))?;
+    for k in kws {
+        m.serialize_entry(k, &true)?;
+    }
+    m.end()
+}
+
+/// Per-creation success entry in an [`EmailImportResponse`] (RFC 8621 §4.8).
+///
+/// The server reports the new Email's `id`, `blobId` (may differ from the
+/// caller-supplied blob id if the server normalised the message), `threadId`,
+/// and `size` for each successfully imported message.
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailImportCreated {
+    /// Server-assigned Email id.
+    pub id: Id,
+    /// Blob id of the canonical raw message (may differ from the input blob id).
+    pub blob_id: Id,
+    /// Server-assigned Thread id this Email belongs to.
+    pub thread_id: Id,
+    /// Size of the canonical raw message in bytes.
+    pub size: u64,
+}
+
+/// Response to [`Email/import`](super::SessionClient::email_import) (RFC 8621 §4.8).
+#[non_exhaustive]
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailImportResponse {
+    /// The account this response refers to.
+    pub account_id: Id,
+    /// State token before the import, or `null` if the server cannot supply one.
+    #[serde(default)]
+    pub old_state: Option<String>,
+    /// State token after the import.
+    pub new_state: String,
+    /// Successfully imported Emails keyed by creation id.
+    #[serde(default)]
+    pub created: Option<HashMap<String, EmailImportCreated>>,
+    /// Failures keyed by creation id (RFC 8621 §4.8 errors include
+    /// `alreadyExists`, `invalidProperties`, `overQuota`, `invalidEmail`).
+    #[serde(default)]
+    pub not_created: Option<HashMap<String, SetError>>,
+}
+
+/// Extra args for [`Email/parse`](super::SessionClient::email_parse) (RFC 8621 §4.9).
+///
+/// Mirrors the body-fetch options of [`EmailGetParams`] plus a `properties`
+/// override. All fields are optional; absent fields use server defaults.
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailParseParams {
+    /// Override the set of Email properties returned per parsed message
+    /// (RFC 8621 §4.9). When `None`, the server returns the default set
+    /// documented in the spec.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub properties: Option<Vec<String>>,
+    /// Override the set of body-part properties returned (RFC 8621 §4.9).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub body_properties: Option<Vec<String>>,
+    /// If `true`, inline values for text/plain body parts (RFC 8621 §4.9).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fetch_text_body_values: Option<bool>,
+    /// If `true`, inline values for text/html body parts (RFC 8621 §4.9).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fetch_html_body_values: Option<bool>,
+    /// If `true`, inline values for all body parts (RFC 8621 §4.9).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fetch_all_body_values: Option<bool>,
+    /// Truncate body values to at most this many bytes (RFC 8621 §4.9).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub max_body_value_bytes: Option<u64>,
+}
+
+/// Response to [`Email/parse`](super::SessionClient::email_parse) (RFC 8621 §4.9).
+///
+/// Per RFC 8621 §4.9, parsed Email objects have `id`, `mailboxIds`,
+/// `keywords`, and `receivedAt` set to `null`; callers should not rely on
+/// those fields being populated.
+#[non_exhaustive]
+#[derive(Debug, Clone, serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailParseResponse {
+    /// The account this response refers to.
+    pub account_id: Id,
+    /// Parsed Emails keyed by source blob id.
+    #[serde(default)]
+    pub parsed: Option<HashMap<Id, jmap_mail_types::Email>>,
+    /// Blob ids whose contents were not parseable as RFC 5322 messages.
+    #[serde(default)]
+    pub not_parsable: Option<Vec<Id>>,
+    /// Blob ids that could not be found in the account's blob store.
+    #[serde(default)]
+    pub not_found: Option<Vec<Id>>,
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
