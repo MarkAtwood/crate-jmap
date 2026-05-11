@@ -222,7 +222,8 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     }
 
     // O(n): fetches all mailboxes and filters in-process. Acceptable for typical account sizes.
-    // For very large accounts (IMAP migration), push filter/sort into the backend query.
+    // For very large accounts (IMAP migration), push filter/sort into the backend query
+    // (tracked under bd:JMAP-g7wu.6).
     let (all_mailboxes, _) = backend
         .get_objects::<Mailbox>(&account_id, None, None)
         .await

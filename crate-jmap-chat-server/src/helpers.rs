@@ -36,8 +36,8 @@ pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string,
 // force a textual rename of ~150 references across the nine /set handlers — a
 // larger and more invasive change than is in scope for the boilerplate-extraction
 // step. Allowing the lint here keeps the handler-side diff to one line each
-// (`finalize_set_response::<B, O>(...).await`) and leaves the builder refactor
-// as a tractable follow-on.
+// (`finalize_set_response::<B, O>(...).await`); the builder refactor is
+// tracked under bd:JMAP-g7wu.3.2 (propagates from bd:JMAP-g7wu.3.1).
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn finalize_set_response<B, O>(
     backend: &B,

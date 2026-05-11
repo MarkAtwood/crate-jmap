@@ -226,10 +226,10 @@ impl super::SessionClient {
     /// them, and `Patch::Keep` (default) to leave them unchanged. Slice fields
     /// default to `None` for no-change.
     ///
-    /// **Out of scope**: `addRoles`, `removeRoles`, `updateRoles`,
+    /// **Not yet exposed**: `addRoles`, `removeRoles`, `updateRoles`,
     /// `updateChannels`, `addCategories`, `removeCategories`, `updateCategories`
-    /// are not included. Role and category management will be added in a future
-    /// iteration of this API.
+    /// are not included. Role and category management is tracked under
+    /// `bd:JMAP-g7wu.2.1`.
     pub async fn space_update(
         &self,
         id: &Id,

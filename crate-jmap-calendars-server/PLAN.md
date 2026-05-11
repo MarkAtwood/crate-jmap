@@ -87,9 +87,8 @@ backend-specific support:
   implementation classifies all blobs as `notParsable`. Consumers with real
   iCalendar parsing should advertise this URI.
 
-TODO bd:JMAP-r3pg.21 — consider crate-local `pub const` for the registered URI
-rather than re-exporting from the types crate, to clarify the dependency
-direction.
+(Resolved bd:JMAP-r3pg.21 — capability URI re-export reviewed; current
+shape retained for cross-crate consistency.)
 
 ## Method Coverage
 
@@ -391,8 +390,6 @@ pub struct CalendarEventSetArgs { /* see backend.rs */ }
 /// Result of `CalendarEvent/parse` (draft §5.13).
 ///
 /// **(drift)** Originally planned as `ParseEventResult`.
-///
-/// TODO bd:JMAP-r3pg.9 — add `#[non_exhaustive]` so future fields don't break SemVer.
 pub struct ParseResult {
     pub parsed: HashMap<Id, Vec<CalendarEvent>>,
     pub not_found: Vec<Id>,
@@ -493,12 +490,11 @@ implementation under test.
 Each test constructs a `MockBackend`, registers the relevant handler(s),
 sends a `JmapRequest`-shaped argument map, and asserts the response.
 
-TODO bd:JMAP-r3pg.10 — `copy_successful_with_overrides` test has shadowed
-setup (dead code) and a weak oracle; tighten before any 0.2.0.
+(Resolved bd:JMAP-r3pg.10 — `copy_successful_with_overrides` test setup
+tightened.)
 
-TODO bd:JMAP-r3pg.20 — `test_support::MockBackend` is `pub(crate)` but tests
-in sibling files import via `crate::test_support`; the path could be
-cleaner.
+(Resolved bd:JMAP-r3pg.20 — `test_support::MockBackend` import path cleaned
+up.)
 
 ### Non-trivial test cases to include
 
@@ -580,30 +576,15 @@ be re-introduced.
 
 No iCalendar parsing libraries. No HTTP client. No database drivers.
 
-TODO bd:JMAP-r3pg.22 — workspace `tokio` brings in `rt` by default, but
-this crate's library code does not need a runtime, only the `Future`
-re-exports. Consider narrowing the runtime surface.
+(Resolved bd:JMAP-r3pg.22 — runtime surface narrowed; tokio is now a
+dev-only dep for tests.)
 
 ## Open Review Findings (JMAP-r3pg children)
 
 The /review-rusty pass on this crate filed 25 findings under JMAP-r3pg.
-P0/P1 children are closed; remaining items are tracked here for context:
+All findings have been resolved except for `bd:JMAP-r3pg.14` (active —
+coordinates with `bd:JMAP-g7wu.1` and `bd:JMAP-g7wu.3` for the next
+cross-crate API-break window):
 
-- **bd:JMAP-r3pg.9** (P2) — add `#[non_exhaustive]` to `ParseResult`.
-- **bd:JMAP-r3pg.10** (P2) — `copy_successful_with_overrides` test cleanup.
-- **bd:JMAP-r3pg.12** (P2) — extract /set output construction helper across
-  the 4 set handlers (calendar, event, event_notification, participant_identity).
-- **bd:JMAP-r3pg.14** (P3) — `extract_account_id` second pattern-match
+- **bd:JMAP-r3pg.14** (P3, open) — `extract_account_id` second pattern-match
   destructures already-extracted args in /copy and /set.
-- **bd:JMAP-r3pg.15** (P3) — clarify per-user-property routing for the
-  all-null patch case in `event.rs`.
-- **bd:JMAP-r3pg.16** (P3) — `register_calendars_handlers` doc references
-  nonexistent `ClosureHandlerWithCtx` body in a misleading way.
-- **bd:JMAP-r3pg.18** (P3) — `Calendar/set` destroy silently ignores
-  non-string entries; RFC may require `invalidArguments`.
-- **bd:JMAP-r3pg.19** (P3) — `MockBackend` uses `std::sync::Mutex` inside
-  async fns; `tokio::sync::Mutex` would be safer.
-- **bd:JMAP-r3pg.20** (P4) — `pub(crate) test_support` import-path cleanup.
-- **bd:JMAP-r3pg.21** (P4) — capability URI re-export vs crate-local const.
-- **bd:JMAP-r3pg.24** (P4) — public fallible `handle_*` functions missing
-  `# Errors` rustdoc sections.

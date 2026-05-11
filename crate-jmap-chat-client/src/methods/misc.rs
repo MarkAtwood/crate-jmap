@@ -188,7 +188,7 @@ impl super::SessionClient {
     ///
     /// **Scope**: this method issues a `create` operation only. RFC 8620 §7.2
     /// also defines `update` (e.g., extending `expires`) and `destroy` (unsubscribe);
-    /// those are not yet implemented.
+    /// those are tracked under `bd:JMAP-g7wu.2.2`.
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     pub async fn push_subscription_create(

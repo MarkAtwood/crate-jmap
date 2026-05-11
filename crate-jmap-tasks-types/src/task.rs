@@ -161,9 +161,10 @@ pub struct Comment {
 ///
 /// JSCalendar sub-objects that are deeply nested (Location, VirtualLocation,
 /// Link, Alert, Participant, RecurrenceRule, TimeZone) are represented as
-/// `serde_json::Value` to defer parsing cost and avoid maintaining a full
-/// JSCalendar type library in this crate.  This can be migrated to typed
-/// representations in a future semver-breaking release.
+/// `serde_json::Value` to avoid maintaining a full JSCalendar type library
+/// in this crate. Migration to typed representations (likely sourced from
+/// `jmap-jscalendar-types` once it lands; see `bd:JMAP-x59i`) is tracked
+/// under `bd:JMAP-g7wu.8`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]

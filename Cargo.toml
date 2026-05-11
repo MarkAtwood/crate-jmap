@@ -47,7 +47,9 @@ repository = "https://github.com/MarkAtwood/crate-jmap"
 # version constraint to resolve the dep against the registry).
 # See bd:JMAP-sc1b.10 / bd:JMAP-sc1b.23. Use `version = "0.1"` (caret-major)
 # so any 0.1.x release of a sibling satisfies the constraint; bump to
-# `version = "0.2"` workspace-wide when JMAP-6by7 (typed-Id 0.2.0 epic) lands.
+# `version = "0.2"` workspace-wide when the coordinated 0.2 API-break beads
+# (bd:JMAP-g7wu.1 CallerCtx, bd:JMAP-g7wu.3 helpers builder, bd:JMAP-g7wu.9
+# UTCDate, bd:JMAP-r3pg.14 extract_account_id) land together.
 [workspace.dependencies]
 jmap-types             = { path = "crate-jmap-types",            version = "0.1" }
 jmap-mail-types        = { path = "crate-jmap-mail-types",       version = "0.1" }

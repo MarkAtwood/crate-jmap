@@ -413,7 +413,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                 .collect();
             if !structural.is_empty() {
                 let err = SetError::new(SetErrorType::Forbidden).with_description(
-                    "Role, member, and channel mutations are not yet implemented",
+                    "Role, member, and channel mutations are not yet implemented (tracked under bd:JMAP-g7wu.2.4)",
                 );
                 not_updated.insert(id_str, set_error_value(&err));
                 continue;

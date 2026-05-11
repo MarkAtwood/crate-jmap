@@ -355,7 +355,7 @@ to be supported. Struct has `property: String` and `isAscending: bool`
 - Free/busy calculation — server concern
 - Recurrence expansion — server concern
 - Transport and network I/O — no tokio, no reqwest
-- JMAP Sharing principal types — live in a future `jmap-sharing-types` crate
+- JMAP Sharing principal types — live in `jmap-sharing-types` (see `crate-jmap-sharing-types/`)
 
 ## Key Design Decisions
 

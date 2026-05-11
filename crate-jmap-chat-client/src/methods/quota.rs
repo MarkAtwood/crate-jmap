@@ -53,8 +53,8 @@ impl super::SessionClient {
     /// [`Quota`] includes `used`, `hard_limit`, and optional `warn_limit` fields
     /// that callers can use to display storage bars and warnings.
     ///
-    /// The returned [`GetResponse::state`] token is preserved for future
-    /// `Quota/changes` delta-sync support (not yet implemented).
+    /// The returned [`GetResponse::state`] token is preserved for
+    /// `Quota/changes` delta-sync support, tracked under `bd:JMAP-g7wu.2.3`.
     ///
     /// Only call when [`crate::session::ChatSessionExt::supports_quotas`]
     /// returns `true`.  Returns `ClientError::InvalidSession` if the session

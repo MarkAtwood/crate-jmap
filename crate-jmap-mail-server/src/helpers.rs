@@ -152,8 +152,8 @@ pub(crate) fn find_immutable_patch_key(patch: &PatchObject) -> Option<&'static s
 // force a textual rename of ~150 references across the five /set handlers — a
 // larger and more invasive change than is in scope for the boilerplate-extraction
 // step. Allowing the lint here keeps the handler-side diff to one line each
-// (`finalize_set_response::<B, O>(...).await`) and leaves the builder refactor
-// as a tractable follow-on.
+// (`finalize_set_response::<B, O>(...).await`); the builder refactor is
+// tracked under bd:JMAP-g7wu.3.1 (canonical for the *-server family).
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn finalize_set_response<B, O>(
     backend: &B,

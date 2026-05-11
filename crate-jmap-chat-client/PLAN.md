@@ -141,11 +141,10 @@ in `jmap-calendars-client` (bd:JMAP-6by7.1) and the canonical
    come from `jmap-chat-types`. The `src/types.rs` re-export layer in `jmapchat-client`
    may be eliminable or significantly thinned.
 
-3. **Auth, transport, session, SSE, WebSocket, blob belong in `jmap-base-client`** — once
-   `jmap-base-client` is implemented, add it as a dependency and remove the corresponding
-   modules from this crate (`auth.rs`, `blob.rs`, `client.rs`, `error.rs`, `sse.rs`,
-   `ws/`). For now (skeleton stage), duplicate them here from `jmapchat-client` and
-   plan the refactor as a follow-up.
+3. **Auth, transport, session, SSE, WebSocket, blob belong in `jmap-base-client`** —
+   `jmap-base-client` now exists in the workspace. Add it as a dependency and remove
+   the corresponding duplicated modules from this crate (`auth.rs`, `blob.rs`,
+   `client.rs`, `error.rs`, `sse.rs`, `ws/`). Tracked under `bd:JMAP-g7wu.7`.
 
 4. **Auth is unchanged** — the pluggable `AuthProvider` trait and the three built-in
    providers (`BearerAuth`, `BasicAuth`, `NoneAuth`) are directly portable.
