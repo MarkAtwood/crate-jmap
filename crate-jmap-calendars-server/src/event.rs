@@ -118,10 +118,10 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
                 .compute_utc_times(&account_id, event, get_args.time_zone.as_deref())
                 .await;
             if let Some(s) = utc_start {
-                item["utcStart"] = Value::String(s);
+                item["utcStart"] = Value::String(s.into_inner());
             }
             if let Some(e) = utc_end {
-                item["utcEnd"] = Value::String(e);
+                item["utcEnd"] = Value::String(e.into_inner());
             }
         }
         list_json.push(item);

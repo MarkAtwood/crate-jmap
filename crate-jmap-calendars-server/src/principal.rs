@@ -1,6 +1,6 @@
 //! Principal/* method handlers (draft-ietf-jmap-calendars-26 §2).
 
-use jmap_types::{Id, Invocation, JmapError};
+use jmap_types::{Id, Invocation, JmapError, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{AvailabilityError, CalendarsBackend};
@@ -46,11 +46,13 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
     let utc_start = args_map
         .get("utcStart")
         .and_then(|v| v.as_str())
+        .map(UTCDate::from)
         .ok_or_else(|| JmapError::invalid_arguments("utcStart is required"))?;
 
     let utc_end = args_map
         .get("utcEnd")
         .and_then(|v| v.as_str())
+        .map(UTCDate::from)
         .ok_or_else(|| JmapError::invalid_arguments("utcEnd is required"))?;
 
     let show_details = args_map
@@ -71,8 +73,8 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
         .get_availability(
             &account_id,
             &principal_id,
-            utc_start,
-            utc_end,
+            &utc_start,
+            &utc_end,
             show_details,
             event_properties.as_deref().map(|v| v as &[String]),
         )

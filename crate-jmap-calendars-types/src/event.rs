@@ -132,11 +132,11 @@ pub struct CalendarEvent {
 
     /// UTC date-time when this event was created.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created: Option<String>,
+    pub created: Option<UTCDate>,
 
     /// UTC date-time of last modification (mandatory in full responses).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated: Option<String>,
+    pub updated: Option<UTCDate>,
 
     /// iCalendar sequence number (default `0`).
     #[serde(skip_serializing_if = "Option::is_none")]

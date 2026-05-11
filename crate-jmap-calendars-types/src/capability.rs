@@ -8,6 +8,7 @@
 //! `accountCapabilities` map).  Session-level values are empty objects for
 //! all Calendars capabilities.
 
+use jmap_types::UTCDate;
 use serde::{Deserialize, Serialize};
 
 /// Capability URI for core JMAP Calendars support
@@ -45,11 +46,11 @@ pub struct CalendarsAccountCapability {
 
     /// Earliest UTC date-time value the server accepts for any CalendarEvent
     /// date property.
-    pub min_date_time: String,
+    pub min_date_time: UTCDate,
 
     /// Latest UTC date-time value the server accepts for any CalendarEvent
     /// date property.
-    pub max_date_time: String,
+    pub max_date_time: UTCDate,
 
     /// Maximum duration the user may query over when asking the server to
     /// expand recurrences (ISO 8601 Duration string).
