@@ -8,10 +8,11 @@
 //! - [`handle_metadata_query_changes`]
 
 use jmap_metadata_types::Metadata;
-use jmap_types::{Invocation, JmapError};
-use serde_json::Value;
+use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use serde_json::{json, Value};
 
-use crate::backend::MetadataBackend;
+use crate::backend::{BackendSetError, MetadataBackend};
+use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
 
 // ---------------------------------------------------------------------------
 // Metadata/get
@@ -38,25 +39,167 @@ pub async fn handle_metadata_get<B: MetadataBackend>(
 /// Standard JMAP `/changes` per RFC 8620 §5.2, plus two Metadata-specific
 /// optional arguments:
 ///
-/// - `filterRelatedType: String|null` — restrict the response's created /
-///   updated / destroyed arrays to Metadata objects with the given
-///   `relatedType`. Does not affect the returned state.
+/// - `filterRelatedType: String|null` — restrict the response's `created`
+///   and `updated` arrays to Metadata objects with the given `relatedType`.
+///   Does not affect the returned state.
 /// - `filterMetadataType: String[]|null` — restrict to Metadata objects
 ///   whose `@type` value is in the array. Combined with `filterRelatedType`
 ///   via logical AND.
 ///
-/// **TODO (JMAP-06zp.3.3):** filter post-processing is not yet implemented;
-/// the handler currently delegates to the standard `/changes` and ignores
-/// the filter arguments.
+/// # Partial-conformance note
+///
+/// This implementation filters `created` and `updated` by re-fetching each
+/// Id via `get_objects::<Metadata>` and inspecting `relatedType` /
+/// `@type`. The `destroyed` array is **not** filtered because destroyed
+/// objects no longer exist and the standard `JmapBackend::get_changes`
+/// return value does not carry per-Id metadata for destroyed entries.
+/// Strict conformance with §3.3 for the destroyed case requires a backend
+/// extension method that consults the change log directly. Tracked under
+/// bd JMAP-06zp.3.5. Clients that need precise destroyed filtering can
+/// remember each Id's `relatedType` / `@type` from prior `/get` responses
+/// and filter client-side.
 pub async fn handle_metadata_changes<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    args: Value,
+    mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    // TODO(JMAP-06zp.3.3): consume filterRelatedType / filterMetadataType
-    // arguments before delegating, then post-filter created / updated /
-    // destroyed in the response per §3.3.
-    jmap_server::handlers::handle_changes::<Metadata, B>(backend, caller, args).await
+    // Extract and remove the Metadata-specific filter args before delegating
+    // to the generic /changes handler. Removing them avoids leaking unknown
+    // args into the inner handler, which is strict about its argument set.
+    let filter_related_type: Option<String> = args
+        .as_object_mut()
+        .and_then(|m| m.remove("filterRelatedType"))
+        .and_then(|v| match v {
+            Value::String(s) => Some(s),
+            Value::Null => None,
+            _ => None,
+        });
+
+    let filter_metadata_type: Option<Vec<String>> = args
+        .as_object_mut()
+        .and_then(|m| m.remove("filterMetadataType"))
+        .and_then(|v| match v {
+            Value::Array(arr) => Some(
+                arr.into_iter()
+                    .filter_map(|v| match v {
+                        Value::String(s) => Some(s),
+                        _ => None,
+                    })
+                    .collect::<Vec<String>>(),
+            ),
+            Value::Null => None,
+            _ => None,
+        });
+
+    // Capture the accountId before delegating; the standard /changes handler
+    // also reads it, but we need it for the post-filter object fetch.
+    let account_id_str: Option<String> = args
+        .get("accountId")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_owned());
+
+    let (mut response, tail) =
+        jmap_server::handlers::handle_changes::<Metadata, B>(backend, caller, args).await?;
+
+    // Short-circuit: if neither filter is set, return the unfiltered response.
+    if filter_related_type.is_none() && filter_metadata_type.is_none() {
+        return Ok((response, tail));
+    }
+    let Some(account_id_str) = account_id_str else {
+        return Ok((response, tail));
+    };
+    let account_id = Id::from(account_id_str.as_str());
+
+    // Post-filter the `created` and `updated` arrays. `destroyed` is left
+    // untouched per the partial-conformance note above.
+    filter_changes_array(
+        backend,
+        caller,
+        &account_id,
+        &mut response,
+        "created",
+        filter_related_type.as_deref(),
+        filter_metadata_type.as_deref(),
+    )
+    .await?;
+    filter_changes_array(
+        backend,
+        caller,
+        &account_id,
+        &mut response,
+        "updated",
+        filter_related_type.as_deref(),
+        filter_metadata_type.as_deref(),
+    )
+    .await?;
+
+    Ok((response, tail))
+}
+
+/// Re-fetch each Id in `response[key]` via `get_objects::<Metadata>` and
+/// retain only those whose `relatedType` and `@type` match the supplied
+/// filters. A Metadata object that the backend can no longer fetch (e.g.
+/// it was destroyed between the `/changes` call and this fetch) is dropped
+/// to avoid returning stale Ids.
+async fn filter_changes_array<B: MetadataBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    response: &mut Value,
+    key: &str,
+    filter_related_type: Option<&str>,
+    filter_metadata_type: Option<&[String]>,
+) -> Result<(), JmapError> {
+    let Some(Value::Array(ids)) = response.get_mut(key) else {
+        return Ok(());
+    };
+
+    if ids.is_empty() {
+        return Ok(());
+    }
+
+    // Collect string Ids from the response array, preserving order.
+    let id_strs: Vec<String> = ids
+        .iter()
+        .filter_map(|v| v.as_str().map(|s| s.to_owned()))
+        .collect();
+    let ids_for_fetch: Vec<Id> = id_strs.iter().map(|s| Id::from(s.as_str())).collect();
+
+    // Fetch the actual Metadata objects so we can inspect relatedType / @type.
+    let (objects, _not_found) = backend
+        .get_objects::<Metadata>(caller, account_id, Some(&ids_for_fetch), None)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    // Build lookup: id -> Metadata for O(1) filter lookups.
+    let lookup: std::collections::HashMap<String, &Metadata> = objects
+        .iter()
+        .filter_map(|m| m.id().map(|id| (id.as_ref().to_owned(), m)))
+        .collect();
+
+    let filtered: Vec<Value> = id_strs
+        .into_iter()
+        .filter(|id_str| {
+            let Some(meta) = lookup.get(id_str) else {
+                return false; // dropped — object disappeared
+            };
+            if let Some(rt) = filter_related_type {
+                if meta.related_type() != rt {
+                    return false;
+                }
+            }
+            if let Some(types) = filter_metadata_type {
+                if !types.iter().any(|t| t == meta.type_name()) {
+                    return false;
+                }
+            }
+            true
+        })
+        .map(Value::String)
+        .collect();
+
+    *ids = filtered;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -81,18 +224,210 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
 ///
 /// All four error categories are reported per-entry in `notCreated` /
 /// `notUpdated`; the handler itself is generic across these.
-///
-/// **TODO (JMAP-06zp.3.3):** real create / update / destroy implementation
-/// pending. The handler currently returns `serverFail` for every operation.
 pub async fn handle_metadata_set<B: MetadataBackend>(
-    _backend: &B,
-    _caller: &B::CallerCtx,
-    _args: Value,
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    // TODO(JMAP-06zp.3.3): implement full create / update / destroy semantics.
-    Err(JmapError::server_fail(
-        "Metadata/set: handler implementation pending (JMAP-06zp.3.3)".to_owned(),
-    ))
+    let (account_id, mut args) = extract_account_id(args)?;
+
+    let old_state = backend
+        .get_state::<Metadata>(caller, &account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
+        if if_in_state != old_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
+
+    let mut created = serde_json::Map::new();
+    let mut not_created = serde_json::Map::new();
+    let mut updated = serde_json::Map::new();
+    let mut not_updated = serde_json::Map::new();
+    let mut destroyed_list: Vec<Value> = Vec::new();
+    let mut not_destroyed = serde_json::Map::new();
+    let mut mutated = false;
+
+    // -----------------------------------------------------------------------
+    // create
+    // -----------------------------------------------------------------------
+    if let Some(Value::Object(create_map)) = args.remove("create") {
+        for (create_id, obj_val) in create_map {
+            // Deserialize the client-supplied wire object into a Metadata
+            // variant. The `@type` tag is the discriminator; missing or
+            // unknown values produce an invalidProperties SetError.
+            let metadata: Metadata = match serde_json::from_value(obj_val) {
+                Ok(m) => m,
+                Err(e) => {
+                    not_created.insert(
+                        create_id,
+                        json!({ "type": "invalidProperties", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
+            match backend
+                .create_object::<Metadata>(caller, &account_id, &create_id, metadata)
+                .await
+            {
+                Ok((_new_id, created_obj)) => {
+                    mutated = true;
+                    created.insert(
+                        create_id,
+                        serde_json::to_value(&created_obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_created.insert(create_id, set_error_value(&set_err));
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_created.insert(
+                        create_id,
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_created.insert(
+                        create_id,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // update
+    // -----------------------------------------------------------------------
+    if let Some(Value::Object(update_map)) = args.remove("update") {
+        for (id_str, patch_val) in update_map {
+            let id = Id::from(id_str.as_str());
+
+            // Convert wire-format Value into a typed PatchObject. RFC 8620
+            // §5.3 mandates a PatchObject is a JSON Object; non-object
+            // values produce an `invalidPatch` SetError.
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
+            match backend
+                .update_object::<Metadata>(caller, &account_id, &id, patch)
+                .await
+            {
+                Ok(Some(obj)) => {
+                    mutated = true;
+                    updated.insert(
+                        id_str,
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
+                }
+                Ok(None) => {
+                    mutated = true;
+                    updated.insert(id_str, Value::Null);
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_updated.insert(id_str, set_error_value(&set_err));
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // destroy
+    // -----------------------------------------------------------------------
+    if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
+        // RFC 8620 §5.3: every element of the destroy array MUST be a string
+        // Id. Reject the whole request if any element is non-string rather
+        // than silently skipping it, which would produce a misleading
+        // response.
+        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
+            return Err(JmapError::invalid_arguments(format!(
+                "destroy: every element must be a string Id; got {bad}"
+            )));
+        }
+        for id_val in destroy_arr {
+            let id_str = match id_val.as_str() {
+                Some(s) => s.to_owned(),
+                None => continue, // unreachable: validated above
+            };
+            let id = Id::from(id_str.as_str());
+
+            match backend
+                .destroy_object::<Metadata>(caller, &account_id, &id)
+                .await
+            {
+                Ok(()) => {
+                    mutated = true;
+                    destroyed_list.push(Value::String(id_str));
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_destroyed.insert(id_str, set_error_value(&set_err));
+                }
+                Err(BackendSetError::Other(e)) => {
+                    not_destroyed.insert(
+                        id_str,
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
+            }
+        }
+    }
+
+    finalize_set_response::<B, Metadata>(
+        backend,
+        caller,
+        &account_id,
+        old_state,
+        mutated,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed: destroyed_list,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
+    )
+    .await
 }
 
 // ---------------------------------------------------------------------------
@@ -128,4 +463,438 @@ pub async fn handle_metadata_query_changes<B: MetadataBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     jmap_server::handlers::handle_query_changes::<Metadata, B>(backend, caller, args).await
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    use crate::test_support::MockBackend;
+    use jmap_server::{SetError, SetErrorType};
+
+    // -----------------------------------------------------------------------
+    // Metadata/set tests
+    // -----------------------------------------------------------------------
+
+    /// Oracle: draft-ietf-jmap-metadata-01 §3.1 — a valid Annotation create
+    /// completes successfully and appears in `created`.
+    #[tokio::test]
+    async fn set_create_annotation_succeeds() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": {
+                    "@type": "Annotation",
+                    "relatedType": "Email",
+                    "relatedId": "EM1",
+                    "isPrivate": true,
+                    "acme.example.com:workflowState": "pending-review"
+                }
+            }
+        });
+        let (resp, _) = handle_metadata_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+
+        assert!(
+            resp["created"].is_object(),
+            "created must be present on success: {resp}"
+        );
+        let c1 = &resp["created"]["c1"];
+        assert!(c1.is_object(), "c1 must be in created map: {resp}");
+        assert_eq!(c1["@type"], "Annotation");
+        assert_eq!(c1["relatedType"], "Email");
+        assert!(
+            c1.get("id").is_some(),
+            "server-assigned id must be echoed: {c1}"
+        );
+        // Vendor property survives the round-trip via the extras flatten.
+        assert_eq!(c1["acme.example.com:workflowState"], "pending-review");
+    }
+
+    /// Oracle: §3.1 — uniqueness violation produces `alreadyExists` in
+    /// `notCreated`. The handler is generic — the backend reports the
+    /// constraint via `BackendSetError::SetError`.
+    #[tokio::test]
+    async fn set_create_uniqueness_violation_returns_already_exists() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.force_create_error(
+            "acc1",
+            SetError::new(SetErrorType::AlreadyExists)
+                .with_description("Metadata for (Email, EM1, Annotation, true) already exists"),
+        );
+
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": {
+                    "@type": "Annotation",
+                    "relatedType": "Email",
+                    "relatedId": "EM1",
+                    "isPrivate": true
+                }
+            }
+        });
+        let (resp, _) = handle_metadata_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+
+        assert_eq!(
+            resp["notCreated"]["c1"]["type"], "alreadyExists",
+            "uniqueness collision must report alreadyExists: {resp}"
+        );
+    }
+
+    /// Oracle: §1.2.1 — `maySetPrivate: false` plus `isPrivate: true` →
+    /// `forbidden`. Same generic handler path as the uniqueness case;
+    /// backend signals via `Forbidden`.
+    #[tokio::test]
+    async fn set_create_private_when_not_permitted_returns_forbidden() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.force_create_error(
+            "acc1",
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("Account does not permit private metadata"),
+        );
+
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": {
+                    "@type": "Annotation",
+                    "relatedType": "Email",
+                    "relatedId": "EM1",
+                    "isPrivate": true
+                }
+            }
+        });
+        let (resp, _) = handle_metadata_set(&backend, &(), args).await.unwrap();
+
+        assert_eq!(resp["notCreated"]["c1"]["type"], "forbidden");
+    }
+
+    /// Oracle: RFC 8620 §5.3 — malformed Annotation create (missing
+    /// required `relatedType`) → `invalidProperties` in notCreated. No
+    /// backend call is made.
+    #[tokio::test]
+    async fn set_create_missing_required_field_returns_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": {
+                    "@type": "Annotation",
+                    "relatedId": "EM1"
+                    // relatedType deliberately missing
+                }
+            }
+        });
+        let (resp, _) = handle_metadata_set(&backend, &(), args).await.unwrap();
+
+        assert_eq!(
+            resp["notCreated"]["c1"]["type"], "invalidProperties",
+            "missing relatedType must produce invalidProperties: {resp}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — destroying an unknown id returns `notFound`.
+    #[tokio::test]
+    async fn set_destroy_nonexistent_returns_not_found() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": ["md-does-not-exist"]
+        });
+        let (resp, _) = handle_metadata_set(&backend, &(), args).await.unwrap();
+
+        assert_eq!(
+            resp["notDestroyed"]["md-does-not-exist"]["type"], "notFound",
+            "destroying unknown id must produce notFound: {resp}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — destroy a previously-created id; succeeds.
+    #[tokio::test]
+    async fn set_destroy_existing_succeeds() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.add_metadata(
+            "acc1",
+            "md1",
+            json!({
+                "@type": "Annotation",
+                "id": "md1",
+                "relatedType": "Email",
+                "relatedId": "EM1"
+            }),
+        );
+
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": ["md1"]
+        });
+        let (resp, _) = handle_metadata_set(&backend, &(), args).await.unwrap();
+
+        assert!(
+            resp["destroyed"].is_array(),
+            "destroyed must be array: {resp}"
+        );
+        assert_eq!(resp["destroyed"][0], "md1");
+    }
+
+    /// Oracle: RFC 8620 §5.3 — non-string destroy element → top-level
+    /// `invalidArguments`.
+    #[tokio::test]
+    async fn set_destroy_null_element_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": [null]
+        });
+        let result = handle_metadata_set(&backend, &(), args).await;
+        let err = result.expect_err("must return top-level error");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
+    }
+
+    /// Oracle: RFC 8620 §5.3 — update with a non-object patch → `invalidPatch`.
+    #[tokio::test]
+    async fn set_update_non_object_patch_returns_invalid_patch() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "update": {
+                "md1": "not-an-object"
+            }
+        });
+        let (resp, _) = handle_metadata_set(&backend, &(), args).await.unwrap();
+        assert_eq!(resp["notUpdated"]["md1"]["type"], "invalidPatch");
+    }
+
+    // -----------------------------------------------------------------------
+    // Metadata/changes filter tests
+    // -----------------------------------------------------------------------
+
+    /// Oracle: draft §3.3 — `filterRelatedType: "Email"` retains only
+    /// Metadata objects whose `relatedType` equals "Email" in the
+    /// `created` array. Objects with other related types are dropped.
+    #[tokio::test]
+    async fn changes_filter_related_type_drops_non_matching_created() {
+        let backend = MockBackend::new_with_account("acc1");
+        // Pre-populate three Metadata objects across two relatedTypes,
+        // then mark them all as created since state "0".
+        backend.add_metadata(
+            "acc1",
+            "md1",
+            json!({
+                "@type": "Annotation",
+                "id": "md1",
+                "relatedType": "Email",
+                "relatedId": "EM1"
+            }),
+        );
+        backend.add_metadata(
+            "acc1",
+            "md2",
+            json!({
+                "@type": "Annotation",
+                "id": "md2",
+                "relatedType": "Mailbox",
+                "relatedId": "MB1"
+            }),
+        );
+        backend.add_metadata(
+            "acc1",
+            "md3",
+            json!({
+                "@type": "Annotation",
+                "id": "md3",
+                "relatedType": "Email",
+                "relatedId": "EM2"
+            }),
+        );
+        // Force the mock's change log to claim those three were created
+        // and bump the state so /changes reports them.
+        {
+            let mut guard = backend.state_for_test();
+            let acct = guard.get_mut("acc1").unwrap();
+            acct.created = vec![Id::from("md1"), Id::from("md2"), Id::from("md3")];
+            acct.state = 1;
+        }
+
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": "Email"
+        });
+        let (resp, _) = handle_metadata_changes(&backend, &(), args).await.unwrap();
+
+        let created = resp["created"].as_array().expect("created must be array");
+        let created_ids: Vec<&str> = created.iter().filter_map(|v| v.as_str()).collect();
+        assert!(
+            created_ids.contains(&"md1"),
+            "md1 (Email) must survive filter: {resp}"
+        );
+        assert!(
+            created_ids.contains(&"md3"),
+            "md3 (Email) must survive filter: {resp}"
+        );
+        assert!(
+            !created_ids.contains(&"md2"),
+            "md2 (Mailbox) must be dropped by filterRelatedType=Email: {resp}"
+        );
+    }
+
+    /// Oracle: draft §3.3 — `filterMetadataType: ["Annotation"]` retains
+    /// only Metadata objects whose `@type` is in the list.
+    #[tokio::test]
+    async fn changes_filter_metadata_type_drops_non_matching_created() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.add_metadata(
+            "acc1",
+            "md1",
+            json!({
+                "@type": "Annotation",
+                "id": "md1",
+                "relatedType": "Email",
+                "relatedId": "EM1"
+            }),
+        );
+        backend.add_metadata(
+            "acc1",
+            "md2",
+            json!({
+                "@type": "ImapMetadata",
+                "id": "md2",
+                "relatedType": "Mailbox",
+                "relatedId": "MB1",
+                "metadata": {}
+            }),
+        );
+        {
+            let mut guard = backend.state_for_test();
+            let acct = guard.get_mut("acc1").unwrap();
+            acct.created = vec![Id::from("md1"), Id::from("md2")];
+            acct.state = 1;
+        }
+
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterMetadataType": ["Annotation"]
+        });
+        let (resp, _) = handle_metadata_changes(&backend, &(), args).await.unwrap();
+
+        let created_ids: Vec<&str> = resp["created"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert_eq!(created_ids, vec!["md1"], "only Annotation survives: {resp}");
+    }
+
+    /// Oracle: draft §3.3 — both filters present combine via logical AND.
+    #[tokio::test]
+    async fn changes_both_filters_combine_as_and() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.add_metadata(
+            "acc1",
+            "md1",
+            json!({
+                "@type": "Annotation",
+                "id": "md1",
+                "relatedType": "Email",
+                "relatedId": "EM1"
+            }),
+        );
+        backend.add_metadata(
+            "acc1",
+            "md2",
+            json!({
+                "@type": "Annotation",
+                "id": "md2",
+                "relatedType": "Mailbox",
+                "relatedId": "MB1"
+            }),
+        );
+        backend.add_metadata(
+            "acc1",
+            "md3",
+            json!({
+                "@type": "ImapMetadata",
+                "id": "md3",
+                "relatedType": "Email",
+                "relatedId": "EM1",
+                "metadata": {}
+            }),
+        );
+        {
+            let mut guard = backend.state_for_test();
+            let acct = guard.get_mut("acc1").unwrap();
+            acct.created = vec![Id::from("md1"), Id::from("md2"), Id::from("md3")];
+            acct.state = 1;
+        }
+
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": "Email",
+            "filterMetadataType": ["Annotation"]
+        });
+        let (resp, _) = handle_metadata_changes(&backend, &(), args).await.unwrap();
+
+        let created_ids: Vec<&str> = resp["created"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert_eq!(
+            created_ids,
+            vec!["md1"],
+            "only Email + Annotation survives both filters: {resp}"
+        );
+    }
+
+    /// Oracle: draft §3.3 — when neither filter is set the response is
+    /// returned unchanged by the post-filter path.
+    #[tokio::test]
+    async fn changes_without_filters_passes_through_unchanged() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.add_metadata(
+            "acc1",
+            "md1",
+            json!({
+                "@type": "Annotation",
+                "id": "md1",
+                "relatedType": "Email",
+                "relatedId": "EM1"
+            }),
+        );
+        {
+            let mut guard = backend.state_for_test();
+            let acct = guard.get_mut("acc1").unwrap();
+            acct.created = vec![Id::from("md1")];
+            acct.state = 1;
+        }
+
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0"
+        });
+        let (resp, _) = handle_metadata_changes(&backend, &(), args).await.unwrap();
+
+        let created_ids: Vec<&str> = resp["created"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert_eq!(created_ids, vec!["md1"]);
+    }
 }

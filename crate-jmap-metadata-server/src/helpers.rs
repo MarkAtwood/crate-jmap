@@ -3,12 +3,7 @@
 //! Items here mirror the canonical extension-server helpers pattern
 //! (see `jmap_sharing_server::helpers` for the template). `Metadata/set`
 //! is the primary consumer of [`SetAccumulators`], [`finalize_set_response`],
-//! and [`set_error_value`]; the `#[allow(dead_code)]` attribute below
-//! keeps the scaffolding warning-clean while JMAP-06zp.3.3 implements the
-//! `set` handler. Once `handle_metadata_set` consumes these helpers, the
-//! allow attribute can be removed.
-
-#![allow(dead_code, unused_imports)]
+//! and [`set_error_value`].
 
 use jmap_types::{Id, Invocation, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};

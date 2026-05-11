@@ -114,3 +114,365 @@ where
 }
 
 pub use jmap_server::ClosureHandler;
+
+// ---------------------------------------------------------------------------
+// test_support — in-memory mock backend used by inline tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+#[deny(clippy::await_holding_lock)]
+pub(crate) mod test_support {
+    //! In-memory mock backend for unit tests.
+    //!
+    //! Provides a minimal [`MetadataBackend`] implementation backed by
+    //! `HashMap`s. Not suitable for production use; see
+    //! [`crate::memory::MemoryBackend`] for the public reference impl.
+
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex};
+
+    use jmap_metadata_types::Metadata;
+    use jmap_server::{
+        BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend, JmapObject,
+        QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+    };
+    use jmap_types::{Id, State};
+
+    use crate::backend::MetadataBackend;
+
+    /// Minimal error type for the mock backend.
+    #[derive(Debug)]
+    pub struct MockError(pub String);
+
+    impl std::fmt::Display for MockError {
+        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+            write!(f, "mock error: {}", self.0)
+        }
+    }
+
+    impl std::error::Error for MockError {}
+
+    /// In-memory state for one account. Public-in-test so the
+    /// `metadata::tests` module can pre-populate the change log.
+    #[derive(Default, Clone)]
+    pub(crate) struct AccountState {
+        pub(crate) metadatas: HashMap<Id, Metadata>,
+        pub(crate) state: u64,
+        /// Recorded created Ids since the last state snapshot, in
+        /// insertion order, for `get_changes`-style tests.
+        pub(crate) created: Vec<Id>,
+        /// Recorded updated Ids since the last state snapshot.
+        pub(crate) updated: Vec<Id>,
+        /// Recorded destroyed Ids since the last state snapshot.
+        pub(crate) destroyed: Vec<Id>,
+        /// Monotonic counter for synthesising mock-id values.
+        pub(crate) next_id: u64,
+        /// When set to `Some`, `create_object` returns this SetError
+        /// unconditionally — used by tests that exercise the §3.1
+        /// uniqueness / forbidden / overQuota paths.
+        pub(crate) forced_create_error: Option<SetError>,
+    }
+
+    /// In-memory mock backend for testing.
+    #[derive(Clone)]
+    pub struct MockBackend {
+        /// Known accounts and their state. The outer `Arc<Mutex<…>>` allows
+        /// the mock to be shared across threads (required by
+        /// `JmapBackend: Sync`).
+        state: Arc<Mutex<HashMap<String, AccountState>>>,
+    }
+
+    impl MockBackend {
+        /// Create a backend with no accounts registered.
+        pub fn new() -> Self {
+            Self {
+                state: Arc::new(Mutex::new(HashMap::new())),
+            }
+        }
+
+        /// Create a backend with the given account already registered.
+        pub fn new_with_account(account_id: &str) -> Self {
+            let b = Self::new();
+            b.state
+                .lock()
+                .unwrap()
+                .insert(account_id.to_owned(), AccountState::default());
+            b
+        }
+
+        /// Pre-populate a Metadata object in the given account.
+        pub fn add_metadata(&self, account_id: &str, id: &str, json: serde_json::Value) {
+            let meta: Metadata =
+                serde_json::from_value(json).expect("test fixture must deserialize");
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard.entry(account_id.to_owned()).or_default();
+            acct.metadatas.insert(Id::from(id), meta);
+        }
+
+        /// Force the next `create_object` call(s) to fail with the given
+        /// [`SetError`]. Sticky — clear via [`Self::clear_forced_create_error`].
+        pub fn force_create_error(&self, account_id: &str, err: SetError) {
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard.entry(account_id.to_owned()).or_default();
+            acct.forced_create_error = Some(err);
+        }
+
+        /// Clear any previously-installed forced create error.
+        #[allow(dead_code)]
+        pub fn clear_forced_create_error(&self, account_id: &str) {
+            let mut guard = self.state.lock().unwrap();
+            if let Some(acct) = guard.get_mut(account_id) {
+                acct.forced_create_error = None;
+            }
+        }
+
+        /// Lock the backend's internal account-state map for the duration of
+        /// a test. Used by `Metadata/changes` filter tests to seed the
+        /// change log (created/updated/destroyed vectors) and bump the
+        /// `state` counter without going through `create_object` /
+        /// `update_object` / `destroy_object`.
+        pub fn state_for_test(&self) -> std::sync::MutexGuard<'_, HashMap<String, AccountState>> {
+            self.state.lock().unwrap()
+        }
+    }
+
+    impl JmapBackend for MockBackend {
+        type Error = MockError;
+        type CallerCtx = ();
+
+        async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+            Ok(self.state.lock().unwrap().contains_key(account_id.as_ref()))
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            ids: Option<&[Id]>,
+            _properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            // The mock stores Metadata objects only. Other O types return an
+            // empty list — fine for these tests.
+            if O::TYPE_NAME != Metadata::TYPE_NAME {
+                return Ok((vec![], vec![]));
+            }
+            let guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get(account_id.as_ref()) else {
+                return Ok((vec![], vec![]));
+            };
+
+            let (found_meta, not_found): (Vec<Metadata>, Vec<Id>) = match ids {
+                None => (acct.metadatas.values().cloned().collect(), vec![]),
+                Some(req_ids) => {
+                    let mut found = Vec::new();
+                    let mut missing = Vec::new();
+                    for id in req_ids {
+                        if let Some(m) = acct.metadatas.get(id) {
+                            found.push(m.clone());
+                        } else {
+                            missing.push(id.clone());
+                        }
+                    }
+                    (found, missing)
+                }
+            };
+            // Down-cast Metadata -> O via serde round-trip. This is the
+            // canonical bridge for the JmapBackend::get_objects generic
+            // parameter; identical to sharing-server's mock pattern.
+            let mut converted: Vec<O> = Vec::with_capacity(found_meta.len());
+            for m in found_meta {
+                let v = serde_json::to_value(&m).map_err(|e| MockError(e.to_string()))?;
+                let o: O = serde_json::from_value(v).map_err(|e| MockError(e.to_string()))?;
+                converted.push(o);
+            }
+            Ok((converted, not_found))
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            let guard = self.state.lock().unwrap();
+            let s = guard.get(account_id.as_ref()).map(|a| a.state).unwrap_or(0);
+            Ok(State::from(s.to_string()))
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            since_state: &State,
+            _max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            let guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get(account_id.as_ref()) else {
+                return Ok(ChangesResult::new(
+                    vec![],
+                    vec![],
+                    vec![],
+                    false,
+                    State::from("0"),
+                ));
+            };
+            // For test simplicity: if since_state matches current, no changes;
+            // otherwise return all recorded.
+            let cur = acct.state.to_string();
+            if since_state.as_ref() == cur {
+                return Ok(ChangesResult::new(
+                    vec![],
+                    vec![],
+                    vec![],
+                    false,
+                    State::from(cur),
+                ));
+            }
+            Ok(ChangesResult::new(
+                acct.created.clone(),
+                acct.updated.clone(),
+                acct.destroyed.clone(),
+                false,
+                State::from(cur),
+            ))
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _limit: Option<u64>,
+            _position: i64,
+        ) -> Result<QueryResult, Self::Error> {
+            Ok(QueryResult::new(
+                vec![],
+                0,
+                Some(0),
+                State::from("0"),
+                false,
+            ))
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            since_query_state: &State,
+            _filter: Option<&O::Filter>,
+            _sort: Option<&[O::Comparator]>,
+            _max_changes: Option<u64>,
+            _up_to_id: Option<&Id>,
+            _collapse_threads: bool,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            Ok(QueryChangesResult::new(
+                since_query_state.clone(),
+                State::from("0"),
+                Some(0),
+                vec![],
+                vec![],
+            ))
+        }
+    }
+
+    impl MetadataBackend for MockBackend {
+        async fn create_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            _create_id: &str,
+            obj: O,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            let mut guard = self.state.lock().unwrap();
+            let acct = guard.entry(account_id.as_ref().to_owned()).or_default();
+
+            if let Some(err) = &acct.forced_create_error {
+                return Err(BackendSetError::SetError(err.clone()));
+            }
+
+            acct.next_id += 1;
+            let new_id = Id::from(format!("md{}", acct.next_id));
+
+            // Inject the assigned id into obj via serde round-trip, then
+            // store it as a Metadata for later retrieval.
+            let v = serde_json::to_value(&obj)
+                .map_err(|e| BackendSetError::Other(MockError(format!("serialize: {e}"))))?;
+            let mut v = match v {
+                serde_json::Value::Object(m) => m,
+                _ => {
+                    return Err(BackendSetError::SetError(SetError::new(
+                        SetErrorType::InvalidProperties,
+                    )))
+                }
+            };
+            v.insert(
+                "id".to_owned(),
+                serde_json::Value::String(new_id.as_ref().to_owned()),
+            );
+            let v = serde_json::Value::Object(v);
+
+            let stored: Metadata = serde_json::from_value(v.clone()).map_err(|e| {
+                BackendSetError::Other(MockError(format!("deserialize stored: {e}")))
+            })?;
+            acct.metadatas.insert(new_id.clone(), stored);
+            acct.state += 1;
+            acct.created.push(new_id.clone());
+
+            let echoed: O = serde_json::from_value(v)
+                .map_err(|e| BackendSetError::Other(MockError(format!("deserialize echo: {e}"))))?;
+            Ok((new_id, echoed))
+        }
+
+        async fn update_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            id: &Id,
+            _patch: O::Patch,
+        ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+            let mut guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get_mut(account_id.as_ref()) else {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )));
+            };
+            if !acct.metadatas.contains_key(id) {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )));
+            }
+            acct.state += 1;
+            acct.updated.push(id.clone());
+            // The mock does not apply the patch — it just signals success.
+            // Tests for the patch semantics belong with the real
+            // MemoryBackend in JMAP-06zp.3.4.
+            Ok(None)
+        }
+
+        async fn destroy_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            id: &Id,
+        ) -> Result<(), BackendSetError<Self::Error>> {
+            let mut guard = self.state.lock().unwrap();
+            let Some(acct) = guard.get_mut(account_id.as_ref()) else {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )));
+            };
+            if acct.metadatas.remove(id).is_none() {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )));
+            }
+            acct.state += 1;
+            acct.destroyed.push(id.clone());
+            Ok(())
+        }
+
+        fn supports_type<O: JmapObject>(&self) -> bool {
+            O::TYPE_NAME == Metadata::TYPE_NAME
+        }
+    }
+}
