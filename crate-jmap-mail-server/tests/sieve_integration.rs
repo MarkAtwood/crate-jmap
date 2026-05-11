@@ -973,3 +973,46 @@ async fn sieve_set_update_too_large() {
         "expected tooLarge SetError for oversized update; resp: {resp}"
     );
 }
+
+/// Test 19: SieveScript/validate rejects blob exceeding maxSizeScript with tooLarge.
+///
+/// Oracle: RFC 9661 §2.6 — the validate method MUST observe `maxSizeScript`,
+/// matching the consistency requirement that the handler not delegate blobs
+/// exceeding the advertised limit to the backend parser.
+///
+/// Witness discriminator: VALID_SIEVE_SCRIPT (5 bytes) is a *valid* script, so
+/// if the size-check were skipped the response would be `error: null`. Observing
+/// `error.type == "tooLarge"` proves the size guard short-circuited before
+/// `validate_sieve_script` was invoked.
+#[tokio::test]
+async fn sieve_validate_too_large() {
+    let backend = MemoryBackend::new();
+    let account_id = setup_account(&backend).await;
+
+    let blob_id = store_valid_blob(&backend);
+    assert_eq!(
+        VALID_SIEVE_SCRIPT.len(),
+        5,
+        "test oracle: VALID_SIEVE_SCRIPT must be 5 bytes"
+    );
+    backend.set_max_sieve_script_bytes(4);
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "blobId": blob_id.as_ref(),
+    });
+
+    let (resp, extra) = handle_sieve_validate(&backend, args)
+        .await
+        .expect("handle_sieve_validate must not return a method-level error");
+
+    assert_eq!(
+        resp["error"]["type"].as_str(),
+        Some("tooLarge"),
+        "expected tooLarge error for oversized validate; resp: {resp}"
+    );
+    assert!(
+        extra.is_empty(),
+        "validate must produce no extra invocations"
+    );
+}

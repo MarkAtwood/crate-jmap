@@ -1158,13 +1158,40 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    // Step 4: Delegate validation to the backend.
+    // Step 4: Enforce maxSizeScript before delegating to the backend's parser.
+    // Mirrors the set-path size-check (sieve.rs:505-529 create, 680-705 update);
+    // the trait doc on validate_sieve_script (sieve.rs:68-70) tells implementors
+    // size is checked at the handler layer.
+    let max_script_bytes: Option<u64> = backend
+        .max_sieve_script_bytes(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+    if let Some(max_bytes) = max_script_bytes {
+        match backend.get_sieve_blob(&account_id, &blob_id).await {
+            Ok(Some(ref bytes)) if bytes.len() as u64 > max_bytes => {
+                let resp = json!({
+                    "accountId": account_id.as_ref(),
+                    "error": json!({
+                        "type": "tooLarge",
+                        "description": format!(
+                            "script exceeds maxSizeScript limit of {max_bytes} bytes"
+                        ),
+                    }),
+                });
+                return Ok((resp, vec![]));
+            }
+            Ok(_) => {} // size OK or blob missing (missing blob handled by validate_sieve_script)
+            Err(e) => return Err(JmapError::server_fail(e.to_string())),
+        }
+    }
+
+    // Step 5: Delegate validation to the backend.
     let validation_error = backend
         .validate_sieve_script(&account_id, &blob_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    // Step 5: Build response — "error" field MUST be present as null when valid
+    // Step 6: Build response — "error" field MUST be present as null when valid
     // (RFC 9661 §2.6).
     let error_value = match validation_error {
         None => Value::Null,
