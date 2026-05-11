@@ -285,7 +285,7 @@ pub struct QueryResponse {
     /// The account the response refers to.
     pub account_id: Id,
     /// Opaque state token for this query result; pass to `/queryChanges`.
-    pub query_state: String,
+    pub query_state: State,
     /// `true` if `/queryChanges` will give incremental updates against this
     /// `query_state`; `false` if the client must re-run `/query` to refresh.
     pub can_calculate_changes: bool,
@@ -332,9 +332,9 @@ pub struct QueryChangesResponse {
     /// The account the response refers to.
     pub account_id: Id,
     /// The state token the client passed in.
-    pub old_query_state: String,
+    pub old_query_state: State,
     /// The current state token.
-    pub new_query_state: String,
+    pub new_query_state: State,
     /// Total number of matching objects (only when
     /// `calculateTotal: true` was set in the request).
     pub total: Option<u64>,
