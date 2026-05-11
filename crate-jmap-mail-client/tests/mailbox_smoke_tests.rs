@@ -48,6 +48,7 @@ async fn mailbox_set_on_destroy_remove_emails_passthrough() {
     let sc = helpers::make_client(&server);
     let params = MailboxSetParams {
         on_destroy_remove_emails: Some(true),
+        extra: serde_json::Map::new(),
     };
     let _ = sc
         .mailbox_set(

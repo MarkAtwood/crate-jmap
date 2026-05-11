@@ -55,6 +55,12 @@ pub struct PushSubscriptionCreateResponse {
     /// Creation failures, keyed by the caller-supplied creation key.
     #[serde(default)]
     pub not_created: Option<HashMap<String, SetError>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Response to a `Chat/typing` call (JMAP Chat §Chat/typing).
@@ -65,6 +71,12 @@ pub struct PushSubscriptionCreateResponse {
 pub struct TypingResponse {
     /// The account this response refers to.
     pub account_id: Id,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Response to a `Space/join` call (JMAP Chat §Space/join).
@@ -75,6 +87,12 @@ pub struct SpaceJoinResponse {
     pub account_id: Id,
     /// The JMAP id of the Space the caller is now a member of.
     pub space_id: Id,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -1400,6 +1418,68 @@ mod tests {
         assert!(
             !dbg.contains("REDACTED"),
             "PushSubscriptionPatch Debug with None verification_code must not show REDACTED; got: {dbg}"
+        );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
+    //
+    // Each test deserialises wire JSON containing a synthetic `acmeCorp*`
+    // vendor field and asserts it survives in `extra`. The vendor field
+    // names cannot collide with any field defined in RFC 8620 §7.2 or in
+    // the draft-atwood-jmap-chat-00 method responses, so the tests are
+    // independent of the code under test (workspace test-integrity rule).
+
+    /// `PushSubscriptionCreateResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn push_subscription_create_response_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": null,
+            "created": {},
+            "notCreated": {},
+            "acmeCorpPushBackend": "fcm"
+        });
+        let obj: PushSubscriptionCreateResponse =
+            serde_json::from_value(raw).expect("PushSubscriptionCreateResponse must deserialize");
+        assert_eq!(
+            obj.extra
+                .get("acmeCorpPushBackend")
+                .and_then(|v| v.as_str()),
+            Some("fcm")
+        );
+    }
+
+    /// `TypingResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn typing_response_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": "acc1",
+            "acmeCorpEchoLatencyMs": 12
+        });
+        let obj: TypingResponse =
+            serde_json::from_value(raw).expect("TypingResponse must deserialize");
+        assert_eq!(
+            obj.extra
+                .get("acmeCorpEchoLatencyMs")
+                .and_then(|v| v.as_u64()),
+            Some(12)
+        );
+    }
+
+    /// `SpaceJoinResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn space_join_response_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": "acc1",
+            "spaceId": "S1",
+            "acmeCorpWelcomeChannelId": "C-welcome"
+        });
+        let obj: SpaceJoinResponse =
+            serde_json::from_value(raw).expect("SpaceJoinResponse must deserialize");
+        assert_eq!(
+            obj.extra
+                .get("acmeCorpWelcomeChannelId")
+                .and_then(|v| v.as_str()),
+            Some("C-welcome")
         );
     }
 }

@@ -44,6 +44,12 @@ pub struct Quota {
     /// Optional human-readable description.
     #[serde(default)]
     pub description: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl super::SessionClient {
@@ -114,5 +120,45 @@ impl super::SessionClient {
         let req = super::build_request("Quota/changes", args, super::USING_QUOTA);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
+    //
+    // The test deserialises wire JSON containing a synthetic `acmeCorp*`
+    // vendor field and asserts it survives in `extra`. The vendor field
+    // name cannot collide with any field defined in RFC 8621 §2, so the
+    // test is independent of the code under test (workspace
+    // test-integrity rule).
+
+    /// `Quota.extra` captures unknown fields on deserialize.
+    #[test]
+    fn quota_preserves_vendor_extras() {
+        let raw = json!({
+            "id": "Q1",
+            "name": "Message Storage",
+            "scope": "account",
+            "resourceType": "octets",
+            "types": ["Message"],
+            "used": 1024,
+            "hardLimit": 1048576,
+            "acmeCorpBillingTier": "enterprise"
+        });
+        let obj: Quota = serde_json::from_value(raw).expect("Quota must deserialize");
+        assert_eq!(
+            obj.extra
+                .get("acmeCorpBillingTier")
+                .and_then(|v| v.as_str()),
+            Some("enterprise")
+        );
     }
 }

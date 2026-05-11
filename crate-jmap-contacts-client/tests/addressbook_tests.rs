@@ -233,6 +233,7 @@ async fn addressbook_set_on_destroy_remove_contents() {
     let params = jmap_contacts_client::AddressBookSetParams {
         on_destroy_remove_contents: Some(true),
         on_success_set_is_default: None,
+        extra: serde_json::Map::new(),
     };
     let resp = sc
         .address_book_set(

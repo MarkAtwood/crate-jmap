@@ -47,6 +47,13 @@ pub struct FileNodeSetParams {
     /// sibling name collisions. Server default: false.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub compare_case_insensitively: Option<bool>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Parameters for FileNode/copy requests
@@ -56,6 +63,13 @@ pub struct FileNodeSetParams {
 pub struct FileNodeCopyParams {
     /// The account that is the source of the copy operation.
     pub from_account_id: Id,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -332,7 +346,8 @@ impl super::SessionClient {
 #[cfg(test)]
 mod tests {
     use super::super::{QueryResponse, SetResponse};
-    use super::{FileNodeOnExists, FileNodeSetParams};
+    use super::{FileNodeCopyParams, FileNodeOnExists, FileNodeSetParams};
+    use jmap_types::Id;
     use serde_json::json;
 
     // ── Empty-string guards ─────────────────────────────────────────────────
@@ -380,6 +395,7 @@ mod tests {
             on_destroy_remove_children: Some(true),
             on_exists: None,
             compare_case_insensitively: None,
+            extra: serde_json::Map::new(),
         };
         let val = serde_json::to_value(&params).expect("serialize");
         assert_eq!(
@@ -400,6 +416,7 @@ mod tests {
             on_destroy_remove_children: Some(false),
             on_exists: Some(FileNodeOnExists::Replace),
             compare_case_insensitively: Some(true),
+            extra: serde_json::Map::new(),
         };
         let val = serde_json::to_value(&params).expect("serialize");
         assert_eq!(val["onDestroyRemoveChildren"], json!(false));
@@ -466,5 +483,37 @@ mod tests {
         let node = created.get("new1").expect("new1 must be present");
         assert_eq!(node.id, "node-abc");
         assert_eq!(node.name, "Documents");
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
+    //
+    // For Serialize-only method-argument structs, the test constructs a
+    // struct with a vendor field in `extra` and asserts that the field
+    // flattens into the serialized JSON. Uses synthetic `acmeCorp*` keys
+    // that are guaranteed not to appear in any draft-ietf-jmap-filenode
+    // typed field — so the tests are independent of the crate under test.
+
+    /// `FileNodeSetParams.extra` flattens into serialized JSON.
+    #[test]
+    fn file_node_set_params_propagates_vendor_extras() {
+        let mut params = FileNodeSetParams::default();
+        params
+            .extra
+            .insert("acmeCorpCascade".into(), json!("strict"));
+        let v = serde_json::to_value(&params).expect("serialize FileNodeSetParams");
+        assert_eq!(v["acmeCorpCascade"], json!("strict"));
+    }
+
+    /// `FileNodeCopyParams.extra` flattens into serialized JSON.
+    #[test]
+    fn file_node_copy_params_propagates_vendor_extras() {
+        let mut extra = serde_json::Map::new();
+        extra.insert("acmeCorpAudit".into(), json!(true));
+        let params = FileNodeCopyParams {
+            from_account_id: Id::from("acct-src"),
+            extra,
+        };
+        let v = serde_json::to_value(&params).expect("serialize FileNodeCopyParams");
+        assert_eq!(v["acmeCorpAudit"], json!(true));
     }
 }

@@ -55,6 +55,12 @@ pub struct EmailGetParams {
     /// Truncate body values to at most this many bytes (RFC 8621 §4.1.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_body_value_bytes: Option<u64>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Extra args for Email/copy (RFC 8621 §4.7).
@@ -69,6 +75,12 @@ pub struct EmailCopyParams {
     /// If-in-state guard for the source account destroy step (RFC 8620 §5.4).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub destroy_from_if_in_state: Option<jmap_types::State>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Extra args for Mailbox/set (RFC 8621 §2.5).
@@ -79,6 +91,12 @@ pub struct MailboxSetParams {
     /// destroyed (RFC 8621 §2.5).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_destroy_remove_emails: Option<bool>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Extra args for EmailSubmission/set (RFC 8621 §7.5).
@@ -109,6 +127,13 @@ pub struct EmailSubmissionSetParams {
     /// Typically used to destroy the draft email after successful submission.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_success_destroy_email: Option<Vec<String>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Per-creation EmailImport object for [`Email/import`](super::SessionClient::email_import)
@@ -139,6 +164,12 @@ pub struct EmailImportInput<'a> {
     /// `Received` header or import time per RFC 8621 §4.8 when `None`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub received_at: Option<&'a jmap_types::UTCDate>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 fn ser_mailbox_id_set<S: serde::Serializer>(ids: &&[Id], s: S) -> Result<S::Ok, S::Error> {
@@ -180,6 +211,12 @@ pub struct EmailImportCreated {
     pub thread_id: Id,
     /// Size of the canonical raw message in bytes.
     pub size: u64,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Response to [`Email/import`](super::SessionClient::email_import) (RFC 8621 §4.8).
@@ -201,6 +238,12 @@ pub struct EmailImportResponse {
     /// `alreadyExists`, `invalidProperties`, `overQuota`, `invalidEmail`).
     #[serde(default)]
     pub not_created: Option<HashMap<String, SetError>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Extra args for [`Email/parse`](super::SessionClient::email_parse) (RFC 8621 §4.9).
@@ -230,6 +273,12 @@ pub struct EmailParseParams {
     /// Truncate body values to at most this many bytes (RFC 8621 §4.9).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_body_value_bytes: Option<u64>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Response to [`Email/parse`](super::SessionClient::email_parse) (RFC 8621 §4.9).
@@ -252,6 +301,12 @@ pub struct EmailParseResponse {
     /// Blob ids that could not be found in the account's blob store.
     #[serde(default)]
     pub not_found: Option<Vec<Id>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -598,6 +653,7 @@ mod tests {
             fetch_html_body_values: Some(false),
             fetch_all_body_values: Some(true),
             max_body_value_bytes: Some(1024),
+            extra: serde_json::Map::new(),
         };
         let v = serde_json::to_value(&params).expect("serialize");
         assert_eq!(
@@ -619,6 +675,7 @@ mod tests {
             from_account_id: "acct-src".into(),
             on_success_destroy_original: Some(true),
             destroy_from_if_in_state: Some("s99".into()),
+            extra: serde_json::Map::new(),
         };
         let v = serde_json::to_value(&params).expect("serialize");
         assert_eq!(v["fromAccountId"], json!("acct-src"));
@@ -633,12 +690,151 @@ mod tests {
             from_account_id: "acct-src".into(),
             on_success_destroy_original: None,
             destroy_from_if_in_state: None,
+            extra: serde_json::Map::new(),
         };
         let v = serde_json::to_value(&params).expect("serialize");
         assert_eq!(v["fromAccountId"], json!("acct-src"));
         assert!(
             v.get("onSuccessDestroyOriginal").is_none() || v["onSuccessDestroyOriginal"].is_null(),
             "onSuccessDestroyOriginal must be absent"
+        );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
+    //
+    // For Serialize-only method-argument structs, the test constructs a
+    // struct with a vendor field in `extra` and asserts that the field
+    // flattens into the serialized JSON. For Deserialize-only method-
+    // response structs, the test deserialises JSON containing a vendor
+    // field and asserts the field is captured in `extra`. Both directions
+    // use synthetic `acmeCorp*` keys that are guaranteed not to appear in
+    // any RFC 8621 typed field — so the tests are independent of the
+    // crate under test.
+
+    /// `EmailGetParams.extra` flattens into serialized JSON.
+    #[test]
+    fn email_get_params_propagates_vendor_extras() {
+        let mut params = EmailGetParams::default();
+        params
+            .extra
+            .insert("acmeCorpInline".into(), json!("aggressive"));
+        let v = serde_json::to_value(&params).expect("serialize EmailGetParams");
+        assert_eq!(v["acmeCorpInline"], json!("aggressive"));
+    }
+
+    /// `EmailCopyParams.extra` flattens into serialized JSON.
+    #[test]
+    fn email_copy_params_propagates_vendor_extras() {
+        let mut extra = serde_json::Map::new();
+        extra.insert("acmeCorpAudit".into(), json!(true));
+        let params = EmailCopyParams {
+            from_account_id: "acct-src".into(),
+            on_success_destroy_original: None,
+            destroy_from_if_in_state: None,
+            extra,
+        };
+        let v = serde_json::to_value(&params).expect("serialize EmailCopyParams");
+        assert_eq!(v["acmeCorpAudit"], json!(true));
+    }
+
+    /// `MailboxSetParams.extra` flattens into serialized JSON.
+    #[test]
+    fn mailbox_set_params_propagates_vendor_extras() {
+        let mut params = MailboxSetParams::default();
+        params
+            .extra
+            .insert("acmeCorpCascade".into(), json!("strict"));
+        let v = serde_json::to_value(&params).expect("serialize MailboxSetParams");
+        assert_eq!(v["acmeCorpCascade"], json!("strict"));
+    }
+
+    /// `EmailSubmissionSetParams.extra` flattens into serialized JSON.
+    #[test]
+    fn email_submission_set_params_propagates_vendor_extras() {
+        let mut params = EmailSubmissionSetParams::default();
+        params
+            .extra
+            .insert("acmeCorpQueue".into(), json!("priority"));
+        let v = serde_json::to_value(&params).expect("serialize EmailSubmissionSetParams");
+        assert_eq!(v["acmeCorpQueue"], json!("priority"));
+    }
+
+    /// `EmailImportInput.extra` flattens into serialized JSON.
+    #[test]
+    fn email_import_input_propagates_vendor_extras() {
+        let blob = Id::from("blob1");
+        let mailboxes = [Id::from("mb1")];
+        let mut extra = serde_json::Map::new();
+        extra.insert("acmeCorpSource".into(), json!("mta-relay"));
+        let input = EmailImportInput {
+            blob_id: &blob,
+            mailbox_ids: &mailboxes,
+            keywords: None,
+            received_at: None,
+            extra,
+        };
+        let v = serde_json::to_value(&input).expect("serialize EmailImportInput");
+        assert_eq!(v["acmeCorpSource"], json!("mta-relay"));
+    }
+
+    /// `EmailParseParams.extra` flattens into serialized JSON.
+    #[test]
+    fn email_parse_params_propagates_vendor_extras() {
+        let mut params = EmailParseParams::default();
+        params.extra.insert("acmeCorpStrict".into(), json!(true));
+        let v = serde_json::to_value(&params).expect("serialize EmailParseParams");
+        assert_eq!(v["acmeCorpStrict"], json!(true));
+    }
+
+    /// `EmailImportCreated.extra` captures unknown fields on deserialize.
+    #[test]
+    fn email_import_created_preserves_vendor_extras() {
+        let raw = json!({
+            "id": "M1",
+            "blobId": "B1",
+            "threadId": "T1",
+            "size": 1024,
+            "acmeCorpAntivirus": "clean"
+        });
+        let created: EmailImportCreated =
+            serde_json::from_value(raw).expect("EmailImportCreated must deserialize");
+        assert_eq!(
+            created
+                .extra
+                .get("acmeCorpAntivirus")
+                .and_then(|v| v.as_str()),
+            Some("clean")
+        );
+    }
+
+    /// `EmailImportResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn email_import_response_preserves_vendor_extras() {
+        let raw = json!({
+            "accountId": "acc1",
+            "newState": "s2",
+            "acmeCorpJobId": "job-42"
+        });
+        let resp: EmailImportResponse =
+            serde_json::from_value(raw).expect("EmailImportResponse must deserialize");
+        assert_eq!(
+            resp.extra.get("acmeCorpJobId").and_then(|v| v.as_str()),
+            Some("job-42")
+        );
+    }
+
+    /// `EmailParseResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn email_parse_response_preserves_vendor_extras() {
+        let raw = json!({
+            "accountId": "acc1",
+            "acmeCorpParser": "v3"
+        });
+        let resp: EmailParseResponse =
+            serde_json::from_value(raw).expect("EmailParseResponse must deserialize");
+        assert_eq!(
+            resp.extra.get("acmeCorpParser").and_then(|v| v.as_str()),
+            Some("v3")
         );
     }
 }

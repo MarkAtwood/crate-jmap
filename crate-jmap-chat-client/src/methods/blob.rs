@@ -25,6 +25,12 @@ pub struct BlobLookupEntry {
     /// Per-type reverse lookup: keys are data type names (e.g. `"Message"`),
     /// values are object IDs that reference this blob.
     pub matched_ids: HashMap<String, Vec<String>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Response to a `Blob/lookup` call.
@@ -42,6 +48,12 @@ pub struct BlobLookupResponse {
     /// An absent field and an empty array are semantically identical.
     #[serde(default)]
     pub not_found: Vec<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A blob object returned in a `Blob/convert` (or `Blob/set`) response.
@@ -60,6 +72,12 @@ pub struct BlobObject {
     /// not yet know the final size (spec §8 allows omitting size for
     /// deferred conversions).
     pub size: Option<u64>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Response to a `Blob/convert` call.
@@ -79,6 +97,12 @@ pub struct BlobConvertResponse {
     /// Failed conversions: maps each creation id to a SetError.
     #[serde(default)]
     pub not_created: Option<HashMap<String, super::SetError>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// `imageConvert` recipe for a `Blob/convert` request.
@@ -252,5 +276,80 @@ mod tests {
         assert_eq!(obj.id.as_ref(), "Bnew");
         assert_eq!(obj.content_type.as_deref(), Some("image/webp"));
         assert_eq!(obj.size, Some(12345));
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
+    //
+    // Each test deserialises wire JSON containing a synthetic `acmeCorp*`
+    // vendor field and asserts it survives in `extra`. The vendor field
+    // names cannot collide with any field defined in
+    // draft-ietf-jmap-blobext-01 §4, §6, or §8, so the tests are
+    // independent of the code under test (workspace test-integrity rule).
+
+    /// `BlobLookupEntry.extra` captures unknown fields on deserialize.
+    #[test]
+    fn blob_lookup_entry_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "B1",
+            "matchedIds": {
+                "Message": ["M1", "M2"]
+            },
+            "acmeCorpCacheHit": true
+        });
+        let obj: BlobLookupEntry =
+            serde_json::from_value(raw).expect("BlobLookupEntry must deserialize");
+        assert_eq!(
+            obj.extra.get("acmeCorpCacheHit").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+    }
+
+    /// `BlobLookupResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn blob_lookup_response_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": "acc1",
+            "list": [],
+            "acmeCorpRequestId": "req-42"
+        });
+        let obj: BlobLookupResponse =
+            serde_json::from_value(raw).expect("BlobLookupResponse must deserialize");
+        assert_eq!(
+            obj.extra.get("acmeCorpRequestId").and_then(|v| v.as_str()),
+            Some("req-42")
+        );
+    }
+
+    /// `BlobObject.extra` captures unknown fields on deserialize.
+    #[test]
+    fn blob_object_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "Bnew",
+            "type": "image/webp",
+            "size": 12345,
+            "acmeCorpCdnUrl": "https://cdn.example.com/Bnew"
+        });
+        let obj: BlobObject = serde_json::from_value(raw).expect("BlobObject must deserialize");
+        assert_eq!(
+            obj.extra.get("acmeCorpCdnUrl").and_then(|v| v.as_str()),
+            Some("https://cdn.example.com/Bnew")
+        );
+    }
+
+    /// `BlobConvertResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn blob_convert_response_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": "acc1",
+            "created": {},
+            "notCreated": {},
+            "acmeCorpJobId": "job-7"
+        });
+        let obj: BlobConvertResponse =
+            serde_json::from_value(raw).expect("BlobConvertResponse must deserialize");
+        assert_eq!(
+            obj.extra.get("acmeCorpJobId").and_then(|v| v.as_str()),
+            Some("job-7")
+        );
     }
 }

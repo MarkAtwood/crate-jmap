@@ -56,6 +56,12 @@ pub struct CalendarEventParseResponse {
     pub not_found: Option<Vec<Id>>,
     /// Blob ids whose contents were not parseable as iCalendar data.
     pub not_parsable: Option<Vec<Id>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +81,12 @@ pub struct PrincipalGetAvailabilityResponse {
     pub account_id: Id,
     /// Busy periods for the queried principal within the requested time range.
     pub list: Vec<jmap_calendars_types::BusyPeriod>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -461,6 +473,50 @@ mod tests {
             period.account_id.as_ref().map(|id| id.as_ref()),
             Some("acc1"),
             "accountId in BusyPeriod must be 'acc1'"
+        );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
+    //
+    // For Deserialize-only method-response structs, the test deserialises
+    // JSON containing a vendor field and asserts the field is captured in
+    // `extra`. The test uses synthetic `acmeCorp*` keys that are guaranteed
+    // not to appear in any draft-defined field — so the tests are
+    // independent of the crate under test.
+
+    /// `CalendarEventParseResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn calendar_event_parse_response_preserves_vendor_extras() {
+        let raw = json!({
+            "accountId": "acc1",
+            "parsed": null,
+            "notFound": null,
+            "notParsable": null,
+            "acmeCorpRequestId": "req-42"
+        });
+        let resp: CalendarEventParseResponse =
+            serde_json::from_value(raw).expect("CalendarEventParseResponse must deserialize");
+        assert_eq!(
+            resp.extra.get("acmeCorpRequestId").and_then(|v| v.as_str()),
+            Some("req-42")
+        );
+    }
+
+    /// `PrincipalGetAvailabilityResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn principal_get_availability_response_preserves_vendor_extras() {
+        let raw = json!({
+            "accountId": "acc1",
+            "list": [],
+            "acmeCorpQuotaRemaining": 99
+        });
+        let resp: PrincipalGetAvailabilityResponse =
+            serde_json::from_value(raw).expect("PrincipalGetAvailabilityResponse must deserialize");
+        assert_eq!(
+            resp.extra
+                .get("acmeCorpQuotaRemaining")
+                .and_then(|v| v.as_i64()),
+            Some(99)
         );
     }
 

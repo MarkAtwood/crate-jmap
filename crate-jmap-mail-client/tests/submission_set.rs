@@ -132,6 +132,7 @@ async fn email_submission_set_on_success_update_email() {
     let params = EmailSubmissionSetParams {
         on_success_update_email: Some(on_success),
         on_success_destroy_email: None,
+        extra: serde_json::Map::new(),
     };
     sc.email_submission_set(
         Some(json!({
