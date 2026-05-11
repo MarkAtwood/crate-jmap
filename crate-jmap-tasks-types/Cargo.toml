@@ -11,6 +11,7 @@ keywords = ["jmap", "tasks", "types", "rfc8620"]
 categories = ["encoding", "network-programming"]
 
 [dependencies]
+jmap-jscalendar-types = { workspace = true }
 jmap-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

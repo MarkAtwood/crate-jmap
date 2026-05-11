@@ -344,9 +344,19 @@ the one `Task` struct; the handler layer checks capability advertisement.
 Location, VirtualLocation, Link, Alert, Participant, RecurrenceRule, TimeZone:
 these are fully specified in RFC 8984 but are deeply nested and not needed for
 routing or filtering logic. Representing them as `serde_json::Value` defers the
-parsing cost and avoids maintaining a full JSCalendar type library in this crate.
-When a future crate provides typed JSCalendar types, `Task` can be migrated to
-use them with a semver-breaking change.
+parsing cost and preserves per-leaf shape flexibility for vendor extensions
+permitted by RFC 8984 §3.3.
+
+Typed JSCalendar sub-types for these fields are available via the
+[`jmap-jscalendar-types`] crate and are re-exported by this crate for symmetry
+with `jmap-calendars-types` — see the `jscalendar` module alias and the
+top-level `pub use jmap_jscalendar_types::{...}` re-exports in `src/lib.rs`.
+Callers that need typed access do `serde_json::from_value::<Location>(...)`
+on the relevant `Value` field. The wire-format storage stays as
+`Option<serde_json::Value>` so that vendor extension properties round-trip
+without loss.
+
+[`jmap-jscalendar-types`]: https://crates.io/crates/jmap-jscalendar-types
 
 ### `@type` is preserved but not enforced in Task
 
