@@ -22,6 +22,17 @@
 //! (RFC 9007). This exposes `register_mdn_handlers`, which wires
 //! two additional method names into the dispatcher: `MDN/send` and `MDN/parse`.
 //! Backends must also implement `MdnBackend` in addition to [`MailBackend`].
+//!
+//! # `memory` feature (reference implementation)
+//!
+//! Enable the `memory` feature to expose the `memory::MemoryBackend`
+//! reference implementation of [`MailBackend`] (and, when `mdn`/`sieve`
+//! are also enabled, of `MdnBackend`/`SieveBackend`). This is the same
+//! backend used by this crate's own integration tests, intended for
+//! downstream contributors to study and for smoke tests / examples
+//! that do not want to stand up a real database. **Not production.**
+//! API stability is opt-in via this feature and may break across minor
+//! versions while the crate is pre-1.0.
 
 #![forbid(unsafe_code)]
 
@@ -42,6 +53,12 @@ pub mod backend;
 pub mod email;
 #[cfg(feature = "mdn")]
 pub mod mdn;
+/// In-memory reference implementation of [`MailBackend`].
+///
+/// Gated behind `feature = "memory"`. Not production. See [`memory`] for
+/// the full module documentation.
+#[cfg(feature = "memory")]
+pub mod memory;
 #[cfg(feature = "sieve")]
 pub mod sieve;
 #[cfg(feature = "mdn")]

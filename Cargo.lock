@@ -877,6 +877,7 @@ dependencies = [
 name = "jmap-mail-server"
 version = "0.1.2"
 dependencies = [
+ "jmap-mail-server",
  "jmap-mail-types",
  "jmap-mime",
  "jmap-server",
