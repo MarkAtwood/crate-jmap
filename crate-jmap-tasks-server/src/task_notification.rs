@@ -57,6 +57,17 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
         ));
     };
 
+    // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
+    // error). Without this, a /set against an unknown accountId would silently
+    // "succeed" with a fake oldState/newState envelope. Fixed in JMAP-gpt1.
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     let old_state = backend
         .get_state::<TaskNotification>(&account_id)
         .await

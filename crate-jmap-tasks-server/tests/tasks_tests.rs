@@ -11,7 +11,7 @@ mod common;
 use common::MemoryBackend;
 use jmap_tasks_server::{
     handle_task_changes, handle_task_get, handle_task_list_changes, handle_task_list_get,
-    handle_task_list_set, handle_task_query, handle_task_set,
+    handle_task_list_set, handle_task_notification_set, handle_task_query, handle_task_set,
 };
 use serde_json::{json, Value};
 
@@ -198,15 +198,9 @@ async fn task_list_set_destroy_with_tasks_returns_error() {
 // ---------------------------------------------------------------------------
 // Test 6: TaskList/set create rejects client-supplied id
 // Oracle: RFC 8620 §5.3.
-//
-// IGNORED: handle_task_list_set does not currently enforce §5.3 — the
-// client-supplied id is silently dropped instead of producing a
-// `notCreated` SetError. Tracked as bd:JMAP-n22t. Remove the
-// `#[ignore]` when that bead is closed.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "JMAP-n22t: handle_task_list_set doesn't enforce RFC 8620 §5.3"]
 async fn task_list_set_create_with_client_id_rejects() {
     let backend = MemoryBackend::new().with_account("acc1");
 
@@ -230,16 +224,9 @@ async fn task_list_set_create_with_client_id_rejects() {
 // ---------------------------------------------------------------------------
 // Test 7: TaskList/set on unknown accountId → accountNotFound
 // Oracle: RFC 8620 §3.6.2.
-//
-// IGNORED: handle_task_list_set does not currently call
-// backend.account_exists before processing — an unknown accountId is
-// silently accepted instead of producing a method-level
-// `accountNotFound` error. Tracked as bd:JMAP-gpt1. Remove the
-// `#[ignore]` when that bead is closed.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "JMAP-gpt1: handle_task_list_set doesn't enforce RFC 8620 §3.6.2"]
 async fn task_list_set_unknown_account_returns_account_not_found() {
     let backend = MemoryBackend::new();
 
@@ -346,14 +333,9 @@ async fn task_list_set_state_bumps_visible_via_changes() {
 // ---------------------------------------------------------------------------
 // Test 12: Task/set create with client-supplied id rejected
 // Oracle: RFC 8620 §5.3.
-//
-// IGNORED: handle_task_set does not currently enforce §5.3 — same bug
-// shape as task_list_set_create_with_client_id_rejects above. Tracked
-// as bd:JMAP-n22t. Remove the `#[ignore]` when that bead is closed.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
-#[ignore = "JMAP-n22t: handle_task_set doesn't enforce RFC 8620 §5.3"]
 async fn task_set_create_with_client_id_rejects() {
     let backend = MemoryBackend::new().with_account("acc1");
     backend.seed_object("acc1", "TaskList", "tl1", task_list_fixture("tl1", "Todo"));
@@ -377,5 +359,53 @@ async fn task_set_create_with_client_id_rejects() {
     assert_eq!(
         resp["notCreated"]["c1"]["type"], "invalidProperties",
         "client-supplied id must be rejected: {resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test 13: Task/set on unknown accountId → accountNotFound (JMAP-gpt1)
+// Oracle: RFC 8620 §3.6.2.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn task_set_unknown_account_returns_account_not_found() {
+    let backend = MemoryBackend::new();
+
+    let args = json!({
+        "accountId": "nobody",
+        "create": { "c1": { "@type": "Task", "uid": "u1", "title": "x", "taskListId": "tl1" } }
+    });
+    let err = handle_task_set(&backend, args)
+        .await
+        .expect_err("unknown accountId must produce method-level error");
+
+    let err_str = format!("{err:?}");
+    assert!(
+        err_str.contains("accountNotFound") || err_str.contains("AccountNotFound"),
+        "must be accountNotFound: {err_str}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test 14: TaskNotification/set on unknown accountId → accountNotFound (JMAP-gpt1)
+// Oracle: RFC 8620 §3.6.2.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn task_notification_set_unknown_account_returns_account_not_found() {
+    let backend = MemoryBackend::new();
+
+    let args = json!({
+        "accountId": "nobody",
+        "destroy": ["nope"]
+    });
+    let err = handle_task_notification_set(&backend, args)
+        .await
+        .expect_err("unknown accountId must produce method-level error");
+
+    let err_str = format!("{err:?}");
+    assert!(
+        err_str.contains("accountNotFound") || err_str.contains("AccountNotFound"),
+        "must be accountNotFound: {err_str}"
     );
 }
