@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A JMAP CalendarEvent object (draft-ietf-jmap-calendars-26 §5; RFC 8984 §5.1).
@@ -60,12 +60,19 @@ pub struct CalendarEvent {
     pub is_origin: Option<bool>,
 
     /// Computed UTC start time (not returned by default; must be requested).
+    ///
+    /// Uses the [`UTCDate`] newtype to make the wire-format constraint
+    /// (RFC 8620 §1.4: 20-character UTCDateTime string) explicit at the
+    /// type level. JSON wire format is unchanged because `UTCDate` is a
+    /// transparent newtype around `String`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub utc_start: Option<String>,
+    pub utc_start: Option<UTCDate>,
 
     /// Computed UTC end time (not returned by default; must be requested).
+    ///
+    /// See [`utc_start`](Self::utc_start) for the typing rationale.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub utc_end: Option<String>,
+    pub utc_end: Option<UTCDate>,
 
     /// If `true`, use per-calendar default alerts instead of `alerts` (default `false`).
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -2,6 +2,7 @@
 //!
 //! Normative reference: draft-ietf-jmap-calendars-26 §2.2.
 
+use jmap_types::UTCDate;
 use serde::{Deserialize, Serialize};
 
 /// A single busy period returned by `Principal/getAvailability`
@@ -26,11 +27,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BusyPeriod {
-    /// UTC start of the busy period (inclusive).  UTCDateTime string.
-    pub utc_start: String,
+    /// UTC start of the busy period (inclusive).
+    ///
+    /// Uses the [`UTCDate`] newtype (RFC 8620 §1.4) rather than a bare
+    /// `String` to make the wire-format constraint
+    /// (20-character `YYYY-MM-DDTHH:MM:SSZ`) explicit at the type level.
+    /// JSON serialization is unchanged because `UTCDate` is a transparent
+    /// newtype.
+    pub utc_start: UTCDate,
 
-    /// UTC end of the busy period (exclusive).  UTCDateTime string.
-    pub utc_end: String,
+    /// UTC end of the busy period (exclusive).
+    ///
+    /// See [`utc_start`](Self::utc_start) for the typing rationale.
+    pub utc_end: UTCDate,
 
     /// Characterisation of the busy time.
     ///
