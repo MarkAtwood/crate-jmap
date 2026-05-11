@@ -1,9 +1,9 @@
-//! Canonical seed-data fixture for integration tests.
+//! Canonical seed-data fixture for integration tests and examples.
 //!
 //! [`setup_seed_data`] populates a [`super::MemoryBackend`] with a fixed set of
-//! mailboxes and emails derived from the jmap-test-suite seed-data spec.
+//! mailboxes and emails derived from the JMAP test suite seed-data spec.
 //! All timestamps are relative to the fixed baseline `2026-01-01T00:00:00Z`
-//! so tests are fully deterministic.
+//! so consumers get fully deterministic seeded state.
 //!
 //! Oracle: `~/GIT/jmap-test-suite/src/setup/seed-data.ts` — these fixtures
 //! mirror that file's structure for cross-validation.
@@ -14,7 +14,7 @@ use jmap_mail_types::{keyword, Keyword, Mailbox, MailboxRights, MailboxRole};
 use jmap_types::{Id, UTCDate};
 
 use super::MemoryBackend;
-use jmap_mail_server::MailBackend;
+use crate::MailBackend;
 
 // ---------------------------------------------------------------------------
 // Public return type

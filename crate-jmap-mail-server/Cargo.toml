@@ -13,6 +13,12 @@ categories = ["network-programming", "web-programming::http-server"]
 [features]
 mdn = ["jmap-mail-types/mdn"]
 sieve = ["jmap-mail-types/sieve"]
+# Public, feature-gated in-memory reference implementation of MailBackend
+# (and optionally MdnBackend/SieveBackend when those features are also enabled).
+# Not production — intended as a reference impl, integration-test harness, and
+# documentation example. API stability is opt-in via this feature and may
+# break across minor versions pre-1.0.
+memory = ["dep:uuid", "dep:jmap-mime", "dep:mime-tree"]
 
 [dependencies]
 jmap-types = { workspace = true }
@@ -20,9 +26,15 @@ jmap-mail-types = { workspace = true }
 jmap-server = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+# Optional deps activated by the `memory` feature.
+uuid = { version = "1", default-features = false, features = ["v4", "std"], optional = true }
+jmap-mime = { workspace = true, optional = true }
+mime-tree = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-uuid = { version = "1", default-features = false, features = ["v4", "std"] }
-mime-tree = { workspace = true }
-jmap-mime = { workspace = true }
+# Tests use the public MemoryBackend reference impl from `src/memory.rs`.
+# Self-dep with feature flags ensures the `memory`, `mdn`, and `sieve`
+# features are active when compiling integration tests, without exposing
+# them to downstream users by default.
+jmap-mail-server = { workspace = true, features = ["memory", "mdn", "sieve"] }
