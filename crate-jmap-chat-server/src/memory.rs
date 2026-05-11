@@ -548,8 +548,27 @@ impl ChatBackend for MemoryBackend {
 // JSON Merge Patch (RFC 7396)
 // ---------------------------------------------------------------------------
 
-/// Apply a JSON Merge Patch to `target` in-place.
+/// Apply a JSON Merge Patch (RFC 7396) to `target` in-place.
+///
+/// Patches deeper than [`MAX_MERGE_PATCH_DEPTH`] are silently truncated to
+/// bound stack use on adversarial input (bd:JMAP-sc1b.97). Below the cap the
+/// behaviour is exactly RFC 7396.
 fn json_merge_patch(target: &mut serde_json::Value, patch: serde_json::Value) {
+    json_merge_patch_inner(target, patch, 0);
+}
+
+/// Maximum recursion depth for JSON Merge Patch application.
+///
+/// Beyond this depth the patch is silently ignored at the affected sub-tree:
+/// the target value at that level is left unchanged. Mitigates stack DoS
+/// from adversarial `PatchObject` values (bd:JMAP-sc1b.97). 32 levels
+/// comfortably exceeds any legitimate JMAP `/set update` shape.
+const MAX_MERGE_PATCH_DEPTH: usize = 32;
+
+fn json_merge_patch_inner(target: &mut serde_json::Value, patch: serde_json::Value, depth: usize) {
+    if depth > MAX_MERGE_PATCH_DEPTH {
+        return;
+    }
     match patch {
         serde_json::Value::Object(patch_map) => {
             let target_map = target
@@ -560,7 +579,7 @@ fn json_merge_patch(target: &mut serde_json::Value, patch: serde_json::Value) {
                     target_map.remove(&key);
                 } else {
                     let entry = target_map.entry(key).or_insert(serde_json::Value::Null);
-                    json_merge_patch(entry, patch_val);
+                    json_merge_patch_inner(entry, patch_val, depth + 1);
                 }
             }
         }
@@ -644,6 +663,64 @@ mod tests {
         assert!(
             max_prefix < 10,
             "max shared prefix across sorted codes is {max_prefix}; >=10 suggests timestamp-derived output (bd:JMAP-sc1b.93 regression)"
+        );
+    }
+
+    /// Oracle: bd:JMAP-sc1b.97 — a 1000-deep merge patch must NOT crash via
+    /// stack overflow. The depth cap silently truncates beyond
+    /// MAX_MERGE_PATCH_DEPTH, so the call returns; the topmost levels are
+    /// applied, and the deeper levels are ignored.
+    ///
+    /// The test does not use the function as its own oracle: the input is
+    /// hand-built (a 1000-deep `{ "a": { "a": ... { "a": {} } } }` chain
+    /// where every level is Object, matching the structural shape of a
+    /// real PatchObject — the documented latent panic from bd:JMAP-sc1b.87
+    /// only fires on non-Object leaves, which a typed PatchObject cannot
+    /// produce). The assertion only checks that the call completes without
+    /// panicking and without overflowing the stack. A pre-fix
+    /// recursion-unlimited implementation would overflow before returning.
+    #[test]
+    fn json_merge_patch_does_not_stack_overflow() {
+        const DEPTH: usize = 1000;
+        // Build a target with the same Object-only shape, so the recursion
+        // walks legitimately at every level until the cap fires.
+        let mut target = serde_json::json!({});
+        for _ in 0..DEPTH {
+            target = serde_json::json!({ "a": target });
+        }
+        let mut patch = serde_json::json!({});
+        for _ in 0..DEPTH {
+            patch = serde_json::json!({ "a": patch });
+        }
+        // If the function recursed without bound this call would crash the
+        // test thread on stack overflow. With the depth cap it returns.
+        json_merge_patch(&mut target, patch);
+        // We do not assert the *contents* of `target` (that would require
+        // the test to track exactly what the depth cap retains, which
+        // amounts to using the function as its own oracle). We assert
+        // only that target was mutated to an Object — the outermost
+        // patch level always applies.
+        assert!(
+            target.is_object(),
+            "after a deeply-nested merge patch, target must remain a JSON object; got {target:?}"
+        );
+    }
+
+    /// Oracle: a shallow merge patch under the cap still applies normally.
+    /// Positive control paired with the stack-overflow test above to prove
+    /// the depth cap only fires at the boundary, not on every call.
+    #[test]
+    fn json_merge_patch_shallow_applies_normally() {
+        let mut target = serde_json::json!({ "a": 1, "b": { "c": 2 } });
+        let patch = serde_json::json!({ "b": { "c": 99, "d": 7 }, "e": null });
+        json_merge_patch(&mut target, patch);
+        // RFC 7396 §3 example shape: replaced fields, added fields, null
+        // removes. The expected JSON is hand-derived from the patch and
+        // RFC, not from the function output.
+        assert_eq!(
+            target,
+            serde_json::json!({ "a": 1, "b": { "c": 99, "d": 7 } }),
+            "RFC 7396 merge semantics broken at shallow depth"
         );
     }
 }
