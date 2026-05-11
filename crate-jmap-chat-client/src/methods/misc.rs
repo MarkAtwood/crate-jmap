@@ -2,7 +2,7 @@ use jmap_types::{Id, PatchObject, State};
 
 use super::{
     ChangesResponse, GetResponse, PresenceStatusPatch, PushSubscriptionCreateInput,
-    PushSubscriptionCreateResponse, SetResponse,
+    PushSubscriptionCreateResponse, PushSubscriptionPatch, SetResponse,
 };
 
 impl super::SessionClient {
@@ -186,9 +186,10 @@ impl super::SessionClient {
     /// capabilities MUST only be declared when used); otherwise `urn:ietf:params:jmap:core`
     /// alone is used.
     ///
-    /// **Scope**: this method issues a `create` operation only. RFC 8620 §7.2
-    /// also defines `update` (e.g., extending `expires`) and `destroy` (unsubscribe);
-    /// those are tracked under `bd:JMAP-g7wu.2.2`.
+    /// This method issues a `create` operation only. To extend `expires`, set
+    /// the verification code, change `types`, or update `chatPush`, use
+    /// [`push_subscription_update`](Self::push_subscription_update). To
+    /// unsubscribe, use [`push_subscription_destroy`](Self::push_subscription_destroy).
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     pub async fn push_subscription_create(
@@ -250,6 +251,138 @@ impl super::SessionClient {
             super::USING_CORE
         };
         let req = super::build_request("PushSubscription/set", args, using);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Update a PushSubscription (RFC 8620 §7.2.2 `PushSubscription/set` update).
+    ///
+    /// Issues a `PushSubscription/set` request with only the `update` sub-map
+    /// populated. RFC 8620 §7.2 declares `url`, `keys`, and `deviceClientId`
+    /// immutable; to change those, destroy the subscription and create a new
+    /// one. The patchable properties are exposed via [`PushSubscriptionPatch`]:
+    /// `verificationCode`, `expires`, `types`, and the JMAP Chat Push
+    /// extension's `chatPush`.
+    ///
+    /// PushSubscriptions are not account-scoped (RFC 8620 §7.2): no
+    /// `accountId` is sent. When the patch touches `chat_push` or
+    /// `clear_chat_push`, the `using` array includes
+    /// `urn:ietf:params:jmap:chat:push`; otherwise only
+    /// `urn:ietf:params:jmap:core` is declared (RFC 8620 §3.3).
+    ///
+    /// Returns [`jmap_base_client::ClientError::InvalidArgument`] if `id` is
+    /// empty, if both `patch.types` and `patch.clear_types` are set, or if
+    /// both `patch.chat_push` and `patch.clear_chat_push` are set.
+    pub async fn push_subscription_update(
+        &self,
+        id: &Id,
+        patch: &PushSubscriptionPatch<'_>,
+    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+        // Defence-in-depth: typed &Id does not prevent empty Id values.
+        if id.as_ref().is_empty() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "push_subscription_update: id may not be empty".into(),
+            ));
+        }
+        if patch.types.is_some() && patch.clear_types {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "push_subscription_update: types and clear_types are mutually exclusive".into(),
+            ));
+        }
+        if patch.chat_push.is_some() && patch.clear_chat_push {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "push_subscription_update: chat_push and clear_chat_push are mutually exclusive"
+                    .into(),
+            ));
+        }
+
+        let api_url = self.api_url();
+        let mut patch_map = serde_json::Map::new();
+        if let Some(code) = patch.verification_code {
+            patch_map.insert("verificationCode".into(), code.into());
+        }
+        if let Some(entry) = patch
+            .expires
+            .map_entry()
+            .map_err(jmap_base_client::ClientError::Parse)?
+        {
+            patch_map.insert("expires".into(), entry);
+        }
+        if let Some(types) = patch.types {
+            patch_map.insert(
+                "types".into(),
+                serde_json::Value::Array(
+                    types.iter().copied().map(serde_json::Value::from).collect(),
+                ),
+            );
+        } else if patch.clear_types {
+            patch_map.insert("types".into(), serde_json::Value::Null);
+        }
+        if let Some(cp) = patch.chat_push {
+            let mut seen = std::collections::HashSet::new();
+            for (account_id, _) in cp {
+                if !seen.insert(account_id) {
+                    return Err(jmap_base_client::ClientError::InvalidArgument(format!(
+                        "push_subscription_update: duplicate accountId '{}' in chat_push",
+                        account_id
+                    )));
+                }
+            }
+            let mut chat_push_map = serde_json::Map::new();
+            for (account_id, config) in cp {
+                chat_push_map.insert(
+                    account_id.as_ref().to_owned(),
+                    serde_json::to_value(config).map_err(jmap_base_client::ClientError::Parse)?,
+                );
+            }
+            patch_map.insert("chatPush".into(), serde_json::Value::Object(chat_push_map));
+        } else if patch.clear_chat_push {
+            patch_map.insert("chatPush".into(), serde_json::Value::Null);
+        }
+
+        let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
+        let args = serde_json::json!({
+            "update": { id.as_ref(): patch_value }
+        });
+        let using = if patch.chat_push.is_some() || patch.clear_chat_push {
+            super::USING_CHAT_PUSH
+        } else {
+            super::USING_CORE
+        };
+        let req = super::build_request("PushSubscription/set", args, using);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Destroy one or more PushSubscriptions (RFC 8620 §7.2.2 `PushSubscription/set` destroy).
+    ///
+    /// Issues a `PushSubscription/set` request with only the `destroy` array
+    /// populated. PushSubscriptions are not account-scoped (RFC 8620 §7.2):
+    /// no `accountId` is sent. Only `urn:ietf:params:jmap:core` is declared
+    /// — destroying never requires the chatPush capability since it is a
+    /// property-blind operation.
+    ///
+    /// Returns [`jmap_base_client::ClientError::InvalidArgument`] if `ids` is
+    /// empty (a destroy call with no ids would be a no-op round-trip).
+    ///
+    /// Clients SHOULD NOT destroy a PushSubscription they did not create —
+    /// RFC 8620 §7.2 reserves that to clients that recognise the
+    /// `deviceClientId`. This client does not enforce that rule; the server
+    /// may reject the call.
+    pub async fn push_subscription_destroy(
+        &self,
+        ids: &[Id],
+    ) -> Result<SetResponse, jmap_base_client::ClientError> {
+        if ids.is_empty() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "push_subscription_destroy: ids may not be empty".into(),
+            ));
+        }
+        let api_url = self.api_url();
+        let args = serde_json::json!({
+            "destroy": ids,
+        });
+        let req = super::build_request("PushSubscription/set", args, super::USING_CORE);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
