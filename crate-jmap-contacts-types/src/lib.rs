@@ -557,10 +557,22 @@ mod tests {
         assert_eq!(f.uid.as_deref(), Some("urn:uuid:abc123"));
         assert_eq!(f.has_member.as_deref(), Some("urn:uuid:def456"));
         assert_eq!(f.kind.as_deref(), Some("individual"));
-        assert_eq!(f.created_before.as_deref(), Some("2024-01-01T00:00:00Z"));
-        assert_eq!(f.created_after.as_deref(), Some("2020-01-01T00:00:00Z"));
-        assert_eq!(f.updated_before.as_deref(), Some("2024-06-01T00:00:00Z"));
-        assert_eq!(f.updated_after.as_deref(), Some("2021-06-01T00:00:00Z"));
+        assert_eq!(
+            f.created_before.as_ref().map(AsRef::as_ref),
+            Some("2024-01-01T00:00:00Z")
+        );
+        assert_eq!(
+            f.created_after.as_ref().map(AsRef::as_ref),
+            Some("2020-01-01T00:00:00Z")
+        );
+        assert_eq!(
+            f.updated_before.as_ref().map(AsRef::as_ref),
+            Some("2024-06-01T00:00:00Z")
+        );
+        assert_eq!(
+            f.updated_after.as_ref().map(AsRef::as_ref),
+            Some("2021-06-01T00:00:00Z")
+        );
         assert_eq!(f.text.as_deref(), Some("John"));
         assert_eq!(f.name.as_deref(), Some("Doe"));
         assert_eq!(f.name_given.as_deref(), Some("Jane"));
