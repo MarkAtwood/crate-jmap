@@ -945,6 +945,46 @@ async fn message_set_create_with_reply_to() {
     );
 }
 
+/// Oracle: Message/set create with a malformed senderExpiresAt (not RFC 8620
+/// §1.4 UTCDate form) is rejected with invalidProperties: ["senderExpiresAt"].
+///
+/// The wire format is YYYY-MM-DDTHH:MM:SSZ (exactly 20 chars, 'Z' suffix).
+/// A non-conforming value such as "tomorrow" must produce invalidProperties
+/// rather than silently flowing into a downstream string compare with
+/// undefined ordering semantics.
+#[tokio::test]
+async fn message_set_create_with_malformed_expiry_rejected() {
+    let backend = MemoryBackend::new();
+
+    let (resp, _) = handle_message_set(
+        &backend,
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "expires sometime",
+                    "sentAt": "2024-01-01T00:00:00Z",
+                    "senderExpiresAt": "tomorrow"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_message_set");
+
+    assert_eq!(resp["created"], json!(null));
+    assert!(resp["notCreated"]["m0"].is_object());
+    assert_eq!(resp["notCreated"]["m0"]["type"], "invalidProperties");
+    let props = resp["notCreated"]["m0"]["properties"]
+        .as_array()
+        .expect("properties array");
+    assert!(
+        props.iter().any(|p| p == "senderExpiresAt"),
+        "senderExpiresAt must be listed in rejected properties"
+    );
+}
+
 /// Oracle: Message/set create with a past senderExpiresAt is rejected with
 /// invalidProperties: ["senderExpiresAt"].
 #[tokio::test]
@@ -1559,6 +1599,34 @@ async fn invite_set_create_missing_space_id() {
     assert!(props.iter().any(|p| p == "spaceId"));
 }
 
+/// Oracle: SpaceInvite/set create with malformed expiresAt (not RFC 8620 §1.4
+/// UTCDate form) is rejected with invalidProperties: ["expiresAt"].
+#[tokio::test]
+async fn invite_set_create_with_malformed_expiry_rejected() {
+    let backend = MemoryBackend::new();
+    let (resp, _) = handle_invite_set(
+        &backend,
+        json!({
+            "accountId": "a1",
+            "create": {
+                "i0": { "spaceId": "s1", "expiresAt": "next-friday" }
+            }
+        }),
+    )
+    .await
+    .expect("handle_invite_set");
+
+    assert!(resp["notCreated"]["i0"].is_object());
+    assert_eq!(resp["notCreated"]["i0"]["type"], "invalidProperties");
+    let props = resp["notCreated"]["i0"]["properties"]
+        .as_array()
+        .expect("properties");
+    assert!(
+        props.iter().any(|p| p == "expiresAt"),
+        "expiresAt must be listed in rejected properties"
+    );
+}
+
 /// Oracle: SpaceInvite/set create with valid spaceId succeeds and returns a code field.
 #[tokio::test]
 async fn invite_set_create_success() {
@@ -1803,6 +1871,38 @@ async fn ban_set_create_missing_space_id() {
         .as_array()
         .expect("properties");
     assert!(props.iter().any(|p| p == "spaceId"));
+}
+
+/// Oracle: SpaceBan/set create with malformed expiresAt (not RFC 8620 §1.4
+/// UTCDate form) is rejected with invalidProperties: ["expiresAt"].
+#[tokio::test]
+async fn ban_set_create_with_malformed_expiry_rejected() {
+    let backend = MemoryBackend::new();
+    let (resp, _) = handle_ban_set(
+        &backend,
+        json!({
+            "accountId": "a1",
+            "create": {
+                "b0": {
+                    "spaceId": "s1",
+                    "userId": "u2",
+                    "expiresAt": "later"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_ban_set");
+
+    assert!(resp["notCreated"]["b0"].is_object());
+    assert_eq!(resp["notCreated"]["b0"]["type"], "invalidProperties");
+    let props = resp["notCreated"]["b0"]["properties"]
+        .as_array()
+        .expect("properties");
+    assert!(
+        props.iter().any(|p| p == "expiresAt"),
+        "expiresAt must be listed in rejected properties"
+    );
 }
 
 /// Oracle: SpaceBan/set create without userId returns notCreated invalidProperties.

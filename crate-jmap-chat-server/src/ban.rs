@@ -167,8 +167,20 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 }
                 ban.reason = Some(reason.to_owned());
             }
+            // expiresAt is a UTCDate per RFC 8620 §1.4. Validate the wire
+            // shape via UTCDate::new_validated; a malformed value produces
+            // invalidProperties rather than storing an unparseable string.
             if let Some(expires) = obj_val.get("expiresAt").and_then(|v| v.as_str()) {
-                ban.expires_at = Some(UTCDate::from(expires));
+                match UTCDate::new_validated(expires) {
+                    Ok(d) => ban.expires_at = Some(d),
+                    Err(_) => {
+                        not_created.insert(
+                            create_id.clone(),
+                            json!({ "type": "invalidProperties", "properties": ["expiresAt"] }),
+                        );
+                        continue;
+                    }
+                }
             }
 
             match backend

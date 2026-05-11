@@ -168,10 +168,26 @@ pub async fn handle_invite_set<B: ChatBackend>(
                 .and_then(|v| v.as_str())
                 .map(Id::from);
 
-            let expires_at: Option<UTCDate> = obj_val
-                .get("expiresAt")
-                .and_then(|v| v.as_str())
-                .map(UTCDate::from);
+            // expiresAt is a UTCDate per RFC 8620 §1.4. Validate the wire
+            // shape via UTCDate::new_validated; a malformed value produces
+            // invalidProperties rather than storing an unparseable string.
+            let expires_at: Option<UTCDate> =
+                match obj_val.get("expiresAt").and_then(|v| v.as_str()) {
+                    Some(s) => match UTCDate::new_validated(s) {
+                        Ok(d) => Some(d),
+                        Err(_) => {
+                            not_created.insert(
+                                create_id.clone(),
+                                json!({
+                                    "type": "invalidProperties",
+                                    "properties": ["expiresAt"],
+                                }),
+                            );
+                            continue;
+                        }
+                    },
+                    None => None,
+                };
 
             let max_uses: Option<u64> = obj_val.get("maxUses").and_then(|v| v.as_u64());
             if max_uses == Some(0) {
