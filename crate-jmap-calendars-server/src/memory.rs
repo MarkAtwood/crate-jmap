@@ -70,7 +70,7 @@ use jmap_types::{Id, State};
 // ---------------------------------------------------------------------------
 
 /// A simple string error for `MemoryBackend` failures.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MemoryError(pub String);
 
 impl std::fmt::Display for MemoryError {
