@@ -563,6 +563,15 @@ impl JmapClient {
     /// because some servers attach WebSocket auth via cookie or session
     /// header rather than the same scheme as HTTP requests.
     ///
+    /// # Security
+    ///
+    /// The `auth_header` value is a credential and must not be logged or
+    /// echoed back to other systems. Treat it with the same care as a
+    /// [`crate::auth::BearerAuth`] token. Transport errors raised by this
+    /// method are constructed without the original credential bytes, but
+    /// downstream code that inspects [`ClientError`] should still avoid
+    /// printing or storing the `auth_header` itself.
+    ///
     /// Returns [`ClientError::InvalidArgument`] for non-`ws://`/`wss://` URLs.
     /// See [`crate::ws::connect_ws_with_limit`] for full error semantics.
     pub async fn connect_ws_session(
