@@ -105,3 +105,41 @@ src/
 - Serde round-trips against hand-written JSON derived from RFC 8620 examples
 - `JmapError` type strings match the exact strings in RFC 8620 §7.1
 - Tests must use fixtures as independent oracle — not the code under test itself
+
+## Type-design constraints
+
+### Extras-preservation policy (JMAP-lbdy)
+
+Every public `Deserialize` struct that appears on the JMAP wire carries an
+`extra` field per the workspace extras-preservation policy (see workspace
+`AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+This preserves vendor / site / private-extension fields across
+deserialize/serialize round-trip. Wire format is byte-identical when extras
+are empty.
+
+In scope in this crate (each has one round-trip preservation test):
+
+- `GetResponse<T>`, `SetResponse<T>`, `ChangesResponse`, `QueryResponse`,
+  `QueryChangesResponse`, `AddedItem` (`methods.rs`).
+- `JmapRequest`, `JmapResponse` (`wire.rs`).
+- `SetError` already had this field as the original precedent. It currently
+  uses `HashMap` instead of `Map`; migration tracked as JMAP-lbdy.11.
+
+Out of scope (explicitly excluded by the policy):
+
+- Filter algebra and control enums (`Operator`, `Filter<T>`,
+  `FilterOperator<T>`) — see the filter-algebra exclusion sub-section in
+  the workspace policy.
+- Newtypes (`Id`, `UTCDate`, `Date`, `State`) — single-value wrappers.
+- `Argument<T>`, `ResultReference` — recursive / non-flat shapes.
+- `Invocation` — tuple type; cannot carry a struct field.
+- `PatchObject` — already a `Map<String, Value>`.
+
+Any new public `Deserialize` struct added to this crate that appears on the
+wire MUST include the `extra` field from day one.

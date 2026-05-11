@@ -21,6 +21,12 @@ pub struct JmapRequest {
     /// Client-supplied creation ID map (optional, RFC 8620 §3.3).
     #[serde(rename = "createdIds", skip_serializing_if = "Option::is_none")]
     pub created_ids: Option<HashMap<Id, Id>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// JMAP response envelope (RFC 8620 §3.4).
@@ -37,6 +43,12 @@ pub struct JmapResponse {
     /// Omitted when no objects were created in the batch (RFC 8620 §3.4).
     #[serde(rename = "createdIds", skip_serializing_if = "Option::is_none")]
     pub created_ids: Option<HashMap<Id, Id>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl JmapRequest {
@@ -53,6 +65,7 @@ impl JmapRequest {
             using,
             method_calls,
             created_ids,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -71,6 +84,7 @@ impl JmapResponse {
             method_responses,
             session_state,
             created_ids,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -117,6 +131,7 @@ mod tests {
             using: vec!["urn:ietf:params:jmap:core".into()],
             method_calls: vec![],
             created_ids: None,
+            extra: serde_json::Map::new(),
         };
         let j = serde_json::to_string(&req).expect("serialize");
         assert!(
@@ -133,6 +148,7 @@ mod tests {
             method_responses: vec![],
             session_state: "s-1".into(),
             created_ids: None,
+            extra: serde_json::Map::new(),
         };
         let j = serde_json::to_string(&resp).expect("serialize");
         assert!(j.contains("\"methodResponses\""));
@@ -146,6 +162,7 @@ mod tests {
             method_responses: vec![],
             session_state: "s-1".into(),
             created_ids: None,
+            extra: serde_json::Map::new(),
         };
         let j = serde_json::to_string(&resp).expect("serialize");
         assert!(
@@ -163,6 +180,7 @@ mod tests {
             method_responses: vec![],
             session_state: "s-1".into(),
             created_ids: Some(ids),
+            extra: serde_json::Map::new(),
         };
         let v = serde_json::to_value(&resp).expect("serialize");
         assert_eq!(v["createdIds"]["c0"], "server-1");
@@ -174,5 +192,75 @@ mod tests {
         let inv: Invocation = ("m/get".into(), json!({"accountId": "a1"}), "c0".into());
         let j = serde_json::to_string(&inv).expect("serialize");
         assert_eq!(j, r#"["m/get",{"accountId":"a1"},"c0"]"#);
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.1) ───────────────────
+    //
+    // Round-trip preservation tests asserting vendor / site / private-
+    // extension fields survive deserialize/serialize unchanged on the
+    // envelope types. Per workspace AGENTS.md "Extras-preservation policy
+    // for vendor/site fields".
+
+    /// `JmapRequest.extra` captures vendor envelope-level fields and
+    /// preserves them on re-serialize.
+    #[test]
+    fn request_preserves_vendor_extras() {
+        let raw = json!({
+            "using": ["urn:ietf:params:jmap:core"],
+            "methodCalls": [["m1", {}, "c0"]],
+            "acmeCorpClientTraceId": "trace-7"
+        });
+        let req: JmapRequest = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            req.extra
+                .get("acmeCorpClientTraceId")
+                .and_then(|v| v.as_str()),
+            Some("trace-7"),
+            "vendor field must land in extra: {:?}",
+            req.extra
+        );
+        let back = serde_json::to_value(&req).unwrap();
+        assert_eq!(
+            back["acmeCorpClientTraceId"], "trace-7",
+            "vendor field must survive serialize"
+        );
+    }
+
+    /// `JmapResponse.extra` captures vendor envelope-level fields and
+    /// preserves them on re-serialize.
+    #[test]
+    fn response_preserves_vendor_extras() {
+        let raw = json!({
+            "methodResponses": [],
+            "sessionState": "s-1",
+            "acmeCorpServerHostName": "srv-3"
+        });
+        let resp: JmapResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            resp.extra
+                .get("acmeCorpServerHostName")
+                .and_then(|v| v.as_str()),
+            Some("srv-3")
+        );
+        let back = serde_json::to_value(&resp).unwrap();
+        assert_eq!(back["acmeCorpServerHostName"], "srv-3");
+    }
+
+    /// Empty extras must NOT add any keys to the wire form — `skip_serializing_if`
+    /// keeps the byte shape identical to the pre-migration envelope.
+    #[test]
+    fn empty_extras_omitted_from_wire() {
+        let req = JmapRequest::new(vec!["urn:ietf:params:jmap:core".into()], vec![], None);
+        let v = serde_json::to_value(&req).expect("serialize");
+        let obj = v.as_object().expect("object");
+        // Expected wire keys: using + methodCalls. createdIds skipped (None).
+        // extras skipped (empty).
+        assert_eq!(
+            obj.len(),
+            2,
+            "empty extras + skipped optionals must yield exactly using+methodCalls; got {v}"
+        );
+        assert!(obj.contains_key("using"));
+        assert!(obj.contains_key("methodCalls"));
     }
 }
