@@ -40,7 +40,8 @@ use serde::{Deserialize, Serialize};
 /// `urn:ietf:params:jmap:metadata`), which defines a `Metadata` / `Annotation`
 /// companion object keyed by `(relatedType, relatedId)` with schema discovery
 /// via the capability's `metadataTypes` / `maxDepth` properties and a
-/// `Metadata/query` filter. Workspace implementation tracker: bd JMAP-06zp.
+/// `Metadata/query` filter. Implemented in `jmap-metadata-types`,
+/// `jmap-metadata-server`, and `jmap-metadata-client` (bd JMAP-06zp).
 ///
 /// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
 /// either escape the filter tree to `serde_json::Value` or fork the
@@ -87,8 +88,8 @@ pub enum Operator {
 /// and filterability for custom fields should use
 /// `draft-ietf-jmap-metadata` (capability URI
 /// `urn:ietf:params:jmap:metadata`), which defines a filterable
-/// `Metadata` / `Annotation` companion object. Workspace implementation
-/// tracker: bd JMAP-06zp.
+/// `Metadata` / `Annotation` companion object. Implemented in `jmap-metadata-types`,
+/// `jmap-metadata-server`, and `jmap-metadata-client` (bd JMAP-06zp).
 ///
 /// **Pre-IETF escape.** Vendors who cannot wait for the metadata draft can
 /// either escape the filter tree to `serde_json::Value` or fork the

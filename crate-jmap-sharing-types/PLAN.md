@@ -308,3 +308,27 @@ Any new public `Deserialize` struct added to this crate that appears on
 the JMAP wire MUST include the `extra` field from day one with the
 documented serde attributes and at least one round-trip preservation
 test.
+
+## JMAP Object Metadata `relatedType` declarations
+
+The JMAP Object Metadata extension
+([draft-ietf-jmap-metadata-01](https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt))
+defines a companion `Metadata` object keyed by `(relatedType, relatedId)`
+that attaches vendor-defined `Annotation`s to objects defined elsewhere
+in the workspace.
+
+The data types in this crate that are valid `relatedType` values:
+
+| relatedType | Flavours supported by spec |
+|---|---|
+| `Principal` | `Annotation` |
+| `ShareNotification` | `Annotation` |
+
+Sharing types are not listed in draft §2.1.3's `WebDavMetadata` SHOULD
+set, so only the vendor-defined `Annotation` flavour applies here.
+Servers that declare `urn:ietf:params:jmap:metadata` MAY restrict the
+set of supported `relatedType`s via the capability's `dataTypes`
+property.
+
+Implementation crates: `jmap-metadata-types`, `jmap-metadata-server`,
+`jmap-metadata-client` (bd JMAP-06zp).
