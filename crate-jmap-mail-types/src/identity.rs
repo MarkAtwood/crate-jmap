@@ -33,6 +33,12 @@ pub struct Identity {
     pub html_signature: String,
     /// Whether the user may delete this Identity (server-set).
     pub may_delete: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Identity {
@@ -50,6 +56,37 @@ impl Identity {
             bcc: None,
             text_signature: String::new(),
             html_signature: String::new(),
+            extra: serde_json::Map::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.2) ───────────────────
+
+    /// `Identity.extra` captures vendor fields and preserves them across
+    /// deserialize/serialize round-trip.
+    #[test]
+    fn identity_preserves_vendor_extras() {
+        let raw = json!({
+            "id": "i1",
+            "name": "Alice",
+            "email": "alice@example.com",
+            "textSignature": "-- Alice",
+            "htmlSignature": "<p>-- Alice</p>",
+            "mayDelete": true,
+            "acmeCorpDepartment": "engineering"
+        });
+        let id: Identity = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            id.extra.get("acmeCorpDepartment").and_then(|v| v.as_str()),
+            Some("engineering")
+        );
+        let back = serde_json::to_value(&id).unwrap();
+        assert_eq!(back["acmeCorpDepartment"], "engineering");
     }
 }

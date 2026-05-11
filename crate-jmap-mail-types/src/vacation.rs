@@ -44,6 +44,12 @@ pub struct VacationResponse {
     /// HTML part from `text_body` or send a text-only response.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub html_body: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl VacationResponse {
@@ -59,6 +65,7 @@ impl VacationResponse {
             subject: None,
             text_body: None,
             html_body: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -103,6 +110,26 @@ mod tests {
         assert_eq!(back, json);
     }
 
+    // ── Extras-preservation policy tests (JMAP-lbdy.2) ───────────────────
+
+    /// `VacationResponse.extra` captures vendor fields and preserves them across
+    /// deserialize/serialize round-trip.
+    #[test]
+    fn vacation_response_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "singleton",
+            "isEnabled": true,
+            "acmeCorpAutoExtend": true
+        });
+        let vr: VacationResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            vr.extra.get("acmeCorpAutoExtend").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let back = serde_json::to_value(&vr).unwrap();
+        assert_eq!(back["acmeCorpAutoExtend"], true);
+    }
+
     /// Oracle: RFC 8621 §8 — optional fields are omitted from serialization
     /// when None.
     #[test]
@@ -115,6 +142,7 @@ mod tests {
             subject: None,
             text_body: None,
             html_body: None,
+            extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&vr).expect("serialize");
         assert!(!json.contains("fromDate"), "fromDate must be absent");

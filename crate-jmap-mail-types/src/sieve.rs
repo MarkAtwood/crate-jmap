@@ -32,6 +32,13 @@ pub struct SieveScript {
 
     /// Whether this script is the active (executing) script for the account.
     pub is_active: bool,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl SieveScript {
@@ -45,6 +52,7 @@ impl SieveScript {
             name: None,
             blob_id,
             is_active,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -209,6 +217,31 @@ mod tests {
             json.contains("\"externalLists\":null"),
             "must be null when None"
         );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.2) ───────────────────
+
+    /// `SieveScript.extra` captures vendor fields and preserves them across
+    /// deserialize/serialize round-trip.
+    #[test]
+    fn sieve_script_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "s1",
+            "name": "vacation",
+            "blobId": "b1",
+            "isActive": true,
+            "acmeCorpSyntaxValidated": true
+        });
+        let script: SieveScript = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            script
+                .extra
+                .get("acmeCorpSyntaxValidated")
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let back = serde_json::to_value(&script).unwrap();
+        assert_eq!(back["acmeCorpSyntaxValidated"], true);
     }
 
     /// Oracle: SieveCapability round-trips with camelCase wire name.

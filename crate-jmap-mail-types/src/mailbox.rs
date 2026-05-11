@@ -105,6 +105,12 @@ pub struct MailboxRights {
     pub may_delete: bool,
     /// Messages may be submitted directly to this Mailbox.
     pub may_submit: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A JMAP Mailbox object (RFC 8621 §2).
@@ -139,6 +145,12 @@ pub struct Mailbox {
     pub my_rights: MailboxRights,
     /// Whether the user has subscribed to this Mailbox.
     pub is_subscribed: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Mailbox {
@@ -172,6 +184,7 @@ impl Mailbox {
             is_subscribed,
             parent_id: None,
             role: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -215,4 +228,64 @@ pub struct MailboxFilterCondition {
     /// If `true`, only subscribed mailboxes are returned.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub is_subscribed: Option<bool>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.2) ───────────────────
+
+    /// `MailboxRights.extra` captures vendor fields and preserves them.
+    #[test]
+    fn mailbox_rights_preserves_vendor_extras() {
+        let raw = json!({
+            "mayReadItems": true,
+            "mayAddItems": true,
+            "mayRemoveItems": false,
+            "maySetSeen": true,
+            "maySetKeywords": false,
+            "mayCreateChild": false,
+            "mayRename": false,
+            "mayDelete": false,
+            "maySubmit": false,
+            "acmeCorpMayPin": true
+        });
+        let rights: MailboxRights = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            rights.extra.get("acmeCorpMayPin").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let back = serde_json::to_value(&rights).unwrap();
+        assert_eq!(back["acmeCorpMayPin"], true);
+    }
+
+    /// `Mailbox.extra` captures vendor fields and preserves them.
+    #[test]
+    fn mailbox_preserves_vendor_extras() {
+        let raw = json!({
+            "id": "m1",
+            "name": "Inbox",
+            "sortOrder": 0,
+            "totalEmails": 0,
+            "unreadEmails": 0,
+            "totalThreads": 0,
+            "unreadThreads": 0,
+            "myRights": {
+                "mayReadItems": true, "mayAddItems": true, "mayRemoveItems": true,
+                "maySetSeen": true, "maySetKeywords": true, "mayCreateChild": true,
+                "mayRename": true, "mayDelete": false, "maySubmit": true
+            },
+            "isSubscribed": true,
+            "acmeCorpColor": "#ff0000"
+        });
+        let mbox: Mailbox = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            mbox.extra.get("acmeCorpColor").and_then(|v| v.as_str()),
+            Some("#ff0000")
+        );
+        let back = serde_json::to_value(&mbox).unwrap();
+        assert_eq!(back["acmeCorpColor"], "#ff0000");
+    }
 }
