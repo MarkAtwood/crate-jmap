@@ -22,9 +22,10 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 /// Handle a `ContactCard/get` method call (RFC 9610 §3.1).
 pub async fn handle_contact_card_get<B: ContactsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<ContactCard, B>(backend, args).await
+    jmap_server::handlers::handle_get::<ContactCard, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -34,9 +35,10 @@ pub async fn handle_contact_card_get<B: ContactsBackend>(
 /// Handle a `ContactCard/changes` method call (RFC 9610 §3.2).
 pub async fn handle_contact_card_changes<B: ContactsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<ContactCard, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<ContactCard, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -46,20 +48,16 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
 /// Handle a `ContactCard/set` method call (RFC 9610 §3.3).
 pub async fn handle_contact_card_set<B: ContactsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
     // error). Without this, a /set against an unknown accountId would silently
     // "succeed" with a fake oldState/newState envelope.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -67,7 +65,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     }
 
     let old_state = backend
-        .get_state::<ContactCard>(&account_id)
+        .get_state::<ContactCard>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -122,7 +120,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             };
 
             match backend
-                .create_object::<ContactCard>(&account_id, &create_id, card)
+                .create_object::<ContactCard>(caller, &account_id, &create_id, card)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -177,7 +175,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             };
 
             match backend
-                .update_object::<ContactCard>(&account_id, &id, patch)
+                .update_object::<ContactCard>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -234,7 +232,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             let id = Id::from(id_str.as_str());
 
             match backend
-                .destroy_object::<ContactCard>(&account_id, &id)
+                .destroy_object::<ContactCard>(caller, &account_id, &id)
                 .await
             {
                 Ok(()) => {
@@ -265,6 +263,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
 
     finalize_set_response::<B, ContactCard>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -344,9 +343,11 @@ fn apply_jmap_patch(obj: &mut serde_json::Map<String, Value>, path: &str, val: V
 /// returns `copied`/`notCopied` maps.
 pub async fn handle_contact_card_copy<B: ContactsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
+    _call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let to_account_id = extract_account_id(&args)?;
+    let (to_account_id, mut args) = extract_account_id(args)?;
 
     let from_account_id = args
         .get("fromAccountId")
@@ -356,7 +357,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
 
     // Verify both accounts exist.
     let to_exists = backend
-        .account_exists(&to_account_id)
+        .account_exists(caller, &to_account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
     if !to_exists {
@@ -364,21 +365,15 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
     }
 
     let from_exists = backend
-        .account_exists(&from_account_id)
+        .account_exists(caller, &from_account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
     if !from_exists {
         return Err(JmapError::from_account_not_found());
     }
 
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
-
     let old_state = backend
-        .get_state::<ContactCard>(&to_account_id)
+        .get_state::<ContactCard>(caller, &to_account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -410,6 +405,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             // Fetch the source card.
             let (mut cards, not_found) = backend
                 .get_objects::<ContactCard>(
+                    caller,
                     &from_account_id,
                     Some(std::slice::from_ref(&source_id)),
                     None,
@@ -441,7 +437,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             }
 
             match backend
-                .copy_contact_card(&from_account_id, &to_account_id, card)
+                .copy_contact_card(caller, &from_account_id, &to_account_id, card)
                 .await
             {
                 Ok((_new_id, copied_obj)) => {
@@ -476,7 +472,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
 
     let new_state = if mutated {
         backend
-            .get_state::<ContactCard>(&to_account_id)
+            .get_state::<ContactCard>(caller, &to_account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?
     } else {
@@ -503,9 +499,10 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
 /// Handle a `ContactCard/query` method call (RFC 9610 §3.3).
 pub async fn handle_contact_card_query<B: ContactsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query::<ContactCard, B>(backend, args).await
+    jmap_server::handlers::handle_query::<ContactCard, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -515,9 +512,10 @@ pub async fn handle_contact_card_query<B: ContactsBackend>(
 /// Handle a `ContactCard/queryChanges` method call (RFC 9610 §3.4).
 pub async fn handle_contact_card_query_changes<B: ContactsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query_changes::<ContactCard, B>(backend, args).await
+    jmap_server::handlers::handle_query_changes::<ContactCard, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -536,7 +534,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let err = handle_contact_card_get(&backend, args)
+        let err = handle_contact_card_get(&backend, &(), args)
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
@@ -547,7 +545,7 @@ mod tests {
     async fn changes_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
-        let (resp, _) = handle_contact_card_changes(&backend, args)
+        let (resp, _) = handle_contact_card_changes(&backend, &(), args)
             .await
             .expect("must not error");
         assert_eq!(resp["accountId"], "acc1");
@@ -558,7 +556,7 @@ mod tests {
     async fn query_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let (resp, _) = handle_contact_card_query(&backend, args)
+        let (resp, _) = handle_contact_card_query(&backend, &(), args)
             .await
             .expect("must not error");
         assert_eq!(resp["accountId"], "acc1");
@@ -569,7 +567,7 @@ mod tests {
     async fn query_changes_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceQueryState": "0" });
-        let (resp, _) = handle_contact_card_query_changes(&backend, args)
+        let (resp, _) = handle_contact_card_query_changes(&backend, &(), args)
             .await
             .expect("must not error");
         assert_eq!(resp["accountId"], "acc1");
@@ -584,7 +582,7 @@ mod tests {
             "fromAccountId": "unknown",
             "create": { "c1": { "id": "card1" } }
         });
-        let err = handle_contact_card_copy(&backend, args)
+        let err = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect_err("must return error for unknown fromAccountId");
         assert_eq!(err.error_type.as_str(), "fromAccountNotFound");
@@ -720,7 +718,7 @@ mod tests {
             "fromAccountId": "acc1",
             "create": { "c1": { "id": "card1" } }
         });
-        let (resp, _) = handle_contact_card_copy(&backend, args)
+        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect("must not return top-level error");
 
@@ -744,7 +742,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_contact_card_set(&backend, args)
+        let (resp, _) = handle_contact_card_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let created = &resp["created"];
@@ -780,7 +778,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_contact_card_copy(&backend, args)
+        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect("must not return top-level error");
 
@@ -821,7 +819,7 @@ mod tests {
                 "c1": { "id": "nonexistent" }
             }
         });
-        let (resp, _) = handle_contact_card_copy(&backend, args)
+        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
             .await
             .expect("must not return top-level error");
 

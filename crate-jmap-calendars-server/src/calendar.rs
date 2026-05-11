@@ -21,9 +21,10 @@ use crate::helpers::{
 /// Handle a `Calendar/get` method call (draft-ietf-jmap-calendars-26 §4.1).
 pub async fn handle_calendar_get<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<Calendar, B>(backend, args).await
+    jmap_server::handlers::handle_get::<Calendar, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -33,9 +34,10 @@ pub async fn handle_calendar_get<B: CalendarsBackend>(
 /// Handle a `Calendar/changes` method call (draft-ietf-jmap-calendars-26 §4.2).
 pub async fn handle_calendar_changes<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<Calendar, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<Calendar, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -51,20 +53,16 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
 /// - Create and update are forwarded to the backend normally.
 pub async fn handle_calendar_set<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
     // error). Without this, a /set against an unknown accountId would silently
     // "succeed" with a fake oldState/newState envelope.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -82,7 +80,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     let on_success_set_is_default = args.remove("onSuccessSetIsDefault");
 
     let old_state = backend
-        .get_state::<Calendar>(&account_id)
+        .get_state::<Calendar>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -134,7 +132,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 }
             };
             match backend
-                .create_object::<Calendar>(&account_id, &create_id, cal)
+                .create_object::<Calendar>(caller, &account_id, &create_id, cal)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -191,7 +189,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 }
             };
             match backend
-                .update_object::<Calendar>(&account_id, &id, patch)
+                .update_object::<Calendar>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -249,7 +247,9 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             let id = Id::from(id_str.as_str());
 
             // Check for events if onDestroyRemoveEvents is false (default).
-            if !on_destroy_remove_events && backend.calendar_has_events(&account_id, &id).await {
+            if !on_destroy_remove_events
+                && backend.calendar_has_events(caller, &account_id, &id).await
+            {
                 not_destroyed.insert(
                     id_str,
                     set_error_value(&SetError::new(SetErrorType::custom("calendarHasEvent"))),
@@ -274,7 +274,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             // calendar destroy entry — a partial cleanup must not leave the
             // calendar destroyed with dangling events.
             if on_destroy_remove_events {
-                match cleanup_calendar_events(backend, &account_id, &id).await {
+                match cleanup_calendar_events(backend, caller, &account_id, &id).await {
                     Ok(()) => {
                         // proceed to destroy the calendar below
                     }
@@ -286,7 +286,10 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                 }
             }
 
-            match backend.destroy_object::<Calendar>(&account_id, &id).await {
+            match backend
+                .destroy_object::<Calendar>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
@@ -322,7 +325,10 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     if all_succeeded {
         if let Some(raw) = on_success_set_is_default.as_ref() {
             if let Some(target) = resolve_on_success_set_is_default(raw, &created) {
-                match backend.set_default_calendar(&account_id, &target).await {
+                match backend
+                    .set_default_calendar(caller, &account_id, &target)
+                    .await
+                {
                     Ok(result) => {
                         if apply_default_change_to_response(&mut created, &mut updated, &result) {
                             mutated = true;
@@ -340,6 +346,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
 
     finalize_set_response::<B, Calendar>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -366,6 +373,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
 /// cleanup is not acceptable: failing fast keeps the data store consistent.
 async fn cleanup_calendar_events<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     account_id: &Id,
     calendar_id: &Id,
 ) -> Result<(), String> {
@@ -375,7 +383,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
     let mut filter = CalendarEventFilterCondition::default();
     filter.in_calendar = Some(calendar_id.clone());
     let event_ids: Vec<Id> = backend
-        .query_objects::<CalendarEvent>(account_id, Some(&filter), None, None, 0)
+        .query_objects::<CalendarEvent>(caller, account_id, Some(&filter), None, None, 0)
         .await
         .map_err(|e| e.to_string())?
         .ids;
@@ -386,7 +394,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
 
     // Step 2: fetch full event objects to inspect calendar_ids count.
     let (events, _not_found): (Vec<CalendarEvent>, _) = backend
-        .get_objects::<CalendarEvent>(account_id, Some(&event_ids), None)
+        .get_objects::<CalendarEvent>(caller, account_id, Some(&event_ids), None)
         .await
         .map_err(|e| e.to_string())?;
 
@@ -410,6 +418,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
             patch_obj.insert(patch_key, Value::Null);
             backend
                 .update_object::<CalendarEvent>(
+                    caller,
                     account_id,
                     &event_id,
                     PatchObject::from_map(patch_obj),
@@ -425,7 +434,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
         } else {
             // Single-calendar (this one): destroy the event outright.
             backend
-                .destroy_object::<CalendarEvent>(account_id, &event_id)
+                .destroy_object::<CalendarEvent>(caller, account_id, &event_id)
                 .await
                 .map_err(|e| match e {
                     BackendSetError::SetError(set_err) => {
@@ -457,7 +466,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let result = handle_calendar_get(&backend, args).await;
+        let result = handle_calendar_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
@@ -469,7 +478,7 @@ mod tests {
     async fn set_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown" });
-        let result = handle_calendar_set(&backend, args).await;
+        let result = handle_calendar_set(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
@@ -485,7 +494,7 @@ mod tests {
             "destroy": ["cal1"],
             // onDestroyRemoveEvents defaults to false — not sent
         });
-        let (resp, _) = handle_calendar_set(&backend, args)
+        let (resp, _) = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_destroyed = &resp["notDestroyed"];
@@ -512,7 +521,7 @@ mod tests {
                 "c1": { "id": "client-chosen-id", "name": "My Calendar" }
             }
         });
-        let (resp, _) = handle_calendar_set(&backend, args)
+        let (resp, _) = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -540,7 +549,7 @@ mod tests {
             "onDestroyRemoveEvents": true,
             "destroy": ["cal1"],
         });
-        let (resp, _) = handle_calendar_set(&backend, args)
+        let (resp, _) = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         // cal1 exists in the mock, so destroy should succeed
@@ -578,7 +587,7 @@ mod tests {
             "onDestroyRemoveEvents": true,
             "destroy": ["cal1"],
         });
-        let (resp, _) = handle_calendar_set(&backend, args)
+        let (resp, _) = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -596,6 +605,7 @@ mod tests {
         use jmap_server::JmapBackend;
         let (events, not_found) = backend
             .get_objects::<jmap_calendars_types::CalendarEvent>(
+                &(),
                 &Id::from("acc1"),
                 Some(&[Id::from("ev-only-cal1")]),
                 None,
@@ -638,7 +648,7 @@ mod tests {
             "onDestroyRemoveEvents": true,
             "destroy": ["cal1"],
         });
-        let (resp, _) = handle_calendar_set(&backend, args)
+        let (resp, _) = handle_calendar_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -657,6 +667,7 @@ mod tests {
         use jmap_server::JmapBackend;
         let (events, _) = backend
             .get_objects::<jmap_calendars_types::CalendarEvent>(
+                &(),
                 &Id::from("acc1"),
                 Some(&[Id::from("ev-multi")]),
                 None,
@@ -692,7 +703,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["valid-id", null, "another-id"],
         });
-        let err = handle_calendar_set(&backend, args)
+        let err = handle_calendar_set(&backend, &(), args)
             .await
             .expect_err("destroy with non-string entry must error");
         let err_json = serde_json::to_value(&err).expect("serialize JmapError");

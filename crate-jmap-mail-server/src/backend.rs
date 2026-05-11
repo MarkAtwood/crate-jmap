@@ -96,6 +96,7 @@ pub trait MailBackend: JmapBackend {
     /// concurrent upsert requests.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
         obj: O,
@@ -112,11 +113,13 @@ pub trait MailBackend: JmapBackend {
     /// `Some(O)`, the handler should serialize the updated object and include
     /// the server-modified fields in the `updated` map of the `/set` response
     /// (RFC 8620 §5.3). Discarding the return value causes server-modified
-    /// fields to be silently omitted from the response. To use per-request
-    /// auth context in an update handler, implement [`jmap_server::JmapHandler`] directly
-    /// rather than using `register_mail_handlers`.
+    /// fields to be silently omitted from the response. Per-request auth
+    /// context is available via the `caller` parameter, which the
+    /// `register_mail_handlers` closures forward unchanged from
+    /// [`jmap_server::Dispatcher::dispatch`].
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: O::Patch,
@@ -125,6 +128,7 @@ pub trait MailBackend: JmapBackend {
     /// Destroy an existing object by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
@@ -139,6 +143,7 @@ pub trait MailBackend: JmapBackend {
     /// the assigned id and the created Email object.
     fn import_email(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
         mailbox_ids: &[jmap_types::Id],
@@ -161,6 +166,7 @@ pub trait MailBackend: JmapBackend {
     /// message-id header — so that thread identity survives process boundaries.
     fn find_thread_by_message_ids(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         message_ids: &[&str],
     ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;
@@ -181,6 +187,7 @@ pub trait MailBackend: JmapBackend {
     /// be absent.
     fn blob_exists(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send;
@@ -189,6 +196,7 @@ pub trait MailBackend: JmapBackend {
     /// (RFC 8621 §5.8 — `Email/parse`).
     fn parse_email(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<jmap_mail_types::Email, Self::Error>> + Send;
@@ -196,8 +204,10 @@ pub trait MailBackend: JmapBackend {
     /// Copy an Email from one account to another (RFC 8620 §6.3).
     ///
     /// Returns the new id and the created Email in `to_account_id`.
+    #[allow(clippy::too_many_arguments)]
     fn copy_email(
         &self,
+        caller: &Self::CallerCtx,
         from_account_id: &jmap_types::Id,
         email_id: &jmap_types::Id,
         to_account_id: &jmap_types::Id,
@@ -211,6 +221,7 @@ pub trait MailBackend: JmapBackend {
     /// Return search snippets for the given Email ids (RFC 8621 §5.9 — `SearchSnippet/get`).
     fn search_snippets(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         email_ids: &[jmap_types::Id],
         filter: Option<&jmap_mail_types::EmailFilterCondition>,
@@ -229,7 +240,11 @@ pub trait MailBackend: JmapBackend {
     /// Default: 65536. Override to lower the per-account limit, e.g. for
     /// multi-tenant deployments where adversarial clients could otherwise
     /// trigger large in-memory scans.
-    fn max_collapse_threads_emails(&self, _account_id: &jmap_types::Id) -> usize {
+    fn max_collapse_threads_emails(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> usize {
         65_536
     }
 
@@ -238,7 +253,7 @@ pub trait MailBackend: JmapBackend {
     /// A value of `0` means unlimited. Used with `maxBodyValueBytes` in
     /// `Email/get` and `Email/parse`. Override in your implementation to
     /// enforce per-account limits.
-    fn max_body_value_bytes(&self, _account_id: &jmap_types::Id) -> u64 {
+    fn max_body_value_bytes(&self, _caller: &Self::CallerCtx, _account_id: &jmap_types::Id) -> u64 {
         0 // unlimited by default
     }
 
@@ -247,7 +262,11 @@ pub trait MailBackend: JmapBackend {
     /// A value of `0` means no delayed send support. Used to validate `sendAt`
     /// in `EmailSubmission/set`. Override in your implementation to advertise
     /// this server capability.
-    fn max_delayed_send_seconds(&self, _account_id: &jmap_types::Id) -> u64 {
+    fn max_delayed_send_seconds(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> u64 {
         0 // no delayed send by default
     }
 
@@ -258,7 +277,11 @@ pub trait MailBackend: JmapBackend {
     /// `handle_mailbox_query` cannot guarantee that the backend tracks
     /// per-query result sets. Override to `true` only if the backend
     /// maintains a stable, query-result-aware change log for Mailbox objects.
-    fn can_calculate_mailbox_query_changes(&self, _account_id: &jmap_types::Id) -> bool {
+    fn can_calculate_mailbox_query_changes(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> bool {
         false
     }
 
@@ -273,6 +296,7 @@ pub trait MailBackend: JmapBackend {
     /// matches the input slice.
     fn batch_destroy_emails(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         email_ids: &[jmap_types::Id],
     ) -> impl std::future::Future<Output = Vec<(jmap_types::Id, Option<BackendSetError<Self::Error>>)>>
@@ -284,7 +308,7 @@ pub trait MailBackend: JmapBackend {
             let mut results = Vec::with_capacity(email_ids.len());
             for id in email_ids {
                 let err = self
-                    .destroy_object::<jmap_mail_types::Email>(account_id, id)
+                    .destroy_object::<jmap_mail_types::Email>(caller, account_id, id)
                     .await
                     .err();
                 results.push((id.clone(), err));

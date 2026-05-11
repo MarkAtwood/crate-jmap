@@ -56,7 +56,7 @@ async fn seed_notification(backend: &MemoryBackend, account_id: &str, v: serde_j
     let notif: ShareNotification =
         serde_json::from_value(v).expect("test fixture must deserialize");
     let (server_id, _) = backend
-        .create_object::<ShareNotification>(&Id::from(account_id), "seed", notif)
+        .create_object::<ShareNotification>(&(), &Id::from(account_id), "seed", notif)
         .await
         .expect("seed must succeed");
     server_id

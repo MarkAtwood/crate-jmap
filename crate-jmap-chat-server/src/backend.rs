@@ -40,6 +40,7 @@ pub trait ChatBackend: JmapBackend {
     /// client-side creation id used in the `/set` request.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
         obj: O,
@@ -53,6 +54,7 @@ pub trait ChatBackend: JmapBackend {
     /// or `None` if the patch was applied verbatim.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: O::Patch,
@@ -61,6 +63,7 @@ pub trait ChatBackend: JmapBackend {
     /// Destroy an existing object by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;

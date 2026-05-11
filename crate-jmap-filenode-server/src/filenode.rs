@@ -27,16 +27,28 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 /// Oracle: §3.2.1.
 pub async fn handle_filenode_get<B: FileNodeBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let fetch_parents = args
         .get("fetchParents")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args_map) = extract_account_id(args)?;
 
-    let (mut response, tail) =
-        jmap_server::handlers::handle_get::<FileNode, B>(backend, args).await?;
+    // Reconstitute the args object for the generic handler. The generic helper
+    // re-parses accountId itself, which is fine — the duplicate parse is cheap.
+    let mut reconstituted = args_map;
+    reconstituted.insert(
+        "accountId".to_owned(),
+        Value::String(account_id.as_ref().to_owned()),
+    );
+    let (mut response, tail) = jmap_server::handlers::handle_get::<FileNode, B>(
+        backend,
+        caller,
+        Value::Object(reconstituted),
+    )
+    .await?;
 
     if fetch_parents {
         if let Some(Value::Array(list)) = response.get("list") {
@@ -54,7 +66,7 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
             let node_ids: Vec<Id> = existing_ids.iter().map(|s| Id::from(s.as_str())).collect();
 
             if !node_ids.is_empty() {
-                if let Ok(ancestors) = backend.get_ancestors(&account_id, &node_ids).await {
+                if let Ok(ancestors) = backend.get_ancestors(caller, &account_id, &node_ids).await {
                     let list = response["list"].as_array_mut().expect("list must be array");
                     for ancestor in ancestors {
                         // Deduplicate: only append if not already in the list.
@@ -82,9 +94,10 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
 /// Handle a `FileNode/changes` method call (draft-ietf-jmap-filenode-13 §3.2.2).
 pub async fn handle_filenode_changes<B: FileNodeBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<FileNode, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<FileNode, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -122,17 +135,13 @@ enum OnExists {
 /// update is placed in `notUpdated` with `invalidProperties`.
 pub async fn handle_filenode_set<B: FileNodeBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let old_state = backend
-        .get_state::<FileNode>(&account_id)
+        .get_state::<FileNode>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -215,6 +224,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             if !node_name.is_empty() {
                 match backend
                     .find_sibling_by_name(
+                        caller,
                         &account_id,
                         parent_id_for_collision.as_ref(),
                         &node_name,
@@ -233,7 +243,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                             }
                             OnExists::Replace => {
                                 // Guard: check the existing node has no descendants.
-                                match backend.get_descendant_ids(&account_id, &existing_id).await {
+                                match backend
+                                    .get_descendant_ids(caller, &account_id, &existing_id)
+                                    .await
+                                {
                                     Ok(desc) if !desc.is_empty() => {
                                         not_created.insert(
                                             create_id,
@@ -243,7 +256,11 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                     }
                                     Ok(_) => {
                                         match backend
-                                            .destroy_object::<FileNode>(&account_id, &existing_id)
+                                            .destroy_object::<FileNode>(
+                                                caller,
+                                                &account_id,
+                                                &existing_id,
+                                            )
                                             .await
                                         {
                                             Ok(()) => {
@@ -294,6 +311,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                     let candidate = format!("{node_name}-{suffix}");
                                     match backend
                                         .find_sibling_by_name(
+                                            caller,
                                             &account_id,
                                             parent_id_for_collision.as_ref(),
                                             &candidate,
@@ -412,7 +430,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // For file nodes, verify the blob exists.
             if matches!(node.node_type.as_ref(), Some(NodeType::File)) {
                 if let Some(ref blob_id) = node.blob_id {
-                    if !backend.blob_exists(&account_id, blob_id).await {
+                    if !backend.blob_exists(caller, &account_id, blob_id).await {
                         not_created.insert(
                             create_id,
                             json!({ "type": "invalidProperties", "properties": ["blobId"], "description": "blob not found" }),
@@ -423,7 +441,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             }
 
             match backend
-                .create_object::<FileNode>(&account_id, &create_id, node)
+                .create_object::<FileNode>(caller, &account_id, &create_id, node)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -470,7 +488,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             if let Some(new_parent_val) = patch_val.get("parentId") {
                 if let Some(new_parent_str) = new_parent_val.as_str() {
                     let new_parent_id = Id::from(new_parent_str);
-                    match backend.get_descendant_ids(&account_id, &id).await {
+                    match backend.get_descendant_ids(caller, &account_id, &id).await {
                         Ok(descendant_ids) => {
                             if descendant_ids.iter().any(|did| did == &new_parent_id) {
                                 not_updated.insert(
@@ -510,7 +528,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             };
 
             match backend
-                .update_object::<FileNode>(&account_id, &id, patch)
+                .update_object::<FileNode>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -583,7 +601,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // RFC §3.2.3: MUST NOT return nodeHasChildren if all descendants
             // are also being destroyed in the same request.
             if !on_destroy_remove_children {
-                match backend.get_descendant_ids(&account_id, &id).await {
+                match backend.get_descendant_ids(caller, &account_id, &id).await {
                     Ok(desc_ids) => {
                         let all_covered = desc_ids.iter().all(|did| destroy_id_set.contains(did));
                         if !desc_ids.is_empty() && !all_covered {
@@ -603,12 +621,12 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 
             // When onDestroyRemoveChildren=true, cascade to all descendants first.
             if on_destroy_remove_children {
-                match backend.get_descendant_ids(&account_id, &id).await {
+                match backend.get_descendant_ids(caller, &account_id, &id).await {
                     Ok(desc_ids) => {
                         let mut cascade_failed = false;
                         for desc_id in &desc_ids {
                             match backend
-                                .destroy_object::<FileNode>(&account_id, desc_id)
+                                .destroy_object::<FileNode>(caller, &account_id, desc_id)
                                 .await
                             {
                                 Ok(()) => {
@@ -655,7 +673,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 }
             }
 
-            match backend.destroy_object::<FileNode>(&account_id, &id).await {
+            match backend
+                .destroy_object::<FileNode>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
@@ -684,6 +705,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 
     finalize_set_response::<B, FileNode>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -713,38 +735,33 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
 /// The source nodes are fetched with `get_objects` before copying.
 pub async fn handle_filenode_copy<B: FileNodeBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::from(s),
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
     };
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // Verify both accounts exist.
     if !backend
-        .account_exists(&from_account_id)
+        .account_exists(caller, &from_account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
 
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
-
     let old_state = backend
-        .get_state::<FileNode>(&account_id)
+        .get_state::<FileNode>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -778,6 +795,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             // Fetch the source node.
             let (mut nodes, not_found): (Vec<FileNode>, _) = backend
                 .get_objects::<FileNode>(
+                    caller,
                     &from_account_id,
                     Some(std::slice::from_ref(&source_id)),
                     None,
@@ -807,7 +825,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
 
             // Create in the destination account.
             match backend
-                .create_object::<FileNode>(&account_id, &create_id, source_node)
+                .create_object::<FileNode>(caller, &account_id, &create_id, source_node)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -842,7 +860,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
 
     let new_state = if mutated {
         backend
-            .get_state::<FileNode>(&account_id)
+            .get_state::<FileNode>(caller, &account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?
     } else {
@@ -876,16 +894,29 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
 /// delegated to [`jmap_server::handlers::handle_query`].
 pub async fn handle_filenode_query<B: FileNodeBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Extract depth before delegating — the generic handler strips unrecognised args.
     let depth: u64 = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(0);
 
-    let account_id = crate::helpers::extract_account_id(&args)?;
+    let (account_id, args_map) = crate::helpers::extract_account_id(args)?;
+
+    // Reconstitute the args object for the generic handler. The generic helper
+    // re-parses accountId itself, which is fine — the duplicate parse is cheap.
+    let mut reconstituted = args_map;
+    reconstituted.insert(
+        "accountId".to_owned(),
+        Value::String(account_id.as_ref().to_owned()),
+    );
 
     // Delegate to the generic query handler for the first (level-0) result.
-    let (mut response, tail) =
-        jmap_server::handlers::handle_query::<FileNode, B>(backend, args).await?;
+    let (mut response, tail) = jmap_server::handlers::handle_query::<FileNode, B>(
+        backend,
+        caller,
+        Value::Object(reconstituted),
+    )
+    .await?;
 
     if depth == 0 {
         return Ok((response, tail));
@@ -903,7 +934,10 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
         return Ok((response, tail));
     }
 
-    let descendant_ids = match backend.query_subtree(&account_id, &root_ids, depth).await {
+    let descendant_ids = match backend
+        .query_subtree(caller, &account_id, &root_ids, depth)
+        .await
+    {
         Ok(ids) => ids,
         Err(e) => {
             // Non-fatal: return flat result if subtree query fails.
@@ -936,9 +970,10 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
 /// Handle a `FileNode/queryChanges` method call (draft-ietf-jmap-filenode-13 §3.2.6).
 pub async fn handle_filenode_query_changes<B: FileNodeBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query_changes::<FileNode, B>(backend, args).await
+    jmap_server::handlers::handle_query_changes::<FileNode, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -962,7 +997,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let err = handle_filenode_get(&backend, args)
+        let err = handle_filenode_get(&backend, &(), args)
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(
@@ -978,7 +1013,7 @@ mod tests {
     async fn get_known_account_returns_empty_list() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "ids": null });
-        let (resp, _) = handle_filenode_get(&backend, args)
+        let (resp, _) = handle_filenode_get(&backend, &(), args)
             .await
             .expect("must succeed for known account");
         assert_eq!(resp["accountId"], "acc1");
@@ -995,7 +1030,7 @@ mod tests {
     async fn get_fetch_parents_false_unchanged() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": false });
-        let (resp, _) = handle_filenode_get(&backend, args)
+        let (resp, _) = handle_filenode_get(&backend, &(), args)
             .await
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
@@ -1008,7 +1043,7 @@ mod tests {
     async fn get_fetch_parents_true_no_nodes() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": true });
-        let (resp, _) = handle_filenode_get(&backend, args)
+        let (resp, _) = handle_filenode_get(&backend, &(), args)
             .await
             .expect("must succeed");
         assert!(resp["list"].as_array().unwrap().is_empty());
@@ -1023,7 +1058,7 @@ mod tests {
     async fn changes_returns_standard_shape() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
-        let (resp, _) = handle_filenode_changes(&backend, args)
+        let (resp, _) = handle_filenode_changes(&backend, &(), args)
             .await
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
@@ -1041,7 +1076,7 @@ mod tests {
     async fn query_returns_standard_shape() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let (resp, _) = handle_filenode_query(&backend, args)
+        let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed");
         assert_eq!(resp["accountId"], "acc1");
@@ -1055,7 +1090,7 @@ mod tests {
     async fn query_depth_absent_flat_query() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
-        let (resp, _) = handle_filenode_query(&backend, args)
+        let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed for absent depth");
         assert!(resp["ids"].as_array().unwrap().is_empty());
@@ -1066,7 +1101,7 @@ mod tests {
     async fn query_depth_zero_flat_query() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "depth": 0, "filter": null, "sort": null });
-        let (resp, _) = handle_filenode_query(&backend, args)
+        let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed for depth=0");
         assert!(resp["ids"].as_array().unwrap().is_empty());
@@ -1090,7 +1125,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let (resp, _) = handle_filenode_query(&backend, args)
+        let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed for depth=1");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -1121,7 +1156,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let (resp, _) = handle_filenode_query(&backend, args)
+        let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -1148,7 +1183,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let (resp, _) = handle_filenode_query(&backend, args)
+        let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids must be array");
@@ -1175,7 +1210,7 @@ mod tests {
             "filter": {"isTopLevel": true},
             "sort": null
         });
-        let (resp, _) = handle_filenode_query(&backend, args)
+        let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids array");
@@ -1200,7 +1235,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["dir1"]
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -1233,7 +1268,7 @@ mod tests {
             "onDestroyRemoveChildren": true,
             "destroy": ["dir1"]
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -1267,7 +1302,7 @@ mod tests {
             "onDestroyRemoveChildren": true,
             "destroy": ["dir1"]
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -1315,7 +1350,7 @@ mod tests {
                 "node1": { "parentId": "node2" }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -1356,7 +1391,7 @@ mod tests {
             "destroy": ["node_parent", "node_child"]
             // onDestroyRemoveChildren is absent (defaults to false)
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -1395,7 +1430,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -1425,7 +1460,7 @@ mod tests {
                 "c1": { "name": "mydir", "role": null }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         // No notCreated: directory inference should succeed.
@@ -1451,7 +1486,7 @@ mod tests {
                 "c1": { "name": "myfile", "nodeType": "file", "blobId": null, "role": null }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -1485,7 +1520,7 @@ mod tests {
                 "c1": { "name": "mylink", "nodeType": "symlink", "target": null, "role": null }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -1527,7 +1562,7 @@ mod tests {
             }
             // onExists absent → default Reject
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -1560,7 +1595,7 @@ mod tests {
                 "c1": { "name": "foo", "parentId": null, "role": null }
             }
         });
-        let (resp, _) = handle_filenode_set(&backend, args)
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         // With rename, creation should succeed (mock create_object returns Ok).

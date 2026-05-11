@@ -22,15 +22,10 @@ use crate::helpers::{
 /// Handle a `PresenceStatus/get` method call.
 pub async fn handle_presence_get<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
@@ -42,12 +37,12 @@ pub async fn handle_presence_get<B: ChatBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<PresenceStatus>(&account_id, ids_slice, None)
+        .get_objects::<PresenceStatus>(caller, &account_id, ids_slice, None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<PresenceStatus>(&account_id)
+        .get_state::<PresenceStatus>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -71,9 +66,10 @@ pub async fn handle_presence_get<B: ChatBackend>(
 /// Handle a `PresenceStatus/changes` method call (RFC 8620 §5.2).
 pub async fn handle_presence_changes<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
 
     let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),
@@ -88,7 +84,7 @@ pub async fn handle_presence_changes<B: ChatBackend>(
     };
 
     let result = backend
-        .get_changes::<PresenceStatus>(&account_id, &since_state, max_changes)
+        .get_changes::<PresenceStatus>(caller, &account_id, &since_state, max_changes)
         .await
         .map_err(JmapError::from)?;
 
@@ -118,17 +114,13 @@ pub async fn handle_presence_changes<B: ChatBackend>(
 /// server-side and MUST NOT be accepted from the client body.
 pub async fn handle_presence_set<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let old_state = backend
-        .get_state::<PresenceStatus>(&account_id)
+        .get_state::<PresenceStatus>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -201,7 +193,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
             };
 
             match backend
-                .update_object::<PresenceStatus>(&account_id, &id, patch)
+                .update_object::<PresenceStatus>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -264,6 +256,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
 
     finalize_set_response::<B, PresenceStatus>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,

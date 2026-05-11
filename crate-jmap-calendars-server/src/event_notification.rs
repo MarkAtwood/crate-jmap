@@ -21,9 +21,10 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 /// (draft-ietf-jmap-calendars-26 §7.1).
 pub async fn handle_calendar_event_notification_get<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<CalendarEventNotification, B>(backend, args).await
+    jmap_server::handlers::handle_get::<CalendarEventNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -34,9 +35,11 @@ pub async fn handle_calendar_event_notification_get<B: CalendarsBackend>(
 /// (draft-ietf-jmap-calendars-26 §7.2).
 pub async fn handle_calendar_event_notification_changes<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<CalendarEventNotification, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<CalendarEventNotification, B>(backend, caller, args)
+        .await
 }
 
 // ---------------------------------------------------------------------------
@@ -51,18 +54,14 @@ pub async fn handle_calendar_event_notification_changes<B: CalendarsBackend>(
 /// without touching the backend.
 pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -70,7 +69,7 @@ pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
     }
 
     let old_state = backend
-        .get_state::<CalendarEventNotification>(&account_id)
+        .get_state::<CalendarEventNotification>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -125,7 +124,7 @@ pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
             };
             let id = Id::from(id_str.as_str());
             match backend
-                .destroy_object::<CalendarEventNotification>(&account_id, &id)
+                .destroy_object::<CalendarEventNotification>(caller, &account_id, &id)
                 .await
             {
                 Ok(()) => {
@@ -156,6 +155,7 @@ pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
 
     finalize_set_response::<B, CalendarEventNotification>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -179,9 +179,10 @@ pub async fn handle_calendar_event_notification_set<B: CalendarsBackend>(
 /// (draft-ietf-jmap-calendars-26 §7.4).
 pub async fn handle_calendar_event_notification_query<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query::<CalendarEventNotification, B>(backend, args).await
+    jmap_server::handlers::handle_query::<CalendarEventNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -192,9 +193,13 @@ pub async fn handle_calendar_event_notification_query<B: CalendarsBackend>(
 /// (draft-ietf-jmap-calendars-26 §7.5).
 pub async fn handle_calendar_event_notification_query_changes<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query_changes::<CalendarEventNotification, B>(backend, args).await
+    jmap_server::handlers::handle_query_changes::<CalendarEventNotification, B>(
+        backend, caller, args,
+    )
+    .await
 }
 
 // ---------------------------------------------------------------------------
@@ -226,7 +231,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_calendar_event_notification_set(&backend, args)
+        let (resp, _) = handle_calendar_event_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];
@@ -250,7 +255,7 @@ mod tests {
                 "n1": { "comment": "changed" }
             }
         });
-        let (resp, _) = handle_calendar_event_notification_set(&backend, args)
+        let (resp, _) = handle_calendar_event_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(resp["notUpdated"]["n1"]["type"], "forbidden");
@@ -262,7 +267,7 @@ mod tests {
     async fn set_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown" });
-        let result = handle_calendar_event_notification_set(&backend, args).await;
+        let result = handle_calendar_event_notification_set(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
@@ -275,7 +280,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["doesnotexist"]
         });
-        let (resp, _) = handle_calendar_event_notification_set(&backend, args)
+        let (resp, _) = handle_calendar_event_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(

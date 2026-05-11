@@ -19,15 +19,10 @@ use crate::helpers::{
 /// Handle a `Message/get` method call.
 pub async fn handle_message_get<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
@@ -49,12 +44,12 @@ pub async fn handle_message_get<B: ChatBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<Message>(&account_id, ids_slice, properties.as_deref())
+        .get_objects::<Message>(caller, &account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<Message>(&account_id)
+        .get_state::<Message>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -89,9 +84,10 @@ pub async fn handle_message_get<B: ChatBackend>(
 /// Handle a `Message/changes` method call (RFC 8620 §5.2).
 pub async fn handle_message_changes<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<Message, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<Message, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -103,15 +99,10 @@ pub async fn handle_message_changes<B: ChatBackend>(
 /// Filter and sort are passed through to the backend unchanged.
 pub async fn handle_message_query<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let calculate_total: bool = args
         .get("calculateTotal")
@@ -167,6 +158,7 @@ pub async fn handle_message_query<B: ChatBackend>(
 
     let result = backend
         .query_objects::<Message>(
+            caller,
             &account_id,
             filter.as_ref(),
             sort.as_deref(),
@@ -199,9 +191,10 @@ pub async fn handle_message_query<B: ChatBackend>(
 /// Handle a `Message/queryChanges` method call (RFC 8620 §5.6).
 pub async fn handle_message_query_changes<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
 
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),
@@ -232,6 +225,7 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
 
     let result = backend
         .query_changes::<Message>(
+            caller,
             &account_id,
             &since_query_state,
             None,
@@ -283,17 +277,13 @@ pub async fn handle_message_query_changes<B: ChatBackend>(
 ///   are server-set and rejected in updates.
 pub async fn handle_message_set<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let old_state = backend
-        .get_state::<Message>(&account_id)
+        .get_state::<Message>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -435,7 +425,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             msg.burn_on_read = burn_on_read;
 
             match backend
-                .create_object::<Message>(&account_id, create_id, msg)
+                .create_object::<Message>(caller, &account_id, create_id, msg)
                 .await
             {
                 Ok((_server_id, created_obj)) => {
@@ -534,7 +524,7 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             };
             match backend
-                .update_object::<Message>(&account_id, &id, patch)
+                .update_object::<Message>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -590,7 +580,10 @@ pub async fn handle_message_set<B: ChatBackend>(
             };
             let id = Id::from(id_str);
 
-            match backend.destroy_object::<Message>(&account_id, &id).await {
+            match backend
+                .destroy_object::<Message>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str.to_owned()));
@@ -619,6 +612,7 @@ pub async fn handle_message_set<B: ChatBackend>(
 
     finalize_set_response::<B, Message>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,

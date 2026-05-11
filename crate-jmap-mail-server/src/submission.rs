@@ -33,19 +33,17 @@ use crate::helpers::{
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always empty.
 pub async fn handle_submission_get<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let ids: Option<Vec<Id>> = match args.remove("ids") {
         None | Some(Value::Null) => None,
@@ -57,12 +55,12 @@ pub async fn handle_submission_get<B: MailBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<EmailSubmission>(&account_id, ids_slice, None)
+        .get_objects::<EmailSubmission>(caller, &account_id, ids_slice, None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<EmailSubmission>(&account_id)
+        .get_state::<EmailSubmission>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -85,9 +83,10 @@ pub async fn handle_submission_get<B: MailBackend>(
 /// Handle an `EmailSubmission/changes` method call (RFC 8620 §5.2 / RFC 8621 §7.2).
 pub async fn handle_submission_changes<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<EmailSubmission, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<EmailSubmission, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -99,11 +98,12 @@ pub async fn handle_submission_changes<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always empty.
 pub async fn handle_submission_query<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -164,7 +164,14 @@ pub async fn handle_submission_query<B: MailBackend>(
     let (ids, total, query_state, can_calculate_changes, reported_position) =
         if let Some(ref anchor_id) = anchor {
             let all = backend
-                .query_objects::<EmailSubmission>(&account_id, filter.as_ref(), None, None, 0)
+                .query_objects::<EmailSubmission>(
+                    caller,
+                    &account_id,
+                    filter.as_ref(),
+                    None,
+                    None,
+                    0,
+                )
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             let anchor_idx = all
@@ -192,6 +199,7 @@ pub async fn handle_submission_query<B: MailBackend>(
         } else {
             let result = backend
                 .query_objects::<EmailSubmission>(
+                    caller,
                     &account_id,
                     filter.as_ref(),
                     None,
@@ -237,11 +245,12 @@ pub async fn handle_submission_query<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always empty.
 pub async fn handle_submission_query_changes<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -277,6 +286,7 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 
     let result = backend
         .query_changes::<EmailSubmission>(
+            caller,
             &account_id,
             &since_query_state,
             None,
@@ -321,23 +331,21 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 /// present, extra_invocations will contain one `Email/set` invocation.
 pub async fn handle_submission_set<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let old_state = backend
-        .get_state::<EmailSubmission>(&account_id)
+        .get_state::<EmailSubmission>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -388,7 +396,7 @@ pub async fn handle_submission_set<B: MailBackend>(
         let non_ref_ids: Vec<Id> = non_ref_id_set.into_iter().collect();
         if !non_ref_ids.is_empty() {
             let (subs, _) = backend
-                .get_objects::<EmailSubmission>(&account_id, Some(&non_ref_ids), None)
+                .get_objects::<EmailSubmission>(caller, &account_id, Some(&non_ref_ids), None)
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             for sub in subs {
@@ -403,7 +411,7 @@ pub async fn handle_submission_set<B: MailBackend>(
 
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, create_args) in create_map {
-            match process_create(backend, &account_id, create_id, create_args).await {
+            match process_create(backend, caller, &account_id, create_id, create_args).await {
                 Ok(obj_json) => {
                     // Populate submission → email_id map for onSuccess* processing.
                     if let Some(eid) = obj_json.get("emailId").and_then(|v| v.as_str()) {
@@ -444,7 +452,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     continue;
                 }
             };
-            match process_update(backend, &account_id, &id, patch).await {
+            match process_update(backend, caller, &account_id, &id, patch).await {
                 Ok(Some(obj)) => {
                     updated.insert(
                         id_str.clone(),
@@ -501,7 +509,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             };
             let id = Id::from(id_str);
             match backend
-                .destroy_object::<EmailSubmission>(&account_id, &id)
+                .destroy_object::<EmailSubmission>(caller, &account_id, &id)
                 .await
             {
                 Ok(()) => {
@@ -537,7 +545,7 @@ pub async fn handle_submission_set<B: MailBackend>(
     let mutated = !created.is_empty() || !updated.is_empty() || !destroyed.is_empty();
     let new_state = if mutated {
         backend
-            .get_state::<EmailSubmission>(&account_id)
+            .get_state::<EmailSubmission>(caller, &account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?
     } else {
@@ -568,7 +576,7 @@ pub async fn handle_submission_set<B: MailBackend>(
 
     if has_on_success {
         let email_old_state = backend
-            .get_state::<Email>(&account_id)
+            .get_state::<Email>(caller, &account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -615,7 +623,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     continue;
                 }
                 match backend
-                    .update_object::<Email>(&account_id, &email_id, patch)
+                    .update_object::<Email>(caller, &account_id, &email_id, patch)
                     .await
                 {
                     Ok(Some(obj)) => {
@@ -663,7 +671,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     None => continue, // Referenced operation did not succeed; skip.
                 };
                 match backend
-                    .destroy_object::<Email>(&account_id, &email_id)
+                    .destroy_object::<Email>(caller, &account_id, &email_id)
                     .await
                 {
                     Ok(()) => {
@@ -702,7 +710,7 @@ pub async fn handle_submission_set<B: MailBackend>(
 
         if any_email_ops {
             let email_new_state = backend
-                .get_state::<Email>(&account_id)
+                .get_state::<Email>(caller, &account_id)
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -754,6 +762,7 @@ impl From<SetError> for CreateError {
 /// [`CreateError`] (converted to JSON at the call site) on failure.
 async fn process_create<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     account_id: &Id,
     create_id: &str,
     create_args: &Value,
@@ -773,7 +782,12 @@ async fn process_create<B: MailBackend>(
 
     // Validate identityId references an existing Identity.
     let (identities, _) = backend
-        .get_objects::<Identity>(account_id, Some(std::slice::from_ref(&identity_id)), None)
+        .get_objects::<Identity>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(&identity_id)),
+            None,
+        )
         .await
         .map_err(|e| CreateError::Server(e.to_string()))?;
 
@@ -800,7 +814,12 @@ async fn process_create<B: MailBackend>(
 
     // Validate emailId references an existing Email and retrieve threadId.
     let (emails, _) = backend
-        .get_objects::<Email>(account_id, Some(std::slice::from_ref(&email_id)), None)
+        .get_objects::<Email>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(&email_id)),
+            None,
+        )
         .await
         .map_err(|e| CreateError::Server(e.to_string()))?;
 
@@ -896,7 +915,7 @@ async fn process_create<B: MailBackend>(
     };
 
     let (_server_id, created_obj) = backend
-        .create_object::<EmailSubmission>(account_id, create_id, submission)
+        .create_object::<EmailSubmission>(caller, account_id, create_id, submission)
         .await
         .map_err(|e| match e {
             BackendSetError::SetError(set_err) => CreateError::SetError(set_err),
@@ -914,6 +933,7 @@ async fn process_create<B: MailBackend>(
 /// already `"final"`, returns `cannotUnsend`.
 async fn process_update<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     account_id: &Id,
     id: &Id,
     patch: PatchObject,
@@ -937,7 +957,7 @@ async fn process_update<B: MailBackend>(
 
     // Look up existing submission to check undoStatus.
     let (existing, not_found) = backend
-        .get_objects::<EmailSubmission>(account_id, Some(std::slice::from_ref(id)), None)
+        .get_objects::<EmailSubmission>(caller, account_id, Some(std::slice::from_ref(id)), None)
         .await
         .map_err(BackendSetError::Other)?;
 
@@ -959,6 +979,6 @@ async fn process_update<B: MailBackend>(
 
     // Apply the patch via the backend.
     backend
-        .update_object::<EmailSubmission>(account_id, id, patch)
+        .update_object::<EmailSubmission>(caller, account_id, id, patch)
         .await
 }

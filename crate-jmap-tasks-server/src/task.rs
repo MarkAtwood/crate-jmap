@@ -23,6 +23,7 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 /// (draft-tasks-06 §4, lines 739-772).
 pub async fn handle_task_get<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Determine whether utcStart / utcDue are requested.
@@ -37,7 +38,8 @@ pub async fn handle_task_get<B: TasksBackend>(
     };
 
     // Delegate to the generic get handler.
-    let (mut response, tail) = jmap_server::handlers::handle_get::<Task, B>(backend, args).await?;
+    let (mut response, tail) =
+        jmap_server::handlers::handle_get::<Task, B>(backend, caller, args).await?;
 
     // If utcStart or utcDue were requested, augment each returned task.
     if want_utc {
@@ -66,9 +68,10 @@ pub async fn handle_task_get<B: TasksBackend>(
 /// Handle a `Task/changes` method call (draft-tasks-06 §4.6).
 pub async fn handle_task_changes<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<Task, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<Task, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -89,20 +92,16 @@ pub async fn handle_task_changes<B: TasksBackend>(
 /// The handler also does a best-effort check on the patch itself.
 pub async fn handle_task_set<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
     // error). Without this, a /set against an unknown accountId would silently
     // "succeed" with a fake oldState/newState envelope. Fixed in JMAP-gpt1.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -110,7 +109,7 @@ pub async fn handle_task_set<B: TasksBackend>(
     }
 
     let old_state = backend
-        .get_state::<Task>(&account_id)
+        .get_state::<Task>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -167,7 +166,7 @@ pub async fn handle_task_set<B: TasksBackend>(
             };
 
             match backend
-                .create_object::<Task>(&account_id, &create_id, task)
+                .create_object::<Task>(caller, &account_id, &create_id, task)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -219,7 +218,7 @@ pub async fn handle_task_set<B: TasksBackend>(
             {
                 let task_id = Id::from(id_str.as_str());
                 match backend
-                    .get_objects::<Task>(&account_id, Some(&[task_id]), None)
+                    .get_objects::<Task>(caller, &account_id, Some(&[task_id]), None)
                     .await
                 {
                     Ok((tasks, _)) => {
@@ -277,9 +276,13 @@ pub async fn handle_task_set<B: TasksBackend>(
             };
 
             let update_result = if is_per_user_only {
-                backend.update_task_per_user(&account_id, &id, patch).await
+                backend
+                    .update_task_per_user(caller, &account_id, &id, patch)
+                    .await
             } else {
-                backend.update_object::<Task>(&account_id, &id, patch).await
+                backend
+                    .update_object::<Task>(caller, &account_id, &id, patch)
+                    .await
             };
 
             match update_result {
@@ -336,7 +339,10 @@ pub async fn handle_task_set<B: TasksBackend>(
             };
             let id = Id::from(id_str.as_str());
 
-            match backend.destroy_object::<Task>(&account_id, &id).await {
+            match backend
+                .destroy_object::<Task>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
@@ -365,6 +371,7 @@ pub async fn handle_task_set<B: TasksBackend>(
 
     finalize_set_response::<B, Task>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -391,14 +398,10 @@ pub async fn handle_task_set<B: TasksBackend>(
 /// ids.
 pub async fn handle_task_copy<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let to_account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (to_account_id, mut args) = extract_account_id(args)?;
 
     let from_account_id_str = args
         .remove("fromAccountId")
@@ -407,7 +410,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
     let from_account_id = Id::from(from_account_id_str.as_str());
 
     if !backend
-        .account_exists(&to_account_id)
+        .account_exists(caller, &to_account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -415,7 +418,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
     }
 
     let old_state = backend
-        .get_state::<Task>(&to_account_id)
+        .get_state::<Task>(caller, &to_account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -446,7 +449,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
             };
 
             match backend
-                .copy_task(&from_account_id, &to_account_id, task)
+                .copy_task(caller, &from_account_id, &to_account_id, task)
                 .await
             {
                 Ok((_new_id, copied_task)) => {
@@ -481,7 +484,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
 
     let new_state = if mutated {
         backend
-            .get_state::<Task>(&to_account_id)
+            .get_state::<Task>(caller, &to_account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?
     } else {
@@ -508,9 +511,10 @@ pub async fn handle_task_copy<B: TasksBackend>(
 /// Handle a `Task/query` method call (draft-tasks-06 §4.13).
 pub async fn handle_task_query<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query::<Task, B>(backend, args).await
+    jmap_server::handlers::handle_query::<Task, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -520,9 +524,10 @@ pub async fn handle_task_query<B: TasksBackend>(
 /// Handle a `Task/queryChanges` method call (draft-tasks-06 §4.14).
 pub async fn handle_task_query_changes<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query_changes::<Task, B>(backend, args).await
+    jmap_server::handlers::handle_query_changes::<Task, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -541,7 +546,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let result = handle_task_get(&backend, args).await;
+        let result = handle_task_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
@@ -554,7 +559,7 @@ mod tests {
             "accountId": "acc1",
             "create": {}
         });
-        let result = handle_task_copy(&backend, args).await;
+        let result = handle_task_copy(&backend, &(), args).await;
         let err = result.expect_err("must return error when fromAccountId missing");
         assert_eq!(err.error_type.as_str(), "invalidArguments");
     }
@@ -564,7 +569,7 @@ mod tests {
     async fn set_empty_destroy_returns_valid_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "destroy": [] });
-        let (resp, _) = handle_task_set(&backend, args)
+        let (resp, _) = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(resp["accountId"], "acc1");
@@ -588,7 +593,7 @@ mod tests {
                 "t1": { "isDraft": true }
             }
         });
-        let (resp, _) = handle_task_set(&backend, args)
+        let (resp, _) = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return a top-level error");
 
@@ -625,7 +630,7 @@ mod tests {
                 "t2": { "isDraft": true }
             }
         });
-        let (resp, _) = handle_task_set(&backend, args)
+        let (resp, _) = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return a top-level error");
 
@@ -656,7 +661,7 @@ mod tests {
                 "t3": { "isDraft": false }
             }
         });
-        let (resp, _) = handle_task_set(&backend, args)
+        let (resp, _) = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return a top-level error");
 
@@ -685,7 +690,9 @@ mod tests {
             "ids": null,
             "properties": ["id", "title"]  // utcStart and utcDue NOT listed
         });
-        let (resp, _) = handle_task_get(&backend, args).await.expect("must succeed");
+        let (resp, _) = handle_task_get(&backend, &(), args)
+            .await
+            .expect("must succeed");
         // The list is empty (no tasks seeded), but the response itself must be valid.
         assert_eq!(resp["accountId"], "acc1");
         // No utcStart or utcDue should appear in response items (list is empty so
@@ -710,7 +717,7 @@ mod tests {
             "ids": null,
             "properties": ["id", "utcStart", "utcDue"]
         });
-        let (resp, _) = handle_task_get(&backend, args)
+        let (resp, _) = handle_task_get(&backend, &(), args)
             .await
             .expect("must succeed with utcStart in properties");
         assert_eq!(resp["accountId"], "acc1");
@@ -731,7 +738,7 @@ mod tests {
             "accountId": "acc1",
             "update": { "t1": { "color": "#ff0000" } }
         });
-        let (resp, _) = handle_task_set(&backend, args)
+        let (resp, _) = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         // update_task_per_user → update_object → Forbidden from MockBackend.
@@ -759,7 +766,7 @@ mod tests {
             "accountId": "acc1",
             "update": { "t1": { "title": "New title" } }
         });
-        let (resp, _) = handle_task_set(&backend, args)
+        let (resp, _) = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         if let Some(nu) = resp["notUpdated"].as_object() {
@@ -783,7 +790,7 @@ mod tests {
             "accountId": "acc1",
             "update": { "t1": { "color": "#ff0000", "title": "New" } }
         });
-        let (resp, _) = handle_task_set(&backend, args)
+        let (resp, _) = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         // Verify no crash and handler reached backend normally.
@@ -810,7 +817,7 @@ mod tests {
             "accountId": "acc1",
             "update": { "t1": { "isDraft": true } }
         });
-        let (resp, _) = handle_task_set(&backend, args)
+        let (resp, _) = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 

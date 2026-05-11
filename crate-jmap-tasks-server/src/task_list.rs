@@ -19,9 +19,10 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 /// Handle a `TaskList/get` method call (draft-tasks-06 §3.5).
 pub async fn handle_task_list_get<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<TaskList, B>(backend, args).await
+    jmap_server::handlers::handle_get::<TaskList, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -31,9 +32,10 @@ pub async fn handle_task_list_get<B: TasksBackend>(
 /// Handle a `TaskList/changes` method call (draft-tasks-06 §3.6).
 pub async fn handle_task_list_changes<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<TaskList, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<TaskList, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -48,20 +50,16 @@ pub async fn handle_task_list_changes<B: TasksBackend>(
 /// `taskListHasTasks` SetError.
 pub async fn handle_task_list_set<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
     // error). Without this, a /set against an unknown accountId would silently
     // "succeed" with a fake oldState/newState envelope. Fixed in JMAP-gpt1.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -75,7 +73,7 @@ pub async fn handle_task_list_set<B: TasksBackend>(
         .unwrap_or(false);
 
     let old_state = backend
-        .get_state::<TaskList>(&account_id)
+        .get_state::<TaskList>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -130,7 +128,7 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             };
 
             match backend
-                .create_object::<TaskList>(&account_id, &create_id, task_list)
+                .create_object::<TaskList>(caller, &account_id, &create_id, task_list)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -185,7 +183,7 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             };
 
             match backend
-                .update_object::<TaskList>(&account_id, &id, patch)
+                .update_object::<TaskList>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -242,12 +240,17 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             let id = Id::from(id_str.as_str());
 
             // Check for tasks in the list if onDestroyRemoveTasks is false.
-            if !on_destroy_remove_tasks && backend.task_list_has_tasks(&account_id, &id).await {
+            if !on_destroy_remove_tasks
+                && backend.task_list_has_tasks(caller, &account_id, &id).await
+            {
                 not_destroyed.insert(id_str, json!({ "type": "taskListHasTasks" }));
                 continue;
             }
 
-            match backend.destroy_object::<TaskList>(&account_id, &id).await {
+            match backend
+                .destroy_object::<TaskList>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
@@ -276,6 +279,7 @@ pub async fn handle_task_list_set<B: TasksBackend>(
 
     finalize_set_response::<B, TaskList>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -307,7 +311,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let result = handle_task_list_get(&backend, args).await;
+        let result = handle_task_list_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
@@ -324,7 +328,7 @@ mod tests {
             "destroy": ["list1"],
             "onDestroyRemoveTasks": false
         });
-        let (resp, _) = handle_task_list_set(&backend, args)
+        let (resp, _) = handle_task_list_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -350,7 +354,7 @@ mod tests {
             "destroy": ["list1"],
             "onDestroyRemoveTasks": true
         });
-        let (resp, _) = handle_task_list_set(&backend, args)
+        let (resp, _) = handle_task_list_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -368,7 +372,7 @@ mod tests {
     async fn set_empty_returns_valid_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "destroy": [] });
-        let (resp, _) = handle_task_list_set(&backend, args)
+        let (resp, _) = handle_task_list_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(resp["accountId"], "acc1");

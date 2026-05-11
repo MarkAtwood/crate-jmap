@@ -1,7 +1,7 @@
 //! Shared helper utilities for JMAP method handlers.
 
 use jmap_types::{Id, JmapError};
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 /// Serialize any [`serde::Serialize`] type to a [`serde_json::Value`],
 /// mapping serialization errors to [`JmapError::server_fail`].
@@ -21,10 +21,29 @@ pub fn not_found_json(ids: &[Id]) -> Value {
     )
 }
 
-/// Extract `accountId` from a JMAP method arguments object.
-pub fn extract_account_id(args: &Value) -> Result<Id, JmapError> {
+/// Extract `accountId` from a JMAP method arguments envelope and return both
+/// the extracted [`Id`] and the remaining argument map.
+///
+/// The caller passes the full `args: Value` from the method invocation by
+/// value; this function destructures it once, so handlers do not have to
+/// repeat the `let Value::Object(mut args) = args else { ... }` pattern after
+/// every call.
+///
+/// Returns `invalidArguments` with the message "arguments must be an object
+/// containing accountId" when `args` is not a JSON object, and the same error
+/// type with the message "accountId is required" when the field is missing or
+/// not a string.
+pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapError> {
+    let Value::Object(args) = args else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be an object containing accountId",
+        ));
+    };
     match args.get("accountId").and_then(|v| v.as_str()) {
-        Some(s) => Ok(Id::from(s)),
+        Some(s) => {
+            let id = Id::from(s);
+            Ok((id, args))
+        }
         None => Err(JmapError::invalid_arguments("accountId is required")),
     }
 }

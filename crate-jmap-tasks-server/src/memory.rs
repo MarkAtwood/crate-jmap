@@ -280,14 +280,16 @@ impl MemoryBackend {
 
 impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
+    type CallerCtx = ();
 
-    async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -337,6 +339,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let inner = self.inner.lock().unwrap();
@@ -346,6 +349,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         since_state: &State,
         max_changes: Option<u64>,
@@ -408,6 +412,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         filter: Option<&O::Filter>,
         _sort: Option<&[O::Comparator]>,
@@ -483,6 +488,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
+        caller: &(),
         account_id: &Id,
         since_query_state: &State,
         _filter: Option<&O::Filter>,
@@ -492,7 +498,7 @@ impl JmapBackend for MemoryBackend {
         _collapse_threads: bool,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         let changes = self
-            .get_changes::<O>(account_id, since_query_state, max_changes)
+            .get_changes::<O>(caller, account_id, since_query_state, max_changes)
             .await?;
 
         let inner = self.inner.lock().unwrap();
@@ -541,6 +547,7 @@ impl JmapBackend for MemoryBackend {
 impl TasksBackend for MemoryBackend {
     async fn create_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         _create_id: &str,
         obj: O,
@@ -585,6 +592,7 @@ impl TasksBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -631,6 +639,7 @@ impl TasksBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -668,6 +677,7 @@ impl TasksBackend for MemoryBackend {
 
     async fn copy_task(
         &self,
+        _caller: &(),
         from_account_id: &Id,
         to_account_id: &Id,
         task: jmap_tasks_types::Task,
@@ -717,7 +727,7 @@ impl TasksBackend for MemoryBackend {
         Ok((new_id, stored))
     }
 
-    async fn task_list_has_tasks(&self, account_id: &Id, task_list_id: &Id) -> bool {
+    async fn task_list_has_tasks(&self, _caller: &(), account_id: &Id, task_list_id: &Id) -> bool {
         let inner = self.inner.lock().unwrap();
         inner
             .aux_ref(account_id.as_ref())

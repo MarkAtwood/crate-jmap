@@ -27,6 +27,7 @@ use crate::helpers::extract_account_id;
 /// highlight — valid per RFC 8621 §5.9 which allows `null` snippets).
 pub async fn handle_search_snippet_get<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Capability gate: check before touching any argument.
@@ -34,9 +35,9 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
         return Err(JmapError::account_not_supported_by_method());
     }
 
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -65,7 +66,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     };
 
     let snippets = backend
-        .search_snippets(&account_id, &email_ids, condition.as_ref())
+        .search_snippets(caller, &account_id, &email_ids, condition.as_ref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 

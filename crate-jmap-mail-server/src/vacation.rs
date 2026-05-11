@@ -24,23 +24,18 @@ const SINGLETON_ID: &str = "singleton";
 /// other than `"singleton"` is placed in `notFound`.
 pub async fn handle_vacation_get<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
 
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     let requested_ids: Option<Vec<String>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
@@ -51,7 +46,7 @@ pub async fn handle_vacation_get<B: MailBackend>(
     };
 
     let state = backend
-        .get_state::<VacationResponse>(&account_id)
+        .get_state::<VacationResponse>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -81,7 +76,7 @@ pub async fn handle_vacation_get<B: MailBackend>(
     // Fetch the singleton from the backend.
     let singleton_id = Id::from(SINGLETON_ID);
     let (list, _) = backend
-        .get_objects::<VacationResponse>(&account_id, Some(&[singleton_id]), None)
+        .get_objects::<VacationResponse>(caller, &account_id, Some(&[singleton_id]), None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -115,25 +110,22 @@ pub async fn handle_vacation_get<B: MailBackend>(
 /// - Any update id other than `"singleton"` is rejected with `NotFound`.
 pub async fn handle_vacation_set<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
 
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
 
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
-
     // ifInState check.
     let old_state = backend
-        .get_state::<VacationResponse>(&account_id)
+        .get_state::<VacationResponse>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
@@ -182,7 +174,12 @@ pub async fn handle_vacation_set<B: MailBackend>(
 
             let singleton_id = Id::from(SINGLETON_ID);
             match backend
-                .update_object::<VacationResponse>(&account_id, &singleton_id, patch.clone())
+                .update_object::<VacationResponse>(
+                    caller,
+                    &account_id,
+                    &singleton_id,
+                    patch.clone(),
+                )
                 .await
             {
                 Ok(Some(obj)) => {
@@ -213,13 +210,14 @@ pub async fn handle_vacation_set<B: MailBackend>(
                     // because it holds no shared state.
                     let base = VacationResponse::new(Id::from(SINGLETON_ID), false);
                     match backend
-                        .create_object::<VacationResponse>(&account_id, SINGLETON_ID, base)
+                        .create_object::<VacationResponse>(caller, &account_id, SINGLETON_ID, base)
                         .await
                     {
                         Ok(_) => {
                             // Now apply the patch to the freshly created singleton.
                             match backend
                                 .update_object::<VacationResponse>(
+                                    caller,
                                     &account_id,
                                     &singleton_id,
                                     patch,
@@ -252,6 +250,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
                                     // between these two calls entirely.
                                     match backend
                                         .destroy_object::<VacationResponse>(
+                                            caller,
                                             &account_id,
                                             &singleton_id,
                                         )
@@ -330,6 +329,7 @@ pub async fn handle_vacation_set<B: MailBackend>(
     // hardcode used to.
     finalize_set_response::<B, VacationResponse>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,

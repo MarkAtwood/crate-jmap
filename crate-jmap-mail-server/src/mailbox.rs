@@ -19,19 +19,17 @@ use crate::helpers::{
 /// Handle a `Mailbox/get` method call (RFC 8621 §2.1).
 pub async fn handle_mailbox_get<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let ids: Option<Vec<Id>> = match args.remove("ids") {
         None | Some(Value::Null) => None,
@@ -53,12 +51,12 @@ pub async fn handle_mailbox_get<B: MailBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<Mailbox>(&account_id, ids_slice, properties.as_deref())
+        .get_objects::<Mailbox>(caller, &account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<Mailbox>(&account_id)
+        .get_state::<Mailbox>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -94,9 +92,10 @@ pub async fn handle_mailbox_get<B: MailBackend>(
 /// Handle a `Mailbox/changes` method call (RFC 8621 §2.2).
 pub async fn handle_mailbox_changes<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<Mailbox, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<Mailbox, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -109,19 +108,17 @@ pub async fn handle_mailbox_changes<B: MailBackend>(
 /// RFC 8621 §2.3: `parentId`, `name`, `role`, `hasAnyRole`, `isSubscribed`.
 pub async fn handle_mailbox_query<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let calculate_total: bool = args
         .get("calculateTotal")
@@ -225,12 +222,12 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     // For very large accounts (IMAP migration), push filter/sort into the backend query
     // (tracked under bd:JMAP-g7wu.6).
     let (all_mailboxes, _) = backend
-        .get_objects::<Mailbox>(&account_id, None, None)
+        .get_objects::<Mailbox>(caller, &account_id, None, None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let query_state = backend
-        .get_state::<Mailbox>(&account_id)
+        .get_state::<Mailbox>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -370,7 +367,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     let mut resp = json!({
         "accountId": account_id.as_ref(),
         "queryState": query_state.as_ref(),
-        "canCalculateChanges": backend.can_calculate_mailbox_query_changes(&account_id),
+        "canCalculateChanges": backend.can_calculate_mailbox_query_changes(caller, &account_id),
         "position": start as i64,
         "ids": page,
     });
@@ -388,11 +385,12 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 /// Handle a `Mailbox/queryChanges` method call (RFC 8621 §2.4).
 pub async fn handle_mailbox_query_changes<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -428,6 +426,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
 
     let result = backend
         .query_changes::<Mailbox>(
+            caller,
             &account_id,
             &since_query_state,
             None,
@@ -481,23 +480,21 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
 /// - `onDestroyRemoveEmails` cascade logic
 pub async fn handle_mailbox_set<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     // Check ifInState.
     let current_state = backend
-        .get_state::<Mailbox>(&account_id)
+        .get_state::<Mailbox>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -524,7 +521,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     // the snapshot still shows A holding role X at the time creates are processed.
     // To swap a role, use two sequential requests.
     let (all_mailboxes, _) = backend
-        .get_objects::<Mailbox>(&account_id, None, None)
+        .get_objects::<Mailbox>(caller, &account_id, None, None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -657,7 +654,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 }
                 Ok(mailbox) => {
                     match backend
-                        .create_object::<Mailbox>(&account_id, create_id, mailbox)
+                        .create_object::<Mailbox>(caller, &account_id, create_id, mailbox)
                         .await
                     {
                         Ok((_id, obj)) => {
@@ -802,7 +799,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 .map(|r| r.to_wire_str().to_owned());
 
             match backend
-                .update_object::<Mailbox>(&account_id, &id, patch)
+                .update_object::<Mailbox>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(maybe_obj) => {
@@ -901,7 +898,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             }
 
             match backend
-                .update_object::<Mailbox>(&account_id, &id, patch)
+                .update_object::<Mailbox>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(maybe_obj) => {
@@ -961,7 +958,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         // destroyed. Using the pre-mutation snapshot (all_mailboxes) would miss
         // that child.
         let (mut mailboxes_after_mutations, _) = backend
-            .get_objects::<Mailbox>(&account_id, None, None)
+            .get_objects::<Mailbox>(caller, &account_id, None, None)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -994,6 +991,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             email_filter.in_mailbox = Some(id.clone());
             let query_result = backend
                 .query_objects::<Email>(
+                    caller,
                     &account_id,
                     Some(&EmailFilter::Condition(email_filter)),
                     None,
@@ -1003,7 +1001,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             let (fetched, _) = backend
-                .get_objects::<Email>(&account_id, Some(&query_result.ids), None)
+                .get_objects::<Email>(caller, &account_id, Some(&query_result.ids), None)
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             let emails_in_mailbox: Vec<Email> = fetched
@@ -1032,7 +1030,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
 
                 if !ids_to_destroy.is_empty() {
                     let destroy_results = backend
-                        .batch_destroy_emails(&account_id, &ids_to_destroy)
+                        .batch_destroy_emails(caller, &account_id, &ids_to_destroy)
                         .await;
                     for (email_id, err) in destroy_results {
                         match err {
@@ -1063,6 +1061,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                         patch.insert(key, Value::Null);
                         match backend
                             .update_object::<Email>(
+                                caller,
                                 &account_id,
                                 &email.id,
                                 PatchObject::from_map(patch),
@@ -1087,7 +1086,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             }
 
             // Destroy the mailbox itself.
-            match backend.destroy_object::<Mailbox>(&account_id, &id).await {
+            match backend
+                .destroy_object::<Mailbox>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     destroyed.push(id_str.to_owned());
                     // RFC 8620 §5.3: each destroy takes effect sequentially.
@@ -1129,6 +1131,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     let destroyed_list: Vec<Value> = destroyed.into_iter().map(Value::String).collect();
     finalize_set_response::<B, Mailbox>(
         backend,
+        caller,
         &account_id,
         current_state,
         mutated,

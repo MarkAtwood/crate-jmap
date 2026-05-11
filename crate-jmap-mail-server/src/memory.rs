@@ -309,8 +309,9 @@ impl std::error::Error for MemoryError {}
 
 impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
+    type CallerCtx = ();
 
-    async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
@@ -321,6 +322,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -363,6 +365,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let inner = self.inner.lock().unwrap();
@@ -376,6 +379,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         since_state: &State,
         max_changes: Option<u64>,
@@ -463,6 +467,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         filter: Option<&O::Filter>,
         sort: Option<&[O::Comparator]>,
@@ -652,6 +657,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         since_query_state: &State,
         filter: Option<&O::Filter>,
@@ -670,13 +676,13 @@ impl JmapBackend for MemoryBackend {
 
         // Step 2: Get the raw delta (created/updated/destroyed) since the given state.
         let changes = self
-            .get_changes::<O>(account_id, since_query_state, None)
+            .get_changes::<O>(_caller, account_id, since_query_state, None)
             .await?;
         let new_query_state = changes.new_state.clone();
 
         // Step 3: Get the current filtered+sorted result list (no pagination).
         let query_result = self
-            .query_objects::<O>(account_id, filter, sort, None, 0)
+            .query_objects::<O>(_caller, account_id, filter, sort, None, 0)
             .await
             .map_err(BackendChangesError::Other)?;
         let current_result: Vec<Id> = query_result.ids;
@@ -748,6 +754,7 @@ impl MailBackend for MemoryBackend {
 
     async fn create_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         _create_id: &str,
         obj: O,
@@ -829,6 +836,7 @@ impl MailBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -875,6 +883,7 @@ impl MailBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -903,6 +912,7 @@ impl MailBackend for MemoryBackend {
 
     async fn import_email(
         &self,
+        _caller: &(),
         account_id: &Id,
         blob_id: &Id,
         mailbox_ids: &[Id],
@@ -1126,6 +1136,7 @@ impl MailBackend for MemoryBackend {
 
     async fn find_thread_by_message_ids(
         &self,
+        _caller: &(),
         account_id: &Id,
         message_ids: &[&str],
     ) -> Result<Option<Id>, Self::Error> {
@@ -1157,12 +1168,17 @@ impl MailBackend for MemoryBackend {
     // blob_exists / parse_email
     // -----------------------------------------------------------------------
 
-    async fn blob_exists(&self, _account_id: &Id, blob_id: &Id) -> bool {
+    async fn blob_exists(&self, _caller: &(), _account_id: &Id, blob_id: &Id) -> bool {
         let inner = self.inner.lock().unwrap();
         inner.blobs.contains_key(blob_id)
     }
 
-    async fn parse_email(&self, account_id: &Id, blob_id: &Id) -> Result<Email, Self::Error> {
+    async fn parse_email(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<Email, Self::Error> {
         let bytes = {
             let inner = self.inner.lock().unwrap();
             inner
@@ -1232,6 +1248,7 @@ impl MailBackend for MemoryBackend {
 
     async fn copy_email(
         &self,
+        _caller: &(),
         from_account_id: &Id,
         email_id: &Id,
         to_account_id: &Id,
@@ -1362,6 +1379,7 @@ impl MailBackend for MemoryBackend {
 
     async fn search_snippets(
         &self,
+        _caller: &(),
         account_id: &Id,
         email_ids: &[Id],
         filter: Option<&EmailFilterCondition>,
@@ -1412,6 +1430,7 @@ impl MailBackend for MemoryBackend {
 
     async fn batch_destroy_emails(
         &self,
+        _caller: &(),
         account_id: &Id,
         email_ids: &[Id],
     ) -> Vec<(Id, Option<BackendSetError<Self::Error>>)> {
@@ -2097,14 +2116,13 @@ use jmap_mail_types::mdn::Mdn;
 
 #[cfg(feature = "mdn")]
 impl MdnBackend for MemoryBackend {
-    type Error = MemoryError;
-
     // -----------------------------------------------------------------------
     // get_blob_bytes
     // -----------------------------------------------------------------------
 
     fn get_blob_bytes(
         &self,
+        _caller: &(),
         _account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
@@ -2119,6 +2137,7 @@ impl MdnBackend for MemoryBackend {
 
     async fn send_mdns(
         &self,
+        _caller: &(),
         _account_id: &jmap_types::Id,
         _identity_id: &jmap_types::Id,
         send: std::collections::HashMap<
@@ -2279,6 +2298,7 @@ impl MdnBackend for MemoryBackend {
 
     async fn parse_mdns(
         &self,
+        _caller: &(),
         account_id: &jmap_types::Id,
         blob_ids: Vec<jmap_types::Id>,
     ) -> Result<MdnParseResult, Self::Error> {
@@ -2298,7 +2318,7 @@ impl MdnBackend for MemoryBackend {
             // "disposition:", the blob can't be an MDN — skip it without
             // loading the rest.
             let header_bytes = self
-                .get_blob_header_bytes(account_id, &blob_id, HEADER_LIMIT)
+                .get_blob_header_bytes(&(), account_id, &blob_id, HEADER_LIMIT)
                 .await?;
             match header_bytes {
                 None => {
@@ -2315,7 +2335,7 @@ impl MdnBackend for MemoryBackend {
             }
 
             // Full fetch for actual parsing.
-            let bytes = self.get_blob_bytes(account_id, &blob_id).await?;
+            let bytes = self.get_blob_bytes(&(), account_id, &blob_id).await?;
             match bytes {
                 None => {
                     not_found.push(blob_id);
@@ -2473,10 +2493,9 @@ use crate::SieveBackend;
 
 #[cfg(feature = "sieve")]
 impl SieveBackend for MemoryBackend {
-    type Error = MemoryError;
-
     fn max_sieve_script_bytes(
         &self,
+        _caller: &(),
         _account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<u64>, Self::Error>> + Send {
         let limit = self.inner.lock().unwrap().max_sieve_script_limit;
@@ -2485,6 +2504,7 @@ impl SieveBackend for MemoryBackend {
 
     fn get_sieve_blob(
         &self,
+        _caller: &(),
         _account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
@@ -2496,6 +2516,7 @@ impl SieveBackend for MemoryBackend {
 
     fn validate_sieve_script(
         &self,
+        _caller: &(),
         _account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send {

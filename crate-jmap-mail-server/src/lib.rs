@@ -10,11 +10,16 @@
 //! # use std::sync::Arc;
 //! # use jmap_mail_server::{MailBackend, register_mail_handlers};
 //! # use jmap_server::Dispatcher;
-//! # fn example<B: MailBackend + 'static>(backend: B) {
+//! # fn example<B: MailBackend<CallerCtx = ()> + 'static>(backend: B) {
 //! let mut dispatcher: Dispatcher<()> = Dispatcher::new();
 //! register_mail_handlers(&mut dispatcher, Arc::new(backend));
 //! # }
 //! ```
+//!
+//! The example fixes `CallerCtx = ()` so a `Dispatcher<()>` can register the
+//! returned handlers. Backends that thread a real auth identity through
+//! `CallerCtx` (e.g. `type CallerCtx = Identity`) use the matching
+//! `Dispatcher<Identity>` and omit the `<CallerCtx = ()>` bound.
 //!
 //! # `mdn` feature
 //!
@@ -118,29 +123,31 @@ pub use vacation::{handle_vacation_get, handle_vacation_set};
 /// `Mailbox/*`, `Thread/*`, `Email/*`, `SearchSnippet/get`,
 /// `Identity/*`, `EmailSubmission/*`, and `VacationResponse/*`.
 ///
-/// The dispatcher's `CallerCtx` (`C`) is forwarded into each registered
-/// handler. Backends that need to read it from inside a method body can
-/// register a custom [`ClosureHandler`] directly on the dispatcher
-/// instead of using this convenience function.
-pub fn register_mail_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+/// The dispatcher's `CallerCtx` is taken from `B::CallerCtx`; every registered
+/// closure forwards it as `&ctx` into the wrapped `handle_*` function. Backends
+/// that use `type CallerCtx = ()` therefore see `&()` inside every handler.
+pub fn register_mail_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: MailBackend + 'static,
-    C: Clone + Send + 'static,
 {
-    // Helper: register one method with a closure that takes (Arc<B>, call_id, args).
+    // Helper: register one method with a closure that takes
+    // (Arc<B>, call_id, args, ctx).
     //
     // `$ci` is the call_id string (echoed back to the client). Most handlers
     // ignore it and use `_ci` as the identifier. Only handlers that generate
     // onSuccess* side-effect invocations (Email/copy, EmailSubmission/set) need
     // `ci` — they pass it to the extra-invocations builder so the side-effect
     // method call carries the same client-assigned call_id as the original.
+    //
+    // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
+    // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
+                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
                         Box::pin(async move { $body }) as HandlerFuture
                     },
                 ),
@@ -150,102 +157,95 @@ where
     }
 
     // Mailbox
-    reg!("Mailbox/get", backend, |b, _ci, a| handle_mailbox_get(
-        &*b, a
-    )
-    .await);
-    reg!("Mailbox/changes", backend, |b, _ci, a| {
-        handle_mailbox_changes(&*b, a).await
+    reg!("Mailbox/get", backend, |b, _ci, a, ctx| {
+        handle_mailbox_get(&*b, &ctx, a).await
     });
-    reg!("Mailbox/query", backend, |b, _ci, a| handle_mailbox_query(
-        &*b, a
-    )
-    .await);
-    reg!("Mailbox/queryChanges", backend, |b, _ci, a| {
-        handle_mailbox_query_changes(&*b, a).await
+    reg!("Mailbox/changes", backend, |b, _ci, a, ctx| {
+        handle_mailbox_changes(&*b, &ctx, a).await
     });
-    reg!("Mailbox/set", backend, |b, _ci, a| handle_mailbox_set(
-        &*b, a
-    )
-    .await);
+    reg!("Mailbox/query", backend, |b, _ci, a, ctx| {
+        handle_mailbox_query(&*b, &ctx, a).await
+    });
+    reg!("Mailbox/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_mailbox_query_changes(&*b, &ctx, a).await
+    });
+    reg!("Mailbox/set", backend, |b, _ci, a, ctx| {
+        handle_mailbox_set(&*b, &ctx, a).await
+    });
 
     // Thread
-    reg!("Thread/get", backend, |b, _ci, a| handle_thread_get(&*b, a)
-        .await);
-    reg!("Thread/changes", backend, |b, _ci, a| {
-        handle_thread_changes(&*b, a).await
+    reg!("Thread/get", backend, |b, _ci, a, ctx| {
+        handle_thread_get(&*b, &ctx, a).await
+    });
+    reg!("Thread/changes", backend, |b, _ci, a, ctx| {
+        handle_thread_changes(&*b, &ctx, a).await
     });
 
     // Email
-    reg!("Email/get", backend, |b, _ci, a| handle_email_get(&*b, a)
-        .await);
-    reg!("Email/changes", backend, |b, _ci, a| handle_email_changes(
-        &*b, a
-    )
-    .await);
-    reg!("Email/query", backend, |b, _ci, a| handle_email_query(
-        &*b, a
-    )
-    .await);
-    reg!("Email/queryChanges", backend, |b, _ci, a| {
-        handle_email_query_changes(&*b, a).await
+    reg!("Email/get", backend, |b, _ci, a, ctx| {
+        handle_email_get(&*b, &ctx, a).await
     });
-    reg!("Email/set", backend, |b, _ci, a| handle_email_set(&*b, a)
-        .await);
-    reg!("Email/copy", backend, |b, ci, a| handle_email_copy(
-        &*b, a, &ci
-    )
-    .await);
-    reg!("Email/import", backend, |b, _ci, a| handle_email_import(
-        &*b, a
-    )
-    .await);
-    reg!("Email/parse", backend, |b, _ci, a| handle_email_parse(
-        &*b, a
-    )
-    .await);
+    reg!("Email/changes", backend, |b, _ci, a, ctx| {
+        handle_email_changes(&*b, &ctx, a).await
+    });
+    reg!("Email/query", backend, |b, _ci, a, ctx| {
+        handle_email_query(&*b, &ctx, a).await
+    });
+    reg!("Email/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_email_query_changes(&*b, &ctx, a).await
+    });
+    reg!("Email/set", backend, |b, _ci, a, ctx| {
+        handle_email_set(&*b, &ctx, a).await
+    });
+    reg!("Email/copy", backend, |b, ci, a, ctx| {
+        handle_email_copy(&*b, &ctx, a, &ci).await
+    });
+    reg!("Email/import", backend, |b, _ci, a, ctx| {
+        handle_email_import(&*b, &ctx, a).await
+    });
+    reg!("Email/parse", backend, |b, _ci, a, ctx| {
+        handle_email_parse(&*b, &ctx, a).await
+    });
 
     // SearchSnippet
-    reg!("SearchSnippet/get", backend, |b, _ci, a| {
-        handle_search_snippet_get(&*b, a).await
+    reg!("SearchSnippet/get", backend, |b, _ci, a, ctx| {
+        handle_search_snippet_get(&*b, &ctx, a).await
     });
 
     // Identity
-    reg!("Identity/get", backend, |b, _ci, a| handle_identity_get(
-        &*b, a
-    )
-    .await);
-    reg!("Identity/changes", backend, |b, _ci, a| {
-        handle_identity_changes(&*b, a).await
+    reg!("Identity/get", backend, |b, _ci, a, ctx| {
+        handle_identity_get(&*b, &ctx, a).await
     });
-    reg!("Identity/set", backend, |b, _ci, a| handle_identity_set(
-        &*b, a
-    )
-    .await);
+    reg!("Identity/changes", backend, |b, _ci, a, ctx| {
+        handle_identity_changes(&*b, &ctx, a).await
+    });
+    reg!("Identity/set", backend, |b, _ci, a, ctx| {
+        handle_identity_set(&*b, &ctx, a).await
+    });
 
     // EmailSubmission
-    reg!("EmailSubmission/get", backend, |b, _ci, a| {
-        handle_submission_get(&*b, a).await
+    reg!("EmailSubmission/get", backend, |b, _ci, a, ctx| {
+        handle_submission_get(&*b, &ctx, a).await
     });
-    reg!("EmailSubmission/changes", backend, |b, _ci, a| {
-        handle_submission_changes(&*b, a).await
+    reg!("EmailSubmission/changes", backend, |b, _ci, a, ctx| {
+        handle_submission_changes(&*b, &ctx, a).await
     });
-    reg!("EmailSubmission/query", backend, |b, _ci, a| {
-        handle_submission_query(&*b, a).await
+    reg!("EmailSubmission/query", backend, |b, _ci, a, ctx| {
+        handle_submission_query(&*b, &ctx, a).await
     });
-    reg!("EmailSubmission/queryChanges", backend, |b, _ci, a| {
-        handle_submission_query_changes(&*b, a).await
+    reg!("EmailSubmission/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_submission_query_changes(&*b, &ctx, a).await
     });
-    reg!("EmailSubmission/set", backend, |b, ci, a| {
-        handle_submission_set(&*b, a, &ci).await
+    reg!("EmailSubmission/set", backend, |b, ci, a, ctx| {
+        handle_submission_set(&*b, &ctx, a, &ci).await
     });
 
     // VacationResponse
-    reg!("VacationResponse/get", backend, |b, _ci, a| {
-        handle_vacation_get(&*b, a).await
+    reg!("VacationResponse/get", backend, |b, _ci, a, ctx| {
+        handle_vacation_get(&*b, &ctx, a).await
     });
-    reg!("VacationResponse/set", backend, |b, _ci, a| {
-        handle_vacation_set(&*b, a).await
+    reg!("VacationResponse/set", backend, |b, _ci, a, ctx| {
+        handle_vacation_set(&*b, &ctx, a).await
     });
 }
 
@@ -272,21 +272,20 @@ pub use jmap_server::ClosureHandler;
 /// The handlers themselves do not inspect the `using` field — that
 /// validation is the dispatcher/framework layer's responsibility.
 #[cfg(feature = "mdn")]
-pub fn register_mdn_handlers<B, C>(
-    dispatcher: &mut Dispatcher<C>,
+pub fn register_mdn_handlers<B>(
+    dispatcher: &mut Dispatcher<B::CallerCtx>,
     backend: Arc<B>,
     max_blob_ids: usize,
 ) where
     B: MailBackend + mdn::MdnBackend + 'static,
-    C: Clone + Send + 'static,
 {
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
+                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
                         Box::pin(async move { $body }) as HandlerFuture
                     },
                 ),
@@ -295,16 +294,12 @@ pub fn register_mdn_handlers<B, C>(
         }};
     }
 
-    reg!("MDN/send", backend, |b, ci, a| mdn::handle_mdn_send(
-        &*b, a, &ci
-    )
-    .await);
-    reg!("MDN/parse", backend, |b, _ci, a| mdn::handle_mdn_parse(
-        &*b,
-        a,
-        max_blob_ids
-    )
-    .await);
+    reg!("MDN/send", backend, |b, ci, a, ctx| {
+        mdn::handle_mdn_send(&*b, &ctx, a, &ci).await
+    });
+    reg!("MDN/parse", backend, |b, _ci, a, ctx| {
+        mdn::handle_mdn_parse(&*b, &ctx, a, max_blob_ids).await
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -323,18 +318,17 @@ pub fn register_mdn_handlers<B, C>(
 ///
 /// Backends must implement both [`MailBackend`] and [`SieveBackend`].
 #[cfg(feature = "sieve")]
-pub fn register_sieve_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+pub fn register_sieve_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: MailBackend + sieve::SieveBackend + 'static,
-    C: Clone + Send + 'static,
 {
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
+                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
                         Box::pin(async move { $body }) as HandlerFuture
                     },
                 ),
@@ -343,16 +337,16 @@ where
         }};
     }
 
-    reg!("SieveScript/get", backend, |b, _ci, a| {
-        sieve::handle_sieve_get(&*b, a).await
+    reg!("SieveScript/get", backend, |b, _ci, a, ctx| {
+        sieve::handle_sieve_get(&*b, &ctx, a).await
     });
-    reg!("SieveScript/set", backend, |b, _ci, a| {
-        sieve::handle_sieve_set(&*b, a).await
+    reg!("SieveScript/set", backend, |b, _ci, a, ctx| {
+        sieve::handle_sieve_set(&*b, &ctx, a).await
     });
-    reg!("SieveScript/query", backend, |b, _ci, a| {
-        sieve::handle_sieve_query(&*b, a).await
+    reg!("SieveScript/query", backend, |b, _ci, a, ctx| {
+        sieve::handle_sieve_query(&*b, &ctx, a).await
     });
-    reg!("SieveScript/validate", backend, |b, _ci, a| {
-        sieve::handle_sieve_validate(&*b, a).await
+    reg!("SieveScript/validate", backend, |b, _ci, a, ctx| {
+        sieve::handle_sieve_validate(&*b, &ctx, a).await
     });
 }

@@ -20,21 +20,17 @@ use crate::helpers::{extract_account_id, not_found_json, ser};
 /// returns the standard `get` response shape.
 pub async fn handle_get<O: GetObject, B: JmapBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
@@ -54,12 +50,12 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<O>(&account_id, ids_slice, properties.as_deref())
+        .get_objects::<O>(caller, &account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<O>(&account_id)
+        .get_state::<O>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -93,21 +89,17 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
 /// incorrect (that means "nothing about the listed objects actually changed").
 pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),
@@ -122,7 +114,7 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     };
 
     let result = backend
-        .get_changes::<O>(&account_id, &since_state, max_changes)
+        .get_changes::<O>(caller, &account_id, &since_state, max_changes)
         .await
         .map_err(JmapError::from)?;
 
@@ -151,21 +143,17 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
 /// delegates to [`JmapBackend::query_objects`].
 pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     let calculate_total: bool = args
         .get("calculateTotal")
@@ -206,6 +194,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
 
     let result = backend
         .query_objects::<O>(
+            caller,
             &account_id,
             filter.as_ref(),
             sort.as_deref(),
@@ -243,21 +232,17 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
 /// domain-specific handler in jmap-mail-server instead.
 pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),
@@ -301,6 +286,7 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
 
     let result = backend
         .query_changes::<O>(
+            caller,
             &account_id,
             &since_query_state,
             filter.as_ref(),

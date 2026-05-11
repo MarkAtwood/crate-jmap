@@ -31,7 +31,7 @@ async fn memory_backend_initial_state_is_zero() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("account1");
     let state = backend
-        .get_state::<Chat>(&account_id)
+        .get_state::<Chat>(&(), &account_id)
         .await
         .expect("get_state must not fail on fresh backend");
     assert_eq!(state.as_ref(), "0", "initial state must be \"0\"");
@@ -46,7 +46,7 @@ async fn memory_backend_state_advances_after_create() {
     let account_id = Id::from("account1");
 
     let state_before = backend
-        .get_state::<Chat>(&account_id)
+        .get_state::<Chat>(&(), &account_id)
         .await
         .expect("get_state");
 
@@ -60,12 +60,12 @@ async fn memory_backend_state_advances_after_create() {
         true,
     );
     backend
-        .create_object::<Chat>(&account_id, "c0", chat)
+        .create_object::<Chat>(&(), &account_id, "c0", chat)
         .await
         .expect("create_object");
 
     let state_after = backend
-        .get_state::<Chat>(&account_id)
+        .get_state::<Chat>(&(), &account_id)
         .await
         .expect("get_state");
     assert_ne!(
@@ -92,12 +92,17 @@ async fn memory_backend_create_then_get() {
         true,
     );
     let (server_id, _) = backend
-        .create_object::<Chat>(&account_id, "c0", chat)
+        .create_object::<Chat>(&(), &account_id, "c0", chat)
         .await
         .expect("create_object");
 
     let (found, not_found) = backend
-        .get_objects::<Chat>(&account_id, Some(std::slice::from_ref(&server_id)), None)
+        .get_objects::<Chat>(
+            &(),
+            &account_id,
+            Some(std::slice::from_ref(&server_id)),
+            None,
+        )
         .await
         .expect("get_objects");
 
@@ -116,9 +121,10 @@ async fn chat_get_empty() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("a1");
     backend.register_account(&account_id);
-    let (resp, invocations) = handle_chat_get(&backend, json!({ "accountId": "a1", "ids": null }))
-        .await
-        .expect("handle_chat_get");
+    let (resp, invocations) =
+        handle_chat_get(&backend, &(), json!({ "accountId": "a1", "ids": null }))
+            .await
+            .expect("handle_chat_get");
 
     assert!(invocations.is_empty());
     assert_eq!(resp["accountId"], "a1");
@@ -133,9 +139,13 @@ async fn chat_get_not_found() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("a1");
     backend.register_account(&account_id);
-    let (resp, _) = handle_chat_get(&backend, json!({ "accountId": "a1", "ids": ["missing1"] }))
-        .await
-        .expect("handle_chat_get");
+    let (resp, _) = handle_chat_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": ["missing1"] }),
+    )
+    .await
+    .expect("handle_chat_get");
 
     assert_eq!(resp["list"], json!([]));
     assert_eq!(resp["notFound"], json!(["missing1"]));
@@ -145,7 +155,7 @@ async fn chat_get_not_found() {
 #[tokio::test]
 async fn chat_get_missing_account_id() {
     let backend = MemoryBackend::new();
-    let err = handle_chat_get(&backend, json!({})).await.unwrap_err();
+    let err = handle_chat_get(&backend, &(), json!({})).await.unwrap_err();
     assert_eq!(err.error_type.as_str(), "invalidArguments");
 }
 
@@ -159,6 +169,7 @@ async fn chat_set_create_group() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -180,6 +191,7 @@ async fn chat_set_create_direct_with_contact_id() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -200,6 +212,7 @@ async fn chat_set_create_direct_missing_contact_id() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -221,6 +234,7 @@ async fn chat_set_create_channel_missing_space_id() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -245,6 +259,7 @@ async fn chat_set_create_missing_kind() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -270,6 +285,7 @@ async fn chat_set_update_readonly_field_rejected() {
     // Create a chat first.
     let (create_resp, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "c0": { "kind": "group", "name": "G" } }
@@ -281,6 +297,7 @@ async fn chat_set_update_readonly_field_rejected() {
 
     let (resp, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": {
@@ -302,6 +319,7 @@ async fn chat_set_destroy() {
 
     let (create_resp, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "c0": { "kind": "group", "name": "Temp" } }
@@ -314,10 +332,13 @@ async fn chat_set_destroy() {
         .expect("id")
         .to_owned();
 
-    let (destroy_resp, _) =
-        handle_chat_set(&backend, json!({ "accountId": "a1", "destroy": [chat_id] }))
-            .await
-            .expect("destroy");
+    let (destroy_resp, _) = handle_chat_set(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "destroy": [chat_id] }),
+    )
+    .await
+    .expect("destroy");
 
     assert!(destroy_resp["destroyed"].as_array().is_some());
     assert_eq!(destroy_resp["notDestroyed"], json!(null));
@@ -329,6 +350,7 @@ async fn chat_set_if_in_state_mismatch() {
     let backend = MemoryBackend::new();
     let err = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "ifInState": "999",
@@ -350,9 +372,13 @@ async fn chat_changes_empty() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("a1");
     backend.register_account(&account_id);
-    let (resp, _) = handle_chat_changes(&backend, json!({ "accountId": "a1", "sinceState": "0" }))
-        .await
-        .expect("handle_chat_changes");
+    let (resp, _) = handle_chat_changes(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "sinceState": "0" }),
+    )
+    .await
+    .expect("handle_chat_changes");
 
     assert_eq!(resp["created"], json!([]));
     assert_eq!(resp["updated"], json!([]));
@@ -366,7 +392,7 @@ async fn chat_changes_missing_since_state() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("a1");
     backend.register_account(&account_id);
-    let err = handle_chat_changes(&backend, json!({ "accountId": "a1" }))
+    let err = handle_chat_changes(&backend, &(), json!({ "accountId": "a1" }))
         .await
         .unwrap_err();
     assert_eq!(err.error_type.as_str(), "invalidArguments");
@@ -379,6 +405,7 @@ async fn chat_changes_after_create() {
 
     handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "c0": { "kind": "group", "name": "G" } }
@@ -387,9 +414,13 @@ async fn chat_changes_after_create() {
     .await
     .expect("create");
 
-    let (resp, _) = handle_chat_changes(&backend, json!({ "accountId": "a1", "sinceState": "0" }))
-        .await
-        .expect("changes");
+    let (resp, _) = handle_chat_changes(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "sinceState": "0" }),
+    )
+    .await
+    .expect("changes");
 
     let created = resp["created"].as_array().expect("created array");
     assert_eq!(created.len(), 1, "one created id expected");
@@ -406,7 +437,7 @@ async fn chat_query_empty() {
     // Register the account so account_exists() returns true (the generic
     // handle_query checks this before querying).
     backend.register_account(&jmap_types::Id::from("a1"));
-    let (resp, _) = handle_chat_query(&backend, json!({ "accountId": "a1" }))
+    let (resp, _) = handle_chat_query(&backend, &(), json!({ "accountId": "a1" }))
         .await
         .expect("handle_chat_query");
 
@@ -420,6 +451,7 @@ async fn chat_query_with_calculate_total() {
     let backend = MemoryBackend::new();
     handle_chat_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "c0": { "kind": "group", "name": "G" } } }),
     )
     .await
@@ -427,6 +459,7 @@ async fn chat_query_with_calculate_total() {
 
     let (resp, _) = handle_chat_query(
         &backend,
+        &(),
         json!({ "accountId": "a1", "calculateTotal": true }),
     )
     .await
@@ -446,7 +479,7 @@ async fn chat_query_changes_missing_since() {
     let backend = MemoryBackend::new();
     let account_id = Id::from("a1");
     backend.register_account(&account_id);
-    let err = handle_chat_query_changes(&backend, json!({ "accountId": "a1" }))
+    let err = handle_chat_query_changes(&backend, &(), json!({ "accountId": "a1" }))
         .await
         .unwrap_err();
     assert_eq!(err.error_type.as_str(), "invalidArguments");
@@ -459,6 +492,7 @@ async fn chat_query_changes_after_create() {
 
     handle_chat_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "c0": { "kind": "group", "name": "G" } } }),
     )
     .await
@@ -466,6 +500,7 @@ async fn chat_query_changes_after_create() {
 
     let (resp, _) = handle_chat_query_changes(
         &backend,
+        &(),
         json!({ "accountId": "a1", "sinceQueryState": "0" }),
     )
     .await
@@ -487,6 +522,7 @@ async fn message_set_create_missing_chat_id() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "m0": { "body": "Hello" } }
@@ -508,6 +544,7 @@ async fn message_set_create_success() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -530,6 +567,7 @@ async fn message_set_update_readonly_field() {
 
     let (create_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -541,6 +579,7 @@ async fn message_set_update_readonly_field() {
 
     let (resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": {
@@ -562,6 +601,7 @@ async fn message_get_returns_created() {
 
     let (create_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "m0": { "chatId": "c1", "body": "Test body", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -574,9 +614,10 @@ async fn message_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (get_resp, _) = handle_message_get(&backend, json!({ "accountId": "a1", "ids": [msg_id] }))
-        .await
-        .expect("get");
+    let (get_resp, _) =
+        handle_message_get(&backend, &(), json!({ "accountId": "a1", "ids": [msg_id] }))
+            .await
+            .expect("get");
 
     assert_eq!(get_resp["list"].as_array().expect("list").len(), 1);
     assert_eq!(get_resp["list"][0]["body"], "Test body");
@@ -589,6 +630,7 @@ async fn message_changes_after_create() {
 
     handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "m0": { "chatId": "c1", "body": "Hi", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -597,10 +639,13 @@ async fn message_changes_after_create() {
     .await
     .expect("create");
 
-    let (resp, _) =
-        handle_message_changes(&backend, json!({ "accountId": "a1", "sinceState": "0" }))
-            .await
-            .expect("changes");
+    let (resp, _) = handle_message_changes(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "sinceState": "0" }),
+    )
+    .await
+    .expect("changes");
 
     assert_eq!(resp["created"].as_array().expect("created").len(), 1);
 }
@@ -613,6 +658,7 @@ async fn message_query_order() {
     for i in 0..3u32 {
         handle_message_set(
             &backend,
+            &(),
             json!({
                 "accountId": "a1",
                 "create": { format!("m{i}"): { "chatId": "c1", "body": format!("msg {i}"), "sentAt": "2024-01-01T00:00:00Z" } }
@@ -624,6 +670,7 @@ async fn message_query_order() {
 
     let (resp, _) = handle_message_query(
         &backend,
+        &(),
         json!({ "accountId": "a1", "calculateTotal": true, "filter": { "chatId": "c1" } }),
     )
     .await
@@ -641,6 +688,7 @@ async fn message_set_update_body_injects_edited_at() {
 
     let (create_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -655,6 +703,7 @@ async fn message_set_update_body_injects_edited_at() {
 
     let (update_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": { &msg_id: { "body": "edited" } }
@@ -665,10 +714,13 @@ async fn message_set_update_body_injects_edited_at() {
     assert_eq!(update_resp["updated"][&msg_id], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) =
-        handle_message_get(&backend, json!({ "accountId": "a1", "ids": [&msg_id] }))
-            .await
-            .expect("get");
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
     let msg = &get_resp["list"][0];
     assert_eq!(msg["body"], "edited", "body must be updated");
     assert!(
@@ -684,6 +736,7 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
 
     let (create_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "m0": { "chatId": "c1", "body": "hello", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -698,6 +751,7 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
 
     let (update_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": { &msg_id: { "deletedForAll": true } }
@@ -708,10 +762,13 @@ async fn message_set_update_delete_for_all_injects_deleted_at() {
     assert_eq!(update_resp["updated"][&msg_id], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) =
-        handle_message_get(&backend, json!({ "accountId": "a1", "ids": [&msg_id] }))
-            .await
-            .expect("get");
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
     let msg = &get_resp["list"][0];
     assert_eq!(msg["deletedForAll"], true, "deletedForAll must be true");
     assert!(
@@ -727,6 +784,7 @@ async fn message_set_update_mark_as_read() {
 
     let (create_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "m0": { "chatId": "c1", "body": "read me", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -742,6 +800,7 @@ async fn message_set_update_mark_as_read() {
     let read_ts = "2024-01-01T00:00:00Z";
     let (update_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": { &msg_id: { "readAt": read_ts } }
@@ -752,10 +811,13 @@ async fn message_set_update_mark_as_read() {
     assert_eq!(update_resp["updated"][&msg_id], json!(null));
     assert_eq!(update_resp["notUpdated"], json!(null));
 
-    let (get_resp, _) =
-        handle_message_get(&backend, json!({ "accountId": "a1", "ids": [&msg_id] }))
-            .await
-            .expect("get");
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
     assert_eq!(
         get_resp["list"][0]["readAt"], read_ts,
         "readAt must match the client-provided timestamp"
@@ -768,6 +830,7 @@ async fn message_set_read_at_defaults_disposition() {
     let backend = MemoryBackend::new();
     let (create_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -777,6 +840,7 @@ async fn message_set_read_at_defaults_disposition() {
 
     let (update_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z" } } }),
     ).await.expect("update");
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
@@ -784,6 +848,7 @@ async fn message_set_read_at_defaults_disposition() {
 
     let (get_resp, _) = handle_message_get(
         &backend,
+        &(),
         json!({ "accountId": "a1", "ids": [msg_id.as_str()] }),
     )
     .await
@@ -802,6 +867,7 @@ async fn message_set_explicit_disposition_preserved() {
     let backend = MemoryBackend::new();
     let (create_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -811,6 +877,7 @@ async fn message_set_explicit_disposition_preserved() {
 
     let (update_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "deleted" } } }),
     ).await.expect("update");
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
@@ -818,6 +885,7 @@ async fn message_set_explicit_disposition_preserved() {
 
     let (get_resp, _) = handle_message_get(
         &backend,
+        &(),
         json!({ "accountId": "a1", "ids": [msg_id.as_str()] }),
     )
     .await
@@ -835,6 +903,7 @@ async fn message_set_extension_disposition_stored_as_is() {
     let backend = MemoryBackend::new();
     let (create_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "m0": { "chatId": "c1", "body": "hi", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -844,6 +913,7 @@ async fn message_set_extension_disposition_stored_as_is() {
 
     let (update_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "update": { msg_id.as_str(): { "readAt": "2026-01-05T10:00:00Z", "readDisposition": "voice-listened" } } }),
     ).await.expect("update");
     assert_eq!(update_resp["updated"][msg_id.as_str()], json!(null));
@@ -851,6 +921,7 @@ async fn message_set_extension_disposition_stored_as_is() {
 
     let (get_resp, _) = handle_message_get(
         &backend,
+        &(),
         json!({ "accountId": "a1", "ids": [msg_id.as_str()] }),
     )
     .await
@@ -868,6 +939,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
     let backend = MemoryBackend::new();
     let (create_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2026-01-01T00:00:00Z" } } }),
     ).await.expect("create");
     let msg_id = create_resp["created"]["m0"]["id"]
@@ -877,6 +949,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
 
     let (update_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "update": { msg_id.as_str(): { "body": "edited text" } } }),
     )
     .await
@@ -886,6 +959,7 @@ async fn message_set_no_read_at_no_disposition_injected() {
 
     let (get_resp, _) = handle_message_get(
         &backend,
+        &(),
         json!({ "accountId": "a1", "ids": [msg_id.as_str()] }),
     )
     .await
@@ -907,6 +981,7 @@ async fn message_set_create_with_reply_to() {
     // Create the message that will be replied to.
     let (first_resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "m0": { "chatId": "c1", "body": "original", "sentAt": "2024-01-01T00:00:00Z" } }
@@ -922,6 +997,7 @@ async fn message_set_create_with_reply_to() {
     // Create a reply pointing to the first message.
     let (resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -958,6 +1034,7 @@ async fn message_set_create_with_malformed_expiry_rejected() {
 
     let (resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -993,6 +1070,7 @@ async fn message_set_create_with_past_expiry_rejected() {
 
     let (resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -1030,6 +1108,7 @@ async fn space_set_create_missing_name() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "s0": { "isPublic": false } }
@@ -1051,6 +1130,7 @@ async fn space_set_create_success() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "s0": { "name": "My Server", "isPublic": true } }
@@ -1070,6 +1150,7 @@ async fn space_get_returns_created() {
 
     let (create_resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "s0": { "name": "The Space" } } }),
     )
     .await
@@ -1079,9 +1160,13 @@ async fn space_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (get_resp, _) = handle_space_get(&backend, json!({ "accountId": "a1", "ids": [space_id] }))
-        .await
-        .expect("get");
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [space_id] }),
+    )
+    .await
+    .expect("get");
 
     assert_eq!(get_resp["list"][0]["name"], "The Space");
 }
@@ -1093,6 +1178,7 @@ async fn space_set_update_readonly_fields_rejected() {
 
     let (create_resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "s0": { "name": "Readonly Test" } } }),
     )
     .await
@@ -1105,6 +1191,7 @@ async fn space_set_update_readonly_fields_rejected() {
     for field in &["roles", "members", "categories", "uncategorizedChannelIds"] {
         let (resp, _) = handle_space_set(
             &backend,
+            &(),
             json!({
                 "accountId": "a1",
                 "update": { &space_id: { (*field): [] } }
@@ -1131,6 +1218,7 @@ async fn space_set_update_mutation_keys_forbidden() {
 
     let (create_resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "s0": { "name": "Mutation Test" } } }),
     )
     .await
@@ -1156,6 +1244,7 @@ async fn space_set_update_mutation_keys_forbidden() {
     ] {
         let (resp, _) = handle_space_set(
             &backend,
+            &(),
             json!({
                 "accountId": "a1",
                 "update": { &space_id: { (*key): [] } }
@@ -1182,6 +1271,7 @@ async fn space_set_update_metadata_success() {
 
     let (create_resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "s0": { "name": "Original Name" } } }),
     )
     .await
@@ -1193,6 +1283,7 @@ async fn space_set_update_metadata_success() {
 
     let (resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": {
@@ -1217,10 +1308,13 @@ async fn space_set_update_metadata_success() {
         "updated entry for the space should be present (null sentinel)"
     );
     // Verify the field was actually persisted via Space/get.
-    let (get_resp, _) =
-        handle_space_get(&backend, json!({ "accountId": "a1", "ids": [&space_id] }))
-            .await
-            .expect("handle_space_get");
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&space_id] }),
+    )
+    .await
+    .expect("handle_space_get");
     assert_eq!(get_resp["list"][0]["name"], "New Name");
     assert_eq!(get_resp["list"][0]["description"], "Updated description");
     assert_eq!(get_resp["list"][0]["isPublic"], true);
@@ -1236,6 +1330,7 @@ async fn contact_set_create_forbidden() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_contact_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "ct0": { "login": "alice@example.com", "blocked": false } }
@@ -1255,6 +1350,7 @@ async fn contact_set_destroy_forbidden() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_contact_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "destroy": ["some-id"]
@@ -1272,9 +1368,10 @@ async fn contact_set_destroy_forbidden() {
 #[tokio::test]
 async fn contact_get_empty() {
     let backend = MemoryBackend::new();
-    let (get_resp, _) = handle_contact_get(&backend, json!({ "accountId": "a1", "ids": null }))
-        .await
-        .expect("get");
+    let (get_resp, _) =
+        handle_contact_get(&backend, &(), json!({ "accountId": "a1", "ids": null }))
+            .await
+            .expect("get");
 
     assert_eq!(get_resp["list"].as_array().expect("list").len(), 0);
 }
@@ -1283,10 +1380,13 @@ async fn contact_get_empty() {
 #[tokio::test]
 async fn contact_changes_empty() {
     let backend = MemoryBackend::new();
-    let (resp, _) =
-        handle_contact_changes(&backend, json!({ "accountId": "a1", "sinceState": "0" }))
-            .await
-            .expect("changes");
+    let (resp, _) = handle_contact_changes(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "sinceState": "0" }),
+    )
+    .await
+    .expect("changes");
 
     assert_eq!(resp["created"].as_array().expect("created").len(), 0);
     assert_eq!(resp["updated"].as_array().expect("updated").len(), 0);
@@ -1303,6 +1403,7 @@ async fn position_set_create_missing_chat_id() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_position_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "rp0": { "lastReadMessageId": "m1" } }
@@ -1324,6 +1425,7 @@ async fn position_set_create_success() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_position_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "rp0": { "chatId": "c1" } }
@@ -1343,6 +1445,7 @@ async fn position_set_update_chat_id_rejected() {
 
     let (create_resp, _) = handle_position_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "rp0": { "chatId": "c1" } } }),
     )
     .await
@@ -1351,6 +1454,7 @@ async fn position_set_update_chat_id_rejected() {
 
     let (resp, _) = handle_position_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": { rp_id: { "chatId": "c2" } }
@@ -1370,6 +1474,7 @@ async fn position_get_returns_created() {
 
     let (create_resp, _) = handle_position_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "rp0": { "chatId": "c99" } } }),
     )
     .await
@@ -1379,9 +1484,10 @@ async fn position_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (get_resp, _) = handle_position_get(&backend, json!({ "accountId": "a1", "ids": [rp_id] }))
-        .await
-        .expect("get");
+    let (get_resp, _) =
+        handle_position_get(&backend, &(), json!({ "accountId": "a1", "ids": [rp_id] }))
+            .await
+            .expect("get");
 
     assert_eq!(get_resp["list"][0]["chatId"], "c99");
 }
@@ -1394,7 +1500,7 @@ async fn position_get_returns_created() {
 #[tokio::test]
 async fn chat_get_backend_error_maps_to_server_fail() {
     let backend = FaultyBackend;
-    let err = handle_chat_get(&backend, json!({ "accountId": "a1", "ids": null }))
+    let err = handle_chat_get(&backend, &(), json!({ "accountId": "a1", "ids": null }))
         .await
         .unwrap_err();
     assert_eq!(err.error_type.as_str(), "serverFail");
@@ -1406,6 +1512,7 @@ async fn chat_set_backend_error_maps_to_server_fail() {
     let backend = FaultyBackend;
     let err = handle_chat_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "c0": { "kind": "group" } } }),
     )
     .await
@@ -1426,6 +1533,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
     // First create succeeds.
     let (resp1, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -1447,6 +1555,7 @@ async fn chat_set_create_direct_duplicate_rejected() {
     // Second create with same contactId must be rejected.
     let (resp2, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -1475,6 +1584,7 @@ async fn chat_set_create_direct_different_contacts_allowed() {
 
     let (resp1, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "c0": { "kind": "direct", "contactId": "u1" } }
@@ -1486,6 +1596,7 @@ async fn chat_set_create_direct_different_contacts_allowed() {
 
     let (resp2, _) = handle_chat_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "c1": { "kind": "direct", "contactId": "u2" } }
@@ -1515,12 +1626,13 @@ async fn accounts_are_isolated() {
 
     handle_chat_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "c0": { "kind": "group", "name": "A's group" } } }),
     )
     .await
     .expect("create in a1");
 
-    let (resp, _) = handle_chat_get(&backend, json!({ "accountId": "a2", "ids": null }))
+    let (resp, _) = handle_chat_get(&backend, &(), json!({ "accountId": "a2", "ids": null }))
         .await
         .expect("get from a2");
 
@@ -1539,7 +1651,7 @@ async fn accounts_are_isolated() {
 #[tokio::test]
 async fn contact_query_empty() {
     let backend = MemoryBackend::new();
-    let (resp, invocations) = handle_contact_query(&backend, json!({ "accountId": "a1" }))
+    let (resp, invocations) = handle_contact_query(&backend, &(), json!({ "accountId": "a1" }))
         .await
         .expect("handle_contact_query");
 
@@ -1553,7 +1665,7 @@ async fn contact_query_empty() {
 #[tokio::test]
 async fn contact_query_changes_requires_since_state() {
     let backend = MemoryBackend::new();
-    let err = handle_contact_query_changes(&backend, json!({ "accountId": "a1" }))
+    let err = handle_contact_query_changes(&backend, &(), json!({ "accountId": "a1" }))
         .await
         .unwrap_err();
     assert_eq!(err.error_type.as_str(), "invalidArguments");
@@ -1568,7 +1680,7 @@ async fn contact_query_changes_requires_since_state() {
 async fn invite_get_empty() {
     let backend = MemoryBackend::new();
     let (resp, invocations) =
-        handle_invite_get(&backend, json!({ "accountId": "a1", "ids": null }))
+        handle_invite_get(&backend, &(), json!({ "accountId": "a1", "ids": null }))
             .await
             .expect("handle_invite_get");
 
@@ -1584,6 +1696,7 @@ async fn invite_set_create_missing_space_id() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_invite_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "i0": { "maxUses": 5 } }
@@ -1606,6 +1719,7 @@ async fn invite_set_create_with_malformed_expiry_rejected() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_invite_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -1633,6 +1747,7 @@ async fn invite_set_create_success() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_invite_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "i0": { "spaceId": "s1" } }
@@ -1657,6 +1772,7 @@ async fn invite_set_update_forbidden() {
     // Create an invite first so we have a real id.
     let (create_resp, _) = handle_invite_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "i0": { "spaceId": "s1" } } }),
     )
     .await
@@ -1669,6 +1785,7 @@ async fn invite_set_update_forbidden() {
     // Any update attempt must be rejected with forbidden.
     let (resp, _) = handle_invite_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": { &invite_id: { "maxUses": 99 } }
@@ -1694,6 +1811,7 @@ async fn invite_get_returns_created() {
 
     let (create_resp, _) = handle_invite_set(
         &backend,
+        &(),
         json!({ "accountId": "a1", "create": { "i0": { "spaceId": "s2", "maxUses": 10 } } }),
     )
     .await
@@ -1703,9 +1821,13 @@ async fn invite_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (resp, _) = handle_invite_get(&backend, json!({ "accountId": "a1", "ids": [invite_id] }))
-        .await
-        .expect("handle_invite_get");
+    let (resp, _) = handle_invite_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [invite_id] }),
+    )
+    .await
+    .expect("handle_invite_get");
 
     let list = resp["list"].as_array().expect("list");
     assert_eq!(list.len(), 1, "one invite should be returned");
@@ -1724,9 +1846,10 @@ async fn emoji_get_empty() {
     use jmap_chat_server::handle_emoji_get;
 
     let backend = MemoryBackend::new();
-    let (resp, invocations) = handle_emoji_get(&backend, json!({ "accountId": "a1", "ids": null }))
-        .await
-        .expect("handle_emoji_get");
+    let (resp, invocations) =
+        handle_emoji_get(&backend, &(), json!({ "accountId": "a1", "ids": null }))
+            .await
+            .expect("handle_emoji_get");
 
     assert!(invocations.is_empty());
     assert_eq!(resp["accountId"], "a1");
@@ -1743,6 +1866,7 @@ async fn emoji_set_create_missing_name() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_emoji_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "e0": { "blobId": "b1" } }
@@ -1766,6 +1890,7 @@ async fn emoji_set_create_invalid_name() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_emoji_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "e0": { "name": "UPPERCASE!", "blobId": "b1" } }
@@ -1790,6 +1915,7 @@ async fn emoji_set_create_success() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_emoji_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "e0": { "name": "party-blob_2", "blobId": "b1" } }
@@ -1812,6 +1938,7 @@ async fn emoji_get_returns_created() {
     let backend = MemoryBackend::new();
     let (create_resp, _) = handle_emoji_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "e0": { "name": "rocket", "blobId": "b99" } }
@@ -1824,9 +1951,13 @@ async fn emoji_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (get_resp, _) = handle_emoji_get(&backend, json!({ "accountId": "a1", "ids": [emoji_id] }))
-        .await
-        .expect("get");
+    let (get_resp, _) = handle_emoji_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [emoji_id] }),
+    )
+    .await
+    .expect("get");
 
     assert_eq!(get_resp["list"].as_array().expect("list").len(), 1);
     assert_eq!(get_resp["list"][0]["name"], "rocket");
@@ -1842,9 +1973,10 @@ async fn emoji_get_returns_created() {
 #[tokio::test]
 async fn ban_get_empty() {
     let backend = MemoryBackend::new();
-    let (resp, invocations) = handle_ban_get(&backend, json!({ "accountId": "a1", "ids": null }))
-        .await
-        .expect("handle_ban_get");
+    let (resp, invocations) =
+        handle_ban_get(&backend, &(), json!({ "accountId": "a1", "ids": null }))
+            .await
+            .expect("handle_ban_get");
 
     assert!(invocations.is_empty());
     assert_eq!(resp["accountId"], "a1");
@@ -1858,6 +1990,7 @@ async fn ban_set_create_missing_space_id() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_ban_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "b0": { "userId": "u2" } }
@@ -1880,6 +2013,7 @@ async fn ban_set_create_with_malformed_expiry_rejected() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_ban_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -1911,6 +2045,7 @@ async fn ban_set_create_missing_user_id() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_ban_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "b0": { "spaceId": "s1" } }
@@ -1932,6 +2067,7 @@ async fn ban_set_create_success() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_ban_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "b0": { "spaceId": "s1", "userId": "u2" } }
@@ -1955,6 +2091,7 @@ async fn ban_get_returns_created() {
 
     let (create_resp, _) = handle_ban_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "b0": { "spaceId": "s1", "userId": "u3", "reason": "spam" } }
@@ -1967,9 +2104,10 @@ async fn ban_get_returns_created() {
         .expect("id")
         .to_owned();
 
-    let (get_resp, _) = handle_ban_get(&backend, json!({ "accountId": "a1", "ids": [ban_id] }))
-        .await
-        .expect("get");
+    let (get_resp, _) =
+        handle_ban_get(&backend, &(), json!({ "accountId": "a1", "ids": [ban_id] }))
+            .await
+            .expect("get");
 
     assert_eq!(get_resp["list"].as_array().expect("list").len(), 1);
     assert_eq!(get_resp["list"][0]["spaceId"], "s1");
@@ -1988,7 +2126,7 @@ async fn ban_get_returns_created() {
 async fn presence_get_empty() {
     let backend = MemoryBackend::new();
     let (resp, invocations) =
-        handle_presence_get(&backend, json!({ "accountId": "a1", "ids": null }))
+        handle_presence_get(&backend, &(), json!({ "accountId": "a1", "ids": null }))
             .await
             .expect("handle_presence_get");
 
@@ -2005,6 +2143,7 @@ async fn presence_set_create_forbidden() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_presence_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": {
@@ -2028,6 +2167,7 @@ async fn presence_set_destroy_forbidden() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_presence_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "destroy": ["ps1"]
@@ -2049,6 +2189,7 @@ async fn presence_set_update_readonly_id_rejected() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_presence_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": {
@@ -2071,6 +2212,7 @@ async fn presence_set_update_readonly_updated_at_rejected() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_presence_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": {
@@ -2093,6 +2235,7 @@ async fn presence_set_update_not_found() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_presence_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "update": {
@@ -2115,10 +2258,13 @@ async fn presence_set_update_not_found() {
 #[tokio::test]
 async fn presence_changes_empty() {
     let backend = MemoryBackend::new();
-    let (resp, invocations) =
-        handle_presence_changes(&backend, json!({ "accountId": "a1", "sinceState": "0" }))
-            .await
-            .expect("handle_presence_changes");
+    let (resp, invocations) = handle_presence_changes(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "sinceState": "0" }),
+    )
+    .await
+    .expect("handle_presence_changes");
 
     assert!(invocations.is_empty());
     assert_eq!(resp["accountId"], "a1");
@@ -2133,7 +2279,7 @@ async fn presence_changes_empty() {
 #[tokio::test]
 async fn presence_changes_requires_since_state() {
     let backend = MemoryBackend::new();
-    let err = handle_presence_changes(&backend, json!({ "accountId": "a1" }))
+    let err = handle_presence_changes(&backend, &(), json!({ "accountId": "a1" }))
         .await
         .unwrap_err();
     assert_eq!(err.error_type.as_str(), "invalidArguments");
@@ -2147,7 +2293,7 @@ async fn presence_changes_requires_since_state() {
 #[tokio::test]
 async fn space_join_requires_exactly_one_arg() {
     let backend = MemoryBackend::new();
-    let err = handle_space_join(&backend, json!({ "accountId": "a1" }))
+    let err = handle_space_join(&backend, &(), json!({ "accountId": "a1" }))
         .await
         .unwrap_err();
     assert_eq!(err.error_type.as_str(), "invalidArguments");
@@ -2159,6 +2305,7 @@ async fn space_join_both_args_rejected() {
     let backend = MemoryBackend::new();
     let err = handle_space_join(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "inviteCode": "abc",
@@ -2176,6 +2323,7 @@ async fn space_join_invalid_invite_code() {
     let backend = MemoryBackend::new();
     let err = handle_space_join(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "inviteCode": "doesnotexist"
@@ -2192,6 +2340,7 @@ async fn space_join_public_space_not_found() {
     let backend = MemoryBackend::new();
     let err = handle_space_join(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "spaceId": "nosuchspace"
@@ -2213,6 +2362,7 @@ async fn space_join_via_invite_code_success() {
     // Create a real Space so the member-add step has an object to patch.
     let (space_resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "s0": { "name": "Invite Space" } }
@@ -2228,6 +2378,7 @@ async fn space_join_via_invite_code_success() {
     // Create an invite for that space.
     let (create_resp, _) = handle_invite_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "i0": { "spaceId": space_id } }
@@ -2248,6 +2399,7 @@ async fn space_join_via_invite_code_success() {
     // Join using the invite code.
     let (resp, invocations) = handle_space_join(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "inviteCode": code
@@ -2261,20 +2413,26 @@ async fn space_join_via_invite_code_success() {
     assert_eq!(resp["spaceId"].as_str().expect("spaceId"), space_id);
 
     // Verify uses was incremented to 1.
-    let (invite_list, _) =
-        handle_invite_get(&backend, json!({ "accountId": "a1", "ids": [invite_id] }))
-            .await
-            .expect("handle_invite_get");
+    let (invite_list, _) = handle_invite_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [invite_id] }),
+    )
+    .await
+    .expect("handle_invite_get");
     assert_eq!(
         invite_list["list"][0]["uses"], 1,
         "uses must be incremented"
     );
 
     // Verify caller was added as a member.
-    let (space_list, _) =
-        handle_space_get(&backend, json!({ "accountId": "a1", "ids": [space_id] }))
-            .await
-            .expect("handle_space_get");
+    let (space_list, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [space_id] }),
+    )
+    .await
+    .expect("handle_space_get");
     let members = space_list["list"][0]["members"]
         .as_array()
         .expect("members array");
@@ -2306,12 +2464,13 @@ async fn space_join_invite_at_max_uses_rejected() {
         Some(1),
     );
     backend
-        .create_object::<SpaceInvite>(&account_id, "i0", invite)
+        .create_object::<SpaceInvite>(&(), &account_id, "i0", invite)
         .await
         .expect("create SpaceInvite");
 
     let err = handle_space_join(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "inviteCode": "exhaustedcode"
@@ -2329,6 +2488,7 @@ async fn space_join_private_space_forbidden() {
 
     let (create_resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "s0": { "name": "Private Space", "isPublic": false } }
@@ -2343,6 +2503,7 @@ async fn space_join_private_space_forbidden() {
 
     let err = handle_space_join(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "spaceId": space_id
@@ -2361,6 +2522,7 @@ async fn space_join_public_space_success() {
 
     let (create_resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "s0": { "name": "Public Space", "isPublic": true } }
@@ -2375,6 +2537,7 @@ async fn space_join_public_space_success() {
 
     let (resp, invocations) = handle_space_join(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "spaceId": space_id
@@ -2399,6 +2562,7 @@ async fn message_set_create_body_too_large() {
     let long_body: String = "a".repeat(100_001);
     let (resp, _) = handle_message_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "m0": { "chatId": "c1", "body": long_body } }
@@ -2424,6 +2588,7 @@ async fn emoji_set_create_name_too_long() {
     let long_name: String = "a".repeat(65);
     let (resp, _) = handle_emoji_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "e0": { "name": long_name, "blobId": "b1" } }
@@ -2447,6 +2612,7 @@ async fn space_set_create_name_too_long() {
     let long_name: String = "a".repeat(257);
     let (resp, _) = handle_space_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "s0": { "name": long_name } }
@@ -2469,6 +2635,7 @@ async fn invite_set_create_max_uses_zero() {
     let backend = MemoryBackend::new();
     let (resp, _) = handle_invite_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "i0": { "spaceId": "s1", "maxUses": 0 } }
@@ -2492,6 +2659,7 @@ async fn ban_set_create_reason_too_long() {
     let long_reason: String = "a".repeat(1001);
     let (resp, _) = handle_ban_set(
         &backend,
+        &(),
         json!({
             "accountId": "a1",
             "create": { "b0": { "spaceId": "s1", "userId": "u1", "reason": long_reason } }

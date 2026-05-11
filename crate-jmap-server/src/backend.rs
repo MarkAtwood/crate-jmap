@@ -525,9 +525,51 @@ impl QueryChangesResult {
 ///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl JmapBackend>` when sharing across tasks.
+///
+/// # CallerCtx
+///
+/// Every backend method takes a `caller: &Self::CallerCtx` parameter as the
+/// first argument after `&self`. This is the per-request authentication /
+/// authorisation context produced by the caller's auth layer and forwarded
+/// unchanged through [`crate::Dispatcher::dispatch`] → [`crate::JmapHandler`]
+/// → the registered closure → the backend.
+///
+/// Implementations that do not need an auth identity can use the unit type:
+///
+/// ```rust,ignore
+/// impl JmapBackend for MyBackend {
+///     type Error = MyError;
+///     type CallerCtx = ();
+///     // ...
+/// }
+/// ```
+///
+/// Implementations that do need to differentiate behaviour per caller (e.g.
+/// applying per-user visibility rules, or rejecting reads with
+/// `forbidden` when the caller is not the owner of the account) read the
+/// `caller` parameter to decide.
+///
+/// The trait bound `Clone + Send + 'static` is what [`crate::Dispatcher`]
+/// requires; the bound is repeated here so the supertrait can stand on its
+/// own without depending on the dispatcher.
 pub trait JmapBackend: Send + Sync + 'static {
     /// The error type returned by storage operations.
     type Error: std::error::Error + Send + Sync + 'static;
+
+    /// The per-request caller context type produced by the auth layer and
+    /// forwarded by [`crate::Dispatcher::dispatch`] into every method call.
+    ///
+    /// Use `()` when no auth context is needed.
+    ///
+    /// The bound is `Clone + Send + Sync + 'static`:
+    /// - `Clone` because [`crate::Dispatcher`] clones the value once per
+    ///   method call in the batch.
+    /// - `Send + 'static` because each method call is spawned on a
+    ///   [`tokio::task`].
+    /// - `Sync` because handler method bodies take `&Self::CallerCtx`
+    ///   and hold that reference across `.await` boundaries inside a
+    ///   `Send` future (a `&T` is `Send` iff `T: Sync`).
+    type CallerCtx: Clone + Send + Sync + 'static;
 
     /// Return `true` if the given account exists in this backend.
     ///
@@ -536,6 +578,7 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// the wrong error when `accountId` is unknown.
     fn account_exists(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
@@ -550,6 +593,7 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// Returns `(found, not_found)` — objects that exist and ids that do not.
     fn get_objects<O: GetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         ids: Option<&[jmap_types::Id]>,
         properties: Option<&[String]>,
@@ -558,12 +602,14 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// Return the current state token for an object type in the given account.
     fn get_state<O: JmapObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<jmap_types::State, Self::Error>> + Send;
 
     /// Return changes since `since_state`, up to `max_changes` entries.
     fn get_changes<O: JmapObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         since_state: &jmap_types::State,
         max_changes: Option<u64>,
@@ -573,8 +619,10 @@ pub trait JmapBackend: Send + Sync + 'static {
     ///
     /// `position` may be negative — negative values are relative to the end of
     /// the result set per RFC 8620 §5.5 (e.g. -1 means the last result).
+    #[allow(clippy::too_many_arguments)]
     fn query_objects<O: QueryObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         filter: Option<&O::Filter>,
         sort: Option<&[O::Comparator]>,
@@ -589,6 +637,7 @@ pub trait JmapBackend: Send + Sync + 'static {
     #[allow(clippy::too_many_arguments)]
     fn query_changes<O: QueryObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         since_query_state: &jmap_types::State,
         filter: Option<&O::Filter>,

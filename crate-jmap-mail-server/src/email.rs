@@ -401,19 +401,17 @@ fn extract_header_values(email_json: &Value, req: &HeaderPropertyRequest) -> Val
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_get<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let ids: Option<Vec<Id>> = match args.remove("ids") {
         None | Some(Value::Null) => None,
@@ -520,12 +518,12 @@ pub async fn handle_email_get<B: MailBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<Email>(&account_id, ids_slice, None)
+        .get_objects::<Email>(caller, &account_id, ids_slice, None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<Email>(&account_id)
+        .get_state::<Email>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -573,9 +571,10 @@ pub async fn handle_email_get<B: MailBackend>(
 /// Handle an `Email/changes` method call (RFC 8620 §5.2).
 pub async fn handle_email_changes<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<Email, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<Email, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -587,19 +586,17 @@ pub async fn handle_email_changes<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let filter: Option<jmap_mail_types::EmailFilter> = match args.remove("filter") {
         None | Some(Value::Null) => None,
@@ -675,7 +672,14 @@ pub async fn handle_email_query<B: MailBackend>(
             // fetch; a single zero-limit query gives queryState and canCalculateChanges.
             if effective_limit == 0 && !calculate_total {
                 let empty = backend
-                    .query_objects::<Email>(&account_id, filter.as_ref(), sort_slice, Some(0), 0)
+                    .query_objects::<Email>(
+                        caller,
+                        &account_id,
+                        filter.as_ref(),
+                        sort_slice,
+                        Some(0),
+                        0,
+                    )
                     .await
                     .map_err(|e| JmapError::server_fail(e.to_string()))?;
                 return Ok((
@@ -693,9 +697,10 @@ pub async fn handle_email_query<B: MailBackend>(
             // Fetch cap+1 to detect whether the backend had more results than
             // the cap.  If more than cap items come back the result was
             // truncated; truncate to cap and report total as an approximation.
-            let collapse_cap = backend.max_collapse_threads_emails(&account_id);
+            let collapse_cap = backend.max_collapse_threads_emails(caller, &account_id);
             let all = backend
                 .query_objects::<Email>(
+                    caller,
                     &account_id,
                     filter.as_ref(),
                     sort_slice,
@@ -719,7 +724,7 @@ pub async fn handle_email_query<B: MailBackend>(
             };
 
             let all_ids = if collapse_threads {
-                collapse_by_thread(backend, &account_id, ids_for_collapse)
+                collapse_by_thread(backend, caller, &account_id, ids_for_collapse)
                     .await
                     .map_err(|e| JmapError::server_fail(e.to_string()))?
             } else {
@@ -768,6 +773,7 @@ pub async fn handle_email_query<B: MailBackend>(
         } else {
             let result = backend
                 .query_objects::<Email>(
+                    caller,
                     &account_id,
                     filter.as_ref(),
                     sort_slice,
@@ -817,19 +823,17 @@ pub async fn handle_email_query<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query_changes<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let since_query_state: State = match args.remove("sinceQueryState") {
         Some(Value::String(s)) => State::from(s.as_str()),
@@ -885,6 +889,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     let sort_slice = sort.as_deref();
     let result = backend
         .query_changes::<Email>(
+            caller,
             &account_id,
             &since_query_state,
             filter.as_ref(),
@@ -939,22 +944,20 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_set<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let old_state = backend
-        .get_state::<Email>(&account_id)
+        .get_state::<Email>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -1013,7 +1016,7 @@ pub async fn handle_email_set<B: MailBackend>(
             }
 
             // Build the Email object from the creation payload.
-            let email = match build_email_from_create(obj_val, &account_id, backend).await {
+            let email = match build_email_from_create(obj_val, &account_id, backend, caller).await {
                 Ok(e) => e,
                 Err(desc) => {
                     not_created.insert(
@@ -1028,7 +1031,7 @@ pub async fn handle_email_set<B: MailBackend>(
             };
 
             match backend
-                .create_object::<Email>(&account_id, create_id, email)
+                .create_object::<Email>(caller, &account_id, create_id, email)
                 .await
             {
                 Ok((server_id, created_obj)) => {
@@ -1105,7 +1108,7 @@ pub async fn handle_email_set<B: MailBackend>(
             }
 
             match backend
-                .update_object::<Email>(&account_id, &id, patch)
+                .update_object::<Email>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -1161,7 +1164,10 @@ pub async fn handle_email_set<B: MailBackend>(
             };
             let id = Id::from(id_str);
 
-            match backend.destroy_object::<Email>(&account_id, &id).await {
+            match backend
+                .destroy_object::<Email>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str.to_owned()));
@@ -1190,6 +1196,7 @@ pub async fn handle_email_set<B: MailBackend>(
 
     finalize_set_response::<B, Email>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -1504,6 +1511,7 @@ async fn build_email_from_create<B: MailBackend>(
     obj_val: &Value,
     account_id: &Id,
     backend: &B,
+    caller: &B::CallerCtx,
 ) -> Result<Email, String> {
     // NOTE: The following fields are validated (body structure / envelope
     // rules are checked) but are NOT yet stored in the returned Email object:
@@ -1561,6 +1569,7 @@ async fn build_email_from_create<B: MailBackend>(
     // any of the inReplyTo/references tokens.
     let thread_id = assign_thread(
         backend,
+        caller,
         account_id,
         in_reply_to.as_deref().unwrap_or(&[]),
         references.as_deref().unwrap_or(&[]),
@@ -1700,6 +1709,7 @@ fn validate_email_body(obj_val: &Value) -> Result<(), String> {
 /// or propagates the backend error so the caller can surface it.
 async fn assign_thread<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     account_id: &Id,
     in_reply_to: &[String],
     references: &[String],
@@ -1715,7 +1725,7 @@ async fn assign_thread<B: MailBackend>(
         .collect();
 
     match backend
-        .find_thread_by_message_ids(account_id, &refs)
+        .find_thread_by_message_ids(caller, account_id, &refs)
         .await?
     {
         Some(thread_id) => Ok(thread_id),
@@ -1759,6 +1769,7 @@ fn next_id() -> Id {
 /// Propagates backend errors to the caller.
 async fn collapse_by_thread<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     account_id: &Id,
     ids: Vec<Id>,
 ) -> Result<Vec<Id>, B::Error> {
@@ -1766,7 +1777,7 @@ async fn collapse_by_thread<B: MailBackend>(
     // Pass a properties hint so backends with column stores can skip body data.
     let thread_props = vec!["id".to_owned(), "threadId".to_owned()];
     let (emails, _) = backend
-        .get_objects::<Email>(account_id, Some(&ids), Some(&thread_props))
+        .get_objects::<Email>(caller, account_id, Some(&ids), Some(&thread_props))
         .await?;
     let thread_map: HashMap<Id, Id> = emails.into_iter().map(|e| (e.id, e.thread_id)).collect();
 
@@ -1804,19 +1815,17 @@ async fn collapse_by_thread<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_import<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let emails = match args.remove("emails") {
         Some(Value::Object(m)) => m,
@@ -1824,7 +1833,7 @@ pub async fn handle_email_import<B: MailBackend>(
     };
 
     let old_state = backend
-        .get_state::<Email>(&account_id)
+        .get_state::<Email>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -1890,6 +1899,7 @@ pub async fn handle_email_import<B: MailBackend>(
 
         match backend
             .import_email(
+                caller,
                 &account_id,
                 &blob_id,
                 &mailbox_ids,
@@ -1934,7 +1944,7 @@ pub async fn handle_email_import<B: MailBackend>(
         old_state.clone()
     } else {
         backend
-            .get_state::<Email>(&account_id)
+            .get_state::<Email>(caller, &account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?
     };
@@ -1965,19 +1975,17 @@ pub async fn handle_email_import<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_parse<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     let blob_ids: Vec<Id> = match args.remove("blobIds") {
         Some(v) => serde_json::from_value(v)
@@ -2079,7 +2087,7 @@ pub async fn handle_email_parse<B: MailBackend>(
     let mut not_found: Vec<Value> = Vec::new();
 
     for blob_id in &blob_ids {
-        match backend.parse_email(&account_id, blob_id).await {
+        match backend.parse_email(caller, &account_id, blob_id).await {
             Ok(email) => {
                 let mut val = serde_json::to_value(&email)
                     .expect("derive(Serialize) on plain data is infallible");
@@ -2122,7 +2130,7 @@ pub async fn handle_email_parse<B: MailBackend>(
             }
             Err(_) => {
                 // RFC 8621 §5.8: distinguish "blob not found" from "not parsable".
-                if backend.blob_exists(&account_id, blob_id).await {
+                if backend.blob_exists(caller, &account_id, blob_id).await {
                     not_parsable.push(Value::String(blob_id.as_ref().to_owned()));
                 } else {
                     not_found.push(Value::String(blob_id.as_ref().to_owned()));
@@ -2155,20 +2163,18 @@ pub async fn handle_email_parse<B: MailBackend>(
 /// is non-null, per RFC 8620 §6.3.
 pub async fn handle_email_copy<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::from(s),
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
@@ -2181,7 +2187,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         ));
     }
     if !backend
-        .account_exists(&from_account_id)
+        .account_exists(caller, &from_account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -2201,7 +2207,7 @@ pub async fn handle_email_copy<B: MailBackend>(
     // ifFromInState: check source account state (RFC 8620 §5.4).
     if let Some(if_from_in_state) = args.get("ifFromInState").and_then(|v| v.as_str()) {
         let from_state = backend
-            .get_state::<Email>(&from_account_id)
+            .get_state::<Email>(caller, &from_account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
         if if_from_in_state != from_state.as_ref() {
@@ -2210,7 +2216,7 @@ pub async fn handle_email_copy<B: MailBackend>(
     }
 
     let old_state = backend
-        .get_state::<Email>(&account_id)
+        .get_state::<Email>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -2278,6 +2284,7 @@ pub async fn handle_email_copy<B: MailBackend>(
 
         match backend
             .copy_email(
+                caller,
                 &from_account_id,
                 &source_id,
                 &account_id,
@@ -2323,7 +2330,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         old_state.clone()
     } else {
         backend
-            .get_state::<Email>(&account_id)
+            .get_state::<Email>(caller, &account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?
     };
@@ -2355,7 +2362,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         && !copied_source_ids.is_empty()
     {
         let email_old_state = backend
-            .get_state::<Email>(&from_account_id)
+            .get_state::<Email>(caller, &from_account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -2368,7 +2375,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         if on_success_destroy_original {
             for (_, source_id) in &copied_source_ids {
                 match backend
-                    .destroy_object::<Email>(&from_account_id, source_id)
+                    .destroy_object::<Email>(caller, &from_account_id, source_id)
                     .await
                 {
                     Ok(()) => {
@@ -2430,7 +2437,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                         continue;
                     }
                     match backend
-                        .update_object::<Email>(&from_account_id, source_id, patch)
+                        .update_object::<Email>(caller, &from_account_id, source_id, patch)
                         .await
                     {
                         Ok(Some(obj)) => {
@@ -2468,7 +2475,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         }
 
         let email_new_state = backend
-            .get_state::<Email>(&from_account_id)
+            .get_state::<Email>(caller, &from_account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 

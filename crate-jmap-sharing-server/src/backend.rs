@@ -46,6 +46,7 @@ pub trait SharingBackend: JmapBackend {
     /// fields, not through the tuple's `Id` element.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
         obj: O,
@@ -59,6 +60,7 @@ pub trait SharingBackend: JmapBackend {
     /// or `None` if the patch was applied verbatim.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: O::Patch,
@@ -67,6 +69,7 @@ pub trait SharingBackend: JmapBackend {
     /// Destroy a Principal or ShareNotification by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;

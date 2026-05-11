@@ -18,15 +18,10 @@ use crate::helpers::{
 /// Handle a `Space/get` method call.
 pub async fn handle_space_get<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
@@ -38,12 +33,12 @@ pub async fn handle_space_get<B: ChatBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<Space>(&account_id, ids_slice, None)
+        .get_objects::<Space>(caller, &account_id, ids_slice, None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<Space>(&account_id)
+        .get_state::<Space>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -67,9 +62,10 @@ pub async fn handle_space_get<B: ChatBackend>(
 /// Handle a `Space/changes` method call (RFC 8620 §5.2).
 pub async fn handle_space_changes<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<Space, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<Space, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -81,15 +77,10 @@ pub async fn handle_space_changes<B: ChatBackend>(
 /// Filter and sort are passed through to the backend unchanged.
 pub async fn handle_space_query<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let calculate_total: bool = args
         .get("calculateTotal")
@@ -130,6 +121,7 @@ pub async fn handle_space_query<B: ChatBackend>(
 
     let result = backend
         .query_objects::<Space>(
+            caller,
             &account_id,
             filter.as_ref(),
             sort.as_deref(),
@@ -162,9 +154,10 @@ pub async fn handle_space_query<B: ChatBackend>(
 /// Handle a `Space/queryChanges` method call (RFC 8620 §5.6).
 pub async fn handle_space_query_changes<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
 
     let since_query_state: State = match args.get("sinceQueryState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),
@@ -195,6 +188,7 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 
     let result = backend
         .query_changes::<Space>(
+            caller,
             &account_id,
             &since_query_state,
             None,
@@ -245,17 +239,13 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 /// - `id`, `createdAt`, `memberCount` are server-set and rejected in updates.
 pub async fn handle_space_set<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let old_state = backend
-        .get_state::<Space>(&account_id)
+        .get_state::<Space>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -326,7 +316,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             }
 
             match backend
-                .create_object::<Space>(&account_id, create_id, space)
+                .create_object::<Space>(caller, &account_id, create_id, space)
                 .await
             {
                 Ok((_server_id, created_obj)) => {
@@ -451,7 +441,12 @@ pub async fn handle_space_set<B: ChatBackend>(
             }
 
             match backend
-                .update_object::<Space>(&account_id, &id, PatchObject::from_map(clean_patch))
+                .update_object::<Space>(
+                    caller,
+                    &account_id,
+                    &id,
+                    PatchObject::from_map(clean_patch),
+                )
                 .await
             {
                 Ok(Some(obj)) => {
@@ -507,7 +502,10 @@ pub async fn handle_space_set<B: ChatBackend>(
             };
             let id = Id::from(id_str);
 
-            match backend.destroy_object::<Space>(&account_id, &id).await {
+            match backend
+                .destroy_object::<Space>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str.to_owned()));
@@ -536,6 +534,7 @@ pub async fn handle_space_set<B: ChatBackend>(
 
     finalize_set_response::<B, Space>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -561,9 +560,10 @@ pub async fn handle_space_set<B: ChatBackend>(
 /// space, adds the caller as a member, and returns `{ "accountId": ..., "spaceId": ... }`.
 pub async fn handle_space_join<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
 
     let invite_code = args
         .get("inviteCode")
@@ -593,7 +593,7 @@ pub async fn handle_space_join<B: ChatBackend>(
 
                 // Invite code path: scan all invites for matching code.
                 let (invites, _) = backend
-                    .get_objects::<SpaceInvite>(&account_id, None, None)
+                    .get_objects::<SpaceInvite>(caller, &account_id, None, None)
                     .await
                     .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -645,7 +645,12 @@ pub async fn handle_space_join<B: ChatBackend>(
 
                 // Fetch the space to get the current members list.
                 let (spaces, _) = backend
-                    .get_objects::<Space>(&account_id, Some(std::slice::from_ref(&space_id)), None)
+                    .get_objects::<Space>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(&space_id)),
+                        None,
+                    )
                     .await
                     .map_err(|e| JmapError::server_fail(e.to_string()))?;
                 let members: Vec<Value> = spaces
@@ -669,7 +674,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                 // equivalent and is what the existing tests expect.
                 let space_id_typed = Id::from(sid.as_str());
                 let (spaces, _) = backend
-                    .get_objects::<Space>(&account_id, Some(&[space_id_typed]), None)
+                    .get_objects::<Space>(caller, &account_id, Some(&[space_id_typed]), None)
                     .await
                     .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -723,7 +728,12 @@ pub async fn handle_space_join<B: ChatBackend>(
     let mut members_patch = serde_json::Map::new();
     members_patch.insert("members".to_owned(), json!(new_members));
     backend
-        .update_object::<Space>(&account_id, &space_id, PatchObject::from_map(members_patch))
+        .update_object::<Space>(
+            caller,
+            &account_id,
+            &space_id,
+            PatchObject::from_map(members_patch),
+        )
         .await
         .map_err(|e: jmap_server::BackendSetError<_>| JmapError::server_fail(e.to_string()))?;
 
@@ -734,7 +744,12 @@ pub async fn handle_space_join<B: ChatBackend>(
     // the storage layer SHOULD enforce a unique constraint on (space_id, user_id)
     // as the authoritative guard — this code is best-effort self-healing.
     let (post_spaces, _) = backend
-        .get_objects::<Space>(&account_id, Some(std::slice::from_ref(&space_id)), None)
+        .get_objects::<Space>(
+            caller,
+            &account_id,
+            Some(std::slice::from_ref(&space_id)),
+            None,
+        )
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
     let post_members: Vec<Value> = post_spaces
@@ -775,7 +790,12 @@ pub async fn handle_space_join<B: ChatBackend>(
         let mut deduped_patch = serde_json::Map::new();
         deduped_patch.insert("members".to_owned(), json!(deduped));
         let _ = backend
-            .update_object::<Space>(&account_id, &space_id, PatchObject::from_map(deduped_patch))
+            .update_object::<Space>(
+                caller,
+                &account_id,
+                &space_id,
+                PatchObject::from_map(deduped_patch),
+            )
             .await;
         return Err(JmapError::server_fail(
             "concurrent join detected; please retry",
@@ -789,6 +809,7 @@ pub async fn handle_space_join<B: ChatBackend>(
         uses_patch.insert("uses".to_owned(), json!(new_uses));
         backend
             .update_object::<SpaceInvite>(
+                caller,
                 &account_id,
                 &invite_id,
                 PatchObject::from_map(uses_patch),

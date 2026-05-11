@@ -22,9 +22,10 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 /// Handle an `AddressBook/get` method call (RFC 9610 §2.1).
 pub async fn handle_address_book_get<B: ContactsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<AddressBook, B>(backend, args).await
+    jmap_server::handlers::handle_get::<AddressBook, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -34,9 +35,10 @@ pub async fn handle_address_book_get<B: ContactsBackend>(
 /// Handle an `AddressBook/changes` method call (RFC 9610 §2.2).
 pub async fn handle_address_book_changes<B: ContactsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<AddressBook, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<AddressBook, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -59,20 +61,16 @@ pub async fn handle_address_book_changes<B: ContactsBackend>(
 ///   silently ignored per §2.3.
 pub async fn handle_address_book_set<B: ContactsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
     // error). Without this, a /set against an unknown accountId would silently
     // "succeed" with a fake oldState/newState envelope.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -87,7 +85,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     let on_success_set_is_default = args.remove("onSuccessSetIsDefault");
 
     let old_state = backend
-        .get_state::<AddressBook>(&account_id)
+        .get_state::<AddressBook>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -150,7 +148,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             };
 
             match backend
-                .create_object::<AddressBook>(&account_id, &create_id, ab)
+                .create_object::<AddressBook>(caller, &account_id, &create_id, ab)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -205,7 +203,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             };
 
             match backend
-                .update_object::<AddressBook>(&account_id, &id, patch)
+                .update_object::<AddressBook>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -264,7 +262,9 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             // RFC 9610 §2.3: if onDestroyRemoveContents is false and the
             // address book has contents, reject with addressBookHasContents.
             if !on_destroy_remove_contents
-                && backend.address_book_has_contents(&account_id, &id).await
+                && backend
+                    .address_book_has_contents(caller, &account_id, &id)
+                    .await
             {
                 not_destroyed.insert(
                     id_str,
@@ -276,7 +276,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             }
 
             match backend
-                .destroy_object::<AddressBook>(&account_id, &id)
+                .destroy_object::<AddressBook>(caller, &account_id, &id)
                 .await
             {
                 Ok(()) => {
@@ -338,7 +338,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                     let patch = PatchObject::from_map(patch_map);
                     // §2.3: errors here are silently ignored.
                     match backend
-                        .update_object::<AddressBook>(&account_id, &target_id, patch)
+                        .update_object::<AddressBook>(caller, &account_id, &target_id, patch)
                         .await
                     {
                         Ok(Some(obj)) => {
@@ -351,7 +351,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                             // updated.  When isDefault transfers, the backend clears
                             // it on all other books; re-fetch to pick them up.
                             if let Ok((all_books, _)) = backend
-                                .get_objects::<AddressBook>(&account_id, None, None)
+                                .get_objects::<AddressBook>(caller, &account_id, None, None)
                                 .await
                             {
                                 for book in all_books {
@@ -387,6 +387,7 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     // (RFC 8620 §5.3: newState must reflect every mutation in this call).
     finalize_set_response::<B, AddressBook>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -425,7 +426,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["ab-nonempty"]
         });
-        let (resp, _) = handle_address_book_set(&backend, args)
+        let (resp, _) = handle_address_book_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -454,7 +455,7 @@ mod tests {
             "onDestroyRemoveContents": true,
             "destroy": ["ab-nonempty"]
         });
-        let (resp, _) = handle_address_book_set(&backend, args)
+        let (resp, _) = handle_address_book_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -474,7 +475,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let err = handle_address_book_get(&backend, args)
+        let err = handle_address_book_get(&backend, &(), args)
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
@@ -485,7 +486,7 @@ mod tests {
     async fn changes_known_account_returns_response() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
-        let (resp, _) = handle_address_book_changes(&backend, args)
+        let (resp, _) = handle_address_book_changes(&backend, &(), args)
             .await
             .expect("must not error for known account");
         assert_eq!(resp["accountId"], "acc1");
@@ -503,7 +504,7 @@ mod tests {
             "destroy": [],
             "onSuccessSetIsDefault": "book1"
         });
-        let (resp, _) = handle_address_book_set(&backend, args)
+        let (resp, _) = handle_address_book_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -528,7 +529,7 @@ mod tests {
             "accountId": "acc1",
             "onSuccessSetIsDefault": null
         });
-        let (resp, _) = handle_address_book_set(&backend, args)
+        let (resp, _) = handle_address_book_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -548,7 +549,7 @@ mod tests {
             "accountId": "acc1",
             "onSuccessSetIsDefault": {"wrong": "type"}
         });
-        let (resp, _) = handle_address_book_set(&backend, args)
+        let (resp, _) = handle_address_book_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -576,7 +577,7 @@ mod tests {
             "accountId": "acc1",
             "onSuccessSetIsDefault": "book2"
         });
-        let (resp, _) = handle_address_book_set(&backend, args)
+        let (resp, _) = handle_address_book_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -621,7 +622,7 @@ mod tests {
             "create": { "c1": {} },   // missing required name → invalidProperties
             "onSuccessSetIsDefault": "book1"
         });
-        let (resp, _) = handle_address_book_set(&backend, args)
+        let (resp, _) = handle_address_book_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 

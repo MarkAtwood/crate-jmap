@@ -10,7 +10,7 @@
 //! # use std::sync::Arc;
 //! # use jmap_chat_server::{ChatBackend, register_chat_handlers};
 //! # use jmap_server::Dispatcher;
-//! # fn example<B: ChatBackend + 'static>(backend: B) {
+//! # fn example<B: ChatBackend<CallerCtx = ()> + 'static>(backend: B) {
 //! let mut dispatcher: Dispatcher<()> = Dispatcher::new();
 //! register_chat_handlers(&mut dispatcher, Arc::new(backend));
 //! # }
@@ -94,23 +94,28 @@ pub use space::{
 /// `Chat/*`, `Message/*`, `Space/*`, `SpaceBan/*`, `ChatContact/*`,
 /// `ReadPosition/*`, `CustomEmoji/*`, `SpaceInvite/*`, and `PresenceStatus/*`.
 ///
-/// The dispatcher's `CallerCtx` (`C`) is forwarded into each registered
-/// handler. Backends that need to read it from inside a method body can
-/// register a custom [`ClosureHandler`] directly on the dispatcher
-/// instead of using this convenience function.
-pub fn register_chat_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+/// The dispatcher's `CallerCtx` is taken from `B::CallerCtx`; every registered
+/// closure forwards it as `&ctx` into the wrapped `handle_*` function. Backends
+/// that use `type CallerCtx = ()` therefore see `&()` inside every handler.
+pub fn register_chat_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: ChatBackend + 'static,
-    C: Clone + Send + 'static,
 {
-    // Helper: register one method with a closure that takes (Arc<B>, call_id, args).
+    // Helper: register one method with a closure that takes
+    // (Arc<B>, call_id, args, ctx).
+    //
+    // `$ci` is the call_id string (echoed back to the client). Most handlers
+    // ignore it and use `_ci` as the identifier.
+    //
+    // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
+    // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
+                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
                         Box::pin(async move { $body }) as HandlerFuture
                     },
                 ),
@@ -120,139 +125,138 @@ where
     }
 
     // Chat
-    reg!("Chat/get", backend, |b, _ci, a| handle_chat_get(&*b, a)
-        .await);
-    reg!("Chat/changes", backend, |b, _ci, a| handle_chat_changes(
-        &*b, a
-    )
-    .await);
-    reg!("Chat/query", backend, |b, _ci, a| handle_chat_query(&*b, a)
-        .await);
-    reg!("Chat/queryChanges", backend, |b, _ci, a| {
-        handle_chat_query_changes(&*b, a).await
+    reg!("Chat/get", backend, |b, _ci, a, ctx| {
+        handle_chat_get(&*b, &ctx, a).await
     });
-    reg!("Chat/set", backend, |b, _ci, a| handle_chat_set(&*b, a)
-        .await);
-    reg!("Chat/typing", backend, |b, _ci, a| handle_chat_typing(
-        &*b, a
-    )
-    .await);
+    reg!("Chat/changes", backend, |b, _ci, a, ctx| {
+        handle_chat_changes(&*b, &ctx, a).await
+    });
+    reg!("Chat/query", backend, |b, _ci, a, ctx| {
+        handle_chat_query(&*b, &ctx, a).await
+    });
+    reg!("Chat/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_chat_query_changes(&*b, &ctx, a).await
+    });
+    reg!("Chat/set", backend, |b, _ci, a, ctx| {
+        handle_chat_set(&*b, &ctx, a).await
+    });
+    reg!("Chat/typing", backend, |b, _ci, a, ctx| {
+        handle_chat_typing(&*b, &ctx, a).await
+    });
 
     // Message
-    reg!("Message/get", backend, |b, _ci, a| handle_message_get(
-        &*b, a
-    )
-    .await);
-    reg!("Message/changes", backend, |b, _ci, a| {
-        handle_message_changes(&*b, a).await
+    reg!("Message/get", backend, |b, _ci, a, ctx| {
+        handle_message_get(&*b, &ctx, a).await
     });
-    reg!("Message/query", backend, |b, _ci, a| handle_message_query(
-        &*b, a
-    )
-    .await);
-    reg!("Message/queryChanges", backend, |b, _ci, a| {
-        handle_message_query_changes(&*b, a).await
+    reg!("Message/changes", backend, |b, _ci, a, ctx| {
+        handle_message_changes(&*b, &ctx, a).await
     });
-    reg!("Message/set", backend, |b, _ci, a| handle_message_set(
-        &*b, a
-    )
-    .await);
+    reg!("Message/query", backend, |b, _ci, a, ctx| {
+        handle_message_query(&*b, &ctx, a).await
+    });
+    reg!("Message/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_message_query_changes(&*b, &ctx, a).await
+    });
+    reg!("Message/set", backend, |b, _ci, a, ctx| {
+        handle_message_set(&*b, &ctx, a).await
+    });
 
     // Space
-    reg!("Space/get", backend, |b, _ci, a| handle_space_get(&*b, a)
-        .await);
-    reg!("Space/changes", backend, |b, _ci, a| handle_space_changes(
-        &*b, a
-    )
-    .await);
-    reg!("Space/query", backend, |b, _ci, a| handle_space_query(
-        &*b, a
-    )
-    .await);
-    reg!("Space/queryChanges", backend, |b, _ci, a| {
-        handle_space_query_changes(&*b, a).await
+    reg!("Space/get", backend, |b, _ci, a, ctx| {
+        handle_space_get(&*b, &ctx, a).await
     });
-    reg!("Space/set", backend, |b, _ci, a| handle_space_set(&*b, a)
-        .await);
-    reg!("Space/join", backend, |b, _ci, a| handle_space_join(&*b, a)
-        .await);
+    reg!("Space/changes", backend, |b, _ci, a, ctx| {
+        handle_space_changes(&*b, &ctx, a).await
+    });
+    reg!("Space/query", backend, |b, _ci, a, ctx| {
+        handle_space_query(&*b, &ctx, a).await
+    });
+    reg!("Space/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_space_query_changes(&*b, &ctx, a).await
+    });
+    reg!("Space/set", backend, |b, _ci, a, ctx| {
+        handle_space_set(&*b, &ctx, a).await
+    });
+    reg!("Space/join", backend, |b, _ci, a, ctx| {
+        handle_space_join(&*b, &ctx, a).await
+    });
 
     // ChatContact
-    reg!("ChatContact/get", backend, |b, _ci, a| {
-        handle_contact_get(&*b, a).await
+    reg!("ChatContact/get", backend, |b, _ci, a, ctx| {
+        handle_contact_get(&*b, &ctx, a).await
     });
-    reg!("ChatContact/changes", backend, |b, _ci, a| {
-        handle_contact_changes(&*b, a).await
+    reg!("ChatContact/changes", backend, |b, _ci, a, ctx| {
+        handle_contact_changes(&*b, &ctx, a).await
     });
-    reg!("ChatContact/query", backend, |b, _ci, a| {
-        handle_contact_query(&*b, a).await
+    reg!("ChatContact/query", backend, |b, _ci, a, ctx| {
+        handle_contact_query(&*b, &ctx, a).await
     });
-    reg!("ChatContact/queryChanges", backend, |b, _ci, a| {
-        handle_contact_query_changes(&*b, a).await
+    reg!("ChatContact/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_contact_query_changes(&*b, &ctx, a).await
     });
-    reg!("ChatContact/set", backend, |b, _ci, a| {
-        handle_contact_set(&*b, a).await
+    reg!("ChatContact/set", backend, |b, _ci, a, ctx| {
+        handle_contact_set(&*b, &ctx, a).await
     });
 
     // ReadPosition
-    reg!("ReadPosition/get", backend, |b, _ci, a| {
-        handle_position_get(&*b, a).await
+    reg!("ReadPosition/get", backend, |b, _ci, a, ctx| {
+        handle_position_get(&*b, &ctx, a).await
     });
-    reg!("ReadPosition/changes", backend, |b, _ci, a| {
-        handle_position_changes(&*b, a).await
+    reg!("ReadPosition/changes", backend, |b, _ci, a, ctx| {
+        handle_position_changes(&*b, &ctx, a).await
     });
-    reg!("ReadPosition/set", backend, |b, _ci, a| {
-        handle_position_set(&*b, a).await
+    reg!("ReadPosition/set", backend, |b, _ci, a, ctx| {
+        handle_position_set(&*b, &ctx, a).await
     });
 
     // SpaceInvite
-    reg!("SpaceInvite/get", backend, |b, _ci, a| {
-        handle_invite_get(&*b, a).await
+    reg!("SpaceInvite/get", backend, |b, _ci, a, ctx| {
+        handle_invite_get(&*b, &ctx, a).await
     });
-    reg!("SpaceInvite/changes", backend, |b, _ci, a| {
-        handle_invite_changes(&*b, a).await
+    reg!("SpaceInvite/changes", backend, |b, _ci, a, ctx| {
+        handle_invite_changes(&*b, &ctx, a).await
     });
-    reg!("SpaceInvite/set", backend, |b, _ci, a| {
-        handle_invite_set(&*b, a).await
+    reg!("SpaceInvite/set", backend, |b, _ci, a, ctx| {
+        handle_invite_set(&*b, &ctx, a).await
     });
 
     // SpaceBan
-    reg!("SpaceBan/get", backend, |b, _ci, a| {
-        handle_ban_get(&*b, a).await
+    reg!("SpaceBan/get", backend, |b, _ci, a, ctx| {
+        handle_ban_get(&*b, &ctx, a).await
     });
-    reg!("SpaceBan/changes", backend, |b, _ci, a| {
-        handle_ban_changes(&*b, a).await
+    reg!("SpaceBan/changes", backend, |b, _ci, a, ctx| {
+        handle_ban_changes(&*b, &ctx, a).await
     });
-    reg!("SpaceBan/set", backend, |b, _ci, a| {
-        handle_ban_set(&*b, a).await
+    reg!("SpaceBan/set", backend, |b, _ci, a, ctx| {
+        handle_ban_set(&*b, &ctx, a).await
     });
 
     // CustomEmoji
-    reg!("CustomEmoji/get", backend, |b, _ci, a| {
-        handle_emoji_get(&*b, a).await
+    reg!("CustomEmoji/get", backend, |b, _ci, a, ctx| {
+        handle_emoji_get(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/changes", backend, |b, _ci, a| {
-        handle_emoji_changes(&*b, a).await
+    reg!("CustomEmoji/changes", backend, |b, _ci, a, ctx| {
+        handle_emoji_changes(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/query", backend, |b, _ci, a| {
-        handle_emoji_query(&*b, a).await
+    reg!("CustomEmoji/query", backend, |b, _ci, a, ctx| {
+        handle_emoji_query(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/queryChanges", backend, |b, _ci, a| {
-        handle_emoji_query_changes(&*b, a).await
+    reg!("CustomEmoji/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_emoji_query_changes(&*b, &ctx, a).await
     });
-    reg!("CustomEmoji/set", backend, |b, _ci, a| {
-        handle_emoji_set(&*b, a).await
+    reg!("CustomEmoji/set", backend, |b, _ci, a, ctx| {
+        handle_emoji_set(&*b, &ctx, a).await
     });
 
     // PresenceStatus
-    reg!("PresenceStatus/get", backend, |b, _ci, a| {
-        handle_presence_get(&*b, a).await
+    reg!("PresenceStatus/get", backend, |b, _ci, a, ctx| {
+        handle_presence_get(&*b, &ctx, a).await
     });
-    reg!("PresenceStatus/changes", backend, |b, _ci, a| {
-        handle_presence_changes(&*b, a).await
+    reg!("PresenceStatus/changes", backend, |b, _ci, a, ctx| {
+        handle_presence_changes(&*b, &ctx, a).await
     });
-    reg!("PresenceStatus/set", backend, |b, _ci, a| {
-        handle_presence_set(&*b, a).await
+    reg!("PresenceStatus/set", backend, |b, _ci, a, ctx| {
+        handle_presence_set(&*b, &ctx, a).await
     });
 }
 
