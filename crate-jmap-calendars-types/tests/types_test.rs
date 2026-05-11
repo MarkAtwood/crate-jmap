@@ -699,7 +699,7 @@ fn alert_offset_trigger_roundtrip() {
     match &trigger {
         AlertTrigger::OffsetTrigger(t) => {
             assert_eq!(t.at_type, "OffsetTrigger");
-            assert_eq!(t.offset, "-PT15M");
+            assert_eq!(t.offset.as_ref(), "-PT15M");
             assert_eq!(t.relative_to.as_deref(), Some("start"));
         }
         _ => panic!("expected OffsetTrigger variant"),
@@ -776,7 +776,7 @@ fn alert_with_offset_trigger() {
     assert_eq!(alert.action.as_deref(), Some("display"));
     assert!(alert.acknowledged.is_none());
     match &alert.trigger {
-        AlertTrigger::OffsetTrigger(t) => assert_eq!(t.offset, "-PT15M"),
+        AlertTrigger::OffsetTrigger(t) => assert_eq!(t.offset.as_ref(), "-PT15M"),
         _ => panic!("expected OffsetTrigger"),
     }
 }
@@ -1031,14 +1031,19 @@ fn participant_schedule_fields_roundtrip() {
 
     let p: Participant = serde_json::from_str(json).expect("Participant deserialize");
     assert_eq!(p.schedule_sequence, Some(3));
-    assert_eq!(p.schedule_updated.as_deref(), Some("2024-06-15T10:30:00Z"));
+    // schedule_updated is Option<UTCDate>; UTCDate does not impl Deref<Target=str>
+    // so we cannot use Option::as_deref. Take an AsRef<str> view via map instead.
+    assert_eq!(
+        p.schedule_updated.as_ref().map(AsRef::as_ref),
+        Some("2024-06-15T10:30:00Z")
+    );
 
     // Round-trip: serialize then re-deserialize.
     let serialized = serde_json::to_string(&p).expect("serialize");
     let back: Participant = serde_json::from_str(&serialized).expect("re-deserialize");
     assert_eq!(back.schedule_sequence, Some(3));
     assert_eq!(
-        back.schedule_updated.as_deref(),
+        back.schedule_updated.as_ref().map(AsRef::as_ref),
         Some("2024-06-15T10:30:00Z")
     );
 
