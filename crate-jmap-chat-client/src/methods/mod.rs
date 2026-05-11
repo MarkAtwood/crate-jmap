@@ -827,6 +827,174 @@ impl<'a> SpaceAddChannelInput<'a> {
     }
 }
 
+/// One role to add in the `addRoles` patch key of `Space/set` update
+/// (JMAP Chat §Space/set update / `manage_roles` permission).
+///
+/// The server assigns the role's ULID; the request never specifies an `id`.
+/// Hierarchy enforcement: a member may only add roles whose `position` is
+/// strictly less than their own highest-position role (server-enforced).
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceAddRoleInput<'a> {
+    /// Human-readable role name.
+    pub name: &'a str,
+    /// Permission identifier strings, e.g. `"manage_channels"`.
+    pub permissions: &'a [&'a str],
+    /// Position in the role hierarchy. Lower values sort first.
+    pub position: u64,
+    /// Optional CSS-style color string (e.g. `"#ff8800"`). Pass `None` to omit.
+    pub color: Option<&'a str>,
+}
+
+impl<'a> SpaceAddRoleInput<'a> {
+    /// Create a `SpaceAddRoleInput` with required fields; optional `color` defaults to `None`.
+    pub fn new(name: &'a str, permissions: &'a [&'a str], position: u64) -> Self {
+        Self {
+            name,
+            permissions,
+            position,
+            color: None,
+        }
+    }
+
+    /// Attach a color to the role.
+    pub fn with_color(mut self, color: &'a str) -> Self {
+        self.color = Some(color);
+        self
+    }
+}
+
+/// One role update in the `updateRoles` patch key of `Space/set` update
+/// (JMAP Chat §Space/set update / `manage_roles` permission).
+///
+/// Fields left at their default (`None` / [`Patch::Keep`]) are omitted from
+/// the wire patch and the server leaves the corresponding property unchanged.
+/// Hierarchy enforcement: a member may only modify roles whose `position` is
+/// strictly less than their own highest-position role (server-enforced).
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceUpdateRoleInput<'a> {
+    /// SpaceRole.id to update.
+    pub id: &'a Id,
+    /// New name. `None` = no change.
+    pub name: Option<&'a str>,
+    /// Set or clear the color. [`Patch::Clear`] removes any assigned color.
+    pub color: Patch<&'a str>,
+    /// Replace the permissions list. `None` = no change.
+    pub permissions: Option<&'a [&'a str]>,
+    /// New position in the role hierarchy. `None` = no change.
+    pub position: Option<u64>,
+}
+
+impl<'a> SpaceUpdateRoleInput<'a> {
+    /// Create a `SpaceUpdateRoleInput`; optional fields default to `None`/`Keep`.
+    pub fn new(id: &'a Id) -> Self {
+        Self {
+            id,
+            name: None,
+            color: Patch::Keep,
+            permissions: None,
+            position: None,
+        }
+    }
+}
+
+/// One channel update in the `updateChannels` patch key of `Space/set` update
+/// (JMAP Chat §Space/set update / `manage_channels` permission).
+///
+/// Fields left at their default (`None` / [`Patch::Keep`]) are omitted from
+/// the wire patch and the server leaves the corresponding property unchanged.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceUpdateChannelInput<'a> {
+    /// Channel Chat id (kind `"channel"`, `spaceId` is this Space).
+    pub id: &'a Id,
+    /// New channel name. `None` = no change.
+    pub name: Option<&'a str>,
+    /// Set or clear the channel topic. [`Patch::Clear`] removes any assigned topic.
+    pub topic: Patch<&'a str>,
+    /// Set or clear the parent category. [`Patch::Clear`] moves the channel to
+    /// the `uncategorizedChannelIds` list.
+    pub category_id: Patch<&'a Id>,
+    /// New position within its category. `None` = no change.
+    pub position: Option<u64>,
+    /// New slow-mode delay in seconds (`0` = disabled). `None` = no change.
+    pub slow_mode_seconds: Option<u64>,
+    /// Replace the permission-overrides list. `None` = no change.
+    pub permission_overrides: Option<&'a [jmap_chat_types::ChannelPermission]>,
+}
+
+impl<'a> SpaceUpdateChannelInput<'a> {
+    /// Create a `SpaceUpdateChannelInput`; optional fields default to `None`/`Keep`.
+    pub fn new(id: &'a Id) -> Self {
+        Self {
+            id,
+            name: None,
+            topic: Patch::Keep,
+            category_id: Patch::Keep,
+            position: None,
+            slow_mode_seconds: None,
+            permission_overrides: None,
+        }
+    }
+}
+
+/// One category to add in the `addCategories` patch key of `Space/set` update
+/// (JMAP Chat §Space/set update / `manage_channels` permission).
+///
+/// The server assigns the category's ULID; the request never specifies an `id`.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceAddCategoryInput<'a> {
+    /// Category display name.
+    pub name: &'a str,
+    /// Position relative to other categories. `None` lets the server append.
+    pub position: Option<u64>,
+    /// Initial member channel ids. `None` = empty category.
+    pub channel_ids: Option<&'a [Id]>,
+}
+
+impl<'a> SpaceAddCategoryInput<'a> {
+    /// Create a `SpaceAddCategoryInput`; optional fields default to `None`.
+    pub fn new(name: &'a str) -> Self {
+        Self {
+            name,
+            position: None,
+            channel_ids: None,
+        }
+    }
+}
+
+/// One category update in the `updateCategories` patch key of `Space/set` update
+/// (JMAP Chat §Space/set update / `manage_channels` permission).
+///
+/// Fields left at their default (`None`) are omitted from the wire patch and
+/// the server leaves the corresponding property unchanged.
+#[non_exhaustive]
+#[derive(Debug)]
+pub struct SpaceUpdateCategoryInput<'a> {
+    /// Category id to update.
+    pub id: &'a Id,
+    /// New name. `None` = no change.
+    pub name: Option<&'a str>,
+    /// New position. `None` = no change.
+    pub position: Option<u64>,
+    /// Replace the member channel id list. `None` = no change.
+    pub channel_ids: Option<&'a [Id]>,
+}
+
+impl<'a> SpaceUpdateCategoryInput<'a> {
+    /// Create a `SpaceUpdateCategoryInput`; optional fields default to `None`.
+    pub fn new(id: &'a Id) -> Self {
+        Self {
+            id,
+            name: None,
+            position: None,
+            channel_ids: None,
+        }
+    }
+}
+
 /// Patch parameters for `Space/set` update.
 ///
 /// All fields are optional. Absent fields are omitted from the patch.
@@ -855,6 +1023,20 @@ pub struct SpacePatch<'a> {
     pub add_channels: Option<&'a [SpaceAddChannelInput<'a>]>,
     /// Channel Chat ids to remove (`manage_channels` required). `None` = no change.
     pub remove_channels: Option<&'a [Id]>,
+    /// Channel updates (`manage_channels` required). `None` = no change.
+    pub update_channels: Option<&'a [SpaceUpdateChannelInput<'a>]>,
+    /// Roles to add (`manage_roles` required). `None` = no change.
+    pub add_roles: Option<&'a [SpaceAddRoleInput<'a>]>,
+    /// SpaceRole.ids to remove (`manage_roles` required). `None` = no change.
+    pub remove_roles: Option<&'a [Id]>,
+    /// Role updates (`manage_roles` required). `None` = no change.
+    pub update_roles: Option<&'a [SpaceUpdateRoleInput<'a>]>,
+    /// Categories to add (`manage_channels` required). `None` = no change.
+    pub add_categories: Option<&'a [SpaceAddCategoryInput<'a>]>,
+    /// Category ids to remove (`manage_channels` required). `None` = no change.
+    pub remove_categories: Option<&'a [Id]>,
+    /// Category updates (`manage_channels` required). `None` = no change.
+    pub update_categories: Option<&'a [SpaceUpdateCategoryInput<'a>]>,
 }
 
 /// Input parameters for `PushSubscription/set` create (RFC 8620 §7.2).
