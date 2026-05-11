@@ -787,3 +787,446 @@ fn tasks_assignees_account_capability_roundtrip() {
         recovered.max_participants_per_task
     );
 }
+
+// ─── JSCalendar sloppy-Value round-trip tests (JMAP-yfpq.2) ──────────────────
+//
+// These tests prove that each of the 11 `Option<...serde_json::Value>` sloppy
+// fields on `Task` / `TaskList` carries JSON that round-trips through the
+// matching typed sub-type in `jmap-jscalendar-types`.
+//
+// Pattern per field:
+//   1. Build minimal Task / TaskList JSON containing the field, populated
+//      with one or more RFC 8984 spec-shaped sub-objects.
+//   2. Deserialize as Task / TaskList — proves the wire shape is accepted.
+//   3. Extract the field's Value and `serde_json::from_value` it into the
+//      typed jscalendar sub-type — the new contract this test proves.
+//   4. Assert key fields on the typed sub-type to confirm data really
+//      landed in the right places.
+//   5. Re-serialize the typed sub-type and check the round-tripped JSON
+//      matches the input shape.
+//
+// Oracle source: RFC 8984 (the JSCalendar specification) — sections cited
+// per test. NEVER derived from code under test.
+//
+// Note on `time_zones`: RFC 8984 §4.7.2 defines `timeZones` as a map of
+// TimeZoneId → TimeZone object, but `jmap-jscalendar-types` does not yet
+// model the `TimeZone` typed sub-type. The `time_zones` test below
+// therefore only verifies Value-level round-trip; see JMAP-x014 for the
+// follow-up to add `TimeZone` and upgrade this test.
+mod jscalendar_roundtrip {
+    use jmap_jscalendar_types::{
+        Alert, AlertTrigger, Link, Location, Participant, RecurrenceRule, Relation, VirtualLocation,
+    };
+    use jmap_tasks_types::{Task, TaskList};
+
+    /// Build a syntactically valid minimal `Task` JSON object with a single
+    /// extra key/value injected at the top level. `Task` has no
+    /// strictly-required fields (every field is `Option`), so the helper
+    /// emits just the essentials plus the extra key under test.
+    fn task_with(extra_key: &str, extra_value: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "id": "T1",
+            "taskListId": "L1",
+            "@type": "Task",
+            "uid": "task-uid-yfpq2",
+            "title": "fixture task",
+            extra_key: extra_value,
+        })
+    }
+
+    /// RFC 8984 §4.1.3 — `relatedTo` is `String[Relation]`.
+    ///
+    /// A Relation object has `@type: "Relation"` and an optional map
+    /// `relation: String[Boolean]` (RFC 8984 §1.4.10).
+    #[test]
+    fn task_related_to_roundtrips_as_relation() {
+        let related_to_value = serde_json::json!({
+            "task-other-uid": {
+                "@type": "Relation",
+                "relation": { "parent": true }
+            }
+        });
+        let raw = task_with("relatedTo", related_to_value.clone());
+
+        let task: Task = serde_json::from_value(raw).expect("Task deserialize");
+        let map = task.related_to.as_ref().expect("relatedTo present");
+        let entry = map.get("task-other-uid").expect("entry");
+
+        let rel: Relation = serde_json::from_value(entry.clone()).expect("decode Relation");
+        assert_eq!(rel.at_type, "Relation");
+        assert_eq!(
+            rel.relation.as_ref().and_then(|m| m.get("parent")).copied(),
+            Some(true)
+        );
+
+        let round_tripped = serde_json::to_value(&rel).expect("serialize Relation");
+        assert_eq!(round_tripped, entry.clone());
+    }
+
+    /// RFC 8984 §4.2.5 — `locations` is `Id[Location]`. Example shape
+    /// adapted from RFC 8984 §6.8 (Event with Multiple Locations).
+    #[test]
+    fn task_locations_roundtrips_as_location() {
+        let locations_value = serde_json::json!({
+            "loc-1": {
+                "@type": "Location",
+                "name": "The Music Bowl",
+                "description": "Music Bowl, Central Park, New York",
+                "coordinates": "geo:40.7829,-73.9654"
+            }
+        });
+        let raw = task_with("locations", locations_value);
+
+        let task: Task = serde_json::from_value(raw).expect("Task deserialize");
+        let map = task.locations.as_ref().expect("locations present");
+        let entry = map.values().next().expect("at least one location");
+
+        let loc: Location = serde_json::from_value(entry.clone()).expect("decode Location");
+        assert_eq!(loc.at_type, "Location");
+        assert_eq!(loc.name.as_deref(), Some("The Music Bowl"));
+        assert_eq!(loc.coordinates.as_deref(), Some("geo:40.7829,-73.9654"));
+
+        let round_tripped = serde_json::to_value(&loc).expect("serialize Location");
+        assert_eq!(round_tripped, entry.clone());
+    }
+
+    /// RFC 8984 §4.2.6 — `virtualLocations` is `Id[VirtualLocation]`.
+    /// `uri` is mandatory per spec. Example shape from §6.8.
+    #[test]
+    fn task_virtual_locations_roundtrips_as_virtual_location() {
+        let vloc_value = serde_json::json!({
+            "vloc1": {
+                "@type": "VirtualLocation",
+                "name": "Free live Stream from Music Bowl",
+                "uri": "https://stream.example.com/the_band_2020"
+            }
+        });
+        let raw = task_with("virtualLocations", vloc_value);
+
+        let task: Task = serde_json::from_value(raw).expect("Task deserialize");
+        let map = task
+            .virtual_locations
+            .as_ref()
+            .expect("virtualLocations present");
+        let entry = map.values().next().expect("at least one vloc");
+
+        let vloc: VirtualLocation =
+            serde_json::from_value(entry.clone()).expect("decode VirtualLocation");
+        assert_eq!(vloc.at_type, "VirtualLocation");
+        assert_eq!(vloc.uri, "https://stream.example.com/the_band_2020");
+        assert_eq!(
+            vloc.name.as_deref(),
+            Some("Free live Stream from Music Bowl")
+        );
+
+        let round_tripped = serde_json::to_value(&vloc).expect("serialize VirtualLocation");
+        assert_eq!(round_tripped, entry.clone());
+    }
+
+    /// RFC 8984 §4.2.7 / §1.4.11 — `links` is `Id[Link]`.
+    /// `href` is the only meaningful identifier when `blobId` is absent.
+    #[test]
+    fn task_links_roundtrips_as_link() {
+        let links_value = serde_json::json!({
+            "link-1": {
+                "@type": "Link",
+                "href": "https://example.com/attach/report.pdf",
+                "contentType": "application/pdf",
+                "size": 123456_u64,
+                "rel": "enclosure"
+            }
+        });
+        let raw = task_with("links", links_value);
+
+        let task: Task = serde_json::from_value(raw).expect("Task deserialize");
+        let map = task.links.as_ref().expect("links present");
+        let entry = map.values().next().expect("at least one link");
+
+        let link: Link = serde_json::from_value(entry.clone()).expect("decode Link");
+        assert_eq!(link.at_type, "Link");
+        assert_eq!(
+            link.href.as_deref(),
+            Some("https://example.com/attach/report.pdf")
+        );
+        assert_eq!(link.content_type.as_deref(), Some("application/pdf"));
+        assert_eq!(link.size, Some(123_456));
+        assert_eq!(link.rel.as_deref(), Some("enclosure"));
+
+        let round_tripped = serde_json::to_value(&link).expect("serialize Link");
+        assert_eq!(round_tripped, entry.clone());
+    }
+
+    /// RFC 8984 §4.3.3 — `recurrenceRules` is a list of RecurrenceRule.
+    /// Example shape adapted from §6.9 (Recurring Event with Overrides).
+    #[test]
+    fn task_recurrence_rules_roundtrips_as_recurrence_rule() {
+        let rules_value = serde_json::json!([
+            {
+                "@type": "RecurrenceRule",
+                "frequency": "weekly",
+                "until": "2020-06-24T09:00:00"
+            }
+        ]);
+        let raw = task_with("recurrenceRules", rules_value);
+
+        let task: Task = serde_json::from_value(raw).expect("Task deserialize");
+        let rules = task
+            .recurrence_rules
+            .as_ref()
+            .expect("recurrenceRules present");
+        let entry = rules.first().expect("at least one rule");
+
+        let rule: RecurrenceRule =
+            serde_json::from_value(entry.clone()).expect("decode RecurrenceRule");
+        assert_eq!(rule.at_type, "RecurrenceRule");
+        assert_eq!(rule.frequency, "weekly");
+        assert_eq!(
+            rule.until.as_ref().map(AsRef::as_ref),
+            Some("2020-06-24T09:00:00")
+        );
+
+        let round_tripped = serde_json::to_value(&rule).expect("serialize RecurrenceRule");
+        assert_eq!(round_tripped, entry.clone());
+    }
+
+    /// RFC 8984 §4.3.4 — `excludedRecurrenceRules` shares the RecurrenceRule
+    /// shape with §4.3.3. Verifying both fields independently catches a
+    /// regression where only one of the two `Vec<Value>` fields is wired up.
+    #[test]
+    fn task_excluded_recurrence_rules_roundtrips_as_recurrence_rule() {
+        let rules_value = serde_json::json!([
+            {
+                "@type": "RecurrenceRule",
+                "frequency": "daily",
+                "byMonth": ["12"]
+            }
+        ]);
+        let raw = task_with("excludedRecurrenceRules", rules_value);
+
+        let task: Task = serde_json::from_value(raw).expect("Task deserialize");
+        let rules = task
+            .excluded_recurrence_rules
+            .as_ref()
+            .expect("excludedRecurrenceRules present");
+        let entry = rules.first().expect("at least one rule");
+
+        let rule: RecurrenceRule =
+            serde_json::from_value(entry.clone()).expect("decode RecurrenceRule");
+        assert_eq!(rule.at_type, "RecurrenceRule");
+        assert_eq!(rule.frequency, "daily");
+        assert_eq!(rule.by_month.as_deref(), Some(&["12".to_string()][..]));
+
+        let round_tripped = serde_json::to_value(&rule).expect("serialize RecurrenceRule");
+        assert_eq!(round_tripped, entry.clone());
+    }
+
+    /// RFC 8984 §4.4.6 — `participants` is `Id[Participant]`. Example
+    /// shape adapted from §6.10 (Recurring Event with Participants).
+    #[test]
+    fn task_participants_roundtrips_as_participant() {
+        let participants_value = serde_json::json!({
+            "p-tom": {
+                "@type": "Participant",
+                "name": "Tom Tool",
+                "email": "tom@foobar.example.com",
+                "sendTo": {
+                    "imip": "mailto:tom@calendar.example.com"
+                },
+                "participationStatus": "accepted",
+                "roles": { "attendee": true }
+            }
+        });
+        let raw = task_with("participants", participants_value);
+
+        let task: Task = serde_json::from_value(raw).expect("Task deserialize");
+        let map = task.participants.as_ref().expect("participants present");
+        let entry = map.values().next().expect("at least one participant");
+
+        let p: Participant = serde_json::from_value(entry.clone()).expect("decode Participant");
+        assert_eq!(p.at_type, "Participant");
+        assert_eq!(p.name.as_deref(), Some("Tom Tool"));
+        assert_eq!(p.email.as_deref(), Some("tom@foobar.example.com"));
+        assert_eq!(
+            p.send_to
+                .as_ref()
+                .and_then(|m| m.get("imip"))
+                .map(String::as_str),
+            Some("mailto:tom@calendar.example.com")
+        );
+
+        let round_tripped = serde_json::to_value(&p).expect("serialize Participant");
+        assert_eq!(round_tripped, entry.clone());
+    }
+
+    /// RFC 8984 §4.5.2 — `alerts` is `Id[Alert]` with an OffsetTrigger
+    /// (example: `"-PT15M"` to fire 15 minutes before start).
+    #[test]
+    fn task_alerts_roundtrips_as_alert_offset_trigger() {
+        let alerts_value = serde_json::json!({
+            "alarm-1": {
+                "@type": "Alert",
+                "trigger": {
+                    "@type": "OffsetTrigger",
+                    "offset": "-PT15M"
+                },
+                "action": "display"
+            }
+        });
+        let raw = task_with("alerts", alerts_value);
+
+        let task: Task = serde_json::from_value(raw).expect("Task deserialize");
+        let map = task.alerts.as_ref().expect("alerts present");
+        let entry = map.values().next().expect("at least one alert");
+
+        let alert: Alert = serde_json::from_value(entry.clone()).expect("decode Alert");
+        assert_eq!(alert.at_type, "Alert");
+        assert_eq!(alert.action.as_deref(), Some("display"));
+        match &alert.trigger {
+            AlertTrigger::OffsetTrigger(t) => {
+                assert_eq!(t.offset.as_ref(), "-PT15M");
+            }
+            other => panic!("expected OffsetTrigger, got {other:?}"),
+        }
+
+        let round_tripped = serde_json::to_value(&alert).expect("serialize Alert");
+        assert_eq!(round_tripped, entry.clone());
+    }
+
+    /// RFC 8984 §4.7.2 — `timeZones` is `Map<TimeZoneId, TimeZone>`.
+    /// `jmap-jscalendar-types` does not yet model the `TimeZone` typed
+    /// sub-object (see JMAP-x014). For now we only verify Value-level
+    /// round-trip: the sloppy field accepts the wire shape and emits it
+    /// back unchanged. When JMAP-x014 lands, upgrade this test to also
+    /// decode into a typed `TimeZone`.
+    #[test]
+    fn task_time_zones_value_roundtrips() {
+        let tz_value = serde_json::json!({
+            "/example/custom/UTC+05:30:00": {
+                "@type": "TimeZone",
+                "tzId": "/example/custom/UTC+05:30:00",
+                "updated": "2024-01-01T00:00:00Z",
+                "standard": [
+                    {
+                        "@type": "TimeZoneRule",
+                        "start": "1970-01-01T00:00:00",
+                        "offsetFrom": "+0530",
+                        "offsetTo": "+0530"
+                    }
+                ]
+            }
+        });
+        let raw = task_with("timeZones", tz_value.clone());
+
+        let task: Task = serde_json::from_value(raw).expect("Task deserialize");
+        let map = task.time_zones.as_ref().expect("timeZones present");
+        let entry = map
+            .get("/example/custom/UTC+05:30:00")
+            .expect("custom tz entry");
+
+        // Value-only round-trip: the field stores the wire shape opaquely
+        // and emits it back unchanged.
+        let round_tripped = serde_json::to_value(entry).expect("serialize Value");
+        assert_eq!(
+            round_tripped,
+            tz_value["/example/custom/UTC+05:30:00"].clone()
+        );
+    }
+
+    /// Helper for TaskList tests: minimal TaskList JSON with one
+    /// extra top-level key.
+    fn task_list_with(extra_key: &str, extra_value: serde_json::Value) -> serde_json::Value {
+        serde_json::json!({
+            "id": "L1",
+            "name": "fixture list",
+            "sortOrder": 0,
+            "isSubscribed": false,
+            "myRights": {
+                "mayReadItems": true,
+                "mayWriteAll": false,
+                "mayWriteOwn": false,
+                "mayUpdatePrivate": false,
+                "mayRSVP": false,
+                "mayAdmin": false,
+                "mayDelete": false
+            },
+            extra_key: extra_value,
+        })
+    }
+
+    /// draft-ietf-jmap-tasks-06 §3 / RFC 8984 §4.5.2 — TaskList carries
+    /// `defaultAlertsWithTime` whose values are JSCalendar `Alert` objects.
+    /// Verify with an OffsetTrigger, matching what a client would set for
+    /// "remind me 15 minutes before any timed task on this list".
+    #[test]
+    fn task_list_default_alerts_with_time_roundtrips_as_alert() {
+        let alerts_value = serde_json::json!({
+            "default-15m": {
+                "@type": "Alert",
+                "trigger": {
+                    "@type": "OffsetTrigger",
+                    "offset": "-PT15M"
+                }
+            }
+        });
+        let raw = task_list_with("defaultAlertsWithTime", alerts_value);
+
+        let tl: TaskList = serde_json::from_value(raw).expect("TaskList deserialize");
+        let map = tl
+            .default_alerts_with_time
+            .as_ref()
+            .expect("defaultAlertsWithTime present");
+        let entry = map.values().next().expect("at least one default alert");
+
+        let alert: Alert = serde_json::from_value(entry.clone()).expect("decode Alert");
+        assert_eq!(alert.at_type, "Alert");
+        match &alert.trigger {
+            AlertTrigger::OffsetTrigger(t) => {
+                assert_eq!(t.offset.as_ref(), "-PT15M");
+            }
+            other => panic!("expected OffsetTrigger, got {other:?}"),
+        }
+
+        let round_tripped = serde_json::to_value(&alert).expect("serialize Alert");
+        assert_eq!(round_tripped, entry.clone());
+    }
+
+    /// draft-ietf-jmap-tasks-06 §3 — `defaultAlertsWithoutTime` parallels
+    /// `defaultAlertsWithTime` but for tasks without a specific time of
+    /// day (e.g. all-day tasks). Same Alert shape; we use an
+    /// AbsoluteTrigger here to also exercise the second AlertTrigger
+    /// variant.
+    #[test]
+    fn task_list_default_alerts_without_time_roundtrips_as_alert() {
+        let alerts_value = serde_json::json!({
+            "default-noon": {
+                "@type": "Alert",
+                "trigger": {
+                    "@type": "AbsoluteTrigger",
+                    "when": "2024-06-15T08:45:00Z"
+                },
+                "action": "email"
+            }
+        });
+        let raw = task_list_with("defaultAlertsWithoutTime", alerts_value);
+
+        let tl: TaskList = serde_json::from_value(raw).expect("TaskList deserialize");
+        let map = tl
+            .default_alerts_without_time
+            .as_ref()
+            .expect("defaultAlertsWithoutTime present");
+        let entry = map.values().next().expect("at least one default alert");
+
+        let alert: Alert = serde_json::from_value(entry.clone()).expect("decode Alert");
+        assert_eq!(alert.at_type, "Alert");
+        assert_eq!(alert.action.as_deref(), Some("email"));
+        match &alert.trigger {
+            AlertTrigger::AbsoluteTrigger(t) => {
+                assert_eq!(t.when.as_ref(), "2024-06-15T08:45:00Z");
+            }
+            other => panic!("expected AbsoluteTrigger, got {other:?}"),
+        }
+
+        let round_tripped = serde_json::to_value(&alert).expect("serialize Alert");
+        assert_eq!(round_tripped, entry.clone());
+    }
+}
