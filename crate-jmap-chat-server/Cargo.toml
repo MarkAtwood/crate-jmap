@@ -16,13 +16,22 @@ categories = ["network-programming", "web-programming::http-server"]
 # documentation example. API stability is opt-in via this feature and may
 # break across minor versions pre-1.0. Mirrors the canonical
 # jmap-mail-server `memory` feature (JMAP-hwdv.1).
-memory = []
+#
+# Enabling `memory` pulls in `getrandom` so the reference
+# `generate_invite_code` impl can satisfy the CSPRNG contract documented on
+# the `ChatBackend::generate_invite_code` trait method (bd:JMAP-sc1b.93).
+memory = ["dep:getrandom"]
 
 [dependencies]
 jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
 jmap-server = { workspace = true }
 serde_json = { workspace = true }
+# CSPRNG for the `memory` reference backend. Only pulled in when `memory`
+# is enabled — production deployments ship their own ChatBackend impl that
+# carries its own randomness story. Pinned to 0.3 (current stable line);
+# the workspace MSRV (1.88) is well ahead of getrandom 0.3's required 1.60.
+getrandom = { version = "0.3", optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
