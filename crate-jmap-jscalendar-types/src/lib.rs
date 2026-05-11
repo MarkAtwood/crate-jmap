@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
 /// Format: `YYYY-MM-DDTHH:MM:SS` (no `Z`, no `±offset`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct LocalDateTime(pub String);
+pub struct LocalDateTime(String);
 
 impl From<String> for LocalDateTime {
     fn from(s: String) -> Self {
@@ -65,7 +65,7 @@ impl AsRef<str> for LocalDateTime {
 /// Example: `"PT1H"`, `"P1DT2H"`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct Duration(pub String);
+pub struct Duration(String);
 
 impl From<String> for Duration {
     fn from(s: String) -> Self {
@@ -91,7 +91,7 @@ impl AsRef<str> for Duration {
 /// Example: `"-PT15M"`, `"+PT30M"`.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub struct SignedDuration(pub String);
+pub struct SignedDuration(String);
 
 impl From<String> for SignedDuration {
     fn from(s: String) -> Self {

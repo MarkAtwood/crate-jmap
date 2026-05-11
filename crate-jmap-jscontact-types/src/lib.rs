@@ -60,7 +60,7 @@ use serde::{Deserialize, Serialize};
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct JsContactId(pub String);
+pub struct JsContactId(String);
 
 impl From<String> for JsContactId {
     fn from(s: String) -> Self {
