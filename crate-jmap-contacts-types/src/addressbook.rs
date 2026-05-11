@@ -28,6 +28,13 @@ pub struct AddressBookRights {
     pub may_share: bool,
     /// User may delete the AddressBook itself.
     pub may_delete: bool,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A JMAP AddressBook object (RFC 9610 §2).
@@ -65,4 +72,11 @@ pub struct AddressBook {
     pub share_with: Option<HashMap<Id, AddressBookRights>>,
     /// ACL rights the authenticated user has on this AddressBook; server-set.
     pub my_rights: AddressBookRights,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }

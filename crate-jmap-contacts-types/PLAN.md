@@ -360,3 +360,48 @@ serde_json           = "1"
 ```
 
 No tokio, no async, no network deps.
+
+## Type-design constraints
+
+### Extras-preservation policy (JMAP-lbdy)
+
+Every public `Deserialize` struct that appears on the JMAP wire carries an
+`extra` field per the workspace extras-preservation policy (see workspace
+`AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+In scope in this crate (each has a round-trip preservation test):
+
+- `ContactCard` (card.rs).
+- `AddressBookRights`, `AddressBook` (addressbook.rs).
+
+The 23 typed sub-types in the re-exported `jscontact` module
+(`jmap-jscontact-types`) — `Name`, `Nickname`, `Organization`,
+`OrgUnit`, `SpeakToAs`, `Pronouns`, `Title`, `EmailAddress`,
+`OnlineService`, `Phone`, `LanguagePref`, `Calendar`,
+`SchedulingAddress`, `Address`, `CryptoKey`, `Directory`, `Link`,
+`Media`, `Anniversary`, `Note`, `Author`, `PersonalInfo`, `Relation` —
+also carry `extra` fields by virtue of the policy applied in their
+home crate.
+
+Out of scope:
+
+- `ContactCardFilterCondition`, `ContactCardComparator` — filter and
+  comparator algebra, per workspace policy. The existing rustdoc on
+  each already documents the exclusion.
+- `ContactsCapability`, `ContactsAccountCapability` — capability
+  objects.
+- `NameComponent`, `AddressComponent`, `PartialDate`, `Timestamp` —
+  Hash-derived sub-types in `jmap-jscontact-types`; pending Hash-vs-
+  extras decision in JMAP-lbdy.12.
+
+### New-type rule
+
+Any new public `Deserialize` struct added to this crate that appears on
+the JMAP wire MUST include the `extra` field from day one with the
+documented serde attributes and at least one round-trip preservation
+test.

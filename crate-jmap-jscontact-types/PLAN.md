@@ -139,3 +139,41 @@ Each typed sub-type has a round-trip test using hand-written RFC 9553
 example JSON (one of the spec's worked examples per type). The oracle
 is the RFC, not the code under test — expected JSON is hardcoded from
 the figure number cited in the doc comment.
+
+## Type-design constraints
+
+### Extras-preservation policy (JMAP-lbdy)
+
+Every public `Deserialize` struct that appears on the JMAP wire carries
+an `extra` field per the workspace extras-preservation policy:
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+In scope (each has a round-trip preservation test):
+
+- `Name`, `Nickname`, `Organization`, `OrgUnit`, `SpeakToAs`,
+  `Pronouns`, `Title`, `EmailAddress`, `OnlineService`, `Phone`,
+  `LanguagePref`, `Calendar`, `SchedulingAddress`, `Address`,
+  `CryptoKey`, `Directory`, `Link`, `Media`, `Anniversary`, `Note`,
+  `Author`, `PersonalInfo`, `Relation` (23 types in `lib.rs`).
+
+Out of scope:
+
+- `JsContactId` — newtype around `String`.
+- `AnniversaryDate` — outer dispatch enum; extras live on variant
+  structs.
+- `NameComponent`, `AddressComponent`, `PartialDate`, `Timestamp` —
+  four Hash-derived types. Adding `serde_json::Map` (which lacks
+  `Hash`) breaks the auto-derived `Hash` macro. Tracked under
+  JMAP-lbdy.12 pending a Hash-vs-extras tension decision.
+
+### New-type rule
+
+Any new public `Deserialize` struct added to this crate that appears on
+the JMAP wire MUST include the `extra` field from day one with the
+documented serde attributes and at least one round-trip preservation
+test, subject to the Hash-vs-extras caveat for any new Hash-derived
+type.

@@ -123,6 +123,13 @@ pub struct Name {
     /// The phonetic system used by the `phonetic` property on components.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phonetic_system: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A single component of a [`Name`] (RFC 9553 §2.2.1.2).
@@ -169,6 +176,13 @@ pub struct Nickname {
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pref: Option<u32>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Organization and OrgUnit (RFC 9553 §2.2.3) ────────────────────────────────
@@ -201,6 +215,13 @@ pub struct Organization {
     /// Contexts in which association applies (key → `true`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contexts: Option<HashMap<String, bool>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// An organizational unit within an [`Organization`] (RFC 9553 §2.2.3).
@@ -218,6 +239,13 @@ pub struct OrgUnit {
     /// The verbatim string for lexicographic sort within this level.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sort_as: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── SpeakToAs and Pronouns (RFC 9553 §2.2.4) ──────────────────────────────────
@@ -243,6 +271,13 @@ pub struct SpeakToAs {
     /// Map of pronoun [`Id`](JsContactId) → [`Pronouns`] object.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pronouns: Option<HashMap<String, Pronouns>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A pronouns entry (RFC 9553 §2.2.4).
@@ -264,6 +299,13 @@ pub struct Pronouns {
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pref: Option<u32>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Title (RFC 9553 §2.2.5) ───────────────────────────────────────────────────
@@ -287,6 +329,13 @@ pub struct Title {
     /// The [`JsContactId`] of the organization in which this title is held.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub organization_id: Option<JsContactId>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── EmailAddress (RFC 9553 §2.3.1) ────────────────────────────────────────────
@@ -314,6 +363,13 @@ pub struct EmailAddress {
     /// Custom label for the value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── OnlineService (RFC 9553 §2.3.2) ───────────────────────────────────────────
@@ -353,6 +409,13 @@ pub struct OnlineService {
     /// Custom label for the value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Phone (RFC 9553 §2.3.3) ───────────────────────────────────────────────────
@@ -386,6 +449,13 @@ pub struct Phone {
     /// Custom label for the value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── LanguagePref (RFC 9553 §2.3.4) ────────────────────────────────────────────
@@ -409,6 +479,13 @@ pub struct LanguagePref {
     /// Preference order in 1..=100 (lower = more preferred).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pref: Option<u32>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Calendar (RFC 9553 §2.4.1; extends Resource §1.4.4) ───────────────────────
@@ -451,6 +528,13 @@ pub struct Calendar {
     /// Custom label for the value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── SchedulingAddress (RFC 9553 §2.4.2) ───────────────────────────────────────
@@ -478,6 +562,13 @@ pub struct SchedulingAddress {
     /// Custom label for the value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Address and AddressComponent (RFC 9553 §2.5.1) ────────────────────────────
@@ -539,6 +630,13 @@ pub struct Address {
     /// Phonetic system for component phonetics.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phonetic_system: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A single component of an [`Address`] (RFC 9553 §2.5.1.2).
@@ -603,6 +701,13 @@ pub struct CryptoKey {
     /// Custom label for the value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Directory (RFC 9553 §2.6.2; extends Resource §1.4.4) ──────────────────────
@@ -649,6 +754,13 @@ pub struct Directory {
     /// (RFC 9553 §2.6.2). Must be > 0 when set.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub list_as: Option<u32>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Link (RFC 9553 §2.6.3; extends Resource §1.4.4) ───────────────────────────
@@ -692,6 +804,13 @@ pub struct Link {
     /// Custom label for the value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Media (RFC 9553 §2.6.4; extends Resource §1.4.4) ──────────────────────────
@@ -733,6 +852,13 @@ pub struct Media {
     /// Custom label for the value.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Anniversary, PartialDate, Timestamp (RFC 9553 §2.8.1) ─────────────────────
@@ -861,6 +987,13 @@ pub struct Anniversary {
     /// An associated address (e.g. place of birth or death).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub place: Option<Address>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Note and Author (RFC 9553 §2.8.3) ─────────────────────────────────────────
@@ -884,6 +1017,13 @@ pub struct Note {
     /// The author of this note.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<Author>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// The author of a [`Note`] (RFC 9553 §2.8.3).
@@ -905,6 +1045,13 @@ pub struct Author {
     /// URI that identifies the author.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uri: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── PersonalInfo (RFC 9553 §2.8.4) ────────────────────────────────────────────
@@ -937,6 +1084,13 @@ pub struct PersonalInfo {
     /// Custom label.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Relation (RFC 9553 §2.1.8) ────────────────────────────────────────────────
@@ -961,6 +1115,13 @@ pub struct Relation {
     /// `"neighbor"`, `"parent"`, `"sibling"`, `"spouse"`, `"sweetheart"`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relation: Option<HashMap<String, bool>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1374,5 +1535,237 @@ mod tests {
         assert_eq!(v, json!("abc123"));
         let back: JsContactId = serde_json::from_value(v).unwrap();
         assert_eq!(back, id);
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.5) ───────────────────
+    //
+    // One round-trip preservation test per migrated type. Each asserts
+    // that an unknown vendor / site / private-extension field survives
+    // deserialize/serialize unchanged.
+    //
+    // Note: four Hash-derived types (NameComponent, AddressComponent,
+    // PartialDate, Timestamp) are tracked separately under JMAP-lbdy.12
+    // pending a Hash-vs-extras tension decision; they are NOT migrated
+    // in this commit.
+
+    /// Generic helper: assert a vendor field round-trips through the
+    /// given type's `extra` field.
+    fn assert_extras_roundtrip<T>(
+        mut raw: serde_json::Value,
+        vendor_key: &str,
+        vendor_val: serde_json::Value,
+    ) where
+        T: serde::de::DeserializeOwned + Serialize,
+    {
+        raw[vendor_key] = vendor_val.clone();
+        let de: T = serde_json::from_value(raw.clone()).unwrap();
+        let back = serde_json::to_value(&de).unwrap();
+        assert_eq!(
+            back[vendor_key], vendor_val,
+            "vendor field {vendor_key} must round-trip"
+        );
+    }
+
+    #[test]
+    fn name_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Name>(
+            json!({"full": "Alice"}),
+            "acmeCorpNameSource",
+            json!("hr"),
+        );
+    }
+
+    #[test]
+    fn nickname_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Nickname>(
+            json!({"name": "Al"}),
+            "acmeCorpScope",
+            json!("internal"),
+        );
+    }
+
+    #[test]
+    fn organization_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Organization>(
+            json!({"name": "Acme"}),
+            "acmeCorpDept",
+            json!("eng"),
+        );
+    }
+
+    #[test]
+    fn org_unit_preserves_vendor_extras() {
+        assert_extras_roundtrip::<OrgUnit>(
+            json!({"name": "Platform"}),
+            "acmeCorpCostCenter",
+            json!("cc-42"),
+        );
+    }
+
+    #[test]
+    fn speak_to_as_preserves_vendor_extras() {
+        assert_extras_roundtrip::<SpeakToAs>(
+            json!({"grammaticalGender": "feminine"}),
+            "acmeCorpFormality",
+            json!("informal"),
+        );
+    }
+
+    #[test]
+    fn pronouns_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Pronouns>(
+            json!({"pronouns": "she/her"}),
+            "acmeCorpAccessibilityHint",
+            json!("screen-reader"),
+        );
+    }
+
+    #[test]
+    fn title_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Title>(json!({"name": "Engineer"}), "acmeCorpLevel", json!(5));
+    }
+
+    #[test]
+    fn email_address_preserves_vendor_extras() {
+        assert_extras_roundtrip::<EmailAddress>(
+            json!({"address": "alice@example.com"}),
+            "acmeCorpVerified",
+            json!(true),
+        );
+    }
+
+    #[test]
+    fn online_service_preserves_vendor_extras() {
+        assert_extras_roundtrip::<OnlineService>(
+            json!({"service": "GitHub", "uri": "https://github.com/alice"}),
+            "acmeCorpScore",
+            json!(0.95),
+        );
+    }
+
+    #[test]
+    fn phone_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Phone>(
+            json!({"number": "tel:+1-555-0100"}),
+            "acmeCorpRegion",
+            json!("us"),
+        );
+    }
+
+    #[test]
+    fn language_pref_preserves_vendor_extras() {
+        assert_extras_roundtrip::<LanguagePref>(
+            json!({"language": "en"}),
+            "acmeCorpProficiency",
+            json!("native"),
+        );
+    }
+
+    #[test]
+    fn calendar_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Calendar>(
+            json!({"kind": "calendar", "uri": "https://cal/example"}),
+            "acmeCorpAccessLevel",
+            json!("read-only"),
+        );
+    }
+
+    #[test]
+    fn scheduling_address_preserves_vendor_extras() {
+        assert_extras_roundtrip::<SchedulingAddress>(
+            json!({"uri": "mailto:alice@example.com"}),
+            "acmeCorpReplyHint",
+            json!("auto"),
+        );
+    }
+
+    #[test]
+    fn address_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Address>(
+            json!({"full": "123 Main St"}),
+            "acmeCorpGeocoded",
+            json!(true),
+        );
+    }
+
+    #[test]
+    fn crypto_key_preserves_vendor_extras() {
+        assert_extras_roundtrip::<CryptoKey>(
+            json!({"uri": "https://example.com/key.pem"}),
+            "acmeCorpKeyAlgorithm",
+            json!("rsa-2048"),
+        );
+    }
+
+    #[test]
+    fn directory_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Directory>(
+            json!({"kind": "directory", "uri": "ldap://example.com"}),
+            "acmeCorpDirectoryNamespace",
+            json!("internal"),
+        );
+    }
+
+    #[test]
+    fn link_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Link>(
+            json!({"uri": "https://example.com"}),
+            "acmeCorpLinkRel",
+            json!("homepage"),
+        );
+    }
+
+    #[test]
+    fn media_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Media>(
+            json!({"kind": "photo", "uri": "https://example.com/photo.jpg"}),
+            "acmeCorpThumbnailUri",
+            json!("https://example.com/photo.thumb.jpg"),
+        );
+    }
+
+    #[test]
+    fn anniversary_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Anniversary>(
+            json!({"kind": "birth", "date": {"year": 2000, "month": 1, "day": 1}}),
+            "acmeCorpReminderDays",
+            json!(7),
+        );
+    }
+
+    #[test]
+    fn note_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Note>(
+            json!({"note": "important"}),
+            "acmeCorpClassification",
+            json!("internal"),
+        );
+    }
+
+    #[test]
+    fn author_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Author>(
+            json!({"name": "Alice"}),
+            "acmeCorpAuthorRole",
+            json!("manager"),
+        );
+    }
+
+    #[test]
+    fn personal_info_preserves_vendor_extras() {
+        assert_extras_roundtrip::<PersonalInfo>(
+            json!({"kind": "hobby", "value": "skiing"}),
+            "acmeCorpInterestRank",
+            json!(3),
+        );
+    }
+
+    #[test]
+    fn relation_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Relation>(
+            json!({"relation": {"friend": true}}),
+            "acmeCorpRelationStrength",
+            json!("close"),
+        );
     }
 }
