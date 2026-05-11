@@ -97,11 +97,11 @@ from the bound session.
 
 | Method | Signature | Returns |
 |---|---|---|
-| `principal_get_availability` | `(principal_id: &Id, utc_start: &str, utc_end: &str, show_details: Option<bool>, event_properties: Option<&[&str]>)` | `PrincipalGetAvailabilityResponse` |
+| `principal_get_availability` | `(principal_id: &Id, utc_start: &UTCDate, utc_end: &UTCDate, show_details: Option<bool>, event_properties: Option<&[&str]>)` | `PrincipalGetAvailabilityResponse` |
 
-`Id` and `State` here are `jmap_types::Id` and `jmap_types::State`. The
-`utc_start` / `utc_end` parameters of `principal_get_availability` remain
-`&str` pending a workspace-wide `UTCDate` newtype migration.
+`Id`, `State`, and `UTCDate` here are `jmap_types::Id`, `jmap_types::State`,
+and `jmap_types::UTCDate`. `UTCDate` enforces RFC 8620 §1.4 format
+validation at construction time via `UTCDate::new_validated`.
 
 `filter` and `sort` parameters use typed conditions/comparators where defined,
 falling back to `Option<serde_json::Value>` for spec extensions not yet bound.
