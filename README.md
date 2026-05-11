@@ -58,6 +58,12 @@ Use it to carry per-request auth identity, tenant ID, or rate-limit tokens.
 | `jmap-server` | [RFC 8620] | `Dispatcher`, ResultReference resolution, generic `/get` `/changes` `/query` `/queryChanges` handlers |
 | `jmap-base-client` | [RFC 8620], [RFC 8887] | Auth, session fetch, blob upload/download, SSE stream, WebSocket |
 
+### Shared sub-types
+
+| Crate | Spec | Role |
+|---|---|---|
+| `jmap-jscalendar-types` | [RFC 8984] | JSCalendar typed sub-objects: `LocalDateTime`, `Duration`, `RecurrenceRule`, `Location`, `Participant`, `Alert`, etc. Consumed by Calendars and (planned) Tasks. No JMAP dep. |
+
 ### Mail
 
 | Crate | Spec | Role |
@@ -235,7 +241,7 @@ jmap-types
     │       └── jmap-chat-server
     ├── jmap-contacts-types
     │       └── jmap-contacts-server
-    ├── jmap-calendars-types
+    ├── jmap-calendars-types ── (also consumes jmap-jscalendar-types)
     │       └── jmap-calendars-server
     ├── jmap-sharing-types
     │       └── jmap-sharing-server
@@ -243,6 +249,9 @@ jmap-types
     │       └── jmap-tasks-server
     └── jmap-filenode-types
             └── jmap-filenode-server
+
+jmap-jscalendar-types  (RFC 8984 JSCalendar typed sub-objects, no JMAP dep)
+    └── jmap-calendars-types  (re-exports as `jscalendar` module alias)
 ```
 
 ---
