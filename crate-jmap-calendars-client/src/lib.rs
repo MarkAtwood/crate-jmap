@@ -32,12 +32,12 @@ pub use methods::{
 ///
 /// Import this trait to use: `use jmap_calendars_client::JmapCalendarsExt;`
 ///
-/// All methods require first obtaining a [`SessionClient`](methods::SessionClient) via
+/// All methods require first obtaining a [`SessionClient`] via
 /// [`JmapCalendarsExt::with_calendars_session`].  The `SessionClient` binds the
 /// HTTP client to a fetched JMAP session, resolving the API URL and primary
 /// account id on every call.
 pub trait JmapCalendarsExt {
-    /// Bind this client to the given `session`, returning a [`SessionClient`](methods::SessionClient)
+    /// Bind this client to the given `session`, returning a [`SessionClient`]
     /// on which all 18 JMAP Calendars methods are available.
     ///
     /// Re-create the `SessionClient` after each `fetch_session` call; a stale
