@@ -19,6 +19,12 @@ pub struct SpaceRole {
     pub permissions: Vec<String>,
     /// The `position` property (draft-atwood-jmap-chat-00 §4.12).
     pub position: u64,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A member of a Space and their assigned roles.
@@ -35,6 +41,12 @@ pub struct SpaceMember {
     pub nick: Option<String>,
     /// The `joinedAt` property (draft-atwood-jmap-chat-00 §4.13).
     pub joined_at: UTCDate,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A category grouping channels within a Space.
@@ -50,6 +62,12 @@ pub struct Category {
     pub position: u64,
     /// The `channelIds` property (draft-atwood-jmap-chat-00 §4.14).
     pub channel_ids: Vec<Id>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A Space is a server-like container holding channels, members, and roles.
@@ -83,6 +101,12 @@ pub struct Space {
     pub is_publicly_previewable: bool,
     /// The `memberCount` property (draft-atwood-jmap-chat-00 §4.16).
     pub member_count: u64,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// An invite code allowing others to join a Space.
@@ -133,6 +157,12 @@ pub struct SpaceInvite {
     /// The `maxUses` property (draft-atwood-jmap-chat-00 §4.18).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_uses: Option<u64>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl SpaceInvite {
@@ -161,6 +191,7 @@ impl SpaceInvite {
             default_channel_id,
             expires_at,
             max_uses,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -177,6 +208,7 @@ impl std::fmt::Debug for SpaceInvite {
             .field("default_channel_id", &self.default_channel_id)
             .field("expires_at", &self.expires_at)
             .field("max_uses", &self.max_uses)
+            .field("extra", &self.extra)
             .finish()
     }
 }
@@ -202,6 +234,12 @@ pub struct SpaceBan {
     /// The `expiresAt` property (draft-atwood-jmap-chat-00 §4.19).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl SpaceBan {
@@ -217,6 +255,7 @@ impl SpaceBan {
             created_at,
             reason: None,
             expires_at: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -251,6 +290,7 @@ impl Space {
             member_count,
             description: None,
             icon_blob_id: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -326,6 +366,7 @@ mod tests {
             is_public: false,
             is_publicly_previewable: false,
             member_count: 0,
+            extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&space).expect("serialize Space");
         assert!(json.contains("\"roles\":[]"), "roles must be present as []");
@@ -413,6 +454,137 @@ mod tests {
         let ban: SpaceBan = serde_json::from_str(json).expect("deserialize SpaceBan");
         assert_eq!(ban.reason, None);
         assert_eq!(ban.expires_at, None);
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `SpaceRole.extra` captures vendor fields and preserves them.
+    #[test]
+    fn space_role_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "r1",
+            "name": "admin",
+            "permissions": ["all"],
+            "position": 0,
+            "acmeCorpHidden": true
+        });
+        let r: SpaceRole = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            r.extra.get("acmeCorpHidden").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["acmeCorpHidden"], true);
+    }
+
+    /// `SpaceMember.extra` captures vendor fields and preserves them.
+    #[test]
+    fn space_member_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "u1",
+            "roleIds": ["r1"],
+            "joinedAt": "2026-01-01T00:00:00Z",
+            "acmeCorpInviteCode": "x"
+        });
+        let m: SpaceMember = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            m.extra.get("acmeCorpInviteCode").and_then(|v| v.as_str()),
+            Some("x")
+        );
+        let back = serde_json::to_value(&m).unwrap();
+        assert_eq!(back["acmeCorpInviteCode"], "x");
+    }
+
+    /// `Category.extra` captures vendor fields and preserves them.
+    #[test]
+    fn category_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "cat1",
+            "name": "General",
+            "position": 0,
+            "channelIds": ["c1"],
+            "acmeCorpCollapsedByDefault": true
+        });
+        let c: Category = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            c.extra
+                .get("acmeCorpCollapsedByDefault")
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let back = serde_json::to_value(&c).unwrap();
+        assert_eq!(back["acmeCorpCollapsedByDefault"], true);
+    }
+
+    /// `Space.extra` captures vendor fields and preserves them across
+    /// deserialize/serialize round-trip.
+    #[test]
+    fn space_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "s1",
+            "name": "My Space",
+            "roles": [],
+            "members": [],
+            "categories": [],
+            "uncategorizedChannelIds": [],
+            "createdAt": "2024-01-01T00:00:00Z",
+            "isPublic": false,
+            "isPubliclyPreviewable": false,
+            "memberCount": 0,
+            "acmeCorpBranding": {"primaryColor": "#abcdef"}
+        });
+        let s: Space = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            s.extra
+                .get("acmeCorpBranding")
+                .and_then(|v| v["primaryColor"].as_str()),
+            Some("#abcdef")
+        );
+        let back = serde_json::to_value(&s).unwrap();
+        assert_eq!(back["acmeCorpBranding"]["primaryColor"], "#abcdef");
+    }
+
+    /// `SpaceInvite.extra` captures vendor fields and preserves them.
+    #[test]
+    fn space_invite_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "inv1",
+            "code": "ABCD",
+            "spaceId": "s1",
+            "createdBy": "u1",
+            "uses": 0,
+            "createdAt": "2024-01-01T00:00:00Z",
+            "acmeCorpInviteSource": "marketing-page"
+        });
+        let inv: SpaceInvite = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            inv.extra
+                .get("acmeCorpInviteSource")
+                .and_then(|v| v.as_str()),
+            Some("marketing-page")
+        );
+        let back = serde_json::to_value(&inv).unwrap();
+        assert_eq!(back["acmeCorpInviteSource"], "marketing-page");
+    }
+
+    /// `SpaceBan.extra` captures vendor fields and preserves them.
+    #[test]
+    fn space_ban_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "ban1",
+            "spaceId": "s1",
+            "userId": "u2",
+            "bannedBy": "u1",
+            "createdAt": "2024-01-01T00:00:00Z",
+            "acmeCorpCaseId": "abuse-42"
+        });
+        let b: SpaceBan = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            b.extra.get("acmeCorpCaseId").and_then(|v| v.as_str()),
+            Some("abuse-42")
+        );
+        let back = serde_json::to_value(&b).unwrap();
+        assert_eq!(back["acmeCorpCaseId"], "abuse-42");
     }
 
     // Oracle: spec §SpaceBan — all fields round-trip through JSON.

@@ -40,6 +40,12 @@ pub struct ChatMember {
     /// The `invitedBy` property (draft-atwood-jmap-chat-00 §4.9).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invited_by: Option<Id>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A per-channel permission override entry.
@@ -55,6 +61,12 @@ pub struct ChannelPermission {
     pub allow: Vec<String>,
     /// The `deny` property (draft-atwood-jmap-chat-00 §4.15).
     pub deny: Vec<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A JMAP Chat object.
@@ -122,6 +134,12 @@ pub struct Chat {
     /// The `messageExpirySeconds` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message_expiry_seconds: Option<u64>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Chat {
@@ -160,6 +178,7 @@ impl Chat {
             mute_until: None,
             receipt_sharing: None,
             message_expiry_seconds: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -242,9 +261,72 @@ mod tests {
             role: "admin".to_owned(),
             joined_at: UTCDate::from("2026-01-11T09:00:00Z"),
             invited_by: None,
+            extra: serde_json::Map::new(),
         };
         let output = serde_json::to_string(&member).expect("serialize ChatMember");
         assert!(!output.contains("invitedBy"), "invitedBy must be absent");
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `ChatMember.extra` captures vendor fields and preserves them.
+    #[test]
+    fn chat_member_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "m1",
+            "role": "member",
+            "joinedAt": "2026-01-10T08:00:00Z",
+            "acmeCorpInviteSource": "link"
+        });
+        let m: ChatMember = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            m.extra.get("acmeCorpInviteSource").and_then(|v| v.as_str()),
+            Some("link")
+        );
+        let back = serde_json::to_value(&m).unwrap();
+        assert_eq!(back["acmeCorpInviteSource"], "link");
+    }
+
+    /// `ChannelPermission.extra` captures vendor fields and preserves them.
+    #[test]
+    fn channel_permission_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "targetId": "r1",
+            "targetType": "role",
+            "allow": ["send_message"],
+            "deny": [],
+            "acmeCorpAuditNote": "added-by-script"
+        });
+        let p: ChannelPermission = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            p.extra.get("acmeCorpAuditNote").and_then(|v| v.as_str()),
+            Some("added-by-script")
+        );
+        let back = serde_json::to_value(&p).unwrap();
+        assert_eq!(back["acmeCorpAuditNote"], "added-by-script");
+    }
+
+    /// `Chat.extra` captures vendor fields and preserves them across
+    /// deserialize/serialize round-trip.
+    #[test]
+    fn chat_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "c1",
+            "kind": "direct",
+            "createdAt": "2026-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "pinnedMessageIds": [],
+            "muted": false,
+            "receiveTypingIndicators": true,
+            "acmeCorpRoutingTag": "us-east"
+        });
+        let c: Chat = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            c.extra.get("acmeCorpRoutingTag").and_then(|v| v.as_str()),
+            Some("us-east")
+        );
+        let back = serde_json::to_value(&c).unwrap();
+        assert_eq!(back["acmeCorpRoutingTag"], "us-east");
     }
 
     // Oracle: hand-written JSON round-trips through serialize then deserialize.

@@ -55,6 +55,12 @@ pub struct ChannelCreate {
     /// The `topic` property (draft-atwood-jmap-chat-00 §Space/set — optional).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub topic: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A per-entry patch for `updateRoles` (draft-atwood-jmap-chat-00 §Space/set).
@@ -85,6 +91,12 @@ pub struct RolePatch {
     /// The `position` property (draft-atwood-jmap-chat-00 §Space/set updateRoles).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub position: Option<u64>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A per-entry patch for `updateMembers` (draft-atwood-jmap-chat-00 §Space/set).
@@ -108,6 +120,12 @@ pub struct MemberPatch {
         deserialize_with = "some_clearable"
     )]
     pub nick: Option<Clearable<String>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A per-entry patch for `updateChannels` (draft-atwood-jmap-chat-00 §Space/set).
@@ -168,6 +186,12 @@ pub struct ChannelPatch {
         deserialize_with = "some_clearable"
     )]
     pub permission_overrides: Option<Clearable<Vec<ChannelPermission>>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A per-entry patch for `updateCategories` (draft-atwood-jmap-chat-00 §Space/set).
@@ -187,6 +211,12 @@ pub struct CategoryPatch {
     /// absent leaves it unchanged.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub channel_ids: Option<Vec<Id>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A single Space/set update mutation operation.
@@ -421,12 +451,14 @@ mod tests {
             color: None,
             permissions: vec!["chat:read".to_owned()],
             position: 1,
+            extra: serde_json::Map::new(),
         };
         let cat = Category {
             id: Id::from("placeholder"),
             name: "Voice".to_owned(),
             position: 0,
             channel_ids: vec![],
+            extra: serde_json::Map::new(),
         };
 
         let ops: Vec<SpacePatchOp> = vec![
@@ -450,6 +482,7 @@ mod tests {
                 category_id: None,
                 position: None,
                 topic: None,
+                extra: serde_json::Map::new(),
             }),
             SpacePatchOp::RemoveChannel(Id::from("ch1")),
             SpacePatchOp::UpdateChannel {
@@ -464,5 +497,89 @@ mod tests {
             },
         ];
         assert_eq!(ops.len(), 12);
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `ChannelCreate.extra` captures vendor fields and preserves them.
+    #[test]
+    fn channel_create_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "name": "general",
+            "acmeCorpDefaultRetentionDays": 30
+        });
+        let cc: ChannelCreate = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            cc.extra
+                .get("acmeCorpDefaultRetentionDays")
+                .and_then(|v| v.as_u64()),
+            Some(30)
+        );
+        let back = serde_json::to_value(&cc).unwrap();
+        assert_eq!(back["acmeCorpDefaultRetentionDays"], 30);
+    }
+
+    /// `RolePatch.extra` captures vendor fields and preserves them.
+    #[test]
+    fn role_patch_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "name": "new-name",
+            "acmeCorpPatchOrigin": "admin-console"
+        });
+        let p: RolePatch = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            p.extra.get("acmeCorpPatchOrigin").and_then(|v| v.as_str()),
+            Some("admin-console")
+        );
+        let back = serde_json::to_value(&p).unwrap();
+        assert_eq!(back["acmeCorpPatchOrigin"], "admin-console");
+    }
+
+    /// `MemberPatch.extra` captures vendor fields and preserves them.
+    #[test]
+    fn member_patch_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "nick": "alice",
+            "acmeCorpReviewerId": "mod-7"
+        });
+        let p: MemberPatch = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            p.extra.get("acmeCorpReviewerId").and_then(|v| v.as_str()),
+            Some("mod-7")
+        );
+        let back = serde_json::to_value(&p).unwrap();
+        assert_eq!(back["acmeCorpReviewerId"], "mod-7");
+    }
+
+    /// `ChannelPatch.extra` captures vendor fields and preserves them.
+    #[test]
+    fn channel_patch_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "name": "ch-new",
+            "acmeCorpAutoArchive": true
+        });
+        let p: ChannelPatch = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            p.extra.get("acmeCorpAutoArchive").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let back = serde_json::to_value(&p).unwrap();
+        assert_eq!(back["acmeCorpAutoArchive"], true);
+    }
+
+    /// `CategoryPatch.extra` captures vendor fields and preserves them.
+    #[test]
+    fn category_patch_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "name": "cat-new",
+            "acmeCorpCollapsed": false
+        });
+        let p: CategoryPatch = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            p.extra.get("acmeCorpCollapsed").and_then(|v| v.as_bool()),
+            Some(false)
+        );
+        let back = serde_json::to_value(&p).unwrap();
+        assert_eq!(back["acmeCorpCollapsed"], false);
     }
 }

@@ -26,6 +26,12 @@ pub struct ChatPushConfig {
     /// The `mentionUrgency` property (draft-atwood-jmap-chat-push-00 §4.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mention_urgency: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Summary of a single message delivered via push notification.
@@ -70,6 +76,12 @@ pub struct ChatMessageEntry {
     /// Per spec, this field MUST be `None` when `encrypted` is `true`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_snippet: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Push payload carrying one or more new message summaries for an account.
@@ -87,6 +99,12 @@ pub struct ChatMessagePush {
     pub state: State,
     /// The `messages` property (draft-atwood-jmap-chat-push-00 §5.1).
     pub messages: Vec<ChatMessageEntry>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl ChatMessagePush {
@@ -96,6 +114,7 @@ impl ChatMessagePush {
             account_id,
             state: state.into(),
             messages,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -133,6 +152,7 @@ impl ChatMessageEntry {
             space_id: None,
             space_name: None,
             sender_display_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -164,6 +184,7 @@ impl ChatMessageEntry {
             space_id: None,
             space_name: None,
             sender_display_name: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -195,6 +216,7 @@ mod tests {
             account_id: Id::from("u1"),
             state: State::from("abc123"),
             messages: vec![],
+            extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&push).expect("serialize ChatMessagePush");
         assert!(
@@ -292,5 +314,70 @@ mod tests {
             json, "{}",
             "all-None ChatPushConfig must serialize to {{}}; got: {json}"
         );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `ChatPushConfig.extra` captures vendor fields and preserves them.
+    #[test]
+    fn chat_push_config_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "kinds": ["channel"],
+            "acmeCorpQuietHours": "22-08"
+        });
+        let cfg: ChatPushConfig = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            cfg.extra.get("acmeCorpQuietHours").and_then(|v| v.as_str()),
+            Some("22-08")
+        );
+        let back = serde_json::to_value(&cfg).unwrap();
+        assert_eq!(back["acmeCorpQuietHours"], "22-08");
+    }
+
+    /// `ChatMessageEntry.extra` captures vendor fields and preserves them.
+    #[test]
+    fn chat_message_entry_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "messageId": "m1",
+            "chatId": "c1",
+            "chatKind": "channel",
+            "senderId": "alice",
+            "sentAt": "2026-04-26T14:32:00Z",
+            "hasMention": false,
+            "hasMentionAll": false,
+            "encrypted": false,
+            "acmeCorpThreadDepth": 3
+        });
+        let entry: ChatMessageEntry = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            entry
+                .extra
+                .get("acmeCorpThreadDepth")
+                .and_then(|v| v.as_u64()),
+            Some(3)
+        );
+        let back = serde_json::to_value(&entry).unwrap();
+        assert_eq!(back["acmeCorpThreadDepth"], 3);
+    }
+
+    /// `ChatMessagePush.extra` captures vendor fields and preserves them.
+    /// Note: the `@type` tag is consumed by the struct's `#[serde(tag)]`
+    /// directive and not captured by `extra`.
+    #[test]
+    fn chat_message_push_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "@type": "ChatMessagePush",
+            "accountId": "u1",
+            "state": "abc",
+            "messages": [],
+            "acmeCorpBatchId": "batch-7"
+        });
+        let push: ChatMessagePush = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            push.extra.get("acmeCorpBatchId").and_then(|v| v.as_str()),
+            Some("batch-7")
+        );
+        let back = serde_json::to_value(&push).unwrap();
+        assert_eq!(back["acmeCorpBatchId"], "batch-7");
     }
 }

@@ -77,3 +77,56 @@ src/
 - Serde round-trips against hand-written JSON derived from spec examples
 - Tests are inline `#[cfg(test)]` modules in each source file
 - No live network, no external services
+
+## Type-design constraints
+
+### Extras-preservation policy (JMAP-lbdy)
+
+Every public `Deserialize` struct that appears on the JMAP wire carries an
+`extra` field per the workspace extras-preservation policy (see workspace
+`AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+This preserves vendor / site / private-extension fields across
+deserialize/serialize round-trip. Wire format is byte-identical when extras
+are empty.
+
+In scope in this crate (each has at least one round-trip preservation test):
+
+- `Chat`, `ChatMember`, `ChannelPermission` (`chat.rs`).
+- `ChatContact`, `Endpoint` (`contact.rs`).
+- `CustomEmoji` (`emoji.rs`).
+- `ChatStreamEnable`, `ChatStreamDisable`, `ChatTypingEvent`,
+  `ChatPresenceEvent` (`ephemeral.rs`).
+- `Message`, `Attachment`, `Mention`, `MessageAction`, `Reaction`,
+  `MessageRevision`, `DeliveryReceipt` (`message.rs`).
+- `ReadPosition` (`position.rs`).
+- `PresenceStatus` (`presence.rs`).
+- `ChatPushConfig`, `ChatMessageEntry`, `ChatMessagePush` (`push.rs`).
+- `Space`, `SpaceRole`, `SpaceMember`, `Category`, `SpaceInvite`,
+  `SpaceBan` (`space.rs`).
+- `ChannelCreate`, `RolePatch`, `MemberPatch`, `ChannelPatch`,
+  `CategoryPatch` (`space_set.rs` — Space/set method-argument structs).
+
+Out of scope (explicitly excluded by the workspace policy):
+
+- String enums (`ChatKind`, `Presence`, `DeliveryState`, `SenderId`,
+  `ReadDisposition`, etc.) — result enums tracked via separate
+  `Unknown(String)` propagation; control enums get neither.
+- `Clearable<T>` — internal three-state helper, not a wire object.
+- `SpacePatchOp` — internal Rust representation of Space/set wire keys;
+  has no wire form of its own.
+- Newtypes wrapping a single value.
+
+### New-type rule
+
+Any new public `Deserialize` struct added to this crate that appears on
+the JMAP wire MUST include the `extra` field from day one with the
+documented serde attributes and at least one round-trip preservation
+test. This crate is normative for the JMAP Chat draft, so the policy
+applies even more strictly: vendor/site fields on Chat objects MUST
+round-trip unchanged regardless of which crate version saw them first.

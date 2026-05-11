@@ -19,12 +19,25 @@ pub struct ChatStreamEnable {
     /// Contacts to filter on; `None` (or JSON `null`) means all contacts.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contact_ids: Option<Vec<Id>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Client→server: unsubscribe from ephemeral events.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct ChatStreamDisable {}
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct ChatStreamDisable {
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
 
 /// Server→client: a contact is typing (or stopped typing) in a chat.
 #[non_exhaustive]
@@ -37,6 +50,12 @@ pub struct ChatTypingEvent {
     pub sender_id: String,
     /// `true` if the contact started typing; `false` if they stopped.
     pub typing: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Server→client: a contact's presence state has changed.
@@ -70,6 +89,12 @@ pub struct ChatPresenceEvent {
         deserialize_with = "some_clearable"
     )]
     pub status_emoji: Option<Clearable<String>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Wrapper enum for all WebSocket ephemeral messages.
@@ -182,5 +207,75 @@ mod tests {
         assert!(matches!(msg, EphemeralMessage::Disable(_)));
         let out = serde_json::to_string(&msg).unwrap();
         assert_eq!(out, json);
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `ChatStreamEnable.extra` captures vendor fields and preserves them.
+    #[test]
+    fn chat_stream_enable_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "dataTypes": ["typing"],
+            "acmeCorpStreamPriority": "high"
+        });
+        let e: ChatStreamEnable = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            e.extra
+                .get("acmeCorpStreamPriority")
+                .and_then(|v| v.as_str()),
+            Some("high")
+        );
+        let back = serde_json::to_value(&e).unwrap();
+        assert_eq!(back["acmeCorpStreamPriority"], "high");
+    }
+
+    /// `ChatStreamDisable.extra` captures vendor fields and preserves them.
+    #[test]
+    fn chat_stream_disable_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "acmeCorpReason": "user-quit"
+        });
+        let d: ChatStreamDisable = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            d.extra.get("acmeCorpReason").and_then(|v| v.as_str()),
+            Some("user-quit")
+        );
+        let back = serde_json::to_value(&d).unwrap();
+        assert_eq!(back["acmeCorpReason"], "user-quit");
+    }
+
+    /// `ChatTypingEvent.extra` captures vendor fields and preserves them.
+    #[test]
+    fn chat_typing_event_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "chatId": "c1",
+            "senderId": "alice",
+            "typing": true,
+            "acmeCorpClientId": "web-3"
+        });
+        let e: ChatTypingEvent = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            e.extra.get("acmeCorpClientId").and_then(|v| v.as_str()),
+            Some("web-3")
+        );
+        let back = serde_json::to_value(&e).unwrap();
+        assert_eq!(back["acmeCorpClientId"], "web-3");
+    }
+
+    /// `ChatPresenceEvent.extra` captures vendor fields and preserves them.
+    #[test]
+    fn chat_presence_event_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "contactId": "u1",
+            "presence": "online",
+            "acmeCorpDeviceClass": "mobile"
+        });
+        let e: ChatPresenceEvent = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            e.extra.get("acmeCorpDeviceClass").and_then(|v| v.as_str()),
+            Some("mobile")
+        );
+        let back = serde_json::to_value(&e).unwrap();
+        assert_eq!(back["acmeCorpDeviceClass"], "mobile");
     }
 }

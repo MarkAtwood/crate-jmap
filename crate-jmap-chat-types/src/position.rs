@@ -18,6 +18,12 @@ pub struct ReadPosition {
     /// The `lastReadAt` property (draft-atwood-jmap-chat-00 §4.20).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_read_at: Option<UTCDate>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl ReadPosition {
@@ -30,6 +36,7 @@ impl ReadPosition {
             chat_id,
             last_read_message_id: None,
             last_read_at: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -47,6 +54,25 @@ mod tests {
         assert_eq!(rp.chat_id.as_ref(), "c1");
         assert!(rp.last_read_message_id.is_none());
         assert!(rp.last_read_at.is_none());
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `ReadPosition.extra` captures vendor fields and preserves them.
+    #[test]
+    fn read_position_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "rp1",
+            "chatId": "c1",
+            "acmeCorpClient": "mobile-ios"
+        });
+        let rp: ReadPosition = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            rp.extra.get("acmeCorpClient").and_then(|v| v.as_str()),
+            Some("mobile-ios")
+        );
+        let back = serde_json::to_value(&rp).unwrap();
+        assert_eq!(back["acmeCorpClient"], "mobile-ios");
     }
 
     // Oracle: full JSON round-trip — all fields survive serialize → deserialize.
