@@ -121,6 +121,12 @@ pub struct Attachment {
     /// A newtype without validation would add type-tagging overhead for a field that already has
     /// a distinct name; mixing it with `blob_id` is not a realistic mistake.
     pub sha256: String,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// An `@mention` within a [`Message`] body.
@@ -134,6 +140,12 @@ pub struct Mention {
     pub offset: u64,
     /// The `length` property (draft-atwood-jmap-chat-00 §4.4).
     pub length: u64,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// An interactive action button attached to a [`Message`].
@@ -157,6 +169,12 @@ pub struct MessageAction {
     /// The `metadata` property (draft-atwood-jmap-chat-00 §4.3).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A single emoji reaction placed on a [`Message`].
@@ -173,6 +191,12 @@ pub struct Reaction {
     pub sender_id: SenderId,
     /// The `sentAt` property (draft-atwood-jmap-chat-00 §4.6).
     pub sent_at: UTCDate,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A prior revision of a [`Message`] body, stored in edit history.
@@ -186,6 +210,12 @@ pub struct MessageRevision {
     pub body_type: String,
     /// The `editedAt` property (draft-atwood-jmap-chat-00 §4.5).
     pub edited_at: UTCDate,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Per-recipient delivery receipt for a [`Message`].
@@ -205,6 +235,12 @@ pub struct DeliveryReceipt {
     /// The `readDisposition` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_disposition: Option<ReadDisposition>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A single chat message as defined by the JMAP Chat extension.
@@ -281,6 +317,12 @@ pub struct Message {
     /// The `deletedForAll` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_for_all: Option<bool>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Message {
@@ -331,6 +373,7 @@ impl Message {
             edit_history: None,
             deleted_at: None,
             deleted_for_all: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -412,6 +455,7 @@ mod tests {
             label: None,
             expires_at: None,
             metadata: None,
+            extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&action).expect("serialize MessageAction");
         assert!(
@@ -513,6 +557,146 @@ mod tests {
             let back = serde_json::to_string(&got).expect("serialize");
             assert_eq!(back, json_str, "reser {json_str}");
         }
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `Attachment.extra` captures vendor fields and preserves them.
+    #[test]
+    fn attachment_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "blobId": "b1",
+            "filename": "a.png",
+            "contentType": "image/png",
+            "size": 100,
+            "sha256": "0".repeat(64),
+            "acmeCorpScanResult": "clean"
+        });
+        let a: Attachment = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            a.extra.get("acmeCorpScanResult").and_then(|v| v.as_str()),
+            Some("clean")
+        );
+        let back = serde_json::to_value(&a).unwrap();
+        assert_eq!(back["acmeCorpScanResult"], "clean");
+    }
+
+    /// `Mention.extra` captures vendor fields and preserves them.
+    #[test]
+    fn mention_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "u1",
+            "offset": 0,
+            "length": 5,
+            "acmeCorpHighlight": "soft"
+        });
+        let m: Mention = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            m.extra.get("acmeCorpHighlight").and_then(|v| v.as_str()),
+            Some("soft")
+        );
+        let back = serde_json::to_value(&m).unwrap();
+        assert_eq!(back["acmeCorpHighlight"], "soft");
+    }
+
+    /// `MessageAction.extra` captures vendor fields and preserves them.
+    #[test]
+    fn message_action_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "type": "button",
+            "uri": "https://example.com",
+            "acmeCorpDisplayPriority": 5
+        });
+        let a: MessageAction = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            a.extra
+                .get("acmeCorpDisplayPriority")
+                .and_then(|v| v.as_u64()),
+            Some(5)
+        );
+        let back = serde_json::to_value(&a).unwrap();
+        assert_eq!(back["acmeCorpDisplayPriority"], 5);
+    }
+
+    /// `Reaction.extra` captures vendor fields and preserves them.
+    #[test]
+    fn reaction_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "emoji": "👍",
+            "senderId": "self",
+            "sentAt": "2026-01-02T10:00:00Z",
+            "acmeCorpClientUuid": "device-7"
+        });
+        let r: Reaction = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            r.extra.get("acmeCorpClientUuid").and_then(|v| v.as_str()),
+            Some("device-7")
+        );
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["acmeCorpClientUuid"], "device-7");
+    }
+
+    /// `MessageRevision.extra` captures vendor fields and preserves them.
+    #[test]
+    fn message_revision_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "body": "v1",
+            "bodyType": "text/plain",
+            "editedAt": "2026-01-05T12:00:00Z",
+            "acmeCorpEditReason": "typo"
+        });
+        let r: MessageRevision = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            r.extra.get("acmeCorpEditReason").and_then(|v| v.as_str()),
+            Some("typo")
+        );
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["acmeCorpEditReason"], "typo");
+    }
+
+    /// `DeliveryReceipt.extra` captures vendor fields and preserves them.
+    #[test]
+    fn delivery_receipt_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "deliveredAt": "2026-01-04T08:00:00Z",
+            "acmeCorpReceiptId": "rcpt-9"
+        });
+        let r: DeliveryReceipt = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            r.extra.get("acmeCorpReceiptId").and_then(|v| v.as_str()),
+            Some("rcpt-9")
+        );
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["acmeCorpReceiptId"], "rcpt-9");
+    }
+
+    /// `Message.extra` captures vendor fields and preserves them across
+    /// deserialize/serialize round-trip.
+    #[test]
+    fn message_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "m1",
+            "senderMsgId": "smid1",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "hi",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": [],
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2026-01-01T00:00:00Z",
+            "receivedAt": "2026-01-01T00:00:01Z",
+            "deliveryState": "delivered",
+            "acmeCorpRoutedVia": "edge-3"
+        });
+        let m: Message = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            m.extra.get("acmeCorpRoutedVia").and_then(|v| v.as_str()),
+            Some("edge-3")
+        );
+        let back = serde_json::to_value(&m).unwrap();
+        assert_eq!(back["acmeCorpRoutedVia"], "edge-3");
     }
 
     // Oracle: hand-crafted MessageRevision JSON; roundtrip must preserve all fields.

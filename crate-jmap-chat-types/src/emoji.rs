@@ -23,6 +23,12 @@ pub struct CustomEmoji {
     /// If absent, the emoji is server-global; if present, scoped to that Space.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<Id>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl CustomEmoji {
@@ -43,6 +49,7 @@ impl CustomEmoji {
             created_by,
             created_at,
             space_id: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -65,6 +72,28 @@ mod tests {
         assert_eq!(e.id.as_ref(), "e1");
         assert_eq!(e.name, "partyblob");
         assert!(e.space_id.is_none());
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `CustomEmoji.extra` captures vendor fields and preserves them.
+    #[test]
+    fn custom_emoji_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "e1",
+            "name": "partyblob",
+            "blobId": "b1",
+            "createdBy": "u1",
+            "createdAt": "2026-01-15T10:00:00Z",
+            "acmeCorpReviewedBy": "moderator-7"
+        });
+        let e: CustomEmoji = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            e.extra.get("acmeCorpReviewedBy").and_then(|v| v.as_str()),
+            Some("moderator-7")
+        );
+        let back = serde_json::to_value(&e).unwrap();
+        assert_eq!(back["acmeCorpReviewedBy"], "moderator-7");
     }
 
     // Oracle: full JSON with space_id round-trips without data loss.

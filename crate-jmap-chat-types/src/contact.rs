@@ -20,6 +20,12 @@ pub struct Endpoint {
     /// Arbitrary provider-defined metadata.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A remote user known to this server (spec: ChatContact object).
@@ -55,6 +61,12 @@ pub struct ChatContact {
     /// The `endpoints` property (draft-atwood-jmap-chat-00 §4.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoints: Option<Vec<Endpoint>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl ChatContact {
@@ -80,6 +92,7 @@ impl ChatContact {
             status_text: None,
             status_emoji: None,
             endpoints: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -114,6 +127,7 @@ mod tests {
             uri: "xmpp:alice@example.com".to_owned(),
             label: None,
             metadata: None,
+            extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&ep).expect("serialize Endpoint");
         let v: serde_json::Value = serde_json::from_str(&json).expect("parse JSON");
@@ -122,6 +136,49 @@ mod tests {
             v.get("endpointType").is_none(),
             "unexpected key \"endpointType\" in JSON"
         );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `Endpoint.extra` captures vendor fields and preserves them.
+    #[test]
+    fn endpoint_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "type": "xmpp",
+            "uri": "xmpp:alice@example.com",
+            "acmeCorpReachability": "direct"
+        });
+        let ep: Endpoint = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            ep.extra
+                .get("acmeCorpReachability")
+                .and_then(|v| v.as_str()),
+            Some("direct")
+        );
+        let back = serde_json::to_value(&ep).unwrap();
+        assert_eq!(back["acmeCorpReachability"], "direct");
+    }
+
+    /// `ChatContact.extra` captures vendor fields and preserves them.
+    #[test]
+    fn chat_contact_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "u1",
+            "login": "alice@example.com",
+            "firstSeenAt": "2026-01-01T00:00:00Z",
+            "lastSeenAt": "2026-04-01T00:00:00Z",
+            "blocked": false,
+            "acmeCorpFederationPeer": "node-2"
+        });
+        let c: ChatContact = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            c.extra
+                .get("acmeCorpFederationPeer")
+                .and_then(|v| v.as_str()),
+            Some("node-2")
+        );
+        let back = serde_json::to_value(&c).unwrap();
+        assert_eq!(back["acmeCorpFederationPeer"], "node-2");
     }
 
     // Oracle: when blocked=true, the "blocked" key must appear in serialized output.
@@ -139,6 +196,7 @@ mod tests {
             status_text: None,
             status_emoji: None,
             endpoints: None,
+            extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&c).expect("serialize ChatContact");
         let v: serde_json::Value = serde_json::from_str(&json).expect("parse JSON");

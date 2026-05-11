@@ -53,6 +53,12 @@ pub struct PresenceStatus {
     /// The `expiresAt` property (draft-atwood-jmap-chat-00 §4.21).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl PresenceStatus {
@@ -68,6 +74,7 @@ impl PresenceStatus {
             status_text: None,
             status_emoji: None,
             expires_at: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -85,6 +92,27 @@ mod tests {
         assert_eq!(ps.presence, Presence::Online);
         assert!(ps.receipt_sharing);
         assert!(ps.status_text.is_none());
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
+
+    /// `PresenceStatus.extra` captures vendor fields and preserves them.
+    #[test]
+    fn presence_status_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "ps1",
+            "presence": "online",
+            "receiptSharing": true,
+            "updatedAt": "2026-01-01T00:00:00Z",
+            "acmeCorpDeviceClass": "desktop"
+        });
+        let ps: PresenceStatus = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            ps.extra.get("acmeCorpDeviceClass").and_then(|v| v.as_str()),
+            Some("desktop")
+        );
+        let back = serde_json::to_value(&ps).unwrap();
+        assert_eq!(back["acmeCorpDeviceClass"], "desktop");
     }
 
     // Oracle: full JSON round-trip — all fields survive serialize → deserialize.
