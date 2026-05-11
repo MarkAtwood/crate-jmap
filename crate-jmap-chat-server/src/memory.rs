@@ -168,6 +168,78 @@ impl MemoryBackend {
             .map_or(0, |m| m.len());
         Id::from(format!("{}{}", type_name.to_ascii_lowercase(), n + 1))
     }
+
+    /// Test-only: directly inject a JSON-shaped object into the backend
+    /// store, bypassing the normal `create_object` validation/serde
+    /// round-trip and skipping change-log emission.
+    ///
+    /// This exists for integration tests that need to seed objects for
+    /// types whose `Chat/set` create path is not yet implemented (e.g.
+    /// channels — bd:JMAP-g7wu.2.4.4). Production callers must not use
+    /// this method; the API stability disclaimer on the `memory`
+    /// feature applies doubly here.
+    #[doc(hidden)]
+    pub fn insert_object_for_test(
+        &self,
+        type_name: &'static str,
+        account_id: &str,
+        id: &str,
+        value: serde_json::Value,
+    ) {
+        let mut inner = self.inner.lock().unwrap();
+        inner
+            .objects_mut(type_name, account_id)
+            .insert(Id::from(id), value);
+    }
+
+    /// Test-only: return the first Category id stored on the given Space.
+    /// Used by Space/set Category tests that need to refer back to a
+    /// server-assigned category id.
+    ///
+    /// Panics if the Space has no categories or does not exist.
+    #[doc(hidden)]
+    pub fn first_category_id(&self, space_id: &Id) -> Id {
+        let inner = self.inner.lock().unwrap();
+        // Walk every account looking for this space id. Integration
+        // tests use a single account "a1" so the iteration is trivial.
+        for ((type_name, _account), map) in &inner.objects {
+            if *type_name != "Space" {
+                continue;
+            }
+            if let Some(space) = map.get(space_id) {
+                let cats = space
+                    .get("categories")
+                    .and_then(|v| v.as_array())
+                    .expect("Space.categories must be an array");
+                let id = cats
+                    .first()
+                    .and_then(|c| c.get("id"))
+                    .and_then(|id| id.as_str())
+                    .expect("Space has at least one category");
+                return Id::from(id);
+            }
+        }
+        panic!("Space {space_id} not found");
+    }
+
+    /// Test-only: return a snapshot of the named Chat's JSON value.
+    /// Used to assert cross-reference fields like `categoryId` after
+    /// Space/set Category mutations have cascaded.
+    ///
+    /// Panics if the Chat does not exist.
+    #[doc(hidden)]
+    pub fn peek_chat(&self, chat_id: &Id) -> serde_json::Value {
+        let inner = self.inner.lock().unwrap();
+        for ((type_name, _account), map) in &inner.objects {
+            if *type_name != "Chat" {
+                continue;
+            }
+            if let Some(chat) = map.get(chat_id) {
+                return chat.clone();
+            }
+        }
+        panic!("Chat {chat_id} not found");
+    }
 }
 
 /// A simple string error for `MemoryBackend` failures.
@@ -564,45 +636,432 @@ impl ChatBackend for MemoryBackend {
         out
     }
 
-    /// Reference implementation stub for [`ChatBackend::apply_space_patch`].
+    /// Reference implementation of [`ChatBackend::apply_space_patch`].
     ///
-    /// Per-variant Space/set structural mutations are tracked under
-    /// `bd:JMAP-g7wu.2.4.{3,4,5}` and not yet implemented. Until those
-    /// land, every op is rejected with [`SetErrorType::Forbidden`] and a
-    /// description pointing at the relevant follow-up bead.
+    /// Dispatches each [`SpacePatchOp`] to a per-variant helper. Currently
+    /// implemented: Category variants (Add/Remove/Update) per
+    /// `bd:JMAP-g7wu.2.4.5`. Other variants return a `Forbidden` `OpResult`
+    /// whose description names the tracking bead (`.4.3` for
+    /// Role/Member, `.4.4` for Channel).
     ///
-    /// The handler (`space::handle_space_set`) still benefits from this
-    /// stub because:
-    /// - The parsing layer is exercised end-to-end (well-formed wire
-    ///   keys are unfolded into [`SpacePatchOp`] values).
-    /// - The error-mapping layer is exercised end-to-end (per-op
-    ///   `Forbidden` results are folded into a single `notUpdated` entry
-    ///   on the wire).
-    /// - The handler/backend trait boundary is established so the
-    ///   `.4.3`/`.4.4`/`.4.5` impl beads can fill in match arms
-    ///   without merge conflicts.
+    /// The entire patch runs under one mutex acquisition, providing
+    /// best-effort transactional semantics for the reference impl: a
+    /// failure mid-way through the op vector does NOT roll back ops that
+    /// already succeeded — they remain applied. Production backends
+    /// should wrap the sequence in a real transaction. This caveat is
+    /// documented on the trait.
     async fn apply_space_patch(
         &self,
         _caller: &(),
-        _account_id: &Id,
-        _space_id: &Id,
+        account_id: &Id,
+        space_id: &Id,
         ops: Vec<SpacePatchOp>,
     ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
-        Ok(ops
-            .into_iter()
-            .enumerate()
-            .map(|(op_index, op)| OpResult {
-                op_index,
-                outcome: Err(
-                    SetError::new(SetErrorType::Forbidden).with_description(stub_description(&op))
-                ),
-            })
-            .collect())
+        let mut inner = self.inner.lock().unwrap();
+
+        // Confirm the target Space exists before doing any work.
+        if !inner
+            .objects_ref("Space", account_id.as_ref())
+            .is_some_and(|m| m.contains_key(space_id))
+        {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )));
+        }
+
+        let mut results = Vec::with_capacity(ops.len());
+        let mut space_mutated = false;
+
+        for (op_index, op) in ops.into_iter().enumerate() {
+            let outcome =
+                match &op {
+                    SpacePatchOp::AddCategory(_)
+                    | SpacePatchOp::RemoveCategory(_)
+                    | SpacePatchOp::UpdateCategory { .. } => apply_category_op(
+                        &mut inner,
+                        account_id.as_ref(),
+                        space_id,
+                        op,
+                        &mut space_mutated,
+                    ),
+                    _ => Err(SetError::new(SetErrorType::Forbidden)
+                        .with_description(stub_description(&op))),
+                };
+            results.push(OpResult { op_index, outcome });
+        }
+
+        // Bump state + log a change entry on the Space if any op mutated it.
+        // We deliberately log one change per call rather than one per op:
+        // the wire response surfaces the whole patch as a single update,
+        // and one change-log entry per call keeps `Space/changes` from
+        // amplifying state-token rotations unnecessarily.
+        if space_mutated {
+            let new_state = inner.bump_state("Space", account_id.as_ref());
+            inner
+                .change_log_mut("Space", account_id.as_ref())
+                .push(ChangeEntry {
+                    new_state,
+                    created: vec![],
+                    updated: vec![space_id.clone()],
+                    destroyed: vec![],
+                });
+        }
+
+        Ok(results)
     }
 }
 
-/// Per-variant rejection text for the reference stub
-/// (see `MemoryBackend::apply_space_patch`).
+/// Apply one Category-family [`SpacePatchOp`] to the in-memory Space.
+///
+/// Per draft-atwood-jmap-chat-00 §Space/set:
+/// - `addCategories`: assigns a fresh CategoryId and pushes the category
+///   into `space.categories`. If the entry's `channelIds` list references
+///   channels of the Space, those channels' `categoryId` is updated.
+/// - `removeCategories`: removes the named category. Channels currently
+///   pointing at that category have their `categoryId` cleared and are
+///   appended to `space.uncategorizedChannelIds` (cascade per line 1126).
+/// - `updateCategories`: applies the per-field patch. A `channelIds`
+///   wholesale-replacement updates each channel's `categoryId` to match:
+///   channels that left the list get `categoryId = None` and join
+///   `uncategorizedChannelIds`; channels that joined the list get
+///   `categoryId = Some(this category)`.
+///
+/// All cross-reference updates use the same in-memory Chat store so the
+/// Space-side `categories[].channel_ids` and the Chat-side `categoryId`
+/// stay consistent.
+///
+/// The `SetError` `Err` variant is large; we tolerate this here because
+/// `SetError` is the workspace-canonical per-op result shape (matches the
+/// `OpResult.outcome` field on the trait method) and boxing would
+/// diverge from every sibling backend.
+#[allow(clippy::result_large_err)]
+fn apply_category_op(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    use jmap_chat_types::space::Category;
+
+    // The Space exists (the caller verified). Pull it out as a typed
+    // value, apply the mutation, write it back.
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+    let categories: &mut Vec<serde_json::Value> = space_val
+        .get_mut("categories")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| {
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("internal: Space.categories not an array")
+        })?;
+
+    let assigned_id = match op {
+        SpacePatchOp::AddCategory(mut cat) => {
+            // Mint a fresh CategoryId. Categories live inside the Space
+            // (no separate `objects` slot) so we synthesize a unique id
+            // via the shared `next_id` helper with a synthetic type name.
+            let new_id = MemoryBackend::next_id(inner, "Category", account_id);
+            cat.id = new_id.clone();
+
+            // Validate every channel id in the entry's channel_ids refers
+            // to an existing Chat with kind=channel and space_id matching
+            // this Space. The spec says "channelIds (String[])" without
+            // strict validation language, but accepting nonexistent ids
+            // would create dangling references on the Space side.
+            for ch_id in &cat.channel_ids {
+                if !channel_belongs_to_space(inner, account_id, ch_id, space_id) {
+                    return Err(SetError::new(SetErrorType::InvalidProperties)
+                        .with_properties(vec!["channelIds".to_owned()])
+                        .with_description(format!(
+                            "channelId {} is not a channel of this Space",
+                            ch_id.as_ref()
+                        )));
+                }
+            }
+
+            // Re-fetch space_val + categories after the validation borrows
+            // (channel_belongs_to_space took an immutable inner borrow).
+            let mut space_val = inner
+                .objects_ref("Space", account_id)
+                .and_then(|m| m.get(space_id))
+                .cloned()
+                .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+            // Set each named channel's category_id and pull it out of
+            // uncategorized_channel_ids if present.
+            let owned_channel_ids: Vec<Id> = cat.channel_ids.clone();
+            for ch_id in &owned_channel_ids {
+                set_channel_category(inner, account_id, ch_id, Some(&new_id));
+            }
+            if let Some(unc) = space_val
+                .get_mut("uncategorizedChannelIds")
+                .and_then(|v| v.as_array_mut())
+            {
+                unc.retain(|v| {
+                    v.as_str()
+                        .is_none_or(|s| !owned_channel_ids.iter().any(|id| id.as_ref() == s))
+                });
+            }
+            let cats = space_val
+                .get_mut("categories")
+                .and_then(|v| v.as_array_mut())
+                .ok_or_else(|| {
+                    SetError::new(SetErrorType::Forbidden)
+                        .with_description("internal: Space.categories not an array")
+                })?;
+            cats.push(serde_json::to_value(&cat).map_err(|e| {
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description(format!("internal: serialize Category: {e}"))
+            })?);
+
+            inner
+                .objects_mut("Space", account_id)
+                .insert(space_id.clone(), space_val);
+            *space_mutated = true;
+            Some(new_id)
+        }
+
+        SpacePatchOp::RemoveCategory(target_id) => {
+            // Find the category. Cascade: every channel currently in this
+            // category gets its category_id cleared and is appended to
+            // uncategorized. Per draft §Space/set line 1126.
+            let pos = categories
+                .iter()
+                .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(target_id.as_ref()));
+            let Some(pos) = pos else {
+                return Err(SetError::new(SetErrorType::NotFound)
+                    .with_description(format!("category {} not found", target_id.as_ref())));
+            };
+            // The stored channel_ids on the category mirror the Chats'
+            // category_id; scan Chats to be safe (Space-side could drift).
+            let scanned: Vec<Id> = scan_channels_in_category(inner, account_id, &target_id);
+
+            // Drop the category and append channels to uncategorized.
+            let mut space_val = inner
+                .objects_ref("Space", account_id)
+                .and_then(|m| m.get(space_id))
+                .cloned()
+                .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+            let cats = space_val
+                .get_mut("categories")
+                .and_then(|v| v.as_array_mut())
+                .ok_or_else(|| {
+                    SetError::new(SetErrorType::Forbidden)
+                        .with_description("internal: Space.categories not an array")
+                })?;
+            cats.remove(pos);
+
+            let unc = space_val
+                .get_mut("uncategorizedChannelIds")
+                .and_then(|v| v.as_array_mut())
+                .ok_or_else(|| {
+                    SetError::new(SetErrorType::Forbidden)
+                        .with_description("internal: Space.uncategorizedChannelIds not an array")
+                })?;
+            for ch_id in &scanned {
+                unc.push(serde_json::Value::String(ch_id.as_ref().to_owned()));
+            }
+            inner
+                .objects_mut("Space", account_id)
+                .insert(space_id.clone(), space_val);
+
+            // Clear each scanned channel's category_id pointer.
+            for ch_id in &scanned {
+                set_channel_category(inner, account_id, ch_id, None);
+            }
+            *space_mutated = true;
+            None
+        }
+
+        SpacePatchOp::UpdateCategory { id, patch } => {
+            // Find the category.
+            let pos = categories
+                .iter()
+                .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(id.as_ref()));
+            let Some(pos) = pos else {
+                return Err(SetError::new(SetErrorType::NotFound)
+                    .with_description(format!("category {} not found", id.as_ref())));
+            };
+
+            // Deserialize, apply the patch, re-serialize.
+            let mut cat: Category =
+                serde_json::from_value(categories[pos].clone()).map_err(|e| {
+                    SetError::new(SetErrorType::Forbidden)
+                        .with_description(format!("internal: deserialize Category: {e}"))
+                })?;
+
+            if let Some(name) = patch.name {
+                cat.name = name;
+            }
+            if let Some(position) = patch.position {
+                cat.position = position;
+            }
+
+            // Wholesale channel_ids replacement requires cross-reference
+            // bookkeeping on the channels.
+            let channel_ids_changed = patch.channel_ids.is_some();
+            let new_channel_ids: Option<Vec<Id>> = patch.channel_ids;
+            if let Some(new_ids) = &new_channel_ids {
+                // Validate every new id is a channel of this Space.
+                for ch_id in new_ids {
+                    if !channel_belongs_to_space(inner, account_id, ch_id, space_id) {
+                        return Err(SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties(vec!["channelIds".to_owned()])
+                            .with_description(format!(
+                                "channelId {} is not a channel of this Space",
+                                ch_id.as_ref()
+                            )));
+                    }
+                }
+            }
+
+            if channel_ids_changed {
+                let new_ids = new_channel_ids.expect("checked above");
+                let old_ids = cat.channel_ids.clone();
+
+                // Channels in old but not in new: clear category_id and
+                // append to uncategorized.
+                let removed: Vec<&Id> = old_ids.iter().filter(|o| !new_ids.contains(o)).collect();
+                // Channels in new but not in old: set category_id to this
+                // category and remove from uncategorized.
+                let added: Vec<&Id> = new_ids.iter().filter(|n| !old_ids.contains(n)).collect();
+
+                cat.channel_ids = new_ids.clone();
+
+                // Mutate Space first (uncategorized list).
+                let mut space_val = inner
+                    .objects_ref("Space", account_id)
+                    .and_then(|m| m.get(space_id))
+                    .cloned()
+                    .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+                if let Some(unc) = space_val
+                    .get_mut("uncategorizedChannelIds")
+                    .and_then(|v| v.as_array_mut())
+                {
+                    for ch_id in &removed {
+                        unc.push(serde_json::Value::String(ch_id.as_ref().to_owned()));
+                    }
+                    unc.retain(|v| {
+                        v.as_str()
+                            .is_none_or(|s| !added.iter().any(|id| id.as_ref() == s))
+                    });
+                }
+                // Write back the updated category.
+                let cats = space_val
+                    .get_mut("categories")
+                    .and_then(|v| v.as_array_mut())
+                    .ok_or_else(|| {
+                        SetError::new(SetErrorType::Forbidden)
+                            .with_description("internal: Space.categories not an array")
+                    })?;
+                cats[pos] = serde_json::to_value(&cat).map_err(|e| {
+                    SetError::new(SetErrorType::Forbidden)
+                        .with_description(format!("internal: serialize Category: {e}"))
+                })?;
+                inner
+                    .objects_mut("Space", account_id)
+                    .insert(space_id.clone(), space_val);
+
+                // Update each channel's category_id.
+                for ch_id in &removed {
+                    set_channel_category(inner, account_id, ch_id, None);
+                }
+                for ch_id in &added {
+                    set_channel_category(inner, account_id, ch_id, Some(&id));
+                }
+            } else {
+                // Only metadata changed; write back the category.
+                let mut space_val = inner
+                    .objects_ref("Space", account_id)
+                    .and_then(|m| m.get(space_id))
+                    .cloned()
+                    .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+                let cats = space_val
+                    .get_mut("categories")
+                    .and_then(|v| v.as_array_mut())
+                    .ok_or_else(|| {
+                        SetError::new(SetErrorType::Forbidden)
+                            .with_description("internal: Space.categories not an array")
+                    })?;
+                cats[pos] = serde_json::to_value(&cat).map_err(|e| {
+                    SetError::new(SetErrorType::Forbidden)
+                        .with_description(format!("internal: serialize Category: {e}"))
+                })?;
+                inner
+                    .objects_mut("Space", account_id)
+                    .insert(space_id.clone(), space_val);
+            }
+            *space_mutated = true;
+            None
+        }
+
+        // Caller filters non-category ops out before reaching this helper.
+        _ => unreachable!("apply_category_op called with non-category variant"),
+    };
+
+    Ok(assigned_id)
+}
+
+/// True if `chat_id` names an existing Chat with kind=channel and
+/// space_id matching `space_id`.
+fn channel_belongs_to_space(inner: &Inner, account_id: &str, chat_id: &Id, space_id: &Id) -> bool {
+    inner
+        .objects_ref("Chat", account_id)
+        .and_then(|m| m.get(chat_id))
+        .map(|v| {
+            v.get("kind").and_then(|k| k.as_str()) == Some("channel")
+                && v.get("spaceId").and_then(|s| s.as_str()) == Some(space_id.as_ref())
+        })
+        .unwrap_or(false)
+}
+
+/// Return every channel-kind Chat whose `categoryId` equals `target_id`.
+fn scan_channels_in_category(inner: &Inner, account_id: &str, target_id: &Id) -> Vec<Id> {
+    let Some(chats) = inner.objects_ref("Chat", account_id) else {
+        return Vec::new();
+    };
+    chats
+        .iter()
+        .filter(|(_, v)| {
+            v.get("kind").and_then(|k| k.as_str()) == Some("channel")
+                && v.get("categoryId").and_then(|c| c.as_str()) == Some(target_id.as_ref())
+        })
+        .map(|(id, _)| id.clone())
+        .collect()
+}
+
+/// Set or clear a Chat's `categoryId` field in place. Silently no-ops if
+/// the Chat does not exist (the caller has already validated existence
+/// via `channel_belongs_to_space` or `scan_channels_in_category`).
+fn set_channel_category(inner: &mut Inner, account_id: &str, chat_id: &Id, new_cat: Option<&Id>) {
+    let map = inner.objects_mut("Chat", account_id);
+    let Some(chat_val) = map.get_mut(chat_id) else {
+        return;
+    };
+    let obj = match chat_val {
+        serde_json::Value::Object(o) => o,
+        _ => return,
+    };
+    match new_cat {
+        Some(cat_id) => {
+            obj.insert(
+                "categoryId".to_owned(),
+                serde_json::Value::String(cat_id.as_ref().to_owned()),
+            );
+        }
+        None => {
+            obj.remove("categoryId");
+        }
+    }
+}
+
+/// Per-variant rejection text for the stubbed-out variants
+/// (Role/Member → `bd:JMAP-g7wu.2.4.3`, Channel → `bd:JMAP-g7wu.2.4.4`).
 fn stub_description(op: &SpacePatchOp) -> String {
     let (variant, bead) = match op {
         SpacePatchOp::AddRole(_)

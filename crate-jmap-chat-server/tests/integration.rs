@@ -1211,16 +1211,22 @@ async fn space_set_update_readonly_fields_rejected() {
     }
 }
 
-/// Oracle: Space/set update accepts well-formed structural mutation keys
-/// and dispatches to ChatBackend::apply_space_patch (bd:JMAP-g7wu.2.4.2).
+/// Oracle: Space/set update accepts well-formed Role/Member/Channel
+/// structural mutation keys and dispatches to
+/// ChatBackend::apply_space_patch (bd:JMAP-g7wu.2.4.2).
 ///
-/// The reference MemoryBackend stub rejects every variant with `forbidden`
-/// pending the per-family impl beads (bd:JMAP-g7wu.2.4.{3,4,5}). This test
-/// asserts both that the parsing layer succeeds (no `invalidProperties`)
-/// AND that the wire response surfaces the backend's `forbidden` error,
-/// proving the handler dispatches end-to-end.
+/// The reference MemoryBackend stub still rejects Role, Member, and
+/// Channel variants with `forbidden` pending bd:JMAP-g7wu.2.4.3 and
+/// bd:JMAP-g7wu.2.4.4. Category variants are implemented
+/// (bd:JMAP-g7wu.2.4.5) and have dedicated tests further down in this
+/// file (`space_set_category_*`).
+///
+/// This test asserts both that the parsing layer succeeds (no
+/// `invalidProperties`) AND that the wire response surfaces the
+/// backend's `forbidden` error, proving the handler dispatches
+/// end-to-end.
 #[tokio::test]
-async fn space_set_update_structural_keys_dispatch_to_backend() {
+async fn space_set_update_stub_variants_dispatch_to_backend() {
     let backend = MemoryBackend::new();
 
     let (create_resp, _) = handle_space_set(
@@ -1235,8 +1241,9 @@ async fn space_set_update_structural_keys_dispatch_to_backend() {
         .expect("id")
         .to_owned();
 
-    // One well-formed wire entry per structural key. Payload shapes match
-    // draft-atwood-jmap-chat-00 §Space/set and jmap_chat_types::space_set.
+    // One well-formed wire entry per still-stubbed structural key.
+    // Payload shapes match draft-atwood-jmap-chat-00 §Space/set and
+    // jmap_chat_types::space_set.
     let cases: &[(&str, serde_json::Value)] = &[
         (
             "addRoles",
@@ -1255,15 +1262,6 @@ async fn space_set_update_structural_keys_dispatch_to_backend() {
         (
             "updateChannels",
             json!([{ "id": "chan-1", "name": "renamed" }]),
-        ),
-        (
-            "addCategories",
-            json!([{ "id": "placeholder", "name": "Voice", "position": 0, "channelIds": [] }]),
-        ),
-        ("removeCategories", json!(["cat-1"])),
-        (
-            "updateCategories",
-            json!([{ "id": "cat-1", "name": "Renamed" }]),
         ),
     ];
 
@@ -1493,6 +1491,439 @@ async fn space_set_update_unknown_property_rejected() {
     assert!(
         props.contains(&"totallyUnknownProperty"),
         "properties must name the unknown key: {props:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Space/set Category-family mutations (bd:JMAP-g7wu.2.4.5)
+//
+// These cover the three Category variants of SpacePatchOp:
+// AddCategory, RemoveCategory, UpdateCategory. Channel-reassignment
+// cascade semantics (channels move to uncategorizedChannelIds on
+// category removal; channel.category_id stays consistent with the
+// Space-side categories[].channel_ids on add/update) are exercised by
+// driving Chat/set channels alongside the category ops.
+// ---------------------------------------------------------------------------
+
+/// Helper: create a Space and return its server-assigned id.
+async fn make_space(backend: &MemoryBackend, name: &str) -> String {
+    let (resp, _) = handle_space_set(
+        backend,
+        &(),
+        json!({ "accountId": "a1", "create": { "s0": { "name": name } } }),
+    )
+    .await
+    .expect("create space");
+    resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("space id")
+        .to_owned()
+}
+
+/// Helper: directly seed a channel-kind Chat in the in-memory backend so
+/// Category cascade tests have channels to reassign without needing a
+/// Chat/set channel-create path (which is part of bd:JMAP-g7wu.2.4.4 and
+/// not yet implemented).
+fn seed_channel(
+    backend: &MemoryBackend,
+    account_id: &str,
+    chat_id: &str,
+    space_id: &str,
+    category_id: Option<&str>,
+) {
+    use jmap_chat_server::JmapObject;
+    let mut chat = json!({
+        "id": chat_id,
+        "kind": "channel",
+        "muted": false,
+        "receiveTypingIndicators": true,
+        "spaceId": space_id,
+    });
+    if let Some(cid) = category_id {
+        chat["categoryId"] = json!(cid);
+    }
+    // Reach into the public type-name constant to match what the backend
+    // uses internally; if the Chat type-name ever changes, this test will
+    // refuse to compile.
+    let type_name = <jmap_chat_types::Chat as JmapObject>::TYPE_NAME;
+    backend.insert_object_for_test(type_name, account_id, chat_id, chat);
+}
+
+/// Oracle: Space/set addCategories assigns a fresh CategoryId and pushes
+/// the category into Space.categories.
+#[tokio::test]
+async fn space_set_category_add_assigns_id_and_pushes() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat Add Test").await;
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "General",
+                        "position": 0,
+                        "channelIds": [],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert!(
+        resp["notUpdated"].is_null(),
+        "addCategories should succeed: {:?}",
+        resp["notUpdated"]
+    );
+
+    // Verify the category landed in space.categories with a server-assigned id.
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&space_id] }),
+    )
+    .await
+    .expect("handle_space_get");
+    let cats = get_resp["list"][0]["categories"]
+        .as_array()
+        .expect("categories array");
+    assert_eq!(cats.len(), 1, "exactly one category present");
+    let new_id = cats[0]["id"].as_str().expect("category id");
+    assert_ne!(
+        new_id, "placeholder",
+        "server must replace placeholder with a real id"
+    );
+    assert_eq!(cats[0]["name"], "General");
+    assert_eq!(cats[0]["position"], 0);
+}
+
+/// Oracle: Space/set addCategories with a channelIds list referencing
+/// existing channels updates those channels' categoryId and pulls them
+/// out of uncategorizedChannelIds.
+#[tokio::test]
+async fn space_set_category_add_reassigns_existing_channels() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat Reassign Test").await;
+
+    // Seed two channels into the Space; they start uncategorized.
+    seed_channel(&backend, "a1", "ch-1", &space_id, None);
+    seed_channel(&backend, "a1", "ch-2", &space_id, None);
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "Voice",
+                        "position": 0,
+                        "channelIds": ["ch-1", "ch-2"],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert!(
+        resp["notUpdated"].is_null(),
+        "addCategories with channels should succeed: {:?}",
+        resp["notUpdated"]
+    );
+
+    // Channel categoryId fields should point at the new category.
+    let new_cat_id = backend.first_category_id(&Id::from(space_id.as_str()));
+    let chat1 = backend.peek_chat(&Id::from("ch-1"));
+    let chat2 = backend.peek_chat(&Id::from("ch-2"));
+    assert_eq!(
+        chat1["categoryId"].as_str(),
+        Some(new_cat_id.as_ref()),
+        "ch-1.categoryId must point at the new category"
+    );
+    assert_eq!(
+        chat2["categoryId"].as_str(),
+        Some(new_cat_id.as_ref()),
+        "ch-2.categoryId must point at the new category"
+    );
+}
+
+/// Oracle: addCategories rejects channelIds that don't reference
+/// channels of this Space (invalidProperties on `channelIds`).
+#[tokio::test]
+async fn space_set_category_add_unknown_channel_rejected() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat Unknown Channel Test").await;
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "Voice",
+                        "position": 0,
+                        "channelIds": ["nonexistent-channel"],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert_eq!(
+        resp["notUpdated"][&space_id]["type"], "invalidProperties",
+        "unknown channelId must be invalidProperties: {:?}",
+        resp["notUpdated"][&space_id]
+    );
+    let props: Vec<&str> = resp["notUpdated"][&space_id]["properties"]
+        .as_array()
+        .expect("properties array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        props.contains(&"channelIds"),
+        "properties must name channelIds: {props:?}"
+    );
+}
+
+/// Oracle: Space/set removeCategories with an unknown id surfaces
+/// NotFound (the bead-id description is not preserved here; it just
+/// names which category was not found).
+#[tokio::test]
+async fn space_set_category_remove_unknown_yields_not_found() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat Remove Unknown").await;
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "removeCategories": ["does-not-exist"] } }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert_eq!(
+        resp["notUpdated"][&space_id]["type"], "notFound",
+        "removeCategory for unknown id must surface notFound: {:?}",
+        resp["notUpdated"][&space_id]
+    );
+}
+
+/// Oracle: Space/set removeCategories cascades channels into
+/// uncategorizedChannelIds (draft §Space/set line 1126).
+#[tokio::test]
+async fn space_set_category_remove_cascades_channels_to_uncategorized() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat Cascade Test").await;
+
+    // Create a category with two channels via addCategories.
+    seed_channel(&backend, "a1", "ch-a", &space_id, None);
+    seed_channel(&backend, "a1", "ch-b", &space_id, None);
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "TempCat",
+                        "position": 0,
+                        "channelIds": ["ch-a", "ch-b"],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("add cat");
+    assert!(resp["notUpdated"].is_null(), "add failed: {:?}", resp);
+
+    let cat_id = backend.first_category_id(&Id::from(space_id.as_str()));
+
+    // Now remove the category. Both channels should land in uncategorized.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "removeCategories": [cat_id.as_ref()] } }
+        }),
+    )
+    .await
+    .expect("remove cat");
+
+    assert!(
+        resp["notUpdated"].is_null(),
+        "removeCategories should succeed: {:?}",
+        resp["notUpdated"]
+    );
+
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&space_id] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(
+        get_resp["list"][0]["categories"]
+            .as_array()
+            .expect("categories")
+            .len(),
+        0,
+        "category must be removed from Space"
+    );
+    let unc: Vec<&str> = get_resp["list"][0]["uncategorizedChannelIds"]
+        .as_array()
+        .expect("uncategorized array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        unc.contains(&"ch-a") && unc.contains(&"ch-b"),
+        "both channels must cascade into uncategorized: {unc:?}"
+    );
+
+    // Channel-side category_id must be cleared.
+    assert!(
+        backend
+            .peek_chat(&Id::from("ch-a"))
+            .get("categoryId")
+            .is_none(),
+        "ch-a categoryId must be cleared after cascade"
+    );
+    assert!(
+        backend
+            .peek_chat(&Id::from("ch-b"))
+            .get("categoryId")
+            .is_none(),
+        "ch-b categoryId must be cleared after cascade"
+    );
+}
+
+/// Oracle: Space/set updateCategories patches the category in place and,
+/// when channelIds is replaced, keeps channel.categoryId consistent.
+#[tokio::test]
+async fn space_set_category_update_rename_and_reassign_channels() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat Update Test").await;
+
+    seed_channel(&backend, "a1", "ch-x", &space_id, None);
+    seed_channel(&backend, "a1", "ch-y", &space_id, None);
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "Original",
+                        "position": 0,
+                        "channelIds": ["ch-x"],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("seed cat");
+    assert!(resp["notUpdated"].is_null());
+    let cat_id = backend.first_category_id(&Id::from(space_id.as_str()));
+
+    // Rename the category AND swap its channel membership: ch-x out,
+    // ch-y in. Expected: ch-x lands in uncategorized, ch-y leaves
+    // uncategorized; both channels' categoryId fields flip.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "updateCategories": [{
+                        "id": cat_id.as_ref(),
+                        "name": "Renamed",
+                        "channelIds": ["ch-y"],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("update cat");
+    assert!(
+        resp["notUpdated"].is_null(),
+        "updateCategories must succeed: {:?}",
+        resp["notUpdated"]
+    );
+
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&space_id] }),
+    )
+    .await
+    .expect("get");
+    let cats = get_resp["list"][0]["categories"]
+        .as_array()
+        .expect("categories");
+    assert_eq!(cats[0]["name"], "Renamed", "name must update");
+    let channel_ids: Vec<&str> = cats[0]["channelIds"]
+        .as_array()
+        .expect("channelIds")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(channel_ids, vec!["ch-y"], "channelIds replaced wholesale");
+
+    let unc: Vec<&str> = get_resp["list"][0]["uncategorizedChannelIds"]
+        .as_array()
+        .expect("uncategorized")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        unc.contains(&"ch-x"),
+        "ch-x must land in uncategorized: {unc:?}"
+    );
+    assert!(
+        !unc.contains(&"ch-y"),
+        "ch-y must have left uncategorized: {unc:?}"
+    );
+
+    assert!(
+        backend
+            .peek_chat(&Id::from("ch-x"))
+            .get("categoryId")
+            .is_none(),
+        "ch-x.categoryId must be cleared"
+    );
+    assert_eq!(
+        backend.peek_chat(&Id::from("ch-y"))["categoryId"].as_str(),
+        Some(cat_id.as_ref()),
+        "ch-y.categoryId must point at the (renamed) category"
     );
 }
 
