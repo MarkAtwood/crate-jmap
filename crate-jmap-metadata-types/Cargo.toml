@@ -1,0 +1,16 @@
+[package]
+name = "jmap-metadata-types"
+version = "0.1.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Object Metadata extension data types (draft-ietf-jmap-metadata-*)"
+keywords = ["jmap", "metadata", "annotation", "types"]
+categories = ["encoding", "network-programming"]
+
+[dependencies]
+jmap-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
