@@ -121,11 +121,11 @@ struct AccountAux {
 #[derive(Default)]
 struct Inner {
     /// `(type_name, account_id)` → `id → serialized object`
-    objects: HashMap<(String, String), HashMap<Id, serde_json::Value>>,
+    objects: HashMap<(&'static str, String), HashMap<Id, serde_json::Value>>,
     /// `(type_name, account_id)` → current state counter
-    states: HashMap<(String, String), u64>,
+    states: HashMap<(&'static str, String), u64>,
     /// `(type_name, account_id)` → ordered change entries
-    change_log: HashMap<(String, String), Vec<ChangeEntry>>,
+    change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,
     /// `account_id` → auxiliary per-account state (defaults, derived indexes)
     aux: HashMap<String, AccountAux>,
     /// Explicitly registered account ids (accounts may exist with no objects yet).
@@ -133,17 +133,17 @@ struct Inner {
 }
 
 impl Inner {
-    fn current_state(&self, type_name: &str, account_id: &str) -> u64 {
+    fn current_state(&self, type_name: &'static str, account_id: &str) -> u64 {
         *self
             .states
-            .get(&(type_name.to_owned(), account_id.to_owned()))
+            .get(&(type_name, account_id.to_owned()))
             .unwrap_or(&0)
     }
 
-    fn bump_state(&mut self, type_name: &str, account_id: &str) -> u64 {
+    fn bump_state(&mut self, type_name: &'static str, account_id: &str) -> u64 {
         let entry = self
             .states
-            .entry((type_name.to_owned(), account_id.to_owned()))
+            .entry((type_name, account_id.to_owned()))
             .or_insert(0);
         *entry += 1;
         *entry
@@ -151,27 +151,30 @@ impl Inner {
 
     fn objects_mut(
         &mut self,
-        type_name: &str,
+        type_name: &'static str,
         account_id: &str,
     ) -> &mut HashMap<Id, serde_json::Value> {
         self.known_accounts.insert(account_id.to_owned());
         self.objects
-            .entry((type_name.to_owned(), account_id.to_owned()))
+            .entry((type_name, account_id.to_owned()))
             .or_default()
     }
 
     fn objects_ref(
         &self,
-        type_name: &str,
+        type_name: &'static str,
         account_id: &str,
     ) -> Option<&HashMap<Id, serde_json::Value>> {
-        self.objects
-            .get(&(type_name.to_owned(), account_id.to_owned()))
+        self.objects.get(&(type_name, account_id.to_owned()))
     }
 
-    fn change_log_mut(&mut self, type_name: &str, account_id: &str) -> &mut Vec<ChangeEntry> {
+    fn change_log_mut(
+        &mut self,
+        type_name: &'static str,
+        account_id: &str,
+    ) -> &mut Vec<ChangeEntry> {
         self.change_log
-            .entry((type_name.to_owned(), account_id.to_owned()))
+            .entry((type_name, account_id.to_owned()))
             .or_default()
     }
 
@@ -189,7 +192,7 @@ impl Inner {
     fn recompute_calendars_with_events(&mut self, account_id: &str) {
         let events = self
             .objects
-            .get(&("CalendarEvent".to_owned(), account_id.to_owned()))
+            .get(&("CalendarEvent", account_id.to_owned()))
             .cloned()
             .unwrap_or_default();
 
@@ -260,7 +263,7 @@ impl MemoryBackend {
     pub fn seed_object(
         &self,
         account_id: &str,
-        type_name: &str,
+        type_name: &'static str,
         id: &str,
         value: serde_json::Value,
     ) {
@@ -315,7 +318,7 @@ impl MemoryBackend {
     /// Pattern: `"<lowercased-type-name><n>"` where `n` is `count + 1`
     /// within the `(type_name, account_id)` namespace. Stable across runs
     /// of a single test; not globally unique across processes.
-    fn next_id(inner: &mut Inner, type_name: &str, account_id: &str) -> Id {
+    fn next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {
         let n = inner
             .objects_ref(type_name, account_id)
             .map_or(0, |m| m.len());
@@ -399,7 +402,7 @@ impl JmapBackend for MemoryBackend {
 
         let log = inner
             .change_log
-            .get(&(O::TYPE_NAME.to_owned(), account_id.as_ref().to_owned()))
+            .get(&(O::TYPE_NAME, account_id.as_ref().to_owned()))
             .map(Vec::as_slice)
             .unwrap_or(&[]);
 
