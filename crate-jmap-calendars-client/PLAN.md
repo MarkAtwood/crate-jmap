@@ -210,8 +210,8 @@ impl SessionClient {
     pub async fn principal_get_availability(
         &self,
         principal_id: &Id,
-        utc_start: &str,                    // (UTCDate newtype migration pending)
-        utc_end: &str,
+        utc_start: &UTCDate,
+        utc_end: &UTCDate,
         show_details: Option<bool>,
         event_properties: Option<&[&str]>,
     ) -> Result<PrincipalGetAvailabilityResponse, ClientError>;
@@ -250,9 +250,11 @@ impl SessionClient {
 - **Wire-format hygiene**: /get methods now omit `ids` / `properties` when
   None rather than sending explicit JSON null (closed by JMAP-231o.10
   as of 2026-05-08).
-- **UTCDate types**: `principal_get_availability` still takes `utc_start` /
-  `utc_end` as `&str`. Workspace-wide UTCDate newtype migration tracked
-  under `bd:JMAP-g7wu.9`.
+- **UTCDate types**: `principal_get_availability` takes `utc_start` /
+  `utc_end` as `&UTCDate` (migrated under `bd:JMAP-g7wu.9.4`). The
+  workspace-wide UTCDate audit sweep continues under `bd:JMAP-g7wu.9.5`
+  for any remaining `&str`/`String` sites that semantically represent
+  UTCDates.
 
 ## Module Layout (shipped)
 

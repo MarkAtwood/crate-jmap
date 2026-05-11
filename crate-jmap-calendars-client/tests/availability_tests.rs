@@ -6,7 +6,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
-use jmap_types::Id;
+use jmap_types::{Id, UTCDate};
 use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -41,14 +41,12 @@ async fn principal_get_availability_round_trip() {
 
     let sc = helpers::make_client(&server);
     let principal_id = Id::from("p-joe");
+    let utc_start = UTCDate::new_validated("2024-06-15T09:00:00Z")
+        .expect("hand-written RFC 8620 §1.4 UTCDate fixture must validate");
+    let utc_end = UTCDate::new_validated("2024-06-15T10:00:00Z")
+        .expect("hand-written RFC 8620 §1.4 UTCDate fixture must validate");
     let resp = sc
-        .principal_get_availability(
-            &principal_id,
-            "2024-06-15T09:00:00Z",
-            "2024-06-15T10:00:00Z",
-            None,
-            None,
-        )
+        .principal_get_availability(&principal_id, &utc_start, &utc_end, None, None)
         .await
         .expect("principal_get_availability_round_trip: must succeed");
 

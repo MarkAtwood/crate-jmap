@@ -1,6 +1,6 @@
 //! Principal/getAvailability method (draft-ietf-jmap-calendars-26 §2.2).
 
-use jmap_types::Id;
+use jmap_types::{Id, UTCDate};
 
 use super::{PrincipalGetAvailabilityResponse, SessionClient, CALL_ID, USING_AVAILABILITY};
 use jmap_base_client::ClientError;
@@ -11,35 +11,24 @@ impl SessionClient {
     ///
     /// The wire key for `principal_id` is `"id"` (not `"principalId"`) per §2.2.
     ///
-    /// `utc_start` and `utc_end` remain `&str` here pending the workspace-wide
-    /// `UTCDate` newtype migration tracked under `bd:JMAP-g7wu.9`.
-    ///
-    /// # Errors
-    /// Returns `ClientError::InvalidArgument` if `utc_start` or `utc_end` is empty.
+    /// `utc_start` and `utc_end` are [`UTCDate`] values — RFC 8620 §1.4
+    /// format validation is enforced at construction time via
+    /// [`UTCDate::new_validated`], so invalid time strings cannot reach the
+    /// wire.
     pub async fn principal_get_availability(
         &self,
         principal_id: &Id,
-        utc_start: &str,
-        utc_end: &str,
+        utc_start: &UTCDate,
+        utc_end: &UTCDate,
         show_details: Option<bool>,
         event_properties: Option<&[&str]>,
     ) -> Result<PrincipalGetAvailabilityResponse, ClientError> {
-        if utc_start.is_empty() {
-            return Err(ClientError::InvalidArgument(
-                "principal_get_availability: utc_start must not be empty".into(),
-            ));
-        }
-        if utc_end.is_empty() {
-            return Err(ClientError::InvalidArgument(
-                "principal_get_availability: utc_end must not be empty".into(),
-            ));
-        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
             "id": principal_id.as_ref(),  // §2.2 uses "id" not "principalId"
-            "utcStart": utc_start,
-            "utcEnd": utc_end,
+            "utcStart": utc_start.as_ref(),
+            "utcEnd": utc_end.as_ref(),
         });
         if let Some(sd) = show_details {
             args["showDetails"] = serde_json::Value::Bool(sd);
