@@ -73,8 +73,18 @@ pub trait ChatBackend: JmapBackend {
 
     /// Generate a cryptographically random invite code.
     ///
-    /// Implementations MUST use a CSPRNG (e.g. `rand::thread_rng`, `getrandom`,
-    /// OS entropy). The returned string must be unguessable — do NOT use
-    /// timestamps or sequential counters.
+    /// Implementations MUST use a CSPRNG seeded from OS entropy. The
+    /// recommended choices are [`rand::rngs::OsRng`] or the [`getrandom`]
+    /// crate directly. Do NOT use `rand::thread_rng()` for security-relevant
+    /// output: although current `rand` versions document `ThreadRng` as
+    /// cryptographically secure, its underlying algorithm is
+    /// implementation-defined and has changed across releases, and the
+    /// `rand` book explicitly routes security-sensitive callers to `OsRng`.
+    ///
+    /// The returned string must be unguessable — do NOT use timestamps,
+    /// sequential counters, or non-CSPRNG sources.
+    ///
+    /// [`rand::rngs::OsRng`]: https://docs.rs/rand/latest/rand/rngs/struct.OsRng.html
+    /// [`getrandom`]: https://docs.rs/getrandom
     fn generate_invite_code(&self) -> String;
 }
