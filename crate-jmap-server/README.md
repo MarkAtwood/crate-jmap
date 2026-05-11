@@ -130,20 +130,22 @@ ids.
 pub use parse::{check_known_capabilities, parse_request, resolve_args};
 pub use response::{error_invocation, error_status, request_error, RequestError};
 pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
-// Plus the closure-based JmapHandler adapters defined in this crate's
-// crate root: ClosureHandler and ClosureHandlerWithCtx.
+// Plus the closure-based JmapHandler adapter defined in this crate's
+// crate root: ClosureHandler.
 ```
 
 Request parsing and capability validation; HTTP response shaping for
 request-level errors; generic implementations of the four read-side JMAP
 methods (`Foo/get`, `Foo/changes`, `Foo/query`, `Foo/queryChanges`) that
-extension server crates plug their backend into; and the two closure-based
-`JmapHandler` adapters (`ClosureHandler`, `ClosureHandlerWithCtx`) used by
-`register_*_handlers` macros across the extension server crates.
+extension server crates plug their backend into; and the closure-based
+`JmapHandler` adapter (`ClosureHandler`) used by `register_*_handlers`
+macros across the extension server crates. `ClosureHandler` forwards the
+dispatcher's `CallerCtx` value through to the wrapped closure as a fourth
+argument, so backends that need per-request auth context can read it
+without dropping down to a manual `JmapHandler<C>` impl.
 
 ## Known Limitations
 
-- **`CallerCtx` not forwarded through `ClosureHandler`.** The `ClosureHandler` convenience type (used by `register_mail_handlers` and similar) does not pass `CallerCtx` to the handler closure. If you need per-request auth context inside a handler, implement `JmapHandler<C>` directly and register with `dispatcher.register(method_name, Arc::new(your_handler))`.
 - **`sortAsTree` and `filterAsTree` not implemented.** The generic `handle_query` handler rejects these arguments with `unsupportedSort`/`unsupportedFilter` rather than silently ignoring them. Tree-mode traversal is not implemented.
 - **In-process filtering only.** `handle_query` fetches all objects and filters them in-process. For large accounts this is O(N) in the number of objects. Backends that can push filtering to storage should implement `query_objects` with real filter logic rather than relying on the generic handler.
 - **Single-process only.** The dispatcher holds no shared state between requests and is safe to use concurrently; however, there is no built-in clustering support. State consistency across multiple processes is the backend's responsibility.

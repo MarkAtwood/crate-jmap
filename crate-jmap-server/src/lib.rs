@@ -243,7 +243,7 @@ impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
 }
 
 // ---------------------------------------------------------------------------
-// ClosureHandler — generic backend-wrapping JmapHandler
+// ClosureHandler — generic backend-wrapping JmapHandler that forwards CallerCtx
 // ---------------------------------------------------------------------------
 
 /// Type alias for the closure stored inside [`ClosureHandler`].
@@ -252,69 +252,32 @@ impl<CallerCtx> fmt::Debug for Dispatcher<CallerCtx> {
 /// identifier from RFC 8620 §3.3), not the method name.  If you need the
 /// method name inside the closure, register the handler with
 /// [`Dispatcher::register`] and use [`JmapHandler`] directly instead.
-pub type BackendCallFn<B> =
-    dyn Fn(Arc<B>, String, serde_json::Value) -> HandlerFuture + Send + Sync + 'static;
-
-/// A [`JmapHandler`] that wraps an async closure over a shared backend.
 ///
-/// # CallerCtx limitation
-///
-/// The closure receives `(args: Value, ctx: C)` where `C` is the caller
-/// context (e.g. auth identity). However, the closures registered via
-/// `register_mail_handlers` / `register_chat_handlers` capture the
-/// backend via `Arc` and ignore `ctx` entirely — they do not forward the
-/// auth context to the handler.
-///
-/// If per-request auth context is needed, register handlers individually
-/// via [`Dispatcher::register`] with a closure that explicitly uses `ctx`.
-/// Adding `CallerCtx` forwarding to `ClosureHandler` itself is an API
-/// change tracked under `bd:JMAP-g7wu.1.4`.
-pub struct ClosureHandler<B: Send + Sync + 'static> {
-    pub backend: Arc<B>,
-    pub call_fn: Box<BackendCallFn<B>>,
-}
-
-impl<B: Send + Sync + 'static, C: Clone + Send + 'static> JmapHandler<C> for ClosureHandler<B> {
-    fn call(
-        &self,
-        _method: String,
-        call_id: String,
-        args: serde_json::Value,
-        _caller: C,
-    ) -> HandlerFuture {
-        (self.call_fn)(Arc::clone(&self.backend), call_id, args)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// ClosureHandlerWithCtx — CallerCtx-forwarding variant of ClosureHandler
-// ---------------------------------------------------------------------------
-
-/// Type alias for a closure that receives `CallerCtx` as a fourth argument.
-///
-/// Unlike [`BackendCallFn`], this closure receives the per-request caller context
-/// `C` (e.g. an auth identity struct) forwarded from [`Dispatcher::dispatch`].
-/// Use [`ClosureHandlerWithCtx`] to register closures that need this context.
-pub type BackendCallFnWithCtx<B, C> =
+/// `C` is the caller context (e.g. an auth identity) forwarded from
+/// [`Dispatcher::dispatch`]. Closures that don't need it can ignore the
+/// argument with `_ctx`.
+pub type BackendCallFn<B, C> =
     dyn Fn(Arc<B>, String, serde_json::Value, C) -> HandlerFuture + Send + Sync + 'static;
 
-/// A [`JmapHandler`] that wraps an async closure and forwards `CallerCtx` to it.
+/// A [`JmapHandler`] that wraps an async closure over a shared backend and
+/// forwards `CallerCtx` to it.
 ///
-/// This is the CallerCtx-aware counterpart of [`ClosureHandler`]. Use this when
-/// your handler closures need per-request context — for example, an auth identity
-/// that controls which data the handler can access.
+/// Use this when your handler closures need per-request context — for
+/// example, an auth identity that controls which data the handler can
+/// access. Closures that don't need the context can simply ignore the
+/// `ctx` parameter.
 ///
 /// # Usage
 ///
 /// ```rust,ignore
-/// use jmap_server::{ClosureHandlerWithCtx, Dispatcher};
+/// use jmap_server::{ClosureHandler, Dispatcher};
 /// use std::sync::Arc;
 ///
 /// #[derive(Clone)]
 /// struct AuthCtx { user_id: String }
 ///
-/// let handler: Arc<ClosureHandlerWithCtx<MyBackend, AuthCtx>> =
-///     Arc::new(ClosureHandlerWithCtx {
+/// let handler: Arc<ClosureHandler<MyBackend, AuthCtx>> =
+///     Arc::new(ClosureHandler {
 ///         backend: Arc::new(my_backend),
 ///         call_fn: Box::new(|b, call_id, args, ctx| {
 ///             Box::pin(async move {
@@ -327,14 +290,12 @@ pub type BackendCallFnWithCtx<B, C> =
 /// let mut dispatcher: Dispatcher<AuthCtx> = Dispatcher::new();
 /// dispatcher.register("MyMethod/get", handler);
 /// ```
-pub struct ClosureHandlerWithCtx<B: Send + Sync + 'static, C: Clone + Send + 'static> {
+pub struct ClosureHandler<B: Send + Sync + 'static, C: Clone + Send + 'static> {
     pub backend: Arc<B>,
-    pub call_fn: Box<BackendCallFnWithCtx<B, C>>,
+    pub call_fn: Box<BackendCallFn<B, C>>,
 }
 
-impl<B: Send + Sync + 'static, C: Clone + Send + 'static> JmapHandler<C>
-    for ClosureHandlerWithCtx<B, C>
-{
+impl<B: Send + Sync + 'static, C: Clone + Send + 'static> JmapHandler<C> for ClosureHandler<B, C> {
     fn call(
         &self,
         _method: String,
@@ -901,10 +862,10 @@ mod tests {
         assert_eq!(resp.method_responses[1].1["type"], "extra");
     }
 
-    /// Oracle: ClosureHandlerWithCtx forwards CallerCtx to the closure.
+    /// Oracle: ClosureHandler forwards CallerCtx to the closure.
     /// The closure receives the exact same value that was passed to dispatch().
     #[tokio::test]
-    async fn closure_handler_with_ctx_forwards_caller() {
+    async fn closure_handler_forwards_caller() {
         #[derive(Clone)]
         struct Ctx(String);
 
@@ -914,17 +875,16 @@ mod tests {
         let received: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
         let received_clone = Arc::clone(&received);
 
-        let handler: Arc<ClosureHandlerWithCtx<DummyBackend, Ctx>> =
-            Arc::new(ClosureHandlerWithCtx {
-                backend: Arc::new(DummyBackend),
-                call_fn: Box::new(move |_b, _call_id, _args, ctx| {
-                    let cap = Arc::clone(&received_clone);
-                    Box::pin(async move {
-                        *cap.lock().unwrap() = Some(ctx.0.clone());
-                        Ok((serde_json::json!({}), vec![]))
-                    })
-                }),
-            });
+        let handler: Arc<ClosureHandler<DummyBackend, Ctx>> = Arc::new(ClosureHandler {
+            backend: Arc::new(DummyBackend),
+            call_fn: Box::new(move |_b, _call_id, _args, ctx| {
+                let cap = Arc::clone(&received_clone);
+                Box::pin(async move {
+                    *cap.lock().unwrap() = Some(ctx.0.clone());
+                    Ok((serde_json::json!({}), vec![]))
+                })
+            }),
+        });
 
         let ctx = Ctx("alice".to_owned());
         handler
@@ -939,18 +899,18 @@ mod tests {
         );
     }
 
-    /// Oracle: ClosureHandlerWithCtx implements JmapHandler<C> and can be
+    /// Oracle: ClosureHandler implements JmapHandler<C> and can be
     /// registered with Dispatcher<C>.
     #[test]
-    fn closure_handler_with_ctx_is_jmap_handler() {
-        // Compile-time check: ClosureHandlerWithCtx<B, C> must satisfy JmapHandler<C>.
+    fn closure_handler_is_jmap_handler() {
+        // Compile-time check: ClosureHandler<B, C> must satisfy JmapHandler<C>.
         fn assert_handler<C: Clone + Send + 'static, H: JmapHandler<C>>(_: &H) {}
 
         struct DummyBackend;
         #[derive(Clone)]
         struct Ctx;
 
-        let h = ClosureHandlerWithCtx {
+        let h = ClosureHandler {
             backend: Arc::new(DummyBackend),
             call_fn: Box::new(|_b, _ci, _a, _ctx| {
                 Box::pin(async { Ok((serde_json::json!({}), vec![])) })

@@ -160,7 +160,7 @@ in any order on the same dispatcher:
 | `register_mdn_handlers` | `mdn` (RFC 9007) | `MDN/send`, `MDN/parse` | `MailBackend + MdnBackend` |
 | `register_sieve_handlers` | `sieve` (RFC 9661) | `SieveScript/get`, `set`, `query`, `validate` | `MailBackend + SieveBackend` |
 
-All three use `ClosureHandlerWithCtx` (provided by `jmap-server`) to wrap each
+All three use `ClosureHandler` (provided by `jmap-server`) to wrap each
 handler function and `Arc<B>` into a `JmapHandler<C>` and register it with the
 dispatcher. The dispatcher's `CallerCtx` value is forwarded into each closure
 as `_ctx`; the standard `handle_*` handler bodies receive `(Arc<B>, call_id,
@@ -241,11 +241,11 @@ calls — that is a known gap in the current `MailBackend` API.
 
 ## CallerCtx
 
-`register_mail_handlers` registers each method as a `ClosureHandlerWithCtx`
+`register_mail_handlers` registers each method as a `ClosureHandler`
 that forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`.
 The standard `handle_*` handler bodies ignore `_ctx` and receive only
 `(Arc<B>, call_id, args)`; the value is still available for backends that
-register handlers individually via `ClosureHandlerWithCtx`.
+register handlers individually via `ClosureHandler`.
 
 If you need per-request context — auth identity, tenant id, rate-limit token
 — inside one of the standard `handle_*` functions, implement

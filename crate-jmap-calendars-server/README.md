@@ -181,7 +181,7 @@ JMAP method-level errors defined in draft §2.2.
 
 ### Registration
 
-`register_calendars_handlers` uses `ClosureHandlerWithCtx` (provided by
+`register_calendars_handlers` uses `ClosureHandler` (provided by
 `jmap-server`) to wrap each handler function and `Arc<B>` into a
 `JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
 `CallerCtx` value is forwarded into each closure as `_ctx`; the standard

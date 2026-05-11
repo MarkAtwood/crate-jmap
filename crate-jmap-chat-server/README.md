@@ -142,11 +142,11 @@ beyond the standard invocation envelope.
 
 ## CallerCtx
 
-`register_chat_handlers` registers each method as a `ClosureHandlerWithCtx`
+`register_chat_handlers` registers each method as a `ClosureHandler`
 that forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`.
 The standard `handle_*` handler bodies ignore `_ctx` and receive only
 `(Arc<B>, call_id, args)`; the value is still available for backends that
-register handlers individually via `ClosureHandlerWithCtx`. If you need
+register handlers individually via `ClosureHandler`. If you need
 per-request auth context inside one of the standard `handle_*` functions
 (e.g., to enforce that a caller can only modify their own `PresenceStatus`),
 implement `JmapHandler<C>` directly for that method instead of relying on

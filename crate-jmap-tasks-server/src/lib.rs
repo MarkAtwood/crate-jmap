@@ -70,7 +70,7 @@ where
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandlerWithCtx {
+            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
                     move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
@@ -131,7 +131,7 @@ where
     });
 }
 
-pub use jmap_server::{ClosureHandler, ClosureHandlerWithCtx};
+pub use jmap_server::ClosureHandler;
 
 // ---------------------------------------------------------------------------
 // test_support — in-memory mock backend used by inline tests
