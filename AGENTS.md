@@ -21,6 +21,9 @@ Read the crate's `PLAN.md` before touching its code.
 | `crate-jmap-mail-client/` | `jmap-mail-client` | RFC 8621 client methods (greenfield) |
 | `crate-jmap-chat-server/` | `jmap-chat-server` | JMAP Chat method handlers (greenfield) |
 | `crate-jmap-chat-client/` | `jmap-chat-client` | JMAP Chat client methods (greenfield) |
+| `crate-jmap-metadata-types/` | `jmap-metadata-types` | draft-ietf-jmap-metadata data types — `Metadata`, `Annotation`, `ImapMetadata`, `WebDavMetadata`, `MetadataFilterCondition`, `MetadataCapability`. No async |
+| `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata method handlers — `Metadata/get/changes/set/query/queryChanges` + `MetadataBackend` trait |
+| `crate-jmap-metadata-client/` | `jmap-metadata-client` | draft-ietf-jmap-metadata client methods — `Metadata/get/changes/set/query/queryChanges` |
 
 ## Dependency Tree
 
@@ -46,6 +49,12 @@ jmap-jscalendar-types  — RFC 8984 JSCalendar typed sub-types: LocalDateTime, D
 jmap-jscontact-types   — RFC 9553 JSContact typed sub-types: Name, EmailAddress, Phone,
                          Address, Organization, Anniversary, etc. No JMAP dep, no async.
     └── jmap-contacts-types    — consumes + re-exports as `jscontact` module alias.
+
+jmap-metadata-types    — draft-ietf-jmap-metadata data types: Metadata, Annotation,
+                         ImapMetadata, WebDavMetadata, MetadataFilterCondition,
+                         MetadataCapability. No async. Depends on jmap-types only.
+    ├── jmap-metadata-server   — Metadata/* method handlers, MetadataBackend trait.
+    └── jmap-metadata-client   — Metadata/* client method bindings.
 ```
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.

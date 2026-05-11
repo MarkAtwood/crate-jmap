@@ -58,12 +58,15 @@ catch-all field.
 
 Vendors who need to filter on custom fields have two options:
 
-- **IETF-track (recommended).** Use `draft-ietf-jmap-metadata` (capability URI
-  `urn:ietf:params:jmap:metadata`), which defines a `Metadata` / `Annotation`
-  companion object keyed by `(relatedType, relatedId)` with capability-declared
-  schema (`metadataTypes` / `maxDepth`) and a `Metadata/query` `textMatch`
-  filter. This is the workspace's recommended path for vendor data that needs
-  to be queryable; the implementation tracker is bd JMAP-06zp.
+- **IETF-track (recommended).** Use the JMAP Object Metadata extension
+  (`draft-ietf-jmap-metadata`, capability URI `urn:ietf:params:jmap:metadata`),
+  which defines a `Metadata` / `Annotation` companion object keyed by
+  `(relatedType, relatedId)` with capability-declared schema (`metadataTypes`
+  / `maxDepth`) and a `Metadata/query` `textMatch` filter. This is the
+  workspace's recommended path for vendor data that needs to be queryable.
+  Implemented in [`jmap-metadata-types`](../crate-jmap-metadata-types),
+  [`jmap-metadata-server`](../crate-jmap-metadata-server), and
+  [`jmap-metadata-client`](../crate-jmap-metadata-client) (bd JMAP-06zp).
 - **Pre-IETF escape.** If you cannot wait for the metadata draft, escape the
   filter tree to `serde_json::Value` or fork the `FilterCondition` types.
   See

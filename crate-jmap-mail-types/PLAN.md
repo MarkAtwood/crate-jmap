@@ -164,3 +164,30 @@ documented serde attributes and at least one round-trip preservation
 test. Cookie-cutter sibling crates (`jmap-chat-types`,
 `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`,
 `jmap-filenode-types`, `jmap-sharing-types`) mirror this rule.
+
+## JMAP Object Metadata `relatedType` declarations
+
+The JMAP Object Metadata extension
+([draft-ietf-jmap-metadata-01](https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt))
+defines a companion `Metadata` object keyed by `(relatedType, relatedId)`
+that attaches vendor-defined `Annotation`s — and, for some types, IMAP
+`ImapMetadata` or WebDAV `WebDavMetadata` records — to objects defined
+elsewhere in the workspace.
+
+The data types in this crate that are valid `relatedType` values:
+
+| relatedType | Flavours supported by spec |
+|---|---|
+| `Mailbox` | `Annotation`; `ImapMetadata` (draft §2.1.2 MUST) |
+| `Email` | `Annotation` |
+| `Thread` | `Annotation` |
+| `EmailSubmission` | `Annotation` |
+| `Identity` | `Annotation` |
+
+Servers that declare `urn:ietf:params:jmap:metadata` MAY restrict the
+set of supported `relatedType`s via the capability's `dataTypes`
+property. Backends that index `ImapMetadata` MUST enforce the
+`relatedType == "Mailbox"` constraint per draft §2.1.2.
+
+Implementation crates: `jmap-metadata-types`, `jmap-metadata-server`,
+`jmap-metadata-client` (bd JMAP-06zp).
