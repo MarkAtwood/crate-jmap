@@ -1,0 +1,693 @@
+//! Wiremock smoke tests for `Message/*` method paths in jmap-chat-client.
+//!
+//! Pattern oracle (workspace canonical extension-client): see
+//! `crate-jmap-mail-client/tests/thread_smoke_tests.rs` and
+//! `crate-jmap-calendars-client/tests/event_smoke_tests.rs`.
+//!
+//! Spec oracles:
+//!   - RFC 8620 §5.1 /get, §5.2 /changes, §5.3 /set, §5.5 /query, §5.6 /queryChanges
+//!   - draft-atwood-jmap-chat-00 §4.5 (Message/* method-specific shapes,
+//!     reaction patch JSON Pointer keys)
+
+#[path = "helpers.rs"]
+mod helpers;
+
+use jmap_types::{Id, State, UTCDate};
+use serde_json::json;
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
+
+/// `Message/get` must reject an empty `ids` slice client-side
+/// (message.rs:31-35); fetching all messages is impractical per the doc.
+#[tokio::test]
+async fn message_get_empty_ids_rejected_before_send() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+    let empty: [Id; 0] = [];
+    let err = sc
+        .message_get(&empty, None)
+        .await
+        .expect_err("message_get must reject empty ids");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("ids may not be empty"),
+                "error message must mention ids: got {msg:?}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("recorded_requests must succeed");
+    assert!(
+        reqs.is_empty(),
+        "no HTTP request must be sent when ids is empty"
+    );
+}
+
+/// `Message/get` with non-empty ids must thread the slice to the wire
+/// `ids` array (message.rs:40-43) and omit `properties` when None.
+#[tokio::test]
+async fn message_get_threads_ids_and_omits_properties_when_none() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/get",
+            {
+                "accountId": "A13824",
+                "state": "m-state-1",
+                "list": [],
+                "notFound": ["msg-1", "msg-2"]
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let ids = [Id::from("msg-1"), Id::from("msg-2")];
+    let _ = sc
+        .message_get(&ids, None)
+        .await
+        .expect("message_get: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["ids"],
+        json!(["msg-1", "msg-2"]),
+        "ids must thread through verbatim"
+    );
+    assert!(
+        args.get("properties").is_none(),
+        "properties must be omitted when caller passes None"
+    );
+}
+
+/// `Message/query` must require either `chat_id` or `has_mention=true`
+/// (message.rs:67-71) — both omitted should short-circuit before send.
+#[tokio::test]
+async fn message_query_requires_chat_id_or_has_mention() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+
+    let input = jmap_chat_client::methods::MessageQueryInput::default();
+    let err = sc
+        .message_query(&input)
+        .await
+        .expect_err("message_query must reject empty filter");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("chat_id or has_mention=true"),
+                "error message must mention chat_id/has_mention: got {msg:?}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("recorded_requests must succeed");
+    assert!(reqs.is_empty(), "no HTTP request must be sent");
+}
+
+/// `Message/query` with `chat_id` set must serialize a filter object
+/// containing `chatId` and emit the default descending sort by `sentAt`
+/// (message.rs:73-104).
+#[tokio::test]
+async fn message_query_chat_id_and_default_sort() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/query",
+            {
+                "accountId": "A13824",
+                "queryState": "mq-1",
+                "canCalculateChanges": true,
+                "position": 0,
+                "ids": ["msg-1"]
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let mut input = jmap_chat_client::methods::MessageQueryInput::default();
+    input.chat_id = Some(&chat_id);
+    let _ = sc
+        .message_query(&input)
+        .await
+        .expect("message_query: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["filter"],
+        json!({ "chatId": "chat-1" }),
+        "filter must contain chatId only"
+    );
+    // Default sort: sentAt descending (isAscending=false).
+    assert_eq!(
+        args["sort"],
+        json!([{ "property": "sentAt", "isAscending": false }]),
+        "default sort must be sentAt descending"
+    );
+}
+
+/// `Message/query` with `sort_ascending=true` must flip the `isAscending`
+/// field to `true` (message.rs:103, MessageQueryInput.sort_ascending).
+#[tokio::test]
+async fn message_query_sort_ascending() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/query",
+            {
+                "accountId": "A13824",
+                "queryState": "mq-1",
+                "canCalculateChanges": true,
+                "position": 0,
+                "ids": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let mut input = jmap_chat_client::methods::MessageQueryInput::default();
+    input.chat_id = Some(&chat_id);
+    input.sort_ascending = true;
+    let _ = sc
+        .message_query(&input)
+        .await
+        .expect("message_query: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["sort"],
+        json!([{ "property": "sentAt", "isAscending": true }]),
+        "sort must be sentAt ascending"
+    );
+}
+
+/// `Message/changes` must thread `since_state` to `sinceState` and emit
+/// `maxChanges` when provided (RFC 8620 §5.2).
+#[tokio::test]
+async fn message_changes_since_state_passthrough() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/changes",
+            {
+                "accountId": "A13824",
+                "oldState": "mc-old",
+                "newState": "mc-new",
+                "hasMoreChanges": false,
+                "created": [],
+                "updated": ["msg-1"],
+                "destroyed": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let since = State::from("mc-old");
+    let _ = sc
+        .message_changes(&since, Some(100))
+        .await
+        .expect("message_changes: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(args["sinceState"], json!("mc-old"), "sinceState mismatch");
+    assert_eq!(args["maxChanges"], json!(100), "maxChanges mismatch");
+}
+
+/// `Message/set` create with a happy-path response must serialize the
+/// create object with `chatId`, `body`, `bodyType`, `sentAt` and the
+/// caller-supplied `client_id` key (message.rs:172-185).
+#[tokio::test]
+async fn message_create_serializes_create_object() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/set",
+            {
+                "accountId": "A13824",
+                "oldState": "ms-1",
+                "newState": "ms-2",
+                "created": {
+                    "client-msg-1": { "id": "server-msg-1" }
+                },
+                "updated": null,
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    // 20-character UTCDate (RFC 8620 §1.4): "YYYY-MM-DDTHH:MM:SSZ".
+    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let input = jmap_chat_client::methods::MessageCreateInput::new(
+        &chat_id,
+        "hello world",
+        jmap_chat_client::types::BodyType::Plain,
+        &sent_at,
+    )
+    .with_client_id("client-msg-1");
+    let resp = sc
+        .message_create(&input)
+        .await
+        .expect("message_create: must succeed");
+    let created = resp.created.expect("created must be present");
+    assert!(created.contains_key("client-msg-1"));
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    let create = &args["create"]["client-msg-1"];
+    assert_eq!(create["chatId"], json!("chat-1"), "chatId mismatch");
+    assert_eq!(create["body"], json!("hello world"), "body mismatch");
+    assert_eq!(
+        create["bodyType"],
+        json!("text/plain"),
+        "bodyType must serialize as text/plain"
+    );
+    assert_eq!(
+        create["sentAt"],
+        json!("2024-06-15T09:00:00Z"),
+        "sentAt must thread through verbatim"
+    );
+    // `replyTo` was not set, must be absent.
+    assert!(
+        create.get("replyTo").is_none(),
+        "replyTo must be absent when None"
+    );
+}
+
+/// `Message/set` create that returns a `rateLimited` SetError on the
+/// caller's creation key must surface as
+/// `ClientError::RateLimited { retry_after }` (message.rs:188-202).
+#[tokio::test]
+async fn message_create_rate_limited_surfaces_as_error() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/set",
+            {
+                "accountId": "A13824",
+                "oldState": "ms-1",
+                "newState": "ms-1",
+                "created": null,
+                "updated": null,
+                "destroyed": null,
+                "notCreated": {
+                    "client-msg-1": {
+                        "type": "rateLimited",
+                        "description": "slow down",
+                        "serverRetryAfter": "2024-06-15T09:00:07Z"
+                    }
+                },
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let input = jmap_chat_client::methods::MessageCreateInput::new(
+        &chat_id,
+        "hello",
+        jmap_chat_client::types::BodyType::Plain,
+        &sent_at,
+    )
+    .with_client_id("client-msg-1");
+    let err = sc
+        .message_create(&input)
+        .await
+        .expect_err("message_create must surface rateLimited as error");
+    match err {
+        jmap_base_client::ClientError::RateLimited { retry_after } => {
+            // Oracle: serverRetryAfter is a UTCDate string per the JMAP Chat
+            // slow-mode draft (see `server_retry_after` in
+            // crate-jmap-chat-client/src/methods/mod.rs:1161). The value
+            // must match the wire payload verbatim.
+            assert_eq!(
+                retry_after.as_ref(),
+                "2024-06-15T09:00:07Z",
+                "retry_after must equal the wire serverRetryAfter UTCDate"
+            );
+        }
+        other => panic!("expected RateLimited, got {other:?}"),
+    }
+}
+
+/// `Message/set` update with `body` patch must emit `body` inside the
+/// per-id patch object (message.rs:222-224, RFC 8620 §5.3).
+#[tokio::test]
+async fn message_update_body_patch_serializes() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/set",
+            {
+                "accountId": "A13824",
+                "oldState": "ms-1",
+                "newState": "ms-2",
+                "created": null,
+                "updated": { "msg-1": null },
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.body = Some("edited body");
+    patch.body_type = Some(jmap_chat_client::types::BodyType::Markdown);
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    let patch_obj = &args["update"]["msg-1"];
+    assert_eq!(patch_obj["body"], json!("edited body"), "body mismatch");
+    assert_eq!(
+        patch_obj["bodyType"],
+        json!("text/markdown"),
+        "bodyType must serialize as text/markdown"
+    );
+}
+
+/// `Message/set` update with a reaction-add must emit a
+/// `reactions/<senderReactionId>` JSON Pointer patch key containing
+/// `{emoji, sentAt}` (message.rs:259-262, RFC 6901 / RFC 8620 §5.3).
+#[tokio::test]
+async fn message_update_reaction_add_uses_json_pointer_patch_key() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/set",
+            {
+                "accountId": "A13824",
+                "oldState": "ms-1",
+                "newState": "ms-2",
+                "created": null,
+                "updated": { "msg-1": null },
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let reaction_sent_at = UTCDate::from("2024-06-15T09:01:00Z");
+    let changes = [jmap_chat_client::methods::ReactionChange::Add {
+        sender_reaction_id: "react-ulid-1",
+        emoji: "👍",
+        sent_at: &reaction_sent_at,
+    }];
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.reaction_changes = Some(&changes);
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    let patch_obj = &args["update"]["msg-1"];
+    assert_eq!(
+        patch_obj["reactions/react-ulid-1"],
+        json!({ "emoji": "👍", "sentAt": "2024-06-15T09:01:00Z" }),
+        "reaction-add must produce JSON Pointer patch key with emoji + sentAt"
+    );
+}
+
+/// `Message/set` update with a reaction-remove must emit a
+/// `reactions/<senderReactionId>` key with value `null`
+/// (message.rs:277-280).
+#[tokio::test]
+async fn message_update_reaction_remove_emits_null_patch_value() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/set",
+            {
+                "accountId": "A13824",
+                "oldState": "ms-1",
+                "newState": "ms-2",
+                "created": null,
+                "updated": { "msg-1": null },
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let changes = [jmap_chat_client::methods::ReactionChange::Remove {
+        sender_reaction_id: "react-ulid-1",
+    }];
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.reaction_changes = Some(&changes);
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    let patch_obj = &args["update"]["msg-1"];
+    assert_eq!(
+        patch_obj["reactions/react-ulid-1"],
+        json!(null),
+        "reaction-remove must produce null patch value"
+    );
+}
+
+/// `Message/set` update with a reaction whose `sender_reaction_id`
+/// contains a JSON Pointer special character (`/` or `~` per RFC 6901)
+/// must short-circuit client-side (message.rs:252-258, 270-276).
+#[tokio::test]
+async fn message_update_reaction_id_with_json_pointer_chars_rejected() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
+
+    let msg_id = Id::from("msg-1");
+    let sent_at = UTCDate::from("2024-06-15T09:01:00Z");
+    let changes = [jmap_chat_client::methods::ReactionChange::Add {
+        sender_reaction_id: "bad/id",
+        emoji: "👍",
+        sent_at: &sent_at,
+    }];
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.reaction_changes = Some(&changes);
+    let err = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect_err("message_update must reject JSON Pointer special chars");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("RFC 6901"),
+                "error message must cite RFC 6901: got {msg:?}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("recorded_requests must succeed");
+    assert!(
+        reqs.is_empty(),
+        "no HTTP request must be sent when reaction id contains forbidden chars"
+    );
+}
+
+/// `Message/set` destroy must thread non-empty `ids` to the wire
+/// `destroy` key and reject the empty slice client-side
+/// (message.rs:301-318, RFC 8620 §5.3).
+#[tokio::test]
+async fn message_destroy_threads_ids_and_rejects_empty() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/set",
+            {
+                "accountId": "A13824",
+                "oldState": "ms-1",
+                "newState": "ms-2",
+                "created": null,
+                "updated": null,
+                "destroyed": ["msg-1"],
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let ids = [Id::from("msg-1")];
+    let _ = sc
+        .message_destroy(&ids)
+        .await
+        .expect("message_destroy: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(args["destroy"], json!(["msg-1"]), "destroy must thread");
+
+    // Empty-slice guard.
+    let empty: [Id; 0] = [];
+    let err = sc
+        .message_destroy(&empty)
+        .await
+        .expect_err("message_destroy must reject empty ids");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("ids may not be empty"),
+                "error message must mention ids: got {msg:?}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+}
