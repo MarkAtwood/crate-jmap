@@ -13,8 +13,9 @@ use std::collections::HashMap;
 use jmap_types::{Id, PatchObject, State};
 
 use super::{
-    ChangesResponse, EmailCopyParams, EmailGetParams, GetResponse, QueryChangesResponse,
-    QueryResponse, SetResponse,
+    ChangesResponse, EmailCopyParams, EmailGetParams, EmailImportInput, EmailImportResponse,
+    EmailParseParams, EmailParseResponse, GetResponse, QueryChangesResponse, QueryResponse,
+    SetResponse,
 };
 
 impl super::SessionClient {
@@ -222,6 +223,107 @@ impl super::SessionClient {
             args["destroyFromIfInState"] = v.as_ref().into();
         }
         let req = super::build_request("Email/copy", args, super::USING_MAIL);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Import raw RFC 5322 messages into the account (RFC 8621 §4.8 — Email/import).
+    ///
+    /// Each entry in `emails` maps a caller-chosen creation id to an
+    /// [`EmailImportInput`] referencing a previously uploaded blob and the
+    /// target mailbox(es). The blob must have been uploaded via the standard
+    /// blob-upload mechanism on `jmap-base-client` before calling this method.
+    ///
+    /// At least one mailbox id is required per RFC 8621 §4.8; the empty-set
+    /// case is rejected client-side as `InvalidArgument`. An empty `emails`
+    /// map is also rejected — a no-op import is never useful and would
+    /// generate a round-trip with no successful creations.
+    ///
+    /// Pass `if_in_state: Some(&state)` for an optimistic-concurrency guard
+    /// against the Email object state (RFC 8621 §4.8 returns `stateMismatch`
+    /// if the supplied state does not match).
+    ///
+    /// Per-creation failures appear in [`EmailImportResponse::not_created`]
+    /// as [`super::SetError`] values; possible error codes include `alreadyExists`
+    /// (with an `existingId` extra field), `invalidProperties`, `overQuota`,
+    /// and `invalidEmail`.
+    pub async fn email_import(
+        &self,
+        emails: &HashMap<String, EmailImportInput<'_>>,
+        if_in_state: Option<&State>,
+    ) -> Result<EmailImportResponse, jmap_base_client::ClientError> {
+        if emails.is_empty() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "email_import: emails map may not be empty".into(),
+            ));
+        }
+        for (key, input) in emails {
+            if input.mailbox_ids.is_empty() {
+                return Err(jmap_base_client::ClientError::InvalidArgument(format!(
+                    "email_import: mailboxIds for creation id '{key}' may not be empty (RFC 8621 §4.8)"
+                )));
+            }
+        }
+        let (api_url, account_id) = self.session_parts()?;
+        let emails_value = serde_json::to_value(emails).map_err(|e| {
+            jmap_base_client::ClientError::InvalidArgument(format!(
+                "email_import: serializing emails map failed: {e}"
+            ))
+        })?;
+        let mut args = serde_json::json!({
+            "accountId": account_id,
+            "emails": emails_value,
+        });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
+        let req = super::build_request("Email/import", args, super::USING_MAIL);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Parse uploaded blobs as RFC 5322 messages without importing them
+    /// (RFC 8621 §4.9 — Email/parse).
+    ///
+    /// Returns Email objects derived from each blob. Per RFC 8621 §4.9 the
+    /// returned Emails have `id`, `mailboxIds`, `keywords`, and `receivedAt`
+    /// set to `null` (the messages are not in the mail store); `threadId`
+    /// MAY be present if the server can predict the assignment.
+    ///
+    /// Pass `params: None` to use server defaults for properties and body
+    /// fetching. The set of properties returned defaults to the spec-listed
+    /// header/body fields documented in RFC 8621 §4.9.
+    ///
+    /// Empty `blob_ids` is rejected as `InvalidArgument` — a no-op parse
+    /// round-trip is never useful.
+    pub async fn email_parse(
+        &self,
+        blob_ids: &[Id],
+        params: Option<EmailParseParams>,
+    ) -> Result<EmailParseResponse, jmap_base_client::ClientError> {
+        if blob_ids.is_empty() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "email_parse: blob_ids may not be empty".into(),
+            ));
+        }
+        let (api_url, account_id) = self.session_parts()?;
+        let mut args = serde_json::json!({
+            "accountId": account_id,
+            "blobIds": blob_ids,
+        });
+        if let Some(p) = params {
+            let pv = serde_json::to_value(&p).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "email_parse: failed to serialize params: {e}"
+                ))
+            })?;
+            if let serde_json::Value::Object(map) = pv {
+                for (k, v) in map {
+                    args[k] = v;
+                }
+            }
+        }
+        let req = super::build_request("Email/parse", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
