@@ -52,7 +52,7 @@ Type crates (`*-types`) have no async deps. Server crates may depend on tokio/ht
 
 ## Canonical Templates (cookie-cutter consistency)
 
-The 26 `jmap-*` crates are deliberately cookie-cutter siblings: every type
+The 29 `jmap-*` crates are deliberately cookie-cutter siblings: every type
 crate looks like every other type crate, every server crate looks like
 every other server crate, every client crate looks like every other client
 crate, **modulo only the differences mandated by the relevant RFC or
@@ -72,7 +72,7 @@ follow-up sweep bead before merging).
 | Foundation types | `jmap-types` | (none — sole foundation) |
 | Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-metadata-types` |
 | Foundation server | `jmap-server` | (none — sole foundation) |
-| Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-sharing-server` |
+| Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-metadata-server`, `jmap-sharing-server` |
 | Foundation client | `jmap-base-client` | (none — sole foundation) |
 | Extension client | `jmap-mail-client` | `jmap-chat-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-sharing-client` |
 
