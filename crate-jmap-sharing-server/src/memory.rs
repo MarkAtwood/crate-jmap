@@ -553,9 +553,18 @@ fn json_merge_patch_inner(target: &mut serde_json::Value, patch: serde_json::Val
     }
     match patch {
         serde_json::Value::Object(patch_map) => {
+            // Per RFC 7396 §2: "If the target value is not a JSON object,
+            // the resulting value will be the merge patch." We therefore
+            // reset a non-Object target to an empty Object before merging
+            // — this is reachable when a Patch creates a nested field that
+            // is absent from the target (the parent recursion frame inserted
+            // Value::Null as a placeholder).
+            if !target.is_object() {
+                *target = serde_json::Value::Object(serde_json::Map::new());
+            }
             let target_map = target
                 .as_object_mut()
-                .expect("merge patch target must be an object");
+                .expect("target was just set to Value::Object above");
             for (key, patch_val) in patch_map {
                 if patch_val.is_null() {
                     target_map.remove(&key);
