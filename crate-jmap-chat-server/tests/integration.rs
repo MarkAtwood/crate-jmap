@@ -1211,9 +1211,16 @@ async fn space_set_update_readonly_fields_rejected() {
     }
 }
 
-/// Oracle: Space/set update rejects named mutation keys with forbidden.
+/// Oracle: Space/set update accepts well-formed structural mutation keys
+/// and dispatches to ChatBackend::apply_space_patch (bd:JMAP-g7wu.2.4.2).
+///
+/// The reference MemoryBackend stub rejects every variant with `forbidden`
+/// pending the per-family impl beads (bd:JMAP-g7wu.2.4.{3,4,5}). This test
+/// asserts both that the parsing layer succeeds (no `invalidProperties`)
+/// AND that the wire response surfaces the backend's `forbidden` error,
+/// proving the handler dispatches end-to-end.
 #[tokio::test]
-async fn space_set_update_mutation_keys_forbidden() {
+async fn space_set_update_structural_keys_dispatch_to_backend() {
     let backend = MemoryBackend::new();
 
     let (create_resp, _) = handle_space_set(
@@ -1228,26 +1235,45 @@ async fn space_set_update_mutation_keys_forbidden() {
         .expect("id")
         .to_owned();
 
-    for key in &[
-        "addRoles",
-        "removeRoles",
-        "updateRoles",
-        "addMembers",
-        "removeMembers",
-        "updateMembers",
-        "addChannels",
-        "removeChannels",
-        "updateChannels",
-        "addCategories",
-        "removeCategories",
-        "updateCategories",
-    ] {
+    // One well-formed wire entry per structural key. Payload shapes match
+    // draft-atwood-jmap-chat-00 §Space/set and jmap_chat_types::space_set.
+    let cases: &[(&str, serde_json::Value)] = &[
+        (
+            "addRoles",
+            json!([{ "id": "placeholder", "name": "Mod", "permissions": ["chat:read"], "position": 1 }]),
+        ),
+        ("removeRoles", json!(["role-1"])),
+        (
+            "updateRoles",
+            json!([{ "id": "role-1", "name": "Renamed" }]),
+        ),
+        ("addMembers", json!([{ "id": "u1", "roleIds": ["role-1"] }])),
+        ("removeMembers", json!(["u1"])),
+        ("updateMembers", json!([{ "id": "u1", "nick": "Mark" }])),
+        ("addChannels", json!([{ "name": "general" }])),
+        ("removeChannels", json!(["chan-1"])),
+        (
+            "updateChannels",
+            json!([{ "id": "chan-1", "name": "renamed" }]),
+        ),
+        (
+            "addCategories",
+            json!([{ "id": "placeholder", "name": "Voice", "position": 0, "channelIds": [] }]),
+        ),
+        ("removeCategories", json!(["cat-1"])),
+        (
+            "updateCategories",
+            json!([{ "id": "cat-1", "name": "Renamed" }]),
+        ),
+    ];
+
+    for (key, payload) in cases {
         let (resp, _) = handle_space_set(
             &backend,
             &(),
             json!({
                 "accountId": "a1",
-                "update": { &space_id: { (*key): [] } }
+                "update": { &space_id: { (*key): payload } }
             }),
         )
         .await
@@ -1255,13 +1281,219 @@ async fn space_set_update_mutation_keys_forbidden() {
 
         assert!(
             resp["notUpdated"][&space_id].is_object(),
-            "key {key} should be rejected"
+            "key {key} should produce notUpdated entry (got {:?})",
+            resp["notUpdated"][&space_id]
         );
         assert_eq!(
             resp["notUpdated"][&space_id]["type"], "forbidden",
-            "key {key} should yield forbidden"
+            "key {key} should surface backend stub's forbidden, not parse error: {:?}",
+            resp["notUpdated"][&space_id]
+        );
+        // The backend stub embeds the bead id in its description so a
+        // downstream impl bead can later assert that real handling has
+        // replaced the stub.
+        let desc = resp["notUpdated"][&space_id]["description"]
+            .as_str()
+            .unwrap_or("");
+        assert!(
+            desc.contains("JMAP-g7wu.2.4"),
+            "key {key} description should reference tracking bead: {desc:?}"
         );
     }
+}
+
+/// Oracle: Space/set update with an empty structural array is treated as
+/// an empty patch (no fields to apply) and rejected as `invalidPatch`.
+#[tokio::test]
+async fn space_set_update_structural_empty_array_is_empty_patch() {
+    let backend = MemoryBackend::new();
+
+    let (create_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "create": { "s0": { "name": "Empty Test" } } }),
+    )
+    .await
+    .expect("create");
+    let space_id = create_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "addRoles": [] } }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert_eq!(
+        resp["notUpdated"][&space_id]["type"], "invalidPatch",
+        "empty structural array with no other fields is an empty patch"
+    );
+}
+
+/// Oracle: Space/set update with malformed structural entries is rejected
+/// at the parsing layer with `invalidProperties` naming the offending key.
+#[tokio::test]
+async fn space_set_update_malformed_structural_rejected() {
+    let backend = MemoryBackend::new();
+
+    let (create_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "create": { "s0": { "name": "Malformed Test" } } }),
+    )
+    .await
+    .expect("create");
+    let space_id = create_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    // addRoles wants an array of objects; a bare string is malformed.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "addRoles": ["not-an-object"] } }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert_eq!(
+        resp["notUpdated"][&space_id]["type"], "invalidProperties",
+        "malformed entry must produce invalidProperties, not forbidden: {:?}",
+        resp["notUpdated"][&space_id]
+    );
+    assert_eq!(resp["notUpdated"][&space_id]["properties"][0], "addRoles");
+
+    // Whole structural payload not an array → invalidProperties.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "removeMembers": "not-an-array" } }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+    assert_eq!(
+        resp["notUpdated"][&space_id]["type"], "invalidProperties",
+        "non-array structural payload must be invalidProperties: {:?}",
+        resp["notUpdated"][&space_id]
+    );
+    assert_eq!(
+        resp["notUpdated"][&space_id]["properties"][0],
+        "removeMembers"
+    );
+}
+
+/// Oracle: Space/set update with structural ops AND metadata in the same
+/// patch dispatches structural to the backend; metadata is skipped when
+/// the structural call fails (per RFC 8620 §5.3 per-target atomicity).
+#[tokio::test]
+async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
+    let backend = MemoryBackend::new();
+
+    let (create_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "create": { "s0": { "name": "Original Name" } } }),
+    )
+    .await
+    .expect("create");
+    let space_id = create_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "name": "Renamed",
+                    "addRoles": [{ "id": "placeholder", "name": "Mod", "permissions": [], "position": 1 }],
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    // Backend stub rejects addRoles with `forbidden`; the mixed-patch
+    // target lands in `notUpdated` with that error, and the metadata
+    // rename is NOT applied.
+    assert_eq!(resp["notUpdated"][&space_id]["type"], "forbidden");
+
+    // Re-fetch and confirm the name was NOT changed.
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&space_id] }),
+    )
+    .await
+    .expect("handle_space_get");
+    assert_eq!(
+        get_resp["list"][0]["name"], "Original Name",
+        "structural failure must abort the metadata write — per-target atomicity"
+    );
+}
+
+/// Oracle: Space/set update with an unknown property alongside valid keys
+/// is rejected as `invalidProperties` naming the unknown key.
+#[tokio::test]
+async fn space_set_update_unknown_property_rejected() {
+    let backend = MemoryBackend::new();
+
+    let (create_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "create": { "s0": { "name": "Unknown Property Test" } } }),
+    )
+    .await
+    .expect("create");
+    let space_id = create_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "name": "OK", "totallyUnknownProperty": 42 } }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert_eq!(
+        resp["notUpdated"][&space_id]["type"], "invalidProperties",
+        "unknown property must be rejected as invalidProperties: {:?}",
+        resp["notUpdated"][&space_id]
+    );
+    let props: Vec<&str> = resp["notUpdated"][&space_id]["properties"]
+        .as_array()
+        .expect("properties array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        props.contains(&"totallyUnknownProperty"),
+        "properties must name the unknown key: {props:?}"
+    );
 }
 
 /// Oracle: Space/set update accepts metadata fields (name, description, isPublic, etc.).

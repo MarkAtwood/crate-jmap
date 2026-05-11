@@ -775,6 +775,7 @@ dependencies = [
  "jmap-chat-types",
  "jmap-server",
  "jmap-types",
+ "serde",
  "serde_json",
  "subtle",
  "tokio",

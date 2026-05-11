@@ -13,10 +13,50 @@
 pub use jmap_chat_types::backend::{
     ChatContactProperty, ChatProperty, MessageProperty, ReadPositionProperty, SpaceProperty,
 };
+pub use jmap_chat_types::space_set::SpacePatchOp;
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
+
+// ---------------------------------------------------------------------------
+// Space/set structural-mutation result
+// ---------------------------------------------------------------------------
+
+/// The outcome of a single [`SpacePatchOp`] applied by
+/// [`ChatBackend::apply_space_patch`].
+///
+/// `op_index` is the zero-based index of the op within the input `Vec`, used
+/// by handlers to construct a descriptive error message identifying which
+/// per-key entry failed (e.g. `addRoles[2] failed: ...`).
+///
+/// `outcome` is:
+/// - `Ok(Some(id))` — the op produced a new server-assigned id (e.g.
+///   [`SpacePatchOp::AddRole`], [`SpacePatchOp::AddChannel`],
+///   [`SpacePatchOp::AddCategory`]). The handler reports this id back to
+///   the client via the `/set` response.
+/// - `Ok(None)` — the op completed but produced no id (every `Remove*` and
+///   `Update*` variant).
+/// - `Err(SetError)` — the op was rejected (e.g. permission denied, target
+///   id not found, role hierarchy violation, count limit exceeded).
+///
+/// Per RFC 8620 §5.3 `/set`, an update target is per-target atomic on the
+/// wire: it appears in exactly one of `updated` or `notUpdated`. If **any**
+/// `OpResult` in the returned `Vec` has an `Err`, the handler reports the
+/// containing update target in `notUpdated`. The handler is free to choose
+/// which `Err` to surface; the reference handler surfaces the first.
+///
+/// This type lives in `jmap-chat-server` (not `jmap-chat-types`) because
+/// [`SetError`] is defined in `jmap-server` and `jmap-chat-types` cannot
+/// depend on it (per the workspace dependency rule: types crates depend
+/// only on `jmap-types`, `serde`, `serde_json`).
+#[derive(Debug)]
+pub struct OpResult {
+    /// Zero-based index of the originating op in the input `Vec<SpacePatchOp>`.
+    pub op_index: usize,
+    /// The outcome of applying that op.
+    pub outcome: Result<Option<jmap_types::Id>, SetError>,
+}
 
 // ---------------------------------------------------------------------------
 // ChatBackend trait
@@ -101,4 +141,64 @@ pub trait ChatBackend: JmapBackend {
     /// [`rand::rngs::OsRng`]: https://docs.rs/rand/latest/rand/rngs/struct.OsRng.html
     /// [`getrandom`]: https://docs.rs/getrandom
     fn generate_invite_code(&self) -> String;
+
+    /// Apply a sequence of structural mutations to a Space
+    /// (draft-atwood-jmap-chat-00 §Space/set).
+    ///
+    /// `Space/set` `update` operations use semantic mutation keys
+    /// (`addRoles`, `removeRoles`, `addMembers`, …) rather than RFC 8620
+    /// JSON Pointer patches. The handler in `space::handle_space_set`
+    /// parses the wire object, unfolds each array entry into a
+    /// [`SpacePatchOp`] value, then calls this method with the resulting
+    /// ordered `Vec`.
+    ///
+    /// # Ordering and atomicity
+    ///
+    /// Implementations SHOULD apply ops in input order and SHOULD provide
+    /// best-effort transactional semantics so that a partial failure does
+    /// not leave the Space in a half-updated state. The reference
+    /// in-memory implementation locks the entire backend for the duration
+    /// of the call. A database-backed implementation should wrap the
+    /// sequence in a single transaction.
+    ///
+    /// # Permission and limit checks
+    ///
+    /// Handler-side permission gates (`manage_space`, `manage_roles`,
+    /// `manage_members`, `manage_channels`) and add-op count limits
+    /// (`maxRolesPerSpace`, `maxSpaceMembers`, `maxChannelsPerSpace`,
+    /// `maxCategoriesPerSpace`) are tracked in
+    /// `bd:JMAP-g7wu.2.4.7` and `bd:JMAP-g7wu.2.4.8` and are NOT yet
+    /// applied by the reference handler. Until those land, the handler
+    /// dispatches every well-formed patch to the backend, and the
+    /// backend is responsible for rejecting any op the caller is not
+    /// authorized to perform.
+    ///
+    /// The role-position hierarchy check (members may only add or modify
+    /// roles whose `position` is strictly less than their own
+    /// highest-position role — draft §Space/set lines 1096, 1102) MUST
+    /// be enforced by the backend because it is atomic with the
+    /// mutation and depends on the current Space state. See
+    /// `bd:JMAP-g7wu.2.4.3`.
+    ///
+    /// # Return value
+    ///
+    /// On success, returns a `Vec<OpResult>` of the same length as `ops`,
+    /// in input order. Each entry reports the outcome of one op (id
+    /// assignment for `Add*` variants, error for rejections). The
+    /// handler maps per-op errors back into the `/set` response shape
+    /// per [`OpResult`]'s documentation.
+    ///
+    /// Returns [`BackendSetError::Other`] only for backend-level failures
+    /// (the storage layer is unreachable, the account does not exist,
+    /// `space_id` is unknown, etc.) — i.e. failures that prevent any op
+    /// from being attempted. Per-op rejections (permission denied,
+    /// invalid id, role hierarchy violation, etc.) go in the `outcome`
+    /// field of the returned [`OpResult`] vector, not in an error return.
+    fn apply_space_patch(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        space_id: &jmap_types::Id,
+        ops: Vec<SpacePatchOp>,
+    ) -> impl std::future::Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
 }

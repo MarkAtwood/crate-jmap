@@ -26,6 +26,9 @@ memory = ["dep:getrandom"]
 jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
 jmap-server = { workspace = true }
+# `serde::de::DeserializeOwned` trait bound on Space/set patch-entry parsers;
+# matches sibling jmap-mail-server / jmap-server dep set.
+serde = { workspace = true }
 serde_json = { workspace = true }
 # Constant-time invite-code comparison in Space/join (bd:JMAP-sc1b.89).
 subtle = { workspace = true }
