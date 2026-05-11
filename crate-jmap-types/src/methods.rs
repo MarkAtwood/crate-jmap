@@ -189,8 +189,13 @@ pub struct SetError {
     /// set. Captured via `#[serde(flatten)]` so they round-trip losslessly.
     /// Extension crates provide typed accessors (e.g.
     /// `jmap-chat-client`'s helper for reading `serverRetryAfter`).
-    #[serde(flatten, default, skip_serializing_if = "HashMap::is_empty")]
-    pub extra: HashMap<String, serde_json::Value>,
+    ///
+    /// Uses `serde_json::Map` (which preserves insertion order) rather than
+    /// `HashMap` to match the workspace extras-preservation policy (see
+    /// workspace `AGENTS.md`) and to give callers deterministic serialized
+    /// output.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl SetError {
@@ -212,7 +217,7 @@ impl SetError {
             max_recipients: None,
             invalid_recipients: None,
             max_size: None,
-            extra: HashMap::new(),
+            extra: serde_json::Map::new(),
         }
     }
 }
