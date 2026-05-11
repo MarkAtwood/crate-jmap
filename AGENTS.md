@@ -232,7 +232,6 @@ bd ready              # Find available work
 bd show <id>          # View issue details
 bd update <id> --claim  # Claim work atomically
 bd close <id>         # Complete work
-bd dolt push          # Push beads data to remote
 ```
 
 Use `bd` for ALL task tracking — do NOT use TodoWrite or markdown TODO lists.
@@ -258,7 +257,6 @@ until `git push` succeeds.
 4. **Push to remote**:
    ```bash
    git push                         # plain push only; do NOT add pull --rebase
-   bd dolt push                     # only if a Dolt remote is configured
    git status                       # MUST show "up to date with origin"
    ```
    If `git push` is rejected for any reason, **stop and ask the human**. Do not
