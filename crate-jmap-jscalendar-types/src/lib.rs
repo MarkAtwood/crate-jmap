@@ -38,6 +38,7 @@ use serde::{Deserialize, Serialize};
 /// A date-time string without a timezone offset (RFC 8984 §1.4.5).
 ///
 /// Format: `YYYY-MM-DDTHH:MM:SS` (no `Z`, no `±offset`).
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LocalDateTime(pub String);
 
@@ -62,6 +63,7 @@ impl AsRef<str> for LocalDateTime {
 /// An ISO 8601 duration string (RFC 8984 §1.4.6).
 ///
 /// Example: `"PT1H"`, `"P1DT2H"`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Duration(pub String);
 
@@ -87,6 +89,7 @@ impl AsRef<str> for Duration {
 ///
 /// Like `Duration` but may be prefixed with `+` or `-`.
 /// Example: `"-PT15M"`, `"+PT30M"`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SignedDuration(pub String);
 
