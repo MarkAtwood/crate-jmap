@@ -84,7 +84,8 @@ use jmap_mail_types::{
         ComparatorProperty, EmailComparator, EmailFilter, EmailSubmissionFilter, Filter, Operator,
     },
     submission::{EmailSubmission, EmailSubmissionFilterCondition},
-    Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, SearchSnippet,
+    Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, Mailbox,
+    MailboxFilterCondition, SearchSnippet,
 };
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
@@ -279,6 +280,161 @@ impl MemoryBackend {
     pub fn set_max_sieve_script_bytes(&self, limit: u64) {
         self.inner.lock().unwrap().max_sieve_script_limit = Some(limit);
     }
+
+    /// Reference impl of `Mailbox/query` filter+sort+paginate (RFC 8621 §2.3).
+    ///
+    /// Decoupled from the generic `query_objects` pipeline because Mailbox sort
+    /// keys (`name`, `sortOrder`) and the three-way `parentId` filter shape are
+    /// Mailbox-specific. Called from `query_objects` when `O::TYPE_NAME ==
+    /// "Mailbox"`.
+    ///
+    /// The handler in `mailbox.rs` validates wire-level argument shape
+    /// (rejecting unknown filter keys, unknown sort properties, `sortAsTree`,
+    /// `filterAsTree`) before reaching this method, so the inputs here are
+    /// trusted to be well-formed RFC 8621 §2.3 filter and comparator values.
+    async fn query_mailboxes(
+        &self,
+        account_id: &Id,
+        filter: Option<&MailboxFilterCondition>,
+        sort: &[(String, bool)],
+        limit: Option<u64>,
+        position: i64,
+    ) -> Result<QueryResult, MemoryError> {
+        // Pre-extract the wire-format role string from the filter to avoid
+        // repeated `to_wire_str()` calls inside the per-mailbox loop.
+        let filter_role_wire: Option<&str> = filter.and_then(|f| f.role.as_deref());
+
+        let (mut matching, state_n): (Vec<Mailbox>, u64) = {
+            let inner = self.inner.lock().unwrap();
+            let mailboxes: Vec<Mailbox> = inner
+                .objects_ref("Mailbox", account_id.as_ref())
+                .map(|map| {
+                    map.values()
+                        .filter_map(|val| Mailbox::deserialize(val).ok())
+                        .filter(|m| mailbox_matches_filter(m, filter, filter_role_wire))
+                        .collect()
+                })
+                .unwrap_or_default();
+            let state_n = inner.current_state("Mailbox", account_id.as_ref());
+            (mailboxes, state_n)
+        };
+
+        // Sort by client comparators with id tiebreak for stable pagination.
+        // Unknown properties are pre-rejected by the handler; treat any leftover
+        // as Equal so we never panic on a malformed comparator slipping through.
+        matching.sort_by(|a, b| {
+            let mut ord = std::cmp::Ordering::Equal;
+            for (prop, asc) in sort {
+                if ord != std::cmp::Ordering::Equal {
+                    break;
+                }
+                let cmp = match prop.as_str() {
+                    "name" => a.name.cmp(&b.name),
+                    "sortOrder" => a.sort_order.cmp(&b.sort_order),
+                    _ => std::cmp::Ordering::Equal,
+                };
+                ord = if *asc { cmp } else { cmp.reverse() };
+            }
+            if ord == std::cmp::Ordering::Equal {
+                a.id.as_ref().cmp(b.id.as_ref())
+            } else {
+                ord
+            }
+        });
+
+        let all_ids: Vec<Id> = matching.into_iter().map(|m| m.id).collect();
+        let total = all_ids.len();
+        let start = if position >= 0 {
+            (position as usize).min(total)
+        } else {
+            // saturating_neg() avoids i64::MIN overflow (i64::MIN.saturating_neg() = i64::MAX).
+            let neg = position.saturating_neg() as usize;
+            total.saturating_sub(neg)
+        };
+        let ids: Vec<Id> = all_ids[start..]
+            .iter()
+            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
+            .cloned()
+            .collect();
+
+        Ok(QueryResult::new(
+            ids,
+            start as i64,
+            Some(total as u64),
+            State::from(state_n.to_string()),
+            true,
+        ))
+    }
+}
+
+/// Apply a `MailboxFilterCondition` (RFC 8621 §2.3) to a single Mailbox.
+///
+/// Returns `true` if the mailbox passes the filter. A `None` filter passes
+/// everything.
+///
+/// `filter_role_wire` is the wire-format role string extracted from
+/// `filter.role` once by the caller, so this hot loop does not re-call
+/// `to_wire_str()` for every mailbox.
+fn mailbox_matches_filter(
+    m: &Mailbox,
+    filter: Option<&MailboxFilterCondition>,
+    filter_role_wire: Option<&str>,
+) -> bool {
+    let Some(f) = filter else { return true };
+
+    // parentId is three-way: absent (None) = no filter; explicit null
+    // (Some(Value::Null)) = top-level only; string (Some(Value::String)) =
+    // specific parent. `MailboxFilterCondition::parent_id` is
+    // `Option<serde_json::Value>` exactly to preserve this distinction.
+    if let Some(pv) = f.parent_id.as_ref() {
+        match pv {
+            serde_json::Value::Null => {
+                if m.parent_id.is_some() {
+                    return false;
+                }
+            }
+            serde_json::Value::String(id_str) => {
+                if m.parent_id.as_ref().map(|p| p.as_ref()) != Some(id_str.as_str()) {
+                    return false;
+                }
+            }
+            // Any other JSON value in parentId is a malformed filter; the
+            // handler rejects unknown shapes, so reaching here implies the
+            // caller already validated. Treat as no-match conservatively.
+            _ => return false,
+        }
+    }
+
+    if let Some(ref name_substr) = f.name {
+        if !m.name.contains(name_substr.as_str()) {
+            return false;
+        }
+    }
+
+    if let Some(role_str) = filter_role_wire {
+        match &m.role {
+            Some(r) => {
+                if r.to_wire_str() != role_str {
+                    return false;
+                }
+            }
+            None => return false,
+        }
+    }
+
+    if let Some(want_any_role) = f.has_any_role {
+        if m.role.is_some() != want_any_role {
+            return false;
+        }
+    }
+
+    if let Some(want_subscribed) = f.is_subscribed {
+        if m.is_subscribed != want_subscribed {
+            return false;
+        }
+    }
+
+    true
 }
 
 // ---------------------------------------------------------------------------
@@ -482,6 +638,50 @@ impl JmapBackend for MemoryBackend {
         // O::TYPE_NAME is a const so the dispatch below is zero-cost at runtime.
         // Trait-based dispatch would require additional trait machinery not yet
         // worth the complexity. Each arm is an explicit case.
+
+        // Mailbox dispatch (RFC 8621 §2.3).
+        //
+        // Decode the wire filter and sort into typed values via a JSON roundtrip
+        // (`O::Filter: Serialize`, `O::Comparator: Serialize`) and dispatch to a
+        // self-contained Mailbox handler. Mailbox filter/sort surfaces are small
+        // enough that the dispatch is cleaner than retrofitting the Email
+        // pipeline below.
+        if O::TYPE_NAME == "Mailbox" {
+            let mailbox_filter: Option<MailboxFilterCondition> = filter.and_then(|f| {
+                serde_json::to_value(f)
+                    .ok()
+                    .and_then(|v| serde_json::from_value(v).ok())
+            });
+            // Mailbox::Comparator is serde_json::Value (the wire shape per RFC 8621
+            // §2.3 — only `name` and `sortOrder` are valid properties). The handler
+            // validates property names before reaching the backend, so here we just
+            // decode each comparator into (property, isAscending).
+            let mailbox_sort: Vec<(String, bool)> = sort
+                .map(|s| {
+                    s.iter()
+                        .filter_map(|c| {
+                            let v = serde_json::to_value(c).ok()?;
+                            let prop = v.get("property")?.as_str()?.to_owned();
+                            let asc = v
+                                .get("isAscending")
+                                .and_then(|x| x.as_bool())
+                                .unwrap_or(true);
+                            Some((prop, asc))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+            return self
+                .query_mailboxes(
+                    account_id,
+                    mailbox_filter.as_ref(),
+                    &mailbox_sort,
+                    limit,
+                    position,
+                )
+                .await;
+        }
+
         let email_filter: Option<EmailFilter> = if O::TYPE_NAME == "Email" {
             filter.and_then(|f| {
                 serde_json::to_value(f)

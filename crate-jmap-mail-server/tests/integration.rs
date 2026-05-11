@@ -8698,6 +8698,78 @@ async fn conformance_mailbox_query_filter_role() {
     );
 }
 
+/// Oracle: `MemoryBackend::query_objects::<Mailbox>` honors `MailboxFilterCondition`
+/// directly (no handler involvement). Verifies the contract that production
+/// backends must honor — filter + sort + paginate are pushed all the way into
+/// the storage layer, not done by the handler.
+///
+/// This is the unit-level proof that JMAP-g7wu.6 is fixed: prior to that bead,
+/// `query_objects::<Mailbox>` ignored the filter argument entirely.
+#[tokio::test]
+async fn memory_backend_query_objects_mailbox_honors_filter_directly() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let seed = setup_seed_data(&backend, &account_id).await;
+
+    // filter={parentId: null} → top-level mailboxes only.
+    // MailboxFilterCondition is #[non_exhaustive], so we deserialize from a
+    // small fixture JSON to construct it (same path the handler uses).
+    let filter: jmap_mail_types::MailboxFilterCondition =
+        serde_json::from_value(serde_json::json!({"parentId": null}))
+            .expect("MailboxFilterCondition must deserialize");
+    let result = backend
+        .query_objects::<Mailbox>(&(), &account_id, Some(&filter), None, None, 0)
+        .await
+        .expect("query_objects::<Mailbox> must not fail");
+
+    let ids: Vec<&str> = result.ids.iter().map(|id| id.as_ref()).collect();
+    assert!(
+        ids.contains(&seed.mailbox["inbox"].as_ref()),
+        "inbox (top-level) must be in result; got ids={:?}",
+        ids
+    );
+    assert!(
+        !ids.contains(&seed.mailbox["child1"].as_ref()),
+        "child1 (nested) must NOT be in top-level result; got ids={:?}",
+        ids
+    );
+    assert_eq!(
+        result.total,
+        Some(ids.len() as u64),
+        "total must equal the number of matching ids"
+    );
+}
+
+/// Oracle: `MemoryBackend::query_objects::<Mailbox>` honors the sort comparator
+/// list (name ascending) directly, with id tiebreak for stable pagination.
+#[tokio::test]
+async fn memory_backend_query_objects_mailbox_honors_sort_directly() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("acct1");
+    let _seed = setup_seed_data(&backend, &account_id).await;
+
+    let sort = [serde_json::json!({"property": "name", "isAscending": true})];
+    let result = backend
+        .query_objects::<Mailbox>(&(), &account_id, None, Some(&sort), None, 0)
+        .await
+        .expect("query_objects::<Mailbox> sort must not fail");
+
+    // Fetch each id back to inspect its name, then verify monotonic non-decreasing.
+    let (objs, _) = backend
+        .get_objects::<Mailbox>(&(), &account_id, Some(&result.ids), None)
+        .await
+        .expect("get_objects must not fail");
+    // The objects come back in `ids` order. Walk pairwise and require name(prev) <= name(next).
+    for pair in objs.windows(2) {
+        assert!(
+            pair[0].name <= pair[1].name,
+            "sort by name ascending violated: {:?} before {:?}",
+            pair[0].name,
+            pair[1].name
+        );
+    }
+}
+
 /// Oracle: RFC 8621 §2.3 — Mailbox/query sort by name returns mailboxes in
 /// lexicographic name order.
 /// jmap-test-suite: mailbox-query.test.ts "query-sort-by-name"

@@ -218,19 +218,6 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         return Err(JmapError::unsupported_filter());
     }
 
-    // O(n): fetches all mailboxes and filters in-process. Acceptable for typical account sizes.
-    // For very large accounts (IMAP migration), push filter/sort into the backend query
-    // (tracked under bd:JMAP-g7wu.6).
-    let (all_mailboxes, _) = backend
-        .get_objects::<Mailbox>(caller, &account_id, None, None)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
-    let query_state = backend
-        .get_state::<Mailbox>(caller, &account_id)
-        .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
-
     // Reject unknown filter condition keys (RFC 8620 §5.5 requires unsupportedFilter).
     //
     // MAINTENANCE: This list must match all fields of MailboxFilterCondition
@@ -247,16 +234,9 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         }
     }
 
-    // Extract parentId from raw filter JSON to preserve three-way semantics
-    // (absent / null / string). Serde cannot distinguish absent from null for
-    // Option<T>, so we extract before consuming the filter value.
-    let filter_parent_id: Option<Value> = args
-        .get("filter")
-        .and_then(|v| v.as_object())
-        .and_then(|obj| obj.get("parentId").cloned());
-
-    // Parse filter into MailboxFilterCondition so the struct fields drive the
-    // in-process filter directly, eliminating a duplicate field list.
+    // Parse filter into MailboxFilterCondition. `parent_id: Option<Value>`
+    // preserves three-way semantics (absent / null / string) automatically,
+    // so no raw-JSON peek is needed before deserialising.
     let filter: Option<MailboxFilterCondition> = match args.remove("filter") {
         None | Some(Value::Null) => None,
         Some(v) => Some(
@@ -265,109 +245,80 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         ),
     };
 
-    // Pre-compute the wire-format role string once outside the filter closure to
-    // avoid calling to_wire_str on every mailbox for every iteration.
-    let filter_role_wire: Option<&str> = filter.as_ref().and_then(|f| f.role.as_deref());
-
-    let mut matching: Vec<Mailbox> = all_mailboxes
-        .into_iter()
-        .filter(|m| {
-            // parentId: three-way — absent = no filter; null = top-level only; string = specific parent.
-            if let Some(ref pv) = filter_parent_id {
-                match pv {
-                    Value::Null if m.parent_id.is_some() => {
-                        return false;
-                    }
-                    Value::String(id_str)
-                        if m.parent_id.as_ref().map(|p| p.as_ref()) != Some(id_str.as_str()) =>
-                    {
-                        return false;
-                    }
-                    _ => {}
-                }
-            }
-            let Some(ref f) = filter else { return true };
-            if let Some(ref name_substr) = f.name {
-                if !m.name.contains(name_substr.as_str()) {
-                    return false;
-                }
-            }
-            if let Some(role_str) = filter_role_wire {
-                match &m.role {
-                    Some(r) => {
-                        if r.to_wire_str() != role_str {
-                            return false;
-                        }
-                    }
-                    None => return false,
-                }
-            }
-            if let Some(want_any_role) = f.has_any_role {
-                if m.role.is_some() != want_any_role {
-                    return false;
-                }
-            }
-            if let Some(want_subscribed) = f.is_subscribed {
-                if m.is_subscribed != want_subscribed {
-                    return false;
-                }
-            }
-            true
-        })
+    // Build the sort comparator vector in the wire shape Mailbox uses
+    // (`Mailbox::Comparator = serde_json::Value`). The backend decodes each
+    // `{property, isAscending}` object internally.
+    let sort_values: Vec<Value> = sort_comparators
+        .iter()
+        .map(|(prop, asc)| json!({"property": prop, "isAscending": asc}))
         .collect();
+    let sort_slice = if sort_values.is_empty() {
+        None
+    } else {
+        Some(sort_values.as_slice())
+    };
 
-    // Sort by client comparators, falling back to id for stable pagination.
-    matching.sort_by(|a, b| {
-        let mut ord = std::cmp::Ordering::Equal;
-        for (prop, asc) in &sort_comparators {
-            if ord != std::cmp::Ordering::Equal {
-                break;
-            }
-            let cmp = match prop.as_str() {
-                "name" => a.name.cmp(&b.name),
-                "sortOrder" => a.sort_order.cmp(&b.sort_order),
-                _ => std::cmp::Ordering::Equal,
-            };
-            ord = if *asc { cmp } else { cmp.reverse() };
-        }
-        if ord == std::cmp::Ordering::Equal {
-            a.id.as_ref().cmp(b.id.as_ref())
-        } else {
-            ord
-        }
-    });
-    let matching: Vec<Id> = matching.into_iter().map(|m| m.id).collect();
+    let query_state_str: String;
+    let can_calculate_changes: bool =
+        backend.can_calculate_mailbox_query_changes(caller, &account_id);
 
-    let total = matching.len() as u64;
-
-    // Resolve start position: anchor overrides position.
-    let start = if let Some(ref anchor_id) = anchor {
-        let anchor_idx = matching
+    // Two paths:
+    //   1. anchor set     → fetch the full sorted id list once, then resolve
+    //                       anchor + slice in-handler. This mirrors the
+    //                       Email/query anchor pattern in email.rs.
+    //   2. no anchor      → push limit/position to the backend so large
+    //                       accounts (IMAP migration) do not pay an O(n)
+    //                       full-fetch on every page.
+    let (start, page, total): (usize, Vec<String>, u64) = if let Some(anchor_id) = anchor.as_ref() {
+        let full = backend
+            .query_objects::<Mailbox>(caller, &account_id, filter.as_ref(), sort_slice, None, 0)
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        query_state_str = full.query_state.as_ref().to_owned();
+        let all_ids = full.ids;
+        let total = all_ids.len() as u64;
+        let anchor_idx = all_ids
             .iter()
             .position(|id| id == anchor_id)
             .ok_or_else(JmapError::anchor_not_found)?;
         // RFC 8620 §5.5: clamp effective position to [0, len].
         let raw = anchor_idx as i64 + anchor_offset;
-        raw.max(0).min(matching.len() as i64) as usize
-    } else if position >= 0 {
-        (position as usize).min(matching.len())
+        let start = raw.max(0).min(all_ids.len() as i64) as usize;
+        let page: Vec<String> = all_ids
+            .into_iter()
+            .skip(start)
+            .take(limit.map_or(usize::MAX, |n| n as usize))
+            .map(|id| id.as_ref().to_owned())
+            .collect();
+        (start, page, total)
     } else {
-        // saturating_neg() avoids i64::MIN overflow (i64::MIN.saturating_neg() = i64::MAX).
-        let neg = position.saturating_neg() as usize;
-        matching.len().saturating_sub(neg)
+        let result = backend
+            .query_objects::<Mailbox>(
+                caller,
+                &account_id,
+                filter.as_ref(),
+                sort_slice,
+                limit,
+                position,
+            )
+            .await
+            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        query_state_str = result.query_state.as_ref().to_owned();
+        let total = result.total.unwrap_or(result.ids.len() as u64);
+        let start = result.position as usize;
+        let page: Vec<String> = result
+            .ids
+            .into_iter()
+            .map(|id| id.as_ref().to_owned())
+            .collect();
+        (start, page, total)
     };
-
-    let page: Vec<&str> = matching[start..]
-        .iter()
-        .take(limit.map_or(usize::MAX, |n| n as usize))
-        .map(|id| id.as_ref())
-        .collect();
 
     // RFC 8620 §5.5: total MUST be omitted when calculateTotal is false (default).
     let mut resp = json!({
         "accountId": account_id.as_ref(),
-        "queryState": query_state.as_ref(),
-        "canCalculateChanges": backend.can_calculate_mailbox_query_changes(caller, &account_id),
+        "queryState": query_state_str,
+        "canCalculateChanges": can_calculate_changes,
         "position": start as i64,
         "ids": page,
     });

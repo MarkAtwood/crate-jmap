@@ -189,6 +189,25 @@ impl Mailbox {
     }
 }
 
+/// Deserialize `parent_id` so that an explicit JSON `null` is preserved as
+/// `Some(Value::Null)` instead of being collapsed to `None`.
+///
+/// `#[serde(default)]` on the field handles the absent case (produces `None`
+/// without calling this function). When the field is present, serde calls
+/// this function with the value, which always wraps the result in `Some(...)`.
+/// This is the only way to distinguish `{}` from `{"parentId": null}` for a
+/// field of type `Option<T>` — serde's default `Option<T>` Deserialize impl
+/// treats both as `None`.
+fn deserialize_parent_id_three_way<'de, D>(
+    deserializer: D,
+) -> Result<Option<serde_json::Value>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::Deserialize;
+    serde_json::Value::deserialize(deserializer).map(Some)
+}
+
 /// Filter condition for `Mailbox/query` (RFC 8621 §2.3).
 ///
 /// All fields are optional; a condition with no fields set matches every Mailbox.
@@ -202,15 +221,20 @@ impl Mailbox {
 /// - **`"<id>"`** (`Some(serde_json::Value::String(...))`) — return only mailboxes
 ///   whose `parentId` equals the given `Id`.
 ///
-/// `Option<serde_json::Value>` (with `#[serde(default)]`) preserves this three-way
-/// distinction without a custom deserializer: absent fields deserialize as `None`,
-/// and `null` deserializes as `Some(Value::Null)`.
+/// The combination of `#[serde(default, deserialize_with = ...)]` preserves
+/// this three-way distinction. Without the custom deserializer, serde's
+/// default `Option<T>` Deserialize impl would collapse a JSON `null` to
+/// `None`, making `null` and absent indistinguishable.
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MailboxFilterCondition {
     /// See type-level docs for three-way semantics.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        deserialize_with = "deserialize_parent_id_three_way",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub parent_id: Option<serde_json::Value>,
 
     /// Mailbox name must contain this string (case-sensitive substring match).
@@ -287,5 +311,61 @@ mod tests {
         );
         let back = serde_json::to_value(&mbox).unwrap();
         assert_eq!(back["acmeCorpColor"], "#ff0000");
+    }
+
+    // ── parentId three-way semantics (RFC 8621 §2.3) ────────────────────
+    //
+    // The Mailbox/query filter distinguishes three states for `parentId`:
+    // absent (no filter), explicit JSON null (top-level only), explicit string
+    // (specific parent). The default `Option<T>` Deserialize impl collapses
+    // `null` to `None`, so `MailboxFilterCondition.parent_id` uses a custom
+    // deserializer to preserve `Some(Value::Null)`. These tests lock that
+    // behavior.
+
+    /// Oracle: absent `parentId` deserializes as `None` and serializes back to
+    /// an object without the field.
+    #[test]
+    fn mailbox_filter_parent_id_absent_round_trips() {
+        let cond: MailboxFilterCondition = serde_json::from_value(json!({})).unwrap();
+        assert!(cond.parent_id.is_none(), "absent must deserialize as None");
+        let back = serde_json::to_value(&cond).unwrap();
+        assert!(
+            back.get("parentId").is_none(),
+            "absent parentId must not appear in serialized output"
+        );
+    }
+
+    /// Oracle: explicit JSON `null` for `parentId` deserializes as
+    /// `Some(Value::Null)` (NOT `None`) and serializes back to `null`.
+    /// This is the wire-level signal for "top-level mailboxes only".
+    #[test]
+    fn mailbox_filter_parent_id_null_round_trips() {
+        let cond: MailboxFilterCondition =
+            serde_json::from_value(json!({"parentId": null})).unwrap();
+        assert!(
+            matches!(cond.parent_id, Some(serde_json::Value::Null)),
+            "explicit null must deserialize as Some(Value::Null), got {:?}",
+            cond.parent_id
+        );
+        let back = serde_json::to_value(&cond).unwrap();
+        assert_eq!(
+            back["parentId"],
+            serde_json::Value::Null,
+            "Some(Value::Null) must serialize back as null"
+        );
+    }
+
+    /// Oracle: explicit string `parentId` deserializes as
+    /// `Some(Value::String(...))` and serializes back to the same string.
+    #[test]
+    fn mailbox_filter_parent_id_string_round_trips() {
+        let cond: MailboxFilterCondition =
+            serde_json::from_value(json!({"parentId": "mbox-42"})).unwrap();
+        match cond.parent_id {
+            Some(serde_json::Value::String(ref s)) => assert_eq!(s, "mbox-42"),
+            other => panic!("expected Some(String), got {other:?}"),
+        }
+        let back = serde_json::to_value(&cond).unwrap();
+        assert_eq!(back["parentId"], "mbox-42");
     }
 }
