@@ -65,6 +65,22 @@ pub struct GetResponse<T> {
 /// `old_state`. If `has_more_changes` is `true`, the client should call
 /// `/changes` again with `since_state = new_state` to retrieve the next
 /// page; otherwise `new_state` is the current state.
+///
+/// # Extension fields
+///
+/// Some JMAP data-type extensions add an `updatedProperties` field to
+/// their `/changes` response shape:
+///
+/// - RFC 8621 §2.2 (`Mailbox/changes`): set when only `totalEmails` /
+///   `unreadEmails` / `totalThreads` / `unreadThreads` changed.
+/// - RFC 9425 §5 (`Quota/changes`): set when only the `used` property
+///   changed.
+///
+/// For all other `/changes` methods (RFC 8621 §3.2 `Thread/changes`,
+/// §4.3 `Email/changes`, plus every extension `/changes` method not
+/// listed above) the server omits the field, and clients deserialize
+/// it as `None`. Carrying the field on the base type avoids duplicating
+/// the `ChangesResponse` shape into per-extension newtypes.
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -83,6 +99,15 @@ pub struct ChangesResponse {
     pub updated: Vec<Id>,
     /// Ids of objects destroyed since `old_state`.
     pub destroyed: Vec<Id>,
+    /// Optional list of property names that changed (RFC 8621 §2.2,
+    /// RFC 9425 §5). Servers MAY set this for `Mailbox/changes` and
+    /// `Quota/changes` responses when the only changes are to a small
+    /// known subset of properties; clients can then back-reference
+    /// `/updatedProperties` into a follow-up `Mailbox/get` or
+    /// `Quota/get` to fetch only those fields. For all other `/changes`
+    /// methods the field is absent on the wire and `None` here.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_properties: Option<Vec<String>>,
 }
 
 // ---------------------------------------------------------------------------
@@ -383,6 +408,107 @@ mod tests {
         assert_eq!(resp.created[0].as_ref(), "a");
         assert_eq!(resp.updated[0].as_ref(), "b");
         assert_eq!(resp.destroyed[0].as_ref(), "c");
+        // RFC 8620 §5.2 base `/changes` does not define `updatedProperties`;
+        // the field must default to `None` when absent from the wire.
+        assert!(resp.updated_properties.is_none());
+    }
+
+    /// Oracle: RFC 8621 §2.2 example response (lines 1015-1031 of rfc8621.txt
+    /// in this repo) — `Mailbox/changes` carries `updatedProperties` listing
+    /// `totalEmails`, `unreadEmails`, `totalThreads`, `unreadThreads`.
+    #[test]
+    fn changes_response_deserializes_mailbox_updated_properties() {
+        let raw = json!({
+            "accountId": "A1",
+            "oldState": "78541",
+            "newState": "78542",
+            "hasMoreChanges": false,
+            "updatedProperties": [
+                "totalEmails", "unreadEmails",
+                "totalThreads", "unreadThreads"
+            ],
+            "created": [],
+            "updated": ["B"],
+            "destroyed": []
+        });
+        let resp: ChangesResponse = serde_json::from_value(raw).unwrap();
+        let props = resp
+            .updated_properties
+            .expect("updatedProperties must be present");
+        assert_eq!(
+            props,
+            vec![
+                "totalEmails".to_string(),
+                "unreadEmails".to_string(),
+                "totalThreads".to_string(),
+                "unreadThreads".to_string()
+            ]
+        );
+    }
+
+    /// Oracle: RFC 9425 §5 example response — `Quota/changes` carries
+    /// `updatedProperties: ["used"]` when only quota usage changed.
+    #[test]
+    fn changes_response_deserializes_quota_updated_properties() {
+        let raw = json!({
+            "accountId": "A1",
+            "oldState": "78541",
+            "newState": "78542",
+            "hasMoreChanges": false,
+            "updatedProperties": ["used"],
+            "created": [],
+            "updated": ["2a06df0d-9865-4e74-a92f-74dcc814270e"],
+            "destroyed": []
+        });
+        let resp: ChangesResponse = serde_json::from_value(raw).unwrap();
+        let props = resp
+            .updated_properties
+            .expect("updatedProperties must be present");
+        assert_eq!(props, vec!["used".to_string()]);
+    }
+
+    /// `updatedProperties: null` on the wire (RFC 8621 §2.2: "If the server
+    /// is unable to tell if only counts have changed, it MUST just be null")
+    /// must also deserialize as `None` — distinct from omitted but
+    /// semantically equivalent on the typed side.
+    #[test]
+    fn changes_response_accepts_explicit_null_updated_properties() {
+        let raw = json!({
+            "accountId": "A1",
+            "oldState": "s0",
+            "newState": "s1",
+            "hasMoreChanges": false,
+            "updatedProperties": null,
+            "created": [],
+            "updated": ["B"],
+            "destroyed": []
+        });
+        let resp: ChangesResponse = serde_json::from_value(raw).unwrap();
+        assert!(resp.updated_properties.is_none());
+    }
+
+    /// Serializing a `ChangesResponse` without `updated_properties` must
+    /// NOT emit a `"updatedProperties": null` key — the
+    /// `skip_serializing_if = "Option::is_none"` attribute keeps the wire
+    /// shape minimal and matches the RFC 8620 §5.2 base envelope for
+    /// methods that don't define the extension field.
+    #[test]
+    fn changes_response_omits_updated_properties_when_none() {
+        let resp = ChangesResponse {
+            account_id: Id::from("A1"),
+            old_state: "s0".into(),
+            new_state: "s1".into(),
+            has_more_changes: false,
+            created: vec![],
+            updated: vec![],
+            destroyed: vec![],
+            updated_properties: None,
+        };
+        let serialized = serde_json::to_value(&resp).expect("must serialize");
+        assert!(
+            serialized.get("updatedProperties").is_none(),
+            "updatedProperties must be omitted when None"
+        );
     }
 
     #[test]
