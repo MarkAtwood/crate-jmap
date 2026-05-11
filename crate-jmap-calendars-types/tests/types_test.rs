@@ -372,6 +372,66 @@ fn calendar_event_recurrence_overrides_wire_format_is_object_map() {
     );
 }
 
+/// RFC 8984 §4.7.2 — `CalendarEvent.timeZones` is `Map<TimeZoneId, TimeZone>`.
+///
+/// The field is modelled here as `Option<serde_json::Value>` for wire-shape
+/// preservation. Each entry of the map can be typed-decoded into
+/// `jmap_jscalendar_types::TimeZone` (re-exported from this crate). This
+/// test verifies both wire round-trip and typed decode.
+///
+/// Oracle: hand-written JSON literal mirroring the RFC 8984 §4.7.2 wire shape.
+#[test]
+fn calendar_event_time_zones_value_and_typed_roundtrip() {
+    use jmap_calendars_types::TimeZone;
+
+    let json = r#"{
+        "id": "ev-tz",
+        "calendarIds": {"cal-001": true},
+        "timeZones": {
+            "/example/custom/UTC+05:30:00": {
+                "@type": "TimeZone",
+                "tzId": "/example/custom/UTC+05:30:00",
+                "standard": [
+                    {
+                        "@type": "TimeZoneRule",
+                        "start": "1970-01-01T00:00:00",
+                        "offsetFrom": "+0530",
+                        "offsetTo": "+0530"
+                    }
+                ]
+            }
+        }
+    }"#;
+
+    let ev: CalendarEvent = serde_json::from_str(json).expect("CalendarEvent must deserialize");
+    let tz_field = ev.time_zones.as_ref().expect("timeZones must be Some");
+    let tz_map = tz_field
+        .as_object()
+        .expect("timeZones must be a JSON object");
+    let entry = tz_map
+        .get("/example/custom/UTC+05:30:00")
+        .expect("custom tz entry");
+
+    // Typed decode: the per-zone Value parses into `TimeZone`.
+    let tz: TimeZone = serde_json::from_value(entry.clone()).expect("typed TimeZone decode");
+    assert_eq!(tz.at_type, "TimeZone");
+    assert_eq!(tz.tz_id, "/example/custom/UTC+05:30:00");
+    let standard = tz.standard.as_ref().expect("standard rule present");
+    assert_eq!(standard.len(), 1);
+    assert_eq!(standard[0].at_type, "TimeZoneRule");
+    assert_eq!(standard[0].offset_from, "+0530");
+    assert_eq!(standard[0].offset_to, "+0530");
+
+    // Wire round-trip: serialize the CalendarEvent back and verify the
+    // `timeZones` field is byte-identical to the input.
+    let out: serde_json::Value = serde_json::to_value(&ev).expect("serialize");
+    let expected: serde_json::Value = serde_json::from_str(json).expect("expected Value");
+    assert_eq!(
+        out["timeZones"], expected["timeZones"],
+        "wire format must be byte-identical"
+    );
+}
+
 /// CalendarEvent with localizations round-trips through the typed
 /// `HashMap<String, PatchObject>` envelope.
 /// Oracle: RFC 8984 §4.6 localizations description.

@@ -63,7 +63,8 @@ pub use capability::{
 pub use event::{CalendarEvent, CalendarEventComparator, CalendarEventFilterCondition};
 pub use jmap_jscalendar_types::{
     AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay,
-    OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, VirtualLocation,
+    OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, TimeZone, TimeZoneRule,
+    VirtualLocation,
 };
 pub use notification::{
     CalendarAlert, CalendarEventNotification, NotificationFilterCondition, NotificationType, Person,

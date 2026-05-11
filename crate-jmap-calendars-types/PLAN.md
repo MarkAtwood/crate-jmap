@@ -179,7 +179,7 @@ responses) except where mandated by the spec.
 | Field | Wire type | Notes |
 |---|---|---|
 | `timeZone` | `String\|null` | IANA tz id |
-| `timeZones` | `serde_json::Value\|null` | custom tz definitions; complex; opaque passthrough |
+| `timeZones` | `serde_json::Value\|null` | custom tz definitions; per-entry value typed-decodable to `jmap_jscalendar_types::TimeZone` (re-exported as `TimeZone`; see JMAP-x014) |
 
 **JSCalendar Event-specific properties** (RFC 8984 §5.1):
 
