@@ -1,0 +1,15 @@
+[package]
+name = "jmap-jscontact-types"
+version = "0.1.1"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JSContact (RFC 9553) typed sub-types for the jmap-* crate family"
+keywords = ["jmap", "jscontact", "rfc9553", "types", "wire-format"]
+categories = ["encoding", "network-programming"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
