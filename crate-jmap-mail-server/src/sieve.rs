@@ -26,7 +26,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
-    extract_account_id, filter_properties, finalize_set_response, set_error_value,
+    extract_account_id, filter_properties, finalize_set_response, set_error_value, SetAccumulators,
 };
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
@@ -948,12 +948,14 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
         &account_id,
         old_state,
         mutated,
-        created,
-        updated,
-        destroyed,
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
     )
     .await
 }

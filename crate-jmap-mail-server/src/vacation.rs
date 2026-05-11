@@ -9,7 +9,7 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, finalize_set_response, set_error_value};
+use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
 
 const SINGLETON_ID: &str = "singleton";
 
@@ -333,12 +333,13 @@ pub async fn handle_vacation_set<B: MailBackend>(
         &account_id,
         old_state,
         mutated,
-        serde_json::Map::new(),
-        updated,
-        Vec::new(),
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            updated,
+            not_created,
+            not_updated,
+            not_destroyed,
+            ..Default::default()
+        },
     )
     .await
 }

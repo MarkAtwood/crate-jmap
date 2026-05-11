@@ -16,6 +16,29 @@ pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
 
+/// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
+///
+/// The six fields correspond to the six top-level result keys (`created`,
+/// `updated`, `destroyed`, `notCreated`, `notUpdated`, `notDestroyed`).
+/// Each `/set` handler builds these as it walks the request's `create`,
+/// `update`, and `destroy` maps, then hands the bundle to
+/// [`finalize_set_response`] for envelope construction.
+///
+/// Bundling the six accumulators into a struct (instead of six positional
+/// parameters) keeps [`finalize_set_response`] under clippy's
+/// `too_many_arguments` threshold and lets callers use struct-update syntax
+/// (`SetAccumulators { created, ..Default::default() }`) when only a subset
+/// of the maps is non-empty.
+#[derive(Debug, Default)]
+pub(crate) struct SetAccumulators {
+    pub created: Map<String, Value>,
+    pub updated: Map<String, Value>,
+    pub destroyed: Vec<Value>,
+    pub not_created: Map<String, Value>,
+    pub not_updated: Map<String, Value>,
+    pub not_destroyed: Map<String, Value>,
+}
+
 /// Build the final `/set` method response and re-fetch `newState` from the
 /// backend if any mutation occurred.
 ///
@@ -33,28 +56,12 @@ pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value
 /// Empty maps/arrays serialize as `null` (JMAP convention). The `Invocation`
 /// vector is always empty for the two call sites — no `/set` call generates
 /// follow-up invocations today.
-//
-// The clippy::too_many_arguments lint fires here because the six accumulator
-// collections (`created`, `updated`, `destroyed_list`, `not_created`,
-// `not_updated`, `not_destroyed`) are passed individually rather than bundled
-// into a builder struct. Bundling them is the natural follow-up but would
-// force a textual rename of references across the two /set handlers — a
-// larger and more invasive change than is in scope for the boilerplate-extraction
-// step. Allowing the lint here keeps the handler-side diff to one line each
-// (`finalize_set_response::<B, O>(...).await`); the builder refactor is
-// tracked under bd:JMAP-g7wu.3.4 (propagates from bd:JMAP-g7wu.3.1).
-#[allow(clippy::too_many_arguments)]
 pub(crate) async fn finalize_set_response<B, O>(
     backend: &B,
     account_id: &Id,
     old_state: State,
     mutated: bool,
-    created: Map<String, Value>,
-    updated: Map<String, Value>,
-    destroyed_list: Vec<Value>,
-    not_created: Map<String, Value>,
-    not_updated: Map<String, Value>,
-    not_destroyed: Map<String, Value>,
+    acc: SetAccumulators,
 ) -> Result<(Value, Vec<Invocation>), JmapError>
 where
     B: ContactsBackend,
@@ -69,17 +76,26 @@ where
         old_state.clone()
     };
 
+    let SetAccumulators {
+        created,
+        updated,
+        destroyed,
+        not_created,
+        not_updated,
+        not_destroyed,
+    } = acc;
+
     Ok((
         json!({
             "accountId": account_id.as_ref(),
             "oldState": old_state.as_ref(),
             "newState": new_state.as_ref(),
-            "created":      if created.is_empty()        { Value::Null } else { Value::Object(created) },
-            "updated":      if updated.is_empty()        { Value::Null } else { Value::Object(updated) },
-            "destroyed":    if destroyed_list.is_empty() { Value::Null } else { Value::Array(destroyed_list) },
-            "notCreated":   if not_created.is_empty()    { Value::Null } else { Value::Object(not_created) },
-            "notUpdated":   if not_updated.is_empty()    { Value::Null } else { Value::Object(not_updated) },
-            "notDestroyed": if not_destroyed.is_empty()  { Value::Null } else { Value::Object(not_destroyed) },
+            "created":      if created.is_empty()      { Value::Null } else { Value::Object(created) },
+            "updated":      if updated.is_empty()      { Value::Null } else { Value::Object(updated) },
+            "destroyed":    if destroyed.is_empty()    { Value::Null } else { Value::Array(destroyed) },
+            "notCreated":   if not_created.is_empty()  { Value::Null } else { Value::Object(not_created) },
+            "notUpdated":   if not_updated.is_empty()  { Value::Null } else { Value::Object(not_updated) },
+            "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
         }),
         vec![],
     ))

@@ -7,7 +7,9 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use crate::helpers::{extract_account_id, finalize_set_response, now_utc_string, set_error_value};
+use crate::helpers::{
+    extract_account_id, finalize_set_response, now_utc_string, set_error_value, SetAccumulators,
+};
 
 // ---------------------------------------------------------------------------
 // Chat/get
@@ -513,12 +515,14 @@ pub async fn handle_chat_set<B: ChatBackend>(
         &account_id,
         old_state,
         mutated,
-        created,
-        updated,
-        destroyed_list,
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed: destroyed_list,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
     )
     .await
 }

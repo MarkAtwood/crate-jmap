@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, MailBackend};
 use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, not_found_json, ser,
-    set_error_value,
+    set_error_value, SetAccumulators,
 };
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
@@ -455,12 +455,14 @@ pub async fn handle_identity_set<B: MailBackend>(
         &account_id,
         old_state,
         mutated,
-        created,
-        updated,
-        destroyed_list,
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed: destroyed_list,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
     )
     .await
 }

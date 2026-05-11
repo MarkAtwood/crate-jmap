@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, CalendarsBackend};
 use crate::helpers::{
     apply_default_change_to_response, extract_account_id, finalize_set_response,
-    resolve_on_success_set_is_default, set_error_value,
+    resolve_on_success_set_is_default, set_error_value, SetAccumulators,
 };
 
 // ---------------------------------------------------------------------------
@@ -285,12 +285,14 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
         &account_id,
         old_state,
         mutated,
-        created,
-        updated,
-        destroyed_list,
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed: destroyed_list,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
     )
     .await
 }

@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, iso8601_before, not_found_json,
-    now_utc_string, ser, set_error_value,
+    now_utc_string, ser, set_error_value, SetAccumulators,
 };
 
 // ---------------------------------------------------------------------------
@@ -604,12 +604,14 @@ pub async fn handle_message_set<B: ChatBackend>(
         &account_id,
         old_state,
         mutated,
-        created,
-        updated,
-        destroyed_list,
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed: destroyed_list,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
     )
     .await
 }

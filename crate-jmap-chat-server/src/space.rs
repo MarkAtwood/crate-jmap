@@ -7,7 +7,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     extract_account_id, finalize_set_response, iso8601_before, not_found_json, now_utc_string, ser,
-    set_error_value,
+    set_error_value, SetAccumulators,
 };
 
 // ---------------------------------------------------------------------------
@@ -538,12 +538,14 @@ pub async fn handle_space_set<B: ChatBackend>(
         &account_id,
         old_state,
         mutated,
-        created,
-        updated,
-        destroyed_list,
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed: destroyed_list,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
     )
     .await
 }
