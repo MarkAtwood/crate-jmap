@@ -385,6 +385,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 .map_err(|e| match e {
                     BackendSetError::Other(inner) => JmapError::server_fail(inner.to_string()),
                     BackendSetError::SetError(se) => JmapError::server_fail(se.to_string()),
+                    _ => JmapError::server_fail("unhandled backend error variant".to_owned()),
                 })?;
 
             for (id, se) in result.not_sent {
@@ -458,6 +459,15 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                         email_not_updated.insert(
                             email_id.as_ref().to_owned(),
                             json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                    }
+                    Err(_) => {
+                        email_not_updated.insert(
+                            email_id.as_ref().to_owned(),
+                            json!({
+                                "type": "serverFail",
+                                "description": "unhandled backend error variant",
+                            }),
                         );
                     }
                 }

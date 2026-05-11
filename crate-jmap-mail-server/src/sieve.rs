@@ -404,6 +404,15 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_destroyed.insert(
+                        id_str.to_owned(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -569,6 +578,15 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_created.insert(
+                        creation_id,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -724,6 +742,15 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
+                Err(_) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
             }
         }
     }
@@ -762,6 +789,15 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                         not_updated.insert(
                             active_id_str,
                             json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                    }
+                    Err(_) => {
+                        not_updated.insert(
+                            active_id_str,
+                            json!({
+                                "type": "serverFail",
+                                "description": "unhandled backend error variant",
+                            }),
                         );
                     }
                 }
@@ -814,6 +850,16 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                                     not_updated.insert(
                                         active_id_str,
                                         json!({ "type": "serverFail", "description": e.to_string() }),
+                                    );
+                                    deactivation_failed = true;
+                                }
+                                Err(_) => {
+                                    not_updated.insert(
+                                        active_id_str,
+                                        json!({
+                                            "type": "serverFail",
+                                            "description": "unhandled backend error variant",
+                                        }),
                                     );
                                     deactivation_failed = true;
                                 }
@@ -872,6 +918,15 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                             not_updated.insert(
                                 target_id_str,
                                 json!({ "type": "serverFail", "description": e.to_string() }),
+                            );
+                        }
+                        Err(_) => {
+                            not_updated.insert(
+                                target_id_str,
+                                json!({
+                                    "type": "serverFail",
+                                    "description": "unhandled backend error variant",
+                                }),
                             );
                         }
                     }
