@@ -63,6 +63,13 @@ pub struct Person {
     /// Id of the Principal corresponding to this person, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub principal_id: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A single item within a [`Checklist`] (draft-tasks-06 §4.2.3).
@@ -91,6 +98,13 @@ pub struct CheckItem {
     /// Person this item is assigned to, if any.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub assignee: Option<Person>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A named checklist attached to a Task (draft-tasks-06 §4.2.3).
@@ -109,6 +123,13 @@ pub struct Checklist {
     /// Ordered list of items in this checklist.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub check_items: Option<Vec<CheckItem>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A free-text comment attached to a Task (draft-tasks-06 §4.2.4).
@@ -134,6 +155,13 @@ pub struct Comment {
     /// Author of this comment.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub author: Option<Person>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A JMAP Task object (draft-tasks-06 §4; RFC 8984 §4, §5.2).
@@ -434,6 +462,13 @@ pub struct Task {
     /// Map of comment id → Comment objects (draft-tasks-06 §4.2.4).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub comments: Option<HashMap<Id, Comment>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Filter condition for `Task/query` (draft-tasks-06 §4.13).
