@@ -299,7 +299,12 @@ impl JmapBackend for MemoryBackend {
                     for val in m.values() {
                         match O::deserialize(val) {
                             Ok(obj) => list.push(obj),
-                            Err(e) => return Err(MemoryError(e.to_string())),
+                            Err(e) => {
+                                return Err(MemoryError(format!(
+                                    "deserialize {}: {e}",
+                                    O::TYPE_NAME
+                                )))
+                            }
                         }
                     }
                 }
@@ -312,7 +317,12 @@ impl JmapBackend for MemoryBackend {
                     match map.and_then(|m| m.get(id)) {
                         Some(val) => match O::deserialize(val) {
                             Ok(obj) => found.push(obj),
-                            Err(e) => return Err(MemoryError(e.to_string())),
+                            Err(e) => {
+                                return Err(MemoryError(format!(
+                                    "deserialize {}: {e}",
+                                    O::TYPE_NAME
+                                )))
+                            }
                         },
                         None => not_found.push(id.clone()),
                     }
@@ -538,15 +548,16 @@ impl ContactsBackend for MemoryBackend {
         let server_id = Self::next_id(&mut inner, O::TYPE_NAME, account_id.as_ref());
 
         let mut val = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize: {e}"))))?;
         if let Some(map) = val.as_object_mut() {
             map.insert(
                 "id".to_owned(),
                 serde_json::Value::String(server_id.as_ref().to_owned()),
             );
         }
-        let stored_obj: O =
-            O::deserialize(&val).map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let stored_obj: O = O::deserialize(&val).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
+        })?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -591,7 +602,7 @@ impl ContactsBackend for MemoryBackend {
         };
 
         let patch_val = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize patch: {e}"))))?;
         json_merge_patch(&mut current, patch_val);
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
@@ -671,8 +682,9 @@ impl ContactsBackend for MemoryBackend {
 
         let new_id = Self::next_id(&mut inner, "ContactCard", to_account_id.as_ref());
 
-        let mut val = serde_json::to_value(&card)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let mut val = serde_json::to_value(&card).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!("serialize copied card: {e}")))
+        })?;
         if let Some(map) = val.as_object_mut() {
             map.insert(
                 "id".to_owned(),
@@ -680,7 +692,9 @@ impl ContactsBackend for MemoryBackend {
             );
         }
         let stored: jmap_contacts_types::ContactCard = serde_json::from_value(val.clone())
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+            .map_err(|e| {
+                BackendSetError::Other(MemoryError(format!("deserialize copied card: {e}")))
+            })?;
 
         let new_state = inner.bump_state("ContactCard", to_account_id.as_ref());
         inner

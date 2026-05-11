@@ -355,7 +355,12 @@ impl JmapBackend for MemoryBackend {
                     for val in m.values() {
                         match O::deserialize(val) {
                             Ok(obj) => list.push(obj),
-                            Err(e) => return Err(MemoryError(e.to_string())),
+                            Err(e) => {
+                                return Err(MemoryError(format!(
+                                    "deserialize {}: {e}",
+                                    O::TYPE_NAME
+                                )))
+                            }
                         }
                     }
                 }
@@ -368,7 +373,12 @@ impl JmapBackend for MemoryBackend {
                     match map.and_then(|m| m.get(id)) {
                         Some(val) => match O::deserialize(val) {
                             Ok(obj) => found.push(obj),
-                            Err(e) => return Err(MemoryError(e.to_string())),
+                            Err(e) => {
+                                return Err(MemoryError(format!(
+                                    "deserialize {}: {e}",
+                                    O::TYPE_NAME
+                                )))
+                            }
                         },
                         None => not_found.push(id.clone()),
                     }
@@ -600,15 +610,16 @@ impl CalendarsBackend for MemoryBackend {
 
         // Serialize, set "id" to the server-assigned id, then deserialize back.
         let mut val = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize: {e}"))))?;
         if let Some(map) = val.as_object_mut() {
             map.insert(
                 "id".to_owned(),
                 serde_json::Value::String(server_id.as_ref().to_owned()),
             );
         }
-        let stored_obj: O =
-            O::deserialize(&val).map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let stored_obj: O = O::deserialize(&val).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
+        })?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -654,7 +665,7 @@ impl CalendarsBackend for MemoryBackend {
 
         // Apply JSON Merge Patch (RFC 7396): merge patch fields into current value.
         let patch_val = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize patch: {e}"))))?;
         json_merge_patch(&mut current, patch_val);
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
