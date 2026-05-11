@@ -30,6 +30,12 @@ pub struct EmailAddress {
     pub name: Option<String>,
     /// The addr-spec of the mailbox (e.g. `"user@example.com"`).
     pub email: String,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl EmailAddress {
@@ -38,6 +44,7 @@ impl EmailAddress {
         Self {
             name: None,
             email: email.into(),
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -55,6 +62,12 @@ pub struct EmailAddressGroup {
     pub name: Option<String>,
     /// The mailboxes that belong to this group.
     pub addresses: Vec<EmailAddress>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl EmailAddressGroup {
@@ -63,6 +76,7 @@ impl EmailAddressGroup {
         Self {
             name: None,
             addresses,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -78,6 +92,12 @@ pub struct EmailHeader {
     pub name: String,
     /// The header field value in Raw form.
     pub value: String,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl EmailHeader {
@@ -86,6 +106,7 @@ impl EmailHeader {
         Self {
             name: name.into(),
             value: value.into(),
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -113,6 +134,12 @@ pub struct EmailBodyValue {
     /// Always present in serialized output; same rationale as `is_encoding_problem`.
     #[serde(default)]
     pub is_truncated: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl EmailBodyValue {
@@ -124,6 +151,7 @@ impl EmailBodyValue {
             value: value.into(),
             is_encoding_problem: false,
             is_truncated: false,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -173,6 +201,12 @@ pub struct EmailBodyPart {
     /// Child parts when `type_` is `"multipart/*"`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sub_parts: Option<Vec<EmailBodyPart>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// An Email object (RFC 8621 §4.1).
@@ -307,6 +341,12 @@ pub struct Email {
     /// Short plaintext preview of the message body (≤256 characters).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub preview: Option<String>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Email {
@@ -348,6 +388,152 @@ impl Email {
             body_structure: None,
             has_attachment: false,
             preview: None,
+            extra: serde_json::Map::new(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.2) ───────────────────
+    //
+    // One round-trip preservation test per migrated type. Each test
+    // asserts that an unknown vendor / site / private-extension field
+    // survives deserialize/serialize unchanged. Per workspace
+    // AGENTS.md "Extras-preservation policy for vendor/site fields".
+
+    /// `EmailAddress.extra` captures vendor fields and preserves them.
+    #[test]
+    fn email_address_preserves_vendor_extras() {
+        let raw = json!({
+            "name": "Alice",
+            "email": "alice@example.com",
+            "acmeCorpVerified": true
+        });
+        let addr: EmailAddress = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            addr.extra.get("acmeCorpVerified").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let back = serde_json::to_value(&addr).unwrap();
+        assert_eq!(back["acmeCorpVerified"], true);
+    }
+
+    /// `EmailAddressGroup.extra` captures vendor fields and preserves them.
+    #[test]
+    fn email_address_group_preserves_vendor_extras() {
+        let raw = json!({
+            "name": "Engineering",
+            "addresses": [],
+            "acmeCorpDistributionId": "dl-eng"
+        });
+        let grp: EmailAddressGroup = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            grp.extra
+                .get("acmeCorpDistributionId")
+                .and_then(|v| v.as_str()),
+            Some("dl-eng")
+        );
+        let back = serde_json::to_value(&grp).unwrap();
+        assert_eq!(back["acmeCorpDistributionId"], "dl-eng");
+    }
+
+    /// `EmailHeader.extra` captures vendor fields and preserves them.
+    #[test]
+    fn email_header_preserves_vendor_extras() {
+        let raw = json!({
+            "name": "X-Custom",
+            "value": "v",
+            "acmeCorpOrigin": "edge-1"
+        });
+        let hdr: EmailHeader = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            hdr.extra.get("acmeCorpOrigin").and_then(|v| v.as_str()),
+            Some("edge-1")
+        );
+        let back = serde_json::to_value(&hdr).unwrap();
+        assert_eq!(back["acmeCorpOrigin"], "edge-1");
+    }
+
+    /// `EmailBodyValue.extra` captures vendor fields and preserves them.
+    #[test]
+    fn email_body_value_preserves_vendor_extras() {
+        let raw = json!({
+            "value": "hello",
+            "isEncodingProblem": false,
+            "isTruncated": false,
+            "acmeCorpScanResult": "clean"
+        });
+        let bv: EmailBodyValue = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            bv.extra.get("acmeCorpScanResult").and_then(|v| v.as_str()),
+            Some("clean")
+        );
+        let back = serde_json::to_value(&bv).unwrap();
+        assert_eq!(back["acmeCorpScanResult"], "clean");
+    }
+
+    /// `EmailBodyPart.extra` captures vendor fields and preserves them.
+    #[test]
+    fn email_body_part_preserves_vendor_extras() {
+        let raw = json!({
+            "partId": "1",
+            "blobId": "b1",
+            "size": 42,
+            "type": "text/plain",
+            "acmeCorpChecksum": "sha256:deadbeef"
+        });
+        let part: EmailBodyPart = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            part.extra.get("acmeCorpChecksum").and_then(|v| v.as_str()),
+            Some("sha256:deadbeef")
+        );
+        let back = serde_json::to_value(&part).unwrap();
+        assert_eq!(back["acmeCorpChecksum"], "sha256:deadbeef");
+    }
+
+    /// `Email.extra` captures vendor fields and preserves them across
+    /// deserialize/serialize round-trip.
+    #[test]
+    fn email_preserves_vendor_extras() {
+        let raw = json!({
+            "id": "e1",
+            "blobId": "b1",
+            "threadId": "t1",
+            "mailboxIds": {"m1": true},
+            "size": 1024,
+            "receivedAt": "2024-06-01T00:00:00Z",
+            "acmeCorpClassification": {"label": "internal", "score": 0.9}
+        });
+        let email: Email = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            email
+                .extra
+                .get("acmeCorpClassification")
+                .and_then(|v| v["label"].as_str()),
+            Some("internal")
+        );
+        let back = serde_json::to_value(&email).unwrap();
+        assert_eq!(back["acmeCorpClassification"]["score"], 0.9);
+    }
+
+    /// Empty extras must NOT serialize as a key on the wire — wire shape
+    /// is byte-identical to the pre-migration form when no vendor fields
+    /// are present.
+    #[test]
+    fn email_address_empty_extras_omitted_from_wire() {
+        let addr = EmailAddress::new("a@b");
+        let serialized = serde_json::to_value(&addr).unwrap();
+        let obj = serialized.as_object().expect("must be object");
+        // Only "email" — name is None and is skip_serializing_if; extra is empty.
+        assert_eq!(
+            obj.len(),
+            1,
+            "empty extras must not add wire keys; got {serialized}"
+        );
+        assert!(obj.contains_key("email"));
     }
 }

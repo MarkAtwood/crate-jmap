@@ -29,6 +29,12 @@ pub struct Address {
     /// stripped; JSON string encoding applies.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub parameters: Option<HashMap<String, Option<String>>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Address {
@@ -37,6 +43,7 @@ impl Address {
         Self {
             email: email.into(),
             parameters: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -53,12 +60,22 @@ pub struct Envelope {
     pub mail_from: Address,
     /// Recipient addresses for SMTP RCPT TO commands.
     pub rcpt_to: Vec<Address>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Envelope {
     /// Construct an [`Envelope`] from a return address and recipient list.
     pub fn new(mail_from: Address, rcpt_to: Vec<Address>) -> Self {
-        Self { mail_from, rcpt_to }
+        Self {
+            mail_from,
+            rcpt_to,
+            extra: serde_json::Map::new(),
+        }
     }
 }
 
@@ -141,6 +158,12 @@ pub struct DeliveryStatus {
     pub delivered: Delivered,
     /// Whether the message has been displayed to the recipient.
     pub displayed: Displayed,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl DeliveryStatus {
@@ -150,6 +173,7 @@ impl DeliveryStatus {
             smtp_reply: smtp_reply.into(),
             delivered,
             displayed,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -188,6 +212,12 @@ pub struct EmailSubmission {
     ///
     /// Always present in serialized output; same rationale as `dsn_blob_ids`.
     pub mdn_blob_ids: Vec<Id>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl EmailSubmission {
@@ -214,6 +244,7 @@ impl EmailSubmission {
             delivery_status: None,
             dsn_blob_ids: Vec::new(),
             mdn_blob_ids: Vec::new(),
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -258,4 +289,92 @@ pub struct EmailSubmissionFilterCondition {
     /// The `sendAt` of the submission must be on or after this date-time.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub after: Option<UTCDate>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.2) ───────────────────
+
+    /// `Address.extra` captures vendor fields and preserves them.
+    #[test]
+    fn address_preserves_vendor_extras() {
+        let raw = json!({
+            "email": "alice@example.com",
+            "acmeCorpRouting": "us-east"
+        });
+        let addr: Address = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            addr.extra.get("acmeCorpRouting").and_then(|v| v.as_str()),
+            Some("us-east")
+        );
+        let back = serde_json::to_value(&addr).unwrap();
+        assert_eq!(back["acmeCorpRouting"], "us-east");
+    }
+
+    /// `Envelope.extra` captures vendor fields and preserves them.
+    #[test]
+    fn envelope_preserves_vendor_extras() {
+        let raw = json!({
+            "mailFrom": {"email": "a@b"},
+            "rcptTo": [{"email": "c@d"}],
+            "acmeCorpSubmissionPath": "smarthost-3"
+        });
+        let env: Envelope = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            env.extra
+                .get("acmeCorpSubmissionPath")
+                .and_then(|v| v.as_str()),
+            Some("smarthost-3")
+        );
+        let back = serde_json::to_value(&env).unwrap();
+        assert_eq!(back["acmeCorpSubmissionPath"], "smarthost-3");
+    }
+
+    /// `DeliveryStatus.extra` captures vendor fields and preserves them.
+    #[test]
+    fn delivery_status_preserves_vendor_extras() {
+        let raw = json!({
+            "smtpReply": "250 OK",
+            "delivered": "yes",
+            "displayed": "unknown",
+            "acmeCorpDeliveryTimeMs": 120
+        });
+        let st: DeliveryStatus = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            st.extra
+                .get("acmeCorpDeliveryTimeMs")
+                .and_then(|v| v.as_u64()),
+            Some(120)
+        );
+        let back = serde_json::to_value(&st).unwrap();
+        assert_eq!(back["acmeCorpDeliveryTimeMs"], 120);
+    }
+
+    /// `EmailSubmission.extra` captures vendor fields and preserves them.
+    #[test]
+    fn email_submission_preserves_vendor_extras() {
+        let raw = json!({
+            "id": "es1",
+            "identityId": "i1",
+            "emailId": "e1",
+            "threadId": "t1",
+            "sendAt": "2024-06-01T00:00:00Z",
+            "undoStatus": "pending",
+            "dsnBlobIds": [],
+            "mdnBlobIds": [],
+            "acmeCorpSubmissionTag": "campaign-42"
+        });
+        let sub: EmailSubmission = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            sub.extra
+                .get("acmeCorpSubmissionTag")
+                .and_then(|v| v.as_str()),
+            Some("campaign-42")
+        );
+        let back = serde_json::to_value(&sub).unwrap();
+        assert_eq!(back["acmeCorpSubmissionTag"], "campaign-42");
+    }
 }

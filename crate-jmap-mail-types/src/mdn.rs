@@ -102,6 +102,12 @@ pub struct Disposition {
     /// Wire name is `type` (a Rust keyword — accessed as `type_` in code).
     #[serde(rename = "type")]
     pub type_: DispositionType,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Disposition {
@@ -111,6 +117,7 @@ impl Disposition {
             action_mode,
             sending_mode,
             type_,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -178,6 +185,16 @@ pub struct Mdn {
     /// The §3.1 example incorrectly uses `extension`; the §2 definition is authoritative.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extension_fields: Option<HashMap<String, String>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    ///
+    /// Distinct from RFC 9007 `extensionFields` above: that field carries
+    /// RFC 9007-defined MDN extension headers; `extra` captures JMAP-level
+    /// vendor / site fields on the `Mdn` object itself.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Mdn {
@@ -209,6 +226,7 @@ impl Mdn {
             original_message_id: None,
             error: None,
             extension_fields: None,
+            extra: serde_json::Map::new(),
         }
     }
 }
@@ -232,6 +250,12 @@ pub struct MdnSendRequest {
     /// wire format is byte-identical to a `HashMap<String, Object>`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_success_update_email: Option<HashMap<Id, PatchObject>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Response object for `MDN/send` (RFC 9007 §3.1).
@@ -251,6 +275,12 @@ pub struct MdnSendResponse {
     /// Map of client creation IDs to SetError objects for MDNs that could not be sent.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub not_sent: Option<HashMap<String, Value>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Request object for `MDN/parse` (RFC 9007 §3.3).
@@ -262,6 +292,12 @@ pub struct MdnParseRequest {
     pub account_id: Id,
     /// Blob IDs to parse as MDN messages.
     pub blob_ids: Vec<Id>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Response object for `MDN/parse` (RFC 9007 §3.3).
@@ -280,6 +316,12 @@ pub struct MdnParseResponse {
     /// Blob IDs that were not found in the account.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub not_found: Option<Vec<Id>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -500,5 +542,126 @@ mod tests {
         assert!(resp.parsed.is_none());
         assert_eq!(resp.not_parsable.as_deref(), Some(&[Id::from("blob2")][..]));
         assert_eq!(resp.not_found.as_deref(), Some(&[Id::from("blob3")][..]));
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.2) ───────────────────
+    //
+    // One round-trip preservation test per migrated type. Each asserts
+    // that an unknown vendor / site / private-extension field survives
+    // deserialize/serialize unchanged. Per workspace AGENTS.md
+    // "Extras-preservation policy for vendor/site fields".
+
+    /// `Disposition.extra` captures vendor fields and preserves them.
+    #[test]
+    fn disposition_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "actionMode": "manual-action",
+            "sendingMode": "mdn-sent-manually",
+            "type": "displayed",
+            "acmeCorpDispositionFlag": "auto-ack"
+        });
+        let d: Disposition = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            d.extra
+                .get("acmeCorpDispositionFlag")
+                .and_then(|v| v.as_str()),
+            Some("auto-ack")
+        );
+        let back = serde_json::to_value(&d).unwrap();
+        assert_eq!(back["acmeCorpDispositionFlag"], "auto-ack");
+    }
+
+    /// `Mdn.extra` captures vendor fields and preserves them. Distinct from
+    /// the typed RFC 9007 `extensionFields` member which carries
+    /// MDN-extension headers only.
+    #[test]
+    fn mdn_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "forEmailId": "e1",
+            "disposition": {
+                "actionMode": "manual-action",
+                "sendingMode": "mdn-sent-manually",
+                "type": "displayed"
+            },
+            "acmeCorpClientTrace": "ua-42"
+        });
+        let mdn: Mdn = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            mdn.extra
+                .get("acmeCorpClientTrace")
+                .and_then(|v| v.as_str()),
+            Some("ua-42")
+        );
+        let back = serde_json::to_value(&mdn).unwrap();
+        assert_eq!(back["acmeCorpClientTrace"], "ua-42");
+    }
+
+    /// `MdnSendRequest.extra` captures vendor fields and preserves them.
+    #[test]
+    fn mdn_send_request_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": "a1",
+            "identityId": "i1",
+            "send": {},
+            "acmeCorpRequestTag": "batch-7"
+        });
+        let req: MdnSendRequest = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            req.extra.get("acmeCorpRequestTag").and_then(|v| v.as_str()),
+            Some("batch-7")
+        );
+        let back = serde_json::to_value(&req).unwrap();
+        assert_eq!(back["acmeCorpRequestTag"], "batch-7");
+    }
+
+    /// `MdnSendResponse.extra` captures vendor fields and preserves them.
+    #[test]
+    fn mdn_send_response_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": "a1",
+            "acmeCorpServerTrace": "node-3"
+        });
+        let resp: MdnSendResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            resp.extra
+                .get("acmeCorpServerTrace")
+                .and_then(|v| v.as_str()),
+            Some("node-3")
+        );
+        let back = serde_json::to_value(&resp).unwrap();
+        assert_eq!(back["acmeCorpServerTrace"], "node-3");
+    }
+
+    /// `MdnParseRequest.extra` captures vendor fields and preserves them.
+    #[test]
+    fn mdn_parse_request_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": "a1",
+            "blobIds": ["b1"],
+            "acmeCorpParseHint": "lenient"
+        });
+        let req: MdnParseRequest = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            req.extra.get("acmeCorpParseHint").and_then(|v| v.as_str()),
+            Some("lenient")
+        );
+        let back = serde_json::to_value(&req).unwrap();
+        assert_eq!(back["acmeCorpParseHint"], "lenient");
+    }
+
+    /// `MdnParseResponse.extra` captures vendor fields and preserves them.
+    #[test]
+    fn mdn_parse_response_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": "a1",
+            "acmeCorpStatus": "complete"
+        });
+        let resp: MdnParseResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            resp.extra.get("acmeCorpStatus").and_then(|v| v.as_str()),
+            Some("complete")
+        );
+        let back = serde_json::to_value(&resp).unwrap();
+        assert_eq!(back["acmeCorpStatus"], "complete");
     }
 }

@@ -104,3 +104,63 @@ verify serde consistency but are not a substitute for spec-grounded oracle tests
   `FilterOperator`, `Operator`
 - `serde` + `serde_json` — serialization
 - No tokio, no async, no network deps
+
+## Type-design constraints
+
+### Extras-preservation policy (JMAP-lbdy)
+
+Every public `Deserialize` struct that appears on the JMAP wire carries an
+`extra` field per the workspace extras-preservation policy (see workspace
+`AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+This preserves vendor / site / private-extension fields across
+deserialize/serialize round-trip. Wire format is byte-identical when extras
+are empty.
+
+In scope in this crate (each has at least one round-trip preservation test):
+
+- `EmailAddress`, `EmailAddressGroup`, `EmailHeader`, `EmailBodyValue`,
+  `EmailBodyPart`, `Email` (`email.rs`).
+- `MailboxRights`, `Mailbox` (`mailbox.rs`).
+- `Identity` (`identity.rs`).
+- `SearchSnippet` (`snippet.rs`).
+- `VacationResponse` (`vacation.rs`).
+- `SieveScript` (`sieve.rs`, `#[cfg(feature="sieve")]`).
+- `Thread` (`thread.rs`).
+- `Address`, `Envelope`, `DeliveryStatus`, `EmailSubmission`
+  (`submission.rs`).
+- `Disposition`, `Mdn`, `MdnSendRequest`, `MdnSendResponse`,
+  `MdnParseRequest`, `MdnParseResponse` (`mdn.rs`, `#[cfg(feature="mdn")]`).
+
+Out of scope (explicitly excluded by the workspace policy):
+
+- Filter and comparator algebra types (`EmailFilterCondition`,
+  `EmailComparator`, `MailboxFilterCondition`,
+  `EmailSubmissionFilterCondition`) — silent-drop of an unknown filter
+  clause is a server-side query-correctness bug, not a round-trip
+  preservation problem. See workspace AGENTS.md "Filter algebra and
+  control enums are explicitly EXCLUDED" for the full rationale.
+- Capability objects (`SieveCapability`, `SieveAccountCapability`) —
+  capability objects live in the Session response and follow Session's
+  own evolution rules, not the data-object preservation policy.
+- Newtypes (`Keyword`) — newtypes wrapping a single value have no
+  field-shaped extension surface.
+- String enums (`MailboxRole`, `Delivered`, `Displayed`, `UndoStatus`,
+  `ActionMode`, `SendingMode`, `DispositionType`,
+  `EmailSubmissionState`) — these are result/control enums; the result
+  enums tracked by JMAP-lbdy receive `Unknown(String)` variants via the
+  separate enum-side propagation track, not the struct `extra` field.
+
+### New-type rule
+
+Any new public `Deserialize` struct added to this crate that appears on
+the JMAP wire MUST include the `extra` field from day one with the
+documented serde attributes and at least one round-trip preservation
+test. Cookie-cutter sibling crates (`jmap-chat-types`,
+`jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`,
+`jmap-filenode-types`, `jmap-sharing-types`) mirror this rule.
