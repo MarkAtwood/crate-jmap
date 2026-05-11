@@ -776,6 +776,7 @@ dependencies = [
  "jmap-server",
  "jmap-types",
  "serde_json",
+ "subtle",
  "tokio",
 ]
 

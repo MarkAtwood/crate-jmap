@@ -104,6 +104,17 @@ pub struct SpaceInvite {
     ///
     /// Unguessable secret — the bearer can redeem it to join the Space.
     /// Redacted by the [`std::fmt::Debug`] impl on this struct.
+    ///
+    /// # Constant-time comparison
+    ///
+    /// This field is a credential. Any code that compares a stored `code`
+    /// against an attacker-supplied value MUST use a constant-time
+    /// equality check (e.g. `subtle::ConstantTimeEq::ct_eq` on the byte
+    /// slices) to defeat byte-by-byte timing oracles. A plain
+    /// `String == String` short-circuits at the first mismatch and is
+    /// exploitable over the network despite jitter. See
+    /// `jmap-chat-server::space::handle_space_join` for the canonical
+    /// usage pattern.
     pub code: String,
     /// The `spaceId` property (draft-atwood-jmap-chat-00 §4.18).
     pub space_id: Id,
