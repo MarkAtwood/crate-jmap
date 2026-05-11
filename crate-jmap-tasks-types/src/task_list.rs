@@ -85,6 +85,13 @@ pub struct TaskRights {
 
     /// User may delete this task list itself (server-set).
     pub may_delete: bool,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A JMAP TaskList object (draft-tasks-06 §3).
@@ -168,4 +175,11 @@ pub struct TaskList {
     /// `useDefaultAlerts` is true.  Alerts extension only.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_alerts_without_time: Option<HashMap<Id, serde_json::Value>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }

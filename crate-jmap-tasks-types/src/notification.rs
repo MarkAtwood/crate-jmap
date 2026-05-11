@@ -88,6 +88,13 @@ pub struct TaskNotification {
     /// Encoded as a `PatchObject` (RFC 8620 §5.3).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task_patch: Option<PatchObject>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Filter condition for `TaskNotification/query` (draft-tasks-06 §5.5.1).

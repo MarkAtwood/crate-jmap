@@ -1230,3 +1230,173 @@ mod jscalendar_roundtrip {
         assert_eq!(round_tripped, entry.clone());
     }
 }
+
+// ── Extras-preservation policy tests (JMAP-lbdy.6) ──────────────────────────
+//
+// One round-trip preservation test per migrated type. Each asserts that
+// an unknown vendor / site / private-extension field survives
+// deserialize/serialize unchanged. Per workspace AGENTS.md
+// "Extras-preservation policy for vendor/site fields".
+
+use jmap_tasks_types::{CheckItem, Checklist, Comment, Person};
+
+/// `Person.extra` captures vendor fields and preserves them.
+#[test]
+fn person_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "@type": "Person",
+        "name": "Alice",
+        "acmeCorpEmployeeId": "emp-42"
+    });
+    let p: Person = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        p.extra.get("acmeCorpEmployeeId").and_then(|v| v.as_str()),
+        Some("emp-42")
+    );
+    let back = serde_json::to_value(&p).unwrap();
+    assert_eq!(back["acmeCorpEmployeeId"], "emp-42");
+}
+
+/// `CheckItem.extra` captures vendor fields and preserves them.
+#[test]
+fn check_item_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "@type": "CheckItem",
+        "title": "Buy milk",
+        "isComplete": false,
+        "acmeCorpPriority": "high"
+    });
+    let c: CheckItem = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        c.extra.get("acmeCorpPriority").and_then(|v| v.as_str()),
+        Some("high")
+    );
+    let back = serde_json::to_value(&c).unwrap();
+    assert_eq!(back["acmeCorpPriority"], "high");
+}
+
+/// `Checklist.extra` captures vendor fields and preserves them.
+#[test]
+fn checklist_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "@type": "Checklist",
+        "title": "Shopping",
+        "acmeCorpListColor": "#abcdef"
+    });
+    let c: Checklist = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        c.extra.get("acmeCorpListColor").and_then(|v| v.as_str()),
+        Some("#abcdef")
+    );
+    let back = serde_json::to_value(&c).unwrap();
+    assert_eq!(back["acmeCorpListColor"], "#abcdef");
+}
+
+/// `Comment.extra` captures vendor fields and preserves them.
+#[test]
+fn comment_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "@type": "Comment",
+        "message": "lgtm",
+        "acmeCorpCommentChannel": "review"
+    });
+    let c: Comment = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        c.extra
+            .get("acmeCorpCommentChannel")
+            .and_then(|v| v.as_str()),
+        Some("review")
+    );
+    let back = serde_json::to_value(&c).unwrap();
+    assert_eq!(back["acmeCorpCommentChannel"], "review");
+}
+
+/// `Task.extra` captures vendor fields and preserves them.
+#[test]
+fn task_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "uid": "t-1",
+        "title": "Write report",
+        "acmeCorpExternalRef": "JIRA-42"
+    });
+    let t: Task = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        t.extra.get("acmeCorpExternalRef").and_then(|v| v.as_str()),
+        Some("JIRA-42")
+    );
+    let back = serde_json::to_value(&t).unwrap();
+    assert_eq!(back["acmeCorpExternalRef"], "JIRA-42");
+}
+
+/// `TaskRights.extra` captures vendor fields and preserves them.
+#[test]
+fn task_rights_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "mayReadItems": true,
+        "mayWriteAll": false,
+        "mayWriteOwn": true,
+        "mayUpdatePrivate": true,
+        "mayRSVP": true,
+        "mayAdmin": false,
+        "mayDelete": false,
+        "acmeCorpMayBulkAssign": true
+    });
+    let r: TaskRights = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        r.extra
+            .get("acmeCorpMayBulkAssign")
+            .and_then(|v| v.as_bool()),
+        Some(true)
+    );
+    let back = serde_json::to_value(&r).unwrap();
+    assert_eq!(back["acmeCorpMayBulkAssign"], true);
+}
+
+/// `TaskList.extra` captures vendor fields and preserves them.
+#[test]
+fn task_list_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "id": "tl1",
+        "name": "Personal",
+        "sortOrder": 0,
+        "isSubscribed": true,
+        "myRights": {
+            "mayReadItems": true, "mayWriteAll": true, "mayWriteOwn": true,
+            "mayUpdatePrivate": true, "mayRSVP": true, "mayAdmin": true,
+            "mayDelete": true
+        },
+        "acmeCorpDepartment": "ops"
+    });
+    let tl: TaskList = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        tl.extra.get("acmeCorpDepartment").and_then(|v| v.as_str()),
+        Some("ops")
+    );
+    let back = serde_json::to_value(&tl).unwrap();
+    assert_eq!(back["acmeCorpDepartment"], "ops");
+}
+
+/// `TaskNotification.extra` captures vendor fields and preserves them.
+#[test]
+fn task_notification_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "id": "tn1",
+        "created": "2024-06-01T00:00:00Z",
+        "changedBy": {
+            "@type": "Person",
+            "name": "Bob"
+        },
+        "type": "created",
+        "taskId": "t1",
+        "acmeCorpNotificationChannel": "email"
+    });
+    let n: TaskNotification = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        n.extra
+            .get("acmeCorpNotificationChannel")
+            .and_then(|v| v.as_str()),
+        Some("email")
+    );
+    let back = serde_json::to_value(&n).unwrap();
+    assert_eq!(back["acmeCorpNotificationChannel"], "email");
+}

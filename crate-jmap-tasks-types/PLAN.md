@@ -420,3 +420,45 @@ serde      = { version = "1", features = ["derive"] }
 serde_json = "1"
 # No tokio, no async, no network deps
 ```
+
+## Type-design constraints
+
+### Extras-preservation policy (JMAP-lbdy)
+
+Every public `Deserialize` struct that appears on the JMAP wire carries an
+`extra` field per the workspace extras-preservation policy (see workspace
+`AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+In scope in this crate (each has a round-trip preservation test):
+
+- `Person`, `CheckItem`, `Checklist`, `Comment`, `Task` (task.rs).
+- `TaskRights`, `TaskList` (task_list.rs).
+- `TaskNotification` (notification.rs).
+
+The 10 typed sub-types in the re-exported `jscalendar` module
+(`jmap-jscalendar-types`) — `NDay`, `RecurrenceRule`, `Location`,
+`VirtualLocation`, `Link`, `Relation`, `Participant`, `OffsetTrigger`,
+`AbsoluteTrigger`, `Alert` — also carry `extra` fields by virtue of
+the policy applied in their home crate.
+
+Out of scope:
+
+- `TaskComparator`, `TaskNotificationComparator`,
+  `TaskFilterCondition`, `TaskNotificationFilterCondition` — filter
+  and comparator algebra, per workspace policy.
+- Capability objects in capability.rs — consistent with the canonical
+  extension-types template treating capabilities as Session-shape
+  objects rather than data objects.
+- `NotificationType`, `TaskListRole`, `TaskProgress` — string enums.
+
+### New-type rule
+
+Any new public `Deserialize` struct added to this crate that appears on
+the JMAP wire MUST include the `extra` field from day one with the
+documented serde attributes and at least one round-trip preservation
+test.
