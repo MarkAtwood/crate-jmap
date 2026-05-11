@@ -12,7 +12,7 @@ use jmap_filenode_types::{
     FileNode, FileNodeCapability, FileNodeFilterCondition, FilesRights, NodeRole, NodeType,
     JMAP_FILENODE_URI,
 };
-use jmap_types::Id;
+use jmap_types::{Id, UTCDate};
 
 // ---------------------------------------------------------------------------
 // Helper
@@ -212,9 +212,9 @@ fn filenode_file_deserialize() {
     assert_eq!(node.size, Some(4096));
     assert_eq!(node.name, "readme.txt");
     assert_eq!(node.media_type, Some("text/plain".to_owned()));
-    assert_eq!(node.created, Some("2024-01-15T10:00:00Z".to_owned()));
-    assert_eq!(node.modified, Some("2024-03-01T12:00:00Z".to_owned()));
-    assert_eq!(node.accessed, Some("2024-03-10T08:00:00Z".to_owned()));
+    assert_eq!(node.created, Some(UTCDate::from("2024-01-15T10:00:00Z")));
+    assert_eq!(node.modified, Some(UTCDate::from("2024-03-01T12:00:00Z")));
+    assert_eq!(node.accessed, Some(UTCDate::from("2024-03-10T08:00:00Z")));
     assert_eq!(node.changed, Some("2024-03-01T12:00:00Z".to_owned()));
     assert_eq!(node.executable, Some(false));
     assert_eq!(node.is_subscribed, Some(true));

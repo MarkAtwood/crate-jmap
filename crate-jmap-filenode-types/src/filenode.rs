@@ -4,7 +4,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{impl_string_enum, Id};
+use jmap_types::{impl_string_enum, Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// The type of a FileNode (draft-ietf-jmap-filenode-13 §3.1, IANA "JMAP FileNode Types"
@@ -208,25 +208,34 @@ pub struct FileNode {
     #[serde(rename = "type")]
     pub media_type: Option<String>,
 
-    /// The date the node was created (UTCDate as a string).
+    /// The date the node was created.
     ///
     /// Default: current server time.  Absent from wire when `None`.
+    ///
+    /// Uses the [`UTCDate`] newtype to make the wire-format constraint
+    /// (RFC 8620 §1.4: 20-character UTCDateTime string) explicit at the
+    /// type level. JSON wire format is unchanged because `UTCDate` is a
+    /// transparent newtype around `String`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created: Option<String>,
+    pub created: Option<UTCDate>,
 
-    /// The date the node was last updated (UTCDate as a string), client-managed.
+    /// The date the node was last updated, client-managed.
     ///
     /// Setting to `null` in an update signals the server to reset to the current time.
     /// The server does NOT auto-update this value.  Absent from wire when `None`.
+    ///
+    /// See [`created`](Self::created) for the typing rationale.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub modified: Option<String>,
+    pub modified: Option<UTCDate>,
 
-    /// The date the node was last accessed (UTCDate as a string), client-managed.
+    /// The date the node was last accessed, client-managed.
     ///
     /// Setting to `null` in an update signals the server to reset to the current time.
     /// The server does NOT auto-update this value.  Absent from wire when `None`.
+    ///
+    /// See [`created`](Self::created) for the typing rationale.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub accessed: Option<String>,
+    pub accessed: Option<UTCDate>,
 
     /// The date the server last recorded a change to any property (server-set).
     ///
