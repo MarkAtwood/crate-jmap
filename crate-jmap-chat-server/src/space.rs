@@ -1,15 +1,198 @@
 //! Space/* method handlers (JMAP Chat extension §Space).
 
-use jmap_chat_types::{Space, SpaceInvite};
+use jmap_chat_types::space_set::{
+    CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
+};
+use jmap_chat_types::{Category, Space, SpaceInvite, SpaceRole};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
 
-use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
+use crate::backend::{BackendSetError, ChatBackend, SpacePatchOp};
 use crate::helpers::{
     extract_account_id, finalize_set_response, iso8601_before, not_found_json, now_utc_string, ser,
     set_error_value, SetAccumulators,
 };
+
+// ---------------------------------------------------------------------------
+// Space/set structural-mutation parsing
+// ---------------------------------------------------------------------------
+
+/// Parse one structural wire key's payload
+/// (draft-atwood-jmap-chat-00 §Space/set) into a `Vec<SpacePatchOp>`.
+///
+/// The 12 structural keys are pluralized arrays whose elements have a
+/// per-key shape; this helper handles all of them.
+///
+/// Returns an error string describing why parsing failed, suitable for use
+/// as the `description` field of an `invalidProperties` SetError. The
+/// returned error is fatal for the containing update target — the handler
+/// inserts the failing wire key into `notUpdated[id].properties` and skips
+/// any remaining keys.
+fn parse_structural_entries(
+    canonical: &'static str,
+    value: Value,
+) -> Result<Vec<SpacePatchOp>, String> {
+    let arr = match value {
+        Value::Array(a) => a,
+        other => {
+            return Err(format!(
+                "{canonical} must be a JSON array, got {}",
+                json_value_kind(&other)
+            ));
+        }
+    };
+
+    let mut out = Vec::with_capacity(arr.len());
+    for (idx, entry) in arr.into_iter().enumerate() {
+        let op = match canonical {
+            "addRoles" => SpacePatchOp::AddRole(parse_entry::<SpaceRole>(canonical, idx, entry)?),
+            "removeRoles" => SpacePatchOp::RemoveRole(parse_id_entry(canonical, idx, entry)?),
+            "updateRoles" => {
+                let (id, patch) = parse_update_entry::<RolePatch>(canonical, idx, entry)?;
+                SpacePatchOp::UpdateRole { id, patch }
+            }
+            "addMembers" => {
+                let (user_id, role_ids) = parse_add_member_entry(canonical, idx, entry)?;
+                SpacePatchOp::AddMember { user_id, role_ids }
+            }
+            "removeMembers" => SpacePatchOp::RemoveMember(parse_id_entry(canonical, idx, entry)?),
+            "updateMembers" => {
+                let (id, patch) = parse_update_entry::<MemberPatch>(canonical, idx, entry)?;
+                SpacePatchOp::UpdateMember { user_id: id, patch }
+            }
+            "addChannels" => {
+                SpacePatchOp::AddChannel(parse_entry::<ChannelCreate>(canonical, idx, entry)?)
+            }
+            "removeChannels" => SpacePatchOp::RemoveChannel(parse_id_entry(canonical, idx, entry)?),
+            "updateChannels" => {
+                let (id, patch) = parse_update_entry::<ChannelPatch>(canonical, idx, entry)?;
+                SpacePatchOp::UpdateChannel { id, patch }
+            }
+            "addCategories" => {
+                SpacePatchOp::AddCategory(parse_entry::<Category>(canonical, idx, entry)?)
+            }
+            "removeCategories" => {
+                SpacePatchOp::RemoveCategory(parse_id_entry(canonical, idx, entry)?)
+            }
+            "updateCategories" => {
+                let (id, patch) = parse_update_entry::<CategoryPatch>(canonical, idx, entry)?;
+                SpacePatchOp::UpdateCategory { id, patch }
+            }
+            _ => return Err(format!("internal: unhandled structural key {canonical}")),
+        };
+        out.push(op);
+    }
+    Ok(out)
+}
+
+/// Deserialize one Add* entry into the per-key payload type.
+fn parse_entry<T: serde::de::DeserializeOwned>(
+    canonical: &'static str,
+    idx: usize,
+    entry: Value,
+) -> Result<T, String> {
+    serde_json::from_value(entry)
+        .map_err(|e| format!("{canonical}[{idx}]: failed to parse entry: {e}"))
+}
+
+/// Parse one Remove* entry — a bare string id.
+fn parse_id_entry(canonical: &'static str, idx: usize, entry: Value) -> Result<Id, String> {
+    match entry {
+        Value::String(s) => Ok(Id::from(s.as_str())),
+        other => Err(format!(
+            "{canonical}[{idx}] must be a string Id, got {}",
+            json_value_kind(&other)
+        )),
+    }
+}
+
+/// Parse one Update* entry into (id, patch). The wire form is an object
+/// with an `id` property plus the patch fields at the top level; we split
+/// `id` off and deserialize the remainder as the typed patch.
+fn parse_update_entry<P: serde::de::DeserializeOwned>(
+    canonical: &'static str,
+    idx: usize,
+    entry: Value,
+) -> Result<(Id, P), String> {
+    let mut obj = match entry {
+        Value::Object(o) => o,
+        other => {
+            return Err(format!(
+                "{canonical}[{idx}] must be a JSON object, got {}",
+                json_value_kind(&other)
+            ));
+        }
+    };
+    let id_val = obj
+        .remove("id")
+        .ok_or_else(|| format!("{canonical}[{idx}] missing required \"id\" property"))?;
+    let id = match id_val {
+        Value::String(s) => Id::from(s.as_str()),
+        other => {
+            return Err(format!(
+                "{canonical}[{idx}].id must be a string, got {}",
+                json_value_kind(&other)
+            ));
+        }
+    };
+    let patch: P = serde_json::from_value(Value::Object(obj))
+        .map_err(|e| format!("{canonical}[{idx}]: failed to parse patch fields: {e}"))?;
+    Ok((id, patch))
+}
+
+/// Parse one `addMembers` entry. Wire form:
+/// `{"id": "<ChatContact.id>", "roleIds": ["<RoleId>", …] (optional)}`.
+fn parse_add_member_entry(
+    canonical: &'static str,
+    idx: usize,
+    entry: Value,
+) -> Result<(Id, Vec<Id>), String> {
+    let mut obj = match entry {
+        Value::Object(o) => o,
+        other => {
+            return Err(format!(
+                "{canonical}[{idx}] must be a JSON object, got {}",
+                json_value_kind(&other)
+            ));
+        }
+    };
+    let id_val = obj
+        .remove("id")
+        .ok_or_else(|| format!("{canonical}[{idx}] missing required \"id\" property"))?;
+    let user_id = match id_val {
+        Value::String(s) => Id::from(s.as_str()),
+        other => {
+            return Err(format!(
+                "{canonical}[{idx}].id must be a string, got {}",
+                json_value_kind(&other)
+            ));
+        }
+    };
+    let role_ids: Vec<Id> = match obj.remove("roleIds") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(v) => serde_json::from_value(v)
+            .map_err(|e| format!("{canonical}[{idx}].roleIds must be a string array: {e}"))?,
+    };
+    if let Some(extra) = obj.keys().next() {
+        return Err(format!(
+            "{canonical}[{idx}] has unexpected property \"{extra}\""
+        ));
+    }
+    Ok((user_id, role_ids))
+}
+
+/// Stringify a `serde_json::Value`'s top-level kind for error messages.
+fn json_value_kind(v: &Value) -> &'static str {
+    match v {
+        Value::Null => "null",
+        Value::Bool(_) => "boolean",
+        Value::Number(_) => "number",
+        Value::String(_) => "string",
+        Value::Array(_) => "array",
+        Value::Object(_) => "object",
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Space/get
@@ -382,42 +565,8 @@ pub async fn handle_space_set<B: ChatBackend>(
                 continue;
             }
 
-            // Structural mutations require full permission-hierarchy support.
-            const STRUCTURAL_MUTATIONS: &[&str] = &[
-                "addRoles",
-                "removeRoles",
-                "updateRoles",
-                "addMembers",
-                "removeMembers",
-                "updateMembers",
-                "addChannels",
-                "removeChannels",
-                "updateChannels",
-                "addCategories",
-                "removeCategories",
-                "updateCategories",
-            ];
-            let structural: Vec<&str> = STRUCTURAL_MUTATIONS
-                .iter()
-                .copied()
-                .filter(|&k| patch_val.get(k).is_some())
-                .collect();
-            if !structural.is_empty() {
-                let err = SetError::new(SetErrorType::Forbidden).with_description(
-                    "Role, member, and channel mutations are not yet implemented (tracked under bd:JMAP-g7wu.2.4)",
-                );
-                not_updated.insert(id_str, set_error_value(&err));
-                continue;
-            }
-
-            // Build a clean patch containing only the allowed metadata fields.
-            const METADATA_FIELDS: &[&str] = &[
-                "name",
-                "description",
-                "iconBlobId",
-                "isPublic",
-                "isPubliclyPreviewable",
-            ];
+            // The patch must be a JSON object. Reject `null`, arrays, and
+            // scalars up front so the rest of the handler can assume a map.
             let Value::Object(mut patch_map) = patch_val else {
                 not_updated.insert(
                     id_str,
@@ -425,18 +574,145 @@ pub async fn handle_space_set<B: ChatBackend>(
                 );
                 continue;
             };
+
+            // Allowed metadata fields (RFC 8620 §5.3 partial update on
+            // server-managed properties). These reach `update_object` via a
+            // JSON Merge Patch.
+            const METADATA_FIELDS: &[&str] = &[
+                "name",
+                "description",
+                "iconBlobId",
+                "isPublic",
+                "isPubliclyPreviewable",
+            ];
+
+            // Structural mutation keys (draft-atwood-jmap-chat-00 §Space/set).
+            // Each maps to one family of `SpacePatchOp` variants. The order
+            // here defines the wire-level apply order when multiple keys are
+            // present in a single patch: roles before members (because
+            // member-add may reference newly-created roles), channels before
+            // categories (because category-update may reference channel
+            // ids), and add before update before remove within each family.
+            // Per draft §Space/set, the ordering is implementation-defined;
+            // the reference handler picks the order that minimizes
+            // cross-key dangling-reference errors.
+            const STRUCTURAL_KEYS: &[&str] = &[
+                "addRoles",
+                "updateRoles",
+                "removeRoles",
+                "addMembers",
+                "updateMembers",
+                "removeMembers",
+                "addChannels",
+                "updateChannels",
+                "removeChannels",
+                "addCategories",
+                "updateCategories",
+                "removeCategories",
+            ];
+
+            // Walk every key on the patch object and bucket it as:
+            //   - structural (parsed into SpacePatchOp values),
+            //   - metadata (forwarded to update_object),
+            //   - unknown (rejected as invalidProperties).
+            // Any parse error on a structural entry is fatal for this target.
+            let mut ops: Vec<SpacePatchOp> = Vec::new();
             let mut clean_patch = serde_json::Map::new();
-            for &field in METADATA_FIELDS {
-                if let Some(v) = patch_map.remove(field) {
-                    clean_patch.insert(field.to_owned(), v);
+            let mut unknown_keys: Vec<String> = Vec::new();
+            let mut bad_structural_key: Option<(&'static str, String)> = None;
+
+            for (key, value) in std::mem::take(&mut patch_map) {
+                if let Some(&canonical) = STRUCTURAL_KEYS.iter().find(|&&k| k == key) {
+                    match parse_structural_entries(canonical, value) {
+                        Ok(parsed) => ops.extend(parsed),
+                        Err(reason) => {
+                            bad_structural_key = Some((canonical, reason));
+                            break;
+                        }
+                    }
+                } else if METADATA_FIELDS.contains(&key.as_str()) {
+                    clean_patch.insert(key, value);
+                } else {
+                    unknown_keys.push(key);
                 }
             }
 
-            if clean_patch.is_empty() {
+            if let Some((canonical, reason)) = bad_structural_key {
+                not_updated.insert(
+                    id_str,
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": [canonical],
+                        "description": reason,
+                    }),
+                );
+                continue;
+            }
+
+            if !unknown_keys.is_empty() {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidProperties", "properties": unknown_keys }),
+                );
+                continue;
+            }
+
+            if ops.is_empty() && clean_patch.is_empty() {
                 not_updated.insert(
                     id_str,
                     json!({ "type": "invalidPatch", "description": "patch contains no valid fields" }),
                 );
+                continue;
+            }
+
+            // Apply structural ops first. If any op fails, surface the first
+            // failure as a `notUpdated` entry and skip the metadata write —
+            // RFC 8620 §5.3 requires each update target to land in exactly
+            // one of `updated` / `notUpdated`, and a partial half-applied
+            // outcome would be misleading.
+            if !ops.is_empty() {
+                match backend
+                    .apply_space_patch(caller, &account_id, &id, ops)
+                    .await
+                {
+                    Ok(op_results) => {
+                        if let Some(first_err) =
+                            op_results.iter().find_map(|r| r.outcome.as_ref().err())
+                        {
+                            not_updated.insert(id_str, set_error_value(first_err));
+                            continue;
+                        }
+                    }
+                    Err(BackendSetError::SetError(set_err)) => {
+                        not_updated.insert(id_str, set_error_value(&set_err));
+                        continue;
+                    }
+                    Err(BackendSetError::Other(e)) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                        continue;
+                    }
+                    Err(_) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "serverFail",
+                                "description": "unhandled backend error variant",
+                            }),
+                        );
+                        continue;
+                    }
+                }
+            }
+
+            // Apply metadata (if any) via the existing JSON Merge Patch path.
+            // If there were no metadata fields, structural ops alone count
+            // as a successful update — emit a null sentinel into `updated`.
+            if clean_patch.is_empty() {
+                mutated = true;
+                updated.insert(id_str, Value::Null);
                 continue;
             }
 

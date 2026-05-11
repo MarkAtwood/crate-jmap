@@ -55,8 +55,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject,
+    JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult, SetError,
+    SetErrorType, SetObject, SpacePatchOp,
 };
 use jmap_types::{Id, State};
 
@@ -562,6 +562,82 @@ impl ChatBackend for MemoryBackend {
             let _ = write!(out, "{byte:02x}");
         }
         out
+    }
+
+    /// Reference implementation stub for [`ChatBackend::apply_space_patch`].
+    ///
+    /// Per-variant Space/set structural mutations are tracked under
+    /// `bd:JMAP-g7wu.2.4.{3,4,5}` and not yet implemented. Until those
+    /// land, every op is rejected with [`SetErrorType::Forbidden`] and a
+    /// description pointing at the relevant follow-up bead.
+    ///
+    /// The handler (`space::handle_space_set`) still benefits from this
+    /// stub because:
+    /// - The parsing layer is exercised end-to-end (well-formed wire
+    ///   keys are unfolded into [`SpacePatchOp`] values).
+    /// - The error-mapping layer is exercised end-to-end (per-op
+    ///   `Forbidden` results are folded into a single `notUpdated` entry
+    ///   on the wire).
+    /// - The handler/backend trait boundary is established so the
+    ///   `.4.3`/`.4.4`/`.4.5` impl beads can fill in match arms
+    ///   without merge conflicts.
+    async fn apply_space_patch(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _space_id: &Id,
+        ops: Vec<SpacePatchOp>,
+    ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
+        Ok(ops
+            .into_iter()
+            .enumerate()
+            .map(|(op_index, op)| OpResult {
+                op_index,
+                outcome: Err(
+                    SetError::new(SetErrorType::Forbidden).with_description(stub_description(&op))
+                ),
+            })
+            .collect())
+    }
+}
+
+/// Per-variant rejection text for the reference stub
+/// (see `MemoryBackend::apply_space_patch`).
+fn stub_description(op: &SpacePatchOp) -> String {
+    let (variant, bead) = match op {
+        SpacePatchOp::AddRole(_)
+        | SpacePatchOp::RemoveRole(_)
+        | SpacePatchOp::UpdateRole { .. }
+        | SpacePatchOp::AddMember { .. }
+        | SpacePatchOp::RemoveMember(_)
+        | SpacePatchOp::UpdateMember { .. } => (variant_name(op), "JMAP-g7wu.2.4.3"),
+        SpacePatchOp::AddChannel(_)
+        | SpacePatchOp::RemoveChannel(_)
+        | SpacePatchOp::UpdateChannel { .. } => (variant_name(op), "JMAP-g7wu.2.4.4"),
+        SpacePatchOp::AddCategory(_)
+        | SpacePatchOp::RemoveCategory(_)
+        | SpacePatchOp::UpdateCategory { .. } => (variant_name(op), "JMAP-g7wu.2.4.5"),
+        // `SpacePatchOp` is `#[non_exhaustive]` upstream; fall back gracefully.
+        _ => ("unknown", "JMAP-g7wu.2.4"),
+    };
+    format!("{variant} not yet implemented (tracked under bd:{bead})")
+}
+
+fn variant_name(op: &SpacePatchOp) -> &'static str {
+    match op {
+        SpacePatchOp::AddRole(_) => "AddRole",
+        SpacePatchOp::RemoveRole(_) => "RemoveRole",
+        SpacePatchOp::UpdateRole { .. } => "UpdateRole",
+        SpacePatchOp::AddMember { .. } => "AddMember",
+        SpacePatchOp::RemoveMember(_) => "RemoveMember",
+        SpacePatchOp::UpdateMember { .. } => "UpdateMember",
+        SpacePatchOp::AddChannel(_) => "AddChannel",
+        SpacePatchOp::RemoveChannel(_) => "RemoveChannel",
+        SpacePatchOp::UpdateChannel { .. } => "UpdateChannel",
+        SpacePatchOp::AddCategory(_) => "AddCategory",
+        SpacePatchOp::RemoveCategory(_) => "RemoveCategory",
+        SpacePatchOp::UpdateCategory { .. } => "UpdateCategory",
+        _ => "Unknown",
     }
 }
 

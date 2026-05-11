@@ -23,7 +23,7 @@ pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 
 use jmap_chat_server::{
     BackendChangesError, BackendSetError, ChangesResult, ChatBackend, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
+    JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult, SetObject, SpacePatchOp,
 };
 use jmap_types::{Id, State};
 
@@ -152,5 +152,17 @@ impl ChatBackend for FaultyBackend {
                 .as_nanos()
                 & 0xffff_ffff_ffff,
         )
+    }
+
+    async fn apply_space_patch(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _space_id: &Id,
+        _ops: Vec<SpacePatchOp>,
+    ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
+        Err(BackendSetError::Other(MemoryError(
+            "storage unavailable".to_owned(),
+        )))
     }
 }
