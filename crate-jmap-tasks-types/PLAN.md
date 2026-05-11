@@ -208,7 +208,7 @@ A field absent from the server response must not fail deserialization.
 | Rust field | Wire name | Type |
 |---|---|---|
 | `time_zone` | `timeZone` | `Option<String>` |
-| `time_zones` | `timeZones` | `Option<HashMap<String, serde_json::Value>>` | customtimezones extension |
+| `time_zones` | `timeZones` | `Option<HashMap<String, serde_json::Value>>` | customtimezones extension; per-entry value typed-decodable to `jmap_jscalendar_types::TimeZone` (re-exported as `TimeZone`; see JMAP-x014) |
 
 **JSCalendar Task-specific Properties** (RFC 8984 §5.2):
 

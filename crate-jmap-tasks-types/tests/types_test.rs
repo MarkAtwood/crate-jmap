@@ -1093,13 +1093,20 @@ mod jscalendar_roundtrip {
     }
 
     /// RFC 8984 §4.7.2 — `timeZones` is `Map<TimeZoneId, TimeZone>`.
-    /// `jmap-jscalendar-types` does not yet model the `TimeZone` typed
-    /// sub-object (see JMAP-x014). For now we only verify Value-level
-    /// round-trip: the sloppy field accepts the wire shape and emits it
-    /// back unchanged. When JMAP-x014 lands, upgrade this test to also
-    /// decode into a typed `TimeZone`.
+    ///
+    /// `Task.time_zones` is the sloppy-Value field
+    /// (`Option<HashMap<String, serde_json::Value>>`) for wire-shape
+    /// preservation. Each value entry can be typed-decoded into a
+    /// `jmap_jscalendar_types::TimeZone` (re-exported from this crate as
+    /// `TimeZone`). This test verifies both:
+    ///
+    ///   1. The Value round-trip survives unchanged.
+    ///   2. A typed `TimeZone` decoded from the Value carries the
+    ///      expected `tzId`, `@type`, and STANDARD rule fields.
     #[test]
-    fn task_time_zones_value_roundtrips() {
+    fn task_time_zones_value_and_typed_roundtrip() {
+        use jmap_tasks_types::TimeZone;
+
         let tz_value = serde_json::json!({
             "/example/custom/UTC+05:30:00": {
                 "@type": "TimeZone",
@@ -1130,6 +1137,21 @@ mod jscalendar_roundtrip {
             round_tripped,
             tz_value["/example/custom/UTC+05:30:00"].clone()
         );
+
+        // Typed decode: the Value can be parsed into a typed
+        // `TimeZone` via `serde_json::from_value`.
+        let tz: TimeZone = serde_json::from_value(entry.clone()).expect("typed TimeZone decode");
+        assert_eq!(tz.at_type, "TimeZone");
+        assert_eq!(tz.tz_id, "/example/custom/UTC+05:30:00");
+        let standard = tz.standard.as_ref().expect("standard rule present");
+        assert_eq!(standard.len(), 1);
+        assert_eq!(standard[0].offset_from, "+0530");
+        assert_eq!(standard[0].offset_to, "+0530");
+        assert_eq!(standard[0].at_type, "TimeZoneRule");
+
+        // Typed re-encode matches the original Value.
+        let typed_back = serde_json::to_value(&tz).expect("typed TimeZone encode");
+        assert_eq!(typed_back, tz_value["/example/custom/UTC+05:30:00"].clone());
     }
 
     /// Helper for TaskList tests: minimal TaskList JSON with one

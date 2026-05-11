@@ -30,7 +30,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, UTCDate};
+use jmap_types::{Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 // ── Scalar wrappers ───────────────────────────────────────────────────────────
@@ -643,6 +643,111 @@ pub struct Alert {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+// ── TimeZone / TimeZoneRule ───────────────────────────────────────────────────
+
+/// A STANDARD or DAYLIGHT sub-component of a [`TimeZone`] (RFC 8984 §4.7.2).
+///
+/// Maps to a VTIMEZONE STANDARD or DAYLIGHT sub-component from iCalendar.
+/// At most one recurrence rule is allowed per rule.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeZoneRule {
+    /// Object type discriminator; always `"TimeZoneRule"` on the wire.
+    #[serde(rename = "@type")]
+    pub at_type: String,
+
+    /// DTSTART from iCalendar — the local date-time the rule first applies.
+    pub start: LocalDateTime,
+
+    /// TZOFFSETFROM from iCalendar — the UTC offset in effect before the
+    /// transition (format `±HHMM` or `±HHMMSS`).
+    pub offset_from: String,
+
+    /// TZOFFSETTO from iCalendar — the UTC offset in effect after the
+    /// transition (format `±HHMM` or `±HHMMSS`).
+    pub offset_to: String,
+
+    /// RRULE from iCalendar — recurrence rules for the transition.
+    /// Per RFC 8984 §4.7.2 the `until` value MUST be interpreted as a
+    /// local time in the UTC time zone during evaluation.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recurrence_rules: Option<Vec<RecurrenceRule>>,
+
+    /// RDATE properties from iCalendar — additional explicit transition
+    /// dates. Keys are LocalDateTime strings; the PatchObject value MUST
+    /// be the empty JSON object (`{}`) per RFC 8984 §4.7.2.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub recurrence_overrides: Option<HashMap<LocalDateTime, PatchObject>>,
+
+    /// TZNAME properties from iCalendar — set of human-readable names
+    /// for this rule. The map value MUST be `true` for each key.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub names: Option<HashMap<String, bool>>,
+
+    /// COMMENT properties from iCalendar — order MUST be preserved.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub comments: Option<Vec<String>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// A time-zone definition embedded in `CalendarEvent.timeZones` or
+/// `Task.timeZones` (RFC 8984 §4.7.2).
+///
+/// Maps to a VTIMEZONE component from iCalendar. A valid TimeZone MUST
+/// define at least one transition rule in `standard` or `daylight`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TimeZone {
+    /// Object type discriminator; always `"TimeZone"` on the wire.
+    #[serde(rename = "@type")]
+    pub at_type: String,
+
+    /// TZID from iCalendar — the time-zone identifier.
+    ///
+    /// MUST be a valid `paramtext` value per RFC 5545 §3.1.
+    pub tz_id: String,
+
+    /// LAST-MODIFIED from iCalendar.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub updated: Option<UTCDate>,
+
+    /// TZURL from iCalendar.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub url: Option<String>,
+
+    /// TZUNTIL from iCalendar (RFC 7808).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub valid_until: Option<UTCDate>,
+
+    /// TZID-ALIAS-OF properties from iCalendar (RFC 7808). Map keys are
+    /// the alias identifiers; the value MUST be `true` for each key.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aliases: Option<HashMap<String, bool>>,
+
+    /// STANDARD sub-components from iCalendar. Order MUST be preserved.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub standard: Option<Vec<TimeZoneRule>>,
+
+    /// DAYLIGHT sub-components from iCalendar. Order MUST be preserved.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub daylight: Option<Vec<TimeZoneRule>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
 #[cfg(test)]
 mod tests {
     //! Wire-format regression tests for the newtype-typed temporal fields
@@ -913,5 +1018,132 @@ mod tests {
         );
         let back = serde_json::to_value(&a).unwrap();
         assert_eq!(back["acmeCorpAlertChannel"], "mobile-push");
+    }
+
+    /// `TimeZoneRule.extra` captures vendor fields and preserves them.
+    #[test]
+    fn time_zone_rule_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "TimeZoneRule",
+            "start": "1970-01-01T00:00:00",
+            "offsetFrom": "+0000",
+            "offsetTo": "+0000",
+            "acmeCorpRuleOrigin": "iana-tzdata-2024a"
+        });
+        let r: TimeZoneRule = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            r.extra.get("acmeCorpRuleOrigin").and_then(|v| v.as_str()),
+            Some("iana-tzdata-2024a")
+        );
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["acmeCorpRuleOrigin"], "iana-tzdata-2024a");
+    }
+
+    /// `TimeZone.extra` captures vendor fields and preserves them.
+    #[test]
+    fn time_zone_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "TimeZone",
+            "tzId": "Etc/UTC",
+            "acmeCorpDataSource": "iana"
+        });
+        let t: TimeZone = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            t.extra.get("acmeCorpDataSource").and_then(|v| v.as_str()),
+            Some("iana")
+        );
+        let back = serde_json::to_value(&t).unwrap();
+        assert_eq!(back["acmeCorpDataSource"], "iana");
+    }
+
+    /// Oracle: a minimal `TimeZone` with a STANDARD rule round-trips per
+    /// RFC 8984 §4.7.2. The wire shape — `tzId`, `@type` discriminators on
+    /// both TimeZone and TimeZoneRule, and `offsetFrom` / `offsetTo` as
+    /// signed offset strings — comes directly from the spec text.
+    #[test]
+    fn time_zone_with_standard_rule_round_trips() {
+        let raw = json!({
+            "@type": "TimeZone",
+            "tzId": "Europe/Berlin",
+            "standard": [{
+                "@type": "TimeZoneRule",
+                "start": "1996-10-27T03:00:00",
+                "offsetFrom": "+0200",
+                "offsetTo": "+0100",
+                "recurrenceRules": [{
+                    "@type": "RecurrenceRule",
+                    "frequency": "yearly",
+                    "byMonth": ["10"],
+                    "byDay": [{
+                        "@type": "NDay",
+                        "day": "su",
+                        "nthOfPeriod": -1
+                    }]
+                }],
+                "names": {"CET": true}
+            }],
+            "daylight": [{
+                "@type": "TimeZoneRule",
+                "start": "1996-03-31T02:00:00",
+                "offsetFrom": "+0100",
+                "offsetTo": "+0200",
+                "recurrenceRules": [{
+                    "@type": "RecurrenceRule",
+                    "frequency": "yearly",
+                    "byMonth": ["3"],
+                    "byDay": [{
+                        "@type": "NDay",
+                        "day": "su",
+                        "nthOfPeriod": -1
+                    }]
+                }],
+                "names": {"CEST": true}
+            }]
+        });
+        let tz: TimeZone = serde_json::from_value(raw.clone()).expect("TimeZone must deserialize");
+        assert_eq!(tz.tz_id, "Europe/Berlin");
+        assert_eq!(tz.standard.as_ref().map(Vec::len), Some(1));
+        assert_eq!(tz.daylight.as_ref().map(Vec::len), Some(1));
+        let standard = &tz.standard.as_ref().unwrap()[0];
+        assert_eq!(standard.offset_from, "+0200");
+        assert_eq!(standard.offset_to, "+0100");
+        assert_eq!(
+            standard.recurrence_rules.as_ref().map(Vec::len),
+            Some(1),
+            "STANDARD rule must carry exactly one RRULE per RFC 8984 §4.7.2"
+        );
+
+        let back = serde_json::to_value(&tz).expect("serialize must succeed");
+        assert_eq!(back, raw, "round-trip must preserve wire shape");
+    }
+
+    /// Oracle: `TimeZoneRule.recurrenceOverrides` is a `LocalDateTime[PatchObject]`
+    /// map; per RFC 8984 §4.7.2 the patch object MUST be the empty `{}`.
+    /// This test verifies the typed map deserializes and the empty-patch
+    /// constraint survives round-trip.
+    #[test]
+    fn time_zone_rule_recurrence_overrides_round_trips() {
+        let raw = json!({
+            "@type": "TimeZoneRule",
+            "start": "1970-01-01T00:00:00",
+            "offsetFrom": "+0000",
+            "offsetTo": "+0000",
+            "recurrenceOverrides": {
+                "1990-04-01T02:00:00": {},
+                "1991-04-07T02:00:00": {}
+            }
+        });
+        let r: TimeZoneRule = serde_json::from_value(raw).expect("TimeZoneRule must deserialize");
+        let overrides = r
+            .recurrence_overrides
+            .as_ref()
+            .expect("recurrenceOverrides must deserialize as Some");
+        assert_eq!(overrides.len(), 2);
+        for v in overrides.values() {
+            assert!(
+                v.as_map().is_empty(),
+                "PatchObject value MUST be empty per RFC 8984 §4.7.2"
+            );
+        }
     }
 }

@@ -80,6 +80,8 @@ exist to document intent at the type level.
 | `AbsoluteTrigger` | §4.5.2 | Trigger at an absolute UTC date-time |
 | `AlertTrigger` | §4.5.2 | enum: OffsetTrigger \| AbsoluteTrigger \| Unknown |
 | `Alert` | §4.5.2 | Alert to display or email |
+| `TimeZoneRule` | §4.7.2 | STANDARD or DAYLIGHT sub-component (shared between both) |
+| `TimeZone` | §4.7.2 | VTIMEZONE definition; embedded in `CalendarEvent.timeZones` and `Task.timeZones` |
 
 ### `AlertTrigger` round-trip preservation
 

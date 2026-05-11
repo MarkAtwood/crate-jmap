@@ -59,7 +59,8 @@ pub use capability::{
 pub use filter::{TaskComparator, TaskNotificationComparator};
 pub use jmap_jscalendar_types::{
     AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay,
-    OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, VirtualLocation,
+    OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, TimeZone, TimeZoneRule,
+    VirtualLocation,
 };
 pub use notification::{NotificationType, TaskNotification, TaskNotificationFilterCondition};
 pub use task::{CheckItem, Checklist, Comment, Person, Task, TaskFilterCondition, TaskProgress};
