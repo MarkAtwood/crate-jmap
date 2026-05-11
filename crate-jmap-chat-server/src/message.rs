@@ -372,16 +372,34 @@ pub async fn handle_message_set<B: ChatBackend>(
                 .and_then(|v| v.as_str())
                 .map(Id::from);
 
-            let sender_expires_at: Option<String> = obj_val
-                .get("senderExpiresAt")
-                .and_then(|v| v.as_str())
-                .map(str::to_owned);
+            // senderExpiresAt is a UTCDate per RFC 8620 §1.4 (20-char
+            // YYYY-MM-DDTHH:MM:SSZ). Validate the wire shape via
+            // UTCDate::new_validated; a malformed value produces
+            // invalidProperties rather than silently flowing through to
+            // a downstream string compare with undefined ordering.
+            let sender_expires_at: Option<UTCDate> =
+                match obj_val.get("senderExpiresAt").and_then(|v| v.as_str()) {
+                    Some(s) => match UTCDate::new_validated(s) {
+                        Ok(d) => Some(d),
+                        Err(_) => {
+                            not_created.insert(
+                                create_id.clone(),
+                                json!({
+                                    "type": "invalidProperties",
+                                    "properties": ["senderExpiresAt"],
+                                }),
+                            );
+                            continue;
+                        }
+                    },
+                    None => None,
+                };
 
             let burn_on_read: Option<bool> = obj_val.get("burnOnRead").and_then(|v| v.as_bool());
 
-            if let Some(ref expires_str) = sender_expires_at {
+            if let Some(ref expires_at) = sender_expires_at {
                 let now = now_utc_string();
-                if !iso8601_before(now.as_str(), expires_str.as_str()) {
+                if !iso8601_before(now.as_str(), expires_at.as_ref()) {
                     not_created.insert(
                         create_id.clone(),
                         json!({ "type": "invalidProperties", "properties": ["senderExpiresAt"] }),
@@ -411,8 +429,8 @@ pub async fn handle_message_set<B: ChatBackend>(
 
             msg.reply_to = reply_to;
             msg.thread_root_id = thread_root_id;
-            if let Some(s) = sender_expires_at {
-                msg.sender_expires_at = Some(UTCDate::from(s.as_str()));
+            if let Some(d) = sender_expires_at {
+                msg.sender_expires_at = Some(d);
             }
             msg.burn_on_read = burn_on_read;
 
