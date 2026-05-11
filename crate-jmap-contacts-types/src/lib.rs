@@ -143,6 +143,7 @@ mod tests {
             may_write: true,
             may_share: false,
             may_delete: false,
+            extra: serde_json::Map::new(),
         };
         let json = serde_json::to_string(&original).unwrap();
         let decoded: AddressBookRights = serde_json::from_str(&json).unwrap();
@@ -309,6 +310,7 @@ mod tests {
             may_write: false,
             may_share: false,
             may_delete: false,
+            extra: serde_json::Map::new(),
         };
         // Construct via JSON (avoids #[non_exhaustive] struct literal restriction).
         let original_json = json!({
@@ -1094,5 +1096,71 @@ mod tests {
         // Same with the top-level re-export.
         let top_level: Name = direct.clone();
         assert_eq!(direct, top_level);
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.5) ───────────────────
+
+    /// `AddressBookRights.extra` captures vendor fields and preserves them.
+    #[test]
+    fn address_book_rights_preserves_vendor_extras() {
+        let raw = json!({
+            "mayRead": true,
+            "mayWrite": false,
+            "mayShare": false,
+            "mayDelete": false,
+            "acmeCorpMayMerge": true
+        });
+        let r: AddressBookRights = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            r.extra.get("acmeCorpMayMerge").and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["acmeCorpMayMerge"], true);
+    }
+
+    /// `AddressBook.extra` captures vendor fields and preserves them.
+    #[test]
+    fn address_book_preserves_vendor_extras() {
+        let raw = json!({
+            "id": "ab1",
+            "name": "Personal",
+            "description": null,
+            "sortOrder": 0,
+            "isDefault": true,
+            "isSubscribed": true,
+            "shareWith": null,
+            "myRights": {
+                "mayRead": true, "mayWrite": true,
+                "mayShare": false, "mayDelete": false
+            },
+            "acmeCorpRetentionDays": 365
+        });
+        let ab: AddressBook = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            ab.extra
+                .get("acmeCorpRetentionDays")
+                .and_then(|v| v.as_u64()),
+            Some(365)
+        );
+        let back = serde_json::to_value(&ab).unwrap();
+        assert_eq!(back["acmeCorpRetentionDays"], 365);
+    }
+
+    /// `ContactCard.extra` captures vendor fields and preserves them.
+    #[test]
+    fn contact_card_preserves_vendor_extras() {
+        let raw = json!({
+            "uid": "card-1",
+            "version": "1.0",
+            "acmeCorpExternalId": "ldap-42"
+        });
+        let c: ContactCard = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            c.extra.get("acmeCorpExternalId").and_then(|v| v.as_str()),
+            Some("ldap-42")
+        );
+        let back = serde_json::to_value(&c).unwrap();
+        assert_eq!(back["acmeCorpExternalId"], "ldap-42");
     }
 }
