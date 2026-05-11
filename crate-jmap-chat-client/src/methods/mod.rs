@@ -917,6 +917,45 @@ impl<'a> PushSubscriptionCreateInput<'a> {
     }
 }
 
+/// Patch shape for `PushSubscription/set` update sub-operations (RFC 8620 §7.2.2).
+///
+/// Only the patchable properties are exposed. RFC 8620 §7.2 declares `url`
+/// and `keys` immutable: to change those, destroy the subscription and create
+/// a new one. `device_client_id` is also stable for the lifetime of the
+/// subscription.
+///
+/// Fields left as their default (`None` / [`Patch::Keep`]) are omitted from
+/// the wire patch and the server leaves the corresponding property unchanged.
+///
+/// The `chat_push` patch follows the JMAP Chat Push extension
+/// (draft-atwood-jmap-chat-push-00 §3.1): callers pass `Some(slice)` to
+/// replace the full `chatPush` property, or [`Patch::Clear`] semantics via
+/// the dedicated `clear_chat_push` flag to set it to JSON `null`. The
+/// extension does not define per-key patching, so the value is set
+/// wholesale.
+#[non_exhaustive]
+#[derive(Debug, Default)]
+pub struct PushSubscriptionPatch<'a> {
+    /// Replace the verification code (set after receiving a PushVerification
+    /// payload). `None` = no change.
+    pub verification_code: Option<&'a str>,
+    /// Set or clear the expiry timestamp. [`Patch::Clear`] sets `expires` to
+    /// `null`; the server SHOULD then choose a default expiry per RFC 8620 §7.2.
+    pub expires: Patch<&'a jmap_types::UTCDate>,
+    /// Replace the `types` filter. `None` = no change. To set the property
+    /// to `null` (deliver all types), use `clear_types: true`.
+    pub types: Option<&'a [&'a str]>,
+    /// When `true`, set `types` to JSON `null` (deliver all types). Mutually
+    /// exclusive with `types: Some(_)` — providing both is rejected as
+    /// `InvalidArgument`.
+    pub clear_types: bool,
+    /// Replace the `chatPush` extension property wholesale. `None` = no change.
+    pub chat_push: Option<&'a [(&'a Id, jmap_chat_types::ChatPushConfig)]>,
+    /// When `true`, set `chatPush` to JSON `null` (remove all inline push).
+    /// Mutually exclusive with `chat_push: Some(_)`.
+    pub clear_chat_push: bool,
+}
+
 // ---------------------------------------------------------------------------
 // Method sub-modules
 // ---------------------------------------------------------------------------
