@@ -10,7 +10,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// A JMAP ContactCard object (RFC 9610 §3).
@@ -49,7 +49,7 @@ pub struct ContactCard {
 
     /// Date and time when the Card was created (UTCDateTime).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created: Option<String>,
+    pub created: Option<UTCDate>,
 
     /// Kind of entity: `"individual"`, `"group"`, `"org"`, `"location"`,
     /// `"device"`, `"application"`, or a vendor-specific value.
@@ -78,7 +78,7 @@ pub struct ContactCard {
 
     /// Date and time when the Card was last modified (UTCDateTime; server-set).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated: Option<String>,
+    pub updated: Option<UTCDate>,
 
     // ── RFC 9553 §2.2 Name and Organization ─────────────────────────────
     /// The name of the entity.  JSContact Name object (complex sub-object).
@@ -232,19 +232,19 @@ pub struct ContactCardFilterCondition {
 
     /// Card `created` must be before this UTCDateTime.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_before: Option<String>,
+    pub created_before: Option<UTCDate>,
 
     /// Card `created` must be equal to or after this UTCDateTime.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_after: Option<String>,
+    pub created_after: Option<UTCDate>,
 
     /// Card `updated` must be before this UTCDateTime.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_before: Option<String>,
+    pub updated_before: Option<UTCDate>,
 
     /// Card `updated` must be equal to or after this UTCDateTime.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub updated_after: Option<String>,
+    pub updated_after: Option<UTCDate>,
 
     /// Full-text search across all text in the card.
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -241,8 +241,13 @@ pub struct FileNode {
     ///
     /// Automatically updated on every mutation.  Not settable by clients.
     /// Absent from wire when `None`.
+    ///
+    /// Uses the [`UTCDate`] newtype to make the wire-format constraint
+    /// (RFC 8620 §1.4: 20-character UTCDateTime string) explicit at the
+    /// type level. JSON wire format is unchanged because `UTCDate` is a
+    /// `#[serde(transparent)]` newtype around `String`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub changed: Option<String>,
+    pub changed: Option<UTCDate>,
 
     /// If true, the node should be treated as executable.  Default: false.
     ///

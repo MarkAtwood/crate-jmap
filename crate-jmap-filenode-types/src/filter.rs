@@ -2,7 +2,7 @@
 //!
 //! Provides [`FileNodeFilterCondition`].
 
-use jmap_types::Id;
+use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
 /// Filter condition for `FileNode/query` (draft-ietf-jmap-filenode-13 §3.2.5).
@@ -81,27 +81,27 @@ pub struct FileNodeFilterCondition {
 
     /// The node's `created` date must be strictly before this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_before: Option<String>,
+    pub created_before: Option<UTCDate>,
 
     /// The node's `created` date must be on or after this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub created_after: Option<String>,
+    pub created_after: Option<UTCDate>,
 
     /// The node's `modified` date must be strictly before this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub modified_before: Option<String>,
+    pub modified_before: Option<UTCDate>,
 
     /// The node's `modified` date must be on or after this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub modified_after: Option<String>,
+    pub modified_after: Option<UTCDate>,
 
     /// The node's `accessed` date must be strictly before this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub accessed_before: Option<String>,
+    pub accessed_before: Option<UTCDate>,
 
     /// The node's `accessed` date must be on or after this UTCDate.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub accessed_after: Option<String>,
+    pub accessed_after: Option<UTCDate>,
 
     /// The node's `size` in bytes must be ≥ this value.
     #[serde(skip_serializing_if = "Option::is_none")]

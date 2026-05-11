@@ -215,7 +215,7 @@ fn filenode_file_deserialize() {
     assert_eq!(node.created, Some(UTCDate::from("2024-01-15T10:00:00Z")));
     assert_eq!(node.modified, Some(UTCDate::from("2024-03-01T12:00:00Z")));
     assert_eq!(node.accessed, Some(UTCDate::from("2024-03-10T08:00:00Z")));
-    assert_eq!(node.changed, Some("2024-03-01T12:00:00Z".to_owned()));
+    assert_eq!(node.changed, Some(UTCDate::from("2024-03-01T12:00:00Z")));
     assert_eq!(node.executable, Some(false));
     assert_eq!(node.is_subscribed, Some(true));
     assert!(node.my_rights.as_ref().unwrap().may_read);
@@ -766,18 +766,30 @@ fn filter_condition_all_fields_deserialize() {
     assert_eq!(cond.has_any_role, Some(false));
     assert_eq!(cond.blob_id, Some(id("blob1")));
     assert_eq!(cond.is_executable, Some(true));
-    assert_eq!(cond.created_before, Some("2025-01-01T00:00:00Z".to_owned()));
-    assert_eq!(cond.created_after, Some("2020-01-01T00:00:00Z".to_owned()));
+    assert_eq!(
+        cond.created_before,
+        Some(UTCDate::from("2025-01-01T00:00:00Z"))
+    );
+    assert_eq!(
+        cond.created_after,
+        Some(UTCDate::from("2020-01-01T00:00:00Z"))
+    );
     assert_eq!(
         cond.modified_before,
-        Some("2025-06-01T00:00:00Z".to_owned())
+        Some(UTCDate::from("2025-06-01T00:00:00Z"))
     );
-    assert_eq!(cond.modified_after, Some("2021-01-01T00:00:00Z".to_owned()));
+    assert_eq!(
+        cond.modified_after,
+        Some(UTCDate::from("2021-01-01T00:00:00Z"))
+    );
     assert_eq!(
         cond.accessed_before,
-        Some("2025-12-01T00:00:00Z".to_owned())
+        Some(UTCDate::from("2025-12-01T00:00:00Z"))
     );
-    assert_eq!(cond.accessed_after, Some("2022-01-01T00:00:00Z".to_owned()));
+    assert_eq!(
+        cond.accessed_after,
+        Some(UTCDate::from("2022-01-01T00:00:00Z"))
+    );
     assert_eq!(cond.min_size, Some(1024));
     assert_eq!(cond.max_size, Some(1048576));
     assert_eq!(cond.name, Some("readme.txt".to_owned()));
