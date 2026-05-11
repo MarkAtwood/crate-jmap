@@ -46,10 +46,10 @@ pub async fn handle_task_get<B: TasksBackend>(
                 if let Ok(task) = Task::deserialize(&*item) {
                     let (utc_start, utc_due) = backend.compute_task_utc_times(&task, None);
                     if let Some(s) = utc_start {
-                        item["utcStart"] = Value::String(s);
+                        item["utcStart"] = Value::String(s.into_inner());
                     }
                     if let Some(d) = utc_due {
-                        item["utcDue"] = Value::String(d);
+                        item["utcDue"] = Value::String(d.into_inner());
                     }
                 }
             }

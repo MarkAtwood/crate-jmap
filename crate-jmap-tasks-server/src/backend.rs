@@ -136,8 +136,9 @@ pub trait TasksBackend: JmapBackend {
     /// `start`/`due` local-time fields and time zone into UTC (draft-tasks-06 §4,
     /// lines 739-772).
     ///
-    /// Returns `(utc_start, utc_due)` as RFC 3339 strings, or `None` for each if
-    /// the corresponding field is absent or the time zone is unknown.
+    /// Returns `(utc_start, utc_due)` as [`UTCDate`](jmap_types::UTCDate) values,
+    /// or `None` for each if the corresponding field is absent or the time zone
+    /// is unknown.
     ///
     /// The default implementation returns `(None, None)` — backends that do not
     /// support time-zone conversion can accept this behaviour and the caller will
@@ -151,7 +152,7 @@ pub trait TasksBackend: JmapBackend {
         &self,
         _task: &jmap_tasks_types::Task,
         _tz_hint: Option<&str>,
-    ) -> (Option<String>, Option<String>) {
+    ) -> (Option<jmap_types::UTCDate>, Option<jmap_types::UTCDate>) {
         // Default: no UTC conversion capability; callers omit utcStart/utcDue.
         (None, None)
     }
