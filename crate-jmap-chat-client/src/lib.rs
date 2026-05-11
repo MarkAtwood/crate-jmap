@@ -29,10 +29,19 @@ pub mod utils;
 pub mod ws;
 
 pub use jmap_base_client::ClientError;
+pub use methods::blob::{BlobConvertResponse, BlobLookupEntry, BlobLookupResponse, BlobObject};
+pub use methods::quota::Quota;
 pub use methods::{
-    AddedItem, ChangesResponse, GetResponse, Patch, PushSubscriptionCreateResponse,
-    QueryChangesResponse, QueryResponse, SessionClient, SetError, SetResponse, SpaceJoinResponse,
-    TypingResponse,
+    AddMemberInput, AddedItem, ChangesResponse, ChatContactPatch, ChatContactQueryInput,
+    ChatCreateInput, ChatPatch, ChatQueryInput, ContactSortProperty, CustomEmojiCreateInput,
+    CustomEmojiQueryInput, GetResponse, MessageCreateInput, MessagePatch, MessageQueryInput, Patch,
+    PresenceStatusPatch, PushSubscriptionCreateInput, PushSubscriptionCreateResponse,
+    PushSubscriptionPatch, QueryChangesResponse, QueryResponse, ReactionChange, SessionClient,
+    SetError, SetResponse, SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput,
+    SpaceAddRoleInput, SpaceBanCreateInput, SpaceCreateInput, SpaceInviteCreateInput,
+    SpaceJoinInput, SpaceJoinResponse, SpacePatch, SpaceQueryInput, SpaceUpdateCategoryInput,
+    SpaceUpdateChannelInput, SpaceUpdateMemberInput, SpaceUpdateRoleInput, TypingResponse,
+    UpdateMemberRoleInput,
 };
 pub use session::{ChatCapability, ChatPushCapability, ChatSessionExt};
 pub use sse::{parse_chat_sse_block, ChatSseEvent, ChatSseFrame};
