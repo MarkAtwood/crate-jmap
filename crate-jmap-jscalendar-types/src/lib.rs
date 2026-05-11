@@ -128,6 +128,13 @@ pub struct NDay {
     /// Which occurrence within the period (non-zero integer), or `null`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nth_of_period: Option<i32>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A recurrence rule as defined in RFC 8984 §4.3.3.
@@ -206,6 +213,13 @@ pub struct RecurrenceRule {
     /// (RFC 8984 §4.3.3 — `until` is a LocalDateTime, NOT a UTC date-time).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub until: Option<LocalDateTime>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Location and VirtualLocation ─────────────────────────────────────────────
@@ -246,6 +260,13 @@ pub struct Location {
     /// Attachments and images associated with this location.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub links: Option<HashMap<String, Link>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// An online meeting or virtual location (RFC 8984 §4.2.6).
@@ -276,6 +297,13 @@ pub struct VirtualLocation {
     /// Map of feature type URIs → `true`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub features: Option<HashMap<String, bool>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Link ─────────────────────────────────────────────────────────────────────
@@ -332,6 +360,13 @@ pub struct Link {
     /// an embedded data: URL when sending to systems that cannot access blobs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blob_id: Option<Id>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Relation ─────────────────────────────────────────────────────────────────
@@ -349,6 +384,13 @@ pub struct Relation {
     /// Map of relationship type URIs → `true`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relation: Option<HashMap<String, bool>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Participant ───────────────────────────────────────────────────────────────
@@ -455,6 +497,13 @@ pub struct Participant {
     /// Server-set and persisted; absent when no scheduling has occurred.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub schedule_status: Option<Vec<String>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Alert ─────────────────────────────────────────────────────────────────────
@@ -476,6 +525,13 @@ pub struct OffsetTrigger {
     /// Default is `"start"`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub relative_to: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A trigger time given as an absolute UTC date-time (RFC 8984 §4.5.2).
@@ -489,6 +545,13 @@ pub struct AbsoluteTrigger {
 
     /// The absolute UTC date-time at which to trigger the alert.
     pub when: UTCDate,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Alert trigger — either offset-based, absolute, or an unknown future type
@@ -571,6 +634,13 @@ pub struct Alert {
     /// How to present the alert: `"display"` or `"email"` (default `"display"`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub action: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -660,5 +730,188 @@ mod tests {
             json!("2024-06-15T08:45:00Z"),
             "when must serialize as a bare string; got {round_tripped:?}"
         );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.4) ───────────────────
+    //
+    // One round-trip preservation test per migrated type. Each asserts
+    // that an unknown vendor / site / private-extension field survives
+    // deserialize/serialize unchanged. Per workspace AGENTS.md
+    // "Extras-preservation policy for vendor/site fields".
+
+    /// `NDay.extra` captures vendor fields and preserves them.
+    #[test]
+    fn nday_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "NDay",
+            "day": "mo",
+            "acmeCorpDayLabel": "first-mon"
+        });
+        let n: NDay = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            n.extra.get("acmeCorpDayLabel").and_then(|v| v.as_str()),
+            Some("first-mon")
+        );
+        let back = serde_json::to_value(&n).unwrap();
+        assert_eq!(back["acmeCorpDayLabel"], "first-mon");
+    }
+
+    /// `RecurrenceRule.extra` captures vendor fields and preserves them.
+    #[test]
+    fn recurrence_rule_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "RecurrenceRule",
+            "frequency": "monthly",
+            "acmeCorpRuleNote": "billing-cycle"
+        });
+        let r: RecurrenceRule = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            r.extra.get("acmeCorpRuleNote").and_then(|v| v.as_str()),
+            Some("billing-cycle")
+        );
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["acmeCorpRuleNote"], "billing-cycle");
+    }
+
+    /// `Location.extra` captures vendor fields and preserves them.
+    #[test]
+    fn location_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "Location",
+            "name": "HQ",
+            "acmeCorpInternalCode": "bldg-7"
+        });
+        let l: Location = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            l.extra.get("acmeCorpInternalCode").and_then(|v| v.as_str()),
+            Some("bldg-7")
+        );
+        let back = serde_json::to_value(&l).unwrap();
+        assert_eq!(back["acmeCorpInternalCode"], "bldg-7");
+    }
+
+    /// `VirtualLocation.extra` captures vendor fields and preserves them.
+    #[test]
+    fn virtual_location_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "VirtualLocation",
+            "uri": "https://example.com/meet/42",
+            "acmeCorpMeetingId": "meet-42"
+        });
+        let v: VirtualLocation = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            v.extra.get("acmeCorpMeetingId").and_then(|x| x.as_str()),
+            Some("meet-42")
+        );
+        let back = serde_json::to_value(&v).unwrap();
+        assert_eq!(back["acmeCorpMeetingId"], "meet-42");
+    }
+
+    /// `Link.extra` captures vendor fields and preserves them.
+    #[test]
+    fn link_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "Link",
+            "href": "https://example.com/x",
+            "acmeCorpClassification": "internal"
+        });
+        let l: Link = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            l.extra
+                .get("acmeCorpClassification")
+                .and_then(|v| v.as_str()),
+            Some("internal")
+        );
+        let back = serde_json::to_value(&l).unwrap();
+        assert_eq!(back["acmeCorpClassification"], "internal");
+    }
+
+    /// `Relation.extra` captures vendor fields and preserves them.
+    #[test]
+    fn relation_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "Relation",
+            "acmeCorpDirection": "outbound"
+        });
+        let r: Relation = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            r.extra.get("acmeCorpDirection").and_then(|v| v.as_str()),
+            Some("outbound")
+        );
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["acmeCorpDirection"], "outbound");
+    }
+
+    /// `Participant.extra` captures vendor fields and preserves them.
+    #[test]
+    fn participant_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "Participant",
+            "roles": {"attendee": true},
+            "acmeCorpEmployeeId": "emp-42"
+        });
+        let p: Participant = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            p.extra.get("acmeCorpEmployeeId").and_then(|v| v.as_str()),
+            Some("emp-42")
+        );
+        let back = serde_json::to_value(&p).unwrap();
+        assert_eq!(back["acmeCorpEmployeeId"], "emp-42");
+    }
+
+    /// `OffsetTrigger.extra` captures vendor fields and preserves them.
+    #[test]
+    fn offset_trigger_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "OffsetTrigger",
+            "offset": "-PT15M",
+            "acmeCorpClientTag": "mobile"
+        });
+        let t: OffsetTrigger = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            t.extra.get("acmeCorpClientTag").and_then(|v| v.as_str()),
+            Some("mobile")
+        );
+        let back = serde_json::to_value(&t).unwrap();
+        assert_eq!(back["acmeCorpClientTag"], "mobile");
+    }
+
+    /// `AbsoluteTrigger.extra` captures vendor fields and preserves them.
+    #[test]
+    fn absolute_trigger_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "AbsoluteTrigger",
+            "when": "2024-06-15T08:45:00Z",
+            "acmeCorpTriggerSource": "iCal"
+        });
+        let t: AbsoluteTrigger = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            t.extra
+                .get("acmeCorpTriggerSource")
+                .and_then(|v| v.as_str()),
+            Some("iCal")
+        );
+        let back = serde_json::to_value(&t).unwrap();
+        assert_eq!(back["acmeCorpTriggerSource"], "iCal");
+    }
+
+    /// `Alert.extra` captures vendor fields and preserves them.
+    #[test]
+    fn alert_preserves_vendor_extras() {
+        let raw = json!({
+            "@type": "Alert",
+            "trigger": {
+                "@type": "OffsetTrigger",
+                "offset": "-PT15M"
+            },
+            "acmeCorpAlertChannel": "mobile-push"
+        });
+        let a: Alert = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            a.extra.get("acmeCorpAlertChannel").and_then(|v| v.as_str()),
+            Some("mobile-push")
+        );
+        let back = serde_json::to_value(&a).unwrap();
+        assert_eq!(back["acmeCorpAlertChannel"], "mobile-push");
     }
 }

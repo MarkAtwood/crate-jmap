@@ -75,6 +75,13 @@ pub struct CalendarRights {
 
     /// User may delete the calendar itself.
     pub may_delete: bool,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A JMAP Calendar object (draft-ietf-jmap-calendars-26 §4).
@@ -140,6 +147,13 @@ pub struct Calendar {
 
     /// Access rights the authenticated user holds for this calendar (server-set).
     pub my_rights: CalendarRights,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Filter condition for `Calendar/query` (draft-ietf-jmap-calendars-26 §4.3).

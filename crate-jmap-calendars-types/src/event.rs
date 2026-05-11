@@ -293,6 +293,13 @@ pub struct CalendarEvent {
     /// Event status: `"confirmed"`, `"cancelled"`, or `"tentative"`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Filter condition for `CalendarEvent/query`
