@@ -194,7 +194,7 @@ layer.
 
 ### `CallerCtx` forwarding
 
-The `register_*_handlers` functions use `ClosureHandlerWithCtx` internally, which
+The `register_*_handlers` functions use `ClosureHandler` internally, which
 forwards the `CallerCtx` value from `Dispatcher::dispatch` to every handler closure
 as `_ctx: C`. The handlers themselves do not yet act on this parameter — it is
 available for applications that implement `JmapHandler<C>` directly and need

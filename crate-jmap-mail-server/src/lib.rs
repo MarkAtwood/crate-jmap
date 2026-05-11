@@ -103,7 +103,7 @@ pub use vacation::{handle_vacation_get, handle_vacation_set};
 ///
 /// The dispatcher's `CallerCtx` (`C`) is forwarded into each registered
 /// handler. Backends that need to read it from inside a method body can
-/// register a custom [`ClosureHandlerWithCtx`] directly on the dispatcher
+/// register a custom [`ClosureHandler`] directly on the dispatcher
 /// instead of using this convenience function.
 pub fn register_mail_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
 where
@@ -120,7 +120,7 @@ where
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandlerWithCtx {
+            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
                     move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
@@ -232,7 +232,7 @@ where
     });
 }
 
-pub use jmap_server::{ClosureHandler, ClosureHandlerWithCtx};
+pub use jmap_server::ClosureHandler;
 
 // ---------------------------------------------------------------------------
 // register_mdn_handlers — MDN extension entry point (feature = "mdn")
@@ -266,7 +266,7 @@ pub fn register_mdn_handlers<B, C>(
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandlerWithCtx {
+            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
                     move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
@@ -314,7 +314,7 @@ where
     macro_rules! reg {
         ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandlerWithCtx {
+            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
                     move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {

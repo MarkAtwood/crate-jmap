@@ -98,7 +98,7 @@ pub trait SharingBackend: JmapBackend {
 
 ### Registration
 
-`register_sharing_handlers` uses `ClosureHandlerWithCtx` (provided by
+`register_sharing_handlers` uses `ClosureHandler` (provided by
 `jmap-server`) to wrap each handler function and `Arc<B>` into a
 `JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
 `CallerCtx` value is forwarded into each closure as `_ctx`; the standard
@@ -169,11 +169,11 @@ also supports creating and managing Principals (not just reading them).
 
 ## CallerCtx
 
-`register_sharing_handlers` registers each method as a `ClosureHandlerWithCtx`
+`register_sharing_handlers` registers each method as a `ClosureHandler`
 that forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`.
 The standard `handle_*` handler bodies ignore `_ctx` and receive only
 `(Arc<B>, call_id, args)`; the value is still available for backends that
-register handlers individually via `ClosureHandlerWithCtx`.
+register handlers individually via `ClosureHandler`.
 
 If you need per-request context — auth identity, tenant id, rate-limit token —
 inside one of the standard `handle_*` functions, implement `JmapHandler<C>`
