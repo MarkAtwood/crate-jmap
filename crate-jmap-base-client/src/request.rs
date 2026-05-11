@@ -176,8 +176,9 @@ impl Session {
 /// `"[opaque]"` in the Debug output.
 ///
 /// All other URL/map fields are surfaced — they are deployment metadata and
-/// not credential-grade. `AccountInfo.name` may still leak the owner's email
-/// transitively through the `accounts` map; that is tracked separately.
+/// not credential-grade. `AccountInfo.name` is redacted by `AccountInfo`'s
+/// own manual `Debug` impl, so the `accounts` map below does not leak
+/// owner emails transitively (bd:JMAP-sc1b.104).
 impl std::fmt::Debug for Session {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Session")
@@ -199,8 +200,13 @@ impl std::fmt::Debug for Session {
 // ---------------------------------------------------------------------------
 
 /// Per-account metadata in a JMAP Session (RFC 8620 §2).
+///
+/// `Debug` is hand-written to redact `name` because the field's own
+/// definition identifies it as "typically the owner's email address"
+/// (PII under GDPR/CCPA). The other fields are non-credential metadata
+/// and are surfaced directly. See bd:JMAP-sc1b.104.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AccountInfo {
     /// Human-readable account name (e.g. the owner's email address).
@@ -217,6 +223,29 @@ pub struct AccountInfo {
     /// Values are kept as raw JSON so extension crates can extract
     /// their own capability objects.
     pub account_capabilities: HashMap<String, serde_json::Value>,
+}
+
+/// Manual `Debug` impl that redacts `name` (bd:JMAP-sc1b.104).
+///
+/// `AccountInfo.name` is typically the owner's email address, which is
+/// PII under GDPR/CCPA. The other fields (`is_personal`, `is_read_only`,
+/// `account_capabilities`) are non-credential metadata and are surfaced
+/// directly so `{:?}` output remains useful for debugging.
+///
+/// This redaction closes the transitive leak through `Session.accounts`
+/// — `Session`'s own Debug impl (bd:JMAP-sc1b.99) only redacted
+/// `username` and `state` directly and was silent about the accounts
+/// map. With `AccountInfo` redacting itself, any `{:?}` of a `Session`
+/// is now safe with respect to the canonical email-shaped PII.
+impl std::fmt::Debug for AccountInfo {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AccountInfo")
+            .field("name", &"[REDACTED]")
+            .field("is_personal", &self.is_personal)
+            .field("is_read_only", &self.is_read_only)
+            .field("account_capabilities", &self.account_capabilities)
+            .finish()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -594,14 +623,22 @@ mod tests {
     }
 
     /// Oracle: Session's manual Debug impl never reveals the authenticated
-    /// `username` or the opaque `state` token (bd:JMAP-sc1b.99). Mirrors the
-    /// canary tripwire pattern used by `bearer_auth_debug_does_not_leak_token`
-    /// and `basic_auth_debug_does_not_leak_credentials` in auth.rs.
+    /// `username` or the opaque `state` token (bd:JMAP-sc1b.99), AND the
+    /// `accounts` map does not transitively leak `AccountInfo.name`
+    /// (bd:JMAP-sc1b.104). Mirrors the canary tripwire pattern used by
+    /// `bearer_auth_debug_does_not_leak_token` and
+    /// `basic_auth_debug_does_not_leak_credentials` in auth.rs.
     ///
     /// The canary literals are independent of the Session's internal state —
     /// the test is the oracle, not the code under test. A regression that
-    /// re-derives Debug, or that prints the username/state via a manual
-    /// impl, would fail the assertion.
+    /// re-derives `Debug` on `Session` or `AccountInfo`, or that prints the
+    /// username/state/name via a manual impl, would fail the assertion.
+    ///
+    /// We deliberately reuse `CANARY_USER` in two distinct locations
+    /// (`username` and `accounts["a1"].name`) so a single negative
+    /// `assert!(!dbg.contains(...))` catches a leak from either path —
+    /// the same kind of email-shaped PII surfacing through either field
+    /// is the failure we want to fail loudly.
     #[test]
     fn session_debug_does_not_leak_username_or_state() {
         const CANARY_USER: &str = "CANARY-USERNAME-DO-NOT-LEAK@example.com";
@@ -609,7 +646,14 @@ mod tests {
         let raw = format!(
             r#"{{
                 "capabilities": {{}},
-                "accounts": {{}},
+                "accounts": {{
+                    "a1": {{
+                        "name": "{CANARY_USER}",
+                        "isPersonal": true,
+                        "isReadOnly": false,
+                        "accountCapabilities": {{}}
+                    }}
+                }},
                 "primaryAccounts": {{}},
                 "username": "{CANARY_USER}",
                 "apiUrl": "https://jmap.example.com/api/",
@@ -620,14 +664,52 @@ mod tests {
             }}"#
         );
         let session: Session = serde_json::from_str(&raw).expect("Session must deserialize");
+
+        // Sanity-check: the canary really did land in the AccountInfo —
+        // otherwise an empty accounts map would silently make the
+        // transitive-leak assertion below tautologically pass.
+        let account = session
+            .accounts
+            .get("a1")
+            .expect("accounts['a1'] must deserialize");
+        assert_eq!(account.name, CANARY_USER);
+
         let dbg = format!("{session:?}");
         assert!(
             !dbg.contains(CANARY_USER),
-            "Session Debug must not contain the raw username; got: {dbg}"
+            "Session Debug must not contain the raw username or AccountInfo.name; got: {dbg}"
         );
         assert!(
             !dbg.contains(CANARY_STATE),
             "Session Debug must not contain the raw state token; got: {dbg}"
+        );
+    }
+
+    /// Oracle: AccountInfo's manual Debug impl never reveals the raw
+    /// `name` field (bd:JMAP-sc1b.104). Independent of the Session-level
+    /// test above: a regression on AccountInfo alone (e.g. re-deriving
+    /// `#[derive(Debug)]`) would be caught here without needing the
+    /// Session wrapper.
+    #[test]
+    fn account_info_debug_does_not_leak_name() {
+        const CANARY_NAME: &str = "CANARY-ACCOUNT-NAME-DO-NOT-LEAK@example.com";
+        let raw = format!(
+            r#"{{
+                "name": "{CANARY_NAME}",
+                "isPersonal": true,
+                "isReadOnly": false,
+                "accountCapabilities": {{}}
+            }}"#
+        );
+        let account: AccountInfo =
+            serde_json::from_str(&raw).expect("AccountInfo must deserialize");
+        // Sanity-check that the canary really did populate `name`.
+        assert_eq!(account.name, CANARY_NAME);
+
+        let dbg = format!("{account:?}");
+        assert!(
+            !dbg.contains(CANARY_NAME),
+            "AccountInfo Debug must not contain the raw name; got: {dbg}"
         );
     }
 }
