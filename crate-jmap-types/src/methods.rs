@@ -53,6 +53,12 @@ pub struct GetResponse<T> {
     /// Ids that were requested but not found. `null` on the wire is treated
     /// as an empty list per RFC 8620 §5.1.
     pub not_found: Option<Vec<Id>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -108,6 +114,12 @@ pub struct ChangesResponse {
     /// methods the field is absent on the wire and `None` here.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub updated_properties: Option<Vec<String>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +279,12 @@ pub struct SetResponse<T = serde_json::Value> {
     pub not_updated: Option<HashMap<Id, SetError>>,
     /// Failed destroys, keyed by record id.
     pub not_destroyed: Option<HashMap<Id, SetError>>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -300,6 +318,12 @@ pub struct QueryResponse {
     pub total: Option<u64>,
     /// Server's max page size; `None` when not advertised.
     pub limit: Option<u64>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -318,6 +342,12 @@ pub struct AddedItem {
     pub id: Id,
     /// Zero-based position of the new item in the post-change result set.
     pub index: u64,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// RFC 8620 §5.6 — `Foo/queryChanges` response shape.
@@ -342,6 +372,12 @@ pub struct QueryChangesResponse {
     pub removed: Vec<Id>,
     /// Items added to the result set, with their new positions.
     pub added: Vec<AddedItem>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 #[cfg(test)]
@@ -503,6 +539,7 @@ mod tests {
             updated: vec![],
             destroyed: vec![],
             updated_properties: None,
+            extra: serde_json::Map::new(),
         };
         let serialized = serde_json::to_value(&resp).expect("must serialize");
         assert!(
@@ -730,5 +767,171 @@ mod tests {
         assert_eq!(item.id.as_ref(), "foo");
         assert_eq!(item.index, 7);
         assert_eq!(serde_json::to_value(&item).unwrap(), raw);
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.1) ───────────────────
+    //
+    // One round-trip preservation test per migrated type. Each test
+    // asserts that an unknown vendor / site / private-extension field
+    // survives deserialize/serialize unchanged. Per workspace
+    // AGENTS.md "Extras-preservation policy for vendor/site fields".
+
+    /// `GetResponse.extra` captures vendor fields and preserves them on
+    /// re-serialize.
+    #[test]
+    fn get_response_preserves_vendor_extras() {
+        let raw = json!({
+            "accountId": "A1",
+            "state": "s1",
+            "list": [],
+            "notFound": null,
+            "acmeCorpAuditTrail": {"sequence": 42}
+        });
+        let resp = GetResponse::<serde_json::Value>::deserialize(&raw).unwrap();
+        assert_eq!(
+            resp.extra
+                .get("acmeCorpAuditTrail")
+                .and_then(|v| v["sequence"].as_u64()),
+            Some(42),
+            "vendor field must land in extra: {:?}",
+            resp.extra
+        );
+        let back = serde_json::to_value(&resp).unwrap();
+        assert_eq!(
+            back["acmeCorpAuditTrail"]["sequence"], 42,
+            "vendor field must survive serialize: {back}"
+        );
+    }
+
+    /// `ChangesResponse.extra` captures vendor fields and preserves them.
+    #[test]
+    fn changes_response_preserves_vendor_extras() {
+        let raw = json!({
+            "accountId": "A1",
+            "oldState": "s0",
+            "newState": "s1",
+            "hasMoreChanges": false,
+            "created": [],
+            "updated": [],
+            "destroyed": [],
+            "acmeCorpReplayToken": "rt-99"
+        });
+        let resp: ChangesResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            resp.extra
+                .get("acmeCorpReplayToken")
+                .and_then(|v| v.as_str()),
+            Some("rt-99")
+        );
+        let back = serde_json::to_value(&resp).unwrap();
+        assert_eq!(back["acmeCorpReplayToken"], "rt-99");
+    }
+
+    /// `SetResponse.extra` captures vendor fields and preserves them.
+    #[test]
+    fn set_response_preserves_vendor_extras() {
+        let raw = json!({
+            "accountId": "A1",
+            "oldState": "s1",
+            "newState": "s2",
+            "acmeCorpTransactionId": "txn-abc"
+        });
+        let resp: SetResponse<serde_json::Value> = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            resp.extra
+                .get("acmeCorpTransactionId")
+                .and_then(|v| v.as_str()),
+            Some("txn-abc")
+        );
+        let back = serde_json::to_value(&resp).unwrap();
+        assert_eq!(back["acmeCorpTransactionId"], "txn-abc");
+    }
+
+    /// `QueryResponse.extra` captures vendor fields and preserves them.
+    #[test]
+    fn query_response_preserves_vendor_extras() {
+        let raw = json!({
+            "accountId": "A1",
+            "queryState": "qs1",
+            "canCalculateChanges": false,
+            "position": 0,
+            "ids": [],
+            "total": null,
+            "limit": null,
+            "acmeCorpSearchTimingMs": 17
+        });
+        let resp: QueryResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            resp.extra
+                .get("acmeCorpSearchTimingMs")
+                .and_then(|v| v.as_u64()),
+            Some(17)
+        );
+        let back = serde_json::to_value(&resp).unwrap();
+        assert_eq!(back["acmeCorpSearchTimingMs"], 17);
+    }
+
+    /// `QueryChangesResponse.extra` captures vendor fields and preserves them.
+    #[test]
+    fn query_changes_response_preserves_vendor_extras() {
+        let raw = json!({
+            "accountId": "A1",
+            "oldQueryState": "qs0",
+            "newQueryState": "qs1",
+            "total": null,
+            "removed": [],
+            "added": [],
+            "acmeCorpDeltaToken": "dt-2"
+        });
+        let resp: QueryChangesResponse = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            resp.extra
+                .get("acmeCorpDeltaToken")
+                .and_then(|v| v.as_str()),
+            Some("dt-2")
+        );
+        let back = serde_json::to_value(&resp).unwrap();
+        assert_eq!(back["acmeCorpDeltaToken"], "dt-2");
+    }
+
+    /// `AddedItem.extra` captures vendor fields and preserves them.
+    #[test]
+    fn added_item_preserves_vendor_extras() {
+        let raw = json!({
+            "id": "x",
+            "index": 0,
+            "acmeCorpHighlight": true
+        });
+        let item = AddedItem::deserialize(&raw).unwrap();
+        assert_eq!(
+            item.extra
+                .get("acmeCorpHighlight")
+                .and_then(|v| v.as_bool()),
+            Some(true)
+        );
+        let back = serde_json::to_value(&item).unwrap();
+        assert_eq!(back["acmeCorpHighlight"], true);
+    }
+
+    /// Empty extras must NOT serialize as a key on the wire — the
+    /// `skip_serializing_if = "serde_json::Map::is_empty"` attribute keeps
+    /// the wire shape byte-identical to the pre-migration form when no
+    /// vendor fields are present.
+    #[test]
+    fn empty_extras_omitted_from_wire() {
+        let resp = AddedItem {
+            id: Id::from("z"),
+            index: 1,
+            extra: serde_json::Map::new(),
+        };
+        let serialized = serde_json::to_value(&resp).expect("must serialize");
+        let obj = serialized.as_object().expect("must be object");
+        assert_eq!(
+            obj.len(),
+            2,
+            "empty extras must not add any wire keys; got {serialized}"
+        );
+        assert!(obj.contains_key("id"));
+        assert!(obj.contains_key("index"));
     }
 }
