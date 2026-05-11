@@ -307,6 +307,12 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
 /// Uses [`DEFAULT_WS_MAX_MESSAGE_BYTES`] as the per-message / per-frame cap.
 /// Callers that need a different cap should use [`connect_ws_with_limit`] or
 /// [`crate::JmapClient::connect_ws_session`] (which reads `ClientConfig::max_ws_message`).
+///
+/// # Security
+///
+/// The `auth_header` value is a credential and must not be logged or
+/// echoed back to other systems. Treat it with the same care as a
+/// [`crate::auth::BearerAuth`] token.
 pub async fn connect_ws(
     ws_url: &str,
     auth_header: Option<(&str, &str)>,
@@ -326,6 +332,15 @@ pub async fn connect_ws(
 /// `max_message_bytes` MUST be > 0; tungstenite treats `Some(0)` as
 /// "no message of any size is acceptable" which is a misconfiguration trap.
 /// We surface `ClientError::InvalidArgument` instead.
+///
+/// # Security
+///
+/// The `auth_header` value is a credential and must not be logged or
+/// echoed back to other systems. Treat it with the same care as a
+/// [`crate::auth::BearerAuth`] token. The `ClientError::InvalidArgument`
+/// values produced for malformed auth header names or values are
+/// constructed without the original bytes, but callers should still
+/// avoid printing or storing the `auth_header` they passed in.
 pub async fn connect_ws_with_limit(
     ws_url: &str,
     auth_header: Option<(&str, &str)>,
@@ -357,8 +372,15 @@ pub async fn connect_ws_with_limit(
         .map_err(crate::error::ClientError::from_ws)?;
 
     if let Some((name, value)) = auth_header {
-        let hdr_name = http::HeaderName::from_str(name).map_err(|e| {
-            crate::error::ClientError::InvalidArgument(format!("invalid auth header name: {e}"))
+        // Both arms construct ClientError::InvalidArgument with a fixed
+        // string and deliberately discard the http-crate's Display output
+        // for the inner error. The original `name` / `value` bytes are
+        // credential-adjacent (the name component is less sensitive than
+        // the value, but a future http-crate version could begin echoing
+        // bytes in its Display impl). Defense-in-depth: keep neither in
+        // the error chain.
+        let hdr_name = http::HeaderName::from_str(name).map_err(|_| {
+            crate::error::ClientError::InvalidArgument("invalid auth header name".to_owned())
         })?;
         let hdr_value = http::HeaderValue::from_str(value).map_err(|_| {
             crate::error::ClientError::InvalidArgument("invalid auth header value".to_owned())
