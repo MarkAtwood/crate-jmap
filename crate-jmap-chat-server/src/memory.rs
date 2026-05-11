@@ -664,13 +664,11 @@ impl ChatBackend for MemoryBackend {
     /// - `Message`: one `destroyed` entry listing every Message
     ///   cascade-destroyed by `RemoveChannel`.
     ///
-    /// NOTE: the pre-existing Category cascade (`apply_category_op` →
-    /// `set_channel_category`) mutates `Chat.categoryId` in place without
-    /// emitting a `Chat/changes` entry. That gap pre-dates this method
-    /// and is tracked separately (see bd:JMAP-g7wu.2.4.4 follow-up bead).
-    /// Channel-variant ops implemented here DO emit proper Chat
-    /// change-log entries for the Chat records they create, update,
-    /// or destroy.
+    /// Category-cascade Chat mutations (`apply_category_op` →
+    /// `set_channel_category`) and the Channel variants both populate
+    /// the per-type tracking sets, so a `Chat/changes` subscriber sees
+    /// the cascade regardless of which Space/set patch key triggered
+    /// it (bd:JMAP-g7wu.2.4.9 closed the original gap).
     async fn apply_space_patch(
         &self,
         _caller: &(),
@@ -707,6 +705,7 @@ impl ChatBackend for MemoryBackend {
                         account_id.as_ref(),
                         space_id,
                         op,
+                        &mut chats_updated,
                         &mut space_mutated,
                     ),
                     SpacePatchOp::AddChannel(_) => apply_add_channel(
@@ -815,7 +814,10 @@ impl ChatBackend for MemoryBackend {
 ///
 /// All cross-reference updates use the same in-memory Chat store so the
 /// Space-side `categories[].channel_ids` and the Chat-side `categoryId`
-/// stay consistent.
+/// stay consistent. Every channel whose `categoryId` changes here is
+/// also pushed into the caller's `chats_updated` set so the post-loop
+/// bookkeeping in `apply_space_patch` emits a `Chat/changes` entry for
+/// the cascade (bd:JMAP-g7wu.2.4.9).
 ///
 /// The `SetError` `Err` variant is large; we tolerate this here because
 /// `SetError` is the workspace-canonical per-op result shape (matches the
@@ -827,6 +829,7 @@ fn apply_category_op(
     account_id: &str,
     space_id: &Id,
     op: SpacePatchOp,
+    chats_updated: &mut HashSet<Id>,
     space_mutated: &mut bool,
 ) -> Result<Option<Id>, SetError> {
     use jmap_chat_types::space::Category;
@@ -880,10 +883,13 @@ fn apply_category_op(
                 .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
 
             // Set each named channel's category_id and pull it out of
-            // uncategorized_channel_ids if present.
+            // uncategorized_channel_ids if present. Every channel whose
+            // categoryId changes is recorded so Chat/changes sees the
+            // cascade (bd:JMAP-g7wu.2.4.9).
             let owned_channel_ids: Vec<Id> = cat.channel_ids.clone();
             for ch_id in &owned_channel_ids {
                 set_channel_category(inner, account_id, ch_id, Some(&new_id));
+                chats_updated.insert(ch_id.clone());
             }
             if let Some(unc) = space_val
                 .get_mut("uncategorizedChannelIds")
@@ -958,8 +964,11 @@ fn apply_category_op(
                 .insert(space_id.clone(), space_val);
 
             // Clear each scanned channel's category_id pointer.
+            // Every cleared channel is recorded so Chat/changes sees
+            // the cascade (bd:JMAP-g7wu.2.4.9).
             for ch_id in &scanned {
                 set_channel_category(inner, account_id, ch_id, None);
+                chats_updated.insert(ch_id.clone());
             }
             *space_mutated = true;
             None
@@ -1054,12 +1063,16 @@ fn apply_category_op(
                     .objects_mut("Space", account_id)
                     .insert(space_id.clone(), space_val);
 
-                // Update each channel's category_id.
+                // Update each channel's category_id. Every channel
+                // whose categoryId changed is recorded so Chat/changes
+                // sees the cascade (bd:JMAP-g7wu.2.4.9).
                 for ch_id in &removed {
                     set_channel_category(inner, account_id, ch_id, None);
+                    chats_updated.insert((*ch_id).clone());
                 }
                 for ch_id in &added {
                     set_channel_category(inner, account_id, ch_id, Some(&id));
+                    chats_updated.insert((*ch_id).clone());
                 }
             } else {
                 // Only metadata changed; write back the category.
