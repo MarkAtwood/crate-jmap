@@ -744,6 +744,7 @@ dependencies = [
 name = "jmap-calendars-types"
 version = "0.1.1"
 dependencies = [
+ "jmap-jscalendar-types",
  "jmap-types",
  "serde",
  "serde_json",

@@ -19,10 +19,17 @@
 //! |---|---|
 //! | [`calendar`] | [`Calendar`], [`CalendarRights`], [`IncludeInAvailability`], [`CalendarFilterCondition`] |
 //! | [`event`] | [`CalendarEvent`], [`CalendarEventFilterCondition`], [`CalendarEventComparator`] |
-//! | [`jscalendar`] | JSCalendar sub-object types: [`RecurrenceRule`], [`NDay`], [`Location`], [`VirtualLocation`], [`Link`], [`Participant`], [`Alert`], [`AlertTrigger`], [`OffsetTrigger`], [`AbsoluteTrigger`], [`Relation`], [`LocalDateTime`], [`Duration`], [`SignedDuration`] |
+//! | [`jscalendar`] | Module alias re-exporting `jmap-jscalendar-types`: [`RecurrenceRule`], [`NDay`], [`Location`], [`VirtualLocation`], [`Link`], [`Participant`], [`Alert`], [`AlertTrigger`], [`OffsetTrigger`], [`AbsoluteTrigger`], [`Relation`], [`LocalDateTime`], [`Duration`], [`SignedDuration`] |
 //! | [`notification`] | [`CalendarEventNotification`], [`Person`], [`NotificationType`], [`NotificationFilterCondition`] |
 //! | [`participant_identity`] | [`ParticipantIdentity`] |
 //! | [`capability`] | [`CalendarsCapability`], [`CalendarsAccountCapability`], URI constants |
+//!
+//! The JSCalendar sub-object types (RFC 8984) live in the dedicated
+//! `jmap-jscalendar-types` crate so `jmap-tasks-types` can also consume
+//! them without depending on this crate. They are re-exported here both
+//! at the crate root (top-level names like `Location`, `Participant`,
+//! `Alert`) and via the `jscalendar` module alias for backwards
+//! compatibility with any consumer that imported via the nested path.
 
 #![forbid(unsafe_code)]
 
@@ -31,9 +38,17 @@ pub mod backend;
 pub mod calendar;
 pub mod capability;
 pub mod event;
-pub mod jscalendar;
 pub mod notification;
 pub mod participant_identity;
+
+/// Module alias re-exporting [`jmap_jscalendar_types`].
+///
+/// Preserved for backwards compatibility with consumers that imported
+/// JSCalendar types via the nested path `jmap_calendars_types::jscalendar::*`
+/// before the types were moved into their own crate. New code should prefer
+/// the top-level re-exports (`jmap_calendars_types::Location`, etc.) or the
+/// direct path `jmap_jscalendar_types::Location`.
+pub use jmap_jscalendar_types as jscalendar;
 
 // ── Top-level re-exports ──────────────────────────────────────────────────────
 
@@ -46,7 +61,7 @@ pub use capability::{
     JMAP_PRINCIPALS_AVAILABILITY_URI,
 };
 pub use event::{CalendarEvent, CalendarEventComparator, CalendarEventFilterCondition};
-pub use jscalendar::{
+pub use jmap_jscalendar_types::{
     AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay,
     OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, VirtualLocation,
 };

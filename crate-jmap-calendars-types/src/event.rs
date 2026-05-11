@@ -22,8 +22,9 @@ use serde::{Deserialize, Serialize};
 /// `participants`, `alerts`, `recurrenceRules`, etc.) are represented as
 /// `Option<serde_json::Value>`.  This avoids an exhaustive typed representation
 /// while preserving full round-trip fidelity.  Consumers that need to
-/// manipulate these fields should parse the `Value` using the concrete types in
-/// [`crate::jscalendar`].
+/// manipulate these fields should parse the `Value` using the concrete types
+/// re-exported at this crate's root (e.g. [`crate::Location`], [`crate::Participant`],
+/// [`crate::Alert`]) — defined in the `jmap-jscalendar-types` crate.
 ///
 /// ## PatchObject envelopes
 ///
