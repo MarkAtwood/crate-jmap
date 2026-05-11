@@ -210,13 +210,11 @@ impl super::SessionClient {
 // they hand-built args and fed them to build_request, never exercising
 // the production calendar_event_notification_set builder. Deleted in
 // JMAP-231o.8. The destroy-only enforcement (no create/update keys)
-// and the destroy IDs passthrough need wiremock smoke tests; tracked
-// under JMAP-231o.8.1.
+// and the destroy IDs passthrough are now covered by
+// calendar_event_notification_set_destroy_only_with_ids and
+// calendar_event_notification_set_destroy_none_sends_empty_array
+// in tests/event_notification_smoke_tests.rs (JMAP-uuoi.1).
 //
 // The end-to-end InvalidArgument guard for empty `ids` slice elements
 // lives in tests/calendar_smoke_tests.rs as a wiremock-backed test
 // (calendar_event_notification_get_empty_id_returns_invalid_argument).
-//
-// The InvalidArgument guard for empty since_state in
-// calendar_event_notification_changes is also exercised end-to-end via
-// wiremock; see JMAP-sc1b.64.

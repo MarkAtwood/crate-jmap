@@ -59,6 +59,7 @@ impl super::SessionClient {
 //
 // Real production-path coverage:
 //   - calendar_event_copy_empty_creation_id_returns_invalid_argument
-//   - calendar_event_copy_empty_from_account_returns_invalid_argument
-// Both in tests/calendar_smoke_tests.rs. End-to-end success-path
-// coverage for calendar_event_copy still needed; tracked under JMAP-231o.8.1.
+//     (guard, tests/calendar_smoke_tests.rs)
+//   - calendar_event_copy_success_passthrough
+//     (cross-account success path, tests/event_smoke_tests.rs)
+// Added under JMAP-uuoi.1.

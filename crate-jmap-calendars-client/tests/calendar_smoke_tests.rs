@@ -257,3 +257,204 @@ async fn calendar_event_copy_empty_creation_id_returns_invalid_argument() {
 // test above is preserved because creation-reference keys in the `create`
 // map remain `String`, not `Id` — the empty-key guard is still
 // meaningful and still has a real test path.
+
+// ---------------------------------------------------------------------------
+// Wire-passthrough smoke tests (JMAP-uuoi.1)
+// ---------------------------------------------------------------------------
+//
+// The tests below assert on the captured request body to verify that
+// production calendar_set / calendar_changes builders thread caller
+// arguments to the wire correctly.
+
+/// Oracle: draft-ietf-jmap-calendars-26 §4.4 — `onDestroyRemoveEvents`
+/// is a `Calendar/set`-specific extra argument. When `true`, destroying
+/// a calendar also destroys all its events; when `false` (the default),
+/// the server MUST reject the destroy with a `calendarHasEvent`
+/// SetError if any events remain.
+///
+/// Verifies that production `calendar_set` threads the flag to the wire
+/// verbatim.
+#[tokio::test]
+async fn calendar_set_on_destroy_remove_events_true_passthrough() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Calendar/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2",
+                "created": null,
+                "updated": null,
+                "destroyed": ["cal-doomed"],
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let destroy_ids = [Id::from("cal-doomed")];
+    let resp = sc
+        .calendar_set(None, None, Some(&destroy_ids), Some(true))
+        .await
+        .expect("calendar_set: must succeed");
+    assert_eq!(
+        resp.destroyed.as_deref(),
+        Some(&[Id::from("cal-doomed")][..]),
+        "destroyed must contain the calendar id"
+    );
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    assert_eq!(reqs.len(), 1, "must have received exactly one request");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["onDestroyRemoveEvents"],
+        json!(true),
+        "onDestroyRemoveEvents must be present and true on the wire"
+    );
+    assert_eq!(
+        args["destroy"],
+        json!(["cal-doomed"]),
+        "destroy array must thread through unchanged"
+    );
+    assert_eq!(args["accountId"], json!("A13824"), "accountId mismatch");
+    assert!(
+        args.get("create").is_none(),
+        "create must be absent when None passed"
+    );
+    assert!(
+        args.get("update").is_none(),
+        "update must be absent when None passed"
+    );
+}
+
+/// Oracle: draft-ietf-jmap-calendars-26 §4.4 + RFC 8620 §5.3 —
+/// `onDestroyRemoveEvents` MUST be absent from the wire request when the
+/// caller passes `None`. Servers default the value to `false` in that
+/// case; an explicit `false` on the wire is functionally equivalent but
+/// is a different shape, and the production code chooses to omit the
+/// field entirely to match the broader "omit-when-None" idiom.
+#[tokio::test]
+async fn calendar_set_on_destroy_remove_events_none_omits_field() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Calendar/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s1",
+                "created": null,
+                "updated": null,
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let _ = sc
+        .calendar_set(None, None, None, None)
+        .await
+        .expect("calendar_set: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert!(
+        args.get("onDestroyRemoveEvents").is_none(),
+        "onDestroyRemoveEvents must be omitted when caller passes None"
+    );
+}
+
+/// Oracle: draft-ietf-jmap-calendars-26 §4.2 / RFC 8620 §5.2 —
+/// `Calendar/changes` carries `sinceState` (the caller-supplied state
+/// token) and an optional `maxChanges`.
+///
+/// Verifies that both flow through to the wire and that the response is
+/// parsed back into a typed [`ChangesResponse`].
+#[tokio::test]
+async fn calendar_changes_since_state_and_max_changes_passthrough() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Calendar/changes",
+            {
+                "accountId": "A13824",
+                "oldState": "s10",
+                "newState": "s12",
+                "hasMoreChanges": false,
+                "created": ["cal-new"],
+                "updated": [],
+                "destroyed": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let since = jmap_types::State::from("s10");
+    let resp = sc
+        .calendar_changes(&since, Some(50))
+        .await
+        .expect("calendar_changes: must succeed");
+    assert_eq!(resp.old_state, "s10", "oldState mismatch");
+    assert_eq!(resp.new_state, "s12", "newState mismatch");
+    assert!(!resp.has_more_changes, "hasMoreChanges must be false");
+    assert_eq!(
+        resp.created,
+        vec![Id::from("cal-new")],
+        "created list mismatch"
+    );
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["sinceState"],
+        json!("s10"),
+        "sinceState must thread through verbatim"
+    );
+    assert_eq!(
+        args["maxChanges"],
+        json!(50),
+        "maxChanges must thread through verbatim"
+    );
+}
