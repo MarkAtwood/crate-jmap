@@ -273,3 +273,38 @@ serde      = { version = "1", features = ["derive"] }
 serde_json = "1"
 # No tokio, no async, no network deps
 ```
+
+## Type-design constraints
+
+### Extras-preservation policy (JMAP-lbdy)
+
+Every public `Deserialize` struct that appears on the JMAP wire carries an
+`extra` field per the workspace extras-preservation policy (see workspace
+`AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+In scope in this crate (each has a round-trip preservation test):
+
+- `ChangedBy`, `ShareNotification` (notification.rs).
+- `Principal` (principal.rs).
+
+Out of scope:
+
+- `ShareNotificationFilterCondition`, `PrincipalFilterCondition` —
+  filter algebra, per workspace policy. The existing rustdoc on each
+  already documents the exclusion and IETF-track / pre-IETF escape
+  paths.
+- `PrincipalsCapability`, `PrincipalsOwnerCapability` — capability
+  objects.
+- `PrincipalType` — string enum.
+
+### New-type rule
+
+Any new public `Deserialize` struct added to this crate that appears on
+the JMAP wire MUST include the `extra` field from day one with the
+documented serde attributes and at least one round-trip preservation
+test.

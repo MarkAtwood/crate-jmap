@@ -36,6 +36,13 @@ pub struct ChangedBy {
     ///
     /// Serializes as `null` when `None` (required-but-nullable per RFC 9670 §3).
     pub principal_id: Option<Id>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A JMAP ShareNotification object (RFC 9670 §3).
@@ -82,6 +89,13 @@ pub struct ShareNotification {
 
     /// Name of the shared object at the time of the notification.
     pub name: String,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Filter condition for `ShareNotification/query` (RFC 9670 §3.4.1).
@@ -315,5 +329,53 @@ mod tests {
             json!({}),
             "default must serialize to empty object, got: {out}"
         );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.8) ───────────────────
+
+    /// `ChangedBy.extra` captures vendor fields and preserves them.
+    #[test]
+    fn changed_by_preserves_vendor_extras() {
+        let raw = json!({
+            "name": "Alice",
+            "email": null,
+            "principalId": null,
+            "acmeCorpUserSource": "ldap"
+        });
+        let c: ChangedBy = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            c.extra.get("acmeCorpUserSource").and_then(|v| v.as_str()),
+            Some("ldap")
+        );
+        let back = serde_json::to_value(&c).unwrap();
+        assert_eq!(back["acmeCorpUserSource"], "ldap");
+    }
+
+    /// `ShareNotification.extra` captures vendor fields and preserves them.
+    #[test]
+    fn share_notification_preserves_vendor_extras() {
+        let raw = json!({
+            "id": "sn1",
+            "created": "2024-06-01T00:00:00Z",
+            "changedBy": {
+                "name": "Bob",
+                "email": null,
+                "principalId": null
+            },
+            "objectType": "Mailbox",
+            "objectAccountId": "a1",
+            "objectId": "mb1",
+            "oldRights": null,
+            "newRights": null,
+            "name": "Inbox",
+            "acmeCorpAuditTrail": "tx-42"
+        });
+        let n: ShareNotification = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            n.extra.get("acmeCorpAuditTrail").and_then(|v| v.as_str()),
+            Some("tx-42")
+        );
+        let back = serde_json::to_value(&n).unwrap();
+        assert_eq!(back["acmeCorpAuditTrail"], "tx-42");
     }
 }

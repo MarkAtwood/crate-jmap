@@ -97,6 +97,13 @@ pub struct Principal {
     ///
     /// Serializes as `null` when `None` (required-but-nullable per RFC 9670 §2).
     pub accounts: Option<HashMap<Id, Value>>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Filter condition for `Principal/query` (RFC 9670 §2.4.1).
@@ -382,5 +389,31 @@ mod tests {
             serialized.contains("future-unknown-value"),
             "round-trip must preserve unknown type string, got: {serialized}"
         );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.8) ───────────────────
+
+    /// `Principal.extra` captures vendor fields and preserves them across
+    /// deserialize/serialize round-trip.
+    #[test]
+    fn principal_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "id": "p1",
+            "type": "individual",
+            "name": "Alice",
+            "description": null,
+            "email": null,
+            "timeZone": null,
+            "capabilities": {},
+            "accounts": null,
+            "acmeCorpDepartment": "engineering"
+        });
+        let p: Principal = serde_json::from_value(raw).unwrap();
+        assert_eq!(
+            p.extra.get("acmeCorpDepartment").and_then(|v| v.as_str()),
+            Some("engineering")
+        );
+        let back = serde_json::to_value(&p).unwrap();
+        assert_eq!(back["acmeCorpDepartment"], "engineering");
     }
 }
