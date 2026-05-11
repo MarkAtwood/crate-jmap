@@ -836,6 +836,7 @@ dependencies = [
 name = "jmap-filenode-server"
 version = "0.1.1"
 dependencies = [
+ "jmap-filenode-server",
  "jmap-filenode-types",
  "jmap-server",
  "jmap-types",

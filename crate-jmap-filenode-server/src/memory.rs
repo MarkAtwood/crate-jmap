@@ -1,0 +1,725 @@
+//! In-memory reference implementation of [`FileNodeBackend`].
+//!
+//! # This is a reference implementation, not production
+//!
+//! `MemoryBackend` is intended for three audiences:
+//!
+//! 1. **Workspace integration tests** — every `tests/*.rs` integration test
+//!    in this crate exercises method handlers against this backend.
+//! 2. **Downstream contributors** — a documented, complete, source-readable
+//!    implementation of the [`FileNodeBackend`] trait to study when writing
+//!    a real (database-backed) backend.
+//! 3. **Examples and smoke tests** — boot a real JMAP-for-FileNode dispatcher
+//!    with one line of code, without standing up a database.
+//!
+//! It is **not** suitable for production: all state is held in `HashMap`s
+//! behind a `std::sync::Mutex`, persistence is not implemented, and a number
+//! of draft-ietf-jmap-filenode edge cases are simplified (see source comments).
+//!
+//! # Feature flag and API stability
+//!
+//! This module is gated behind `feature = "memory"` and is **not** enabled
+//! by default. Its public API stability is opt-in: it may break across
+//! minor versions while the crate is pre-1.0.
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use std::sync::Arc;
+//! use jmap_filenode_server::{memory::MemoryBackend, register_filenode_handlers};
+//! use jmap_server::Dispatcher;
+//!
+//! let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+//! register_filenode_handlers(&mut dispatcher, Arc::new(MemoryBackend::new()));
+//! ```
+//!
+//! # Concurrency
+//!
+//! `std::sync::Mutex` is used for simplicity. The `await_holding_lock`
+//! clippy lint is enabled module-wide and enforces that no lock guard
+//! is held across an `.await`. If a future change requires holding a
+//! guard across `.await`, switch to `tokio::sync::Mutex` rather than
+//! disabling the lint.
+//!
+//! # Tracking
+//!
+//! Promoted from `tests/common/mod.rs` per Beads issue JMAP-hwdv (epic)
+//! and JMAP-hwdv.4 (this crate, mirror of canonical JMAP-hwdv.1 in
+//! jmap-mail-server).
+
+#![allow(async_fn_in_trait)]
+#![deny(clippy::await_holding_lock)]
+
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
+
+use crate::{
+    BackendChangesError, BackendSetError, ChangesResult, FileNodeBackend, GetObject, JmapBackend,
+    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
+};
+use jmap_filenode_types::FileNode;
+use jmap_types::{Id, State};
+
+// ---------------------------------------------------------------------------
+// Error type
+// ---------------------------------------------------------------------------
+
+/// Minimal error type for `MemoryBackend`.
+#[derive(Debug)]
+pub struct MemoryError(pub String);
+
+impl std::fmt::Display for MemoryError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "memory backend error: {}", self.0)
+    }
+}
+
+impl std::error::Error for MemoryError {}
+
+// ---------------------------------------------------------------------------
+// Change log
+// ---------------------------------------------------------------------------
+
+/// Type of a change recorded in the in-memory change log.
+#[derive(Clone, Debug)]
+pub enum ChangeType {
+    /// Object was created.
+    Created,
+    /// Object was updated.
+    Updated,
+    /// Object was destroyed.
+    Destroyed,
+}
+
+#[derive(Clone, Debug)]
+struct ChangeEntry {
+    /// State counter at the time of the change (state *after* the change).
+    state: u64,
+    change_type: ChangeType,
+    id: Id,
+}
+
+// ---------------------------------------------------------------------------
+// Per-account storage
+// ---------------------------------------------------------------------------
+
+struct AccountStore {
+    nodes: HashMap<Id, FileNode>,
+    /// Monotonically increasing state counter.  Starts at 0 (no changes yet).
+    state: u64,
+    change_log: Vec<ChangeEntry>,
+    /// Counter used to assign server IDs: "node-1", "node-2", …
+    node_counter: u64,
+}
+
+impl AccountStore {
+    fn new() -> Self {
+        Self {
+            nodes: HashMap::new(),
+            state: 0,
+            change_log: Vec::new(),
+            node_counter: 0,
+        }
+    }
+
+    fn next_node_id(&mut self) -> Id {
+        self.node_counter += 1;
+        Id::from(format!("node-{}", self.node_counter).as_str())
+    }
+
+    fn bump_state(&mut self, change_type: ChangeType, id: Id) {
+        self.state += 1;
+        self.change_log.push(ChangeEntry {
+            state: self.state,
+            change_type,
+            id,
+        });
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Shared state
+// ---------------------------------------------------------------------------
+
+struct MemoryState {
+    accounts: HashMap<String, AccountStore>,
+}
+
+impl MemoryState {
+    fn get_or_err(&self, account_id: &Id) -> Option<&AccountStore> {
+        self.accounts.get(account_id.as_ref())
+    }
+
+    fn get_mut_or_err(&mut self, account_id: &Id) -> Option<&mut AccountStore> {
+        self.accounts.get_mut(account_id.as_ref())
+    }
+}
+
+// ---------------------------------------------------------------------------
+// MemoryBackend
+// ---------------------------------------------------------------------------
+
+/// Full in-memory backend implementing all [`FileNodeBackend`] methods.
+///
+/// Cloning is cheap: the clone shares the same `Arc<Mutex<…>>`.
+#[derive(Clone)]
+pub struct MemoryBackend {
+    inner: Arc<Mutex<MemoryState>>,
+}
+
+impl Default for MemoryBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl MemoryBackend {
+    /// Create a new, empty `MemoryBackend`.
+    pub fn new() -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(MemoryState {
+                accounts: HashMap::new(),
+            })),
+        }
+    }
+
+    /// Register an account and return `self` for chaining.
+    pub fn with_account(self, account_id: &str) -> Self {
+        self.inner
+            .lock()
+            .unwrap()
+            .accounts
+            .insert(account_id.to_owned(), AccountStore::new());
+        self
+    }
+
+    /// Add a pre-existing node to an account (used to set up test fixtures).
+    ///
+    /// The state counter is NOT incremented — this is silent fixture setup.
+    pub fn seed_node(&self, account_id: &str, node: FileNode) {
+        let mut guard = self.inner.lock().unwrap();
+        if let Some(store) = guard.accounts.get_mut(account_id) {
+            store.nodes.insert(node.id.clone(), node);
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// JmapBackend impl
+// ---------------------------------------------------------------------------
+
+impl JmapBackend for MemoryBackend {
+    type Error = MemoryError;
+
+    async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+        Ok(self
+            .inner
+            .lock()
+            .unwrap()
+            .accounts
+            .contains_key(account_id.as_ref()))
+    }
+
+    async fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        _properties: Option<&[String]>,
+    ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+        // Only FileNode objects are stored.  For any other type, return empty.
+        // We detect FileNode by checking O::TYPE_NAME.
+        if O::TYPE_NAME != "FileNode" {
+            return Ok((vec![], vec![]));
+        }
+
+        let guard = self.inner.lock().unwrap();
+        let store = match guard.get_or_err(account_id) {
+            Some(s) => s,
+            None => return Ok((vec![], vec![])),
+        };
+
+        match ids {
+            None => {
+                // Return all nodes.
+                let mut nodes: Vec<O> = Vec::new();
+                for node in store.nodes.values() {
+                    let v = serde_json::to_value(node).map_err(|e| MemoryError(e.to_string()))?;
+                    let obj: O =
+                        serde_json::from_value(v).map_err(|e| MemoryError(e.to_string()))?;
+                    nodes.push(obj);
+                }
+                Ok((nodes, vec![]))
+            }
+            Some(id_slice) => {
+                let mut found: Vec<O> = Vec::new();
+                let mut not_found: Vec<Id> = Vec::new();
+                for id in id_slice {
+                    if let Some(node) = store.nodes.get(id) {
+                        let v =
+                            serde_json::to_value(node).map_err(|e| MemoryError(e.to_string()))?;
+                        let obj: O =
+                            serde_json::from_value(v).map_err(|e| MemoryError(e.to_string()))?;
+                        found.push(obj);
+                    } else {
+                        not_found.push(id.clone());
+                    }
+                }
+                Ok((found, not_found))
+            }
+        }
+    }
+
+    async fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+    ) -> Result<State, Self::Error> {
+        let guard = self.inner.lock().unwrap();
+        let store = match guard.get_or_err(account_id) {
+            Some(s) => s,
+            None => return Ok(State::from("0")),
+        };
+        Ok(State::from(format!("{}", store.state).as_str()))
+    }
+
+    async fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        let since: u64 = since_state.as_ref().parse().unwrap_or(0);
+
+        let guard = self.inner.lock().unwrap();
+        let store = match guard.get_or_err(account_id) {
+            Some(s) => s,
+            None => {
+                return Ok(ChangesResult::new(
+                    vec![],
+                    vec![],
+                    vec![],
+                    false,
+                    State::from("0"),
+                ))
+            }
+        };
+
+        let current_state = State::from(format!("{}", store.state).as_str());
+
+        // Collect all changes after since_state.
+        let all: Vec<&ChangeEntry> = store
+            .change_log
+            .iter()
+            .filter(|e| e.state > since)
+            .collect();
+
+        // Apply max_changes limit.
+        let has_more_changes = if let Some(max) = max_changes {
+            all.len() as u64 > max
+        } else {
+            false
+        };
+        let entries: Vec<&ChangeEntry> = if let Some(max) = max_changes {
+            all.into_iter().take(max as usize).collect()
+        } else {
+            all
+        };
+
+        let mut created: Vec<Id> = Vec::new();
+        let mut updated: Vec<Id> = Vec::new();
+        let mut destroyed: Vec<Id> = Vec::new();
+
+        for e in entries {
+            match e.change_type {
+                ChangeType::Created => created.push(e.id.clone()),
+                ChangeType::Updated => updated.push(e.id.clone()),
+                ChangeType::Destroyed => destroyed.push(e.id.clone()),
+            }
+        }
+
+        Ok(ChangesResult::new(
+            created,
+            updated,
+            destroyed,
+            has_more_changes,
+            current_state,
+        ))
+    }
+
+    async fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        filter: Option<&O::Filter>,
+        _sort: Option<&[O::Comparator]>,
+        limit: Option<u64>,
+        _position: i64,
+    ) -> Result<QueryResult, Self::Error> {
+        let guard = self.inner.lock().unwrap();
+        let store = match guard.get_or_err(account_id) {
+            Some(s) => s,
+            None => {
+                return Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ))
+            }
+        };
+        let current_state = State::from(format!("{}", store.state).as_str());
+
+        // Parse the filter as FileNodeFilterCondition via serde round-trip.
+        // This avoids the #[non_exhaustive] restriction outside the defining crate.
+        let fc: Option<jmap_filenode_types::FileNodeFilterCondition> = if let Some(f) = filter {
+            serde_json::to_value(f)
+                .ok()
+                .and_then(|v| serde_json::from_value(v).ok())
+        } else {
+            None
+        };
+
+        let mut ids: Vec<Id> = store
+            .nodes
+            .values()
+            .filter(|node| node_matches_filter(node, fc.as_ref()))
+            .map(|node| node.id.clone())
+            .collect();
+
+        // Sort by id string for determinism in tests.
+        ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+
+        if let Some(lim) = limit {
+            ids.truncate(lim as usize);
+        }
+        let total = ids.len() as u64;
+
+        Ok(QueryResult::new(ids, 0, Some(total), current_state, false))
+    }
+
+    async fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        since_query_state: &State,
+        _filter: Option<&O::Filter>,
+        _sort: Option<&[O::Comparator]>,
+        _max_changes: Option<u64>,
+        _up_to_id: Option<&Id>,
+        _collapse_threads: bool,
+    ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        let guard = self.inner.lock().unwrap();
+        let store = match guard.get_or_err(account_id) {
+            Some(s) => s,
+            None => {
+                return Ok(QueryChangesResult::new(
+                    since_query_state.clone(),
+                    State::from("0"),
+                    Some(0),
+                    vec![],
+                    vec![],
+                ))
+            }
+        };
+        let current_state = State::from(format!("{}", store.state).as_str());
+
+        Ok(QueryChangesResult::new(
+            since_query_state.clone(),
+            current_state,
+            Some(0),
+            vec![],
+            vec![],
+        ))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// FileNodeBackend impl
+// ---------------------------------------------------------------------------
+
+impl FileNodeBackend for MemoryBackend {
+    async fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        _create_id: &str,
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        // Only FileNode is supported.
+        if O::TYPE_NAME != "FileNode" {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::InvalidProperties,
+            )));
+        }
+
+        // Serialize obj → FileNode → assign id → deserialize back to O.
+        let v = serde_json::to_value(&obj)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+
+        let mut node: FileNode = serde_json::from_value(v)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+
+        let new_id = {
+            let mut guard = self.inner.lock().unwrap();
+            let store = guard.get_mut_or_err(account_id).ok_or_else(|| {
+                BackendSetError::SetError(SetError::new(SetErrorType::InvalidProperties))
+            })?;
+            let new_id = store.next_node_id();
+            node.id = new_id.clone();
+            store.nodes.insert(new_id.clone(), node.clone());
+            store.bump_state(ChangeType::Created, new_id.clone());
+            new_id
+        };
+
+        let result_v = serde_json::to_value(&node)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let result_obj: O = serde_json::from_value(result_v)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+
+        Ok((new_id, result_obj))
+    }
+
+    async fn update_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        // Only FileNode is supported.
+        if O::TYPE_NAME != "FileNode" {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )));
+        }
+
+        // Serialize patch as a JSON Value for merge-patching.
+        //
+        // LIMITATION: Only top-level key patches are supported.  Paths using "/"
+        // syntax (e.g. "keywords/flag1") are ignored — the key is merged as-is at
+        // the top level of the serialized node.  This is sufficient for the current
+        // integration tests and simpler than a full RFC 7396 implementation.
+        let patch_val = serde_json::to_value(&patch)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+
+        let mut guard = self.inner.lock().unwrap();
+        let store = guard
+            .get_mut_or_err(account_id)
+            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+
+        let node = store
+            .nodes
+            .get(id)
+            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?
+            .clone();
+
+        // Serialize the stored node to JSON, apply the patch as a JSON merge,
+        // then deserialize back to FileNode.
+        let mut node_val = serde_json::to_value(&node)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+
+        if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
+            for (k, v) in patch_obj {
+                obj.insert(k.clone(), v.clone());
+            }
+        }
+
+        let updated_node: FileNode = serde_json::from_value(node_val)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+
+        store.nodes.insert(id.clone(), updated_node.clone());
+        store.bump_state(ChangeType::Updated, id.clone());
+
+        let result_v = serde_json::to_value(&updated_node)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let result_obj: O = serde_json::from_value(result_v)
+            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+
+        Ok(Some(result_obj))
+    }
+
+    async fn destroy_object<O: SetObject + Send + Sync>(
+        &self,
+        account_id: &Id,
+        id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        let mut guard = self.inner.lock().unwrap();
+        let store = guard
+            .get_mut_or_err(account_id)
+            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+
+        if store.nodes.remove(id).is_none() {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )));
+        }
+        store.bump_state(ChangeType::Destroyed, id.clone());
+        Ok(())
+    }
+
+    fn supports_type<O: JmapObject>(&self) -> bool {
+        true
+    }
+
+    async fn get_ancestors(
+        &self,
+        account_id: &Id,
+        ids: &[Id],
+    ) -> Result<Vec<FileNode>, Self::Error> {
+        let guard = self.inner.lock().unwrap();
+        let store = match guard.get_or_err(account_id) {
+            Some(s) => s,
+            None => return Ok(vec![]),
+        };
+
+        // Walk parent_id links upward from each id, collecting ancestors.
+        // Deduplicate by id string to avoid cycles or double-insertion.
+        let mut visited: std::collections::HashSet<String> =
+            ids.iter().map(|id| id.as_ref().to_owned()).collect();
+        let mut ancestors: Vec<FileNode> = Vec::new();
+
+        // Start from the immediate parents of the requested ids.
+        let mut frontier: Vec<Id> = ids
+            .iter()
+            .filter_map(|id| store.nodes.get(id).and_then(|n| n.parent_id.clone()))
+            .collect();
+
+        loop {
+            if frontier.is_empty() {
+                break;
+            }
+            let mut next_frontier: Vec<Id> = Vec::new();
+            for parent_id in frontier.drain(..) {
+                let key = parent_id.as_ref().to_owned();
+                if visited.contains(&key) {
+                    continue;
+                }
+                visited.insert(key);
+                if let Some(node) = store.nodes.get(&parent_id) {
+                    ancestors.push(node.clone());
+                    if let Some(ref grandparent_id) = node.parent_id {
+                        next_frontier.push(grandparent_id.clone());
+                    }
+                }
+            }
+            frontier = next_frontier;
+        }
+
+        Ok(ancestors)
+    }
+
+    async fn get_descendant_ids(&self, account_id: &Id, id: &Id) -> Result<Vec<Id>, Self::Error> {
+        let guard = self.inner.lock().unwrap();
+        let store = match guard.get_or_err(account_id) {
+            Some(s) => s,
+            None => return Ok(vec![]),
+        };
+
+        // BFS over all nodes, following nodes where parent_id == current frontier.
+        let mut result: Vec<Id> = Vec::new();
+        let mut frontier: Vec<Id> = vec![id.clone()];
+        let mut visited: std::collections::HashSet<String> =
+            std::iter::once(id.as_ref().to_owned()).collect();
+
+        loop {
+            if frontier.is_empty() {
+                break;
+            }
+            let mut next_frontier: Vec<Id> = Vec::new();
+            for current_id in &frontier {
+                for node in store.nodes.values() {
+                    if node.parent_id.as_ref() == Some(current_id) {
+                        let child_key = node.id.as_ref().to_owned();
+                        if visited.insert(child_key) {
+                            result.push(node.id.clone());
+                            next_frontier.push(node.id.clone());
+                        }
+                    }
+                }
+            }
+            frontier = next_frontier;
+        }
+
+        Ok(result)
+    }
+
+    async fn blob_exists(&self, _account_id: &Id, _blob_id: &Id) -> bool {
+        // In the test environment, all blobs are assumed to exist.
+        true
+    }
+
+    async fn find_sibling_by_name(
+        &self,
+        account_id: &Id,
+        parent_id: Option<&Id>,
+        name: &str,
+        case_insensitive: bool,
+    ) -> Result<Option<Id>, Self::Error> {
+        let guard = self.inner.lock().unwrap();
+        let store = match guard.get_or_err(account_id) {
+            Some(s) => s,
+            None => return Ok(None),
+        };
+
+        let search_name = if case_insensitive {
+            name.to_lowercase()
+        } else {
+            name.to_owned()
+        };
+
+        for node in store.nodes.values() {
+            // Check parent_id matches.
+            let parent_matches = match (parent_id, &node.parent_id) {
+                (None, None) => true,
+                (Some(pid), Some(nid)) => pid == nid,
+                _ => false,
+            };
+            if !parent_matches {
+                continue;
+            }
+            // Check name matches.
+            let node_name = if case_insensitive {
+                node.name.to_lowercase()
+            } else {
+                node.name.clone()
+            };
+            if node_name == search_name {
+                return Ok(Some(node.id.clone()));
+            }
+        }
+
+        Ok(None)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Filter matching helper
+// ---------------------------------------------------------------------------
+
+/// Returns true if `node` satisfies the filter condition `fc`.
+///
+/// Only the filters used by integration tests are implemented:
+/// - `parentId` — exact match
+/// - `isTopLevel` — parentId is null
+///
+/// All other fields are ignored (pass-through — node still matches).
+fn node_matches_filter(
+    node: &FileNode,
+    fc: Option<&jmap_filenode_types::FileNodeFilterCondition>,
+) -> bool {
+    let fc = match fc {
+        Some(f) => f,
+        None => return true, // No filter — all nodes match.
+    };
+
+    if let Some(ref pid) = fc.parent_id {
+        if node.parent_id.as_ref() != Some(pid) {
+            return false;
+        }
+    }
+
+    if let Some(is_top) = fc.is_top_level {
+        let top = node.parent_id.is_none();
+        if top != is_top {
+            return false;
+        }
+    }
+
+    true
+}
