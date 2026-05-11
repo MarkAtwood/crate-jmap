@@ -1,9 +1,9 @@
-// Typed JMAP Contacts method wrappers — response types, SessionClient,
-// constants, and helpers.
-//
-// Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
-// §5.2 /changes, §5.3 /set, §5.4 /copy, §5.6 /queryChanges). Method
-// implementations live in sub-modules and operate on `SessionClient`.
+//! Typed JMAP Contacts method wrappers — response types, SessionClient,
+//! constants, and helpers.
+//!
+//! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
+//! §5.2 /changes, §5.3 /set, §5.4 /copy, §5.6 /queryChanges). Method
+//! implementations live in sub-modules and operate on `SessionClient`.
 
 pub mod addressbook;
 pub mod card;

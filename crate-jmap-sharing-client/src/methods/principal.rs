@@ -1,12 +1,12 @@
-// JMAP Sharing — Principal/* method implementations on SessionClient.
-//
-// Each method follows the standard five-step pattern:
-//   1. Validate arguments (defence-in-depth empty-state guards).
-//   2. Call `self.session_parts()?` → `(api_url, account_id)`.
-//   3. Build args JSON with `serde_json::json!({…})`.
-//   4. Call `build_request(method_name, args, USING_SHARING)`.
-//   5. Call `self.call_internal(api_url, &req).await?`.
-//   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
+//! JMAP Sharing — Principal/* method implementations on SessionClient.
+//!
+//! Each method follows the standard five-step pattern:
+//!   1. Validate arguments (defence-in-depth empty-state guards).
+//!   2. Call `self.session_parts()?` → `(api_url, account_id)`.
+//!   3. Build args JSON with `serde_json::json!({…})`.
+//!   4. Call `build_request(method_name, args, USING_SHARING)`.
+//!   5. Call `self.call_internal(api_url, &req).await?`.
+//!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
 use std::collections::HashMap;
 

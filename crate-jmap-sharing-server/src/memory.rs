@@ -145,6 +145,8 @@ pub struct MemoryBackend {
 }
 
 impl MemoryBackend {
+    /// Construct an empty [`MemoryBackend`] with no accounts or stored
+    /// objects. Equivalent to [`Self::default`].
     pub fn new() -> Self {
         Self::default()
     }

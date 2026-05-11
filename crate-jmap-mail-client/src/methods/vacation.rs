@@ -1,18 +1,18 @@
-// JMAP Mail — VacationResponse/get and VacationResponse/set implementations
-// on SessionClient.
-//
-// VacationResponse is a singleton object per account (RFC 8621 §8). Its `id`
-// is always `"singleton"`. `VacationResponse/get` ignores the `ids` argument
-// and always returns the single object; `VacationResponse/set` does not
-// support `create` or `destroy` — only `update`.
-//
-// Each method follows the standard five-step pattern:
-//   1. Validate arguments (empty-string guards).
-//   2. Call `self.session_parts()?` → `(api_url, account_id)`.
-//   3. Build args JSON with `serde_json::json!({…})`.
-//   4. Call `build_request(method_name, args, USING_MAIL)`.
-//   5. Call `self.call_internal(api_url, &req).await?`.
-//   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
+//! JMAP Mail — VacationResponse/get and VacationResponse/set implementations
+//! on SessionClient.
+//!
+//! VacationResponse is a singleton object per account (RFC 8621 §8). Its `id`
+//! is always `"singleton"`. `VacationResponse/get` ignores the `ids` argument
+//! and always returns the single object; `VacationResponse/set` does not
+//! support `create` or `destroy` — only `update`.
+//!
+//! Each method follows the standard five-step pattern:
+//!   1. Validate arguments (empty-string guards).
+//!   2. Call `self.session_parts()?` → `(api_url, account_id)`.
+//!   3. Build args JSON with `serde_json::json!({…})`.
+//!   4. Call `build_request(method_name, args, USING_MAIL)`.
+//!   5. Call `self.call_internal(api_url, &req).await?`.
+//!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
 use std::collections::HashMap;
 

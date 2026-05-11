@@ -1,8 +1,8 @@
-// JMAP Tasks — TaskNotification/* method implementations on SessionClient.
-//
-// TaskNotification/set is destroy-only. Any create or update entries from
-// the client would be rejected by the server with `forbidden`, but we
-// expose a typed API that only allows destroy to avoid client-side confusion.
+//! JMAP Tasks — TaskNotification/* method implementations on SessionClient.
+//!
+//! TaskNotification/set is destroy-only. Any create or update entries from
+//! the client would be rejected by the server with `forbidden`, but we
+//! expose a typed API that only allows destroy to avoid client-side confusion.
 
 use jmap_types::{Id, State};
 

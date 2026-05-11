@@ -1,4 +1,4 @@
-// JMAP Tasks — Task/* method implementations on SessionClient.
+//! JMAP Tasks — Task/* method implementations on SessionClient.
 
 use std::collections::HashMap;
 

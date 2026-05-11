@@ -328,7 +328,13 @@ pub enum BackendChangesError<E> {
     ///   Partial recovery is not permitted — the server has no usable
     ///   change log for this state window. (Source: RFC 8620 §5.6; authoritative
     ///   behavior documented in jmapio/jmap-js `mail-model.js`.)
-    TooManyChanges { limit: u64 },
+    TooManyChanges {
+        /// Maximum window size the server can supply in a single
+        /// `/changes` response. A value of `0` signals a full state
+        /// reset is required per RFC 8620 §5.6; any non-zero value is
+        /// the suggested maximum the client may retry with.
+        limit: u64,
+    },
     /// An unexpected storage-layer error.
     Other(E),
 }

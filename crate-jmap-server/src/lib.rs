@@ -291,7 +291,11 @@ pub type BackendCallFn<B, C> =
 /// dispatcher.register("MyMethod/get", handler);
 /// ```
 pub struct ClosureHandler<B: Send + Sync + 'static, C: Clone + Send + 'static> {
+    /// Shared reference to the backend implementation, passed to the closure
+    /// on every method call.
     pub backend: Arc<B>,
+    /// The async closure invoked for each JMAP method call this handler
+    /// receives from the dispatcher.
     pub call_fn: Box<BackendCallFn<B, C>>,
 }
 
