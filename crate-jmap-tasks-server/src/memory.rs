@@ -716,6 +716,21 @@ impl TasksBackend for MemoryBackend {
 
 /// Apply a JSON Merge Patch to `target` in-place.
 fn json_merge_patch(target: &mut serde_json::Value, patch: serde_json::Value) {
+    json_merge_patch_inner(target, patch, 0);
+}
+
+/// Maximum recursion depth for JSON Merge Patch application.
+///
+/// Beyond this depth the patch is silently ignored at the affected sub-tree:
+/// the target value at that level is left unchanged. Mitigates stack DoS
+/// from adversarial `PatchObject` values (bd:JMAP-sc1b.97). 32 levels
+/// comfortably exceeds any legitimate JMAP `/set update` shape.
+const MAX_MERGE_PATCH_DEPTH: usize = 32;
+
+fn json_merge_patch_inner(target: &mut serde_json::Value, patch: serde_json::Value, depth: usize) {
+    if depth > MAX_MERGE_PATCH_DEPTH {
+        return;
+    }
     match patch {
         serde_json::Value::Object(patch_map) => {
             let target_map = target
@@ -726,7 +741,7 @@ fn json_merge_patch(target: &mut serde_json::Value, patch: serde_json::Value) {
                     target_map.remove(&key);
                 } else {
                     let entry = target_map.entry(key).or_insert(serde_json::Value::Null);
-                    json_merge_patch(entry, patch_val);
+                    json_merge_patch_inner(entry, patch_val, depth + 1);
                 }
             }
         }

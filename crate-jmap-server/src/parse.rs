@@ -165,12 +165,40 @@ pub fn resolve_args(args: &mut Value, prior_responses: &[Invocation]) -> Result<
     Ok(())
 }
 
+/// Maximum recursion depth for JSON Pointer resolution.
+///
+/// `json_pointer_ext` walks one token of the path per recursive call. A
+/// client-supplied ResultReference path can specify arbitrary depth; without
+/// a cap, an attacker can force unbounded recursion and crash the dispatcher
+/// worker via stack overflow (bd:JMAP-sc1b.95).
+///
+/// 32 levels comfortably exceeds any legitimate JMAP ResultReference shape
+/// (the deepest standard JMAP response — `Email/get` with nested
+/// `bodyStructure` — tops out around 6 levels), while keeping per-request
+/// stack use bounded.
+const MAX_JSON_POINTER_DEPTH: usize = 32;
+
 /// Apply a path to a JSON value, supporting the RFC 8620 §3.7 `*` wildcard extension.
 ///
 /// This is RFC 6901 JSON Pointer extended with `*` as an array-map operator.
 /// When the current value is an array and the token is `*`, the remaining tokens
 /// are applied to each element; array results are flattened into the output.
+///
+/// Returns `None` if the path is malformed, the structure doesn't match, or
+/// the path exceeds [`MAX_JSON_POINTER_DEPTH`] tokens. The depth cap exists
+/// to bound stack use on adversarial input (bd:JMAP-sc1b.95).
 fn json_pointer_ext(value: &Value, path: &str) -> Option<Value> {
+    json_pointer_ext_inner(value, path, 0)
+}
+
+fn json_pointer_ext_inner(value: &Value, path: &str, depth: usize) -> Option<Value> {
+    if depth > MAX_JSON_POINTER_DEPTH {
+        // Reject deep pointers rather than walking them — the call site
+        // treats `None` as "resolution failed", which surfaces as a
+        // ResultReference error per RFC 8620 §3.7 and is the same
+        // behaviour the dispatcher already produces for any malformed path.
+        return None;
+    }
     if path.is_empty() {
         return Some(value.clone());
     }
@@ -190,7 +218,7 @@ fn json_pointer_ext(value: &Value, path: &str) -> Option<Value> {
         let arr = value.as_array()?;
         let mut result: Vec<Value> = Vec::new();
         for item in arr {
-            match json_pointer_ext(item, remaining) {
+            match json_pointer_ext_inner(item, remaining, depth + 1) {
                 Some(Value::Array(inner)) => result.extend(inner),
                 Some(other) => result.push(other),
                 None => return None, // any failure = whole resolution fails
@@ -217,7 +245,7 @@ fn json_pointer_ext(value: &Value, path: &str) -> Option<Value> {
             }
             _ => return None,
         };
-        json_pointer_ext(next, remaining)
+        json_pointer_ext_inner(next, remaining, depth + 1)
     }
 }
 
@@ -653,6 +681,55 @@ mod tests {
     fn json_pointer_ext_empty_path_returns_root() {
         let v = json!({"x": 1});
         assert_eq!(json_pointer_ext(&v, ""), Some(v.clone()));
+    }
+
+    // Oracle: bd:JMAP-sc1b.95 — a path longer than MAX_JSON_POINTER_DEPTH
+    // tokens must be rejected as `None` (resolution failure) rather than
+    // walked recursively. The depth cap is a stack-DoS mitigation; the test
+    // builds a synthetic deep object and a matching deep path to confirm
+    // the cap fires before any real-world JMAP request shape would.
+    //
+    // The test does NOT use the code under test as its own oracle: it
+    // hand-builds a 1000-deep `{ "a": { "a": ... } }` document and a
+    // matching `/a/a/a/...` path, both via tight loops in the test body.
+    // The expected outcome (`None`) is derived from the documented depth
+    // cap, not from running the function.
+    #[test]
+    fn json_pointer_ext_rejects_deep_path() {
+        const DEPTH: usize = 1000;
+        // Build a nested object 1000 levels deep.
+        let mut value = json!(42);
+        for _ in 0..DEPTH {
+            value = json!({ "a": value });
+        }
+        // Build the matching pointer: "/a" repeated DEPTH times.
+        let path: String = "/a".repeat(DEPTH);
+        assert_eq!(
+            json_pointer_ext(&value, &path),
+            None,
+            "pointer with {DEPTH} tokens must be rejected by the depth cap"
+        );
+    }
+
+    // Oracle: paths up to MAX_JSON_POINTER_DEPTH tokens still resolve. This
+    // is the positive control for the depth cap: it confirms the cap fires
+    // strictly at the boundary, not for paths legitimate JMAP integrations
+    // will produce.
+    #[test]
+    fn json_pointer_ext_accepts_path_within_depth_cap() {
+        // Build an object of exactly MAX_JSON_POINTER_DEPTH-1 levels so the
+        // resolution succeeds (depth-1 increments fit within the cap).
+        const LEN: usize = MAX_JSON_POINTER_DEPTH - 1;
+        let mut value = json!("leaf");
+        for _ in 0..LEN {
+            value = json!({ "a": value });
+        }
+        let path: String = "/a".repeat(LEN);
+        assert_eq!(
+            json_pointer_ext(&value, &path),
+            Some(json!("leaf")),
+            "pointer with {LEN} tokens must still resolve under the depth cap"
+        );
     }
 
     // -----------------------------------------------------------------------
