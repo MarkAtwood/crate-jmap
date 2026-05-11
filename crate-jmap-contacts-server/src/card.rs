@@ -55,6 +55,17 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
         ));
     };
 
+    // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
+    // error). Without this, a /set against an unknown accountId would silently
+    // "succeed" with a fake oldState/newState envelope.
+    if !backend
+        .account_exists(&account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     let old_state = backend
         .get_state::<ContactCard>(&account_id)
         .await
@@ -79,6 +90,17 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, obj_val) in create_map {
+            // RFC 8620 §5.3: "The id property MUST NOT be set in the create
+            // object" — id is server-assigned. Any present "id" key (even
+            // null) is rejected with invalidProperties:["id"]. ContactCard/copy
+            // is a separate handler and intentionally carries the source id.
+            if obj_val.get("id").is_some() {
+                not_created.insert(
+                    create_id,
+                    json!({"type": "invalidProperties", "properties": ["id"]}),
+                );
+                continue;
+            }
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.entry("id")
