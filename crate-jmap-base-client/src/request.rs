@@ -97,7 +97,7 @@ impl JmapRequestBuilder {
 /// (e.g. JMAP Chat `ownerUserId`) are surfaced by extension crates that
 /// parse the `capabilities` and `accounts` maps.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Session {
     /// Map of capability URI → capability object (RFC 8620 §2).
@@ -163,6 +163,34 @@ impl Session {
         WebSocketCapability::deserialize(raw)
             .map(Some)
             .map_err(ClientError::Parse)
+    }
+}
+
+/// Manual `Debug` impl that redacts privacy-sensitive fields (bd:JMAP-sc1b.99).
+///
+/// `Session.username` is the authenticated user's identifier — typically a
+/// full email address, which is PII under GDPR/CCPA. `Session.state` is the
+/// opaque RFC 8620 §2 session-state token; it is not an auth credential, but
+/// it uniquely identifies the client's session and is the same shape of leak
+/// as logging a session cookie. Both are replaced with `"[REDACTED]"` /
+/// `"[opaque]"` in the Debug output.
+///
+/// All other URL/map fields are surfaced — they are deployment metadata and
+/// not credential-grade. `AccountInfo.name` may still leak the owner's email
+/// transitively through the `accounts` map; that is tracked separately.
+impl std::fmt::Debug for Session {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Session")
+            .field("capabilities", &self.capabilities)
+            .field("accounts", &self.accounts)
+            .field("primary_accounts", &self.primary_accounts)
+            .field("username", &"[REDACTED]")
+            .field("api_url", &self.api_url)
+            .field("download_url", &self.download_url)
+            .field("upload_url", &self.upload_url)
+            .field("event_source_url", &self.event_source_url)
+            .field("state", &"[opaque]")
+            .finish()
     }
 }
 
@@ -563,5 +591,43 @@ mod tests {
             .expect("websocket capability must be present");
         assert_eq!(ws.url, "wss://jmap.example.com/ws");
         assert!(ws.supports_push);
+    }
+
+    /// Oracle: Session's manual Debug impl never reveals the authenticated
+    /// `username` or the opaque `state` token (bd:JMAP-sc1b.99). Mirrors the
+    /// canary tripwire pattern used by `bearer_auth_debug_does_not_leak_token`
+    /// and `basic_auth_debug_does_not_leak_credentials` in auth.rs.
+    ///
+    /// The canary literals are independent of the Session's internal state —
+    /// the test is the oracle, not the code under test. A regression that
+    /// re-derives Debug, or that prints the username/state via a manual
+    /// impl, would fail the assertion.
+    #[test]
+    fn session_debug_does_not_leak_username_or_state() {
+        const CANARY_USER: &str = "CANARY-USERNAME-DO-NOT-LEAK@example.com";
+        const CANARY_STATE: &str = "CANARY-STATE-TOKEN-DO-NOT-LEAK";
+        let raw = format!(
+            r#"{{
+                "capabilities": {{}},
+                "accounts": {{}},
+                "primaryAccounts": {{}},
+                "username": "{CANARY_USER}",
+                "apiUrl": "https://jmap.example.com/api/",
+                "downloadUrl": "https://jmap.example.com/dl/{{accountId}}/",
+                "uploadUrl": "https://jmap.example.com/ul/{{accountId}}/",
+                "eventSourceUrl": "https://jmap.example.com/sse/",
+                "state": "{CANARY_STATE}"
+            }}"#
+        );
+        let session: Session = serde_json::from_str(&raw).expect("Session must deserialize");
+        let dbg = format!("{session:?}");
+        assert!(
+            !dbg.contains(CANARY_USER),
+            "Session Debug must not contain the raw username; got: {dbg}"
+        );
+        assert!(
+            !dbg.contains(CANARY_STATE),
+            "Session Debug must not contain the raw state token; got: {dbg}"
+        );
     }
 }
