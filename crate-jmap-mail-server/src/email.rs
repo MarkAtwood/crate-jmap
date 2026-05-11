@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, MailBackend};
 use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, find_immutable_patch_key,
-    not_found_json, ser, set_error_value,
+    not_found_json, ser, set_error_value, SetAccumulators,
 };
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
@@ -1176,12 +1176,14 @@ pub async fn handle_email_set<B: MailBackend>(
         &account_id,
         old_state,
         mutated,
-        created,
-        updated,
-        destroyed_list,
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed: destroyed_list,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
     )
     .await
 }

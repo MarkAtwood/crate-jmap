@@ -9,7 +9,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, not_found_json, ser,
-    set_error_value,
+    set_error_value, SetAccumulators,
 };
 
 // ---------------------------------------------------------------------------
@@ -1132,12 +1132,14 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         &account_id,
         current_state,
         mutated,
-        created,
-        updated,
-        destroyed_list,
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed: destroyed_list,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
     )
     .await
 }

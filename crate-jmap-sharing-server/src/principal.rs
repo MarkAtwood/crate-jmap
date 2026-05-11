@@ -10,7 +10,7 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, SharingBackend};
-use crate::helpers::{extract_account_id, finalize_set_response, set_error_value};
+use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
 
 // ---------------------------------------------------------------------------
 // Principal/get
@@ -253,12 +253,14 @@ pub async fn handle_principal_set<B: SharingBackend>(
         &account_id,
         old_state,
         mutated,
-        created,
-        updated,
-        destroyed_list,
-        not_created,
-        not_updated,
-        not_destroyed,
+        SetAccumulators {
+            created,
+            updated,
+            destroyed: destroyed_list,
+            not_created,
+            not_updated,
+            not_destroyed,
+        },
     )
     .await
 }
