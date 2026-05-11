@@ -134,7 +134,7 @@ pub struct Name {
 
 /// A single component of a [`Name`] (RFC 9553 §2.2.1.2).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NameComponent {
     /// Object type discriminator; always `"NameComponent"` on the wire.
@@ -153,6 +153,13 @@ pub struct NameComponent {
     /// [`Name`] must set at least one of `phonetic_script` / `phonetic_system`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phonetic: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── Nickname (RFC 9553 §2.2.2) ────────────────────────────────────────────────
@@ -646,7 +653,7 @@ pub struct Address {
 /// `"district"`, `"locality"`, `"region"`, `"postcode"`, `"country"`,
 /// `"direction"`, `"landmark"`, `"postOfficeBox"`, `"separator"`.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressComponent {
     /// Object type discriminator; always `"AddressComponent"` on the wire.
@@ -663,6 +670,13 @@ pub struct AddressComponent {
     /// least one of `phonetic_script` / `phonetic_system`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub phonetic: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ── CryptoKey (RFC 9553 §2.6.1; extends Resource §1.4.4) ──────────────────────
@@ -869,7 +883,7 @@ pub struct Media {
 /// representing a partial date; `month` requires either `year` or `day`,
 /// and `day` requires `month`.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PartialDate {
     /// Object type discriminator; always `"PartialDate"` on the wire.
@@ -891,6 +905,13 @@ pub struct PartialDate {
     /// Calendar system (lowercase CLDR name or vendor-specific value).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub calendar_scale: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A UTC point in time (RFC 9553 §2.8.1).
@@ -898,7 +919,7 @@ pub struct PartialDate {
 /// Used by [`Anniversary`] as one of the two alternative `date` value
 /// shapes (the other being [`PartialDate`]).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Timestamp {
     /// Object type discriminator; required to be `"Timestamp"` on the
@@ -910,6 +931,13 @@ pub struct Timestamp {
 
     /// The UTC date-time.
     pub utc: String,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// The date value of an [`Anniversary`] — either a [`PartialDate`] or a
@@ -1537,16 +1565,16 @@ mod tests {
         assert_eq!(back, id);
     }
 
-    // ── Extras-preservation policy tests (JMAP-lbdy.5) ───────────────────
+    // ── Extras-preservation policy tests (JMAP-lbdy.5, JMAP-lbdy.12) ─────
     //
     // One round-trip preservation test per migrated type. Each asserts
     // that an unknown vendor / site / private-extension field survives
     // deserialize/serialize unchanged.
     //
-    // Note: four Hash-derived types (NameComponent, AddressComponent,
-    // PartialDate, Timestamp) are tracked separately under JMAP-lbdy.12
-    // pending a Hash-vs-extras tension decision; they are NOT migrated
-    // in this commit.
+    // The four formerly Hash-derived types (NameComponent,
+    // AddressComponent, PartialDate, Timestamp) had their Hash derive
+    // dropped under JMAP-lbdy.12 option A so the extras-preservation
+    // policy applies to them uniformly.
 
     /// Generic helper: assert a vendor field round-trips through the
     /// given type's `extra` field.
@@ -1766,6 +1794,44 @@ mod tests {
             json!({"relation": {"friend": true}}),
             "acmeCorpRelationStrength",
             json!("close"),
+        );
+    }
+
+    // ── JMAP-lbdy.12: formerly Hash-derived types ─────────────────────────
+
+    #[test]
+    fn name_component_preserves_vendor_extras() {
+        assert_extras_roundtrip::<NameComponent>(
+            json!({"value": "Vincent", "kind": "given"}),
+            "acmeCorpComponentSource",
+            json!("hr"),
+        );
+    }
+
+    #[test]
+    fn address_component_preserves_vendor_extras() {
+        assert_extras_roundtrip::<AddressComponent>(
+            json!({"value": "123", "kind": "number"}),
+            "acmeCorpVerified",
+            json!(true),
+        );
+    }
+
+    #[test]
+    fn partial_date_preserves_vendor_extras() {
+        assert_extras_roundtrip::<PartialDate>(
+            json!({"year": 2000, "month": 1, "day": 1}),
+            "acmeCorpDateSource",
+            json!("self-reported"),
+        );
+    }
+
+    #[test]
+    fn timestamp_preserves_vendor_extras() {
+        assert_extras_roundtrip::<Timestamp>(
+            json!({"@type": "Timestamp", "utc": "2022-05-22T03:30:00Z"}),
+            "acmeCorpTimezone",
+            json!("UTC"),
         );
     }
 }
