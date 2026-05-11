@@ -1,4 +1,4 @@
-//! Typed JMAP Chat method wrappers — response types, Patch<T>, SessionClient,
+//! Typed JMAP Chat method wrappers — response types, `Patch<T>`, SessionClient,
 //! input/patch structs, constants, and helpers.
 //!
 //! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
