@@ -250,6 +250,38 @@ src/
                     TaskNotificationQueryChangesRequest
 ```
 
+## Extras-preservation policy (JMAP-lbdy)
+
+This crate has **no in-scope structs** of its own under the workspace
+extras-preservation policy (see workspace `AGENTS.md`). The crate
+defines only `SessionClient` (internal Rust state, not wire-format).
+
+Wire-format types reach callers through re-exports rather than locally
+defined types:
+
+- Standard response wrappers (`GetResponse<T>`, `SetResponse<T>`,
+  `ChangesResponse`, `QueryResponse`, `QueryChangesResponse`) are
+  re-exported from `jmap-types` and carry their own `extra` field per
+  JMAP-lbdy.1.
+- The data object types this crate operates on (`Task`, `TaskList`,
+  task-related types) are defined in `jmap-tasks-types` and carry their
+  `extra` field per JMAP-lbdy.6.
+
+### New-type rule
+
+If a future method requires a locally-defined method-argument or
+method-response struct, that new struct MUST include the `extra` field
+from day one with the documented serde attributes:
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+and at least one round-trip preservation test. Per the canonical-template
+propagation rule (workspace AGENTS.md), the new struct should mirror the
+shape used in the canonical `jmap-mail-client` extension-client template.
+
 ## Test Strategy
 
 - All tests use `wiremock` via `jmap-base-client`'s HTTP layer — no live network

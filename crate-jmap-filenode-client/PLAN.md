@@ -252,6 +252,55 @@ src/
 Note: all six methods are in `filenode.rs` because the crate has only one object type.
 Split if the module grows unwieldy.
 
+## Extras-preservation policy (JMAP-lbdy)
+
+Every public method-argument struct defined in this crate that appears on
+the JMAP wire carries an `extra` field per the workspace extras-preservation
+policy (see workspace `AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+This preserves vendor / site / private-extension fields across
+deserialize/serialize round-trip. Wire format is byte-identical when extras
+are empty. The `default` attribute is inert for Serialize-only method-arg
+structs and active for Deserialize method-response structs; the attribute
+set is kept uniform across both directions of wire flow.
+
+In scope in this crate (each has at least one round-trip preservation
+test following the `*_propagates_vendor_extras` pattern):
+
+- Method-argument structs (Serialize-only): `FileNodeSetParams` and
+  `FileNodeCopyParams` in `src/methods/filenode.rs` (carry the
+  `FileNode/set` and `FileNode/copy` top-level arguments per
+  draft-ietf-jmap-filenode-*).
+
+The crate also re-exports standard response wrappers (`GetResponse<T>`,
+`SetResponse<T>`, `ChangesResponse`, `QueryResponse`,
+`QueryChangesResponse`) from `jmap-types`; those carry their own `extra`
+field per JMAP-lbdy.1 and are not re-documented here.
+
+Out of scope (explicitly excluded by the workspace policy):
+
+- Filter / comparator algebra types and control enums — see workspace
+  AGENTS.md "Filter algebra and control enums are explicitly EXCLUDED"
+  for the full rationale.
+- Internal Rust state types (`SessionClient`) — not wire-format.
+- `FileNodeOnExists` enum — control enum (the `onExists` collision-handling
+  policy `"replace"` / `"rename"`); out of scope per workspace policy.
+
+### New-type rule
+
+Any new public method-argument or method-response struct added to this
+crate that appears on the JMAP wire MUST include the `extra` field from
+day one with the documented serde attributes and at least one round-trip
+preservation test. Per the canonical-template propagation rule (workspace
+AGENTS.md), this crate is a sibling of the canonical `jmap-mail-client`;
+changes to the extras shape here should mirror the canonical template
+and propagate across all extension-client siblings in lock-step.
+
 ## Test Strategy
 
 - All tests use `wiremock` via `jmap-base-client`'s HTTP layer — no live network

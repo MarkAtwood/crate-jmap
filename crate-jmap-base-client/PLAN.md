@@ -98,6 +98,66 @@ src/
     mod.rs      WsSession, WsFrame
 ```
 
+## Extras-preservation policy (JMAP-lbdy)
+
+Every public method-response struct and push-notification struct defined in
+this crate that appears on the JMAP wire carries an `extra` field per the
+workspace extras-preservation policy (see workspace `AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+This preserves vendor / site / private-extension fields across
+deserialize/serialize round-trip. Wire format is byte-identical when extras
+are empty. The `default` attribute is active on the Deserialize side and
+inert on the Serialize side; the attribute set is kept uniform across both
+directions of wire flow.
+
+In scope in this crate (each has at least one round-trip preservation
+test following the `*_preserves_vendor_extras` pattern; for the
+bidirectional `StateChange`, the test covers the deserialize side):
+
+- `BlobUploadResponse` in `src/blob.rs` (Deserialize; response to the
+  RFC 8620 §6.1 blob upload endpoint).
+- `Session` and `AccountInfo` in `src/request.rs` (Deserialize; the
+  RFC 8620 §2 session document and its nested account info objects).
+- `WebSocketCapability` in `src/request.rs` (Deserialize; the RFC 8887
+  WebSocket capability object).
+- `StateChange` in `src/push.rs` (Serialize + Deserialize; the
+  RFC 8620 §7.1 push notification body).
+
+Note: `Session` and `AccountInfo` have manual `impl std::fmt::Debug`
+blocks rather than `#[derive(Debug)]`. Those impls were updated in
+JMAP-lbdy.9 to include the new `extra` field. Any further manual `Debug`
+impls added to in-scope structs in this crate MUST be extended in the
+same way so the `extra` map is visible in debug output.
+
+This is the foundation client crate; the canonical-template-sibling
+propagation rule that applies to the extension-client family (workspace
+AGENTS.md "Canonical Templates") does NOT apply here. Changes to the
+extras shape in this crate ripple through every `*-client` extension
+because they all depend on these foundation types, but there is no
+peer foundation crate to mirror against.
+
+Out of scope (explicitly excluded by the workspace policy):
+
+- Filter / comparator algebra types and control enums — see workspace
+  AGENTS.md "Filter algebra and control enums are explicitly EXCLUDED"
+  for the full rationale.
+- Internal Rust state types (`JmapClient`, `BearerAuth`, `ClientConfig`,
+  and the other auth / transport / SSE / WebSocket plumbing types) —
+  not wire-format.
+
+### New-type rule
+
+Any new public method-response or push-notification struct added to this
+crate that appears on the JMAP wire MUST include the `extra` field from
+day one with the documented serde attributes and at least one round-trip
+preservation test. Any new manual `impl std::fmt::Debug` block for an
+in-scope struct MUST include the `extra` field in its debug output.
+
 ## Test Strategy
 
 - `JmapClient::new()` validation: empty URL, wrong scheme, URL with path/query/fragment
