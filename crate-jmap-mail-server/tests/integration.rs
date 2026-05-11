@@ -2727,6 +2727,62 @@ async fn email_set_create_all_false_mailbox_ids_rejected() {
     );
 }
 
+/// Oracle: Email/set create with malformed receivedAt (not RFC 8620 §1.4
+/// UTCDate form) is rejected with invalidProperties: ["receivedAt"].
+///
+/// Mirrors the canonical pattern landed for jmap-chat-server in commit
+/// 533ee8a (Message/SpaceInvite/SpaceBan senderExpiresAt / expiresAt).
+/// RFC 8620 §1.4 fixes UTCDate as a 20-char `YYYY-MM-DDTHH:MM:SSZ`
+/// string; any other shape must be rejected at the wire boundary so it
+/// cannot flow into downstream string compares with undefined ordering.
+#[tokio::test]
+async fn email_set_create_with_malformed_received_at_rejected() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "receivedAt": "tomorrow"
+            }
+        }
+    });
+
+    let (set_resp, _) = handle_email_set(&backend, set_args)
+        .await
+        .expect("Email/set must not fail at method level");
+
+    assert!(
+        set_resp["created"].is_null(),
+        "created must be null; got: {:?}",
+        set_resp["created"]
+    );
+    let not_created = &set_resp["notCreated"]["c0"];
+    assert!(
+        !not_created.is_null(),
+        "c0 must appear in notCreated; response: {set_resp:?}"
+    );
+    assert_eq!(
+        not_created["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got: {not_created:?}"
+    );
+    let empty = vec![];
+    let props: Vec<&str> = not_created["properties"]
+        .as_array()
+        .unwrap_or(&empty)
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        props.contains(&"receivedAt"),
+        "properties must name receivedAt; got: {props:?}"
+    );
+}
+
 /// Oracle: Email/get with all-valid ids returns `"notFound": []` (empty array, not null).
 ///
 /// RFC 8620 §5.1 mandates `notFound` as `Id[]` — it must always be an array.
@@ -3350,6 +3406,56 @@ async fn email_import_empty_mailbox_ids_rejected() {
     );
 }
 
+/// Oracle: Email/import with malformed receivedAt (not RFC 8620 §1.4 UTCDate
+/// form) is rejected with invalidProperties: ["receivedAt"].
+///
+/// RFC 8620 §1.4 fixes UTCDate as a 20-char `YYYY-MM-DDTHH:MM:SSZ` string;
+/// any other shape must be rejected at the wire boundary so it cannot
+/// flow into downstream string compares with undefined ordering.
+#[tokio::test]
+async fn email_import_with_malformed_received_at_rejected() {
+    use jmap_mail_server::handle_email_import;
+
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let account_id = Id::from("account1");
+
+    let msg = b"Subject: test\r\n\r\nbody";
+    let blob_id = Id::from("blob-malformed-recv");
+    backend.store_blob(&blob_id, msg.to_vec());
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "emails": {
+            "imp1": {
+                "blobId": blob_id.as_ref(),
+                "mailboxIds": { "inbox": true },
+                "receivedAt": "yesterday"
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_import(&backend, args)
+        .await
+        .expect("Email/import must not return a JmapError");
+
+    assert!(resp["created"].is_null(), "created must be null");
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object");
+    assert_eq!(
+        not_created["imp1"]["type"].as_str().unwrap_or(""),
+        "invalidProperties"
+    );
+    let props = not_created["imp1"]["properties"]
+        .as_array()
+        .expect("properties must be an array");
+    assert!(
+        props.iter().any(|v| v.as_str() == Some("receivedAt")),
+        "properties must mention receivedAt; got: {props:?}"
+    );
+}
+
 /// Oracle: Email/import with valid keywords (String[Boolean] map) succeeds and
 /// the imported email carries those keywords.
 ///
@@ -3469,6 +3575,64 @@ async fn email_copy_with_keywords_succeeds() {
     assert!(
         emails[0].keywords.contains_key(keyword::SEEN),
         "$seen must be on the copied email"
+    );
+}
+
+/// Oracle: Email/copy with malformed receivedAt (not RFC 8620 §1.4 UTCDate
+/// form) is rejected with invalidProperties: ["receivedAt"].
+///
+/// RFC 8621 §4.7 — receivedAt MAY be overridden during copy. Malformed values
+/// must be rejected at the wire boundary so they cannot flow into downstream
+/// string compares with undefined ordering.
+#[tokio::test]
+async fn email_copy_with_malformed_received_at_rejected() {
+    use jmap_mail_server::handle_email_copy;
+
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("src"));
+    backend.register_account(&Id::from("dst"));
+    let src_account = Id::from("src");
+    let dst_account = Id::from("dst");
+
+    // Import a source email so we have a valid id to copy.
+    let msg = b"Subject: copy-malformed test\r\n\r\nbody";
+    let blob_id = Id::from("blob-copy-malformed");
+    backend.store_blob(&blob_id, msg.to_vec());
+    let (src_id, _) = backend
+        .import_email(&src_account, &blob_id, &[Id::from("inbox")], &[], None)
+        .await
+        .expect("import source email");
+
+    let args = serde_json::json!({
+        "accountId": dst_account.as_ref(),
+        "fromAccountId": src_account.as_ref(),
+        "create": {
+            "c1": {
+                "id": src_id.as_ref(),
+                "mailboxIds": { "inbox": true },
+                "receivedAt": "never"
+            }
+        }
+    });
+
+    let (resp, _) = handle_email_copy(&backend, args, "call-malformed")
+        .await
+        .expect("Email/copy must not return a JmapError");
+
+    assert!(resp["created"].is_null(), "created must be null");
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be an object");
+    assert_eq!(
+        not_created["c1"]["type"].as_str().unwrap_or(""),
+        "invalidProperties"
+    );
+    let props = not_created["c1"]["properties"]
+        .as_array()
+        .expect("properties must be an array");
+    assert!(
+        props.iter().any(|v| v.as_str() == Some("receivedAt")),
+        "properties must mention receivedAt; got: {props:?}"
     );
 }
 

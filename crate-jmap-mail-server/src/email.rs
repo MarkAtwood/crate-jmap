@@ -995,6 +995,23 @@ pub async fn handle_email_set<B: MailBackend>(
                 continue;
             }
 
+            // Validate client-supplied receivedAt: must be a valid RFC 8620
+            // §1.4 UTCDate (20-char YYYY-MM-DDTHH:MM:SSZ). Reject malformed
+            // values up-front rather than letting them flow into downstream
+            // string compares with undefined ordering.
+            if let Some(s) = obj_val.get("receivedAt").and_then(|v| v.as_str()) {
+                if UTCDate::new_validated(s).is_err() {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["receivedAt"],
+                        }),
+                    );
+                    continue;
+                }
+            }
+
             // Build the Email object from the creation payload.
             let email = match build_email_from_create(obj_val, &account_id, backend).await {
                 Ok(e) => e,
@@ -1559,6 +1576,9 @@ async fn build_email_from_create<B: MailBackend>(
     let size: u64 = 0;
 
     // receivedAt: use provided value or now (RFC 8621 §5.5.3).
+    // Note: the caller is responsible for rejecting malformed client-supplied
+    // values up-front (see handle_email_set) so this helper only sees either
+    // a valid string or no field at all.
     let received_at: UTCDate = obj_val
         .get("receivedAt")
         .and_then(|v| v.as_str())
@@ -1847,10 +1867,26 @@ pub async fn handle_email_import<B: MailBackend>(
             }
         };
 
-        let received_at: Option<UTCDate> = entry
-            .get("receivedAt")
-            .and_then(|v| v.as_str())
-            .map(UTCDate::from);
+        // receivedAt: client-supplied (RFC 8621 §4.8). Validate via
+        // UTCDate::new_validated so malformed values produce
+        // invalidProperties rather than flowing into downstream string
+        // compares with undefined ordering.
+        let received_at: Option<UTCDate> = match entry.get("receivedAt").and_then(|v| v.as_str()) {
+            Some(s) => match UTCDate::new_validated(s) {
+                Ok(d) => Some(d),
+                Err(_) => {
+                    not_created.insert(
+                        import_id,
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["receivedAt"],
+                        }),
+                    );
+                    continue;
+                }
+            },
+            None => None,
+        };
 
         match backend
             .import_email(
@@ -2220,10 +2256,25 @@ pub async fn handle_email_copy<B: MailBackend>(
         };
 
         // receivedAt may be overridden during copy (RFC 8621 §4.7).
-        let received_at: Option<UTCDate> = entry
-            .get("receivedAt")
-            .and_then(|v| v.as_str())
-            .map(UTCDate::from);
+        // Client-supplied; validate via UTCDate::new_validated so malformed
+        // values produce invalidProperties rather than flowing into
+        // downstream string compares with undefined ordering.
+        let received_at: Option<UTCDate> = match entry.get("receivedAt").and_then(|v| v.as_str()) {
+            Some(s) => match UTCDate::new_validated(s) {
+                Ok(d) => Some(d),
+                Err(_) => {
+                    not_created.insert(
+                        copy_id,
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["receivedAt"],
+                        }),
+                    );
+                    continue;
+                }
+            },
+            None => None,
+        };
 
         match backend
             .copy_email(

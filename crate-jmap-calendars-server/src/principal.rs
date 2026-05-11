@@ -43,17 +43,24 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
         .ok_or_else(|| JmapError::invalid_arguments("id is required"))?;
     let principal_id = Id::from(principal_id_str);
 
+    // utcStart / utcEnd are UTCDate values per the calendars draft §X.
+    // Client-supplied values MUST be valid RFC 8620 §1.4 UTCDate (20-char
+    // YYYY-MM-DDTHH:MM:SSZ). Validate via UTCDate::new_validated; malformed
+    // input produces invalidArguments rather than silently flowing into
+    // downstream string compares with undefined ordering.
     let utc_start = args_map
         .get("utcStart")
         .and_then(|v| v.as_str())
-        .map(UTCDate::from)
         .ok_or_else(|| JmapError::invalid_arguments("utcStart is required"))?;
+    let utc_start = UTCDate::new_validated(utc_start)
+        .map_err(|_| JmapError::invalid_arguments("utcStart: invalid UTCDate"))?;
 
     let utc_end = args_map
         .get("utcEnd")
         .and_then(|v| v.as_str())
-        .map(UTCDate::from)
         .ok_or_else(|| JmapError::invalid_arguments("utcEnd is required"))?;
+    let utc_end = UTCDate::new_validated(utc_end)
+        .map_err(|_| JmapError::invalid_arguments("utcEnd: invalid UTCDate"))?;
 
     let show_details = args_map
         .get("showDetails")
