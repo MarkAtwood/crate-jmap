@@ -70,7 +70,7 @@ follow-up sweep bead before merging).
 | Family | Canonical | Siblings (must mirror) |
 |---|---|---|
 | Foundation types | `jmap-types` | (none — sole foundation) |
-| Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types` |
+| Extension types | `jmap-mail-types` | `jmap-chat-types`, `jmap-calendars-types`, `jmap-tasks-types`, `jmap-contacts-types`, `jmap-filenode-types`, `jmap-sharing-types`, `jmap-metadata-types` |
 | Foundation server | `jmap-server` | (none — sole foundation) |
 | Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-sharing-server` |
 | Foundation client | `jmap-base-client` | (none — sole foundation) |
