@@ -661,6 +661,20 @@ pub trait JmapBackend: Send + Sync + 'static {
     ///
     /// `position` may be negative — negative values are relative to the end of
     /// the result set per RFC 8620 §5.5 (e.g. -1 means the last result).
+    ///
+    /// # Filter and sort handling
+    ///
+    /// Implementations MUST honour the supplied `filter` and `sort` arguments
+    /// efficiently — typically by pushing both into the indexed storage layer
+    /// (database WHERE / ORDER BY, search index, etc.). Returning every
+    /// matching id and relying on the caller to paginate after the fact
+    /// degenerates to O(n) per page for IMAP-migration accounts.
+    ///
+    /// Handler implementations in `jmap-*-server` crates SHOULD NOT
+    /// post-filter or post-sort the backend's result; doing so re-introduces
+    /// the O(n) cost this method exists to avoid. The Mailbox handler in
+    /// `jmap-mail-server` is the canonical example of pushing filter/sort
+    /// fully into the backend.
     #[allow(clippy::too_many_arguments)]
     fn query_objects<O: QueryObject + Send + Sync>(
         &self,
