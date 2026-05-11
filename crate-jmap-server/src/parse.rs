@@ -25,6 +25,35 @@ use serde_json::Value;
 /// [`crate::request_error`] with [`JmapError::not_json()`] handle that case.
 /// `parse_request` only validates the JMAP structure of an already-parsed value.
 ///
+/// # Caller responsibility: resource limits
+///
+/// Because this function works on an already-parsed [`serde_json::Value`], it
+/// cannot enforce the byte-size or JSON-nesting-depth limits that determine
+/// whether the input is safe to walk on a worker thread. Those limits MUST
+/// be applied by the HTTP integration before `parse_request` is called:
+///
+/// - **Body size cap.** Apply a maximum request-body size before reading the
+///   body into memory. RFC 8620 §3 defines `maxSizeRequest` as a session
+///   capability the server advertises; the byte cap MUST be `<=` that value.
+///   A sensible default is 10 MiB. In `axum`, wrap your router with
+///   `tower_http::limit::RequestBodyLimitLayer`; in `hyper`, use
+///   `http_body_util::Limited`; in `warp`, pair `warp::body::content_length_limit`
+///   with `warp::body::bytes`.
+/// - **JSON nesting depth cap.** Use `serde_json::from_slice` (which honours
+///   `serde_json`'s recursion limit) rather than constructing a [`Value`] by
+///   hand. `serde_json`'s default 128-level recursion limit is intentionally
+///   loose; deployments that face untrusted clients should consider rejecting
+///   request bodies that exceed ~32 levels of JSON nesting before passing
+///   them here. 32 levels is well above any legitimate JMAP request shape.
+/// - **Per-pointer recursion.** ResultReference paths are walked by an
+///   internal helper that carries its own depth cap, so integrators do not
+///   need additional guards on the path string itself once the body-size
+///   and JSON-depth limits are in place.
+///
+/// Failing to enforce these limits exposes the dispatcher to memory and
+/// stack-exhaustion DoS on adversarial input. The library cannot apply them
+/// itself because they belong to the HTTP layer, not the JMAP layer.
+///
 /// # Errors
 ///
 /// Returns [`JmapError::not_request()`] if the value does not match the
