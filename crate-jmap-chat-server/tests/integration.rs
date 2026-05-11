@@ -1922,6 +1922,68 @@ async fn space_set_category_update_rename_and_reassign_channels() {
     );
 }
 
+/// Oracle: when a Space/set Category op cascades and mutates one or
+/// more Chat records' `categoryId` field, those Chat ids must surface
+/// in the next `Chat/changes` delta as `updated`. This regression test
+/// pins the fix from bd:JMAP-g7wu.2.4.9 — before that bead, the
+/// `set_channel_category` cascade silently mutated Chat records
+/// without producing a `Chat/changes` entry, leaving subscribers
+/// unaware of the categoryId change.
+#[tokio::test]
+async fn space_set_category_cascade_emits_chat_changes() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Cat Cascade Chat-changes Test").await;
+
+    // Seed two channels using direct injection so the Chat state stays
+    // at "0" until the cascade bumps it. (Going through addChannels
+    // would also work but would advance Chat state, requiring an extra
+    // sinceState baseline read.)
+    seed_channel(&backend, "a1", "ch-p", &space_id, None);
+    seed_channel(&backend, "a1", "ch-q", &space_id, None);
+
+    let (_, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "Cascade",
+                        "position": 0,
+                        "channelIds": ["ch-p", "ch-q"],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("addCategories");
+
+    // Chat/changes since "0" must show both channels in `updated`
+    // (the cascade set their categoryId).
+    let (changes, _) = handle_chat_changes(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "sinceState": "0" }),
+    )
+    .await
+    .expect("chat_changes");
+    let mut updated: Vec<&str> = changes["updated"]
+        .as_array()
+        .expect("updated array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    updated.sort();
+    assert_eq!(
+        updated,
+        vec!["ch-p", "ch-q"],
+        "Chat/changes must list both cascaded channels as updated: {updated:?}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Space/set Channel variants (bd:JMAP-g7wu.2.4.4)
 //
