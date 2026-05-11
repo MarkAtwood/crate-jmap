@@ -127,6 +127,13 @@ pub struct FilesRights {
     pub may_modify_content: bool,
     /// User may change the sharing of this node (see RFC 9670 JMAP Sharing).
     pub may_share: bool,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A JMAP FileNode object (draft-ietf-jmap-filenode-13 §3.1).
@@ -280,4 +287,11 @@ pub struct FileNode {
     /// in wire JSON; serializes as `null` when unset.  MUST be `null` for
     /// file nodes.
     pub role: Option<NodeRole>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
