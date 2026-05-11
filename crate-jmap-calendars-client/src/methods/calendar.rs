@@ -146,10 +146,9 @@ impl super::SessionClient {
 //   - calendar_get_smoke (success path)
 //   - calendar_get_empty_id_returns_invalid_argument (guard path)
 //
-// `calendar_set` lost specific-flag coverage (`onDestroyRemoveEvents`)
-// during this cleanup; tracked under JMAP-231o.8's follow-up bead
-// (JMAP-231o.8.1) for a wiremock smoke test that asserts on the
-// outgoing request body.
+// `calendar_set` onDestroyRemoveEvents flag passthrough is covered
+// by `calendar_set_on_destroy_remove_events_*_passthrough` in
+// tests/calendar_smoke_tests.rs (added under JMAP-uuoi.1).
 //
 // `build_request`, `CALL_ID`, and `USING_CALENDARS` themselves have
 // their own focused tests in `methods/mod.rs`.

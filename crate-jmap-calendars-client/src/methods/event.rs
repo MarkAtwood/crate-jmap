@@ -224,10 +224,14 @@ impl super::SessionClient {
 // hand-built `args` and fed them to `build_request` without exercising
 // the production `calendar_event_*` builders.
 //
-// Production-path coverage in `tests/calendar_smoke_tests.rs`:
-//   - calendar_event_set_smoke (success path for /set)
-//   - calendar_event_get_empty_id_returns_invalid_argument (guard)
-//
-// Specific-flag passthrough (expandRecurrences on /get and /query,
-// since_state on /changes, etc.) needs wiremock smoke tests with
-// request-body assertions; tracked under JMAP-231o.8.1.
+// Production-path coverage:
+//   - calendar_event_set_smoke (success path for /set,
+//     tests/calendar_smoke_tests.rs)
+//   - calendar_event_get_params_all_three_passthrough,
+//     calendar_event_get_no_params_omits_all_three_keys,
+//     calendar_event_changes_since_state_and_max_changes_passthrough,
+//     calendar_event_query_filter_sort_expand_recurrences_passthrough,
+//     calendar_event_query_no_args_omits_optional_keys,
+//     calendar_event_query_changes_since_state_passthrough
+//     (specific-flag passthrough, tests/event_smoke_tests.rs)
+// Added under JMAP-uuoi.1.

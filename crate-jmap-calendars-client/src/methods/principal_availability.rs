@@ -60,11 +60,14 @@ mod tests {
     use super::super::*;
     use serde_json::json;
 
-    // The InvalidArgument guard for empty principal_id is exercised by the
-    // production method body in principal_get_availability (lines 22-26).
-    // A black-box test that drives the async method is the right place to
-    // verify it; that requires wiremock and is out of scope for this crate
-    // (no async test harness yet). See JMAP-sc1b.64.
+    // The InvalidArgument guard for empty principal_id is unreachable
+    // through the typed `&Id` API: `Id::new_validated("")` returns Err at
+    // the caller's construction site, and a caller who bypasses validation
+    // via `Id::from("")` is explicitly opting out of the type-system
+    // guarantee. The guard is kept as defense in depth (see
+    // principal_get_availability body), but the wiremock-backed
+    // production-path coverage lives in
+    // tests/availability_tests.rs::principal_get_availability_round_trip.
 
     // request_uses_id_key_not_principal_id and
     // show_details_none_is_absent_from_request were vacuous: they hand-built

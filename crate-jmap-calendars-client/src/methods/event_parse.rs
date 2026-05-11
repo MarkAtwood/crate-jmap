@@ -43,9 +43,12 @@ mod tests {
     use super::super::*;
     use serde_json::json;
 
-    // The InvalidArgument guard for empty blob_ids lives in CalendarEvent/parse
-    // production code; testing it requires a wiremock-backed async harness.
-    // See JMAP-sc1b.64.
+    // The InvalidArgument guard for empty blob_ids is unreachable through
+    // the typed `&[Id]` API: `Id::new_validated("")` returns Err at the
+    // caller's construction site. The guard is kept as defense in depth
+    // (see calendar_event_parse body). End-to-end production-path
+    // coverage lives in
+    // tests/calendar_smoke_tests.rs::calendar_event_parse_smoke.
 
     // blob_ids_wire_name_is_camel_case and properties_none_is_absent_from_request
     // were vacuous: they hand-built args and fed them to build_request,

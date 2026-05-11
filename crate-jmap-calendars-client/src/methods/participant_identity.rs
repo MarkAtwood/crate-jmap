@@ -121,9 +121,9 @@ impl super::SessionClient {
 // participant_identity_set_destroy_request_shape were vacuous: they
 // hand-built args and fed them to build_request, never exercising the
 // production participant_identity_get / _set builders. Deleted in
-// JMAP-231o.8. Real production-path coverage needs wiremock smoke tests;
-// tracked under JMAP-231o.8.1.
-//
-// The InvalidArgument guard for empty since_state lives in
-// participant_identity_changes production code; testing it requires a
-// wiremock-backed async harness. See JMAP-sc1b.64.
+// JMAP-231o.8. Real production-path coverage now lives in
+// tests/participant_identity_smoke_tests.rs (JMAP-uuoi.1):
+//   - participant_identity_get_basic_shape
+//   - participant_identity_changes_basic_shape
+//   - participant_identity_set_create_round_trip
+//   - participant_identity_set_destroy_only_passthrough
