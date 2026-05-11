@@ -101,9 +101,64 @@ fn civil_from_days(z: i64) -> (i32, u8, u8) {
     (yr as i32, mo as u8, d as u8)
 }
 
+/// Maximum recursion depth for [`json_merge_patch`] application.
+///
+/// Beyond this depth the patch is silently ignored at the affected sub-tree:
+/// the target value at that level is left unchanged. Mitigates stack DoS
+/// from adversarial `PatchObject` values (bd:JMAP-sc1b.97). 32 levels
+/// comfortably exceeds any legitimate JMAP `/set update` shape — the
+/// deepest standard JMAP `/set update` shape (Email with nested
+/// `bodyStructure`) tops out around 6 levels.
+pub const MAX_MERGE_PATCH_DEPTH: usize = 32;
+
+/// Apply a JSON Merge Patch (RFC 7396) to `target` in-place.
+///
+/// Used by every `*-server` backend's `update_object` implementation
+/// to merge a sparse `/set update` patch into the stored serialized
+/// object. Extracted from per-crate copies in bd:JMAP-sc1b.103 — keep
+/// edits here so all five reference backends stay byte-identical.
+///
+/// Patches deeper than [`MAX_MERGE_PATCH_DEPTH`] are silently truncated
+/// to bound stack use on adversarial input (bd:JMAP-sc1b.97). Below the
+/// cap the behaviour is exactly RFC 7396.
+pub fn json_merge_patch(target: &mut Value, patch: Value) {
+    json_merge_patch_inner(target, patch, 0);
+}
+
+fn json_merge_patch_inner(target: &mut Value, patch: Value, depth: usize) {
+    if depth > MAX_MERGE_PATCH_DEPTH {
+        return;
+    }
+    match patch {
+        Value::Object(patch_map) => {
+            // Per RFC 7396 §2: "If the target value is not a JSON object,
+            // the resulting value will be the merge patch." We therefore
+            // reset a non-Object target to an empty Object before merging
+            // — this is reachable when a Patch creates a nested field that
+            // is absent from the target (the parent recursion frame inserted
+            // Value::Null as a placeholder).
+            if !target.is_object() {
+                *target = Value::Object(Map::new());
+            }
+            let target_map = target
+                .as_object_mut()
+                .expect("target was just set to Value::Object above");
+            for (key, patch_val) in patch_map {
+                if patch_val.is_null() {
+                    target_map.remove(&key);
+                } else {
+                    let entry = target_map.entry(key).or_insert(Value::Null);
+                    json_merge_patch_inner(entry, patch_val, depth + 1);
+                }
+            }
+        }
+        other => *target = other,
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{civil_from_days, now_utc_string};
+    use super::{civil_from_days, json_merge_patch, now_utc_string};
 
     /// Test vectors derived independently with Python's `datetime.date` module.
     /// `days` is the count of days since 1970-01-01.
@@ -150,6 +205,86 @@ mod tests {
         assert!(
             s.starts_with("20"),
             "year should start with 20 in 21st century: {s}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // json_merge_patch (RFC 7396)
+    //
+    // Test oracles are hand-built JSON values derived from RFC 7396 §2 and §3
+    // examples, plus the regression case from bd:JMAP-sc1b.87. No oracle is
+    // computed by the function under test (test-integrity rule from
+    // workspace AGENTS.md).
+    // -----------------------------------------------------------------------
+
+    /// Oracle: bd:JMAP-sc1b.97 — a 1000-deep merge patch must NOT crash
+    /// via stack overflow. The depth cap silently truncates beyond
+    /// [`MAX_MERGE_PATCH_DEPTH`], so the call returns; the topmost
+    /// levels are applied, and the deeper levels are ignored.
+    ///
+    /// The test does not use the function as its own oracle: the input
+    /// is hand-built (a 1000-deep `{ "a": { "a": ... { "a": {} } } }`
+    /// chain where every level is Object, matching the structural
+    /// shape of a real PatchObject — the documented latent panic from
+    /// bd:JMAP-sc1b.87 only fires on non-Object leaves, which a typed
+    /// PatchObject cannot produce). The assertion only checks that the
+    /// call completes without panicking and without overflowing the
+    /// stack. A pre-fix recursion-unlimited implementation would
+    /// overflow before returning.
+    #[test]
+    fn json_merge_patch_does_not_stack_overflow() {
+        const DEPTH: usize = 1000;
+        let mut target = serde_json::json!({});
+        for _ in 0..DEPTH {
+            target = serde_json::json!({ "a": target });
+        }
+        let mut patch = serde_json::json!({});
+        for _ in 0..DEPTH {
+            patch = serde_json::json!({ "a": patch });
+        }
+        json_merge_patch(&mut target, patch);
+        assert!(
+            target.is_object(),
+            "after a deeply-nested merge patch, target must remain a JSON object; got {target:?}"
+        );
+    }
+
+    /// Oracle: a shallow merge patch under the cap still applies
+    /// normally. Positive control paired with the stack-overflow test
+    /// above to prove the depth cap only fires at the boundary, not on
+    /// every call.
+    #[test]
+    fn json_merge_patch_shallow_applies_normally() {
+        let mut target = serde_json::json!({ "a": 1, "b": { "c": 2 } });
+        let patch = serde_json::json!({ "b": { "c": 99, "d": 7 }, "e": null });
+        json_merge_patch(&mut target, patch);
+        assert_eq!(
+            target,
+            serde_json::json!({ "a": 1, "b": { "c": 99, "d": 7 } }),
+            "RFC 7396 merge semantics broken at shallow depth"
+        );
+    }
+
+    /// Regression: a Patch that adds a nested Object to a previously-
+    /// absent field used to panic with `expect("merge patch target
+    /// must be an object")` because the parent recursion frame
+    /// inserted Value::Null as the placeholder, then recursed into
+    /// Null with an Object patch.
+    ///
+    /// Per RFC 7396 §2 the correct behaviour is to reset the non-Object
+    /// target to an empty Object and merge into it. Oracle is hand-
+    /// derived from RFC 7396 §2's pseudocode:
+    /// `Target[Name] = MergePatch(Target[Name], Value)` where
+    /// MergePatch resets a non-Object target to `{}`.
+    #[test]
+    fn json_merge_patch_adds_nested_object_to_absent_field() {
+        let mut target = serde_json::json!({ "a": 1 });
+        let patch = serde_json::json!({ "b": { "c": 2 } });
+        json_merge_patch(&mut target, patch);
+        assert_eq!(
+            target,
+            serde_json::json!({ "a": 1, "b": { "c": 2 } }),
+            "patch must add the nested object at the previously-absent field"
         );
     }
 }

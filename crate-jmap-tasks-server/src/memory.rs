@@ -66,6 +66,12 @@ use crate::{
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
     TasksBackend,
 };
+// json_merge_patch lives in jmap-server (the shared foundation crate)
+// since bd:JMAP-sc1b.103. Every reference backend imports it; the
+// canonical RFC 7396 tests live with the function there (including the
+// bd:JMAP-sc1b.97 depth-cap and bd:JMAP-sc1b.87 absent-field regression
+// tests).
+use jmap_server::json_merge_patch;
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -733,53 +739,5 @@ impl TasksBackend for MemoryBackend {
             .aux_ref(account_id.as_ref())
             .map(|a| a.task_lists_with_tasks.contains(task_list_id))
             .unwrap_or(false)
-    }
-}
-
-// ---------------------------------------------------------------------------
-// JSON Merge Patch (RFC 7396)
-// ---------------------------------------------------------------------------
-
-/// Apply a JSON Merge Patch to `target` in-place.
-fn json_merge_patch(target: &mut serde_json::Value, patch: serde_json::Value) {
-    json_merge_patch_inner(target, patch, 0);
-}
-
-/// Maximum recursion depth for JSON Merge Patch application.
-///
-/// Beyond this depth the patch is silently ignored at the affected sub-tree:
-/// the target value at that level is left unchanged. Mitigates stack DoS
-/// from adversarial `PatchObject` values (bd:JMAP-sc1b.97). 32 levels
-/// comfortably exceeds any legitimate JMAP `/set update` shape.
-const MAX_MERGE_PATCH_DEPTH: usize = 32;
-
-fn json_merge_patch_inner(target: &mut serde_json::Value, patch: serde_json::Value, depth: usize) {
-    if depth > MAX_MERGE_PATCH_DEPTH {
-        return;
-    }
-    match patch {
-        serde_json::Value::Object(patch_map) => {
-            // Per RFC 7396 §2: "If the target value is not a JSON object,
-            // the resulting value will be the merge patch." We therefore
-            // reset a non-Object target to an empty Object before merging
-            // — this is reachable when a Patch creates a nested field that
-            // is absent from the target (the parent recursion frame inserted
-            // Value::Null as a placeholder).
-            if !target.is_object() {
-                *target = serde_json::Value::Object(serde_json::Map::new());
-            }
-            let target_map = target
-                .as_object_mut()
-                .expect("target was just set to Value::Object above");
-            for (key, patch_val) in patch_map {
-                if patch_val.is_null() {
-                    target_map.remove(&key);
-                } else {
-                    let entry = target_map.entry(key).or_insert(serde_json::Value::Null);
-                    json_merge_patch_inner(entry, patch_val, depth + 1);
-                }
-            }
-        }
-        other => *target = other,
     }
 }
