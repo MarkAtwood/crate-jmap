@@ -138,6 +138,29 @@ Run all four before considering any work done.
 | `createdIds` | Accumulated by dispatcher | Per RFC 8620 §3.4 |
 | Unsafe code | Forbidden | `#[forbid(unsafe_code)]` at crate root |
 
+## Backend trait rule: secret-minting methods require CSPRNG
+
+Any new method on `JmapBackend` (or on a downstream `*Backend` extension
+trait) that **mints credential-grade material** — verification codes,
+invite codes, push-subscription tokens, ownership proofs, anything an
+attacker could exploit by guessing — MUST:
+
+1. **In the trait method's doc comment**, require a CSPRNG verbatim:
+   *"Implementations MUST use a cryptographically-secure random number
+   generator (e.g. `OsRng` / `getrandom::getrandom`). Do not derive from
+   a clock, a counter, or any process-local non-CSPRNG source."*
+
+2. **In the reference `MemoryBackend` implementation**, actually use
+   `OsRng` / `getrandom` — not a timestamp, not a counter, not
+   `rand::thread_rng` (which is CSPRNG today on most platforms but is
+   not contractually guaranteed to remain so).
+
+Precedent: bd:JMAP-sc1b.78 (`ChatBackend::generate_invite_code` trait
+doc CSPRNG requirement) and the matching reference-impl audit work in
+bd:JMAP-sc1b.93. Forward-looking placeholder for the
+`PushSubscriptionBackend::generate_verification_code` method when the
+RFC 8620 §7.2 surface lands: bd:JMAP-sc1b.101.
+
 ## Cross-Crate Consistency
 
 When this crate is consumed by kith or stoa:
