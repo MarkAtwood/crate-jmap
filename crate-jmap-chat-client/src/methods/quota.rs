@@ -7,9 +7,9 @@
 
 use serde::Deserialize;
 
-use jmap_types::Id;
+use jmap_types::{Id, State};
 
-use super::GetResponse;
+use super::{ChangesResponse, GetResponse};
 
 /// A single JMAP Quota object (RFC 8621 §2).
 ///
@@ -54,7 +54,7 @@ impl super::SessionClient {
     /// that callers can use to display storage bars and warnings.
     ///
     /// The returned [`GetResponse::state`] token is preserved for
-    /// `Quota/changes` delta-sync support, tracked under `bd:JMAP-g7wu.2.3`.
+    /// [`quota_changes`](Self::quota_changes) delta-sync support.
     ///
     /// Only call when [`crate::session::ChatSessionExt::supports_quotas`]
     /// returns `true`.  Returns `ClientError::InvalidSession` if the session
@@ -66,6 +66,52 @@ impl super::SessionClient {
             "ids": serde_json::Value::Null,
         });
         let req = super::build_request("Quota/get", args, super::USING_QUOTA);
+        let resp = self.call_internal(api_url, &req).await?;
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
+    }
+
+    /// Fetch changes to Quota objects since `since_state` (RFC 8620 §5.2 / Quota/changes).
+    ///
+    /// Returns ids of Quota objects created, updated, or destroyed since the
+    /// caller-supplied `since_state` token (typically the
+    /// [`GetResponse::state`] returned by an earlier
+    /// [`quota_get`](Self::quota_get) call).
+    ///
+    /// If [`ChangesResponse::has_more_changes`] is `true`, call again with
+    /// [`ChangesResponse::new_state`] as `since_state` until the flag is
+    /// `false`.
+    ///
+    /// `max_changes` caps the number of ids the server returns in a single
+    /// response; `None` lets the server choose. Servers are not required to
+    /// honour a `max_changes` hint exactly.
+    ///
+    /// Only call when [`crate::session::ChatSessionExt::supports_quotas`]
+    /// returns `true`. Returns [`jmap_base_client::ClientError::InvalidArgument`]
+    /// if `since_state` is empty, or [`jmap_base_client::ClientError::InvalidSession`]
+    /// if the session has no primary JMAP Chat account.
+    pub async fn quota_changes(
+        &self,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResponse, jmap_base_client::ClientError> {
+        // Defence-in-depth: even with the typed-`State` parameter (a transparent
+        // newtype around `String`), an empty state token is still a logically
+        // invalid value that should be caught client-side rather than producing
+        // a confusing server-side `cannotCalculateChanges` error.
+        if since_state.as_ref().is_empty() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "quota_changes: since_state may not be empty".into(),
+            ));
+        }
+        let (api_url, account_id) = self.session_parts()?;
+        let mut args = serde_json::json!({
+            "accountId": account_id,
+            "sinceState": since_state,
+        });
+        if let Some(mc) = max_changes {
+            args["maxChanges"] = mc.into();
+        }
+        let req = super::build_request("Quota/changes", args, super::USING_QUOTA);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }

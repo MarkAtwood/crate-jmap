@@ -8,7 +8,7 @@ Auth-agnostic JMAP Chat HTTP client with WebSocket and SSE support.
 jmap-types
     ├── jmap-base-client              base HTTP client (auth, session, blob, SSE, WebSocket)
     └── jmap-chat-types
-            └── jmap-chat-client  ← this crate (will depend on jmap-base-client once it exists)
+            └── jmap-chat-client  ← this crate (depends on jmap-base-client + jmap-chat-types)
 ```
 
 ## What This Crate Is
@@ -31,20 +31,24 @@ Known consumers: `kithctl` (CLI), any future JMAP Chat web or mobile client.
 
 ## Source Material
 
-The reference implementation is `~/PROJECT/crate-jmapchat-client/`.
-This crate is an extraction and adaptation.
+The original reference implementation was `~/PROJECT/crate-jmapchat-client/`.
+This crate has been extracted and the transport layer (auth, HTTP client, error,
+blob upload, base SSE, base WebSocket) has been moved into `jmap-base-client`.
+What remains in this crate is the chat-specific surface: method handlers,
+chat-extended SSE/WS frame wrappers, and chat-specific session/utility helpers.
 
-| Item | Source file | Notes |
+| Item | Now lives in | Notes |
 |---|---|---|
-| `JmapChatClient` | `src/client.rs` | Core HTTP client struct; swap `jmapchat-types` → `jmap-chat-types` + `jmap-types` |
-| Auth providers | `src/auth.rs` | `AuthProvider`, `BearerAuth`, `BasicAuth`, `NoneAuth`, `TransportConfig` — copy verbatim |
-| Error types | `src/error.rs` | `ClientError` — copy verbatim, update type imports |
-| JMAP wire helpers | `src/jmap.rs` | `JmapRequestBuilder`, `AccountInfo`, capability structs — adapt to use `jmap-types` wire types directly where possible |
-| Method impls | `src/methods/` | All files — update type imports; method signatures use typed `&Id`/`&State` per bd:JMAP-6by7.3 |
-| WebSocket session | `src/ws/mod.rs` | `WsSession`, `WsFrame` — copy with type updates |
-| SSE | `src/sse.rs` | `SseEvent`, `SseFrame` — copy verbatim |
-| Blob | `src/blob.rs` | `BlobUploadResponse` — copy verbatim |
-| Utility fns | `src/utils.rs` | `format_receipt_timestamp` etc. — copy verbatim |
+| `JmapClient` (HTTP core) | `jmap-base-client::client` | Consumed via dep; not re-implemented here |
+| Auth providers | `jmap-base-client::auth` | `AuthProvider`, `BearerAuth`, `BasicAuth`, `NoneAuth` |
+| `ClientError` | `jmap-base-client::error` | Re-exported from this crate's `lib.rs` |
+| JMAP request builder | `jmap-base-client::request` | Consumed via dep |
+| Base `Session` | `jmap-base-client::session` | Extended here by `ChatSessionExt` (`src/session.rs`) |
+| Base `SseEvent` | `jmap-base-client::sse` | Wrapped by `ChatSseEvent` (`src/sse.rs`) |
+| Base `WsFrame` | `jmap-base-client::ws` | Wrapped by `ChatWsFrame` (`src/ws.rs`) |
+| Blob upload | `jmap-base-client::blob` | Consumed via dep |
+| Method impls | `src/methods/` | Chat, Message, Space, SpaceBan, SpaceInvite, ChatContact, CustomEmoji, Blob, Quota, misc. Typed `&Id`/`&State` per bd:JMAP-6by7.3 |
+| Utility fns | `src/utils.rs` | `format_receipt_timestamp`, etc. |
 
 Spec:
 - `~/PROJECT/jmap-chat-spec/draft-atwood-jmap-chat-00.md`
@@ -53,56 +57,36 @@ Spec:
 
 ## Dependencies
 
-```toml
-jmap-types      = { path = "../crate-jmap-types" }
-jmap-chat-types = { path = "../crate-jmap-chat-types" }
-reqwest           = { version = "0.12", features = ["json", "stream", "rustls-tls-webpki-roots"] }
-serde             = { version = "1", features = ["derive"] }
-serde_json        = "1"
-thiserror         = "2"
-tokio             = { version = "1", features = ["rt"] }
-tokio-tungstenite = { version = "0.29", features = ["rustls-tls-webpki-roots"] }
-url               = "2"
-```
+See `Cargo.toml`. Summary:
 
-Note: `jmapchat-client` also depends on `chrono`, `base64`, `sha2`, and `ulid`. Audit
-whether those are still needed once type imports are updated (some may have been needed
-for types now supplied by `jmap-chat-types`).
+- `jmap-types`, `jmap-chat-types`, `jmap-base-client` — workspace path deps
+- `ulid`, `chrono` — used by `utils.rs` for receipt-timestamp formatting
+- `serde`, `serde_json` — wire format
+
+All HTTP/TLS/WebSocket dependencies (`reqwest`, `tokio-tungstenite`, `url`,
+`thiserror`, `tokio`) are transitive through `jmap-base-client`, not direct deps
+of this crate.
 
 ## Extension Trait Pattern
 
 Cross-crate inherent impls are not valid Rust (orphan rule: only the crate that defines
-a type may add inherent methods to it). When `jmap-base-client` is adopted as the base
-transport (see Key Design Decision 3 below), Chat methods will be added to `JmapClient`
-via an extension trait — not via `impl JmapClient`:
+a type may add inherent methods to it). Chat methods reach `JmapClient` via an extension
+trait — `JmapChatExt` — that hands back a `SessionClient` carrying both the client and
+the session:
 
 ```rust
-use jmap_base_client::{ClientError, JmapClient};
+use jmap_base_client::{JmapClient, Session};
+use jmap_chat_client::JmapChatExt;
 
-/// Extension trait adding JMAP Chat methods to [`JmapClient`].
-///
-/// Import this trait to use: `use jmap_chat_client::JmapChatExt;`
-pub trait JmapChatExt {
-    async fn chat_get(&self, account_id: &Id, ids: &[Id])
-        -> Result<GetResponse<Chat>, ClientError>;
-    async fn chat_set(&self, account_id: &Id, req: SetRequest<Chat>)
-        -> Result<SetResponse<Chat>, ClientError>;
-    // ... all Chat, Message, Space, ReadPosition, ChatContact methods
-}
-
-impl JmapChatExt for JmapClient {
-    // implementations in methods/
-}
+let session: Session = client.fetch_session().await?;
+let sc = client.with_chat_session(session);
+let chats = sc.chat_get(&account_id, &ids).await?;
 ```
 
 Callers must bring the trait into scope: `use jmap_chat_client::JmapChatExt;`
 
-Rust 1.75 AFIT (async fn in trait, via RPITIT) is used — no `async-trait` crate needed
-for the common non-dyn case. If `dyn JmapChatExt` is ever required, add `async-trait 0.1`
-at that time.
-
-During the skeleton stage (before `jmap-base-client` is ready), `JmapChatClient` is a
-standalone struct in `src/client.rs`. The trait-based API is the target end state.
+Rust 1.75 AFIT (async fn in trait, via RPITIT) is used for inherent `SessionClient`
+methods — no `async-trait` crate needed.
 
 ## Typed-Id refactor (bd:JMAP-6by7.3)
 
@@ -135,43 +119,43 @@ in `jmap-calendars-client` (bd:JMAP-6by7.1) and the canonical
 
 1. **Use `jmap-types` wire types directly** — `JmapRequest`, `JmapResponse`,
    `Invocation`, `Id`, `UTCDate`, `State` come from `jmap-types`, not re-defined here.
-   Remove the parallel definitions in `src/jmap.rs` where they duplicate `jmap-types`.
 
 2. **Use `jmap-chat-types` domain types directly** — `Chat`, `Message`, `Space`, etc.
-   come from `jmap-chat-types`. The `src/types.rs` re-export layer in `jmapchat-client`
-   may be eliminable or significantly thinned.
+   come from `jmap-chat-types`. A thin `src/types.rs` remains only for client-side
+   auxiliary types that are not wire-format (e.g. `ContactPresenceFilter`).
 
-3. **Auth, transport, session, SSE, WebSocket, blob belong in `jmap-base-client`** —
-   `jmap-base-client` now exists in the workspace. Add it as a dependency and remove
-   the corresponding duplicated modules from this crate (`auth.rs`, `blob.rs`,
-   `client.rs`, `error.rs`, `sse.rs`, `ws/`). Tracked under `bd:JMAP-g7wu.7`.
+3. **Auth, transport, session, SSE, WebSocket, blob live in `jmap-base-client`** —
+   `jmap-base-client` is a workspace path dependency and supplies `AuthProvider`,
+   `JmapClient`, `ClientError`, the base `SseEvent`/`WsFrame` types, blob upload,
+   and session fetch. This crate's `sse.rs` and `ws.rs` are chat-specific *extension*
+   layers that wrap the base types with chat semantics (typing, presence) — not
+   duplicates of base-client modules.
 
 4. **Auth is unchanged** — the pluggable `AuthProvider` trait and the three built-in
-   providers (`BearerAuth`, `BasicAuth`, `NoneAuth`) are directly portable.
+   providers (`BearerAuth`, `BasicAuth`, `NoneAuth`) come from `jmap-base-client`.
 
 ## Module Layout
 
 ```
 src/
-  lib.rs        re-exports
-  auth.rs       AuthProvider, BearerAuth, BasicAuth, NoneAuth, TransportConfig
-  blob.rs       BlobUploadResponse
-  client.rs     JmapChatClient — core HTTP request/response
-  error.rs      ClientError
-  jmap.rs       JmapRequestBuilder, AccountInfo, capability structs
-  sse.rs        SseEvent, SseFrame
+  lib.rs        re-exports + JmapChatExt trait
+  session.rs    ChatSessionExt — ChatCapability, ChatPushCapability accessors
+  sse.rs        ChatSseEvent, ChatSseFrame — chat-specific SSE wrappers over base SseEvent
+  ws.rs         ChatWsExt, ChatWsFrame — chat-specific WS wrappers over base WsFrame
+  types.rs      Client-side auxiliary types (e.g. ContactPresenceFilter)
   utils.rs      format_receipt_timestamp, etc.
   methods/
-    mod.rs      method input/output types, re-exports
-    chat.rs     Chat/get, Chat/set, Chat/query, Chat/changes
-    message.rs  Message/get, Message/set, Message/query, Message/changes
-    space.rs    Space/get, Space/set, Space/query, Space/changes
-    contact.rs  ChatContact/get, ChatContact/set
-    blob.rs     Blob/copy, Blob/lookup
-    quota.rs    Quota/get
-    misc.rs     Core/echo, PushSubscription/set
-  ws/
-    mod.rs      WsSession, WsFrame — WebSocket event stream
+    mod.rs          method input/output types, re-exports, SessionClient
+    chat.rs         Chat/get, Chat/set, Chat/query, Chat/changes
+    message.rs      Message/get, Message/set, Message/query, Message/changes
+    space.rs        Space/get, Space/set, Space/query, Space/changes
+    space_ban.rs    SpaceBan/* sub-operations
+    space_invite.rs SpaceInvite/* sub-operations
+    contact.rs      ChatContact/get, ChatContact/set
+    custom_emoji.rs CustomEmoji/* methods
+    blob.rs         Blob/copy, Blob/lookup
+    quota.rs        Quota/get
+    misc.rs         Core/echo, PushSubscription/set
 ```
 
 ## Test Strategy
