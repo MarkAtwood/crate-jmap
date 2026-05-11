@@ -515,15 +515,32 @@ impl ChatBackend for MemoryBackend {
     }
 
     fn generate_invite_code(&self) -> String {
-        // test-only: not a CSPRNG
-        format!(
-            "{:012x}",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos()
-                & 0xffff_ffff_ffff,
-        )
+        // CSPRNG-backed invite code, per the contract documented on
+        // `ChatBackend::generate_invite_code` (bd:JMAP-sc1b.78, bd:JMAP-sc1b.93).
+        //
+        // 16 random bytes = 128 bits of entropy, hex-encoded to 32 chars.
+        // Far above the 48-bit nanosecond-truncated value the original
+        // implementation produced, and unguessable to a network attacker.
+        //
+        // `getrandom::fill` reads from the OS CSPRNG (e.g. `getrandom(2)` on
+        // Linux, `RtlGenRandom` on Windows, `arc4random_buf` on BSD/Apple).
+        // On the supported tier-1 targets it cannot fail except via a kernel
+        // bug or missing entropy at very early boot; we surface that as a
+        // panic on the reference backend because the alternative (a
+        // predictable fallback) is exactly the failure mode this fix
+        // closes. Production backends ship their own impl and own their
+        // own failure semantics.
+        let mut bytes = [0u8; 16];
+        getrandom::fill(&mut bytes)
+            .expect("OS CSPRNG must be available for invite-code generation");
+        // Hex-encode without pulling in the `hex` crate.
+        let mut out = String::with_capacity(bytes.len() * 2);
+        for byte in bytes {
+            // Standard hex encoding; `{:02x}` on a u8 cannot fail.
+            use std::fmt::Write as _;
+            let _ = write!(out, "{byte:02x}");
+        }
+        out
     }
 }
 
@@ -548,5 +565,85 @@ fn json_merge_patch(target: &mut serde_json::Value, patch: serde_json::Value) {
             }
         }
         other => *target = other,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::ChatBackend;
+    use std::collections::HashSet;
+
+    /// Oracle: invite codes are CSPRNG-derived, so a batch of generated codes
+    /// must show high entropy — no duplicates across a large sample, no
+    /// monotone-in-time leakage, no shared prefix.
+    ///
+    /// This is a behavioural canary on bd:JMAP-sc1b.93. The pre-fix
+    /// nanosecond-derived impl produced strictly monotone-in-time output
+    /// with a 16-byte-wide identical prefix between consecutive calls; the
+    /// CSPRNG impl does not.
+    ///
+    /// The test deliberately makes no claim about the *value* of any single
+    /// code (that would require the code under test to be its own oracle).
+    /// It only asserts structural properties that the failing implementation
+    /// could not satisfy.
+    #[test]
+    fn generate_invite_code_is_csprng() {
+        let backend = MemoryBackend::new();
+        const N: usize = 256;
+        let mut codes: HashSet<String> = HashSet::with_capacity(N);
+        for _ in 0..N {
+            codes.insert(backend.generate_invite_code());
+        }
+        // 256 CSPRNG samples of 128 bits each have negligible birthday-collision
+        // probability (~256^2 / 2^129 ≈ 10^-34). Any duplicate indicates the
+        // impl regressed to a counter, a timestamp, or a constant.
+        assert_eq!(
+            codes.len(),
+            N,
+            "expected {N} distinct invite codes; found {} duplicates",
+            N - codes.len()
+        );
+        // Every code is 32 hex chars (16 bytes * 2).
+        for c in &codes {
+            assert_eq!(
+                c.len(),
+                32,
+                "invite code must be 32 hex chars (16 random bytes); got len {} ({})",
+                c.len(),
+                c
+            );
+            assert!(
+                c.chars().all(|ch| ch.is_ascii_hexdigit()),
+                "invite code must be lowercase hex; got {c}"
+            );
+        }
+        // Sanity tripwire for the pre-fix bug: the original nanos impl
+        // produced sequential codes with a 10-12 char shared prefix
+        // (high-order nanoseconds change slowly between two adjacent calls).
+        // A CSPRNG produces near-uniform random output, so the longest
+        // shared prefix across a 256-sample batch should be tiny.
+        let sorted: Vec<&String> = {
+            let mut v: Vec<&String> = codes.iter().collect();
+            v.sort();
+            v
+        };
+        let max_prefix: usize = sorted
+            .windows(2)
+            .map(|w| {
+                w[0].as_bytes()
+                    .iter()
+                    .zip(w[1].as_bytes())
+                    .take_while(|(a, b)| a == b)
+                    .count()
+            })
+            .max()
+            .unwrap_or(0);
+        // Even with 256 samples a CSPRNG can incidentally produce one pair
+        // sharing 4-5 hex chars; pre-fix the shared prefix was always >=10.
+        assert!(
+            max_prefix < 10,
+            "max shared prefix across sorted codes is {max_prefix}; >=10 suggests timestamp-derived output (bd:JMAP-sc1b.93 regression)"
+        );
     }
 }
