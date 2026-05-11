@@ -11,6 +11,32 @@
 //! All types implement [`serde::Serialize`] and [`serde::Deserialize`] with
 //! the camelCase field names required by the JMAP wire format.
 //!
+//! ## JSContact sub-object types
+//!
+//! The RFC 9553 JSContact sub-object types ([`Name`], [`EmailAddress`],
+//! [`Phone`], [`Address`], etc.) live in the dedicated
+//! `jmap-jscontact-types` crate and are re-exported here for caller
+//! ergonomics. The [`ContactCard`] struct keeps its 22 sub-object fields
+//! typed as `Option<serde_json::Value>` as the wire-format anchor — typed
+//! access is opt-in via [`serde_json::from_value`] on a chosen field.
+//!
+//! ```rust
+//! use jmap_contacts_types::{ContactCard, Name};
+//!
+//! let card_json = serde_json::json!({
+//!     "name": {
+//!         "components": [
+//!             { "kind": "given", "value": "Vincent" },
+//!             { "kind": "surname", "value": "van Gogh" }
+//!         ],
+//!         "isOrdered": true
+//!     }
+//! });
+//! let card: ContactCard = serde_json::from_value(card_json).unwrap();
+//! let name: Name = serde_json::from_value(card.name.unwrap()).unwrap();
+//! assert_eq!(name.components.unwrap()[0].value, "Vincent");
+//! ```
+//!
 //! # Example
 //!
 //! ```rust
@@ -42,10 +68,32 @@ pub mod backend;
 pub mod capability;
 pub mod card;
 
+/// Module alias re-exporting [`jmap_jscontact_types`].
+///
+/// Provides nested access to JSContact sub-object types as
+/// `jmap_contacts_types::jscontact::Name`, mirroring the
+/// `jmap_calendars_types::jscalendar::*` pattern. New code should prefer
+/// the top-level re-exports (e.g. `jmap_contacts_types::Name`) or the
+/// direct path `jmap_jscontact_types::Name`.
+pub use jmap_jscontact_types as jscontact;
+
 pub use addressbook::{AddressBook, AddressBookRights};
 pub use backend::{AddressBookProperty, ContactCardProperty};
 pub use capability::{ContactsAccountCapability, ContactsCapability, JMAP_CONTACTS_URI};
 pub use card::{ContactCard, ContactCardComparator, ContactCardFilterCondition};
+
+// ── JSContact sub-object re-exports (RFC 9553) ───────────────────────────────
+//
+// Mirrors the jmap-calendars-types re-export pattern. Top-level access to
+// every public RFC 9553 typed sub-object so callers can write
+// `jmap_contacts_types::Name` symmetrically with the wire field name on
+// `ContactCard`.
+pub use jmap_jscontact_types::{
+    Address, AddressComponent, Anniversary, AnniversaryDate, Author, Calendar, CryptoKey,
+    Directory, EmailAddress, JsContactId, LanguagePref, Link, Media, Name, NameComponent, Nickname,
+    Note, OnlineService, OrgUnit, Organization, PartialDate, PersonalInfo, Phone, Pronouns,
+    Relation, SchedulingAddress, SpeakToAs, Timestamp, Title,
+};
 
 #[cfg(test)]
 mod tests {
@@ -607,5 +655,432 @@ mod tests {
     // ── Suppress unused-import warnings ─────────────────────────────────
     fn _use_imports() {
         let _: HashMap<String, bool> = HashMap::new();
+    }
+
+    // ── ContactCard sloppy-field → jmap-jscontact-types typed round-trip ──
+    //
+    // RFC 9610 §3 defers all RFC 9553 sub-object shapes to the JSContact
+    // spec. The sloppy `Option<serde_json::Value>` fields on `ContactCard`
+    // are the wire-format anchor; consumers obtain typed views via
+    // `serde_json::from_value` into the corresponding type from
+    // `jmap-jscontact-types`. The tests below cover each sloppy field
+    // against RFC 9553 example JSON, mirroring the per-field acceptance
+    // criterion in bd:JMAP-sehw.2.
+    //
+    // Oracle: hand-typed JSON taken from RFC 9553 worked examples.
+
+    /// Deserialize the sloppy `name` field through `Name`.
+    /// Oracle: RFC 9553 Figure 16.
+    #[test]
+    fn sloppy_field_name_roundtrips_through_jscontact_name() {
+        let card_json = json!({
+            "name": {
+                "components": [
+                    { "kind": "given", "value": "Vincent" },
+                    { "kind": "surname", "value": "van Gogh" }
+                ],
+                "isOrdered": true
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let name: Name = serde_json::from_value(card.name.clone().unwrap()).unwrap();
+        let back = serde_json::to_value(&name).unwrap();
+        assert_eq!(back, card.name.unwrap());
+    }
+
+    /// Deserialize the sloppy `nicknames` field through `HashMap<String, Nickname>`.
+    /// Oracle: RFC 9553 Figure 21.
+    #[test]
+    fn sloppy_field_nicknames_roundtrips_through_jscontact_nickname_map() {
+        let card_json = json!({
+            "nicknames": {
+                "k391": { "name": "Johnny" }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let nicks: HashMap<String, Nickname> =
+            serde_json::from_value(card.nicknames.clone().unwrap()).unwrap();
+        assert_eq!(nicks["k391"].name, "Johnny");
+        let back = serde_json::to_value(&nicks).unwrap();
+        assert_eq!(back, card.nicknames.unwrap());
+    }
+
+    /// Deserialize the sloppy `organizations` field through `HashMap<String, Organization>`.
+    /// Oracle: RFC 9553 Figure 22.
+    #[test]
+    fn sloppy_field_organizations_roundtrips_through_jscontact_organization_map() {
+        let card_json = json!({
+            "organizations": {
+                "o1": {
+                    "name": "ABC, Inc.",
+                    "units": [
+                        { "name": "North American Division" },
+                        { "name": "Marketing" }
+                    ],
+                    "sortAs": "ABC"
+                }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let orgs: HashMap<String, Organization> =
+            serde_json::from_value(card.organizations.clone().unwrap()).unwrap();
+        assert_eq!(orgs["o1"].name.as_deref(), Some("ABC, Inc."));
+        let back = serde_json::to_value(&orgs).unwrap();
+        assert_eq!(back, card.organizations.unwrap());
+    }
+
+    /// Deserialize the sloppy `speakToAs` field through `SpeakToAs`.
+    /// Oracle: RFC 9553 Figure 23.
+    #[test]
+    fn sloppy_field_speak_to_as_roundtrips_through_jscontact_speak_to_as() {
+        let card_json = json!({
+            "speakToAs": {
+                "grammaticalGender": "neuter",
+                "pronouns": {
+                    "k19": { "pronouns": "they/them", "pref": 2 }
+                }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let speak: SpeakToAs = serde_json::from_value(card.speak_to_as.clone().unwrap()).unwrap();
+        let back = serde_json::to_value(&speak).unwrap();
+        assert_eq!(back, card.speak_to_as.unwrap());
+    }
+
+    /// Deserialize the sloppy `titles` field through `HashMap<String, Title>`.
+    /// Oracle: RFC 9553 Figure 24.
+    #[test]
+    fn sloppy_field_titles_roundtrips_through_jscontact_title_map() {
+        let card_json = json!({
+            "titles": {
+                "le9": { "kind": "title", "name": "Research Scientist" }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let titles: HashMap<String, Title> =
+            serde_json::from_value(card.titles.clone().unwrap()).unwrap();
+        assert_eq!(titles["le9"].name, "Research Scientist");
+        let back = serde_json::to_value(&titles).unwrap();
+        assert_eq!(back, card.titles.unwrap());
+    }
+
+    /// Deserialize the sloppy `emails` field through `HashMap<String, EmailAddress>`.
+    /// Oracle: RFC 9553 Figure 25.
+    #[test]
+    fn sloppy_field_emails_roundtrips_through_jscontact_email_address_map() {
+        let card_json = json!({
+            "emails": {
+                "e1": { "contexts": { "work": true }, "address": "jqpublic@xyz.example.com" }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let emails: HashMap<String, EmailAddress> =
+            serde_json::from_value(card.emails.clone().unwrap()).unwrap();
+        assert_eq!(emails["e1"].address, "jqpublic@xyz.example.com");
+        let back = serde_json::to_value(&emails).unwrap();
+        assert_eq!(back, card.emails.unwrap());
+    }
+
+    /// Deserialize the sloppy `onlineServices` field through `HashMap<String, OnlineService>`.
+    /// Oracle: RFC 9553 Figure 26.
+    #[test]
+    fn sloppy_field_online_services_roundtrips_through_jscontact_online_service_map() {
+        let card_json = json!({
+            "onlineServices": {
+                "x1": { "uri": "xmpp:alice@example.com" }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let svcs: HashMap<String, OnlineService> =
+            serde_json::from_value(card.online_services.clone().unwrap()).unwrap();
+        let back = serde_json::to_value(&svcs).unwrap();
+        assert_eq!(back, card.online_services.unwrap());
+    }
+
+    /// Deserialize the sloppy `phones` field through `HashMap<String, Phone>`.
+    /// Oracle: RFC 9553 Figure 27.
+    #[test]
+    fn sloppy_field_phones_roundtrips_through_jscontact_phone_map() {
+        let card_json = json!({
+            "phones": {
+                "tel0": {
+                    "contexts": { "private": true },
+                    "features": { "voice": true },
+                    "number": "tel:+1-555-555-5555;ext=5555",
+                    "pref": 1
+                }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let phones: HashMap<String, Phone> =
+            serde_json::from_value(card.phones.clone().unwrap()).unwrap();
+        assert_eq!(phones["tel0"].number, "tel:+1-555-555-5555;ext=5555");
+        let back = serde_json::to_value(&phones).unwrap();
+        assert_eq!(back, card.phones.unwrap());
+    }
+
+    /// Deserialize the sloppy `preferredLanguages` field through `HashMap<String, LanguagePref>`.
+    /// Oracle: RFC 9553 Figure 28.
+    #[test]
+    fn sloppy_field_preferred_languages_roundtrips_through_jscontact_language_pref_map() {
+        let card_json = json!({
+            "preferredLanguages": {
+                "l1": { "language": "en", "contexts": { "work": true }, "pref": 1 }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let langs: HashMap<String, LanguagePref> =
+            serde_json::from_value(card.preferred_languages.clone().unwrap()).unwrap();
+        assert_eq!(langs["l1"].language, "en");
+        let back = serde_json::to_value(&langs).unwrap();
+        assert_eq!(back, card.preferred_languages.unwrap());
+    }
+
+    /// Deserialize the sloppy `calendars` field through `HashMap<String, Calendar>`.
+    /// Oracle: RFC 9553 Figure 29.
+    #[test]
+    fn sloppy_field_calendars_roundtrips_through_jscontact_calendar_map() {
+        let card_json = json!({
+            "calendars": {
+                "calA": { "kind": "calendar", "uri": "webcal://calendar.example.com/calA.ics" }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let cals: HashMap<String, Calendar> =
+            serde_json::from_value(card.calendars.clone().unwrap()).unwrap();
+        let back = serde_json::to_value(&cals).unwrap();
+        assert_eq!(back, card.calendars.unwrap());
+    }
+
+    /// Deserialize the sloppy `schedulingAddresses` field through `HashMap<String, SchedulingAddress>`.
+    /// Oracle: RFC 9553 Figure 30.
+    #[test]
+    fn sloppy_field_scheduling_addresses_roundtrips_through_jscontact_scheduling_address_map() {
+        let card_json = json!({
+            "schedulingAddresses": {
+                "sched1": { "uri": "mailto:janedoe@example.com" }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let scheds: HashMap<String, SchedulingAddress> =
+            serde_json::from_value(card.scheduling_addresses.clone().unwrap()).unwrap();
+        assert_eq!(scheds["sched1"].uri, "mailto:janedoe@example.com");
+        let back = serde_json::to_value(&scheds).unwrap();
+        assert_eq!(back, card.scheduling_addresses.unwrap());
+    }
+
+    /// Deserialize the sloppy `addresses` field through `HashMap<String, Address>`.
+    /// Oracle: RFC 9553 Figure 31.
+    #[test]
+    fn sloppy_field_addresses_roundtrips_through_jscontact_address_map() {
+        let card_json = json!({
+            "addresses": {
+                "k23": {
+                    "contexts": { "work": true },
+                    "components": [
+                        { "kind": "number", "value": "54321" },
+                        { "kind": "name", "value": "Oak St" }
+                    ],
+                    "countryCode": "US",
+                    "isOrdered": true
+                }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let addrs: HashMap<String, Address> =
+            serde_json::from_value(card.addresses.clone().unwrap()).unwrap();
+        assert_eq!(addrs["k23"].country_code.as_deref(), Some("US"));
+        let back = serde_json::to_value(&addrs).unwrap();
+        assert_eq!(back, card.addresses.unwrap());
+    }
+
+    /// Deserialize the sloppy `cryptoKeys` field through `HashMap<String, CryptoKey>`.
+    /// Oracle: RFC 9553 Figure 34.
+    #[test]
+    fn sloppy_field_crypto_keys_roundtrips_through_jscontact_crypto_key_map() {
+        let card_json = json!({
+            "cryptoKeys": {
+                "mykey1": { "uri": "https://www.example.com/keys/jdoe.cer" }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let keys: HashMap<String, CryptoKey> =
+            serde_json::from_value(card.crypto_keys.clone().unwrap()).unwrap();
+        let back = serde_json::to_value(&keys).unwrap();
+        assert_eq!(back, card.crypto_keys.unwrap());
+    }
+
+    /// Deserialize the sloppy `directories` field through `HashMap<String, Directory>`.
+    /// Oracle: RFC 9553 Figure 36.
+    #[test]
+    fn sloppy_field_directories_roundtrips_through_jscontact_directory_map() {
+        let card_json = json!({
+            "directories": {
+                "dir1": {
+                    "kind": "entry",
+                    "uri": "https://dir.example.com/addrbook/jdoe/Jean%20Dupont.vcf"
+                }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let dirs: HashMap<String, Directory> =
+            serde_json::from_value(card.directories.clone().unwrap()).unwrap();
+        assert_eq!(dirs["dir1"].kind.as_deref(), Some("entry"));
+        let back = serde_json::to_value(&dirs).unwrap();
+        assert_eq!(back, card.directories.unwrap());
+    }
+
+    /// Deserialize the sloppy `links` field through `HashMap<String, Link>`.
+    /// Oracle: RFC 9553 Figure 37.
+    #[test]
+    fn sloppy_field_links_roundtrips_through_jscontact_link_map() {
+        let card_json = json!({
+            "links": {
+                "link3": { "kind": "contact", "uri": "mailto:contact@example.com", "pref": 1 }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let links: HashMap<String, Link> =
+            serde_json::from_value(card.links.clone().unwrap()).unwrap();
+        let back = serde_json::to_value(&links).unwrap();
+        assert_eq!(back, card.links.unwrap());
+    }
+
+    /// Deserialize the sloppy `media` field through `HashMap<String, Media>`.
+    /// Oracle: RFC 9553 Figure 38.
+    #[test]
+    fn sloppy_field_media_roundtrips_through_jscontact_media_map() {
+        let card_json = json!({
+            "media": {
+                "res47": { "kind": "logo", "uri": "https://www.example.com/pub/logos/abccorp.jpg" }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let media: HashMap<String, Media> =
+            serde_json::from_value(card.media.clone().unwrap()).unwrap();
+        assert_eq!(media["res47"].kind.as_deref(), Some("logo"));
+        let back = serde_json::to_value(&media).unwrap();
+        assert_eq!(back, card.media.unwrap());
+    }
+
+    /// Deserialize the sloppy `anniversaries` field through `HashMap<String, Anniversary>`.
+    /// Oracle: RFC 9553 Figure 41.
+    #[test]
+    fn sloppy_field_anniversaries_roundtrips_through_jscontact_anniversary_map() {
+        let card_json = json!({
+            "anniversaries": {
+                "k8": {
+                    "kind": "birth",
+                    "date": { "year": 1953, "month": 4, "day": 15 }
+                }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let annivs: HashMap<String, Anniversary> =
+            serde_json::from_value(card.anniversaries.clone().unwrap()).unwrap();
+        assert_eq!(annivs["k8"].kind, "birth");
+        let back = serde_json::to_value(&annivs).unwrap();
+        assert_eq!(back, card.anniversaries.unwrap());
+    }
+
+    /// Deserialize the sloppy `notes` field through `HashMap<String, Note>`.
+    /// Oracle: RFC 9553 Figure 43.
+    #[test]
+    fn sloppy_field_notes_roundtrips_through_jscontact_note_map() {
+        let card_json = json!({
+            "notes": {
+                "n1": {
+                    "note": "Open office hours are 1600 to 1715 EST, Mon-Fri",
+                    "created": "2022-11-23T15:01:32Z",
+                    "author": { "name": "John" }
+                }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let notes: HashMap<String, Note> =
+            serde_json::from_value(card.notes.clone().unwrap()).unwrap();
+        assert_eq!(
+            notes["n1"].author.as_ref().unwrap().name.as_deref(),
+            Some("John")
+        );
+        let back = serde_json::to_value(&notes).unwrap();
+        assert_eq!(back, card.notes.unwrap());
+    }
+
+    /// Deserialize the sloppy `personalInfo` field through `HashMap<String, PersonalInfo>`.
+    /// Oracle: RFC 9553 Figure 44.
+    #[test]
+    fn sloppy_field_personal_info_roundtrips_through_jscontact_personal_info_map() {
+        let card_json = json!({
+            "personalInfo": {
+                "pi2": { "kind": "expertise", "value": "chemistry", "level": "high" }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let info: HashMap<String, PersonalInfo> =
+            serde_json::from_value(card.personal_info.clone().unwrap()).unwrap();
+        assert_eq!(info["pi2"].kind, "expertise");
+        let back = serde_json::to_value(&info).unwrap();
+        assert_eq!(back, card.personal_info.unwrap());
+    }
+
+    /// Deserialize the sloppy `relatedTo` field through `HashMap<String, Relation>`.
+    /// Oracle: RFC 9553 Figure 13.
+    #[test]
+    fn sloppy_field_related_to_roundtrips_through_jscontact_relation_map() {
+        let card_json = json!({
+            "relatedTo": {
+                "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6": {
+                    "relation": { "friend": true }
+                }
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let rels: HashMap<String, Relation> =
+            serde_json::from_value(card.related_to.clone().unwrap()).unwrap();
+        let back = serde_json::to_value(&rels).unwrap();
+        assert_eq!(back, card.related_to.unwrap());
+    }
+
+    /// Deserialize the sloppy `keywords` field (String[Boolean]) through `HashMap<String, bool>`.
+    /// Oracle: RFC 9553 Figure 42.
+    ///
+    /// RFC 9553 §2.8.2 declares `keywords` as `String[Boolean]` — there is
+    /// no JSContact object type for keywords, only a tag→true map. The
+    /// typed shape is therefore the standard library `HashMap<String, bool>`.
+    #[test]
+    fn sloppy_field_keywords_roundtrips_through_string_bool_map() {
+        let card_json = json!({
+            "keywords": {
+                "internet": true,
+                "IETF": true
+            }
+        });
+        let card: ContactCard = serde_json::from_value(card_json).unwrap();
+        let kws: HashMap<String, bool> =
+            serde_json::from_value(card.keywords.clone().unwrap()).unwrap();
+        assert!(kws["internet"]);
+        let back = serde_json::to_value(&kws).unwrap();
+        assert_eq!(back, card.keywords.unwrap());
+    }
+
+    /// Verify the `jscontact` module alias resolves to the same crate as
+    /// the top-level re-exports.
+    ///
+    /// Because every public struct in `jmap-jscontact-types` is
+    /// `#[non_exhaustive]`, external crates cannot construct instances
+    /// with a struct literal. We deserialize from JSON instead to obtain
+    /// concrete instances and then assert that the aliased path and the
+    /// top-level re-export resolve to the same type.
+    #[test]
+    fn jscontact_module_alias_is_jmap_jscontact_types() {
+        let v = json!({ "full": "Vincent van Gogh" });
+        let direct: jmap_jscontact_types::Name = serde_json::from_value(v.clone()).unwrap();
+        let aliased: crate::jscontact::Name = serde_json::from_value(v).unwrap();
+        // Both paths resolve to the same type; equality is well-defined.
+        assert_eq!(direct, aliased);
+        // Same with the top-level re-export.
+        let top_level: Name = direct.clone();
+        assert_eq!(direct, top_level);
     }
 }
