@@ -45,8 +45,10 @@ pub(crate) fn filter_properties(obj: &Value, prop_set: &HashSet<&str>) -> Value 
 /// Serialize a [`SetError`] to a JSON value for inclusion in
 /// `notCreated`/`notUpdated`/`notDestroyed` maps.
 ///
-/// Falls back to a `serverFail` object on the extremely unlikely event that
-/// `SetError`'s `Serialize` impl panics.
+/// `SetError` carries only plain data (string error type plus optional
+/// scalar fields) and its `Serialize` impl is derive-generated, so the
+/// `.expect` below is provably unreachable: `serde_json::to_value` on a
+/// derive-Serialize type with no custom logic cannot fail.
 pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
