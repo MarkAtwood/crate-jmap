@@ -1,17 +1,17 @@
-// JMAP Mail — SearchSnippet/get method implementation on SessionClient.
-//
-// SearchSnippet/get (RFC 8621 §5) is not a standard /get method: it takes
-// `filter` and either `threadIds` or `emailIds` instead of a plain `ids`
-// array, and the response shape differs (no `state` field, no `notFound`).
-// We therefore return `serde_json::Value` and let the caller deserialize.
-//
-// Each method follows the standard five-step pattern:
-//   1. Validate arguments (defence-in-depth empty-state guards).
-//   2. Call `self.session_parts()?` → `(api_url, account_id)`.
-//   3. Build args JSON with `serde_json::json!({…})`.
-//   4. Call `build_request(method_name, args, USING_MAIL)`.
-//   5. Call `self.call_internal(api_url, &req).await?`.
-//   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
+//! JMAP Mail — SearchSnippet/get method implementation on SessionClient.
+//!
+//! SearchSnippet/get (RFC 8621 §5) is not a standard /get method: it takes
+//! `filter` and either `threadIds` or `emailIds` instead of a plain `ids`
+//! array, and the response shape differs (no `state` field, no `notFound`).
+//! We therefore return `serde_json::Value` and let the caller deserialize.
+//!
+//! Each method follows the standard five-step pattern:
+//!   1. Validate arguments (defence-in-depth empty-state guards).
+//!   2. Call `self.session_parts()?` → `(api_url, account_id)`.
+//!   3. Build args JSON with `serde_json::json!({…})`.
+//!   4. Call `build_request(method_name, args, USING_MAIL)`.
+//!   5. Call `self.call_internal(api_url, &req).await?`.
+//!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
 use jmap_types::Id;
 

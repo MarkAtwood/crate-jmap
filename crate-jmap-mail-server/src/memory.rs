@@ -252,6 +252,8 @@ pub struct MemoryBackend {
 }
 
 impl MemoryBackend {
+    /// Construct an empty [`MemoryBackend`] with no accounts, blobs, or
+    /// stored objects. Equivalent to [`Self::default`].
     pub fn new() -> Self {
         Self::default()
     }
@@ -283,8 +285,15 @@ impl MemoryBackend {
 // MemoryError
 // ---------------------------------------------------------------------------
 
+/// Opaque storage-layer error returned by [`MemoryBackend`] operations.
+///
+/// The inner [`String`] is a human-readable description intended for
+/// diagnostic logging; it is not a stable wire-format identifier.
 #[derive(Debug)]
-pub struct MemoryError(pub String);
+pub struct MemoryError(
+    /// Human-readable description of the underlying failure.
+    pub String,
+);
 
 impl std::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

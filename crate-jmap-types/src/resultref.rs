@@ -102,7 +102,11 @@ impl ResultReference {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum Argument<T: sealed::Sealed> {
+    /// A direct, inlined argument value supplied by the caller.
     Value(T),
+    /// A result-reference back to a previous method response in the same
+    /// request (RFC 8620 §3.7), resolved by the dispatcher before invoking
+    /// the method handler.
     Ref(ResultReference),
 }
 

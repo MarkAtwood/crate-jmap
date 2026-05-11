@@ -53,8 +53,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Operator {
+    /// Logical AND: all sub-filters must match (RFC 8620 §5.5).
     And,
+    /// Logical OR: at least one sub-filter must match (RFC 8620 §5.5).
     Or,
+    /// Logical NOT: none of the sub-filters may match (RFC 8620 §5.5).
     Not,
 }
 

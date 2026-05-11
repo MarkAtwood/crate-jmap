@@ -1,20 +1,20 @@
-// JMAP Mail — EmailSubmission/* method implementations on SessionClient.
-//
-// Implements RFC 8621 §7.1-7.5.
-//
-// Each method follows the standard six-step pattern:
-//   1. Validate arguments (defence-in-depth empty-state guards).
-//   2. Call `self.session_parts()?` → `(api_url, account_id)`.
-//   3. Build args JSON with `serde_json::json!({…})`.
-//   4. Call `build_request(method_name, args, USING_MAIL)`.
-//   5. Call `self.call_internal(api_url, &req).await?`.
-//   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
-//
-// Wire key notes (RFC 8621 §7):
-//   - Object field for submission creation time:     "sendAt"       (§7.1)
-//   - Sort property for /query:                      "sentAt"       (§7.3, line 4513)
-//   - Success hooks on /set:                         "onSuccessUpdateEmail",
-//                                                    "onSuccessDestroyEmail" (§7.5)
+//! JMAP Mail — EmailSubmission/* method implementations on SessionClient.
+//!
+//! Implements RFC 8621 §7.1-7.5.
+//!
+//! Each method follows the standard six-step pattern:
+//!   1. Validate arguments (defence-in-depth empty-state guards).
+//!   2. Call `self.session_parts()?` → `(api_url, account_id)`.
+//!   3. Build args JSON with `serde_json::json!({…})`.
+//!   4. Call `build_request(method_name, args, USING_MAIL)`.
+//!   5. Call `self.call_internal(api_url, &req).await?`.
+//!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
+//!
+//! Wire key notes (RFC 8621 §7):
+//!   - Object field for submission creation time:     "sendAt"       (§7.1)
+//!   - Sort property for /query:                      "sentAt"       (§7.3, line 4513)
+//!   - Success hooks on /set:                         "onSuccessUpdateEmail",
+//!     "onSuccessDestroyEmail" (§7.5)
 
 use std::collections::HashMap;
 
