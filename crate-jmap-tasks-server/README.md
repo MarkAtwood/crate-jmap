@@ -110,14 +110,14 @@ pub trait TasksBackend: JmapBackend {
     /// Compute utcStart and utcDue for a Task by converting local-time fields
     /// and time zone into UTC (draft-tasks-06 §4, lines 739-772).
     ///
-    /// Returns (utc_start, utc_due) as RFC 3339 strings, or None for each
+    /// Returns (utc_start, utc_due) as `UTCDate` values, or None for each
     /// if the field is absent or the time zone is unknown.
     ///
     /// The default implementation returns (None, None). Backends with full
     /// time-zone support should override this.
     fn compute_task_utc_times(
         &self, task: &Task, tz_hint: Option<&str>,
-    ) -> (Option<String>, Option<String>) {
+    ) -> (Option<UTCDate>, Option<UTCDate>) {
         (None, None)
     }
 }
