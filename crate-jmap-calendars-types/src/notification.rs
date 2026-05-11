@@ -23,6 +23,13 @@ pub struct Person {
 
     /// CalendarAddress URI of the person, or `null`.
     pub calendar_address: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Type of change recorded by a [`CalendarEventNotification`]
@@ -100,6 +107,13 @@ pub struct CalendarEventNotification {
     /// [`PatchObject`]'s `#[serde(transparent)]`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event_patch: Option<PatchObject>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Push-notification payload emitted when a calendar alert fires
@@ -139,6 +153,13 @@ pub struct CalendarAlert {
 
     /// Id of the [`Alert`](crate::Alert) object within the CalendarEvent that is firing.
     pub alert_id: String,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Filter condition for `CalendarEventNotification/query`

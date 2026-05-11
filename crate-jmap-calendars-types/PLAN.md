@@ -435,3 +435,54 @@ serde_json = "1"
 ```
 
 No tokio, no async, no network deps. No iCalendar parser.
+
+## Type-design constraints
+
+### Extras-preservation policy (JMAP-lbdy)
+
+Every public `Deserialize` struct that appears on the JMAP wire carries an
+`extra` field per the workspace extras-preservation policy (see workspace
+`AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+In scope in this crate (each has a round-trip preservation test):
+
+- `BusyPeriod` (availability.rs).
+- `CalendarRights`, `Calendar` (calendar.rs).
+- `CalendarEvent` (event.rs).
+- `Person`, `CalendarEventNotification`, `CalendarAlert` (notification.rs).
+- `ParticipantIdentity` (participant_identity.rs).
+
+The 10 typed sub-types in the `jscalendar` module alias (re-exported from
+`jmap-jscalendar-types`) — `NDay`, `RecurrenceRule`, `Location`,
+`VirtualLocation`, `Link`, `Relation`, `Participant`, `OffsetTrigger`,
+`AbsoluteTrigger`, `Alert` — also carry `extra` fields by virtue of
+the policy applied in their home crate.
+
+Out of scope:
+
+- Filter and comparator algebra (`CalendarFilterCondition`,
+  `CalendarEventFilterCondition`, `CalendarEventComparator`,
+  `NotificationFilterCondition`) — silent-drop of an unknown filter
+  clause is a query-correctness bug. The existing rustdoc on each of
+  these types already documents the IETF-track and pre-IETF escape paths
+  per the workspace AGENTS.md "filter algebra excluded" decision.
+- Capability objects (`CalendarsCapability`,
+  `CalendarsAccountCapability`, `PrincipalsAvailabilityCapability`,
+  `PrincipalsAvailabilityAccountCapability`, `CalendarsParseCapability`,
+  `PrincipalCalendarsCapability`) — capability objects live in the
+  Session response and follow Session's evolution rules, matching the
+  precedent set in `jmap-mail-types` where Sieve capability objects
+  were excluded.
+- `IncludeInAvailability` and `NotificationType` — string enums.
+
+### New-type rule
+
+Any new public `Deserialize` struct added to this crate that appears on
+the JMAP wire MUST include the `extra` field from day one with the
+documented serde attributes and at least one round-trip preservation
+test.

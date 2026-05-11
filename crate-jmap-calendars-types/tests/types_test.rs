@@ -1491,3 +1491,192 @@ fn calendar_event_ical_component_absent_when_none() {
         "iCalComponent must not appear in output when None: {out}"
     );
 }
+
+// ── Extras-preservation policy tests (JMAP-lbdy.4) ──────────────────────────
+//
+// One round-trip preservation test per migrated type. Each asserts that
+// an unknown vendor / site / private-extension field survives
+// deserialize/serialize unchanged. Per workspace AGENTS.md
+// "Extras-preservation policy for vendor/site fields".
+
+/// `BusyPeriod.extra` captures vendor fields and preserves them.
+#[test]
+fn busy_period_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "utcStart": "2024-06-01T09:00:00Z",
+        "utcEnd": "2024-06-01T10:00:00Z",
+        "acmeCorpFreeBusyTag": "client-meeting"
+    });
+    let b: BusyPeriod = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        b.extra.get("acmeCorpFreeBusyTag").and_then(|v| v.as_str()),
+        Some("client-meeting")
+    );
+    let back = serde_json::to_value(&b).unwrap();
+    assert_eq!(back["acmeCorpFreeBusyTag"], "client-meeting");
+}
+
+/// `CalendarRights.extra` captures vendor fields and preserves them.
+#[test]
+fn calendar_rights_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "mayReadFreeBusy": true,
+        "mayReadItems": true,
+        "mayWriteAll": false,
+        "mayWriteOwn": true,
+        "mayUpdatePrivate": false,
+        "mayRSVP": true,
+        "mayShare": false,
+        "mayDelete": false,
+        "acmeCorpMayPublish": false
+    });
+    let r: CalendarRights = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        r.extra.get("acmeCorpMayPublish").and_then(|v| v.as_bool()),
+        Some(false)
+    );
+    let back = serde_json::to_value(&r).unwrap();
+    assert_eq!(back["acmeCorpMayPublish"], false);
+}
+
+/// `Calendar.extra` captures vendor fields and preserves them.
+#[test]
+fn calendar_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "id": "c1",
+        "name": "Work",
+        "description": null,
+        "color": null,
+        "sortOrder": 0,
+        "isSubscribed": true,
+        "isVisible": true,
+        "isDefault": false,
+        "includeInAvailability": "all",
+        "defaultAlertsWithTime": null,
+        "defaultAlertsWithoutTime": null,
+        "timeZone": null,
+        "shareWith": null,
+        "myRights": {
+            "mayReadFreeBusy": true, "mayReadItems": true, "mayWriteAll": true,
+            "mayWriteOwn": true, "mayUpdatePrivate": true, "mayRSVP": true,
+            "mayShare": true, "mayDelete": true
+        },
+        "acmeCorpDepartment": "engineering"
+    });
+    let c: Calendar = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        c.extra.get("acmeCorpDepartment").and_then(|v| v.as_str()),
+        Some("engineering")
+    );
+    let back = serde_json::to_value(&c).unwrap();
+    assert_eq!(back["acmeCorpDepartment"], "engineering");
+}
+
+/// `CalendarEvent.extra` captures vendor fields and preserves them.
+#[test]
+fn calendar_event_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "@type": "Event",
+        "uid": "event-1",
+        "title": "Meeting",
+        "start": "2024-06-01T10:00:00",
+        "duration": "PT1H",
+        "acmeCorpMeetingNotes": "https://wiki/n/42"
+    });
+    let e: CalendarEvent = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        e.extra.get("acmeCorpMeetingNotes").and_then(|v| v.as_str()),
+        Some("https://wiki/n/42")
+    );
+    let back = serde_json::to_value(&e).unwrap();
+    assert_eq!(back["acmeCorpMeetingNotes"], "https://wiki/n/42");
+}
+
+/// `Person.extra` captures vendor fields and preserves them.
+#[test]
+fn person_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "name": "Alice",
+        "email": "alice@example.com",
+        "principalId": null,
+        "calendarAddress": null,
+        "acmeCorpEmployeeId": "emp-42"
+    });
+    let p: Person = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        p.extra.get("acmeCorpEmployeeId").and_then(|v| v.as_str()),
+        Some("emp-42")
+    );
+    let back = serde_json::to_value(&p).unwrap();
+    assert_eq!(back["acmeCorpEmployeeId"], "emp-42");
+}
+
+/// `CalendarEventNotification.extra` captures vendor fields and preserves them.
+#[test]
+fn calendar_event_notification_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "id": "n1",
+        "created": "2024-06-01T00:00:00Z",
+        "changedBy": {
+            "name": "Alice",
+            "email": null,
+            "principalId": null,
+            "calendarAddress": null
+        },
+        "type": "created",
+        "calendarEventId": "e1",
+        "event": {},
+        "acmeCorpNotificationChannel": "in-app"
+    });
+    let n: CalendarEventNotification = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        n.extra
+            .get("acmeCorpNotificationChannel")
+            .and_then(|v| v.as_str()),
+        Some("in-app")
+    );
+    let back = serde_json::to_value(&n).unwrap();
+    assert_eq!(back["acmeCorpNotificationChannel"], "in-app");
+}
+
+/// `CalendarAlert.extra` captures vendor fields and preserves them.
+#[test]
+fn calendar_alert_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "@type": "CalendarAlert",
+        "accountId": "a1",
+        "calendarEventId": "e1",
+        "uid": "uid-1",
+        "recurrenceId": null,
+        "alertId": "alrt-1",
+        "acmeCorpPushPriority": "high"
+    });
+    let a: CalendarAlert = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        a.extra.get("acmeCorpPushPriority").and_then(|v| v.as_str()),
+        Some("high")
+    );
+    let back = serde_json::to_value(&a).unwrap();
+    assert_eq!(back["acmeCorpPushPriority"], "high");
+}
+
+/// `ParticipantIdentity.extra` captures vendor fields and preserves them.
+#[test]
+fn participant_identity_preserves_vendor_extras() {
+    let raw = serde_json::json!({
+        "id": "pi1",
+        "name": "Alice",
+        "calendarAddress": "mailto:alice@example.com",
+        "isDefault": true,
+        "acmeCorpDeliveryHint": "external"
+    });
+    let pi: ParticipantIdentity = serde_json::from_value(raw).unwrap();
+    assert_eq!(
+        pi.extra
+            .get("acmeCorpDeliveryHint")
+            .and_then(|v| v.as_str()),
+        Some("external")
+    );
+    let back = serde_json::to_value(&pi).unwrap();
+    assert_eq!(back["acmeCorpDeliveryHint"], "external");
+}

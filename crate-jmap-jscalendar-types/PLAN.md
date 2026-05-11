@@ -123,3 +123,40 @@ this extraction is verified, to keep blast radius narrow.
 - bd:JMAP-x59i.2 (follow-up) migrates `jmap-calendars-types` to consume
   this crate (path-dep + re-export) and unblocks `jmap-tasks-types`
   consumption (bd:JMAP-g7wu.8).
+
+## Type-design constraints
+
+### Extras-preservation policy (JMAP-lbdy)
+
+Every public `Deserialize` struct that appears on the JMAP wire carries an
+`extra` field per the workspace extras-preservation policy (see workspace
+`AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+In scope in this crate (each has a round-trip preservation test):
+
+- `NDay`, `RecurrenceRule` (RFC 8984 §4.3.3)
+- `Location`, `VirtualLocation` (RFC 8984 §4.2.5, §4.2.6)
+- `Link` (RFC 8984 §1.4.11)
+- `Relation` (RFC 8984 §1.4.10)
+- `Participant` (RFC 8984 §4.4.6)
+- `OffsetTrigger`, `AbsoluteTrigger`, `Alert` (RFC 8984 §4.5.2)
+
+Out of scope:
+
+- `LocalDateTime`, `Duration`, `SignedDuration` — newtypes around `String`;
+  no field-shaped extension surface.
+- `AlertTrigger` — outer dispatch enum; vendor-extras handling lives on
+  the variant structs (OffsetTrigger / AbsoluteTrigger). The
+  `AlertTrigger::Unknown(Value)` variant is the existing pass-through
+  for unrecognised `@type` strings and is independent of this policy.
+
+### New-type rule
+
+Any new public `Deserialize` struct added to this crate MUST include the
+`extra` field from day one with the documented serde attributes and at
+least one round-trip preservation test.
