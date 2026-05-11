@@ -19,7 +19,10 @@ pub use backend::{
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
 pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
-pub use helpers::{extract_account_id, not_found_json, now_utc_string, ser};
+pub use helpers::{
+    extract_account_id, json_merge_patch, not_found_json, now_utc_string, ser,
+    MAX_MERGE_PATCH_DEPTH,
+};
 
 mod parse;
 mod response;
