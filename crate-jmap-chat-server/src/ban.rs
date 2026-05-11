@@ -21,15 +21,10 @@ use crate::helpers::{
 /// Handle a `SpaceBan/get` method call.
 pub async fn handle_ban_get<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
         Value::Null => None,
@@ -41,12 +36,12 @@ pub async fn handle_ban_get<B: ChatBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<SpaceBan>(&account_id, ids_slice, None)
+        .get_objects::<SpaceBan>(caller, &account_id, ids_slice, None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<SpaceBan>(&account_id)
+        .get_state::<SpaceBan>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -70,9 +65,10 @@ pub async fn handle_ban_get<B: ChatBackend>(
 /// Handle a `SpaceBan/changes` method call (RFC 8620 §5.2).
 pub async fn handle_ban_changes<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<SpaceBan, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<SpaceBan, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -88,17 +84,13 @@ pub async fn handle_ban_changes<B: ChatBackend>(
 ///   and rejected in updates.
 pub async fn handle_ban_set<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let old_state = backend
-        .get_state::<SpaceBan>(&account_id)
+        .get_state::<SpaceBan>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -184,7 +176,7 @@ pub async fn handle_ban_set<B: ChatBackend>(
             }
 
             match backend
-                .create_object::<SpaceBan>(&account_id, create_id, ban)
+                .create_object::<SpaceBan>(caller, &account_id, create_id, ban)
                 .await
             {
                 Ok((_server_id, created_obj)) => {
@@ -262,7 +254,12 @@ pub async fn handle_ban_set<B: ChatBackend>(
             }
 
             match backend
-                .update_object::<SpaceBan>(&account_id, &id, PatchObject::from_map(clean_patch))
+                .update_object::<SpaceBan>(
+                    caller,
+                    &account_id,
+                    &id,
+                    PatchObject::from_map(clean_patch),
+                )
                 .await
             {
                 Ok(Some(obj)) => {
@@ -318,7 +315,10 @@ pub async fn handle_ban_set<B: ChatBackend>(
             };
             let id = Id::from(id_str);
 
-            match backend.destroy_object::<SpaceBan>(&account_id, &id).await {
+            match backend
+                .destroy_object::<SpaceBan>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str.to_owned()));
@@ -347,6 +347,7 @@ pub async fn handle_ban_set<B: ChatBackend>(
 
     finalize_set_response::<B, SpaceBan>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,

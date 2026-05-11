@@ -55,6 +55,7 @@ pub(crate) struct SetAccumulators {
 /// follow-up invocations today.
 pub(crate) async fn finalize_set_response<B, O>(
     backend: &B,
+    caller: &B::CallerCtx,
     account_id: &Id,
     old_state: State,
     mutated: bool,
@@ -66,7 +67,7 @@ where
 {
     let new_state = if mutated {
         backend
-            .get_state::<O>(account_id)
+            .get_state::<O>(caller, account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?
     } else {

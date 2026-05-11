@@ -75,7 +75,7 @@ async fn task_list_get_empty_account_returns_empty_list() {
         "ids": null
     });
 
-    let (resp, _) = handle_task_list_get(&backend, args)
+    let (resp, _) = handle_task_list_get(&backend, &(), args)
         .await
         .expect("/get must not return top-level error");
 
@@ -104,7 +104,7 @@ async fn task_list_get_seeded_and_unknown_id() {
         "ids": ["tl1", "missing"]
     });
 
-    let (resp, _) = handle_task_list_get(&backend, args)
+    let (resp, _) = handle_task_list_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
 
@@ -128,7 +128,7 @@ async fn task_list_changes_empty_store_empty_result() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let (resp, _) = handle_task_list_changes(&backend, args)
+    let (resp, _) = handle_task_list_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -154,7 +154,7 @@ async fn task_list_set_destroy_empty_list_succeeds() {
         "accountId": "acc1",
         "destroy": ["tl1"]
     });
-    let (resp, _) = handle_task_list_set(&backend, args)
+    let (resp, _) = handle_task_list_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -181,7 +181,7 @@ async fn task_list_set_destroy_with_tasks_returns_error() {
         "destroy": ["tl1"]
         // onDestroyRemoveTasks defaults to false
     });
-    let (resp, _) = handle_task_list_set(&backend, args)
+    let (resp, _) = handle_task_list_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -210,7 +210,7 @@ async fn task_list_set_create_with_client_id_rejects() {
             "c1": { "id": "client-id", "name": "Inbox" }
         }
     });
-    let (resp, _) = handle_task_list_set(&backend, args)
+    let (resp, _) = handle_task_list_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -234,7 +234,7 @@ async fn task_list_set_unknown_account_returns_account_not_found() {
         "accountId": "nobody",
         "create": { "c1": { "name": "x" } }
     });
-    let err = handle_task_list_set(&backend, args)
+    let err = handle_task_list_set(&backend, &(), args)
         .await
         .expect_err("must produce method-level error");
 
@@ -254,7 +254,7 @@ async fn task_get_empty_account_returns_empty_list() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "ids": null });
-    let (resp, _) = handle_task_get(&backend, args)
+    let (resp, _) = handle_task_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
 
@@ -275,7 +275,7 @@ async fn task_query_empty_store_returns_no_ids() {
         "accountId": "acc1",
         "calculateTotal": true
     });
-    let (resp, _) = handle_task_query(&backend, args)
+    let (resp, _) = handle_task_query(&backend, &(), args)
         .await
         .expect("/query must succeed");
 
@@ -292,7 +292,7 @@ async fn task_changes_empty_store_empty_result() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let (resp, _) = handle_task_changes(&backend, args)
+    let (resp, _) = handle_task_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -312,7 +312,7 @@ async fn task_list_set_state_bumps_visible_via_changes() {
     backend.seed_object("acc1", "TaskList", "tl1", task_list_fixture("tl1", "Todo"));
 
     let args = json!({ "accountId": "acc1", "destroy": ["tl1"] });
-    let (resp, _) = handle_task_list_set(&backend, args)
+    let (resp, _) = handle_task_list_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
     let old_state = resp["oldState"].clone();
@@ -320,7 +320,7 @@ async fn task_list_set_state_bumps_visible_via_changes() {
     assert_ne!(old_state, new_state);
 
     let args = json!({ "accountId": "acc1", "sinceState": old_state });
-    let (changes, _) = handle_task_list_changes(&backend, args)
+    let (changes, _) = handle_task_list_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -352,7 +352,7 @@ async fn task_set_create_with_client_id_rejects() {
             }
         }
     });
-    let (resp, _) = handle_task_set(&backend, args)
+    let (resp, _) = handle_task_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -375,7 +375,7 @@ async fn task_set_unknown_account_returns_account_not_found() {
         "accountId": "nobody",
         "create": { "c1": { "@type": "Task", "uid": "u1", "title": "x", "taskListId": "tl1" } }
     });
-    let err = handle_task_set(&backend, args)
+    let err = handle_task_set(&backend, &(), args)
         .await
         .expect_err("unknown accountId must produce method-level error");
 
@@ -399,7 +399,7 @@ async fn task_notification_set_unknown_account_returns_account_not_found() {
         "accountId": "nobody",
         "destroy": ["nope"]
     });
-    let err = handle_task_notification_set(&backend, args)
+    let err = handle_task_notification_set(&backend, &(), args)
         .await
         .expect_err("unknown accountId must produce method-level error");
 

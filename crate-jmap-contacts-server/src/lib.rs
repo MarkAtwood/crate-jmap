@@ -10,7 +10,7 @@
 //! # use std::sync::Arc;
 //! # use jmap_contacts_server::{ContactsBackend, register_contacts_handlers};
 //! # use jmap_server::Dispatcher;
-//! # fn example<B: ContactsBackend + 'static>(backend: B) {
+//! # fn example<B: ContactsBackend<CallerCtx = ()> + 'static>(backend: B) {
 //! let mut dispatcher: Dispatcher<()> = Dispatcher::new();
 //! register_contacts_handlers(&mut dispatcher, Arc::new(backend));
 //! # }
@@ -74,19 +74,26 @@ pub use jmap_contacts_types::JMAP_CONTACTS_URI;
 ///
 /// **No `AddressBook/query` or `AddressBook/queryChanges`** — the spec
 /// (RFC 9610) does not define these methods.
-pub fn register_contacts_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+pub fn register_contacts_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: ContactsBackend + 'static,
-    C: Clone + Send + 'static,
 {
-    // Helper: register one method with a closure taking (Arc<B>, call_id, args).
+    // Helper: register one method with a closure that takes
+    // (Arc<B>, call_id, args, ctx).
+    //
+    // `$ci` is the call_id string (echoed back to the client). Most handlers
+    // ignore it and use `_ci` as the identifier. Only handlers that generate
+    // onSuccess* side-effect invocations need `ci`.
+    //
+    // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
+    // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
+                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
                         Box::pin(async move { $body }) as HandlerFuture
                     },
                 ),
@@ -96,34 +103,34 @@ where
     }
 
     // AddressBook
-    reg!("AddressBook/get", backend, |b, _ci, a| {
-        handle_address_book_get(&*b, a).await
+    reg!("AddressBook/get", backend, |b, _ci, a, ctx| {
+        handle_address_book_get(&*b, &ctx, a).await
     });
-    reg!("AddressBook/changes", backend, |b, _ci, a| {
-        handle_address_book_changes(&*b, a).await
+    reg!("AddressBook/changes", backend, |b, _ci, a, ctx| {
+        handle_address_book_changes(&*b, &ctx, a).await
     });
-    reg!("AddressBook/set", backend, |b, _ci, a| {
-        handle_address_book_set(&*b, a).await
+    reg!("AddressBook/set", backend, |b, _ci, a, ctx| {
+        handle_address_book_set(&*b, &ctx, a).await
     });
 
     // ContactCard
-    reg!("ContactCard/get", backend, |b, _ci, a| {
-        handle_contact_card_get(&*b, a).await
+    reg!("ContactCard/get", backend, |b, _ci, a, ctx| {
+        handle_contact_card_get(&*b, &ctx, a).await
     });
-    reg!("ContactCard/changes", backend, |b, _ci, a| {
-        handle_contact_card_changes(&*b, a).await
+    reg!("ContactCard/changes", backend, |b, _ci, a, ctx| {
+        handle_contact_card_changes(&*b, &ctx, a).await
     });
-    reg!("ContactCard/set", backend, |b, _ci, a| {
-        handle_contact_card_set(&*b, a).await
+    reg!("ContactCard/set", backend, |b, _ci, a, ctx| {
+        handle_contact_card_set(&*b, &ctx, a).await
     });
-    reg!("ContactCard/copy", backend, |b, _ci, a| {
-        handle_contact_card_copy(&*b, a).await
+    reg!("ContactCard/copy", backend, |b, ci, a, ctx| {
+        handle_contact_card_copy(&*b, &ctx, a, &ci).await
     });
-    reg!("ContactCard/query", backend, |b, _ci, a| {
-        handle_contact_card_query(&*b, a).await
+    reg!("ContactCard/query", backend, |b, _ci, a, ctx| {
+        handle_contact_card_query(&*b, &ctx, a).await
     });
-    reg!("ContactCard/queryChanges", backend, |b, _ci, a| {
-        handle_contact_card_query_changes(&*b, a).await
+    reg!("ContactCard/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_contact_card_query_changes(&*b, &ctx, a).await
     });
 }
 
@@ -251,13 +258,15 @@ pub(crate) mod test_support {
 
     impl JmapBackend for MockBackend {
         type Error = MockError;
+        type CallerCtx = ();
 
-        async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+        async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
             Ok(self.state.lock().unwrap().contains_key(account_id.as_ref()))
         }
 
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
+            _caller: &(),
             account_id: &Id,
             ids: Option<&[Id]>,
             _properties: Option<&[String]>,
@@ -312,6 +321,7 @@ pub(crate) mod test_support {
 
         async fn get_state<O: JmapObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
         ) -> Result<State, Self::Error> {
             Ok(State::from("0"))
@@ -319,6 +329,7 @@ pub(crate) mod test_support {
 
         async fn get_changes<O: JmapObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _since_state: &State,
             _max_changes: Option<u64>,
@@ -334,6 +345,7 @@ pub(crate) mod test_support {
 
         async fn query_objects<O: QueryObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _filter: Option<&O::Filter>,
             _sort: Option<&[O::Comparator]>,
@@ -351,6 +363,7 @@ pub(crate) mod test_support {
 
         async fn query_changes<O: QueryObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             since_query_state: &State,
             _filter: Option<&O::Filter>,
@@ -372,6 +385,7 @@ pub(crate) mod test_support {
     impl ContactsBackend for MockBackend {
         async fn create_object<O: SetObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _create_id: &str,
             obj: O,
@@ -381,6 +395,7 @@ pub(crate) mod test_support {
 
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
+            _caller: &(),
             account_id: &Id,
             id: &Id,
             patch: O::Patch,
@@ -438,6 +453,7 @@ pub(crate) mod test_support {
 
         async fn destroy_object<O: SetObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _id: &Id,
         ) -> Result<(), BackendSetError<Self::Error>> {
@@ -452,6 +468,7 @@ pub(crate) mod test_support {
 
         async fn copy_contact_card(
             &self,
+            _caller: &(),
             _from_account_id: &Id,
             _to_account_id: &Id,
             card: ContactCard,
@@ -460,7 +477,12 @@ pub(crate) mod test_support {
             Ok((Id::from("copied-id-1"), card))
         }
 
-        async fn address_book_has_contents(&self, _account_id: &Id, address_book_id: &Id) -> bool {
+        async fn address_book_has_contents(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            address_book_id: &Id,
+        ) -> bool {
             self.nonempty_books
                 .lock()
                 .unwrap()

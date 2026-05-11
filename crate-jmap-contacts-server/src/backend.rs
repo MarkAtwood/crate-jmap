@@ -35,9 +35,13 @@ pub trait ContactsBackend: JmapBackend {
     /// Create a new AddressBook or ContactCard.
     ///
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
-    /// client-side creation id used in the `/set` request.
+    /// client-side creation id used in the `/set` request. Per-request auth
+    /// context is available via the `caller` parameter, which the
+    /// `register_contacts_handlers` closures forward unchanged from
+    /// [`jmap_server::Dispatcher::dispatch`].
     fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
         obj: O,
@@ -48,9 +52,13 @@ pub trait ContactsBackend: JmapBackend {
     ///
     /// Returns `Some(updated_object)` if the backend modified any properties
     /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
-    /// or `None` if the patch was applied verbatim.
+    /// or `None` if the patch was applied verbatim. Per-request auth context
+    /// is available via the `caller` parameter, which the
+    /// `register_contacts_handlers` closures forward unchanged from
+    /// [`jmap_server::Dispatcher::dispatch`].
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: O::Patch,
@@ -59,6 +67,7 @@ pub trait ContactsBackend: JmapBackend {
     /// Destroy an AddressBook or ContactCard by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
@@ -77,6 +86,7 @@ pub trait ContactsBackend: JmapBackend {
     /// return the newly assigned `(id, card)`.
     fn copy_contact_card(
         &self,
+        caller: &Self::CallerCtx,
         from_account_id: &jmap_types::Id,
         to_account_id: &jmap_types::Id,
         card: jmap_contacts_types::ContactCard,
@@ -94,6 +104,7 @@ pub trait ContactsBackend: JmapBackend {
     /// `true`, the destroy is rejected with `addressBookHasContents`.
     fn address_book_has_contents(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         address_book_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send;

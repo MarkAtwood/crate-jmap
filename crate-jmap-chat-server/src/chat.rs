@@ -19,9 +19,10 @@ use crate::helpers::{
 // NOTE: properties forwarded via handle_get
 pub async fn handle_chat_get<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<Chat, B>(backend, args).await
+    jmap_server::handlers::handle_get::<Chat, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -31,9 +32,10 @@ pub async fn handle_chat_get<B: ChatBackend>(
 /// Handle a `Chat/changes` method call (RFC 8620 §5.2).
 pub async fn handle_chat_changes<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<Chat, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<Chat, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -43,9 +45,10 @@ pub async fn handle_chat_changes<B: ChatBackend>(
 /// Handle a `Chat/query` method call (RFC 8620 §5.5).
 pub async fn handle_chat_query<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query::<Chat, B>(backend, args).await
+    jmap_server::handlers::handle_query::<Chat, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -55,9 +58,10 @@ pub async fn handle_chat_query<B: ChatBackend>(
 /// Handle a `Chat/queryChanges` method call (RFC 8620 §5.6).
 pub async fn handle_chat_query_changes<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query_changes::<Chat, B>(backend, args).await
+    jmap_server::handlers::handle_query_changes::<Chat, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -74,17 +78,13 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 ///   rejected in updates.
 pub async fn handle_chat_set<B: ChatBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let old_state = backend
-        .get_state::<Chat>(&account_id)
+        .get_state::<Chat>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -121,7 +121,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
         let mut known_direct_contact_ids: HashSet<String>;
         if has_direct_create {
             let (chats, _) = backend
-                .get_objects::<Chat>(&account_id, None, None)
+                .get_objects::<Chat>(caller, &account_id, None, None)
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             known_direct_contact_ids = chats
@@ -287,7 +287,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             chat.space_id = space_id;
 
             match backend
-                .create_object::<Chat>(&account_id, create_id, chat)
+                .create_object::<Chat>(caller, &account_id, create_id, chat)
                 .await
             {
                 Ok((new_id, created_obj)) => {
@@ -298,7 +298,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     // would be preferable but requires backend support (JMAP-63k.9).
                     if let Some(contact_id_str) = direct_contact_id_str.as_deref() {
                         let (current_chats, _) = backend
-                            .get_objects::<Chat>(&account_id, None, None)
+                            .get_objects::<Chat>(caller, &account_id, None, None)
                             .await
                             .map_err(|e| JmapError::server_fail(e.to_string()))?;
                         let duplicates: Vec<&Chat> = current_chats
@@ -320,8 +320,9 @@ pub async fn handle_chat_set<B: ChatBackend>(
                                 .unwrap_or_else(|| new_id.clone());
                             if new_id != canonical_id {
                                 // We lost the race: destroy our copy.
-                                if let Err(e) =
-                                    backend.destroy_object::<Chat>(&account_id, &new_id).await
+                                if let Err(e) = backend
+                                    .destroy_object::<Chat>(caller, &account_id, &new_id)
+                                    .await
                                 {
                                     // Cleanup failed — the duplicate is still
                                     // live. Return a retryable server error
@@ -429,7 +430,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     continue;
                 }
             };
-            match backend.update_object::<Chat>(&account_id, &id, patch).await {
+            match backend
+                .update_object::<Chat>(caller, &account_id, &id, patch)
+                .await
+            {
                 Ok(Some(obj)) => {
                     mutated = true;
                     updated.insert(
@@ -483,7 +487,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
             };
             let id = Id::from(id_str);
 
-            match backend.destroy_object::<Chat>(&account_id, &id).await {
+            match backend
+                .destroy_object::<Chat>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str.to_owned()));
@@ -512,6 +519,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
 
     finalize_set_response::<B, Chat>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -540,9 +548,10 @@ pub async fn handle_chat_set<B: ChatBackend>(
 /// `accountId` — clients MUST NOT supply a `senderId` field.
 pub async fn handle_chat_typing<B: ChatBackend>(
     _backend: &B,
+    _caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
 
     let _chat_id: String = match args.get("chatId").and_then(|v| v.as_str()) {
         Some(s) if !s.is_empty() => s.to_owned(),

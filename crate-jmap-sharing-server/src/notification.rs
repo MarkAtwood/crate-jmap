@@ -19,9 +19,10 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 /// Handle a `ShareNotification/get` method call (RFC 9670 §3.1).
 pub async fn handle_share_notification_get<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<ShareNotification, B>(backend, args).await
+    jmap_server::handlers::handle_get::<ShareNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -31,9 +32,10 @@ pub async fn handle_share_notification_get<B: SharingBackend>(
 /// Handle a `ShareNotification/changes` method call (RFC 9670 §3.2).
 pub async fn handle_share_notification_changes<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<ShareNotification, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<ShareNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -48,17 +50,13 @@ pub async fn handle_share_notification_changes<B: SharingBackend>(
 /// list is forwarded to the backend normally.
 pub async fn handle_share_notification_set<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let old_state = backend
-        .get_state::<ShareNotification>(&account_id)
+        .get_state::<ShareNotification>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -120,7 +118,7 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
             let id = Id::from(id_str.as_str());
 
             match backend
-                .destroy_object::<ShareNotification>(&account_id, &id)
+                .destroy_object::<ShareNotification>(caller, &account_id, &id)
                 .await
             {
                 Ok(()) => {
@@ -151,6 +149,7 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
 
     finalize_set_response::<B, ShareNotification>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -173,9 +172,10 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
 /// Handle a `ShareNotification/query` method call (RFC 9670 §3.4).
 pub async fn handle_share_notification_query<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query::<ShareNotification, B>(backend, args).await
+    jmap_server::handlers::handle_query::<ShareNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -185,9 +185,10 @@ pub async fn handle_share_notification_query<B: SharingBackend>(
 /// Handle a `ShareNotification/queryChanges` method call (RFC 9670 §3.5).
 pub async fn handle_share_notification_query_changes<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query_changes::<ShareNotification, B>(backend, args).await
+    jmap_server::handlers::handle_query_changes::<ShareNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -221,7 +222,7 @@ mod tests {
                          "name": "Calendar" }
             }
         });
-        let (resp, _) = handle_share_notification_set(&backend, args)
+        let (resp, _) = handle_share_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -256,7 +257,7 @@ mod tests {
                 "notif2": { "objectType": "Calendar" }
             }
         });
-        let (resp, _) = handle_share_notification_set(&backend, args)
+        let (resp, _) = handle_share_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -288,7 +289,7 @@ mod tests {
             },
             "destroy": ["notif1"]
         });
-        let (resp, _) = handle_share_notification_set(&backend, args)
+        let (resp, _) = handle_share_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -311,7 +312,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": [null]
         });
-        let result = handle_share_notification_set(&backend, args).await;
+        let result = handle_share_notification_set(&backend, &(), args).await;
         let err = result.expect_err("must return top-level error for null destroy element");
         assert_eq!(err.error_type.as_str(), "invalidArguments");
     }
@@ -324,7 +325,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["doesnotexist"]
         });
-        let (resp, _) = handle_share_notification_set(&backend, args)
+        let (resp, _) = handle_share_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 

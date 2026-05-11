@@ -42,7 +42,7 @@ async fn seed_principal(backend: &MemoryBackend, account_id: &str, p: serde_json
     let principal: Principal =
         serde_json::from_value(with_id).expect("test fixture must deserialize");
     let (server_id, _) = backend
-        .create_object::<Principal>(&Id::from(account_id), "seed", principal)
+        .create_object::<Principal>(&(), &Id::from(account_id), "seed", principal)
         .await
         .expect("seed must succeed");
     server_id
@@ -53,7 +53,7 @@ async fn seed_notification(backend: &MemoryBackend, account_id: &str, v: serde_j
     let notif: ShareNotification =
         serde_json::from_value(v).expect("test fixture must deserialize");
     let (server_id, _) = backend
-        .create_object::<ShareNotification>(&Id::from(account_id), "seed", notif)
+        .create_object::<ShareNotification>(&(), &Id::from(account_id), "seed", notif)
         .await
         .expect("seed must succeed");
     server_id
@@ -81,35 +81,41 @@ impl FilteringBackend {
 #[allow(async_fn_in_trait)]
 impl JmapBackend for FilteringBackend {
     type Error = common::MemoryError;
+    type CallerCtx = ();
 
-    async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
-        self.0.account_exists(account_id).await
+    async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+        self.0.account_exists(caller, account_id).await
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
+        caller: &(),
         account_id: &Id,
         ids: Option<&[Id]>,
         properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-        self.0.get_objects(account_id, ids, properties).await
+        self.0
+            .get_objects(caller, account_id, ids, properties)
+            .await
     }
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
+        caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
-        self.0.get_state::<O>(account_id).await
+        self.0.get_state::<O>(caller, account_id).await
     }
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
+        caller: &(),
         account_id: &Id,
         since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         self.0
-            .get_changes::<O>(account_id, since_state, max_changes)
+            .get_changes::<O>(caller, account_id, since_state, max_changes)
             .await
     }
 
@@ -117,6 +123,7 @@ impl JmapBackend for FilteringBackend {
     /// For other types: delegate unchanged.
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
+        caller: &(),
         account_id: &Id,
         filter: Option<&O::Filter>,
         sort: Option<&[O::Comparator]>,
@@ -127,14 +134,14 @@ impl JmapBackend for FilteringBackend {
         if O::TYPE_NAME != "Principal" {
             return self
                 .0
-                .query_objects::<O>(account_id, filter, sort, limit, position)
+                .query_objects::<O>(caller, account_id, filter, sort, limit, position)
                 .await;
         }
 
         // Fetch the raw result from the inner backend (which ignores filters).
         let base = self
             .0
-            .query_objects::<O>(account_id, None, sort, limit, position)
+            .query_objects::<O>(caller, account_id, None, sort, limit, position)
             .await?;
 
         // If no filter, return the unmodified result.
@@ -157,7 +164,7 @@ impl JmapBackend for FilteringBackend {
         // We know O::TYPE_NAME == "Principal" here, so we use Principal directly.
         let (all_principals, _) = self
             .0
-            .get_objects::<Principal>(account_id, None, None)
+            .get_objects::<Principal>(caller, account_id, None, None)
             .await?;
 
         // For each id in base.ids, include only those whose accounts map
@@ -192,6 +199,7 @@ impl JmapBackend for FilteringBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
+        caller: &(),
         account_id: &Id,
         since_query_state: &State,
         filter: Option<&O::Filter>,
@@ -202,6 +210,7 @@ impl JmapBackend for FilteringBackend {
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         self.0
             .query_changes::<O>(
+                caller,
                 account_id,
                 since_query_state,
                 filter,
@@ -218,28 +227,33 @@ impl JmapBackend for FilteringBackend {
 impl SharingBackend for FilteringBackend {
     async fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &(),
         account_id: &Id,
         create_id: &str,
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        self.0.create_object(account_id, create_id, obj).await
+        self.0
+            .create_object(caller, account_id, create_id, obj)
+            .await
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &(),
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-        self.0.update_object(account_id, id, patch).await
+        self.0.update_object(caller, account_id, id, patch).await
     }
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &(),
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
-        self.0.destroy_object::<O>(account_id, id).await
+        self.0.destroy_object::<O>(caller, account_id, id).await
     }
 
     fn supports_type<O: JmapObject>(&self) -> bool {

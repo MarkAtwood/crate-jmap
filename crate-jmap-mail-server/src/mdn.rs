@@ -77,10 +77,7 @@ impl MdnParseResult {
 /// `MailBackend`). The required method [`MdnBackend::get_blob_bytes`]
 /// exposes this access at the trait level so handlers need not assume a
 /// concrete struct type.
-pub trait MdnBackend: Send + Sync {
-    /// The associated error type for storage-layer failures.
-    type Error: std::error::Error + Send + Sync + 'static;
-
+pub trait MdnBackend: jmap_server::JmapBackend {
     /// Fetch raw bytes for a blob by ID.
     ///
     /// Returns `Ok(Some(bytes))` if found, `Ok(None)` if the blob does not
@@ -94,6 +91,7 @@ pub trait MdnBackend: Send + Sync {
     /// loading large attachment blobs into memory before the check.
     fn get_blob_bytes(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;
@@ -111,12 +109,13 @@ pub trait MdnBackend: Send + Sync {
     /// `Ok(None)` if the blob does not exist, and `Err` for storage failures.
     fn get_blob_header_bytes(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
         limit: usize,
     ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send {
         async move {
-            let bytes = self.get_blob_bytes(account_id, blob_id).await?;
+            let bytes = self.get_blob_bytes(caller, account_id, blob_id).await?;
             Ok(bytes.map(|mut v| {
                 v.truncate(limit);
                 v
@@ -151,6 +150,7 @@ pub trait MdnBackend: Send + Sync {
     /// [`MdnSendResult::not_sent`].
     fn send_mdns(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         identity_id: &jmap_types::Id,
         send: HashMap<String, (Mdn, Email)>,
@@ -173,6 +173,7 @@ pub trait MdnBackend: Send + Sync {
     /// Returns `Err` only for catastrophic storage failures.
     fn parse_mdns(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_ids: Vec<jmap_types::Id>,
     ) -> impl std::future::Future<Output = Result<MdnParseResult, Self::Error>> + Send;
@@ -189,6 +190,7 @@ pub trait MdnBackend: Send + Sync {
 /// `Email/set` invocation using the same `call_id`.
 pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: serde_json::Value,
     call_id: &str,
 ) -> Result<(serde_json::Value, Vec<Invocation>), JmapError> {
@@ -199,7 +201,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 
     // Step 2: Verify account exists (RFC 8620 §3.6.2 — unknown accountId → accountNotFound).
     if !backend
-        .account_exists(&req.account_id)
+        .account_exists(caller, &req.account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -209,6 +211,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     // Step 3: Validate identityId — fetch identity to confirm it belongs to this account.
     let (identities, _) = backend
         .get_objects::<Identity>(
+            caller,
             &req.account_id,
             Some(std::slice::from_ref(&req.identity_id)),
             None,
@@ -326,7 +329,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         HashMap::new()
     } else {
         let (fetched, _) = backend
-            .get_objects::<Email>(&req.account_id, Some(&email_ids), None)
+            .get_objects::<Email>(caller, &req.account_id, Some(&email_ids), None)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
         fetched.into_iter().map(|e| (e.id.clone(), e)).collect()
@@ -380,7 +383,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 
         if !backend_send.is_empty() {
             let result = backend
-                .send_mdns(&req.account_id, &req.identity_id, backend_send)
+                .send_mdns(caller, &req.account_id, &req.identity_id, backend_send)
                 .await
                 .map_err(|e| match e {
                     BackendSetError::Other(inner) => JmapError::server_fail(inner.to_string()),
@@ -403,7 +406,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     if let Some(ref patches) = req.on_success_update_email {
         if !sent_mdns.is_empty() {
             let email_old_state = backend
-                .get_state::<Email>(&req.account_id)
+                .get_state::<Email>(caller, &req.account_id)
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -438,7 +441,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 }
 
                 match backend
-                    .update_object::<Email>(&req.account_id, &email_id, patch_obj)
+                    .update_object::<Email>(caller, &req.account_id, &email_id, patch_obj)
                     .await
                 {
                     Ok(Some(obj)) => {
@@ -476,7 +479,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             let any_email_ops = !email_updated.is_empty() || !email_not_updated.is_empty();
             if any_email_ops {
                 let email_new_state = backend
-                    .get_state::<Email>(&req.account_id)
+                    .get_state::<Email>(caller, &req.account_id)
                     .await
                     .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -542,6 +545,7 @@ pub const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
 /// empty — `MDN/parse` is a read-only operation with no side effects.
 pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
     max_blob_ids: usize,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
@@ -552,7 +556,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
 
     // Step 2: Verify account exists (RFC 8620 §3.6.2 — unknown accountId → accountNotFound).
     if !backend
-        .account_exists(&req.account_id)
+        .account_exists(caller, &req.account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -566,7 +570,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
 
     // Step 4: delegate to the backend.
     let result = backend
-        .parse_mdns(&req.account_id, req.blob_ids)
+        .parse_mdns(caller, &req.account_id, req.blob_ids)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 

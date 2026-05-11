@@ -100,10 +100,11 @@ pub trait SharingBackend: JmapBackend {
 
 `register_sharing_handlers` uses `ClosureHandler` (provided by
 `jmap-server`) to wrap each handler function and `Arc<B>` into a
-`JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
-`CallerCtx` value is forwarded into each closure as `_ctx`; the standard
-`handle_*` handler bodies receive `(Arc<B>, call_id, args)` only. One
-`Arc::clone` per method name; no heap allocation per request.
+`JmapHandler<B::CallerCtx>` and registers it with the dispatcher. The
+dispatcher's `CallerCtx` value is forwarded into each closure as `ctx`, then
+passed by reference (`&ctx`) into the standard `handle_*` handler bodies,
+which themselves forward `caller: &B::CallerCtx` into every `SharingBackend`
+method call. One `Arc::clone` per method name; no heap allocation per request.
 
 ### Handler structure
 
@@ -170,17 +171,24 @@ also supports creating and managing Principals (not just reading them).
 ## CallerCtx
 
 `register_sharing_handlers` registers each method as a `ClosureHandler`
-that forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`.
-The standard `handle_*` handler bodies ignore `_ctx` and receive only
-`(Arc<B>, call_id, args)`; the value is still available for backends that
-register handlers individually via `ClosureHandler`.
+that forwards the dispatcher's `CallerCtx` value into the closure as `ctx`,
+which the closure body then passes by reference (`&ctx`) into the standard
+`handle_*` handler. The handler in turn forwards `caller: &B::CallerCtx` into
+every `SharingBackend` (and inherited `JmapBackend`) method call.
 
-If you need per-request context — auth identity, tenant id, rate-limit token —
-inside one of the standard `handle_*` functions, implement `JmapHandler<C>`
-directly and register with
-`dispatcher.register(method_name, Arc::new(your_handler))`. Forwarding
-`CallerCtx` into `SharingBackend` itself is an API change tracked under
-`bd:JMAP-g7wu.1.3` (propagates from the canonical `bd:JMAP-g7wu.1.1`).
+To use this:
+
+1. Pick a `CallerCtx` type for your backend — e.g. `()` if no auth context is
+   needed, or a struct like `AuthCtx { user_id: Id, scopes: Vec<Scope> }`.
+2. Implement `JmapBackend` with `type CallerCtx = AuthCtx;` (the bound is
+   `Clone + Send + Sync + 'static`).
+3. Use the matching `Dispatcher<AuthCtx>` and pass the constructed auth
+   context as the second argument to `Dispatcher::dispatch(request, auth, …)`.
+4. Inside `SharingBackend` method bodies, read `caller: &AuthCtx` to apply
+   per-user visibility rules, rate limits, etc.
+
+Backends that don't need an auth identity use `type CallerCtx = ();` and a
+`Dispatcher<()>`. Both shapes register the same way.
 
 ## Known Limitations
 

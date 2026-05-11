@@ -183,10 +183,12 @@ JMAP method-level errors defined in draft §2.2.
 
 `register_calendars_handlers` uses `ClosureHandler` (provided by
 `jmap-server`) to wrap each handler function and `Arc<B>` into a
-`JmapHandler<C>` and registers it with the dispatcher. The dispatcher's
-`CallerCtx` value is forwarded into each closure as `_ctx`; the standard
-`handle_*` handler bodies receive `(Arc<B>, call_id, args)` only. One
-`Arc::clone` per method name; no heap allocation per request.
+`JmapHandler<B::CallerCtx>` and registers it with the dispatcher. The
+dispatcher's `CallerCtx` value is taken from `B::CallerCtx` and forwarded
+into each closure as `ctx`; the standard `handle_*` handler bodies
+receive `(&B, &B::CallerCtx, Value)` and forward `caller` through every
+`CalendarsBackend` method call. One `Arc::clone` per method name; no
+heap allocation per request.
 
 ### Per-user property routing
 

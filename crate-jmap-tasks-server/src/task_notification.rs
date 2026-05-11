@@ -19,9 +19,10 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 /// Handle a `TaskNotification/get` method call (draft-tasks-06 §5.2).
 pub async fn handle_task_notification_get<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<TaskNotification, B>(backend, args).await
+    jmap_server::handlers::handle_get::<TaskNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -31,9 +32,10 @@ pub async fn handle_task_notification_get<B: TasksBackend>(
 /// Handle a `TaskNotification/changes` method call (draft-tasks-06 §5.3).
 pub async fn handle_task_notification_changes<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<TaskNotification, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<TaskNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -48,20 +50,16 @@ pub async fn handle_task_notification_changes<B: TasksBackend>(
 /// The `destroy` list is forwarded to the backend normally.
 pub async fn handle_task_notification_set<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound (method-level
     // error). Without this, a /set against an unknown accountId would silently
     // "succeed" with a fake oldState/newState envelope. Fixed in JMAP-gpt1.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -69,7 +67,7 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
     }
 
     let old_state = backend
-        .get_state::<TaskNotification>(&account_id)
+        .get_state::<TaskNotification>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -131,7 +129,7 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
             let id = Id::from(id_str.as_str());
 
             match backend
-                .destroy_object::<TaskNotification>(&account_id, &id)
+                .destroy_object::<TaskNotification>(caller, &account_id, &id)
                 .await
             {
                 Ok(()) => {
@@ -162,6 +160,7 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
 
     finalize_set_response::<B, TaskNotification>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -184,9 +183,10 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
 /// Handle a `TaskNotification/query` method call (draft-tasks-06 §5.5).
 pub async fn handle_task_notification_query<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query::<TaskNotification, B>(backend, args).await
+    jmap_server::handlers::handle_query::<TaskNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -196,9 +196,10 @@ pub async fn handle_task_notification_query<B: TasksBackend>(
 /// Handle a `TaskNotification/queryChanges` method call (draft-tasks-06 §5.6).
 pub async fn handle_task_notification_query_changes<B: TasksBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query_changes::<TaskNotification, B>(backend, args).await
+    jmap_server::handlers::handle_query_changes::<TaskNotification, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -229,7 +230,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_task_notification_set(&backend, args)
+        let (resp, _) = handle_task_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -258,7 +259,7 @@ mod tests {
                 "notif1": { "comment": "new comment" }
             }
         });
-        let (resp, _) = handle_task_notification_set(&backend, args)
+        let (resp, _) = handle_task_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -278,7 +279,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["doesnotexist"]
         });
-        let (resp, _) = handle_task_notification_set(&backend, args)
+        let (resp, _) = handle_task_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 
@@ -303,7 +304,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": ["notif1"]
         });
-        let (resp, _) = handle_task_notification_set(&backend, args)
+        let (resp, _) = handle_task_notification_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
 

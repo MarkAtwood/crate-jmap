@@ -104,6 +104,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// client-side creation id used in the `/set` request.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
         obj: O,
@@ -117,6 +118,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// or `None` if the patch was applied verbatim.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: O::Patch,
@@ -125,6 +127,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// Destroy an object of type `O` by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
@@ -144,13 +147,14 @@ pub trait CalendarsBackend: JmapBackend {
     /// separately so that shared `updated` timestamps are not affected.
     fn update_per_user_properties(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: PatchObject,
     ) -> impl std::future::Future<
         Output = Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>,
     > + Send {
-        self.update_object::<jmap_calendars_types::CalendarEvent>(account_id, id, patch)
+        self.update_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id, patch)
     }
 
     /// Create a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
@@ -169,6 +173,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// support MUST override this method.
     fn create_calendar_event(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
         event: jmap_calendars_types::CalendarEvent,
@@ -181,7 +186,9 @@ pub trait CalendarsBackend: JmapBackend {
     > + Send {
         // Default ignores scheduling args; backends with iTIP delivery override.
         let _ = args;
-        self.create_object::<jmap_calendars_types::CalendarEvent>(account_id, create_id, event)
+        self.create_object::<jmap_calendars_types::CalendarEvent>(
+            caller, account_id, create_id, event,
+        )
     }
 
     /// Apply a partial update to a
@@ -207,6 +214,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// support MUST override this method.
     fn update_calendar_event(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: PatchObject,
@@ -215,7 +223,7 @@ pub trait CalendarsBackend: JmapBackend {
         Output = Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>,
     > + Send {
         let _ = args;
-        self.update_object::<jmap_calendars_types::CalendarEvent>(account_id, id, patch)
+        self.update_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id, patch)
     }
 
     /// Destroy a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) honouring
@@ -234,12 +242,13 @@ pub trait CalendarsBackend: JmapBackend {
     /// support MUST override this method.
     fn destroy_calendar_event(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         args: &CalendarEventSetArgs,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send {
         let _ = args;
-        self.destroy_object::<jmap_calendars_types::CalendarEvent>(account_id, id)
+        self.destroy_object::<jmap_calendars_types::CalendarEvent>(caller, account_id, id)
     }
 
     /// Returns `true` if the given Calendar has any events.
@@ -250,6 +259,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// `destroy_object`.
     fn calendar_has_events(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         calendar_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send;
@@ -273,6 +283,7 @@ pub trait CalendarsBackend: JmapBackend {
     ///   own `time_zone` field (if any) is used.
     fn compute_utc_times(
         &self,
+        _caller: &Self::CallerCtx,
         _account_id: &jmap_types::Id,
         _event: &jmap_calendars_types::CalendarEvent,
         _tz_hint: Option<&str>,
@@ -310,6 +321,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// reduce participants MUST override this method.
     fn get_calendar_events(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         ids: Option<&[jmap_types::Id]>,
         properties: Option<&[String]>,
@@ -326,7 +338,7 @@ pub trait CalendarsBackend: JmapBackend {
         // Default ignores §5.7 extras; backends that filter overrides or
         // reduce participants override this method.
         let _ = args;
-        self.get_objects::<jmap_calendars_types::CalendarEvent>(account_id, ids, properties)
+        self.get_objects::<jmap_calendars_types::CalendarEvent>(caller, account_id, ids, properties)
     }
 
     /// Run a `CalendarEvent/query` request honouring the §5.11 extra
@@ -352,8 +364,10 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default implementation ignores `args` and delegates to
     /// [`query_objects`](JmapBackend::query_objects). Backends that support
     /// recurrence expansion MUST override this method.
+    #[allow(clippy::too_many_arguments)]
     fn query_calendar_events(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
         sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
@@ -367,7 +381,7 @@ pub trait CalendarsBackend: JmapBackend {
         let _ = args;
         async move {
             self.query_objects::<jmap_calendars_types::CalendarEvent>(
-                account_id, filter, sort, limit, position,
+                caller, account_id, filter, sort, limit, position,
             )
             .await
             .map_err(QueryCalendarEventsError::Other)
@@ -399,6 +413,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// support defaults MUST override this method.
     fn set_default_calendar(
         &self,
+        _caller: &Self::CallerCtx,
         _account_id: &jmap_types::Id,
         _calendar_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<SetDefaultResult, Self::Error>> + Send {
@@ -416,6 +431,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// [`SetDefaultResult`](SetDefaultResult::default).
     fn set_default_participant_identity(
         &self,
+        _caller: &Self::CallerCtx,
         _account_id: &jmap_types::Id,
         _identity_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<SetDefaultResult, Self::Error>> + Send {
@@ -430,6 +446,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// The default implementation puts all blobs in `not_parsable`.
     fn parse_calendar_event_blobs(
         &self,
+        _caller: &Self::CallerCtx,
         _account_id: &jmap_types::Id,
         blob_ids: &[jmap_types::Id],
         _properties: Option<&[String]>,
@@ -450,8 +467,10 @@ pub trait CalendarsBackend: JmapBackend {
     /// (RFC 8620 §1.4 wire form) bounding the half-open interval queried.
     ///
     /// The default implementation returns an empty list.
+    #[allow(clippy::too_many_arguments)]
     fn get_availability(
         &self,
+        _caller: &Self::CallerCtx,
         _account_id: &jmap_types::Id,
         _principal_id: &jmap_types::Id,
         _utc_start: &jmap_types::UTCDate,

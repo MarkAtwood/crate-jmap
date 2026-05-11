@@ -18,9 +18,10 @@ use crate::helpers::{
 /// (draft-ietf-jmap-calendars-26 §3.1).
 pub async fn handle_participant_identity_get<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<ParticipantIdentity, B>(backend, args).await
+    jmap_server::handlers::handle_get::<ParticipantIdentity, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -31,9 +32,10 @@ pub async fn handle_participant_identity_get<B: CalendarsBackend>(
 /// (draft-ietf-jmap-calendars-26 §3.2).
 pub async fn handle_participant_identity_changes<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<ParticipantIdentity, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<ParticipantIdentity, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -44,18 +46,14 @@ pub async fn handle_participant_identity_changes<B: CalendarsBackend>(
 /// (draft-ietf-jmap-calendars-26 §3.3).
 pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -68,7 +66,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     let on_success_set_is_default = args.remove("onSuccessSetIsDefault");
 
     let old_state = backend
-        .get_state::<ParticipantIdentity>(&account_id)
+        .get_state::<ParticipantIdentity>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -117,7 +115,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                 }
             };
             match backend
-                .create_object::<ParticipantIdentity>(&account_id, &create_id, pi)
+                .create_object::<ParticipantIdentity>(caller, &account_id, &create_id, pi)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -169,7 +167,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
                 }
             };
             match backend
-                .update_object::<ParticipantIdentity>(&account_id, &id, patch)
+                .update_object::<ParticipantIdentity>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -223,7 +221,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
             };
             let id = Id::from(id_str.as_str());
             match backend
-                .destroy_object::<ParticipantIdentity>(&account_id, &id)
+                .destroy_object::<ParticipantIdentity>(caller, &account_id, &id)
                 .await
             {
                 Ok(()) => {
@@ -262,7 +260,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
         if let Some(raw) = on_success_set_is_default.as_ref() {
             if let Some(target) = resolve_on_success_set_is_default(raw, &created) {
                 match backend
-                    .set_default_participant_identity(&account_id, &target)
+                    .set_default_participant_identity(caller, &account_id, &target)
                     .await
                 {
                     Ok(result) => {
@@ -282,6 +280,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
 
     finalize_set_response::<B, ParticipantIdentity>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -313,7 +312,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let result = handle_participant_identity_get(&backend, args).await;
+        let result = handle_participant_identity_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
@@ -324,7 +323,7 @@ mod tests {
     async fn set_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown" });
-        let result = handle_participant_identity_set(&backend, args).await;
+        let result = handle_participant_identity_set(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
@@ -342,7 +341,7 @@ mod tests {
                 "c1": { "id": "client-chosen-id", "name": "Alice" }
             }
         });
-        let (resp, _) = handle_participant_identity_set(&backend, args)
+        let (resp, _) = handle_participant_identity_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(

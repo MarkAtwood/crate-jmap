@@ -38,6 +38,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// the client-side creation id from the `/set` request.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
         obj: O,
@@ -51,6 +52,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// or `None` if the patch was applied verbatim.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: O::Patch,
@@ -59,6 +61,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// Destroy a FileNode by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
@@ -74,6 +77,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// would be created) and for `fetchParents` expansion in `FileNode/get`.
     fn get_ancestors(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         ids: &[jmap_types::Id],
     ) -> impl std::future::Future<Output = Result<Vec<FileNode>, Self::Error>> + Send;
@@ -86,6 +90,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// guard — if result is non-empty, the node has children.
     fn get_descendant_ids(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Vec<jmap_types::Id>, Self::Error>> + Send;
@@ -96,6 +101,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// updating a file node with type `"file"`.
     fn blob_exists(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send;
@@ -109,6 +115,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// Used by `FileNode/set` to enforce the `alreadyExists` constraint.
     fn find_sibling_by_name(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         parent_id: Option<&jmap_types::Id>,
         name: &str,
@@ -126,6 +133,7 @@ pub trait FileNodeBackend: JmapBackend {
     /// The `root_ids` themselves are NOT included in the result.
     fn query_subtree(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         root_ids: &[jmap_types::Id],
         max_depth: u64,
@@ -160,7 +168,14 @@ pub trait FileNodeBackend: JmapBackend {
                             Err(_) => continue,
                         };
                     if let Ok(result) = self
-                        .query_objects::<FileNode>(&account_id, Some(&child_filter), None, None, 0)
+                        .query_objects::<FileNode>(
+                            caller,
+                            &account_id,
+                            Some(&child_filter),
+                            None,
+                            None,
+                            0,
+                        )
                         .await
                     {
                         for id in result.ids {

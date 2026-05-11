@@ -19,9 +19,10 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 /// Handle a `Principal/get` method call (RFC 9670 §2.1).
 pub async fn handle_principal_get<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_get::<Principal, B>(backend, args).await
+    jmap_server::handlers::handle_get::<Principal, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -35,9 +36,10 @@ pub async fn handle_principal_get<B: SharingBackend>(
 /// `cannotCalculateChanges` per RFC 8620 §5.2.
 pub async fn handle_principal_changes<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<Principal, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<Principal, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -51,17 +53,13 @@ pub async fn handle_principal_changes<B: SharingBackend>(
 /// it does not permit (e.g. a read-only directory backend rejects all writes).
 pub async fn handle_principal_set<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     let old_state = backend
-        .get_state::<Principal>(&account_id)
+        .get_state::<Principal>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -110,7 +108,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
             };
 
             match backend
-                .create_object::<Principal>(&account_id, &create_id, principal)
+                .create_object::<Principal>(caller, &account_id, &create_id, principal)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -165,7 +163,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
             };
 
             match backend
-                .update_object::<Principal>(&account_id, &id, patch)
+                .update_object::<Principal>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -221,7 +219,10 @@ pub async fn handle_principal_set<B: SharingBackend>(
             };
             let id = Id::from(id_str.as_str());
 
-            match backend.destroy_object::<Principal>(&account_id, &id).await {
+            match backend
+                .destroy_object::<Principal>(caller, &account_id, &id)
+                .await
+            {
                 Ok(()) => {
                     mutated = true;
                     destroyed_list.push(Value::String(id_str));
@@ -250,6 +251,7 @@ pub async fn handle_principal_set<B: SharingBackend>(
 
     finalize_set_response::<B, Principal>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -272,9 +274,10 @@ pub async fn handle_principal_set<B: SharingBackend>(
 /// Handle a `Principal/query` method call (RFC 9670 §2.4).
 pub async fn handle_principal_query<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query::<Principal, B>(backend, args).await
+    jmap_server::handlers::handle_query::<Principal, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -288,9 +291,10 @@ pub async fn handle_principal_query<B: SharingBackend>(
 /// `cannotCalculateChanges`.
 pub async fn handle_principal_query_changes<B: SharingBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query_changes::<Principal, B>(backend, args).await
+    jmap_server::handlers::handle_query_changes::<Principal, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -315,7 +319,7 @@ mod tests {
             "accountId": "unknown",
             "ids": null
         });
-        let result = handle_principal_get(&backend, args).await;
+        let result = handle_principal_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(
             err.error_type.as_str(),
@@ -338,7 +342,7 @@ mod tests {
                 "P1": { "name": "New Name" }
             }
         });
-        let (resp, _) = handle_principal_set(&backend, args)
+        let (resp, _) = handle_principal_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_updated = &resp["notUpdated"];
@@ -361,7 +365,7 @@ mod tests {
             "accountId": "acc1",
             "destroy": [123]  // integer, not string
         });
-        let result = handle_principal_set(&backend, args).await;
+        let result = handle_principal_set(&backend, &(), args).await;
         let err = result.expect_err("must return top-level error for non-string destroy element");
         assert_eq!(err.error_type.as_str(), "invalidArguments");
     }
@@ -379,7 +383,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_principal_set(&backend, args)
+        let (resp, _) = handle_principal_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         let not_created = &resp["notCreated"];

@@ -34,21 +34,17 @@ use crate::helpers::{extract_account_id, finalize_set_response, set_error_value,
 ///   still produces correct UTC fields for the requested time zone.
 pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     // Standard /get parameters (RFC 8620 §5.1).
     let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
@@ -97,12 +93,18 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
 
     let ids_slice = ids.as_deref();
     let (events, not_found) = backend
-        .get_calendar_events(&account_id, ids_slice, properties.as_deref(), &get_args)
+        .get_calendar_events(
+            caller,
+            &account_id,
+            ids_slice,
+            properties.as_deref(),
+            &get_args,
+        )
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<CalendarEvent>(&account_id)
+        .get_state::<CalendarEvent>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -115,7 +117,7 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
             .map_err(|e| JmapError::server_fail(format!("event serialize failed: {e}")))?;
         if want_utc {
             let (utc_start, utc_end) = backend
-                .compute_utc_times(&account_id, event, get_args.time_zone.as_deref())
+                .compute_utc_times(caller, &account_id, event, get_args.time_zone.as_deref())
                 .await;
             if let Some(s) = utc_start {
                 item["utcStart"] = Value::String(s.into_inner());
@@ -145,9 +147,10 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
 /// Handle a `CalendarEvent/changes` method call (draft-ietf-jmap-calendars-26 §5.5).
 pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<CalendarEvent, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<CalendarEvent, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -157,18 +160,14 @@ pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
 /// Handle a `CalendarEvent/set` method call (draft-ietf-jmap-calendars-26 §5.6).
 pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2: accountId not recognised → accountNotFound.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -176,7 +175,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     }
 
     let old_state = backend
-        .get_state::<CalendarEvent>(&account_id)
+        .get_state::<CalendarEvent>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -275,7 +274,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 }
             };
             match backend
-                .create_calendar_event(&account_id, &create_id, event, &set_args)
+                .create_calendar_event(caller, &account_id, &create_id, event, &set_args)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -386,11 +385,11 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             // sendSchedulingMessages flag.
             let update_result = if is_per_user_only {
                 backend
-                    .update_per_user_properties(&account_id, &id, patch)
+                    .update_per_user_properties(caller, &account_id, &id, patch)
                     .await
             } else {
                 backend
-                    .update_calendar_event(&account_id, &id, patch, &set_args)
+                    .update_calendar_event(caller, &account_id, &id, patch, &set_args)
                     .await
             };
 
@@ -446,7 +445,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             };
             let id = Id::from(id_str.as_str());
             match backend
-                .destroy_calendar_event(&account_id, &id, &set_args)
+                .destroy_calendar_event(caller, &account_id, &id, &set_args)
                 .await
             {
                 Ok(()) => {
@@ -477,6 +476,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 
     finalize_set_response::<B, CalendarEvent>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -503,21 +503,17 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 /// Supports `ifFromInState`, `ifInState`, and `onSuccessDestroyOriginal`.
 pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
     call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // RFC 8620 §3.6.2 / §5.4: destination accountId not recognised →
     // accountNotFound. Checked before fromAccountId so that an unknown
     // destination produces accountNotFound, not fromAccountNotFound.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -531,7 +527,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     };
 
     if !backend
-        .account_exists(&from_account_id)
+        .account_exists(caller, &from_account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -541,7 +537,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     // ifFromInState: verify source account state matches (RFC 8620 §5.4).
     if let Some(if_from_in_state) = args.get("ifFromInState").and_then(|v| v.as_str()) {
         let from_state = backend
-            .get_state::<CalendarEvent>(&from_account_id)
+            .get_state::<CalendarEvent>(caller, &from_account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
         if if_from_in_state != from_state.as_ref() {
@@ -550,7 +546,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     }
 
     let old_state = backend
-        .get_state::<CalendarEvent>(&account_id)
+        .get_state::<CalendarEvent>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -588,6 +584,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
             // Fetch source event from fromAccountId.
             let source_events: Vec<CalendarEvent> = match backend
                 .get_objects::<CalendarEvent>(
+                    caller,
                     &from_account_id,
                     Some(std::slice::from_ref(&source_id)),
                     None,
@@ -645,7 +642,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
             };
 
             match backend
-                .create_object::<CalendarEvent>(&account_id, &create_id, event)
+                .create_object::<CalendarEvent>(caller, &account_id, &create_id, event)
                 .await
             {
                 Ok((_new_id, created_obj)) => {
@@ -682,7 +679,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         old_state.clone()
     } else {
         backend
-            .get_state::<CalendarEvent>(&account_id)
+            .get_state::<CalendarEvent>(caller, &account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?
     };
@@ -701,7 +698,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     let mut extra: Vec<Invocation> = Vec::new();
     if on_success_destroy_original && !copied_pairs.is_empty() {
         let destroy_old_state = backend
-            .get_state::<CalendarEvent>(&from_account_id)
+            .get_state::<CalendarEvent>(caller, &from_account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -710,7 +707,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 
         for (_, source_id) in &copied_pairs {
             match backend
-                .destroy_object::<CalendarEvent>(&from_account_id, source_id)
+                .destroy_object::<CalendarEvent>(caller, &from_account_id, source_id)
                 .await
             {
                 Ok(()) => {
@@ -738,7 +735,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         }
 
         let destroy_new_state = backend
-            .get_state::<CalendarEvent>(&from_account_id)
+            .get_state::<CalendarEvent>(caller, &from_account_id)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -783,21 +780,17 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 ///   recurrence required to return results.
 pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     // Standard /query parameters (RFC 8620 §5.5).
     let calculate_total = args
@@ -876,6 +869,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
 
     let result = match backend
         .query_calendar_events(
+            caller,
             &account_id,
             filter.as_ref(),
             sort.as_deref(),
@@ -921,9 +915,10 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
 /// (draft-ietf-jmap-calendars-26 §5.12).
 pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_query_changes::<CalendarEvent, B>(backend, args).await
+    jmap_server::handlers::handle_query_changes::<CalendarEvent, B>(backend, caller, args).await
 }
 
 // ---------------------------------------------------------------------------
@@ -937,23 +932,18 @@ pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
 /// `notParsable`.
 pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args_map) = extract_account_id(args)?;
 
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-
-    let Value::Object(ref args_map) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     // blobIds is required; treat missing/null as empty to produce a valid response.
     let blob_ids: Vec<Id> = args_map
@@ -977,6 +967,7 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
 
     match backend
         .parse_calendar_event_blobs(
+            caller,
             &account_id,
             &blob_ids,
             properties.as_deref().map(|v| v as &[String]),
@@ -1033,7 +1024,7 @@ mod tests {
     async fn get_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
-        let result = handle_calendar_event_get(&backend, args).await;
+        let result = handle_calendar_event_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
@@ -1044,7 +1035,7 @@ mod tests {
     async fn set_unknown_account_returns_account_not_found() {
         let backend = MockBackend::new();
         let args = json!({ "accountId": "unknown" });
-        let result = handle_calendar_event_set(&backend, args).await;
+        let result = handle_calendar_event_set(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
     }
@@ -1061,7 +1052,7 @@ mod tests {
             "fromAccountId": "missing-src",
             "create": {}
         });
-        let result = handle_calendar_event_copy(&backend, args, "c0").await;
+        let result = handle_calendar_event_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must return error for unknown destination account");
         assert_eq!(
             err.error_type.as_str(),
@@ -1080,7 +1071,7 @@ mod tests {
             "fromAccountId": "no-such-account",
             "create": {}
         });
-        let result = handle_calendar_event_copy(&backend, args, "c0").await;
+        let result = handle_calendar_event_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must return error for unknown fromAccountId");
         assert_eq!(
             err.error_type.as_str(),
@@ -1101,7 +1092,7 @@ mod tests {
                 "c1": { "calendarIds": { "cal1": true } }
             }
         });
-        let (resp, extra) = handle_calendar_event_copy(&backend, args, "c0")
+        let (resp, extra) = handle_calendar_event_copy(&backend, &(), args, "c0")
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty());
@@ -1127,7 +1118,7 @@ mod tests {
                 "c1": { "id": "no-such-event" }
             }
         });
-        let (resp, extra) = handle_calendar_event_copy(&backend, args, "c0")
+        let (resp, extra) = handle_calendar_event_copy(&backend, &(), args, "c0")
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty());
@@ -1183,7 +1174,7 @@ mod tests {
             }
         });
 
-        let (resp, extra) = handle_calendar_event_copy(&backend, args, "c0")
+        let (resp, extra) = handle_calendar_event_copy(&backend, &(), args, "c0")
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty(), "no extra invocations expected");
@@ -1243,7 +1234,7 @@ mod tests {
                 }
             }
         });
-        let (resp, _) = handle_calendar_event_set(&backend, args)
+        let (resp, _) = handle_calendar_event_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert_eq!(
@@ -1275,7 +1266,7 @@ mod tests {
                 }
             }
         });
-        let (resp, extra) = handle_calendar_event_set(&backend, args)
+        let (resp, extra) = handle_calendar_event_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty());
@@ -1306,7 +1297,7 @@ mod tests {
                 }
             }
         });
-        let (resp, extra) = handle_calendar_event_set(&backend, args)
+        let (resp, extra) = handle_calendar_event_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
         assert!(extra.is_empty());
@@ -1331,7 +1322,7 @@ mod tests {
             "ids": null,
             "properties": ["id", "title"]
         });
-        let result = handle_calendar_event_get(&backend, args).await;
+        let result = handle_calendar_event_get(&backend, &(), args).await;
         assert!(result.is_ok(), "must not error: {result:?}");
     }
 
@@ -1345,7 +1336,7 @@ mod tests {
             "ids": null,
             "properties": ["id", "utcStart"]
         });
-        let result = handle_calendar_event_get(&backend, args).await;
+        let result = handle_calendar_event_get(&backend, &(), args).await;
         assert!(result.is_ok(), "must not error: {result:?}");
         let (resp, _) = result.unwrap();
         // list is present; utcStart absent from items (default impl returns None).
@@ -1412,13 +1403,19 @@ mod tests {
 
         impl JmapBackend for TrackingBackend {
             type Error = TrackError;
+            type CallerCtx = ();
 
-            async fn account_exists(&self, _account_id: &Id) -> Result<bool, Self::Error> {
+            async fn account_exists(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<bool, Self::Error> {
                 Ok(true)
             }
 
             async fn get_objects<O: GetObject + Send + Sync>(
                 &self,
+                _caller: &(),
                 _account_id: &Id,
                 _ids: Option<&[Id]>,
                 _properties: Option<&[String]>,
@@ -1428,6 +1425,7 @@ mod tests {
 
             async fn get_state<O: JmapObject + Send + Sync>(
                 &self,
+                _caller: &(),
                 _account_id: &Id,
             ) -> Result<State, Self::Error> {
                 Ok(State::from("0"))
@@ -1435,6 +1433,7 @@ mod tests {
 
             async fn get_changes<O: JmapObject + Send + Sync>(
                 &self,
+                _caller: &(),
                 _account_id: &Id,
                 _since_state: &State,
                 _max_changes: Option<u64>,
@@ -1450,6 +1449,7 @@ mod tests {
 
             async fn query_objects<O: QueryObject + Send + Sync>(
                 &self,
+                _caller: &(),
                 _account_id: &Id,
                 _filter: Option<&O::Filter>,
                 _sort: Option<&[O::Comparator]>,
@@ -1467,6 +1467,7 @@ mod tests {
 
             async fn query_changes<O: QueryObject + Send + Sync>(
                 &self,
+                _caller: &(),
                 _account_id: &Id,
                 since_query_state: &State,
                 _filter: Option<&O::Filter>,
@@ -1488,6 +1489,7 @@ mod tests {
         impl CalendarsBackend for TrackingBackend {
             async fn create_object<O: SetObject + Send + Sync>(
                 &self,
+                _caller: &(),
                 _account_id: &Id,
                 _create_id: &str,
                 obj: O,
@@ -1497,6 +1499,7 @@ mod tests {
 
             async fn update_object<O: SetObject + Send + Sync>(
                 &self,
+                _caller: &(),
                 _account_id: &Id,
                 _id: &Id,
                 _patch: O::Patch,
@@ -1509,6 +1512,7 @@ mod tests {
 
             async fn update_per_user_properties(
                 &self,
+                _caller: &(),
                 _account_id: &Id,
                 _id: &Id,
                 _patch: PatchObject,
@@ -1522,6 +1526,7 @@ mod tests {
 
             async fn destroy_object<O: SetObject + Send + Sync>(
                 &self,
+                _caller: &(),
                 _account_id: &Id,
                 _id: &Id,
             ) -> Result<(), BackendSetError<Self::Error>> {
@@ -1534,7 +1539,12 @@ mod tests {
                 true
             }
 
-            async fn calendar_has_events(&self, _account_id: &Id, _calendar_id: &Id) -> bool {
+            async fn calendar_has_events(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _calendar_id: &Id,
+            ) -> bool {
                 false
             }
         }
@@ -1552,7 +1562,7 @@ mod tests {
                 "ev1": { "keywords": { "$flagged": true } }
             }
         });
-        let _ = handle_calendar_event_set(&backend, args).await;
+        let _ = handle_calendar_event_set(&backend, &(), args).await;
 
         assert!(
             *backend.per_user_called.lock().unwrap(),
@@ -1576,7 +1586,7 @@ mod tests {
                 "ev1": { "title": "New Title" }
             }
         });
-        let _ = handle_calendar_event_set(&backend, args).await;
+        let _ = handle_calendar_event_set(&backend, &(), args).await;
 
         assert!(
             *backend.update_called.lock().unwrap(),
@@ -1601,7 +1611,7 @@ mod tests {
                 "ev1": { "keywords": { "$flagged": true }, "title": "New Title" }
             }
         });
-        let _ = handle_calendar_event_set(&backend, args).await;
+        let _ = handle_calendar_event_set(&backend, &(), args).await;
 
         assert!(
             *backend.update_called.lock().unwrap(),
@@ -1632,7 +1642,7 @@ mod tests {
                 "ev1": { "title": null, "description": null }
             }
         });
-        let _ = handle_calendar_event_set(&backend, args).await;
+        let _ = handle_calendar_event_set(&backend, &(), args).await;
 
         assert!(
             *backend.update_called.lock().unwrap(),
@@ -1654,7 +1664,7 @@ mod tests {
             "accountId": "acc",
             "blobIds": ["blob1"]
         });
-        let (resp, extra) = handle_calendar_event_parse(&backend, args)
+        let (resp, extra) = handle_calendar_event_parse(&backend, &(), args)
             .await
             .expect("must succeed");
         assert!(extra.is_empty());
@@ -1675,7 +1685,7 @@ mod tests {
             "accountId": "no-such-account",
             "blobIds": ["blob1"]
         });
-        let err = handle_calendar_event_parse(&backend, args)
+        let err = handle_calendar_event_parse(&backend, &(), args)
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(
@@ -1708,7 +1718,7 @@ mod tests {
                 "c1": { "id": "ev1" }
             }
         });
-        let (resp, extra) = handle_calendar_event_copy(&backend, args, "c0")
+        let (resp, extra) = handle_calendar_event_copy(&backend, &(), args, "c0")
             .await
             .expect("must not return top-level error");
         assert!(

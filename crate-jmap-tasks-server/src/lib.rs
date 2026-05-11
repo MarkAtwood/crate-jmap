@@ -9,8 +9,8 @@
 //! ```rust,no_run
 //! # use std::sync::Arc;
 //! # use jmap_tasks_server::{TasksBackend, register_tasks_handlers};
-//! # use jmap_server::Dispatcher;
-//! # fn example<B: TasksBackend + 'static>(backend: B) {
+//! # use jmap_server::{Dispatcher, JmapBackend};
+//! # fn example<B: TasksBackend<CallerCtx = ()> + 'static>(backend: B) {
 //! let mut dispatcher: Dispatcher<()> = Dispatcher::new();
 //! register_tasks_handlers(&mut dispatcher, Arc::new(backend));
 //! # }
@@ -77,19 +77,22 @@ pub use jmap_tasks_types::JMAP_TASKS_URI;
 /// `TaskNotification/get`, `TaskNotification/changes`,
 /// `TaskNotification/set`, `TaskNotification/query`,
 /// `TaskNotification/queryChanges`.
-pub fn register_tasks_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+pub fn register_tasks_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: TasksBackend + 'static,
-    C: Clone + Send + 'static,
 {
-    // Helper: register one method with a closure taking (Arc<B>, call_id, args).
+    // Helper: register one method with a closure taking
+    // (Arc<B>, call_id, args, ctx). `$ctx` is the per-request caller context
+    // (`B::CallerCtx`) forwarded by the dispatcher; closures pass `&ctx` to the
+    // inner `handle_*` fn. `$ci` is the call_id string — most handlers ignore
+    // it (`_ci`); only `Task/copy` uses it.
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
+                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
                         Box::pin(async move { $body }) as HandlerFuture
                     },
                 ),
@@ -99,52 +102,54 @@ where
     }
 
     // TaskList
-    reg!("TaskList/get", backend, |b, _ci, a| {
-        handle_task_list_get(&*b, a).await
+    reg!("TaskList/get", backend, |b, _ci, a, ctx| {
+        handle_task_list_get(&*b, &ctx, a).await
     });
-    reg!("TaskList/changes", backend, |b, _ci, a| {
-        handle_task_list_changes(&*b, a).await
+    reg!("TaskList/changes", backend, |b, _ci, a, ctx| {
+        handle_task_list_changes(&*b, &ctx, a).await
     });
-    reg!("TaskList/set", backend, |b, _ci, a| {
-        handle_task_list_set(&*b, a).await
+    reg!("TaskList/set", backend, |b, _ci, a, ctx| {
+        handle_task_list_set(&*b, &ctx, a).await
     });
 
     // Task
-    reg!("Task/get", backend, |b, _ci, a| {
-        handle_task_get(&*b, a).await
+    reg!("Task/get", backend, |b, _ci, a, ctx| {
+        handle_task_get(&*b, &ctx, a).await
     });
-    reg!("Task/changes", backend, |b, _ci, a| {
-        handle_task_changes(&*b, a).await
+    reg!("Task/changes", backend, |b, _ci, a, ctx| {
+        handle_task_changes(&*b, &ctx, a).await
     });
-    reg!("Task/set", backend, |b, _ci, a| {
-        handle_task_set(&*b, a).await
+    reg!("Task/set", backend, |b, _ci, a, ctx| {
+        handle_task_set(&*b, &ctx, a).await
     });
-    reg!("Task/copy", backend, |b, _ci, a| {
-        handle_task_copy(&*b, a).await
+    reg!("Task/copy", backend, |b, _ci, a, ctx| {
+        handle_task_copy(&*b, &ctx, a).await
     });
-    reg!("Task/query", backend, |b, _ci, a| {
-        handle_task_query(&*b, a).await
+    reg!("Task/query", backend, |b, _ci, a, ctx| {
+        handle_task_query(&*b, &ctx, a).await
     });
-    reg!("Task/queryChanges", backend, |b, _ci, a| {
-        handle_task_query_changes(&*b, a).await
+    reg!("Task/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_task_query_changes(&*b, &ctx, a).await
     });
 
     // TaskNotification
-    reg!("TaskNotification/get", backend, |b, _ci, a| {
-        handle_task_notification_get(&*b, a).await
+    reg!("TaskNotification/get", backend, |b, _ci, a, ctx| {
+        handle_task_notification_get(&*b, &ctx, a).await
     });
-    reg!("TaskNotification/changes", backend, |b, _ci, a| {
-        handle_task_notification_changes(&*b, a).await
+    reg!("TaskNotification/changes", backend, |b, _ci, a, ctx| {
+        handle_task_notification_changes(&*b, &ctx, a).await
     });
-    reg!("TaskNotification/set", backend, |b, _ci, a| {
-        handle_task_notification_set(&*b, a).await
+    reg!("TaskNotification/set", backend, |b, _ci, a, ctx| {
+        handle_task_notification_set(&*b, &ctx, a).await
     });
-    reg!("TaskNotification/query", backend, |b, _ci, a| {
-        handle_task_notification_query(&*b, a).await
+    reg!("TaskNotification/query", backend, |b, _ci, a, ctx| {
+        handle_task_notification_query(&*b, &ctx, a).await
     });
-    reg!("TaskNotification/queryChanges", backend, |b, _ci, a| {
-        handle_task_notification_query_changes(&*b, a).await
-    });
+    reg!(
+        "TaskNotification/queryChanges",
+        backend,
+        |b, _ci, a, ctx| handle_task_notification_query_changes(&*b, &ctx, a).await
+    );
 }
 
 pub use jmap_server::ClosureHandler;
@@ -284,13 +289,15 @@ pub(crate) mod test_support {
 
     impl JmapBackend for MockBackend {
         type Error = MockError;
+        type CallerCtx = ();
 
-        async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+        async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
             Ok(self.state.lock().unwrap().contains_key(account_id.as_ref()))
         }
 
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
+            _caller: &(),
             account_id: &Id,
             ids: Option<&[Id]>,
             _properties: Option<&[String]>,
@@ -329,6 +336,7 @@ pub(crate) mod test_support {
 
         async fn get_state<O: JmapObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
         ) -> Result<State, Self::Error> {
             Ok(State::from("0"))
@@ -336,6 +344,7 @@ pub(crate) mod test_support {
 
         async fn get_changes<O: JmapObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _since_state: &State,
             _max_changes: Option<u64>,
@@ -351,6 +360,7 @@ pub(crate) mod test_support {
 
         async fn query_objects<O: QueryObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _filter: Option<&O::Filter>,
             _sort: Option<&[O::Comparator]>,
@@ -368,6 +378,7 @@ pub(crate) mod test_support {
 
         async fn query_changes<O: QueryObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             since_query_state: &State,
             _filter: Option<&O::Filter>,
@@ -389,6 +400,7 @@ pub(crate) mod test_support {
     impl TasksBackend for MockBackend {
         async fn create_object<O: SetObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _create_id: &str,
             obj: O,
@@ -398,6 +410,7 @@ pub(crate) mod test_support {
 
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _id: &Id,
             _patch: O::Patch,
@@ -409,6 +422,7 @@ pub(crate) mod test_support {
 
         async fn destroy_object<O: SetObject + Send + Sync>(
             &self,
+            _caller: &(),
             account_id: &Id,
             id: &Id,
         ) -> Result<(), BackendSetError<Self::Error>> {
@@ -438,6 +452,7 @@ pub(crate) mod test_support {
 
         async fn copy_task(
             &self,
+            _caller: &(),
             _from_account_id: &Id,
             _to_account_id: &Id,
             task: Task,
@@ -447,6 +462,7 @@ pub(crate) mod test_support {
 
         async fn update_task_per_user(
             &self,
+            caller: &(),
             account_id: &Id,
             id: &Id,
             patch: jmap_types::PatchObject,
@@ -454,10 +470,16 @@ pub(crate) mod test_support {
             // Track that this per-user path was called.
             self.per_user_calls.fetch_add(1, Ordering::Relaxed);
             // Delegate to update_object (same outcome as default impl).
-            self.update_object::<Task>(account_id, id, patch).await
+            self.update_object::<Task>(caller, account_id, id, patch)
+                .await
         }
 
-        async fn task_list_has_tasks(&self, account_id: &Id, task_list_id: &Id) -> bool {
+        async fn task_list_has_tasks(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            task_list_id: &Id,
+        ) -> bool {
             let guard = self.state.lock().unwrap();
             if let Some(acct) = guard.get(account_id.as_ref()) {
                 return acct.tasks.values().any(|t| {

@@ -75,42 +75,47 @@ impl FaultyBackend {
 
 impl JmapBackend for FaultyBackend {
     type Error = MemoryError;
+    type CallerCtx = ();
 
-    async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
-        self.inner.account_exists(account_id).await
+    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+        self.inner.account_exists(&(), account_id).await
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         ids: Option<&[Id]>,
         properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
         self.inner
-            .get_objects::<O>(account_id, ids, properties)
+            .get_objects::<O>(&(), account_id, ids, properties)
             .await
     }
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
-        self.inner.get_state::<O>(account_id).await
+        self.inner.get_state::<O>(&(), account_id).await
     }
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         self.inner
-            .get_changes::<O>(account_id, since_state, max_changes)
+            .get_changes::<O>(&(), account_id, since_state, max_changes)
             .await
     }
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         filter: Option<&O::Filter>,
         sort: Option<&[O::Comparator]>,
@@ -118,12 +123,13 @@ impl JmapBackend for FaultyBackend {
         position: i64,
     ) -> Result<QueryResult, Self::Error> {
         self.inner
-            .query_objects::<O>(account_id, filter, sort, limit, position)
+            .query_objects::<O>(&(), account_id, filter, sort, limit, position)
             .await
     }
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         since_query_state: &State,
         filter: Option<&O::Filter>,
@@ -134,6 +140,7 @@ impl JmapBackend for FaultyBackend {
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         self.inner
             .query_changes::<O>(
+                &(),
                 account_id,
                 since_query_state,
                 filter,
@@ -153,6 +160,7 @@ impl JmapBackend for FaultyBackend {
 impl MailBackend for FaultyBackend {
     async fn create_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         create_id: &str,
         obj: O,
@@ -163,12 +171,13 @@ impl MailBackend for FaultyBackend {
             )));
         }
         self.inner
-            .create_object::<O>(account_id, create_id, obj)
+            .create_object::<O>(&(), account_id, create_id, obj)
             .await
     }
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -178,11 +187,14 @@ impl MailBackend for FaultyBackend {
                 "injected update error".to_owned(),
             )));
         }
-        self.inner.update_object::<O>(account_id, id, patch).await
+        self.inner
+            .update_object::<O>(&(), account_id, id, patch)
+            .await
     }
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -191,11 +203,12 @@ impl MailBackend for FaultyBackend {
                 "injected destroy error".to_owned(),
             )));
         }
-        self.inner.destroy_object::<O>(account_id, id).await
+        self.inner.destroy_object::<O>(&(), account_id, id).await
     }
 
     async fn import_email(
         &self,
+        _caller: &(),
         account_id: &Id,
         blob_id: &Id,
         mailbox_ids: &[Id],
@@ -208,34 +221,37 @@ impl MailBackend for FaultyBackend {
             )));
         }
         self.inner
-            .import_email(account_id, blob_id, mailbox_ids, keywords, received_at)
+            .import_email(&(), account_id, blob_id, mailbox_ids, keywords, received_at)
             .await
     }
 
     async fn find_thread_by_message_ids(
         &self,
+        _caller: &(),
         account_id: &Id,
         message_ids: &[&str],
     ) -> Result<Option<Id>, Self::Error> {
         self.inner
-            .find_thread_by_message_ids(account_id, message_ids)
+            .find_thread_by_message_ids(&(), account_id, message_ids)
             .await
     }
 
-    async fn blob_exists(&self, account_id: &Id, blob_id: &Id) -> bool {
-        self.inner.blob_exists(account_id, blob_id).await
+    async fn blob_exists(&self, _caller: &(), account_id: &Id, blob_id: &Id) -> bool {
+        self.inner.blob_exists(&(), account_id, blob_id).await
     }
 
     async fn parse_email(
         &self,
+        _caller: &(),
         account_id: &Id,
         blob_id: &Id,
     ) -> Result<jmap_mail_types::Email, Self::Error> {
-        self.inner.parse_email(account_id, blob_id).await
+        self.inner.parse_email(&(), account_id, blob_id).await
     }
 
     async fn copy_email(
         &self,
+        _caller: &(),
         from_account_id: &Id,
         email_id: &Id,
         to_account_id: &Id,
@@ -245,6 +261,7 @@ impl MailBackend for FaultyBackend {
     ) -> Result<(Id, jmap_mail_types::Email), BackendSetError<Self::Error>> {
         self.inner
             .copy_email(
+                &(),
                 from_account_id,
                 email_id,
                 to_account_id,
@@ -257,12 +274,13 @@ impl MailBackend for FaultyBackend {
 
     async fn search_snippets(
         &self,
+        _caller: &(),
         account_id: &Id,
         email_ids: &[Id],
         filter: Option<&jmap_mail_types::EmailFilterCondition>,
     ) -> Result<Vec<jmap_mail_types::SearchSnippet>, Self::Error> {
         self.inner
-            .search_snippets(account_id, email_ids, filter)
+            .search_snippets(&(), account_id, email_ids, filter)
             .await
     }
 

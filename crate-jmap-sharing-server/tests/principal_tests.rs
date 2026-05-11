@@ -52,7 +52,7 @@ async fn seed_principal(backend: &MemoryBackend, account_id: &str, p: serde_json
     let principal: Principal =
         serde_json::from_value(with_id).expect("test fixture must deserialize");
     let (server_id, _) = backend
-        .create_object::<Principal>(&Id::from(account_id), "seed", principal)
+        .create_object::<Principal>(&(), &Id::from(account_id), "seed", principal)
         .await
         .expect("seed must succeed");
     server_id

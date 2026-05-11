@@ -33,6 +33,7 @@ pub trait TasksBackend: JmapBackend {
     /// Create a new object (TaskList or Task).
     fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         create_id: &str,
         obj: O,
@@ -46,6 +47,7 @@ pub trait TasksBackend: JmapBackend {
     /// or `None` if the patch was applied verbatim.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: O::Patch,
@@ -54,6 +56,7 @@ pub trait TasksBackend: JmapBackend {
     /// Destroy an object by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
@@ -66,6 +69,7 @@ pub trait TasksBackend: JmapBackend {
     /// Called by the `Task/copy` handler for each entry in the `create` map.
     fn copy_task(
         &self,
+        caller: &Self::CallerCtx,
         from_account_id: &jmap_types::Id,
         to_account_id: &jmap_types::Id,
         task: jmap_tasks_types::Task,
@@ -80,6 +84,7 @@ pub trait TasksBackend: JmapBackend {
     /// `taskListHasTasks`.
     fn task_list_has_tasks(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         task_list_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = bool> + Send;
@@ -109,6 +114,7 @@ pub trait TasksBackend: JmapBackend {
     /// override this method to route to a user-scoped patch path.
     fn update_task_per_user(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         id: &jmap_types::Id,
         patch: PatchObject,
@@ -116,7 +122,7 @@ pub trait TasksBackend: JmapBackend {
         Output = Result<Option<jmap_tasks_types::Task>, BackendSetError<Self::Error>>,
     > + Send {
         // Task::Patch = PatchObject (see jmap_tasks_types backend.rs).
-        self.update_object::<jmap_tasks_types::Task>(account_id, id, patch)
+        self.update_object::<jmap_tasks_types::Task>(caller, account_id, id, patch)
     }
 
     /// Returns `true` if this backend enforces the `isDraft` immutability invariant

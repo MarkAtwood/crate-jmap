@@ -161,10 +161,12 @@ in any order on the same dispatcher:
 | `register_sieve_handlers` | `sieve` (RFC 9661) | `SieveScript/get`, `set`, `query`, `validate` | `MailBackend + SieveBackend` |
 
 All three use `ClosureHandler` (provided by `jmap-server`) to wrap each
-handler function and `Arc<B>` into a `JmapHandler<C>` and register it with the
-dispatcher. The dispatcher's `CallerCtx` value is forwarded into each closure
-as `_ctx`; the standard `handle_*` handler bodies receive `(Arc<B>, call_id,
-args)` only. One `Arc::clone` per method name; no heap allocation per request.
+handler function and `Arc<B>` into a `JmapHandler<B::CallerCtx>` and register it
+with the dispatcher. The dispatcher's `CallerCtx` value is forwarded into each
+closure as `ctx`, then passed by reference (`&ctx`) into the standard
+`handle_*` handler bodies, which themselves forward `caller: &B::CallerCtx`
+into every `MailBackend` method call. One `Arc::clone` per method name; no heap
+allocation per request.
 
 `register_mdn_handlers` takes a third argument, `max_blob_ids: usize`, which
 caps the number of blob IDs accepted by a single `MDN/parse` request. Use
@@ -242,17 +244,24 @@ calls — that is a known gap in the current `MailBackend` API.
 ## CallerCtx
 
 `register_mail_handlers` registers each method as a `ClosureHandler`
-that forwards the dispatcher's `CallerCtx` value into the closure as `_ctx`.
-The standard `handle_*` handler bodies ignore `_ctx` and receive only
-`(Arc<B>, call_id, args)`; the value is still available for backends that
-register handlers individually via `ClosureHandler`.
+that forwards the dispatcher's `CallerCtx` value into the closure as `ctx`,
+which the closure body then passes by reference (`&ctx`) into the standard
+`handle_*` handler. The handler in turn forwards `caller: &B::CallerCtx` into
+every `MailBackend` (and inherited `JmapBackend`) method call.
 
-If you need per-request context — auth identity, tenant id, rate-limit token
-— inside one of the standard `handle_*` functions, implement
-`JmapHandler<C>` directly and register with
-`dispatcher.register(method_name, Arc::new(your_handler))`. Forwarding
-`CallerCtx` into `MailBackend` itself is an API change tracked under
-`bd:JMAP-g7wu.1.1` (canonical for the extension-server family).
+To use this:
+
+1. Pick a `CallerCtx` type for your backend — e.g. `()` if no auth context is
+   needed, or a struct like `AuthCtx { user_id: Id, scopes: Vec<Scope> }`.
+2. Implement `JmapBackend` with `type CallerCtx = AuthCtx;` (the bound is
+   `Clone + Send + Sync + 'static`).
+3. Use the matching `Dispatcher<AuthCtx>` and pass the constructed auth
+   context as the second argument to `Dispatcher::dispatch(request, auth, …)`.
+4. Inside `MailBackend` method bodies, read `caller: &AuthCtx` to apply
+   per-user visibility rules, rate limits, etc.
+
+Backends that don't need an auth identity use `type CallerCtx = ();` and a
+`Dispatcher<()>`. Both shapes register the same way.
 
 ## Capability URIs
 

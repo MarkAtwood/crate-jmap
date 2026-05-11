@@ -42,16 +42,14 @@ use crate::helpers::{
 ///
 /// [`MailBackend`]: crate::backend::MailBackend
 /// [`register_sieve_handlers`]: crate::register_sieve_handlers
-pub trait SieveBackend: Send + Sync {
-    /// The associated error type for storage-layer failures.
-    type Error: std::error::Error + Send + Sync + 'static;
-
+pub trait SieveBackend: jmap_server::JmapBackend {
     /// Fetch raw bytes for a script blob by ID.
     ///
     /// Returns `Ok(Some(bytes))` if found, `Ok(None)` if the blob does not
     /// exist in this account, and `Err` for storage failures.
     fn get_sieve_blob(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<Vec<u8>>, Self::Error>> + Send;
@@ -70,6 +68,7 @@ pub trait SieveBackend: Send + Sync {
     /// before calling this method.
     fn validate_sieve_script(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<String>, Self::Error>> + Send;
@@ -84,8 +83,10 @@ pub trait SieveBackend: Send + Sync {
     /// `tooLarge` [`SetError`].
     fn max_sieve_script_bytes(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<u64>, Self::Error>> + Send {
+        let _ = caller;
         let _ = account_id;
         async move { Ok(None) }
     }
@@ -102,8 +103,10 @@ pub trait SieveBackend: Send + Sync {
     /// Returns `Err` only for storage failures.
     fn vacation_response_script_id(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send {
+        let _ = caller;
         let _ = account_id;
         async move { Ok(None) }
     }
@@ -166,10 +169,11 @@ fn validate_script_name(name: &str) -> Option<SetError> {
 /// as `[]`, never as `null`.
 pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Step 1: Parse request args.
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
 
     let ids: Option<Vec<Id>> = match args.get("ids").unwrap_or(&Value::Null) {
         Value::Null => None,
@@ -189,7 +193,7 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
 
     // Step 2: Verify account exists (RFC 8620 §3.6.2).
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -198,13 +202,13 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
 
     // Step 3: Fetch objects from backend.
     let (list, not_found) = backend
-        .get_objects::<SieveScript>(&account_id, ids.as_deref(), None)
+        .get_objects::<SieveScript>(caller, &account_id, ids.as_deref(), None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     // Step 4: Get state.
     let state = backend
-        .get_state::<SieveScript>(&account_id)
+        .get_state::<SieveScript>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -256,14 +260,15 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
 /// invocations.
 pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Step 1: Parse request args.
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
 
     // Step 2: Verify account exists.
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -273,24 +278,20 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     // Fetch VacationResponse-backed script id once for the lifetime of this call
     // (RFC 9661 §4). The default impl returns Ok(None).
     let vr_script_id: Option<Id> = backend
-        .vacation_response_script_id(&account_id)
+        .vacation_response_script_id(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     // Fetch maxSizeScript limit once for size enforcement (spec §2.4).
     // The default impl returns Ok(None) (no limit).
     let max_script_bytes: Option<u64> = backend
-        .max_sieve_script_bytes(&account_id)
+        .max_sieve_script_bytes(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
-
     // Step 3: ifInState check — always read old_state first.
     let old_state = backend
-        .get_state::<SieveScript>(&account_id)
+        .get_state::<SieveScript>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -352,7 +353,12 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 
             // Check existence and isActive before destroying.
             let (existing, not_found_ids) = backend
-                .get_objects::<SieveScript>(&account_id, Some(std::slice::from_ref(&id)), None)
+                .get_objects::<SieveScript>(
+                    caller,
+                    &account_id,
+                    Some(std::slice::from_ref(&id)),
+                    None,
+                )
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -389,7 +395,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             }
 
             match backend
-                .destroy_object::<SieveScript>(&account_id, &id)
+                .destroy_object::<SieveScript>(caller, &account_id, &id)
                 .await
             {
                 Ok(()) => {
@@ -422,7 +428,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     // R7: Hoist get_objects call before the loop so we can check overQuota
     // and uniqueness without an extra backend round-trip per create.
     let (all_scripts_before_create, _) = backend
-        .get_objects::<SieveScript>(&account_id, None, None)
+        .get_objects::<SieveScript>(caller, &account_id, None, None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -505,7 +511,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             // c. Size check: enforce maxSizeScript before syntax validation.
             // Per spec §2.4: if the script exceeds the limit, reject with tooLarge.
             if let Some(max_bytes) = max_script_bytes {
-                match backend.get_sieve_blob(&account_id, &blob_id).await {
+                match backend.get_sieve_blob(caller, &account_id, &blob_id).await {
                     Ok(Some(ref bytes)) if bytes.len() as u64 > max_bytes => {
                         not_created.insert(
                             creation_id,
@@ -530,7 +536,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 
             // d. Validate the Sieve script syntax.
             if let Some(err_desc) = backend
-                .validate_sieve_script(&account_id, &blob_id)
+                .validate_sieve_script(caller, &account_id, &blob_id)
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?
             {
@@ -550,7 +556,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 
             // f. Persist via backend.
             match backend
-                .create_object::<SieveScript>(&account_id, &creation_id, script)
+                .create_object::<SieveScript>(caller, &account_id, &creation_id, script)
                 .await
             {
                 Ok((assigned_id, created_obj)) => {
@@ -595,7 +601,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     if let Some(Value::Object(update_map)) = args.remove("update") {
         // For name uniqueness checks on update, fetch current scripts once.
         let (all_scripts_for_update, _) = backend
-            .get_objects::<SieveScript>(&account_id, None, None)
+            .get_objects::<SieveScript>(caller, &account_id, None, None)
             .await
             .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -679,7 +685,10 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 
                 // Size check: enforce maxSizeScript before syntax validation (spec §2.4).
                 if let Some(max_bytes) = max_script_bytes {
-                    match backend.get_sieve_blob(&account_id, &new_blob_id).await {
+                    match backend
+                        .get_sieve_blob(caller, &account_id, &new_blob_id)
+                        .await
+                    {
                         Ok(Some(ref bytes)) if bytes.len() as u64 > max_bytes => {
                             not_updated.insert(
                                 id_str,
@@ -705,7 +714,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 }
 
                 if let Some(err_desc) = backend
-                    .validate_sieve_script(&account_id, &new_blob_id)
+                    .validate_sieve_script(caller, &account_id, &new_blob_id)
                     .await
                     .map_err(|e| JmapError::server_fail(e.to_string()))?
                 {
@@ -721,7 +730,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             }
 
             match backend
-                .update_object::<SieveScript>(&account_id, &id, patch)
+                .update_object::<SieveScript>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -765,7 +774,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
         // Step A: onSuccessDeactivateScript
         if on_success_deactivate_script == Some(true) {
             let (all_scripts, _) = backend
-                .get_objects::<SieveScript>(&account_id, None, None)
+                .get_objects::<SieveScript>(caller, &account_id, None, None)
                 .await
                 .map_err(|e| JmapError::server_fail(e.to_string()))?;
             if let Some(active_script) = all_scripts.iter().find(|s| s.is_active) {
@@ -776,7 +785,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 patch_map.insert("isActive".to_owned(), Value::Bool(false));
                 let patch = PatchObject::from_map(patch_map);
                 match backend
-                    .update_object::<SieveScript>(&account_id, &active_id, patch)
+                    .update_object::<SieveScript>(caller, &account_id, &active_id, patch)
                     .await
                 {
                     Ok(_) => {
@@ -818,7 +827,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 // Deactivate the current active script if it's different from target
                 // and hasn't already been deactivated in Step A.
                 let (all_scripts, _) = backend
-                    .get_objects::<SieveScript>(&account_id, None, None)
+                    .get_objects::<SieveScript>(caller, &account_id, None, None)
                     .await
                     .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -836,7 +845,12 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                             patch_map.insert("isActive".to_owned(), Value::Bool(false));
                             let patch = PatchObject::from_map(patch_map);
                             match backend
-                                .update_object::<SieveScript>(&account_id, &active_id, patch)
+                                .update_object::<SieveScript>(
+                                    caller,
+                                    &account_id,
+                                    &active_id,
+                                    patch,
+                                )
                                 .await
                             {
                                 Ok(_) => {
@@ -876,7 +890,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     patch_map.insert("isActive".to_owned(), Value::Bool(true));
                     let patch = PatchObject::from_map(patch_map);
                     match backend
-                        .update_object::<SieveScript>(&account_id, target_id, patch)
+                        .update_object::<SieveScript>(caller, &account_id, target_id, patch)
                         .await
                     {
                         Ok(_) => {
@@ -945,6 +959,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     let mutated = !created.is_empty() || !updated.is_empty() || !destroyed.is_empty();
     finalize_set_response::<B, SieveScript>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
@@ -972,21 +987,18 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 /// (O(10)), so a full scan is cheap.
 pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Step 1: extract and verify account.
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     // Step 2: parse filter (optional).
     let filter: Option<SieveScriptFilter> = match args.remove("filter") {
@@ -1036,7 +1048,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
 
     // Step 4: fetch all scripts for the account.
     let (all_scripts, _not_found) = backend
-        .get_objects::<SieveScript>(&account_id, None, None)
+        .get_objects::<SieveScript>(caller, &account_id, None, None)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -1107,7 +1119,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
 
     // Step 9: get query state.
     let query_state = backend
-        .get_state::<SieveScript>(&account_id)
+        .get_state::<SieveScript>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -1138,10 +1150,11 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
 /// empty.
 pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Step 1: Extract accountId.
-    let account_id = crate::helpers::extract_account_id(&args)?;
+    let (account_id, args) = crate::helpers::extract_account_id(args)?;
 
     // Step 2: Extract blobId.
     let blob_id: Id = match args.get("blobId").and_then(|v| v.as_str()) {
@@ -1151,7 +1164,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
 
     // Step 3: Verify account exists (RFC 8620 §3.6.2).
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -1163,11 +1176,11 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     // the trait doc on validate_sieve_script (sieve.rs:68-70) tells implementors
     // size is checked at the handler layer.
     let max_script_bytes: Option<u64> = backend
-        .max_sieve_script_bytes(&account_id)
+        .max_sieve_script_bytes(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
     if let Some(max_bytes) = max_script_bytes {
-        match backend.get_sieve_blob(&account_id, &blob_id).await {
+        match backend.get_sieve_blob(caller, &account_id, &blob_id).await {
             Ok(Some(ref bytes)) if bytes.len() as u64 > max_bytes => {
                 let resp = json!({
                     "accountId": account_id.as_ref(),
@@ -1187,7 +1200,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
 
     // Step 5: Delegate validation to the backend.
     let validation_error = backend
-        .validate_sieve_script(&account_id, &blob_id)
+        .validate_sieve_script(caller, &account_id, &blob_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 

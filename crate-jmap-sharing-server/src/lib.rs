@@ -9,8 +9,8 @@
 //! ```rust,no_run
 //! # use std::sync::Arc;
 //! # use jmap_sharing_server::{SharingBackend, register_sharing_handlers};
-//! # use jmap_server::Dispatcher;
-//! # fn example<B: SharingBackend + 'static>(backend: B) {
+//! # use jmap_server::{Dispatcher, JmapBackend};
+//! # fn example<B: SharingBackend<CallerCtx = ()> + 'static>(backend: B) {
 //! let mut dispatcher: Dispatcher<()> = Dispatcher::new();
 //! register_sharing_handlers(&mut dispatcher, Arc::new(backend));
 //! # }
@@ -81,23 +81,29 @@ pub use jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI;
 /// `ShareNotification/set`, `ShareNotification/query`,
 /// `ShareNotification/queryChanges`.
 ///
-/// The dispatcher's `CallerCtx` (`C`) is forwarded into each registered
-/// handler. Backends that need to read it from inside a method body can
-/// register a custom [`ClosureHandler`] directly on the dispatcher
-/// instead of using this convenience function.
-pub fn register_sharing_handlers<B, C>(dispatcher: &mut Dispatcher<C>, backend: Arc<B>)
+/// The dispatcher's `CallerCtx` is taken from `B::CallerCtx`; every registered
+/// closure forwards it as `&ctx` into the wrapped `handle_*` function. Backends
+/// that use `type CallerCtx = ()` therefore see `&()` inside every handler.
+pub fn register_sharing_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: SharingBackend + 'static,
-    C: Clone + Send + 'static,
 {
-    // Helper: register one method with a closure taking (Arc<B>, call_id, args).
+    // Helper: register one method with a closure that takes
+    // (Arc<B>, call_id, args, ctx).
+    //
+    // `$ci` is the call_id string (echoed back to the client). The sharing
+    // handlers do not generate onSuccess* side-effect invocations, so all
+    // sites bind it as `_ci`.
+    //
+    // `$ctx` is the per-request caller context (`B::CallerCtx`) forwarded
+    // by the dispatcher. Closures pass `&ctx` to the inner `handle_*` fn.
     macro_rules! reg {
-        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident| $body:expr) => {{
+        ($method:expr, $backend:expr, |$b:ident, $ci:ident, $a:ident, $ctx:ident| $body:expr) => {{
             let backend_arc: Arc<B> = Arc::clone(&$backend);
-            let h: Arc<dyn JmapHandler<C>> = Arc::new(ClosureHandler {
+            let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler {
                 backend: backend_arc,
                 call_fn: Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, _ctx: C| {
+                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
                         Box::pin(async move { $body }) as HandlerFuture
                     },
                 ),
@@ -107,38 +113,40 @@ where
     }
 
     // Principal
-    reg!("Principal/get", backend, |b, _ci, a| {
-        handle_principal_get(&*b, a).await
+    reg!("Principal/get", backend, |b, _ci, a, ctx| {
+        handle_principal_get(&*b, &ctx, a).await
     });
-    reg!("Principal/changes", backend, |b, _ci, a| {
-        handle_principal_changes(&*b, a).await
+    reg!("Principal/changes", backend, |b, _ci, a, ctx| {
+        handle_principal_changes(&*b, &ctx, a).await
     });
-    reg!("Principal/set", backend, |b, _ci, a| {
-        handle_principal_set(&*b, a).await
+    reg!("Principal/set", backend, |b, _ci, a, ctx| {
+        handle_principal_set(&*b, &ctx, a).await
     });
-    reg!("Principal/query", backend, |b, _ci, a| {
-        handle_principal_query(&*b, a).await
+    reg!("Principal/query", backend, |b, _ci, a, ctx| {
+        handle_principal_query(&*b, &ctx, a).await
     });
-    reg!("Principal/queryChanges", backend, |b, _ci, a| {
-        handle_principal_query_changes(&*b, a).await
+    reg!("Principal/queryChanges", backend, |b, _ci, a, ctx| {
+        handle_principal_query_changes(&*b, &ctx, a).await
     });
 
     // ShareNotification
-    reg!("ShareNotification/get", backend, |b, _ci, a| {
-        handle_share_notification_get(&*b, a).await
+    reg!("ShareNotification/get", backend, |b, _ci, a, ctx| {
+        handle_share_notification_get(&*b, &ctx, a).await
     });
-    reg!("ShareNotification/changes", backend, |b, _ci, a| {
-        handle_share_notification_changes(&*b, a).await
+    reg!("ShareNotification/changes", backend, |b, _ci, a, ctx| {
+        handle_share_notification_changes(&*b, &ctx, a).await
     });
-    reg!("ShareNotification/set", backend, |b, _ci, a| {
-        handle_share_notification_set(&*b, a).await
+    reg!("ShareNotification/set", backend, |b, _ci, a, ctx| {
+        handle_share_notification_set(&*b, &ctx, a).await
     });
-    reg!("ShareNotification/query", backend, |b, _ci, a| {
-        handle_share_notification_query(&*b, a).await
+    reg!("ShareNotification/query", backend, |b, _ci, a, ctx| {
+        handle_share_notification_query(&*b, &ctx, a).await
     });
-    reg!("ShareNotification/queryChanges", backend, |b, _ci, a| {
-        handle_share_notification_query_changes(&*b, a).await
-    });
+    reg!(
+        "ShareNotification/queryChanges",
+        backend,
+        |b, _ci, a, ctx| handle_share_notification_query_changes(&*b, &ctx, a).await
+    );
 }
 
 pub use jmap_server::ClosureHandler;
@@ -239,13 +247,15 @@ pub(crate) mod test_support {
 
     impl JmapBackend for MockBackend {
         type Error = MockError;
+        type CallerCtx = ();
 
-        async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+        async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
             Ok(self.state.lock().unwrap().contains_key(account_id.as_ref()))
         }
 
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
+            _caller: &(),
             account_id: &Id,
             ids: Option<&[Id]>,
             _properties: Option<&[String]>,
@@ -258,6 +268,7 @@ pub(crate) mod test_support {
 
         async fn get_state<O: JmapObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
         ) -> Result<State, Self::Error> {
             Ok(State::from("0"))
@@ -265,6 +276,7 @@ pub(crate) mod test_support {
 
         async fn get_changes<O: JmapObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _since_state: &State,
             _max_changes: Option<u64>,
@@ -280,6 +292,7 @@ pub(crate) mod test_support {
 
         async fn query_objects<O: QueryObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _filter: Option<&O::Filter>,
             _sort: Option<&[O::Comparator]>,
@@ -297,6 +310,7 @@ pub(crate) mod test_support {
 
         async fn query_changes<O: QueryObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             since_query_state: &State,
             _filter: Option<&O::Filter>,
@@ -318,6 +332,7 @@ pub(crate) mod test_support {
     impl SharingBackend for MockBackend {
         async fn create_object<O: SetObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _create_id: &str,
             obj: O,
@@ -333,6 +348,7 @@ pub(crate) mod test_support {
 
         async fn update_object<O: SetObject + Send + Sync>(
             &self,
+            _caller: &(),
             _account_id: &Id,
             _id: &Id,
             _patch: O::Patch,
@@ -345,6 +361,7 @@ pub(crate) mod test_support {
 
         async fn destroy_object<O: SetObject + Send + Sync>(
             &self,
+            _caller: &(),
             account_id: &Id,
             id: &Id,
         ) -> Result<(), BackendSetError<Self::Error>> {

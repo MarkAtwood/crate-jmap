@@ -14,22 +14,17 @@ use crate::helpers::{extract_account_id, filter_properties, not_found_json, ser}
 /// invocations list is always empty.
 pub async fn handle_thread_get<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     // ids: absent or null means "return all"; Some([]) means "return nothing".
     let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
@@ -52,12 +47,17 @@ pub async fn handle_thread_get<B: MailBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<jmap_mail_types::Thread>(&account_id, ids_slice, properties.as_deref())
+        .get_objects::<jmap_mail_types::Thread>(
+            caller,
+            &account_id,
+            ids_slice,
+            properties.as_deref(),
+        )
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<jmap_mail_types::Thread>(&account_id)
+        .get_state::<jmap_mail_types::Thread>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -88,7 +88,8 @@ pub async fn handle_thread_get<B: MailBackend>(
 /// Handle a `Thread/changes` method call (RFC 8620 §5.2, as applied to Thread).
 pub async fn handle_thread_changes<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    jmap_server::handlers::handle_changes::<jmap_mail_types::Thread, B>(backend, args).await
+    jmap_server::handlers::handle_changes::<jmap_mail_types::Thread, B>(backend, caller, args).await
 }

@@ -37,13 +37,15 @@ pub struct FaultyBackend;
 
 impl JmapBackend for FaultyBackend {
     type Error = MemoryError;
+    type CallerCtx = ();
 
-    async fn account_exists(&self, _account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &(), _account_id: &Id) -> Result<bool, Self::Error> {
         Err(MemoryError("storage unavailable".to_owned()))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
+        _caller: &(),
         _account_id: &Id,
         _ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -53,6 +55,7 @@ impl JmapBackend for FaultyBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         _account_id: &Id,
     ) -> Result<State, Self::Error> {
         Err(MemoryError("storage unavailable".to_owned()))
@@ -60,6 +63,7 @@ impl JmapBackend for FaultyBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         _account_id: &Id,
         _since_state: &State,
         _max_changes: Option<u64>,
@@ -71,6 +75,7 @@ impl JmapBackend for FaultyBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         _account_id: &Id,
         _filter: Option<&O::Filter>,
         _sort: Option<&[O::Comparator]>,
@@ -82,6 +87,7 @@ impl JmapBackend for FaultyBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         _account_id: &Id,
         _since_query_state: &State,
         _filter: Option<&O::Filter>,
@@ -99,6 +105,7 @@ impl JmapBackend for FaultyBackend {
 impl ChatBackend for FaultyBackend {
     async fn create_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         _account_id: &Id,
         _create_id: &str,
         _obj: O,
@@ -110,6 +117,7 @@ impl ChatBackend for FaultyBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         _account_id: &Id,
         _id: &Id,
         _patch: O::Patch,
@@ -121,6 +129,7 @@ impl ChatBackend for FaultyBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         _account_id: &Id,
         _id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {

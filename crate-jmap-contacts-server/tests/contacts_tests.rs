@@ -61,7 +61,7 @@ async fn address_book_get_empty_account_returns_empty_list() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "ids": null });
-    let (resp, _) = handle_address_book_get(&backend, args)
+    let (resp, _) = handle_address_book_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
 
@@ -87,7 +87,7 @@ async fn address_book_get_seeded_and_unknown_id() {
     );
 
     let args = json!({ "accountId": "acc1", "ids": ["ab1", "missing"] });
-    let (resp, _) = handle_address_book_get(&backend, args)
+    let (resp, _) = handle_address_book_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
 
@@ -110,7 +110,7 @@ async fn address_book_changes_empty_store() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let (resp, _) = handle_address_book_changes(&backend, args)
+    let (resp, _) = handle_address_book_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -135,7 +135,7 @@ async fn address_book_set_destroy_empty_book_succeeds() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["ab1"] });
-    let (resp, _) = handle_address_book_set(&backend, args)
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -168,7 +168,7 @@ async fn address_book_set_destroy_with_contents_returns_error() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["ab1"] });
-    let (resp, _) = handle_address_book_set(&backend, args)
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -197,7 +197,7 @@ async fn address_book_set_create_with_client_id_rejected() {
             "c1": { "id": "client-id", "name": "Inbox" }
         }
     });
-    let (resp, _) = handle_address_book_set(&backend, args)
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 
@@ -221,7 +221,7 @@ async fn address_book_set_unknown_account_returns_account_not_found() {
         "accountId": "nobody",
         "create": { "c1": { "name": "x" } }
     });
-    let err = handle_address_book_set(&backend, args)
+    let err = handle_address_book_set(&backend, &(), args)
         .await
         .expect_err("unknown accountId must produce method-level error");
 
@@ -241,7 +241,7 @@ async fn contact_card_get_empty_account_returns_empty_list() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "ids": null });
-    let (resp, _) = handle_contact_card_get(&backend, args)
+    let (resp, _) = handle_contact_card_get(&backend, &(), args)
         .await
         .expect("/get must succeed");
 
@@ -258,7 +258,7 @@ async fn contact_card_query_empty_store_returns_no_ids() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "calculateTotal": true });
-    let (resp, _) = handle_contact_card_query(&backend, args)
+    let (resp, _) = handle_contact_card_query(&backend, &(), args)
         .await
         .expect("/query must succeed");
 
@@ -275,7 +275,7 @@ async fn contact_card_changes_empty_store() {
     let backend = MemoryBackend::new().with_account("acc1");
 
     let args = json!({ "accountId": "acc1", "sinceState": "0" });
-    let (resp, _) = handle_contact_card_changes(&backend, args)
+    let (resp, _) = handle_contact_card_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -299,7 +299,7 @@ async fn address_book_set_state_bumps_visible_via_changes() {
     );
 
     let args = json!({ "accountId": "acc1", "destroy": ["ab1"] });
-    let (resp, _) = handle_address_book_set(&backend, args)
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
     let old_state = resp["oldState"].clone();
@@ -307,7 +307,7 @@ async fn address_book_set_state_bumps_visible_via_changes() {
     assert_ne!(old_state, new_state);
 
     let args = json!({ "accountId": "acc1", "sinceState": old_state });
-    let (changes, _) = handle_address_book_changes(&backend, args)
+    let (changes, _) = handle_address_book_changes(&backend, &(), args)
         .await
         .expect("/changes must succeed");
 
@@ -345,7 +345,7 @@ async fn contact_card_set_create_with_client_id_rejected() {
             }
         }
     });
-    let (resp, _) = handle_contact_card_set(&backend, args)
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
         .await
         .expect("/set must succeed");
 

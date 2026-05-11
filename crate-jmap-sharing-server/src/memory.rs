@@ -189,14 +189,16 @@ impl std::error::Error for MemoryError {}
 
 impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
+    type CallerCtx = ();
 
-    async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
         Ok(inner.known_accounts.contains(account_id.as_ref()))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -246,6 +248,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let inner = self.inner.lock().unwrap();
@@ -255,6 +258,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         since_state: &State,
         max_changes: Option<u64>,
@@ -317,6 +321,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         _filter: Option<&O::Filter>,
         _sort: Option<&[O::Comparator]>,
@@ -366,6 +371,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         since_query_state: &State,
         _filter: Option<&O::Filter>,
@@ -375,7 +381,7 @@ impl JmapBackend for MemoryBackend {
         _collapse_threads: bool,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
         let changes = self
-            .get_changes::<O>(account_id, since_query_state, max_changes)
+            .get_changes::<O>(&(), account_id, since_query_state, max_changes)
             .await?;
 
         let inner = self.inner.lock().unwrap();
@@ -420,6 +426,7 @@ impl JmapBackend for MemoryBackend {
 impl SharingBackend for MemoryBackend {
     async fn create_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         _create_id: &str,
         obj: O,
@@ -454,6 +461,7 @@ impl SharingBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -497,6 +505,7 @@ impl SharingBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -607,12 +616,17 @@ mod tests {
         .expect("must deserialize");
 
         let (new_id, _) = backend
-            .create_object::<Principal>(&Id::from("acc1"), "c1", principal)
+            .create_object::<Principal>(&(), &Id::from("acc1"), "c1", principal)
             .await
             .expect("create must succeed");
 
         let (found, not_found) = backend
-            .get_objects::<Principal>(&Id::from("acc1"), Some(std::slice::from_ref(&new_id)), None)
+            .get_objects::<Principal>(
+                &(),
+                &Id::from("acc1"),
+                Some(std::slice::from_ref(&new_id)),
+                None,
+            )
             .await
             .expect("get must succeed");
 

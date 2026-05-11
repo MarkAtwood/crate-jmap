@@ -48,7 +48,7 @@ The email body.\r\n";
 
     let mailbox_id = Id::from("inbox-mdn");
     let (email_id, _) = backend
-        .import_email(account_id, &blob_id, &[mailbox_id], &[], None)
+        .import_email(&(), account_id, &blob_id, &[mailbox_id], &[], None)
         .await
         .expect("setup_mdn_email: import_email must succeed");
 
@@ -63,7 +63,7 @@ The email body.\r\n";
 async fn setup_identity(backend: &MemoryBackend, account_id: &Id) -> Id {
     let identity = Identity::new(Id::from("placeholder"), "Jane_Sender@example.org", true);
     let (identity_id, _) = backend
-        .create_object::<Identity>(account_id, "ident-mdn", identity)
+        .create_object::<Identity>(&(), account_id, "ident-mdn", identity)
         .await
         .expect("setup_identity: create_object must succeed");
     identity_id
@@ -111,7 +111,7 @@ async fn mdn_send_success() {
         }
     });
 
-    let (resp, extra) = handle_mdn_send(&backend, args, "call1")
+    let (resp, extra) = handle_mdn_send(&backend, &(), args, "call1")
         .await
         .expect("mdn_send_success: handle_mdn_send must succeed");
 
@@ -151,6 +151,7 @@ async fn mdn_send_success() {
     // Oracle: after onSuccessUpdateEmail, fetching the email shows $mdnsent: true.
     let (emails, not_found) = backend
         .get_objects::<jmap_mail_types::Email>(
+            &(),
             &account_id,
             Some(std::slice::from_ref(&email_id)),
             None,
@@ -188,7 +189,7 @@ async fn mdn_send_already_sent() {
     )
     .expect("PatchObject literal must deserialize");
     backend
-        .update_object::<jmap_mail_types::Email>(&account_id, &email_id, patch)
+        .update_object::<jmap_mail_types::Email>(&(), &account_id, &email_id, patch)
         .await
         .expect("pre-set $mdnsent must succeed");
 
@@ -212,7 +213,7 @@ async fn mdn_send_already_sent() {
         }
     });
 
-    let (resp, extra) = handle_mdn_send(&backend, args, "call2")
+    let (resp, extra) = handle_mdn_send(&backend, &(), args, "call2")
         .await
         .expect("mdn_send_already_sent: handle_mdn_send must return Ok");
 
@@ -261,7 +262,7 @@ async fn mdn_send_email_not_found() {
         }
     });
 
-    let (resp, extra) = handle_mdn_send(&backend, args, "call3")
+    let (resp, extra) = handle_mdn_send(&backend, &(), args, "call3")
         .await
         .expect("mdn_send_email_not_found: handle_mdn_send must return Ok");
 
@@ -309,7 +310,7 @@ async fn mdn_send_unknown_account_returns_account_not_found() {
         }
     });
 
-    let err = handle_mdn_send(&backend, args, "call-unknown")
+    let err = handle_mdn_send(&backend, &(), args, "call-unknown")
         .await
         .expect_err("unknown accountId must return Err");
 
@@ -335,7 +336,7 @@ async fn mdn_parse_unknown_account_returns_account_not_found() {
         "blobIds": ["any-blob"]
     });
 
-    let err = handle_mdn_parse(&backend, args, MDN_PARSE_MAX_BLOB_IDS)
+    let err = handle_mdn_parse(&backend, &(), args, MDN_PARSE_MAX_BLOB_IDS)
         .await
         .expect_err("unknown accountId must return Err");
 
@@ -379,7 +380,7 @@ async fn mdn_send_missing_mdnsent_patch() {
         }
     });
 
-    let result = handle_mdn_send(&backend, args, "call4").await;
+    let result = handle_mdn_send(&backend, &(), args, "call4").await;
 
     // Oracle: the whole request must be rejected with an Err (invalidArguments).
     assert!(
@@ -424,7 +425,7 @@ async fn mdn_send_null_on_success() {
         "onSuccessUpdateEmail": null
     });
 
-    let result = handle_mdn_send(&backend, args, "call5").await;
+    let result = handle_mdn_send(&backend, &(), args, "call5").await;
 
     // Oracle: the whole request must be rejected with Err (invalidArguments).
     assert!(
@@ -467,7 +468,7 @@ async fn mdn_parse_valid() {
         "blobIds": [blob_id.as_ref()]
     });
 
-    let (resp, extra) = handle_mdn_parse(&backend, args, MDN_PARSE_MAX_BLOB_IDS)
+    let (resp, extra) = handle_mdn_parse(&backend, &(), args, MDN_PARSE_MAX_BLOB_IDS)
         .await
         .expect("mdn_parse_valid: handle_mdn_parse must succeed");
 
@@ -534,7 +535,7 @@ async fn mdn_parse_not_found() {
         "blobIds": [missing_id]
     });
 
-    let (resp, extra) = handle_mdn_parse(&backend, args, MDN_PARSE_MAX_BLOB_IDS)
+    let (resp, extra) = handle_mdn_parse(&backend, &(), args, MDN_PARSE_MAX_BLOB_IDS)
         .await
         .expect("mdn_parse_not_found: handle_mdn_parse must succeed");
 
@@ -583,7 +584,7 @@ async fn mdn_parse_not_parsable() {
         "blobIds": [blob_id.as_ref()]
     });
 
-    let (resp, extra) = handle_mdn_parse(&backend, args, MDN_PARSE_MAX_BLOB_IDS)
+    let (resp, extra) = handle_mdn_parse(&backend, &(), args, MDN_PARSE_MAX_BLOB_IDS)
         .await
         .expect("mdn_parse_not_parsable: handle_mdn_parse must succeed");
 
@@ -643,7 +644,7 @@ async fn mdn_send_null_for_email_id() {
             "#k1": { "keywords/$mdnsent": true }
         }
     });
-    let (resp, extra) = handle_mdn_send(&backend, args, "call1")
+    let (resp, extra) = handle_mdn_send(&backend, &(), args, "call1")
         .await
         .expect("null forEmailId should not cause a whole-request error");
     // Oracle: per-entry invalidProperties, not a request-level Err

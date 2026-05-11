@@ -19,23 +19,18 @@ use crate::helpers::extract_account_id;
 /// `BusyPeriod` are omitted even when the backend populates them.
 pub async fn handle_principal_get_availability<B: CalendarsBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args_map) = extract_account_id(args)?;
 
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-
-    let Value::Object(ref args_map) = args else {
-        return Err(JmapError::invalid_arguments(
-            "arguments must be a JSON object",
-        ));
-    };
 
     let principal_id_str = args_map
         .get("id")
@@ -78,6 +73,7 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
 
     match backend
         .get_availability(
+            caller,
             &account_id,
             &principal_id,
             &utc_start,
@@ -126,7 +122,7 @@ mod tests {
             "utcStart": "2024-06-15T09:00:00Z",
             "utcEnd": "2024-06-15T10:00:00Z"
         });
-        let (resp, extra) = handle_principal_get_availability(&backend, args)
+        let (resp, extra) = handle_principal_get_availability(&backend, &(), args)
             .await
             .expect("must succeed");
         assert!(extra.is_empty());
@@ -146,7 +142,7 @@ mod tests {
             "utcStart": "2024-06-15T09:00:00Z",
             "utcEnd": "2024-06-15T10:00:00Z"
         });
-        let err = handle_principal_get_availability(&backend, args)
+        let err = handle_principal_get_availability(&backend, &(), args)
             .await
             .expect_err("missing id must return error");
         assert_eq!(
@@ -166,7 +162,7 @@ mod tests {
             "utcStart": "2024-06-15T09:00:00Z",
             "utcEnd": "2024-06-15T10:00:00Z"
         });
-        let err = handle_principal_get_availability(&backend, args)
+        let err = handle_principal_get_availability(&backend, &(), args)
             .await
             .expect_err("must return error for unknown account");
         assert_eq!(

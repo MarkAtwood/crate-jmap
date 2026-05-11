@@ -56,7 +56,7 @@ async fn filenode_set_create_directory_nodetype_inferred() {
         }
     });
 
-    let (resp, _) = handle_filenode_set(&backend, args)
+    let (resp, _) = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -101,7 +101,7 @@ async fn filenode_set_create_file_requires_blobid() {
         }
     });
 
-    let (resp, _) = handle_filenode_set(&backend, args)
+    let (resp, _) = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -141,7 +141,7 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
         "destroy": ["leaf-1"]
     });
 
-    let (resp, _) = handle_filenode_set(&backend, args)
+    let (resp, _) = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -178,7 +178,7 @@ async fn filenode_set_destroy_parent_node_has_children() {
         "destroy": ["parent-1"]
     });
 
-    let (resp, _) = handle_filenode_set(&backend, args)
+    let (resp, _) = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -217,7 +217,7 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
         "destroy": ["parent-2"]
     });
 
-    let (resp, _) = handle_filenode_set(&backend, args)
+    let (resp, _) = handle_filenode_set(&backend, &(), args)
         .await
         .expect("set must not return top-level error");
 
@@ -258,7 +258,7 @@ async fn filenode_get_returns_created_node() {
             }
         }
     });
-    let (set_resp, _) = handle_filenode_set(&backend, set_args)
+    let (set_resp, _) = handle_filenode_set(&backend, &(), set_args)
         .await
         .expect("set must succeed");
 
@@ -272,7 +272,7 @@ async fn filenode_get_returns_created_node() {
         "accountId": "acc1",
         "ids": [&server_id]
     });
-    let (get_resp, _) = handle_filenode_get(&backend, get_args)
+    let (get_resp, _) = handle_filenode_get(&backend, &(), get_args)
         .await
         .expect("get must succeed");
 
@@ -304,6 +304,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
     // Create a parent node.
     let (parent_resp, _) = handle_filenode_set(
         &backend,
+        &(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -322,6 +323,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
     // Create a child under the parent.
     let (child_resp, _) = handle_filenode_set(
         &backend,
+        &(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -341,6 +343,7 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
     // §3.2.1: the ancestor chain must be appended to the list.
     let (get_resp, _) = handle_filenode_get(
         &backend,
+        &(),
         json!({
             "accountId": "acc1",
             "ids": [&child_id],
@@ -375,6 +378,7 @@ async fn filenode_query_depth_one_returns_children() {
     // Create a top-level directory.
     let (dir_resp, _) = handle_filenode_set(
         &backend,
+        &(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -393,6 +397,7 @@ async fn filenode_query_depth_one_returns_children() {
     // Create two children under topdir.
     handle_filenode_set(
         &backend,
+        &(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -408,6 +413,7 @@ async fn filenode_query_depth_one_returns_children() {
     // §3.2.5: depth=1 expands one level below the initial result.
     let (q_resp, _) = handle_filenode_query(
         &backend,
+        &(),
         json!({
             "accountId": "acc1",
             "filter": { "isTopLevel": true },
@@ -447,7 +453,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
             "accountId": "acc1",
             "ids": []
         });
-        let (resp, _) = handle_filenode_get(&backend, get_args)
+        let (resp, _) = handle_filenode_get(&backend, &(), get_args)
             .await
             .expect("get must succeed");
         resp["state"]
@@ -459,6 +465,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
     // Create a node.
     let (set_resp, _) = handle_filenode_set(
         &backend,
+        &(),
         json!({
             "accountId": "acc1",
             "create": {
@@ -478,6 +485,7 @@ async fn filenode_changes_after_create_shows_in_created_list() {
     // §3.2.2: the new id must appear in the `created` list.
     let (ch_resp, _) = handle_filenode_changes(
         &backend,
+        &(),
         json!({
             "accountId": "acc1",
             "sinceState": &pre_state

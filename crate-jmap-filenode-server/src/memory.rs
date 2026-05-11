@@ -210,8 +210,9 @@ impl MemoryBackend {
 
 impl JmapBackend for MemoryBackend {
     type Error = MemoryError;
+    type CallerCtx = ();
 
-    async fn account_exists(&self, account_id: &Id) -> Result<bool, Self::Error> {
+    async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
         Ok(self
             .inner
             .lock()
@@ -222,6 +223,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_objects<O: GetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         ids: Option<&[Id]>,
         _properties: Option<&[String]>,
@@ -271,6 +273,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_state<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
     ) -> Result<State, Self::Error> {
         let guard = self.inner.lock().unwrap();
@@ -283,6 +286,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn get_changes<O: JmapObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         since_state: &State,
         max_changes: Option<u64>,
@@ -347,6 +351,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         filter: Option<&O::Filter>,
         _sort: Option<&[O::Comparator]>,
@@ -398,6 +403,7 @@ impl JmapBackend for MemoryBackend {
 
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         since_query_state: &State,
         _filter: Option<&O::Filter>,
@@ -438,6 +444,7 @@ impl JmapBackend for MemoryBackend {
 impl FileNodeBackend for MemoryBackend {
     async fn create_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         _create_id: &str,
         obj: O,
@@ -478,6 +485,7 @@ impl FileNodeBackend for MemoryBackend {
 
     async fn update_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -536,6 +544,7 @@ impl FileNodeBackend for MemoryBackend {
 
     async fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        _caller: &(),
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
@@ -559,6 +568,7 @@ impl FileNodeBackend for MemoryBackend {
 
     async fn get_ancestors(
         &self,
+        _caller: &(),
         account_id: &Id,
         ids: &[Id],
     ) -> Result<Vec<FileNode>, Self::Error> {
@@ -604,7 +614,12 @@ impl FileNodeBackend for MemoryBackend {
         Ok(ancestors)
     }
 
-    async fn get_descendant_ids(&self, account_id: &Id, id: &Id) -> Result<Vec<Id>, Self::Error> {
+    async fn get_descendant_ids(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        id: &Id,
+    ) -> Result<Vec<Id>, Self::Error> {
         let guard = self.inner.lock().unwrap();
         let store = match guard.get_or_err(account_id) {
             Some(s) => s,
@@ -639,13 +654,14 @@ impl FileNodeBackend for MemoryBackend {
         Ok(result)
     }
 
-    async fn blob_exists(&self, _account_id: &Id, _blob_id: &Id) -> bool {
+    async fn blob_exists(&self, _caller: &(), _account_id: &Id, _blob_id: &Id) -> bool {
         // In the test environment, all blobs are assumed to exist.
         true
     }
 
     async fn find_sibling_by_name(
         &self,
+        _caller: &(),
         account_id: &Id,
         parent_id: Option<&Id>,
         name: &str,

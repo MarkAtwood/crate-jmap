@@ -16,21 +16,18 @@ use crate::helpers::{
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_identity_get<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
 
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
-
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
 
     // ids: absent or null means "return all"; Some([]) means "return nothing".
     let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
@@ -53,12 +50,17 @@ pub async fn handle_identity_get<B: MailBackend>(
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<jmap_mail_types::Identity>(&account_id, ids_slice, properties.as_deref())
+        .get_objects::<jmap_mail_types::Identity>(
+            caller,
+            &account_id,
+            ids_slice,
+            properties.as_deref(),
+        )
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
     let state = backend
-        .get_state::<jmap_mail_types::Identity>(&account_id)
+        .get_state::<jmap_mail_types::Identity>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -91,12 +93,13 @@ pub async fn handle_identity_get<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_identity_changes<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, args) = extract_account_id(args)?;
 
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
@@ -116,7 +119,7 @@ pub async fn handle_identity_changes<B: MailBackend>(
     };
 
     let result = backend
-        .get_changes::<jmap_mail_types::Identity>(&account_id, &since_state, max_changes)
+        .get_changes::<jmap_mail_types::Identity>(caller, &account_id, &since_state, max_changes)
         .await
         .map_err(JmapError::from)?;
 
@@ -139,25 +142,22 @@ pub async fn handle_identity_changes<B: MailBackend>(
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_identity_set<B: MailBackend>(
     backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    let account_id = extract_account_id(&args)?;
+    let (account_id, mut args) = extract_account_id(args)?;
 
     if !backend
-        .account_exists(&account_id)
+        .account_exists(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?
     {
         return Err(JmapError::account_not_found());
     }
 
-    let Value::Object(mut args) = args else {
-        return Err(JmapError::invalid_arguments("args must be an object"));
-    };
-
     // Fetch old state for ifInState check and response.
     let old_state = backend
-        .get_state::<jmap_mail_types::Identity>(&account_id)
+        .get_state::<jmap_mail_types::Identity>(caller, &account_id)
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -252,7 +252,12 @@ pub async fn handle_identity_set<B: MailBackend>(
             }
 
             match backend
-                .create_object::<jmap_mail_types::Identity>(&account_id, &create_id, identity)
+                .create_object::<jmap_mail_types::Identity>(
+                    caller,
+                    &account_id,
+                    &create_id,
+                    identity,
+                )
                 .await
             {
                 Ok((_server_id, created_obj)) => {
@@ -334,7 +339,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             }
 
             match backend
-                .update_object::<jmap_mail_types::Identity>(&account_id, &id, patch)
+                .update_object::<jmap_mail_types::Identity>(caller, &account_id, &id, patch)
                 .await
             {
                 Ok(Some(obj)) => {
@@ -392,6 +397,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             // Fetch the identity to check mayDelete.
             let fetch_result = backend
                 .get_objects::<jmap_mail_types::Identity>(
+                    caller,
                     &account_id,
                     Some(std::slice::from_ref(&id)),
                     None,
@@ -421,7 +427,7 @@ pub async fn handle_identity_set<B: MailBackend>(
             }
 
             match backend
-                .destroy_object::<jmap_mail_types::Identity>(&account_id, &id)
+                .destroy_object::<jmap_mail_types::Identity>(caller, &account_id, &id)
                 .await
             {
                 Ok(()) => {
@@ -452,6 +458,7 @@ pub async fn handle_identity_set<B: MailBackend>(
 
     finalize_set_response::<B, jmap_mail_types::Identity>(
         backend,
+        caller,
         &account_id,
         old_state,
         mutated,
