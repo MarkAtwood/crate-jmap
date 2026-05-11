@@ -15,6 +15,16 @@
 //! register_calendars_handlers(&mut dispatcher, Arc::new(backend));
 //! # }
 //! ```
+//!
+//! # `memory` feature (reference implementation)
+//!
+//! Enable the `memory` feature to expose the `memory::MemoryBackend`
+//! reference implementation of [`CalendarsBackend`]. This is the same
+//! backend used by this crate's own integration tests, intended for
+//! downstream contributors to study and for smoke tests / examples
+//! that do not want to stand up a real database. **Not production.**
+//! API stability is opt-in via this feature and may break across minor
+//! versions while the crate is pre-1.0.
 
 #![forbid(unsafe_code)]
 
@@ -27,6 +37,12 @@ pub mod calendar;
 pub mod event;
 pub mod event_notification;
 mod helpers;
+/// In-memory reference implementation of [`CalendarsBackend`].
+///
+/// Gated behind `feature = "memory"`. Not production. See [`memory`] for
+/// the full module documentation.
+#[cfg(feature = "memory")]
+pub mod memory;
 pub mod participant_identity;
 pub mod principal;
 
