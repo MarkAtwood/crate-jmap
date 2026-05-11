@@ -359,124 +359,13 @@ to be supported. Struct has `property: String` and `isAscending: bool`
 
 ## Key Design Decisions
 
-### 1. CalendarEvent is a JSCalendar passthrough with JMAP additions
-
-The CalendarEvent struct must faithfully represent the full JSCalendar Event
-format (RFC 8984) plus the JMAP-specific additions from draft §5. Every field
-is `Option<T>` because RFC 8620 §5.1 allows partial responses (clients request
-only the fields they need via `properties`). A field absent from the server
-response must not fail deserialization.
-
-The `@type` field (always "Event" for CalendarEvents) is included in the struct
-for roundtrip fidelity but skipped during CalendarEvent/set creates (server
-sets it). Use `#[serde(default, skip_serializing_if = "Option::is_none")]`
-pervasively.
-
-### 2. recurrenceOverrides and localizations use a typed PatchObject envelope
-
-The keys of `recurrenceOverrides` are LocalDateTime strings; the keys of
-`localizations` are BCP 47 language tags. In both cases each value is a
-JSCalendar PatchObject — itself a `String → *` map where the leaf values
-can be arbitrary JSON (or null, meaning remove).
-
-These fields are typed as `Option<HashMap<String, jmap_types::PatchObject>>`:
-
-- The **outer envelope** is JMAP-typed: each value is the
-  [`jmap_types::PatchObject`] newtype (RFC 8620 §5.3), which is
-  `#[serde(transparent)]` over `serde_json::Map<String, Value>`. This binds
-  the PatchObject contract — JSON Pointer key semantics with implicit
-  leading `/`, null-leaf removal — to the type system at the
-  envelope/value boundary.
-- The **inner leaves** remain `serde_json::Value`. Patch values can target
-  arbitrary JSCalendar paths (`alerts/abc/offset`, `participants/xyz/role`,
-  …) and the leaf values themselves carry the full JSCalendar shape
-  flexibility. Defining an exhaustive enum of patch targets is impractical
-  and would drift as JSCalendar (RFC 8984) evolves. This is the
-  Sloppy-Value pattern at the leaf, typed at the envelope.
-
-Wire format is byte-identical to a plain JSON object map via `PatchObject`'s
-`#[serde(transparent)]`. The change from the prior opaque `Option<Value>`
-shape is a tightening at the type system level — invalid wire shapes (a
-JSON array stored where an object is expected) now fail deserialization,
-which would always have been spec-violating.
-
-Clients that need to construct patches build them as `serde_json::Map` and
-wrap with `PatchObject::from_map(...)`. The handler layer (in
-`jmap-calendars-server`) applies JMAP patch semantics (RFC 8620 §5.3) to
-the stored CalendarEvent before passing it to the backend.
-
-Cookie-cutter note: this matches the canonical shape used by
-`jmap-tasks-types::Task::recurrence_overrides` and
-`jmap-tasks-types::Task::localizations`. See bd JMAP-trmz for the
-workspace-wide PatchObject typed-envelope sweep.
-
-### 3. AlertTrigger uses internally-tagged serde via @type
-
-`AlertTrigger` is an enum with `#[serde(tag = "@type")]`:
-- `OffsetTrigger` → `@type: "OffsetTrigger"`
-- `AbsoluteTrigger` → `@type: "AbsoluteTrigger"`
-- `Unknown(serde_json::Value)` → any other `@type` value
-
-The `Unknown` variant is required for forward compatibility per RFC 8984 §4.5.2:
-"Implementations MUST NOT trigger for trigger types they do not understand but
-MUST preserve them." Do not use `#[serde(deny_unknown_fields)]` on this enum.
-
-### 4. Boolean-keyed maps (calendarIds, roles, keywords, etc.)
-
-JSCalendar uses `String[Boolean]` maps to represent sets (values are always
-`true`). These are modelled as `HashMap<String, bool>` (or `HashMap<Id, bool>`
-where keys are JMAP Ids). This preserves the wire format and allows unknown
-keys to pass through. The semantic constraint (values are always true) is
-documented but not enforced at type level — invalid `false` values from the
-wire are preserved per RFC 8984 §4.4.6.
-
-### 5. LocalDateTime and Duration as String newtype wrappers
-
-RFC 8984 §1.4.5 defines LocalDateTime as a string without timezone offset.
-RFC 8984 §1.4.6 defines Duration as a string in ISO 8601 subset format.
-RFC 8984 §1.4.7 defines SignedDuration as an optional sign prefix on Duration.
-
-These are modelled as `pub struct LocalDateTime(pub String)` and
-`pub struct Duration(pub String)` — newtype wrappers around String with
-`From<String>`, `AsRef<str>`, and serde passthrough. This documents intent at
-type level without adding a heavy parser dependency. Validation of the internal
-format is left to the backend.
-
-### 6. timeZones is opaque
-
-The `timeZones` property (RFC 8984 §4.7.2) contains custom time zone
-definitions in a complex nested format. It is modelled as
-`Option<serde_json::Value>` because:
-- Almost no client needs to construct these
-- Parsing them requires a full VTIMEZONE implementation
-- Servers that need custom tz definitions handle them internally
-
-The field is preserved and round-tripped faithfully.
-
-### 7. CalendarEventNotification event field includes full CalendarEvent
-
-The `event` field of CalendarEventNotification holds a CalendarEvent (or just
-the changed instance). Using the same `CalendarEvent` type here avoids
-duplication and ensures the notification's event snapshot uses identical
-deserialization. The `eventPatch` field is `Option<serde_json::Value>` — a
-PatchObject — because the patch contents are arbitrary paths into the event.
-
-### 8. IncludeInAvailability as an enum, not String
-
-The `includeInAvailability` field of `Calendar` has exactly three values:
-"all", "attending", "none". Unlike `privacy` or `freeBusyStatus` (which RFC
-8984 §3.3 explicitly allows vendors to extend), `includeInAvailability` is
-defined by the JMAP Calendars spec with no extension mechanism. It is modelled
-as:
-
-```rust
-#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub enum IncludeInAvailability { All, Attending, None }
-```
-
-Vendor-extensible string fields (privacy, freeBusyStatus, participationStatus,
-action, etc.) use `String` to allow unknown values through.
+JSCalendar typed sub-types live in `jmap-jscalendar-types`. See
+`crate-jmap-jscalendar-types/PLAN.md` for the hybrid-design rationale.
+This crate's `CalendarEvent` keeps its sloppy `Option<serde_json::Value>`
+fields as the wire-format anchor; consumers obtain typed views via
+`serde_json::from_value::<jmap_calendars_types::Location>(event.locations.unwrap())`
+(the re-export) or the equivalent `jmap_jscalendar_types::Location`
+direct path.
 
 ## Module Layout
 
@@ -487,9 +376,6 @@ src/
   event.rs                 CalendarEvent (all fields; see §5 of draft + RFC 8984)
   notification.rs          CalendarEventNotification, Person, NotificationType
   participant_identity.rs  ParticipantIdentity
-  jscalendar.rs            RecurrenceRule, NDay, Location, VirtualLocation, Link,
-                           Participant, Alert, AlertTrigger, OffsetTrigger,
-                           AbsoluteTrigger, Relation, LocalDateTime, Duration
   query.rs                 CalendarEventFilterCondition, CalendarEventComparator,
                            NotificationFilterCondition
   capability.rs            CalendarsCapability, CalendarsAccountCapability
