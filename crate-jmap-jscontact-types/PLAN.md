@@ -43,8 +43,7 @@ No other dependencies. No `jmap-types`.
 ## Public API
 
 Single module (`src/lib.rs`). All public structs are `#[non_exhaustive]`
-and derive `Debug, Clone, PartialEq, Serialize, Deserialize` (plus
-`Eq, Hash` where the inner types permit it). Wire-format JSON uses
+and derive `Debug, Clone, PartialEq, Eq, Serialize, Deserialize`. Wire-format JSON uses
 `#[serde(rename_all = "camelCase")]`. The JSContact `@type` discriminator
 is mapped to a `String` field named `at_type` with `#[serde(rename = "@type")]`.
 
@@ -165,15 +164,18 @@ Out of scope:
 - `JsContactId` — newtype around `String`.
 - `AnniversaryDate` — outer dispatch enum; extras live on variant
   structs.
-- `NameComponent`, `AddressComponent`, `PartialDate`, `Timestamp` —
-  four Hash-derived types. Adding `serde_json::Map` (which lacks
-  `Hash`) breaks the auto-derived `Hash` macro. Tracked under
-  JMAP-lbdy.12 pending a Hash-vs-extras tension decision.
+
+The four formerly Hash-derived value types (`NameComponent`,
+`AddressComponent`, `PartialDate`, `Timestamp`) had their `Hash`
+derive dropped under JMAP-lbdy.12 option A so the extras-preservation
+policy applies uniformly. No callsite in the workspace uses these
+types as `HashMap`/`HashSet` keys; the lost `Hash` is unreferenced.
 
 ### New-type rule
 
 Any new public `Deserialize` struct added to this crate that appears on
 the JMAP wire MUST include the `extra` field from day one with the
 documented serde attributes and at least one round-trip preservation
-test, subject to the Hash-vs-extras caveat for any new Hash-derived
-type.
+test. New types MUST NOT derive `Hash` if they carry an `extra` field —
+`serde_json::Map` does not implement `Hash`. If `Hash` is genuinely
+needed on a new type, file a bead and discuss before proceeding.
