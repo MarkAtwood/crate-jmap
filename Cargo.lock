@@ -732,6 +732,7 @@ dependencies = [
 name = "jmap-calendars-server"
 version = "0.1.1"
 dependencies = [
+ "jmap-calendars-server",
  "jmap-calendars-types",
  "jmap-server",
  "jmap-types",
