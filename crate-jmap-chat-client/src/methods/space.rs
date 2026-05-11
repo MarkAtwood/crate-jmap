@@ -12,8 +12,10 @@ use jmap_types::{Id, PatchObject, State};
 
 use super::{
     ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SetResponse,
-    SpaceAddChannelInput, SpaceAddMemberInput, SpaceCreateInput, SpaceJoinInput, SpaceJoinResponse,
-    SpacePatch, SpaceQueryInput, SpaceUpdateMemberInput,
+    SpaceAddCategoryInput, SpaceAddChannelInput, SpaceAddMemberInput, SpaceAddRoleInput,
+    SpaceCreateInput, SpaceJoinInput, SpaceJoinResponse, SpacePatch, SpaceQueryInput,
+    SpaceUpdateCategoryInput, SpaceUpdateChannelInput, SpaceUpdateMemberInput,
+    SpaceUpdateRoleInput,
 };
 
 impl super::SessionClient {
@@ -226,10 +228,14 @@ impl super::SessionClient {
     /// them, and `Patch::Keep` (default) to leave them unchanged. Slice fields
     /// default to `None` for no-change.
     ///
-    /// **Not yet exposed**: `addRoles`, `removeRoles`, `updateRoles`,
-    /// `updateChannels`, `addCategories`, `removeCategories`, `updateCategories`
-    /// are not included. Role and category management is tracked under
-    /// `bd:JMAP-g7wu.2.1`.
+    /// Supports the full set of semantic mutation keys from JMAP Chat §Space/set:
+    /// metadata (`name`, `description`, `iconBlobId`, `isPublic`,
+    /// `isPubliclyPreviewable`); members (`addMembers`, `removeMembers`,
+    /// `updateMembers`, `manage_members`); channels (`addChannels`,
+    /// `removeChannels`, `updateChannels`, `manage_channels`); roles
+    /// (`addRoles`, `removeRoles`, `updateRoles`, `manage_roles`); and
+    /// categories (`addCategories`, `removeCategories`, `updateCategories`,
+    /// `manage_channels`).
     pub async fn space_update(
         &self,
         id: &Id,
@@ -350,6 +356,161 @@ impl super::SessionClient {
                     "removeChannels".into(),
                     serde_json::to_value(rc).expect("Id slice Serialize is infallible"),
                 );
+            }
+        }
+        if let Some(uc) = patch.update_channels {
+            if !uc.is_empty() {
+                let arr = uc
+                    .iter()
+                    .map(|c: &SpaceUpdateChannelInput<'_>| {
+                        let mut obj = serde_json::json!({ "id": c.id });
+                        if let Some(n) = c.name {
+                            obj["name"] = n.into();
+                        }
+                        if let Some(entry) = c
+                            .topic
+                            .map_entry()
+                            .map_err(jmap_base_client::ClientError::Parse)?
+                        {
+                            obj["topic"] = entry;
+                        }
+                        if let Some(entry) = c
+                            .category_id
+                            .map_entry()
+                            .map_err(jmap_base_client::ClientError::Parse)?
+                        {
+                            obj["categoryId"] = entry;
+                        }
+                        if let Some(p) = c.position {
+                            obj["position"] = p.into();
+                        }
+                        if let Some(s) = c.slow_mode_seconds {
+                            obj["slowModeSeconds"] = s.into();
+                        }
+                        if let Some(po) = c.permission_overrides {
+                            obj["permissionOverrides"] = serde_json::to_value(po)
+                                .map_err(jmap_base_client::ClientError::Parse)?;
+                        }
+                        Ok(obj)
+                    })
+                    .collect::<Result<Vec<serde_json::Value>, jmap_base_client::ClientError>>()?;
+                patch_map.insert("updateChannels".into(), serde_json::Value::Array(arr));
+            }
+        }
+        if let Some(ar) = patch.add_roles {
+            if !ar.is_empty() {
+                let arr = ar
+                    .iter()
+                    .map(|r: &SpaceAddRoleInput<'_>| {
+                        if r.name.is_empty() {
+                            return Err(jmap_base_client::ClientError::InvalidArgument(
+                                "space_update: role name may not be empty".into(),
+                            ));
+                        }
+                        let mut obj = serde_json::json!({
+                            "name": r.name,
+                            "permissions": r.permissions,
+                            "position": r.position,
+                        });
+                        if let Some(c) = r.color {
+                            obj["color"] = c.into();
+                        }
+                        Ok(obj)
+                    })
+                    .collect::<Result<Vec<serde_json::Value>, jmap_base_client::ClientError>>()?;
+                patch_map.insert("addRoles".into(), serde_json::Value::Array(arr));
+            }
+        }
+        if let Some(rr) = patch.remove_roles {
+            if !rr.is_empty() {
+                patch_map.insert(
+                    "removeRoles".into(),
+                    serde_json::to_value(rr).expect("Id slice Serialize is infallible"),
+                );
+            }
+        }
+        if let Some(ur) = patch.update_roles {
+            if !ur.is_empty() {
+                let arr = ur
+                    .iter()
+                    .map(|r: &SpaceUpdateRoleInput<'_>| {
+                        let mut obj = serde_json::json!({ "id": r.id });
+                        if let Some(n) = r.name {
+                            obj["name"] = n.into();
+                        }
+                        if let Some(entry) = r
+                            .color
+                            .map_entry()
+                            .map_err(jmap_base_client::ClientError::Parse)?
+                        {
+                            obj["color"] = entry;
+                        }
+                        if let Some(perms) = r.permissions {
+                            obj["permissions"] = serde_json::Value::Array(
+                                perms.iter().copied().map(serde_json::Value::from).collect(),
+                            );
+                        }
+                        if let Some(p) = r.position {
+                            obj["position"] = p.into();
+                        }
+                        Ok(obj)
+                    })
+                    .collect::<Result<Vec<serde_json::Value>, jmap_base_client::ClientError>>()?;
+                patch_map.insert("updateRoles".into(), serde_json::Value::Array(arr));
+            }
+        }
+        if let Some(ac) = patch.add_categories {
+            if !ac.is_empty() {
+                let arr = ac
+                    .iter()
+                    .map(|c: &SpaceAddCategoryInput<'_>| {
+                        if c.name.is_empty() {
+                            return Err(jmap_base_client::ClientError::InvalidArgument(
+                                "space_update: category name may not be empty".into(),
+                            ));
+                        }
+                        let mut obj = serde_json::json!({ "name": c.name });
+                        if let Some(p) = c.position {
+                            obj["position"] = p.into();
+                        }
+                        if let Some(cids) = c.channel_ids {
+                            obj["channelIds"] = serde_json::to_value(cids)
+                                .expect("Id slice Serialize is infallible");
+                        }
+                        Ok(obj)
+                    })
+                    .collect::<Result<Vec<serde_json::Value>, jmap_base_client::ClientError>>()?;
+                patch_map.insert("addCategories".into(), serde_json::Value::Array(arr));
+            }
+        }
+        if let Some(rc) = patch.remove_categories {
+            if !rc.is_empty() {
+                patch_map.insert(
+                    "removeCategories".into(),
+                    serde_json::to_value(rc).expect("Id slice Serialize is infallible"),
+                );
+            }
+        }
+        if let Some(uc) = patch.update_categories {
+            if !uc.is_empty() {
+                let arr = uc
+                    .iter()
+                    .map(|c: &SpaceUpdateCategoryInput<'_>| {
+                        let mut obj = serde_json::json!({ "id": c.id });
+                        if let Some(n) = c.name {
+                            obj["name"] = n.into();
+                        }
+                        if let Some(p) = c.position {
+                            obj["position"] = p.into();
+                        }
+                        if let Some(cids) = c.channel_ids {
+                            obj["channelIds"] = serde_json::to_value(cids)
+                                .expect("Id slice Serialize is infallible");
+                        }
+                        obj
+                    })
+                    .collect::<Vec<serde_json::Value>>();
+                patch_map.insert("updateCategories".into(), serde_json::Value::Array(arr));
             }
         }
 
