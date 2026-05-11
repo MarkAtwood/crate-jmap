@@ -65,7 +65,7 @@ use jmap_types::{Id, State};
 // ---------------------------------------------------------------------------
 
 /// A change log entry for one state transition.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct ChangeEntry {
     /// The state counter AFTER this change.
     new_state: u64,
