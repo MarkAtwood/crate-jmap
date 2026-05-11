@@ -57,6 +57,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// Modelled as a transparent newtype around `String` so that wire JSON
 /// for fields typed `Id` looks identical to a bare `String`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct JsContactId(pub String);
