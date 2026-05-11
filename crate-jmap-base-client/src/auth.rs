@@ -431,4 +431,63 @@ mod tests {
             .build_client()
             .expect("DefaultTransport::build_client must succeed");
     }
+
+    /// Oracle: BearerAuth's Debug impl never reveals the underlying token.
+    ///
+    /// Tripwire against a future refactor that adds `#[derive(Debug)]` to
+    /// BearerAuth (clearing the manual redacting impl), or that prints the
+    /// inner `header_string`. The canary literal is the independent
+    /// oracle — it is under the test's control, never derived from
+    /// BearerAuth's internal state.
+    #[test]
+    fn bearer_auth_debug_does_not_leak_token() {
+        const CANARY: &str = "CANARY-TOKEN-DO-NOT-LEAK-123";
+        let auth = BearerAuth::new(CANARY).expect("valid ASCII token must construct");
+        let dbg = format!("{auth:?}");
+        assert!(
+            !dbg.contains(CANARY),
+            "BearerAuth Debug must not contain the raw token; got: {dbg}"
+        );
+    }
+
+    /// Oracle: BasicAuth's Debug impl never reveals the underlying credentials.
+    ///
+    /// Same tripwire shape as `bearer_auth_debug_does_not_leak_token`.
+    /// The canary username and password are independent literals; the
+    /// assertion verifies neither, nor the base64 encoding of their
+    /// concatenation, appears in the Debug output.
+    #[test]
+    fn basic_auth_debug_does_not_leak_credentials() {
+        const CANARY_USER: &str = "CANARY-USER-DO-NOT-LEAK";
+        const CANARY_PASS: &str = "CANARY-PASS-DO-NOT-LEAK";
+        let auth =
+            BasicAuth::new(CANARY_USER, CANARY_PASS).expect("valid credentials must construct");
+        let dbg = format!("{auth:?}");
+        assert!(
+            !dbg.contains(CANARY_USER),
+            "BasicAuth Debug must not contain the raw username; got: {dbg}"
+        );
+        assert!(
+            !dbg.contains(CANARY_PASS),
+            "BasicAuth Debug must not contain the raw password; got: {dbg}"
+        );
+        // Also catch a regression that prints the pre-validated header_string,
+        // which would surface the base64-encoded credentials.
+        let base64_pair = BASE64_STANDARD.encode(format!("{CANARY_USER}:{CANARY_PASS}"));
+        assert!(
+            !dbg.contains(&base64_pair),
+            "BasicAuth Debug must not contain the base64-encoded credentials; got: {dbg}"
+        );
+    }
+
+    // Note: a dyn-AuthProvider Debug test (bead JMAP-sc1b.79 item #4) is
+    // intentionally omitted. The AuthProvider trait does not have
+    // `std::fmt::Debug` as a supertrait, so `Box<dyn AuthProvider>` is
+    // not `Debug`-formattable. Adding `Debug` to the trait bound would
+    // be a foundation-crate public API change far outside the scope of
+    // a regression-test bead. The concrete-type tests above already
+    // catch the hygiene contract for every shipped AuthProvider
+    // implementation; the only way a new AuthProvider leaks credentials
+    // via Debug is if its own concrete impl does so, and that is
+    // caught by the new-impl reviewer (cookie-cutter rule).
 }
