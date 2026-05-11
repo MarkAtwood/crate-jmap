@@ -158,6 +158,60 @@ src/
     misc.rs         Core/echo, PushSubscription/set
 ```
 
+## Extras-preservation policy (JMAP-lbdy)
+
+Every public method-response struct (Deserialize) defined in this crate
+that appears on the JMAP wire carries an `extra` field per the workspace
+extras-preservation policy (see workspace `AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+This preserves vendor / site / private-extension fields across
+deserialize/serialize round-trip. Wire format is byte-identical when extras
+are empty. This crate has no Serialize-only method-argument structs on its
+public surface; the policy here applies uniformly to the Deserialize
+method-response structs enumerated below.
+
+This crate implements the JMAP Chat draft
+(`draft-atwood-jmap-chat-*`) plus Quota (RFC 8621 §2) and the
+blob-extension types (`draft-ietf-jmap-blobext-*`).
+
+In scope in this crate (each has at least one round-trip preservation
+test named `*_preserves_vendor_extras` in the defining module):
+
+- Method-response structs (Deserialize):
+  - `ChatCapability`, `ChatPushCapability` in `src/session.rs`
+  - `Quota` in `src/methods/quota.rs`
+  - `BlobLookupEntry`, `BlobLookupResponse`, `BlobObject`,
+    `BlobConvertResponse` in `src/methods/blob.rs`
+  - `PushSubscriptionCreateResponse`, `TypingResponse`,
+    `SpaceJoinResponse` in `src/methods/mod.rs`
+
+The crate also re-exports standard response wrappers (`GetResponse<T>`,
+`SetResponse<T>`, `ChangesResponse`, `QueryResponse`,
+`QueryChangesResponse`) from `jmap-types`; those carry their own `extra`
+field per JMAP-lbdy.1 and are not re-documented here.
+
+Out of scope (explicitly excluded by the workspace policy):
+
+- Filter / comparator algebra types and control enums — see workspace
+  AGENTS.md "Filter algebra and control enums are explicitly EXCLUDED"
+  for the full rationale.
+- Internal Rust state types (`SessionClient`, the private SSE helpers
+  `TypingPayload` / `PresencePayload`) — not wire-format.
+
+### New-type rule
+
+Any new public method-response struct added to this crate that appears on
+the JMAP wire MUST include the `extra` field from day one with the
+documented serde attributes and at least one round-trip preservation test.
+Per the canonical-template propagation rule (workspace AGENTS.md), changes
+to the canonical `jmap-mail-client` surface propagate to this crate and to
+the other five sibling extension-client crates in lock-step.
+
 ## Test Strategy
 
 - Unit tests against a `wiremock` mock server (already used in `jmapchat-client/`)

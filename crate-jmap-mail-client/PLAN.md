@@ -148,6 +148,53 @@ src/
   snippet.rs    SearchSnippet/get request/response types
 ```
 
+## Extras-preservation policy (JMAP-lbdy)
+
+Every public method-argument and method-response struct defined in this
+crate that appears on the JMAP wire carries an `extra` field per the
+workspace extras-preservation policy (see workspace `AGENTS.md`):
+
+```rust
+#[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+pub extra: serde_json::Map<String, serde_json::Value>,
+```
+
+This preserves vendor / site / private-extension fields across
+deserialize/serialize round-trip. Wire format is byte-identical when extras
+are empty. The `default` attribute is inert for Serialize-only method-arg
+structs and active for Deserialize method-response structs; the attribute
+set is kept uniform across both directions of wire flow.
+
+In scope in this crate (each has at least one round-trip preservation
+test in `methods/mod.rs`):
+
+- Method-argument structs (Serialize-only): `EmailGetParams`,
+  `EmailCopyParams`, `MailboxSetParams`, `EmailSubmissionSetParams`,
+  `EmailImportInput`, `EmailParseParams`.
+- Method-response structs (Deserialize): `EmailImportCreated`,
+  `EmailImportResponse`, `EmailParseResponse`.
+
+The crate also re-exports standard response wrappers (`GetResponse<T>`,
+`SetResponse<T>`, `ChangesResponse`, `QueryResponse`,
+`QueryChangesResponse`) from `jmap-types`; those carry their own `extra`
+field per JMAP-lbdy.1 and are not re-documented here.
+
+Out of scope (explicitly excluded by the workspace policy):
+
+- Filter / comparator algebra types and control enums — see workspace
+  AGENTS.md "Filter algebra and control enums are explicitly EXCLUDED"
+  for the full rationale.
+- Internal Rust state types (`SessionClient`) — not wire-format.
+
+### New-type rule
+
+Any new public method-argument or method-response struct added to this
+crate that appears on the JMAP wire MUST include the `extra` field from
+day one with the documented serde attributes and at least one round-trip
+preservation test. Per the canonical-template propagation rule (workspace
+AGENTS.md), changes to this crate's surface propagate to the six sibling
+extension-client crates in lock-step.
+
 ## Test Strategy
 
 - All tests use `wiremock` via `jmap-base-client`'s HTTP layer — no live network
