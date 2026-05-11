@@ -41,6 +41,12 @@ pub struct ChatCapability {
     pub max_categories_per_space: u64,
     /// Whether the server supports the optional thread model.
     pub supports_threads: bool,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -66,6 +72,12 @@ pub struct ChatPushCapability {
     /// `None` means the server does not impose a bound.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_messages_per_push: Option<u64>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -351,6 +363,57 @@ mod tests {
         assert!(
             !session.supports_chat_websocket(),
             "expected false when capability key is absent"
+        );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
+    //
+    // Each test deserialises wire JSON containing a synthetic `acmeCorp*`
+    // vendor field and asserts it survives in `extra`. The vendor field
+    // names cannot collide with any field defined in
+    // draft-atwood-jmap-chat-00 §3 or draft-atwood-jmap-chat-push-00, so
+    // the tests are independent of the code under test (workspace
+    // test-integrity rule).
+
+    /// `ChatCapability.extra` captures unknown fields on deserialize.
+    #[test]
+    fn chat_capability_preserves_vendor_extras() {
+        let raw = json!({
+            "maxBodyBytes": 65536,
+            "maxAttachmentBytes": 10485760,
+            "maxAttachmentsPerMessage": 10,
+            "maxGroupMembers": 100,
+            "maxSpaceMembers": 500,
+            "maxRolesPerSpace": 50,
+            "maxChannelsPerSpace": 200,
+            "maxCategoriesPerSpace": 25,
+            "supportsThreads": true,
+            "acmeCorpFeatureFlag": "beta"
+        });
+        let obj: ChatCapability =
+            serde_json::from_value(raw).expect("ChatCapability must deserialize");
+        assert_eq!(
+            obj.extra
+                .get("acmeCorpFeatureFlag")
+                .and_then(|v| v.as_str()),
+            Some("beta")
+        );
+    }
+
+    /// `ChatPushCapability.extra` captures unknown fields on deserialize.
+    #[test]
+    fn chat_push_capability_preserves_vendor_extras() {
+        let raw = json!({
+            "maxSnippetBytes": 256,
+            "supportedUrgencyValues": ["normal", "high"],
+            "maxMessagesPerPush": 10,
+            "acmeCorpPushTier": "gold"
+        });
+        let obj: ChatPushCapability =
+            serde_json::from_value(raw).expect("ChatPushCapability must deserialize");
+        assert_eq!(
+            obj.extra.get("acmeCorpPushTier").and_then(|v| v.as_str()),
+            Some("gold")
         );
     }
 }

@@ -44,6 +44,13 @@ pub struct AddressBookSetParams {
     /// after all other operations succeed (RFC 9610 §2.3).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub on_success_set_is_default: Option<serde_json::Value>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -213,6 +220,7 @@ mod tests {
         let params = AddressBookSetParams {
             on_destroy_remove_contents: Some(true),
             on_success_set_is_default: None,
+            extra: serde_json::Map::new(),
         };
         let v = serde_json::to_value(&params).expect("serialize");
         assert_eq!(
@@ -246,6 +254,7 @@ mod tests {
         let params = AddressBookSetParams {
             on_destroy_remove_contents: None,
             on_success_set_is_default: Some(json!({"newDefaultId": true})),
+            extra: serde_json::Map::new(),
         };
         let v = serde_json::to_value(&params).expect("serialize");
         assert!(
@@ -363,5 +372,24 @@ mod tests {
         assert_eq!(resp.removed.len(), 1);
         assert_eq!(resp.added.len(), 1);
         assert_eq!(resp.added[0].index, 0);
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
+    //
+    // For Serialize-only method-argument structs, the test constructs a
+    // struct with a vendor field in `extra` and asserts that the field
+    // flattens into the serialized JSON. Uses synthetic `acmeCorp*` keys
+    // that are guaranteed not to appear in any RFC 9610 typed field — so
+    // the tests are independent of the crate under test.
+
+    /// `AddressBookSetParams.extra` flattens into serialized JSON.
+    #[test]
+    fn address_book_set_params_propagates_vendor_extras() {
+        let mut params = AddressBookSetParams::default();
+        params
+            .extra
+            .insert("acmeCorpCascade".into(), json!("strict"));
+        let v = serde_json::to_value(&params).expect("serialize AddressBookSetParams");
+        assert_eq!(v["acmeCorpCascade"], json!("strict"));
     }
 }

@@ -68,6 +68,7 @@ async fn file_node_set_create_with_params() {
         on_destroy_remove_children: Some(true),
         on_exists: Some(FileNodeOnExists::Replace),
         compare_case_insensitively: Some(false),
+        extra: serde_json::Map::new(),
     };
     let resp = sc
         .file_node_set(

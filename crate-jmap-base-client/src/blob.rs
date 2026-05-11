@@ -65,6 +65,13 @@ pub struct BlobUploadResponse {
     /// that advertise the `urn:ietf:params:jmap:cid` capability. Servers that
     /// do not implement the extension omit the field.
     pub sha256: Option<String>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Expand a RFC 6570 Level-1 URI template by substituting variables.
@@ -549,6 +556,24 @@ mod tests {
         assert_eq!(
             resp.sha256.as_deref(),
             Some("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
+        );
+    }
+
+    /// `BlobUploadResponse.extra` captures unknown fields on deserialize.
+    #[test]
+    fn blob_upload_response_preserves_vendor_extras() {
+        let raw = serde_json::json!({
+            "accountId": "account1",
+            "blobId": "Gbc4c377-c8c3-4b48-b2bb-8c1e4cfb8b2a",
+            "type": "image/png",
+            "size": 48291,
+            "acmeCorpScanResult": "clean"
+        });
+        let obj: BlobUploadResponse =
+            serde_json::from_value(raw).expect("BlobUploadResponse must deserialize");
+        assert_eq!(
+            obj.extra.get("acmeCorpScanResult").and_then(|v| v.as_str()),
+            Some("clean")
         );
     }
 }

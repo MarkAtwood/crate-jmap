@@ -140,6 +140,13 @@ pub struct Session {
     /// Changes whenever any session property changes. Returned in every API
     /// response as `sessionState`; clients compare to detect staleness.
     pub state: State,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Session {
@@ -191,6 +198,7 @@ impl std::fmt::Debug for Session {
             .field("upload_url", &self.upload_url)
             .field("event_source_url", &self.event_source_url)
             .field("state", &"[opaque]")
+            .field("extra", &self.extra)
             .finish()
     }
 }
@@ -223,6 +231,13 @@ pub struct AccountInfo {
     /// Values are kept as raw JSON so extension crates can extract
     /// their own capability objects.
     pub account_capabilities: HashMap<String, serde_json::Value>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Manual `Debug` impl that redacts `name` (bd:JMAP-sc1b.104).
@@ -244,6 +259,7 @@ impl std::fmt::Debug for AccountInfo {
             .field("is_personal", &self.is_personal)
             .field("is_read_only", &self.is_read_only)
             .field("account_capabilities", &self.account_capabilities)
+            .field("extra", &self.extra)
             .finish()
     }
 }
@@ -266,6 +282,13 @@ pub struct WebSocketCapability {
     /// Whether the server supports push notifications over this WebSocket.
     #[serde(default)]
     pub supports_push: bool,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 // ---------------------------------------------------------------------------
@@ -710,6 +733,69 @@ mod tests {
         assert!(
             !dbg.contains(CANARY_NAME),
             "AccountInfo Debug must not contain the raw name; got: {dbg}"
+        );
+    }
+
+    // ── Extras-preservation policy tests (JMAP-lbdy.9) ─────────────────
+    //
+    // Synthetic `acmeCorp*` vendor keys cannot collide with any RFC 8620 /
+    // RFC 8887 typed field, so the tests are independent of the code under
+    // test (workspace test-integrity rule).
+
+    /// `Session.extra` captures unknown fields on deserialize.
+    #[test]
+    fn session_preserves_vendor_extras() {
+        let raw = json!({
+            "capabilities": {},
+            "accounts": {},
+            "primaryAccounts": {},
+            "username": "u@example.com",
+            "apiUrl": "https://jmap.example.com/api/",
+            "downloadUrl": "https://jmap.example.com/dl/{accountId}/{blobId}/{name}?accept={type}",
+            "uploadUrl": "https://jmap.example.com/ul/{accountId}/",
+            "eventSourceUrl": "https://jmap.example.com/sse/?types={types}&closeafter={closeafter}&ping={ping}",
+            "state": "s1",
+            "acmeCorpDeployment": "prod-eu-west-1"
+        });
+        let obj: Session = serde_json::from_value(raw).expect("Session must deserialize");
+        assert_eq!(
+            obj.extra.get("acmeCorpDeployment").and_then(|v| v.as_str()),
+            Some("prod-eu-west-1")
+        );
+    }
+
+    /// `AccountInfo.extra` captures unknown fields on deserialize.
+    #[test]
+    fn account_info_preserves_vendor_extras() {
+        let raw = json!({
+            "name": "u@example.com",
+            "isPersonal": true,
+            "isReadOnly": false,
+            "accountCapabilities": {},
+            "acmeCorpQuotaTier": "gold"
+        });
+        let obj: AccountInfo = serde_json::from_value(raw).expect("AccountInfo must deserialize");
+        assert_eq!(
+            obj.extra.get("acmeCorpQuotaTier").and_then(|v| v.as_str()),
+            Some("gold")
+        );
+    }
+
+    /// `WebSocketCapability.extra` captures unknown fields on deserialize.
+    #[test]
+    fn websocket_capability_preserves_vendor_extras() {
+        let raw = json!({
+            "url": "wss://jmap.example.com/ws",
+            "supportsPush": true,
+            "acmeCorpHeartbeatMs": 30000
+        });
+        let obj: WebSocketCapability =
+            serde_json::from_value(raw).expect("WebSocketCapability must deserialize");
+        assert_eq!(
+            obj.extra
+                .get("acmeCorpHeartbeatMs")
+                .and_then(|v| v.as_u64()),
+            Some(30000)
         );
     }
 }

@@ -135,13 +135,22 @@ fn parse_state_data(event_type: &str, data: &str) -> SseEvent {
 }
 
 /// Try to parse a StateChange payload; returns `None` on any parse failure.
+///
+/// Strips the optional `@type` discriminator (RFC 8620 §7.3) before
+/// extracting `changed`. Any remaining unknown top-level keys are captured
+/// in `StateChange.extra` per the workspace extras-preservation policy.
 fn try_parse_state_change(data: &str) -> Option<push::StateChange> {
     let mut v = serde_json::from_str::<serde_json::Value>(data).ok()?;
     let obj = v.as_object_mut()?;
+    // Strip the optional "@type":"StateChange" discriminator before
+    // extracting the typed field; it must not leak into `extra`.
+    obj.remove("@type");
     let changed_val = obj.remove("changed")?;
     let changed =
         serde_json::from_value::<HashMap<Id, HashMap<String, State>>>(changed_val).ok()?;
-    Some(push::StateChange { changed })
+    // Whatever remains is vendor / site extension data; preserve it.
+    let extra = std::mem::take(obj);
+    Some(push::StateChange { changed, extra })
 }
 
 #[cfg(test)]
