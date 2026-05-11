@@ -3,6 +3,7 @@
 use jmap_chat_types::{Space, SpaceInvite};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
+use subtle::ConstantTimeEq;
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
@@ -596,9 +597,24 @@ pub async fn handle_space_join<B: ChatBackend>(
                     .await
                     .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
+                // Constant-time invite-code compare (bd:JMAP-sc1b.89).
+                //
+                // `SpaceInvite.code` is an unguessable CSPRNG-derived credential
+                // (see `ChatBackend::generate_invite_code` in `backend.rs`). A
+                // plain `String == String` short-circuits at the first mismatched
+                // byte, exposing a byte-by-byte timing oracle to any caller that
+                // can issue `Space/join` requests. `ConstantTimeEq::ct_eq`
+                // compares whole equal-length byte slices in constant time.
+                //
+                // Length-discrimination note: `ct_eq` returns `Choice(0)` cheaply
+                // when lengths differ, so an attacker can learn whether their
+                // supplied code matches the stored length. The canonical
+                // generator emits fixed-length (32 hex chars) codes, so the
+                // length is effectively public — only the content needs
+                // constant-time protection.
                 let invite = invites
                     .into_iter()
-                    .find(|inv| inv.code == code)
+                    .find(|inv| inv.code.as_bytes().ct_eq(code.as_bytes()).into())
                     .ok_or_else(|| JmapError::invalid_arguments("invite code not found"))?;
 
                 // Check expiry using second-precision prefix (see iso8601_before).

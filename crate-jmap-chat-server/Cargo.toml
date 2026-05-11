@@ -27,6 +27,8 @@ jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
 jmap-server = { workspace = true }
 serde_json = { workspace = true }
+# Constant-time invite-code comparison in Space/join (bd:JMAP-sc1b.89).
+subtle = { workspace = true }
 # CSPRNG for the `memory` reference backend. Only pulled in when `memory`
 # is enabled — production deployments ship their own ChatBackend impl that
 # carries its own randomness story. Pinned to 0.3 (current stable line);

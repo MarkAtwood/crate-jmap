@@ -84,6 +84,17 @@ pub trait ChatBackend: JmapBackend {
     /// The returned string must be unguessable — do NOT use timestamps,
     /// sequential counters, or non-CSPRNG sources.
     ///
+    /// # Constant-time comparison contract
+    ///
+    /// Consumers of the returned code (notably `Space/join` invite-code
+    /// lookup) MUST compare it against attacker-supplied values in
+    /// constant time using `subtle::ConstantTimeEq::ct_eq` or equivalent.
+    /// The reference handler in `space::handle_space_join` already does
+    /// this; backends that build their own invite-redemption paths must
+    /// preserve the invariant. A plain `String == String` short-circuits
+    /// at the first mismatched byte and exposes a byte-by-byte timing
+    /// oracle for credential recovery. See bd:JMAP-sc1b.89.
+    ///
     /// [`rand::rngs::OsRng`]: https://docs.rs/rand/latest/rand/rngs/struct.OsRng.html
     /// [`getrandom`]: https://docs.rs/getrandom
     fn generate_invite_code(&self) -> String;
