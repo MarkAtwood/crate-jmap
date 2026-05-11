@@ -180,6 +180,163 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   `serde_json::Value` for round-trip fidelity, and add parallel typed
   sub-types in a sibling module (e.g. `jscalendar.rs`) that consumers
   can opt into via `serde_json::from_value`.
+- **Extras-preservation policy for vendor/site fields**: every public
+  `Deserialize` struct that appears on the JMAP wire carries a catch-all
+  `extra` field, and every wire-format **result** string enum carries an
+  `Unknown(String)` variant. The combination preserves vendor / site /
+  private-extension fields and unrecognised result values losslessly
+  across deserialize / serialize round-trips. RFC 8620 §1.6 mandates
+  silent-ignore of unknown fields; the spec floor permits data loss.
+  Workspace policy is **preservation** because implementors and sites
+  add custom data to JMAP types without waiting for IETF process.
+
+  Relationship to the **Sloppy-Value** pattern above: Sloppy-Value
+  applies to IETF-spec'd nested *objects* whose value shape is owned by
+  an external spec; the extras pattern applies to vendor/site-private
+  *fields* that are not declared by any spec and just need to round-trip.
+  Both patterns coexist on the same struct.
+
+  Field shape (decided 2026-05-09):
+
+  ```rust
+  #[non_exhaustive]
+  #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+  #[serde(rename_all = "camelCase")]
+  pub struct Email {
+      pub id: Id,
+      // ... typed fields ...
+
+      /// Catch-all for vendor / site / private extension fields not
+      /// covered by the typed fields above. Preserves unknown fields
+      /// across deserialize/serialize round-trip per workspace policy.
+      #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+      pub extra: serde_json::Map<String, serde_json::Value>,
+  }
+  ```
+
+  Wire format is byte-identical when extras are empty
+  (`skip_serializing_if`). Field name is lowercase `extra` (singular) and
+  visibility is `pub`, matching the existing `MethodResponseError.extra`
+  precedent in `jmap-types`.
+
+  Result-enum forward-compat shape:
+
+  ```rust
+  #[non_exhaustive]
+  #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+  #[serde(rename_all = "camelCase")]
+  pub enum MailboxRole {
+      Inbox,
+      Sent,
+      // ... known RFC 8621 §2.1.1 variants ...
+
+      /// Forward-compat catch-all for vendor / site / future-spec roles.
+      /// The wire string is preserved for round-trip.
+      #[serde(other)]
+      Unknown(String),
+  }
+  ```
+
+  Note: `#[serde(other)]` only captures the *variant tag*; the matched
+  wire string is the original. All in-scope result enums remain
+  `#[non_exhaustive]` so a future spec-defined variant addition is still
+  a non-breaking change.
+
+  **In scope** (apply both mechanisms):
+  - Data object types and their nested wire sub-types (`Email`,
+    `EmailAddress`, `EmailHeader`, `Calendar`, `CalendarEvent`,
+    `ContactCard`, `Task`, `TaskList`, `Chat`, `Message`, `Space`,
+    `FileNode`, `Principal`, etc.).
+  - Standard response wrappers (`GetResponse<T>`, `SetResponse<T>`,
+    `ChangesResponse`, `QueryResponse`, `QueryChangesResponse`).
+  - Method-argument structs in `*-client` crates (e.g.
+    `EmailSubmissionSetParams`, `MailboxSetParams`).
+  - Wire-format **result** string enums (`MailboxRole`, `DeliveryState`,
+    `NodeType`, `EmojiKind`, `ChatKind`, `ParticipantRole`, etc.).
+
+  **Out of scope** (do NOT add extras / `Unknown` to these):
+  - Filter and comparator algebra types — see the dedicated sub-section
+    below.
+  - Control string enums (`Operator`, `ComparatorProperty`) — see same.
+  - Internal Rust API types: backend trait result types
+    (`SetDefaultResult`, `ParseResult`, `AvailabilityError`,
+    `BackendSetError`, `BackendChangesError`).
+  - `MockBackend` state structs, `FaultyBackend`, `NoSnippetBackend`,
+    `TrackingBackend`, anything under `tests/common/`.
+  - Internal parsing helpers, dispatcher types, MIME tree types.
+  - `jmap-types::PatchObject` — already a `Map<String, Value>`;
+    redundant.
+  - Property selector enums (server-side; not on the wire).
+  - Newtypes wrapping a single value (`Id`, `UTCDate`, `Date`, `State`,
+    `Keyword`).
+
+  **Test discipline**: every in-scope type carries at least one
+  round-trip preservation test. For structs, the test asserts an unknown
+  field survives serialize. For result enums, the test asserts an
+  unknown wire string deserialises into `Unknown(s)` and round-trips
+  back to the same wire string. Tests use independent oracles per
+  workspace test-integrity rules — never the code under test.
+
+  **New types**: any new public `Deserialize` struct or result string
+  enum added to an in-scope crate MUST include the appropriate
+  mechanism from day one. The propagation epic is `JMAP-lbdy`; per-crate
+  children `.1`–`.9` carry the canonical-template sweep.
+
+  **Filter algebra and control enums are explicitly EXCLUDED**
+  (decided 2026-05-10). Filter and comparator algebra types (`Filter<T>`,
+  `FilterOperator<T>`, per-crate `FilterCondition` types,
+  `EmailComparator`, `CalendarEventComparator`, etc.) and control string
+  enums (`Operator`, `ComparatorProperty`) MUST NOT receive `extra`
+  fields or `Unknown(String)` variants. Three reasons:
+
+  1. **Silent-drop is a server-side query-correctness bug.** Unlike
+     data-object extras, which round-trip mechanically through the
+     client, an unknown filter clause like `{"acmeCorpPriority": "high"}`
+     means nothing unless the server understands and indexes it. A
+     query that silently drops a clause returns the wrong result set
+     with no compile-time or runtime signal. Extras on filter
+     conditions would let clients compile filters the server cannot
+     honor.
+
+  2. **`Filter<T>` is `#[serde(untagged)]` over a fixed variant set.**
+     Adding `extra` to the fields of `EmailFilterCondition` would not
+     let a vendor add a new variant shape (e.g. a new operator-shaped
+     node). New variant shapes would have to come from extending the
+     `Operator` enum, which is itself a control enum and falls under
+     reason 3.
+
+  3. **Control enums must dispatch on known variants.** `Operator`
+     (`AND`/`OR`/`NOT`) and `ComparatorProperty` are not display values
+     — backends implement matching logic per variant. `Unknown(String)`
+     is meaningless here: a backend cannot honor `XAND` or
+     `someUnknownSortKey`. The `#[non_exhaustive]` derives already
+     give spec-level forward-compat for future RFC-defined operators;
+     vendor-level forward-compat for control enums is incoherent.
+
+  Vendors who need filterable extras have two paths:
+
+  - **IETF-track** — use `draft-ietf-jmap-metadata` (currently
+    draft-01, capability URI `urn:ietf:params:jmap:metadata`). It
+    defines a companion `Annotation` object keyed by
+    `(relatedType, relatedId)`, with schema discovery via the
+    capability's `dataTypes` / `metadataTypes` / `maxDepth` properties
+    and a `Metadata/query` filter (currently `textMatch` over vendor
+    string properties — coarse but standardised). Workspace
+    implementation tracker: `JMAP-06zp`.
+
+  - **Pre-IETF escape** — vendors who need typed filter construction
+    against custom server fields RIGHT NOW (before the metadata draft
+    stabilises) can fork the per-crate `FilterCondition` type or use
+    `serde_json::Value` for the filter tree. The hybrid sloppy-value
+    pattern documented in `crate-jmap-calendars-types/PLAN.md` is the
+    model.
+
+  Neither path uses the workspace extras pattern. The exclusion holds.
+
+  Per-crate rustdoc on each in-scope filter / comparator / control-enum
+  type carries the same exclusion + dual-future-hook notice. The
+  propagation epic that drove that rustdoc sweep is `JMAP-9wh7`
+  (closed).
 - **TLS stack**: this workspace uses **rustls**, NOT native-tls / openssl.
   Both `reqwest` and `tokio-tungstenite` MUST be declared with
   `default-features = false` and only `rustls-tls-*` features enabled.
