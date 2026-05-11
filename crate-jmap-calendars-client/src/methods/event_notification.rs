@@ -1,8 +1,8 @@
-// JMAP Calendars — CalendarEventNotification/* method implementations.
-//
-// CalendarEventNotification/set is destroy-only per draft-ietf-jmap-calendars-26 §7.3.
-// The server must reject create and update operations with `forbidden`.
-// This method accepts only `destroy` to prevent constructing invalid requests.
+//! JMAP Calendars — CalendarEventNotification/* method implementations.
+//!
+//! CalendarEventNotification/set is destroy-only per draft-ietf-jmap-calendars-26 §7.3.
+//! The server must reject create and update operations with `forbidden`.
+//! This method accepts only `destroy` to prevent constructing invalid requests.
 
 use jmap_calendars_types::NotificationFilterCondition;
 use jmap_types::{Id, State};

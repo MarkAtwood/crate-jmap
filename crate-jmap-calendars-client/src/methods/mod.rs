@@ -1,9 +1,9 @@
-// Typed JMAP Calendars method wrappers — response types, SessionClient,
-// constants, and helpers.
-//
-// Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
-// §5.2 /changes, §5.3 /set). Method implementations live in sub-modules and
-// operate on `SessionClient`.
+//! Typed JMAP Calendars method wrappers — response types, SessionClient,
+//! constants, and helpers.
+//!
+//! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
+//! §5.2 /changes, §5.3 /set). Method implementations live in sub-modules and
+//! operate on `SessionClient`.
 
 pub mod calendar;
 pub mod event;
@@ -47,9 +47,14 @@ pub use jmap_types::{
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarEventParseResponse {
+    /// The account this response refers to.
     pub account_id: Id,
+    /// Parsed `CalendarEvent` objects keyed by source blob id (a blob may
+    /// contain multiple VEVENT components).
     pub parsed: Option<HashMap<Id, Vec<jmap_calendars_types::CalendarEvent>>>,
+    /// Blob ids that could not be found in the account's blob store.
     pub not_found: Option<Vec<Id>>,
+    /// Blob ids whose contents were not parseable as iCalendar data.
     pub not_parsable: Option<Vec<Id>>,
 }
 
@@ -66,7 +71,9 @@ pub struct CalendarEventParseResponse {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrincipalGetAvailabilityResponse {
+    /// The account this response refers to.
     pub account_id: Id,
+    /// Busy periods for the queried principal within the requested time range.
     pub list: Vec<jmap_calendars_types::BusyPeriod>,
 }
 

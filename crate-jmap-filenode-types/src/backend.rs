@@ -13,22 +13,39 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum FileNodeProperty {
+    /// The `id` property (draft-ietf-jmap-filenode-13 §3.1).
     Id,
+    /// The `parentId` property (draft-ietf-jmap-filenode-13 §3.1).
     ParentId,
+    /// The `nodeType` property (draft-ietf-jmap-filenode-13 §3.1).
     NodeType,
+    /// The `blobId` property (draft-ietf-jmap-filenode-13 §3.1).
     BlobId,
+    /// The `target` property (draft-ietf-jmap-filenode-13 §3.1).
     Target,
+    /// The `size` property (draft-ietf-jmap-filenode-13 §3.1).
     Size,
+    /// The `name` property (draft-ietf-jmap-filenode-13 §3.1).
     Name,
+    /// The `type` property (media type) (draft-ietf-jmap-filenode-13 §3.1).
     MediaType,
+    /// The `created` property (draft-ietf-jmap-filenode-13 §3.1).
     Created,
+    /// The `modified` property (draft-ietf-jmap-filenode-13 §3.1).
     Modified,
+    /// The `accessed` property (draft-ietf-jmap-filenode-13 §3.1).
     Accessed,
+    /// The `changed` property (draft-ietf-jmap-filenode-13 §3.1).
     Changed,
+    /// The `executable` property (draft-ietf-jmap-filenode-13 §3.1).
     Executable,
+    /// The `isSubscribed` property (draft-ietf-jmap-filenode-13 §3.1).
     IsSubscribed,
+    /// The `myRights` property (draft-ietf-jmap-filenode-13 §3.1).
     MyRights,
+    /// The `shareWith` property (draft-ietf-jmap-filenode-13 §3.1).
     ShareWith,
+    /// The `role` property (draft-ietf-jmap-filenode-13 §3.1).
     Role,
 }
 

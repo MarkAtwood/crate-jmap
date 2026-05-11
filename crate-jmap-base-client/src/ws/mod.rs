@@ -65,7 +65,12 @@ pub enum WsFrame {
     /// that case, which can signal server misbehavior or a schema version
     /// mismatch. Callers that log unknown frames should check for these names.
     Unknown {
+        /// Value of the `@type` field. Either an unrecognized message type
+        /// per RFC 8887 §4.3.1, or `"Response"` / `"StateChange"` when a known
+        /// type failed to deserialize into its typed variant.
         type_name: String,
+        /// Raw JSON object as received from the server, preserved for logging
+        /// and forward-compatibility diagnostics.
         raw: serde_json::Value,
     },
 }

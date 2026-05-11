@@ -25,7 +25,11 @@ use crate::push;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub struct SseFrame {
+    /// The parsed event payload from this SSE block.
     pub event: SseEvent,
+    /// The value of the `id:` line if present (RFC 8895 §9.2); `None` when
+    /// the `id:` field is absent or bare (see the type-level docs for the
+    /// rationale behind conflating those two states).
     pub id: Option<String>,
 }
 
@@ -47,7 +51,14 @@ pub enum SseEvent {
     ///
     /// Callers should silently ignore this variant; log `event_type` when
     /// debugging unexpected parse failures.
-    Unknown { event_type: String, data: String },
+    Unknown {
+        /// Value of the SSE `event:` field. Empty string when the frame had
+        /// no `event:` line (e.g. a keepalive comment or bare data block).
+        event_type: String,
+        /// Raw concatenated value of the SSE `data:` field(s), with the
+        /// leading space stripped per RFC 8895 §9.1.
+        data: String,
+    },
 }
 
 /// Parse a single SSE block (the text between two blank lines) into an [`SseFrame`].

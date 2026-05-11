@@ -1,4 +1,4 @@
-// JMAP Calendars — ParticipantIdentity/* method implementations on SessionClient.
+//! JMAP Calendars — ParticipantIdentity/* method implementations on SessionClient.
 
 use std::collections::HashMap;
 

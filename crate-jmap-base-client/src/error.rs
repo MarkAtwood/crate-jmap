@@ -206,6 +206,15 @@ impl StdError for InvalidHeaderValueError {}
 // ClientError
 // ---------------------------------------------------------------------------
 
+/// Errors produced by the base JMAP client.
+///
+/// Variants cover transport failures (`Http`, `WebSocket`), authentication
+/// (`AuthFailed`), JMAP protocol errors (`MethodError`, `UnexpectedResponse`),
+/// caller bugs (`InvalidArgument`, `InvalidHeaderValue`, `Serialize`), and
+/// resource-exhaustion guards (`ResponseTooLarge`, `SseFrameTooLarge`).
+///
+/// Marked `#[non_exhaustive]` so additional variants may be introduced in
+/// minor releases. See per-variant documentation for retriability guidance.
 #[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum ClientError {
@@ -244,7 +253,12 @@ pub enum ClientError {
     /// in-transit corruption or a misbehaving server. Not retriable without
     /// re-fetching metadata.
     #[error("blob integrity check failed: expected {expected}, got {actual}")]
-    BlobIntegrityMismatch { expected: String, actual: String },
+    BlobIntegrityMismatch {
+        /// Hex-encoded SHA-256 digest the caller asked the client to verify against.
+        expected: String,
+        /// Hex-encoded SHA-256 digest actually computed over the downloaded bytes.
+        actual: String,
+    },
 
     /// A caller-supplied argument violates a precondition (e.g. empty token,
     /// colon in BasicAuth username, missing required filter field).
@@ -268,7 +282,11 @@ pub enum ClientError {
     /// `description` is `None` when the server omits the optional description field.
     #[error("JMAP method error: {error_type}")]
     MethodError {
+        /// The `type` field of the JMAP method-level error object (RFC 8620 §3.6.2),
+        /// e.g. `"invalidArguments"`, `"serverFail"`, `"accountNotFound"`.
         error_type: String,
+        /// Optional human-readable error description (RFC 8620 §3.6.2);
+        /// `None` when the server omits this field.
         description: Option<String>,
     },
 
@@ -288,13 +306,22 @@ pub enum ClientError {
     /// ([`ClientConfig::max_sse_frame`](crate::ClientConfig::max_sse_frame)). The stream is terminated after this
     /// error. Indicates a misbehaving or hostile server.
     #[error("SSE frame too large (limit: {limit} bytes)")]
-    SseFrameTooLarge { limit: usize },
+    SseFrameTooLarge {
+        /// The configured per-frame buffer cap (in bytes) that was exceeded.
+        limit: usize,
+    },
 
     /// A server response body exceeded the enforced size limit. Protects
     /// against unbounded memory allocation from malicious or buggy servers.
     /// `actual` is in bytes (from Content-Length or actual read size).
     #[error("response too large: {actual} bytes exceeds limit of {limit} bytes")]
-    ResponseTooLarge { actual: u64, limit: u64 },
+    ResponseTooLarge {
+        /// Observed response size in bytes (from `Content-Length` or the
+        /// running total of bytes read so far when streaming).
+        actual: u64,
+        /// Configured maximum response size in bytes.
+        limit: u64,
+    },
 
     /// A WebSocket transport error (connection, framing, or TLS). May be
     /// retriable (transient network failure) or permanent (TLS config error).
@@ -337,7 +364,11 @@ pub enum ClientError {
     /// way (it is `#[non_exhaustive]` via the enum-level annotation, so
     /// extra fields can be added without a SemVer break).
     #[error("rate limited; retry after {retry_after}")]
-    RateLimited { retry_after: jmap_types::UTCDate },
+    RateLimited {
+        /// Absolute UTC instant the client should wait until before retrying,
+        /// parsed from the `Retry-After` HTTP header (RFC 9110 §10.2.3).
+        retry_after: jmap_types::UTCDate,
+    },
 }
 
 impl ClientError {
