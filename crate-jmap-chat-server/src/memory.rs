@@ -583,9 +583,18 @@ fn json_merge_patch_inner(target: &mut serde_json::Value, patch: serde_json::Val
     }
     match patch {
         serde_json::Value::Object(patch_map) => {
+            // Per RFC 7396 §2: "If the target value is not a JSON object,
+            // the resulting value will be the merge patch." We therefore
+            // reset a non-Object target to an empty Object before merging
+            // — this is reachable when a Patch creates a nested field that
+            // is absent from the target (the parent recursion frame inserted
+            // Value::Null as a placeholder).
+            if !target.is_object() {
+                *target = serde_json::Value::Object(serde_json::Map::new());
+            }
             let target_map = target
                 .as_object_mut()
-                .expect("merge patch target must be an object");
+                .expect("target was just set to Value::Object above");
             for (key, patch_val) in patch_map {
                 if patch_val.is_null() {
                     target_map.remove(&key);
@@ -733,6 +742,27 @@ mod tests {
             target,
             serde_json::json!({ "a": 1, "b": { "c": 99, "d": 7 } }),
             "RFC 7396 merge semantics broken at shallow depth"
+        );
+    }
+
+    /// Regression: a Patch that adds a nested Object to a previously-absent
+    /// field used to panic with `expect("merge patch target must be an
+    /// object")` because the parent recursion frame inserted Value::Null
+    /// as the placeholder, then recursed into Null with an Object patch.
+    ///
+    /// Per RFC 7396 §2 the correct behaviour is to reset the non-Object
+    /// target to an empty Object and merge into it. Oracle is hand-derived
+    /// from RFC 7396 §2's pseudocode: `Target[Name] = MergePatch(Target[Name], Value)`
+    /// where MergePatch resets a non-Object target to `{}`.
+    #[test]
+    fn json_merge_patch_adds_nested_object_to_absent_field() {
+        let mut target = serde_json::json!({ "a": 1 });
+        let patch = serde_json::json!({ "b": { "c": 2 } });
+        json_merge_patch(&mut target, patch);
+        assert_eq!(
+            target,
+            serde_json::json!({ "a": 1, "b": { "c": 2 } }),
+            "patch must add the nested object at the previously-absent field"
         );
     }
 }
