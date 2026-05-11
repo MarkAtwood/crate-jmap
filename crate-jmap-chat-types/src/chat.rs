@@ -31,9 +31,13 @@ impl_string_enum!(ChatKind, "a chat kind string",
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMember {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.9).
     pub id: Id,
+    /// The `role` property (draft-atwood-jmap-chat-00 §4.9).
     pub role: String,
+    /// The `joinedAt` property (draft-atwood-jmap-chat-00 §4.9).
     pub joined_at: UTCDate,
+    /// The `invitedBy` property (draft-atwood-jmap-chat-00 §4.9).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub invited_by: Option<Id>,
 }
@@ -43,9 +47,13 @@ pub struct ChatMember {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChannelPermission {
+    /// The `targetId` property (draft-atwood-jmap-chat-00 §4.15).
     pub target_id: Id,
+    /// The `targetType` property (draft-atwood-jmap-chat-00 §4.15).
     pub target_type: String,
+    /// The `allow` property (draft-atwood-jmap-chat-00 §4.15).
     pub allow: Vec<String>,
+    /// The `deny` property (draft-atwood-jmap-chat-00 §4.15).
     pub deny: Vec<String>,
 }
 
@@ -54,42 +62,64 @@ pub struct ChannelPermission {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Chat {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.10).
     pub id: Id,
+    /// The `kind` property (draft-atwood-jmap-chat-00 §4.10).
     pub kind: ChatKind,
+    /// The `createdAt` property (draft-atwood-jmap-chat-00 §4.10).
     pub created_at: UTCDate,
+    /// The `unreadCount` property (draft-atwood-jmap-chat-00 §4.10).
     pub unread_count: u64,
+    /// The `pinnedMessageIds` property (draft-atwood-jmap-chat-00 §4.10).
     pub pinned_message_ids: Vec<Id>,
+    /// The `muted` property (draft-atwood-jmap-chat-00 §4.10).
     pub muted: bool,
+    /// The `receiveTypingIndicators` property (draft-atwood-jmap-chat-00 §4.10).
     pub receive_typing_indicators: bool,
 
+    /// The `contactId` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contact_id: Option<Id>,
+    /// The `name` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
+    /// The `description` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The `avatarBlobId` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub avatar_blob_id: Option<Id>,
+    /// The `members` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub members: Option<Vec<ChatMember>>,
+    /// The `spaceId` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<Id>,
+    /// The `categoryId` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub category_id: Option<Id>,
+    /// The `position` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub position: Option<u64>,
+    /// The `topic` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub topic: Option<String>,
+    /// The `slowModeSeconds` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub slow_mode_seconds: Option<u64>,
+    /// The `permissionOverrides` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permission_overrides: Option<Vec<ChannelPermission>>,
+    /// The `lastMessageAt` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_message_at: Option<UTCDate>,
+    /// The `muteUntil` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mute_until: Option<UTCDate>,
+    /// The `receiptSharing` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub receipt_sharing: Option<bool>,
+    /// The `messageExpirySeconds` property (draft-atwood-jmap-chat-00 §4.10).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub message_expiry_seconds: Option<u64>,
 }

@@ -1,3 +1,7 @@
+//! JMAP Chat — SpaceBan/* method implementations on SessionClient.
+//!
+//! Spec: JMAP Chat draft §4.18 (SpaceBan/get, /changes, /set).
+
 use jmap_types::{Id, State};
 
 use super::{ChangesResponse, GetResponse, SetResponse, SpaceBanCreateInput};

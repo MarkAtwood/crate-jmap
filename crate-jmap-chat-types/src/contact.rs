@@ -27,21 +27,32 @@ pub struct Endpoint {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatContact {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.8).
     pub id: Id,
+    /// The `login` property (draft-atwood-jmap-chat-00 §4.8).
     pub login: String,
+    /// The `firstSeenAt` property (draft-atwood-jmap-chat-00 §4.8).
     pub first_seen_at: UTCDate,
+    /// The `lastSeenAt` property (draft-atwood-jmap-chat-00 §4.8).
     pub last_seen_at: UTCDate,
+    /// The `blocked` property (draft-atwood-jmap-chat-00 §4.8).
     pub blocked: bool,
+    /// The `displayName` property (draft-atwood-jmap-chat-00 §4.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub display_name: Option<String>,
+    /// The `presence` property (draft-atwood-jmap-chat-00 §4.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub presence: Option<Presence>,
+    /// The `lastActiveAt` property (draft-atwood-jmap-chat-00 §4.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_active_at: Option<UTCDate>,
+    /// The `statusText` property (draft-atwood-jmap-chat-00 §4.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status_text: Option<String>,
+    /// The `statusEmoji` property (draft-atwood-jmap-chat-00 §4.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status_emoji: Option<String>,
+    /// The `endpoints` property (draft-atwood-jmap-chat-00 §4.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub endpoints: Option<Vec<Endpoint>>,
 }

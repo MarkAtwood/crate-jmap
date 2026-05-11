@@ -105,9 +105,13 @@ impl std::fmt::Display for SenderId {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Attachment {
+    /// The `blobId` property (draft-atwood-jmap-chat-00 §4.1).
     pub blob_id: Id,
+    /// The `filename` property (draft-atwood-jmap-chat-00 §4.1).
     pub filename: String,
+    /// The `contentType` property (draft-atwood-jmap-chat-00 §4.1).
     pub content_type: String,
+    /// The `size` property (draft-atwood-jmap-chat-00 §4.1).
     pub size: u64,
     /// SHA-256 digest of the attachment content, hex-encoded: exactly 64 lowercase hex characters.
     ///
@@ -124,8 +128,11 @@ pub struct Attachment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Mention {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.4).
     pub id: Id,
+    /// The `offset` property (draft-atwood-jmap-chat-00 §4.4).
     pub offset: u64,
+    /// The `length` property (draft-atwood-jmap-chat-00 §4.4).
     pub length: u64,
 }
 
@@ -134,14 +141,20 @@ pub struct Mention {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageAction {
+    /// The `type` property (draft-atwood-jmap-chat-00 §4.3).
+    ///
     /// Wire name is `"type"` — Rust keyword, so renamed explicitly.
     #[serde(rename = "type")]
     pub action_type: String,
+    /// The `uri` property (draft-atwood-jmap-chat-00 §4.3).
     pub uri: String,
+    /// The `label` property (draft-atwood-jmap-chat-00 §4.3).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
+    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §4.3).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
+    /// The `metadata` property (draft-atwood-jmap-chat-00 §4.3).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
 }
@@ -151,10 +164,14 @@ pub struct MessageAction {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Reaction {
+    /// The `emoji` property (draft-atwood-jmap-chat-00 §4.6).
     pub emoji: String,
+    /// The `customEmojiId` property (draft-atwood-jmap-chat-00 §4.6).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub custom_emoji_id: Option<Id>,
+    /// The `senderId` property (draft-atwood-jmap-chat-00 §4.6).
     pub sender_id: SenderId,
+    /// The `sentAt` property (draft-atwood-jmap-chat-00 §4.6).
     pub sent_at: UTCDate,
 }
 
@@ -163,8 +180,11 @@ pub struct Reaction {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MessageRevision {
+    /// The `body` property (draft-atwood-jmap-chat-00 §4.5).
     pub body: String,
+    /// The `bodyType` property (draft-atwood-jmap-chat-00 §4.5).
     pub body_type: String,
+    /// The `editedAt` property (draft-atwood-jmap-chat-00 §4.5).
     pub edited_at: UTCDate,
 }
 
@@ -173,12 +193,16 @@ pub struct MessageRevision {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeliveryReceipt {
+    /// The `deliveredAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delivered_at: Option<UTCDate>,
+    /// The `deviceDeliveredAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub device_delivered_at: Option<UTCDate>,
+    /// The `readAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_at: Option<UTCDate>,
+    /// The `readDisposition` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_disposition: Option<ReadDisposition>,
 }
@@ -188,46 +212,73 @@ pub struct DeliveryReceipt {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Message {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.11).
     pub id: Id,
+    /// The `senderMsgId` property (draft-atwood-jmap-chat-00 §4.11).
     pub sender_msg_id: Id,
+    /// The `senderId` property (draft-atwood-jmap-chat-00 §4.11).
     pub sender_id: SenderId,
+    /// The `chatId` property (draft-atwood-jmap-chat-00 §4.11).
     pub chat_id: Id,
+    /// The `body` property (draft-atwood-jmap-chat-00 §4.11).
     pub body: String,
+    /// The `bodyType` property (draft-atwood-jmap-chat-00 §4.11).
     pub body_type: String,
+    /// The `attachments` property (draft-atwood-jmap-chat-00 §4.11).
     pub attachments: Vec<Attachment>,
+    /// The `mentions` property (draft-atwood-jmap-chat-00 §4.11).
     pub mentions: Vec<Mention>,
+    /// The `actions` property (draft-atwood-jmap-chat-00 §4.11).
     pub actions: Vec<MessageAction>,
+    /// The `reactions` property (draft-atwood-jmap-chat-00 §4.11).
     pub reactions: HashMap<String, Reaction>,
+    /// The `sentAt` property (draft-atwood-jmap-chat-00 §4.11).
     pub sent_at: UTCDate,
+    /// The `receivedAt` property (draft-atwood-jmap-chat-00 §4.11).
     pub received_at: UTCDate,
+    /// The `deliveryState` property (draft-atwood-jmap-chat-00 §4.11).
     pub delivery_state: DeliveryState,
 
+    /// The `replyTo` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_to: Option<Id>,
+    /// The `threadRootId` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub thread_root_id: Option<Id>,
+    /// The `replyCount` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reply_count: Option<u64>,
+    /// The `unreadReplyCount` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub unread_reply_count: Option<u64>,
+    /// The `senderExpiresAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_expires_at: Option<UTCDate>,
+    /// The `burnOnRead` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub burn_on_read: Option<bool>,
+    /// The `deliveryReceipts` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delivery_receipts: Option<HashMap<String, DeliveryReceipt>>,
+    /// The `deliveredAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delivered_at: Option<UTCDate>,
+    /// The `readAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_at: Option<UTCDate>,
+    /// The `readDisposition` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub read_disposition: Option<ReadDisposition>,
+    /// The `editedAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edited_at: Option<UTCDate>,
+    /// The `editHistory` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub edit_history: Option<Vec<MessageRevision>>,
+    /// The `deletedAt` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_at: Option<UTCDate>,
+    /// The `deletedForAll` property (draft-atwood-jmap-chat-00 §4.11).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub deleted_for_all: Option<bool>,
 }

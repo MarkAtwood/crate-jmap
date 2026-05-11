@@ -1,12 +1,11 @@
-// session.rs — ChatSessionExt trait for jmap_base_client::Session
-//
-// Adds JMAP Chat extension methods to the base Session type.
-// Ported from ~/PROJECT/crate-jmapchat-client/src/jmap.rs Session impl.
-//
-// Specs:
-//   draft-atwood-jmap-chat-00 §3      (ChatCapability fields)
-//   draft-atwood-jmap-chat-push-00    (ChatPushCapability fields)
-//   draft-atwood-jmap-chat-wss-00     (supports_chat_websocket)
+//! ChatSessionExt trait for [`jmap_base_client::Session`].
+//!
+//! Adds JMAP Chat extension methods to the base `Session` type.
+//!
+//! Specs:
+//!   - draft-atwood-jmap-chat-00 §3      (ChatCapability fields)
+//!   - draft-atwood-jmap-chat-push-00    (ChatPushCapability fields)
+//!   - draft-atwood-jmap-chat-wss-00     (supports_chat_websocket)
 
 use serde::Deserialize;
 

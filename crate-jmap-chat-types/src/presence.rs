@@ -36,14 +36,21 @@ impl_string_enum!(Presence, "a presence state string",
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PresenceStatus {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.21).
     pub id: Id,
+    /// The `presence` property (draft-atwood-jmap-chat-00 §4.21).
     pub presence: Presence,
+    /// The `receiptSharing` property (draft-atwood-jmap-chat-00 §4.21).
     pub receipt_sharing: bool,
+    /// The `updatedAt` property (draft-atwood-jmap-chat-00 §4.21).
     pub updated_at: UTCDate,
+    /// The `statusText` property (draft-atwood-jmap-chat-00 §4.21).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status_text: Option<String>,
+    /// The `statusEmoji` property (draft-atwood-jmap-chat-00 §4.21).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub status_emoji: Option<String>,
+    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §4.21).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
 }

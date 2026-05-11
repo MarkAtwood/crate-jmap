@@ -1,7 +1,7 @@
-// CustomEmoji method implementations for SessionClient.
-//
-// Spec: JMAP Chat draft §4.16 (CustomEmoji/get, /changes, /set, /query, /queryChanges)
-// Capability: urn:ietf:params:jmap:chat
+//! CustomEmoji method implementations for SessionClient.
+//!
+//! Spec: JMAP Chat draft §4.16 (CustomEmoji/get, /changes, /set, /query, /queryChanges)
+//! Capability: urn:ietf:params:jmap:chat
 
 use jmap_types::{Id, State};
 
