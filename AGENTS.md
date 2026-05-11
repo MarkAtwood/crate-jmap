@@ -74,7 +74,7 @@ follow-up sweep bead before merging).
 | Foundation server | `jmap-server` | (none — sole foundation) |
 | Extension server | `jmap-mail-server` | `jmap-chat-server`, `jmap-calendars-server`, `jmap-tasks-server`, `jmap-contacts-server`, `jmap-filenode-server`, `jmap-metadata-server`, `jmap-sharing-server` |
 | Foundation client | `jmap-base-client` | (none — sole foundation) |
-| Extension client | `jmap-mail-client` | `jmap-chat-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-sharing-client` |
+| Extension client | `jmap-mail-client` | `jmap-chat-client`, `jmap-calendars-client`, `jmap-tasks-client`, `jmap-contacts-client`, `jmap-filenode-client`, `jmap-metadata-client`, `jmap-sharing-client` |
 
 `jmap-chat-types` is *also* a canonical reference for the JMAP Chat draft
 specifically (its wire format is normative for that extension), even

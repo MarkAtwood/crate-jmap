@@ -1,0 +1,22 @@
+[package]
+name = "jmap-metadata-client"
+version = "0.1.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Object Metadata extension client — Metadata/get/changes/set/query/queryChanges method bindings (draft-ietf-jmap-metadata-01)"
+keywords = ["jmap", "draft-jmap-metadata", "client", "metadata"]
+categories = ["network-programming", "asynchronous", "api-bindings"]
+
+[dependencies]
+jmap-types = { workspace = true }
+jmap-metadata-types = { workspace = true }
+jmap-base-client = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+wiremock = "0.6"
