@@ -554,6 +554,48 @@ impl QueryChangesResult {
 /// own without depending on the dispatcher.
 pub trait JmapBackend: Send + Sync + 'static {
     /// The error type returned by storage operations.
+    ///
+    /// # Security
+    ///
+    /// The `Display` impl of this type is surfaced through
+    /// [`BackendSetError::Other`]'s and [`BackendChangesError::Other`]'s
+    /// own `Display` impls, which in turn flow into
+    /// [`crate::request_error`]'s `RequestError::Display` output. When a
+    /// downstream consumer wires tracing-style logging on top, the
+    /// formatted error text lands in operator logs verbatim.
+    ///
+    /// Implementations MUST NOT include any of the following in this
+    /// type's `Display` output:
+    ///
+    /// - **Credential material** — auth tokens, passwords, push
+    ///   verification codes, invite codes, session cookies, or anything
+    ///   derived byte-for-byte from an `Authorization`-header value.
+    /// - **Blob content** — email bodies, sieve scripts, file contents,
+    ///   or any user-supplied opaque payload. An error like
+    ///   `"sieve parse error at line 42: <script excerpt>"` violates
+    ///   this — emit the line number and a short type-only summary
+    ///   ("sieve parse error at line 42: unexpected token") and let the
+    ///   server log the full script body separately under a redacted
+    ///   path.
+    /// - **PII shaped like an email address** in any code path that an
+    ///   unauthenticated caller can trigger. Wrapping a downstream
+    ///   service error that interpolates the caller's email is the
+    ///   common foot-gun.
+    ///
+    /// Errors that wrap a downstream-service failure should sanitize
+    /// the downstream error text — or strip it entirely and replace it
+    /// with a static summary — before constructing the `Display`
+    /// string. The same rule applies to every extension `*Backend`
+    /// trait that inherits this associated type by transitivity:
+    /// `MailBackend::Error`, `ChatBackend::Error`,
+    /// `CalendarsBackend::Error`, `TasksBackend::Error`,
+    /// `ContactsBackend::Error`, `FileNodeBackend::Error`, and
+    /// `SharingBackend::Error` are all the same `JmapBackend::Error`
+    /// associated type — the contract here governs all of them.
+    ///
+    /// Precedent: bd:JMAP-sc1b.79 redacted `BearerAuth` and `BasicAuth`
+    /// at the type-derive level; bd:JMAP-sc1b.100 documents the
+    /// equivalent contract at the trait-associated-type level.
     type Error: std::error::Error + Send + Sync + 'static;
 
     /// The per-request caller context type produced by the auth layer and
