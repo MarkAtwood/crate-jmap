@@ -1059,6 +1059,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-metadata-client"
+version = "0.1.0"
+dependencies = [
+ "jmap-base-client",
+ "jmap-metadata-types",
+ "jmap-types",
+ "serde",
+ "serde_json",
+ "tokio",
+ "wiremock",
+]
+
+[[package]]
 name = "jmap-metadata-server"
 version = "0.1.0"
 dependencies = [
