@@ -86,13 +86,24 @@ pub struct Space {
 }
 
 /// An invite code allowing others to join a Space.
+///
+/// # Debug redaction
+///
+/// The `code` field is a secret credential (draft-atwood-jmap-chat-00 §4.18 —
+/// anyone with the code can join the Space). The `Debug` impl on this type
+/// redacts `code` to `"[REDACTED]"` so an accidental `{:?}`-format in an
+/// application log, tracing span, or test fixture cannot leak it. To inspect
+/// the value programmatically, access the `code` field directly.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpaceInvite {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.18).
     pub id: Id,
     /// The `code` property (draft-atwood-jmap-chat-00 §4.18).
+    ///
+    /// Unguessable secret — the bearer can redeem it to join the Space.
+    /// Redacted by the [`std::fmt::Debug`] impl on this struct.
     pub code: String,
     /// The `spaceId` property (draft-atwood-jmap-chat-00 §4.18).
     pub space_id: Id,
@@ -140,6 +151,22 @@ impl SpaceInvite {
             expires_at,
             max_uses,
         }
+    }
+}
+
+impl std::fmt::Debug for SpaceInvite {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SpaceInvite")
+            .field("id", &self.id)
+            .field("code", &"[REDACTED]")
+            .field("space_id", &self.space_id)
+            .field("created_by", &self.created_by)
+            .field("uses", &self.uses)
+            .field("created_at", &self.created_at)
+            .field("default_channel_id", &self.default_channel_id)
+            .field("expires_at", &self.expires_at)
+            .field("max_uses", &self.max_uses)
+            .finish()
     }
 }
 
@@ -325,6 +352,41 @@ mod tests {
         assert_eq!(invite.max_uses, Some(100));
         assert!(invite.default_channel_id.is_some());
         assert!(invite.expires_at.is_some());
+    }
+
+    // Oracle: SpaceInvite Debug must NOT contain the raw `code` secret. The
+    // canary is a self-defined literal under the test's control, never derived
+    // from SpaceInvite's internal state — same tripwire shape as the
+    // BearerAuth/BasicAuth redaction tests in jmap-base-client::auth.
+    //
+    // draft-atwood-jmap-chat-00 §4.18 defines the `code` field as the
+    // unguessable bearer credential for Space/join, so a Debug-format leak
+    // is a confidentiality regression.
+    #[test]
+    fn space_invite_debug_does_not_leak_code() {
+        const CANARY: &str = "CANARY-INVITE-CODE-DO-NOT-LEAK-9F8E7D";
+        let invite = SpaceInvite::new(
+            Id::from("inv-canary"),
+            CANARY,
+            Id::from("s-canary"),
+            Id::from("u-canary"),
+            0,
+            UTCDate::from("2024-01-01T00:00:00Z"),
+            None,
+            None,
+            None,
+        );
+        let dbg = format!("{invite:?}");
+        assert!(
+            !dbg.contains(CANARY),
+            "SpaceInvite Debug must not contain the raw code; got: {dbg}"
+        );
+        // Sanity: other fields still appear in Debug output (we only
+        // suppressed `code`, not the whole struct).
+        assert!(
+            dbg.contains("inv-canary"),
+            "SpaceInvite Debug must still expose non-secret id; got: {dbg}"
+        );
     }
 
     // Oracle: spec §SpaceBan — reason field is optional and absent means None.

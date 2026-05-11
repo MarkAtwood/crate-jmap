@@ -699,13 +699,32 @@ pub struct SpaceQueryInput<'a> {
 ///
 /// The enum makes invalid inputs unrepresentable: exactly one path is always
 /// selected at construction time.
+///
+/// # Debug redaction
+///
+/// The `InviteCode` variant wraps the unguessable bearer credential from
+/// draft-atwood-jmap-chat-00 §4.18 — anyone with the code can redeem it to
+/// join the Space. The `Debug` impl on this enum redacts the inner string to
+/// `"[REDACTED]"` so an accidental `{:?}`-format in an application log,
+/// tracing span, or test fixture cannot leak it. The `SpaceId` variant is
+/// not a secret (RFC 8620 §1.2) and is rendered verbatim.
 #[non_exhaustive]
-#[derive(Debug)]
 pub enum SpaceJoinInput<'a> {
     /// Redeem a SpaceInvite by its `code` field (not its `id`).
+    ///
+    /// Unguessable secret — redacted by the [`std::fmt::Debug`] impl on this enum.
     InviteCode(&'a str),
     /// Join a public Space directly by its JMAP id.
     SpaceId(&'a Id),
+}
+
+impl<'a> std::fmt::Debug for SpaceJoinInput<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InviteCode(_) => f.debug_tuple("InviteCode").field(&"[REDACTED]").finish(),
+            Self::SpaceId(id) => f.debug_tuple("SpaceId").field(id).finish(),
+        }
+    }
 }
 
 /// One entry in the `addMembers` patch key for `Chat/set` update.
@@ -1184,11 +1203,23 @@ impl<'a> PushSubscriptionCreateInput<'a> {
 /// the dedicated `clear_chat_push` flag to set it to JSON `null`. The
 /// extension does not define per-key patching, so the value is set
 /// wholesale.
+///
+/// # Debug redaction
+///
+/// `verification_code` is the RFC 8620 §7.2 push-subscription-ownership
+/// proof — an attacker who learns the value can claim ownership of the
+/// subscription. The `Debug` impl on this struct redacts it to
+/// `Some("[REDACTED]")` / `None` so an accidental `{:?}`-format in an
+/// application log, tracing span, or test fixture cannot leak it. Other
+/// fields are not secrets and are rendered verbatim.
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct PushSubscriptionPatch<'a> {
     /// Replace the verification code (set after receiving a PushVerification
     /// payload). `None` = no change.
+    ///
+    /// RFC 8620 §7.2 ownership proof — redacted by the
+    /// [`std::fmt::Debug`] impl on this struct.
     pub verification_code: Option<&'a str>,
     /// Set or clear the expiry timestamp. [`Patch::Clear`] sets `expires` to
     /// `null`; the server SHOULD then choose a default expiry per RFC 8620 §7.2.
@@ -1205,6 +1236,21 @@ pub struct PushSubscriptionPatch<'a> {
     /// When `true`, set `chatPush` to JSON `null` (remove all inline push).
     /// Mutually exclusive with `chat_push: Some(_)`.
     pub clear_chat_push: bool,
+}
+
+impl<'a> std::fmt::Debug for PushSubscriptionPatch<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let redacted_verification_code: Option<&'static str> =
+            self.verification_code.map(|_| "[REDACTED]");
+        f.debug_struct("PushSubscriptionPatch")
+            .field("verification_code", &redacted_verification_code)
+            .field("expires", &self.expires)
+            .field("types", &self.types)
+            .field("clear_types", &self.clear_types)
+            .field("chat_push", &self.chat_push)
+            .field("clear_chat_push", &self.clear_chat_push)
+            .finish()
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1278,6 +1324,82 @@ mod tests {
             result,
             Some(serde_json::Value::Null),
             "Patch::Clear must produce Some(null) from map_entry"
+        );
+    }
+
+    /// Oracle: `SpaceJoinInput::InviteCode` Debug must NOT contain the raw
+    /// invite-code secret. The canary is a self-defined literal under the
+    /// test's control, never derived from SpaceJoinInput's internal state.
+    /// Same tripwire shape as the BearerAuth/BasicAuth redaction tests in
+    /// jmap-base-client::auth (JMAP-sc1b.79).
+    ///
+    /// draft-atwood-jmap-chat-00 §4.18 defines the invite code as the
+    /// unguessable bearer credential for Space/join.
+    #[test]
+    fn space_join_input_invite_code_debug_does_not_leak() {
+        const CANARY: &str = "CANARY-JOIN-CODE-DO-NOT-LEAK-A1B2C3";
+        let input = SpaceJoinInput::InviteCode(CANARY);
+        let dbg = format!("{input:?}");
+        assert!(
+            !dbg.contains(CANARY),
+            "SpaceJoinInput::InviteCode Debug must not contain the raw code; got: {dbg}"
+        );
+    }
+
+    /// Oracle: `SpaceJoinInput::SpaceId` Debug renders the id verbatim — Id is
+    /// not a secret per RFC 8620 §1.2, and existing diagnostic uses depend on
+    /// the id being visible in logs. This is a positive assertion paired with
+    /// the redaction test above to prove the redaction is variant-scoped.
+    #[test]
+    fn space_join_input_space_id_debug_shows_id() {
+        let id = Id::from("s-public-space");
+        let input = SpaceJoinInput::SpaceId(&id);
+        let dbg = format!("{input:?}");
+        assert!(
+            dbg.contains("s-public-space"),
+            "SpaceJoinInput::SpaceId Debug must expose the public id; got: {dbg}"
+        );
+    }
+
+    /// Oracle: `PushSubscriptionPatch` Debug must NOT contain the raw
+    /// `verification_code`. RFC 8620 §7.2 defines this value as the
+    /// push-subscription ownership-proof secret; an attacker who learns it
+    /// can hijack the subscription.
+    #[test]
+    fn push_subscription_patch_debug_does_not_leak_verification_code() {
+        const CANARY: &str = "CANARY-VERIFICATION-CODE-DO-NOT-LEAK-D4E5F6";
+        let patch = PushSubscriptionPatch {
+            verification_code: Some(CANARY),
+            ..PushSubscriptionPatch::default()
+        };
+        let dbg = format!("{patch:?}");
+        assert!(
+            !dbg.contains(CANARY),
+            "PushSubscriptionPatch Debug must not contain the raw verification_code; got: {dbg}"
+        );
+        // Sanity: the field is still present in the Debug output as REDACTED,
+        // so structural inspection (presence/absence of the field) still works.
+        assert!(
+            dbg.contains("verification_code"),
+            "PushSubscriptionPatch Debug must still mention the verification_code field name; got: {dbg}"
+        );
+    }
+
+    /// Oracle: `PushSubscriptionPatch` with `verification_code: None` renders
+    /// as `None` (not `Some("[REDACTED]")`). Paired with the above, this
+    /// proves the redaction does not corrupt the Some/None signal that a
+    /// reader of the Debug output relies on.
+    #[test]
+    fn push_subscription_patch_debug_none_verification_code() {
+        let patch = PushSubscriptionPatch::default();
+        let dbg = format!("{patch:?}");
+        assert!(
+            dbg.contains("verification_code: None"),
+            "PushSubscriptionPatch Debug with None verification_code must render as None; got: {dbg}"
+        );
+        assert!(
+            !dbg.contains("REDACTED"),
+            "PushSubscriptionPatch Debug with None verification_code must not show REDACTED; got: {dbg}"
         );
     }
 }
