@@ -55,19 +55,29 @@ The Rust struct is named `ContactCard`.  It embeds all RFC 9553 Card fields
 directly (flattened), plus the JMAP-specific `id` and `addressBookIds` fields
 added by the contacts draft.
 
-### 2. JSContact sub-objects are `serde_json::Value`, not typed structs
+### 2. JSContact sub-objects are `serde_json::Value` on the wire; typed views via `jmap-jscontact-types`
 
 RFC 9553 represents collections as `String[ObjectType]` — JSON objects where all
 keys are JSContact `Id` values (base64url, 1–255 octets) and all values are the
-same sub-object type. This crate does **not** provide typed Rust structs for
-those sub-object types. Instead, every JSContact collection field on
-`ContactCard` is typed `Option<serde_json::Value>`. Callers needing typed
-access deserialize the `Value` into a struct of their own, using RFC 9553 as
-the schema.
+same sub-object type. This crate's `ContactCard` keeps every JSContact
+collection field as `Option<serde_json::Value>` so the wire format is the
+anchor and no round-trip information is lost across schema-extension changes.
 
-This is a deliberate scope reduction for the initial release — see
-"Known Limitations" in `README.md`. Adding typed sub-object structs is
-tracked as a future goal.
+Typed access to the sub-objects is **opt-in** and lives in the sibling
+`jmap-jscontact-types` crate (RFC 9553 typed sub-types). This crate
+re-exports those types at the top level (`jmap_contacts_types::Name`,
+`jmap_contacts_types::EmailAddress`, etc.) and via a `jscontact` module
+alias (`jmap_contacts_types::jscontact::Name`) mirroring the
+`jmap_calendars_types::jscalendar` pattern. Callers obtain typed views via:
+
+```rust
+use jmap_contacts_types::{ContactCard, Name};
+let card: ContactCard = serde_json::from_value(json)?;
+let name: Name = serde_json::from_value(card.name.unwrap())?;
+```
+
+See `crate-jmap-jscontact-types/PLAN.md` for the typed-sub-object design
+rationale, the full list of types, and the hybrid round-trip policy.
 
 ### 3. All ContactCard fields are Option
 
@@ -130,10 +140,16 @@ contain forward slashes.  In Rust, they map to struct fields with
 ### 10. PartialDate and other JSContact value shapes
 
 RFC 9553 defines several value shapes (e.g. `PartialDate` for anniversaries)
-that ride inside the JSContact collection fields. Because those fields are
-`serde_json::Value` on `ContactCard`, this crate does not represent them as
-typed structs. Wire shapes pass through serde untouched; semantic validation
-lives in the handler or the caller.
+that ride inside the JSContact collection fields. The `ContactCard` field
+shapes themselves stay as `Option<serde_json::Value>` on the wire so that
+unknown-shape round-trip fidelity is preserved.
+
+Typed Rust representations of these value shapes live in the sibling
+`jmap-jscontact-types` crate and are re-exported here for caller
+ergonomics: `PartialDate`, `Timestamp`, `AnniversaryDate`, `Anniversary`,
+`Name`, `Address`, etc. See `crate-jmap-jscontact-types/PLAN.md` for the
+full list and the hybrid-design rationale. Semantic validation lives in
+the handler or the caller.
 
 **Exception — typed envelope for `localizations`:** the `localizations` field
 was promoted from `Option<serde_json::Value>` to
@@ -284,9 +300,11 @@ src/
   string_enum.rs   `string_enum!` macro for open-ended string-typed enums
 ```
 
-There is no `jscontact/` submodule. Typed Rust structs for JSContact
-sub-objects (RFC 9553 §2.x) are intentionally not provided — see "Key Design
-Decisions" §2.
+There is no `jscontact/` submodule inside this crate. Typed Rust structs
+for JSContact sub-objects (RFC 9553 §2.x) live in the sibling
+`jmap-jscontact-types` crate and are re-exported at the top level and via
+the `jscontact` module alias (`pub use jmap_jscontact_types as jscontact`).
+See "Key Design Decisions" §2 for the rationale.
 
 ## Test Oracle Strategy
 
@@ -335,9 +353,10 @@ Key test cases:
 ## Dependencies
 
 ```toml
-jmap-types = { path = "../crate-jmap-types" }
-serde      = { version = "1", features = ["derive"] }
-serde_json = "1"
+jmap-types           = { path = "../crate-jmap-types" }
+jmap-jscontact-types = { path = "../crate-jmap-jscontact-types" }
+serde                = { version = "1", features = ["derive"] }
+serde_json           = "1"
 ```
 
 No tokio, no async, no network deps.

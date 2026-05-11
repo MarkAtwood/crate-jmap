@@ -11,6 +11,7 @@ Read the crate's `PLAN.md` before touching its code.
 |---|---|---|
 | `crate-jmap-types/` | `jmap-types` | Shared wire types — foundation, no async |
 | `crate-jmap-jscalendar-types/` | `jmap-jscalendar-types` | RFC 8984 JSCalendar typed sub-types — shared foundation, consumed by Calendars and Tasks. No async, no JMAP dep |
+| `crate-jmap-jscontact-types/` | `jmap-jscontact-types` | RFC 9553 JSContact typed sub-types — shared foundation, consumed by Contacts. No async, no JMAP dep |
 | `crate-jmap-mail-types/` | `jmap-mail-types` | RFC 8621 data types, no async |
 | `crate-jmap-chat-types/` | `jmap-chat-types` | JMAP Chat extension types, no async |
 | `crate-jmap-server/` | `jmap-server` | Dispatcher + parse + HTTP helpers |
@@ -41,6 +42,10 @@ jmap-jscalendar-types  — RFC 8984 JSCalendar typed sub-types: LocalDateTime, D
                          RecurrenceRule, Location, Participant, Alert, etc. No JMAP dep, no async.
     ├── jmap-calendars-types   — consumes + re-exports as `jscalendar` module alias.
     └── jmap-tasks-types       — (planned, JMAP-yfpq) will consume the same shared sub-types.
+
+jmap-jscontact-types   — RFC 9553 JSContact typed sub-types: Name, EmailAddress, Phone,
+                         Address, Organization, Anniversary, etc. No JMAP dep, no async.
+    └── jmap-contacts-types    — consumes + re-exports as `jscontact` module alias.
 ```
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.

@@ -18,10 +18,15 @@ JSContact ([RFC 9553]). Types only — no method handlers, no async, no network 
 | `ContactsAccountCapability` | `capability` | RFC 9610 §1.4.1 |
 | `JMAP_CONTACTS_URI` const | `capability` | RFC 9610 §1.4.1 |
 
-JSContact sub-objects (`Name`, `EmailAddress`, `Phone`, `Address`, etc.) are
-**not** exported as typed structs from this crate. Sub-object fields on
-`ContactCard` are `Option<serde_json::Value>` — see
-[Known Limitations](#known-limitations) below.
+JSContact sub-objects (`Name`, `EmailAddress`, `Phone`, `Address`, etc.)
+live in the sibling [`jmap-jscontact-types`] crate and are re-exported
+here for caller ergonomics. The sub-object fields on `ContactCard`
+themselves remain `Option<serde_json::Value>` as the wire-format anchor;
+typed access is opt-in via `serde_json::from_value` into the corresponding
+sub-type. See the [JSContact sub-objects](#jscontact-sub-objects) section
+below for the usage pattern.
+
+[`jmap-jscontact-types`]: https://crates.io/crates/jmap-jscontact-types
 
 ## Filter extensibility
 
@@ -61,7 +66,7 @@ decision is bd JMAP-lbdy.
 | `ContactCardComparator` | Complete |
 | `AddressBookProperty` / `ContactCardProperty` enums | Complete |
 | `ContactsCapability` / `ContactsAccountCapability` | Complete |
-| Typed JSContact sub-object structs (RFC 9553 §2) | Not provided — fields are `serde_json::Value` |
+| Typed JSContact sub-object structs (RFC 9553 §2) | Available via re-export from `jmap-jscontact-types` |
 | vCard/jCard import-export | Out of scope |
 | JSContact-to-vCard conversion (RFC 9555) | Out of scope |
 
@@ -141,8 +146,57 @@ let emails = card.emails.as_ref().unwrap();
 assert_eq!(emails["0"]["address"], "joe.bloggs@example.com");
 ```
 
-To extract a specific field from a sub-object, deserialize the `Value` against
-your own struct or use RFC 9553 as the schema for manual `Value` access.
+To extract a typed view of a sub-object, deserialize the `Value` into the
+matching type from `jmap-jscontact-types` (re-exported at this crate's
+root):
+
+```rust
+use jmap_contacts_types::{ContactCard, EmailAddress, Name};
+use std::collections::HashMap;
+
+let json = r#"{
+    "id": "3",
+    "name": {
+        "components": [
+            { "kind": "given", "value": "Joe" },
+            { "kind": "surname", "value": "Bloggs" }
+        ],
+        "isOrdered": true
+    },
+    "emails": {
+        "0": {
+            "contexts": { "private": true },
+            "address": "joe.bloggs@example.com"
+        }
+    }
+}"#;
+let card: ContactCard = serde_json::from_str(json).unwrap();
+
+// Single-object sub-fields deserialize into a single type:
+let name: Name = serde_json::from_value(card.name.unwrap()).unwrap();
+assert_eq!(name.components.as_ref().unwrap()[0].value, "Joe");
+
+// Map sub-fields deserialize into HashMap<Id, T>:
+let emails: HashMap<String, EmailAddress> =
+    serde_json::from_value(card.emails.unwrap()).unwrap();
+assert_eq!(emails["0"].address, "joe.bloggs@example.com");
+```
+
+The full list of re-exported sub-types is in
+[`jmap-jscontact-types`'s README](../crate-jmap-jscontact-types/README.md).
+
+## JSContact sub-objects
+
+JSContact sub-object types are available three ways from this crate:
+
+- Top-level: `jmap_contacts_types::Name`, `jmap_contacts_types::EmailAddress`,
+  etc. (recommended for application code).
+- Module alias: `jmap_contacts_types::jscontact::Name` (mirrors
+  `jmap_calendars_types::jscalendar::*`).
+- Direct: `jmap_jscontact_types::Name` (lowest-coupling option for
+  callers that already depend on `jmap-jscontact-types` separately).
+
+All three paths resolve to the same type.
 
 ## How it works
 
@@ -162,15 +216,17 @@ bool>>`. The standard serde `HashMap` serializer handles this correctly.
 
 The `ContactCard` struct has `Option<serde_json::Value>` for every JSContact
 collection field (`name`, `emails`, `phones`, `addresses`, `organizations`,
-`titles`, `notes`, `links`, `calendars`, `cryptoKeys`, `photos`,
-`preferredLanguages`, `localizations`, `anniversaries`, `keywords`,
-`extensions`). This keeps deserialization infallible for partial JMAP responses
-and for JSContact extensions the crate does not know about.
+`titles`, `notes`, `links`, `calendars`, `cryptoKeys`, `media`,
+`preferredLanguages`, `anniversaries`, `keywords`, etc.) — keeping the wire
+format as the anchor so that deserialization is infallible for partial JMAP
+responses and unknown-shape extensions.
 
-Typed Rust structs for JSContact sub-objects are **not** provided by this
-crate. Callers needing typed access to a sub-object (e.g. to extract a phone
-number or postal address) must deserialize the relevant `serde_json::Value`
-into their own struct, using RFC 9553 as the schema.
+Typed Rust structs for JSContact sub-objects live in the sibling
+[`jmap-jscontact-types`] crate and are re-exported here. Callers obtain
+typed views by deserializing the relevant `serde_json::Value` into the
+corresponding type — see the
+[`ContactCard` deserialization](#contactcard-deserialization) example and
+the [JSContact sub-objects](#jscontact-sub-objects) section above.
 
 ### Property enums
 
@@ -182,33 +238,28 @@ JSContact paths such as `name/given`).
 
 ## Known Limitations
 
-### JSContact sub-objects are `serde_json::Value` on ContactCard
+### JSContact sub-object fields on `ContactCard` are `serde_json::Value` on the wire
 
-The following `ContactCard` fields are all `Option<serde_json::Value>`:
+The following `ContactCard` fields are all `Option<serde_json::Value>` so
+that round-trip fidelity is preserved across unknown-shape spec extensions:
 
 `name`, `nicknames`, `emails`, `phones`, `addresses`, `organizations`,
-`titles`, `notes`, `links`, `calendars`, `cryptoKeys`, `photos`,
-`preferredLanguages`, `localizations`, `anniversaries`, `keywords`,
-`extensions`
+`titles`, `notes`, `links`, `calendars`, `schedulingAddresses`,
+`cryptoKeys`, `directories`, `media`, `preferredLanguages`,
+`anniversaries`, `keywords`, `personalInfo`, `relatedTo`, `speakToAs`.
 
-Callers needing typed access to contact fields (e.g., to extract a phone
-number or postal address) must deserialize the `Value` themselves into a
-struct of their own, using RFC 9553 as the schema. No typed sub-object
-structs are exported from this crate.
+Typed access is **opt-in** via the re-exported types from
+[`jmap-jscontact-types`] — see the
+[JSContact sub-objects](#jscontact-sub-objects) section. The wire format
+itself is unchanged.
 
 ### No compile-time enforcement of JSContact field constraints
 
-Because sub-object fields are `serde_json::Value`, invalid sub-object JSON
-silently round-trips. Constraint enforcement (required fields, value ranges,
-format strings) is the responsibility of the method handler layer
-(`jmap-contacts-server`) or the caller.
-
-### Typed structs for ContactCard sub-objects are a future goal
-
-Typed Rust structs for JSContact sub-objects matching RFC 9553 §2.x are
-intentionally not provided in this release. The gap is tracked for a future
-release; until then, callers work with the `serde_json::Value` fields on
-`ContactCard` directly.
+Even when callers use the re-exported typed sub-objects, semantic
+constraints from RFC 9553 (required-when-other-set, value ranges, format
+strings) are not enforced at the type level. Constraint enforcement is
+the responsibility of the method handler layer (`jmap-contacts-server`)
+or the caller.
 
 ## Crate family
 
@@ -217,6 +268,9 @@ jmap-types (RFC 8620 wire primitives)
     └── jmap-contacts-types  ← this crate
             ├── jmap-contacts-server (method handlers)
             └── jmap-contacts-client (client extension trait)
+
+jmap-jscontact-types (RFC 9553 JSContact typed sub-types, no JMAP dep)
+    └── jmap-contacts-types  ← (this crate also depends here)
 ```
 
 Path dependencies between crates use `path = "../crate-jmap-*"` and will
