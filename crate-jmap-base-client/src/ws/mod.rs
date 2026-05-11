@@ -69,8 +69,21 @@ pub enum WsFrame {
         /// per RFC 8887 §4.3.1, or `"Response"` / `"StateChange"` when a known
         /// type failed to deserialize into its typed variant.
         type_name: String,
-        /// Raw JSON object as received from the server, preserved for logging
-        /// and forward-compatibility diagnostics.
+        /// Raw JSON object as received from the server, preserved for
+        /// forward-compatibility diagnostics.
+        ///
+        /// **DO NOT log this field verbatim.** Future or extension JMAP
+        /// WebSocket message types may carry credential-grade material —
+        /// push verification codes (RFC 8887 §7.2), federation handshake
+        /// tokens, session-rotation challenges, etc. — and a malformed
+        /// `Response` to a method like `PushSubscription/get` can echo a
+        /// `verificationCode` back into this field. The enum derives
+        /// `Debug`, so a `{:?}`-format of any `WsFrame::Unknown` writes
+        /// this Value to the output stream.
+        ///
+        /// For operator logs, prefer logging `type_name` only, or apply a
+        /// project-specific redaction filter before passing `raw` to a
+        /// logging sink. See bd:JMAP-sc1b.98.
         raw: serde_json::Value,
     },
 }
