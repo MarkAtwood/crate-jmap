@@ -1,0 +1,16 @@
+[package]
+name = "jmap-jscalendar-types"
+version = "0.1.1"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JSCalendar (RFC 8984) typed sub-types for the jmap-* crate family"
+keywords = ["jmap", "jscalendar", "rfc8984", "types", "wire-format"]
+categories = ["encoding", "network-programming"]
+
+[dependencies]
+jmap-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

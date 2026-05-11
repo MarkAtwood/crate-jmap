@@ -851,6 +851,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-jscalendar-types"
+version = "0.1.1"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-mail-client"
 version = "0.1.1"
 dependencies = [
