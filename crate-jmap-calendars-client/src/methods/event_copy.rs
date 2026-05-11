@@ -1,6 +1,6 @@
-// JMAP Calendars — CalendarEvent/copy method implementation on SessionClient.
-//
-// CalendarEvent/copy copies events between accounts (draft-ietf-jmap-calendars-26 §5.10).
+//! JMAP Calendars — CalendarEvent/copy method implementation on SessionClient.
+//!
+//! CalendarEvent/copy copies events between accounts (draft-ietf-jmap-calendars-26 §5.10).
 
 use std::collections::HashMap;
 

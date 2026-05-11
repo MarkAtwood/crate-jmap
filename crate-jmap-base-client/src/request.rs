@@ -1,10 +1,12 @@
-// request.rs — JmapRequestBuilder, Session, AccountInfo, WebSocketCapability
-//
-// Types that belong to the base JMAP client layer (RFC 8620 §2, §3.3, RFC 8887).
-// Chat-specific and Mail-specific types live in their own crates.
-//
-// Types already in jmap-types and NOT redefined here:
-//   Id, UTCDate, State, Date, JmapRequest, JmapResponse, Invocation, ResultReference
+//! Base JMAP request and session types: [`JmapRequestBuilder`], [`Session`],
+//! [`AccountInfo`], [`WebSocketCapability`].
+//!
+//! Types that belong to the base JMAP client layer (RFC 8620 §2, §3.3, RFC 8887).
+//! Chat-specific and Mail-specific types live in their own crates.
+//!
+//! Types already in `jmap-types` and NOT redefined here:
+//! `Id`, `UTCDate`, `State`, `Date`, `JmapRequest`, `JmapResponse`, `Invocation`,
+//! `ResultReference`.
 
 use std::collections::HashMap;
 use std::collections::HashSet;

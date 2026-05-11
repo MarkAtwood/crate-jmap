@@ -14,13 +14,21 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum PrincipalProperty {
+    /// The `id` property (RFC 9670 §2).
     Id,
+    /// The `type` property (RFC 9670 §2).
     Type,
+    /// The `name` property (RFC 9670 §2).
     Name,
+    /// The `description` property (RFC 9670 §2).
     Description,
+    /// The `email` property (RFC 9670 §2).
     Email,
+    /// The `timeZone` property (RFC 9670 §2).
     TimeZone,
+    /// The `capabilities` property (RFC 9670 §2).
     Capabilities,
+    /// The `accounts` property (RFC 9670 §2).
     Accounts,
 }
 
@@ -28,14 +36,23 @@ pub enum PrincipalProperty {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[non_exhaustive]
 pub enum ShareNotificationProperty {
+    /// The `id` property (RFC 9670 §3).
     Id,
+    /// The `created` property (RFC 9670 §3).
     Created,
+    /// The `changedBy` property (RFC 9670 §3).
     ChangedBy,
+    /// The `objectType` property (RFC 9670 §3).
     ObjectType,
+    /// The `objectAccountId` property (RFC 9670 §3).
     ObjectAccountId,
+    /// The `objectId` property (RFC 9670 §3).
     ObjectId,
+    /// The `oldRights` property (RFC 9670 §3).
     OldRights,
+    /// The `newRights` property (RFC 9670 §3).
     NewRights,
+    /// The `name` property (RFC 9670 §3).
     Name,
 }
 

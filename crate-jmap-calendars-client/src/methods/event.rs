@@ -1,6 +1,6 @@
-// JMAP Calendars — CalendarEvent/* method implementations on SessionClient.
-//
-// Note: CalendarEvent/copy lives in event_copy.rs.
+//! JMAP Calendars — CalendarEvent/* method implementations on SessionClient.
+//!
+//! Note: CalendarEvent/copy lives in event_copy.rs.
 
 use std::collections::HashMap;
 
