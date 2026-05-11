@@ -168,7 +168,7 @@ impl MemoryBackend {
         let n = inner
             .objects_ref(type_name, account_id)
             .map_or(0, |m| m.len());
-        Id::from(format!("{}{}", type_name.to_ascii_lowercase(), n + 1).as_str())
+        Id::from(format!("{}{}", type_name.to_ascii_lowercase(), n + 1))
     }
 }
 
@@ -237,7 +237,7 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<State, Self::Error> {
         let inner = self.inner.lock().unwrap();
         let n = inner.current_state(O::TYPE_NAME, account_id.as_ref());
-        Ok(State::from(n.to_string().as_str()))
+        Ok(State::from(n.to_string()))
     }
 
     async fn get_changes<O: JmapObject + Send + Sync>(
@@ -298,7 +298,7 @@ impl JmapBackend for MemoryBackend {
             updated,
             destroyed,
             false,
-            State::from(current_state.to_string().as_str()),
+            State::from(current_state.to_string()),
         ))
     }
 

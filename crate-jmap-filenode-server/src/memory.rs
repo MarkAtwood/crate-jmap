@@ -124,7 +124,7 @@ impl AccountStore {
 
     fn next_node_id(&mut self) -> Id {
         self.node_counter += 1;
-        Id::from(format!("node-{}", self.node_counter).as_str())
+        Id::from(format!("node-{}", self.node_counter))
     }
 
     fn bump_state(&mut self, change_type: ChangeType, id: Id) {
@@ -278,7 +278,7 @@ impl JmapBackend for MemoryBackend {
             Some(s) => s,
             None => return Ok(State::from("0")),
         };
-        Ok(State::from(format!("{}", store.state).as_str()))
+        Ok(State::from(store.state.to_string()))
     }
 
     async fn get_changes<O: JmapObject + Send + Sync>(
@@ -303,7 +303,7 @@ impl JmapBackend for MemoryBackend {
             }
         };
 
-        let current_state = State::from(format!("{}", store.state).as_str());
+        let current_state = State::from(store.state.to_string());
 
         // Collect all changes after since_state.
         let all: Vec<&ChangeEntry> = store
@@ -366,7 +366,7 @@ impl JmapBackend for MemoryBackend {
                 ))
             }
         };
-        let current_state = State::from(format!("{}", store.state).as_str());
+        let current_state = State::from(store.state.to_string());
 
         // Parse the filter as FileNodeFilterCondition via serde round-trip.
         // This avoids the #[non_exhaustive] restriction outside the defining crate.
@@ -419,7 +419,7 @@ impl JmapBackend for MemoryBackend {
                 ))
             }
         };
-        let current_state = State::from(format!("{}", store.state).as_str());
+        let current_state = State::from(store.state.to_string());
 
         Ok(QueryChangesResult::new(
             since_query_state.clone(),
