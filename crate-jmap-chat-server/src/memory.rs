@@ -58,6 +58,7 @@ use crate::{
     JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult, SetError,
     SetErrorType, SetObject, SpacePatchOp,
 };
+use jmap_server::now_utc_string;
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -640,9 +641,9 @@ impl ChatBackend for MemoryBackend {
     ///
     /// Dispatches each [`SpacePatchOp`] to a per-variant helper. Currently
     /// implemented: Category variants (Add/Remove/Update) per
-    /// `bd:JMAP-g7wu.2.4.5`. Other variants return a `Forbidden` `OpResult`
-    /// whose description names the tracking bead (`.4.3` for
-    /// Role/Member, `.4.4` for Channel).
+    /// `bd:JMAP-g7wu.2.4.5` and Channel variants (Add/Remove/Update) per
+    /// `bd:JMAP-g7wu.2.4.4`. Other variants return a `Forbidden` `OpResult`
+    /// whose description names the tracking bead (`.4.3` for Role/Member).
     ///
     /// The entire patch runs under one mutex acquisition, providing
     /// best-effort transactional semantics for the reference impl: a
@@ -650,6 +651,26 @@ impl ChatBackend for MemoryBackend {
     /// already succeeded — they remain applied. Production backends
     /// should wrap the sequence in a real transaction. This caveat is
     /// documented on the trait.
+    ///
+    /// # Change-log emission
+    ///
+    /// One consolidated change-log entry per affected type per call:
+    ///
+    /// - `Space`: one `updated` entry if any op mutated the host Space.
+    /// - `Chat`: one entry combining all channels created, updated, and
+    ///   destroyed by this patch. Same batching rationale as the Space
+    ///   entry — keeps `Chat/changes` from amplifying state-token
+    ///   rotations.
+    /// - `Message`: one `destroyed` entry listing every Message
+    ///   cascade-destroyed by `RemoveChannel`.
+    ///
+    /// NOTE: the pre-existing Category cascade (`apply_category_op` →
+    /// `set_channel_category`) mutates `Chat.categoryId` in place without
+    /// emitting a `Chat/changes` entry. That gap pre-dates this method
+    /// and is tracked separately (see bd:JMAP-g7wu.2.4.4 follow-up bead).
+    /// Channel-variant ops implemented here DO emit proper Chat
+    /// change-log entries for the Chat records they create, update,
+    /// or destroy.
     async fn apply_space_patch(
         &self,
         _caller: &(),
@@ -671,6 +692,10 @@ impl ChatBackend for MemoryBackend {
 
         let mut results = Vec::with_capacity(ops.len());
         let mut space_mutated = false;
+        let mut chats_created: Vec<Id> = Vec::new();
+        let mut chats_updated: HashSet<Id> = HashSet::new();
+        let mut chats_destroyed: Vec<Id> = Vec::new();
+        let mut messages_destroyed: Vec<Id> = Vec::new();
 
         for (op_index, op) in ops.into_iter().enumerate() {
             let outcome =
@@ -682,6 +707,31 @@ impl ChatBackend for MemoryBackend {
                         account_id.as_ref(),
                         space_id,
                         op,
+                        &mut space_mutated,
+                    ),
+                    SpacePatchOp::AddChannel(_) => apply_add_channel(
+                        &mut inner,
+                        account_id.as_ref(),
+                        space_id,
+                        op,
+                        &mut chats_created,
+                        &mut space_mutated,
+                    ),
+                    SpacePatchOp::RemoveChannel(_) => apply_remove_channel(
+                        &mut inner,
+                        account_id.as_ref(),
+                        space_id,
+                        op,
+                        &mut chats_destroyed,
+                        &mut messages_destroyed,
+                        &mut space_mutated,
+                    ),
+                    SpacePatchOp::UpdateChannel { .. } => apply_update_channel(
+                        &mut inner,
+                        account_id.as_ref(),
+                        space_id,
+                        op,
+                        &mut chats_updated,
                         &mut space_mutated,
                     ),
                     _ => Err(SetError::new(SetErrorType::Forbidden)
@@ -704,6 +754,43 @@ impl ChatBackend for MemoryBackend {
                     created: vec![],
                     updated: vec![space_id.clone()],
                     destroyed: vec![],
+                });
+        }
+
+        // Same batching rationale: one Chat change-log entry per call,
+        // combining every channel created, updated, and destroyed by
+        // this patch.
+        if !chats_created.is_empty() || !chats_updated.is_empty() || !chats_destroyed.is_empty() {
+            let new_state = inner.bump_state("Chat", account_id.as_ref());
+            // De-dup `updated` against `created` and `destroyed` so a
+            // channel touched by multiple ops in the same patch surfaces
+            // in only the most-impactful list (destroyed > created >
+            // updated). HashSet iteration is non-deterministic; sort the
+            // updated ids so the change-log entry is reproducible.
+            let mut updated: Vec<Id> = chats_updated
+                .into_iter()
+                .filter(|id| !chats_created.contains(id) && !chats_destroyed.contains(id))
+                .collect();
+            updated.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+            inner
+                .change_log_mut("Chat", account_id.as_ref())
+                .push(ChangeEntry {
+                    new_state,
+                    created: chats_created,
+                    updated,
+                    destroyed: chats_destroyed,
+                });
+        }
+
+        if !messages_destroyed.is_empty() {
+            let new_state = inner.bump_state("Message", account_id.as_ref());
+            inner
+                .change_log_mut("Message", account_id.as_ref())
+                .push(ChangeEntry {
+                    new_state,
+                    created: vec![],
+                    updated: vec![],
+                    destroyed: messages_destroyed,
                 });
         }
 
@@ -1007,6 +1094,504 @@ fn apply_category_op(
     Ok(assigned_id)
 }
 
+/// Apply one [`SpacePatchOp::AddChannel`] to the in-memory Space.
+///
+/// Per draft-atwood-jmap-chat-00 §Space/set (lines 1114-1117):
+/// - The server creates a Chat record of `kind: "channel"` with
+///   `spaceId` set to this Space's id and a fresh server-assigned id.
+/// - If `categoryId` is provided, validate that the named category
+///   exists on this Space; append the new channel's id to that
+///   category's `channelIds` array.
+/// - If `categoryId` is absent, append the new channel's id to the
+///   Space's `uncategorizedChannelIds` array.
+/// - `name` is required; `position` and `topic` are optional.
+///   `slowModeSeconds` and `permissionOverrides` are server-managed
+///   and start absent (the spec does not allow the client to set them
+///   at create time — those flow through `updateChannels` later).
+///
+/// The `SetError` `Err` variant is large; we tolerate this here because
+/// `SetError` is the workspace-canonical per-op result shape (matches
+/// the `OpResult.outcome` field on the trait method).
+#[allow(clippy::result_large_err)]
+fn apply_add_channel(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    chats_created: &mut Vec<Id>,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    use jmap_chat_types::space_set::ChannelCreate;
+
+    let create: ChannelCreate = match op {
+        SpacePatchOp::AddChannel(c) => c,
+        _ => unreachable!("apply_add_channel called with non-AddChannel variant"),
+    };
+
+    // If categoryId is provided, verify the category exists on this Space.
+    // This must happen before any mutation so a bad categoryId is a clean
+    // rejection rather than a half-applied side effect.
+    if let Some(cat_id) = &create.category_id {
+        let space_val = inner
+            .objects_ref("Space", account_id)
+            .and_then(|m| m.get(space_id))
+            .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+        let exists = space_val
+            .get("categories")
+            .and_then(|v| v.as_array())
+            .is_some_and(|cats| {
+                cats.iter()
+                    .any(|c| c.get("id").and_then(|s| s.as_str()) == Some(cat_id.as_ref()))
+            });
+        if !exists {
+            return Err(SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(vec!["categoryId".to_owned()])
+                .with_description(format!(
+                    "categoryId {} does not refer to a category of this Space",
+                    cat_id.as_ref()
+                )));
+        }
+    }
+
+    // Mint a fresh channel Chat id.
+    let new_id = MemoryBackend::next_id(inner, "Chat", account_id);
+
+    // Build the channel JSON. Required fields per `Chat`:
+    //   id, kind, createdAt, unreadCount, pinnedMessageIds, muted,
+    //   receiveTypingIndicators
+    // Channel-specific: spaceId, name, categoryId?, position?, topic?
+    // Defaults for muted (false) and receiveTypingIndicators (true)
+    // match the values used by Chat/set create at chat.rs:266-273.
+    let now = now_utc_string();
+    let mut chat_obj = serde_json::Map::new();
+    chat_obj.insert(
+        "id".to_owned(),
+        serde_json::Value::String(new_id.as_ref().to_owned()),
+    );
+    chat_obj.insert(
+        "kind".to_owned(),
+        serde_json::Value::String("channel".to_owned()),
+    );
+    chat_obj.insert("createdAt".to_owned(), serde_json::Value::String(now));
+    chat_obj.insert("unreadCount".to_owned(), serde_json::Value::from(0u64));
+    chat_obj.insert(
+        "pinnedMessageIds".to_owned(),
+        serde_json::Value::Array(vec![]),
+    );
+    chat_obj.insert("muted".to_owned(), serde_json::Value::Bool(false));
+    chat_obj.insert(
+        "receiveTypingIndicators".to_owned(),
+        serde_json::Value::Bool(true),
+    );
+    chat_obj.insert(
+        "spaceId".to_owned(),
+        serde_json::Value::String(space_id.as_ref().to_owned()),
+    );
+    chat_obj.insert("name".to_owned(), serde_json::Value::String(create.name));
+    if let Some(cat_id) = &create.category_id {
+        chat_obj.insert(
+            "categoryId".to_owned(),
+            serde_json::Value::String(cat_id.as_ref().to_owned()),
+        );
+    }
+    if let Some(pos) = create.position {
+        chat_obj.insert("position".to_owned(), serde_json::Value::from(pos));
+    }
+    if let Some(topic) = create.topic {
+        chat_obj.insert("topic".to_owned(), serde_json::Value::String(topic));
+    }
+
+    inner
+        .objects_mut("Chat", account_id)
+        .insert(new_id.clone(), serde_json::Value::Object(chat_obj));
+
+    // Update Space-side cross-references. Re-fetch the Space because
+    // the validation borrow above was released, and the `objects_mut`
+    // on "Chat" above invalidated any earlier borrow regardless.
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+    if let Some(cat_id) = &create.category_id {
+        // Append the new channel id to that category's channelIds.
+        let cats = space_val
+            .get_mut("categories")
+            .and_then(|v| v.as_array_mut())
+            .ok_or_else(|| {
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description("internal: Space.categories not an array")
+            })?;
+        for cat in cats.iter_mut() {
+            if cat.get("id").and_then(|s| s.as_str()) == Some(cat_id.as_ref()) {
+                let ch_ids = cat
+                    .get_mut("channelIds")
+                    .and_then(|v| v.as_array_mut())
+                    .ok_or_else(|| {
+                        SetError::new(SetErrorType::Forbidden)
+                            .with_description("internal: Category.channelIds not an array")
+                    })?;
+                ch_ids.push(serde_json::Value::String(new_id.as_ref().to_owned()));
+                break;
+            }
+        }
+    } else {
+        // Append to uncategorizedChannelIds.
+        let unc = space_val
+            .get_mut("uncategorizedChannelIds")
+            .and_then(|v| v.as_array_mut())
+            .ok_or_else(|| {
+                SetError::new(SetErrorType::Forbidden)
+                    .with_description("internal: Space.uncategorizedChannelIds not an array")
+            })?;
+        unc.push(serde_json::Value::String(new_id.as_ref().to_owned()));
+    }
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+
+    chats_created.push(new_id.clone());
+    *space_mutated = true;
+    Ok(Some(new_id))
+}
+
+/// Apply one [`SpacePatchOp::RemoveChannel`] to the in-memory Space.
+///
+/// Per draft-atwood-jmap-chat-00 §Space/set line 1117: removeChannels
+/// "Cascades to all Messages in those channels." This implementation:
+///
+/// 1. Verifies the named id refers to a channel-kind Chat with
+///    `spaceId` matching this Space. Any other id is `notFound`.
+/// 2. Destroys the Chat record itself.
+/// 3. Scans the Message store for every Message whose `chatId` matches
+///    the removed channel; destroys each one.
+/// 4. Removes the channel id from the Space's `uncategorizedChannelIds`
+///    and from any category's `channelIds` it appears in.
+///
+/// All four steps run within the single mutex hold inherited from
+/// `apply_space_patch`, so the Chat removal, the Message cascade, and
+/// the Space-side bookkeeping are atomic with respect to other
+/// `MemoryBackend` callers.
+#[allow(clippy::result_large_err)]
+fn apply_remove_channel(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    chats_destroyed: &mut Vec<Id>,
+    messages_destroyed: &mut Vec<Id>,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    let target_id: Id = match op {
+        SpacePatchOp::RemoveChannel(id) => id,
+        _ => unreachable!("apply_remove_channel called with non-RemoveChannel variant"),
+    };
+
+    // Confirm the id names a channel-kind Chat of this Space.
+    if !channel_belongs_to_space(inner, account_id, &target_id, space_id) {
+        return Err(
+            SetError::new(SetErrorType::NotFound).with_description(format!(
+                "channel {} is not a channel of this Space",
+                target_id.as_ref()
+            )),
+        );
+    }
+
+    // Cascade Messages first so a half-completed run leaves Messages
+    // referring to a still-extant Chat rather than orphaned Messages
+    // pointing at a vanished Chat. (We are inside a single mutex hold
+    // so partial visibility is internal, but the ordering preserves
+    // referential integrity for tests that grep mid-run state.)
+    let cascade_ids = scan_messages_in_chat(inner, account_id, &target_id);
+    if !cascade_ids.is_empty() {
+        let msg_map = inner.objects_mut("Message", account_id);
+        for msg_id in &cascade_ids {
+            msg_map.remove(msg_id);
+        }
+        messages_destroyed.extend(cascade_ids);
+    }
+
+    // Destroy the Chat record.
+    inner.objects_mut("Chat", account_id).remove(&target_id);
+
+    // Remove the channel id from Space-side cross-references.
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+    if let Some(unc) = space_val
+        .get_mut("uncategorizedChannelIds")
+        .and_then(|v| v.as_array_mut())
+    {
+        unc.retain(|v| v.as_str() != Some(target_id.as_ref()));
+    }
+    if let Some(cats) = space_val
+        .get_mut("categories")
+        .and_then(|v| v.as_array_mut())
+    {
+        for cat in cats.iter_mut() {
+            if let Some(ch_ids) = cat.get_mut("channelIds").and_then(|v| v.as_array_mut()) {
+                ch_ids.retain(|v| v.as_str() != Some(target_id.as_ref()));
+            }
+        }
+    }
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+
+    chats_destroyed.push(target_id);
+    *space_mutated = true;
+    Ok(None)
+}
+
+/// Apply one [`SpacePatchOp::UpdateChannel`] to the in-memory Space.
+///
+/// Per draft-atwood-jmap-chat-00 §Space/set line 1120: `updateChannels`
+/// patches one of `name`, `topic`, `categoryId`, `position`,
+/// `slowModeSeconds`, `permissionOverrides`. The nullable fields use
+/// [`jmap_chat_types::clearable::Clearable`] semantics: `null` clears
+/// and absence leaves unchanged.
+///
+/// `categoryId` changes additionally maintain Space-side cross-references:
+/// the channel id is removed from its previous category's `channelIds`
+/// (or from `uncategorizedChannelIds`) and added to the new category's
+/// `channelIds` (or to `uncategorizedChannelIds` when cleared). The new
+/// category, if any, must already exist on this Space — otherwise the
+/// op fails with `invalidProperties` on `categoryId`.
+#[allow(clippy::result_large_err)]
+fn apply_update_channel(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    chats_updated: &mut HashSet<Id>,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    use jmap_chat_types::clearable::Clearable;
+    use jmap_chat_types::space_set::ChannelPatch;
+
+    let (id, patch): (Id, ChannelPatch) = match op {
+        SpacePatchOp::UpdateChannel { id, patch } => (id, patch),
+        _ => unreachable!("apply_update_channel called with non-UpdateChannel variant"),
+    };
+
+    // Confirm the id names a channel-kind Chat of this Space.
+    if !channel_belongs_to_space(inner, account_id, &id, space_id) {
+        return Err(
+            SetError::new(SetErrorType::NotFound).with_description(format!(
+                "channel {} is not a channel of this Space",
+                id.as_ref()
+            )),
+        );
+    }
+
+    // If categoryId is changing to a non-null value, validate that the
+    // target category exists on this Space before mutating anything.
+    // A null categoryId (Clearable::Clear) does not need this check.
+    if let Some(Clearable::Set(new_cat)) = &patch.category_id {
+        let space_val = inner
+            .objects_ref("Space", account_id)
+            .and_then(|m| m.get(space_id))
+            .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+        let exists = space_val
+            .get("categories")
+            .and_then(|v| v.as_array())
+            .is_some_and(|cats| {
+                cats.iter()
+                    .any(|c| c.get("id").and_then(|s| s.as_str()) == Some(new_cat.as_ref()))
+            });
+        if !exists {
+            return Err(SetError::new(SetErrorType::InvalidProperties)
+                .with_properties(vec!["categoryId".to_owned()])
+                .with_description(format!(
+                    "categoryId {} does not refer to a category of this Space",
+                    new_cat.as_ref()
+                )));
+        }
+    }
+
+    // Apply the patch to the Chat record. We collect categoryId before
+    // mutation so the Space-side cross-reference update below knows
+    // both the old and new pointers.
+    let old_category_id: Option<Id> = inner
+        .objects_ref("Chat", account_id)
+        .and_then(|m| m.get(&id))
+        .and_then(|v| v.get("categoryId"))
+        .and_then(|c| c.as_str())
+        .map(Id::from);
+
+    {
+        let chat_map = inner.objects_mut("Chat", account_id);
+        let Some(chat_val) = chat_map.get_mut(&id) else {
+            // We just confirmed existence via channel_belongs_to_space;
+            // this is unreachable in single-thread execution.
+            return Err(SetError::new(SetErrorType::NotFound));
+        };
+        let serde_json::Value::Object(obj) = chat_val else {
+            return Err(SetError::new(SetErrorType::Forbidden)
+                .with_description("internal: Chat record not a JSON object"));
+        };
+
+        if let Some(name) = patch.name {
+            obj.insert("name".to_owned(), serde_json::Value::String(name));
+        }
+        if let Some(pos) = patch.position {
+            obj.insert("position".to_owned(), serde_json::Value::from(pos));
+        }
+        match patch.topic {
+            Some(Clearable::Set(t)) => {
+                obj.insert("topic".to_owned(), serde_json::Value::String(t));
+            }
+            Some(Clearable::Clear) => {
+                obj.remove("topic");
+            }
+            None => {}
+        }
+        match &patch.category_id {
+            Some(Clearable::Set(c)) => {
+                obj.insert(
+                    "categoryId".to_owned(),
+                    serde_json::Value::String(c.as_ref().to_owned()),
+                );
+            }
+            Some(Clearable::Clear) => {
+                obj.remove("categoryId");
+            }
+            None => {}
+        }
+        match patch.slow_mode_seconds {
+            Some(Clearable::Set(s)) => {
+                obj.insert("slowModeSeconds".to_owned(), serde_json::Value::from(s));
+            }
+            Some(Clearable::Clear) => {
+                obj.remove("slowModeSeconds");
+            }
+            None => {}
+        }
+        match patch.permission_overrides {
+            Some(Clearable::Set(po)) => {
+                let val = serde_json::to_value(&po).map_err(|e| {
+                    SetError::new(SetErrorType::Forbidden)
+                        .with_description(format!("internal: serialize permissionOverrides: {e}"))
+                })?;
+                obj.insert("permissionOverrides".to_owned(), val);
+            }
+            Some(Clearable::Clear) => {
+                obj.remove("permissionOverrides");
+            }
+            None => {}
+        }
+    }
+
+    // Maintain Space-side cross-references for categoryId changes.
+    let category_changed = patch.category_id.is_some();
+    if category_changed {
+        let new_category_id: Option<Id> = match &patch.category_id {
+            Some(Clearable::Set(c)) => Some(c.clone()),
+            Some(Clearable::Clear) => None,
+            None => unreachable!(),
+        };
+
+        // Only do bookkeeping if the assignment actually changed —
+        // a no-op same-category update should not shuffle arrays.
+        if old_category_id != new_category_id {
+            let mut space_val = inner
+                .objects_ref("Space", account_id)
+                .and_then(|m| m.get(space_id))
+                .cloned()
+                .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+            // Remove from previous home.
+            match &old_category_id {
+                Some(prev_cat) => {
+                    if let Some(cats) = space_val
+                        .get_mut("categories")
+                        .and_then(|v| v.as_array_mut())
+                    {
+                        for cat in cats.iter_mut() {
+                            if cat.get("id").and_then(|s| s.as_str()) == Some(prev_cat.as_ref()) {
+                                if let Some(ch_ids) =
+                                    cat.get_mut("channelIds").and_then(|v| v.as_array_mut())
+                                {
+                                    ch_ids.retain(|v| v.as_str() != Some(id.as_ref()));
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+                None => {
+                    if let Some(unc) = space_val
+                        .get_mut("uncategorizedChannelIds")
+                        .and_then(|v| v.as_array_mut())
+                    {
+                        unc.retain(|v| v.as_str() != Some(id.as_ref()));
+                    }
+                }
+            }
+
+            // Add to new home.
+            match &new_category_id {
+                Some(new_cat) => {
+                    let cats = space_val
+                        .get_mut("categories")
+                        .and_then(|v| v.as_array_mut())
+                        .ok_or_else(|| {
+                            SetError::new(SetErrorType::Forbidden)
+                                .with_description("internal: Space.categories not an array")
+                        })?;
+                    for cat in cats.iter_mut() {
+                        if cat.get("id").and_then(|s| s.as_str()) == Some(new_cat.as_ref()) {
+                            let ch_ids = cat
+                                .get_mut("channelIds")
+                                .and_then(|v| v.as_array_mut())
+                                .ok_or_else(|| {
+                                SetError::new(SetErrorType::Forbidden)
+                                    .with_description("internal: Category.channelIds not an array")
+                            })?;
+                            ch_ids.push(serde_json::Value::String(id.as_ref().to_owned()));
+                            break;
+                        }
+                    }
+                }
+                None => {
+                    let unc = space_val
+                        .get_mut("uncategorizedChannelIds")
+                        .and_then(|v| v.as_array_mut())
+                        .ok_or_else(|| {
+                            SetError::new(SetErrorType::Forbidden).with_description(
+                                "internal: Space.uncategorizedChannelIds not an array",
+                            )
+                        })?;
+                    unc.push(serde_json::Value::String(id.as_ref().to_owned()));
+                }
+            }
+
+            inner
+                .objects_mut("Space", account_id)
+                .insert(space_id.clone(), space_val);
+            *space_mutated = true;
+        }
+    }
+
+    chats_updated.insert(id);
+    Ok(None)
+}
+
+/// Return every Message id whose `chatId` field equals `chat_id`.
+fn scan_messages_in_chat(inner: &Inner, account_id: &str, chat_id: &Id) -> Vec<Id> {
+    let Some(msgs) = inner.objects_ref("Message", account_id) else {
+        return Vec::new();
+    };
+    msgs.iter()
+        .filter(|(_, v)| v.get("chatId").and_then(|c| c.as_str()) == Some(chat_id.as_ref()))
+        .map(|(id, _)| id.clone())
+        .collect()
+}
+
 /// True if `chat_id` names an existing Chat with kind=channel and
 /// space_id matching `space_id`.
 fn channel_belongs_to_space(inner: &Inner, account_id: &str, chat_id: &Id, space_id: &Id) -> bool {
@@ -1061,7 +1646,9 @@ fn set_channel_category(inner: &mut Inner, account_id: &str, chat_id: &Id, new_c
 }
 
 /// Per-variant rejection text for the stubbed-out variants
-/// (Role/Member → `bd:JMAP-g7wu.2.4.3`, Channel → `bd:JMAP-g7wu.2.4.4`).
+/// (Role/Member → `bd:JMAP-g7wu.2.4.3`). Channel variants are
+/// implemented (`bd:JMAP-g7wu.2.4.4`) and never reach this helper;
+/// Category variants are likewise implemented (`bd:JMAP-g7wu.2.4.5`).
 fn stub_description(op: &SpacePatchOp) -> String {
     let (variant, bead) = match op {
         SpacePatchOp::AddRole(_)
@@ -1070,13 +1657,10 @@ fn stub_description(op: &SpacePatchOp) -> String {
         | SpacePatchOp::AddMember { .. }
         | SpacePatchOp::RemoveMember(_)
         | SpacePatchOp::UpdateMember { .. } => (variant_name(op), "JMAP-g7wu.2.4.3"),
-        SpacePatchOp::AddChannel(_)
-        | SpacePatchOp::RemoveChannel(_)
-        | SpacePatchOp::UpdateChannel { .. } => (variant_name(op), "JMAP-g7wu.2.4.4"),
-        SpacePatchOp::AddCategory(_)
-        | SpacePatchOp::RemoveCategory(_)
-        | SpacePatchOp::UpdateCategory { .. } => (variant_name(op), "JMAP-g7wu.2.4.5"),
-        // `SpacePatchOp` is `#[non_exhaustive]` upstream; fall back gracefully.
+        // `SpacePatchOp` is `#[non_exhaustive]` upstream; fall back
+        // gracefully. Channel and Category variants are routed to
+        // dedicated apply_* helpers in apply_space_patch and never reach
+        // this stub.
         _ => ("unknown", "JMAP-g7wu.2.4"),
     };
     format!("{variant} not yet implemented (tracked under bd:{bead})")
