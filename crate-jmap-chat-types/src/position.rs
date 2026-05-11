@@ -8,10 +8,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ReadPosition {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.20).
     pub id: Id,
+    /// The `chatId` property (draft-atwood-jmap-chat-00 §4.20).
     pub chat_id: Id,
+    /// The `lastReadMessageId` property (draft-atwood-jmap-chat-00 §4.20).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_read_message_id: Option<Id>,
+    /// The `lastReadAt` property (draft-atwood-jmap-chat-00 §4.20).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_read_at: Option<UTCDate>,
 }

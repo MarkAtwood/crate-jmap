@@ -11,14 +11,19 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatPushConfig {
+    /// The `kinds` property (draft-atwood-jmap-chat-push-00 §4.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kinds: Option<Vec<String>>,
+    /// The `chatIds` property (draft-atwood-jmap-chat-push-00 §4.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chat_ids: Option<Vec<Id>>,
+    /// The `properties` property (draft-atwood-jmap-chat-push-00 §4.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<Vec<String>>,
+    /// The `urgency` property (draft-atwood-jmap-chat-push-00 §4.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub urgency: Option<String>,
+    /// The `mentionUrgency` property (draft-atwood-jmap-chat-push-00 §4.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub mention_urgency: Option<String>,
 }
@@ -31,23 +36,37 @@ pub struct ChatPushConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMessageEntry {
+    /// The `messageId` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub message_id: Id,
+    /// The `chatId` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub chat_id: Id,
+    /// The `chatKind` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub chat_kind: ChatKind,
+    /// The `senderId` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub sender_id: String,
+    /// The `sentAt` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub sent_at: UTCDate,
+    /// The `hasMention` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub has_mention: bool,
+    /// The `hasMentionAll` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub has_mention_all: bool,
+    /// The `encrypted` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub encrypted: bool,
 
+    /// The `chatName` property (draft-atwood-jmap-chat-push-00 §5.2).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chat_name: Option<String>,
+    /// The `spaceId` property (draft-atwood-jmap-chat-push-00 §5.2).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<Id>,
+    /// The `spaceName` property (draft-atwood-jmap-chat-push-00 §5.2).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_name: Option<String>,
+    /// The `senderDisplayName` property (draft-atwood-jmap-chat-push-00 §5.2).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sender_display_name: Option<String>,
+    /// The `bodySnippet` property (draft-atwood-jmap-chat-push-00 §5.2).
+    ///
     /// Per spec, this field MUST be `None` when `encrypted` is `true`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub body_snippet: Option<String>,
@@ -62,8 +81,11 @@ pub struct ChatMessageEntry {
 #[serde(tag = "@type", rename = "ChatMessagePush")]
 #[serde(rename_all = "camelCase")]
 pub struct ChatMessagePush {
+    /// The `accountId` property (draft-atwood-jmap-chat-push-00 §5.1).
     pub account_id: Id,
+    /// The `state` property (draft-atwood-jmap-chat-push-00 §5.1).
     pub state: State,
+    /// The `messages` property (draft-atwood-jmap-chat-push-00 §5.1).
     pub messages: Vec<ChatMessageEntry>,
 }
 

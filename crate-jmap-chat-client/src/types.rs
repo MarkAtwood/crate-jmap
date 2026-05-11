@@ -1,7 +1,7 @@
-// JMAP Chat client-side auxiliary types.
-//
-// This module contains types used in client-facing APIs that are not part of
-// the wire-format types defined in `jmap-chat-types`.
+//! JMAP Chat client-side auxiliary types.
+//!
+//! This module contains types used in client-facing APIs that are not part of
+//! the wire-format types defined in `jmap-chat-types`.
 
 use serde::Serialize;
 
@@ -20,10 +20,15 @@ use serde::Serialize;
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum ContactPresenceFilter {
+    /// Filter to contacts currently online.
     Online,
+    /// Filter to contacts marked away.
     Away,
+    /// Filter to contacts marked busy.
     Busy,
+    /// Filter to contacts marked invisible.
     Invisible,
+    /// Filter to contacts currently offline.
     Offline,
 }
 

@@ -1,9 +1,9 @@
-// Typed JMAP Chat method wrappers — response types, Patch<T>, SessionClient,
-// input/patch structs, constants, and helpers.
-//
-// Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
-// §5.2 /changes, §5.3 /set). Method implementations live in sub-modules and
-// operate on `SessionClient`.
+//! Typed JMAP Chat method wrappers — response types, Patch<T>, SessionClient,
+//! input/patch structs, constants, and helpers.
+//!
+//! Response types mirror RFC 8620 standard shapes (§5.1 /get, §5.5 /query,
+//! §5.2 /changes, §5.3 /set). Method implementations live in sub-modules and
+//! operate on `SessionClient`.
 
 pub mod contact;
 pub mod misc;
@@ -46,9 +46,13 @@ pub use jmap_types::{
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PushSubscriptionCreateResponse {
+    /// The account this response refers to. Always `None` for `PushSubscription`
+    /// (not account-scoped); preserved as `Option<Id>` for servers that echo it.
     #[serde(default)]
     pub account_id: Option<Id>,
+    /// Successfully created subscriptions, keyed by the caller-supplied creation key.
     pub created: Option<HashMap<String, serde_json::Value>>,
+    /// Creation failures, keyed by the caller-supplied creation key.
     #[serde(default)]
     pub not_created: Option<HashMap<String, SetError>>,
 }
@@ -59,6 +63,7 @@ pub struct PushSubscriptionCreateResponse {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TypingResponse {
+    /// The account this response refers to.
     pub account_id: Id,
 }
 
@@ -66,7 +71,9 @@ pub struct TypingResponse {
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpaceJoinResponse {
+    /// The account this response refers to.
     pub account_id: Id,
+    /// The JMAP id of the Space the caller is now a member of.
     pub space_id: Id,
 }
 
@@ -103,9 +110,12 @@ pub struct SpaceJoinResponse {
 /// An absent key (via `#[serde(default)]`) produces `Keep` via `Default`.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum Patch<T> {
+    /// Omit the field from the patch — server leaves it unchanged.
     #[default]
     Keep,
+    /// Include the field with value `T`.
     Set(T),
+    /// Include the field as JSON `null` (clears the server-side value).
     Clear,
 }
 
@@ -306,9 +316,13 @@ impl SessionClient {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct ChatQueryInput {
+    /// Filter to chats of the given kind (`direct`, `group`, or `channel`).
     pub filter_kind: Option<jmap_chat_types::ChatKind>,
+    /// Filter to muted (`true`) or unmuted (`false`) chats.
     pub filter_muted: Option<bool>,
+    /// Zero-based starting offset within the query result.
     pub position: Option<u64>,
+    /// Maximum number of ids to return.
     pub limit: Option<u64>,
 }
 
@@ -316,16 +330,23 @@ pub struct ChatQueryInput {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct MessageQueryInput<'a> {
+    /// Restrict to messages in a specific Chat.
     pub chat_id: Option<&'a Id>,
+    /// Filter to messages that mention (`true`) or do not mention (`false`) the caller.
     pub has_mention: Option<bool>,
+    /// Filter to messages that carry (`true`) or do not carry (`false`) attachments.
     pub has_attachment: Option<bool>,
+    /// Full-text search query against the message body.
     pub text: Option<&'a str>,
+    /// Restrict to replies under this thread root.
     pub thread_root_id: Option<&'a Id>,
     /// Only include messages received after this time (exclusive).
     pub after: Option<&'a jmap_types::UTCDate>,
     /// Only include messages received before this time (exclusive).
     pub before: Option<&'a jmap_types::UTCDate>,
+    /// Zero-based starting offset within the query result.
     pub position: Option<u64>,
+    /// Maximum number of ids to return.
     pub limit: Option<u64>,
     /// Sort by `sentAt` ascending (oldest first) when `true`.
     /// Defaults to `false` (descending, newest first), so `position:0, limit:N`
@@ -347,12 +368,15 @@ impl<'a> MessageQueryInput<'a> {
 pub struct MessageCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
+    /// The Chat this message belongs to.
     pub chat_id: &'a Id,
+    /// Message body text (interpreted per `body_type`).
     pub body: &'a str,
     /// MIME type for the message body.
     pub body_type: crate::types::BodyType,
     /// RFC 3339 timestamp.
     pub sent_at: &'a jmap_types::UTCDate,
+    /// When `Some`, marks this message as a reply to the given message id.
     pub reply_to: Option<&'a Id>,
 }
 
@@ -397,12 +421,18 @@ impl<'a> MessageCreateInput<'a> {
 pub enum ReactionChange<'a> {
     /// Add a reaction. Patch value: `{emoji, sentAt}`.
     Add {
+        /// Caller-generated id (e.g. ULID) identifying this reaction slot.
         sender_reaction_id: &'a str,
+        /// Emoji shortcode or Unicode emoji to react with.
         emoji: &'a str,
+        /// RFC 3339 timestamp when the reaction was made.
         sent_at: &'a jmap_types::UTCDate,
     },
     /// Remove a reaction. Patch value: null.
-    Remove { sender_reaction_id: &'a str },
+    Remove {
+        /// Caller-generated id identifying the reaction slot to remove.
+        sender_reaction_id: &'a str,
+    },
 }
 
 /// Patch parameters for `Message/set` update.
@@ -439,11 +469,15 @@ pub struct MessagePatch<'a> {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct PresenceStatusPatch<'a> {
+    /// New presence state. `None` = no change.
     pub presence: Option<jmap_chat_types::Presence>,
+    /// Free-text status message. [`Patch::Clear`] clears; [`Patch::Set`] sets.
     pub status_text: Patch<&'a str>,
+    /// Status emoji. [`Patch::Clear`] clears; [`Patch::Set`] sets.
     pub status_emoji: Patch<&'a str>,
     /// Set or clear the auto-clear deadline. `Patch::Clear` removes any deadline.
     pub expires_at: Patch<&'a jmap_types::UTCDate>,
+    /// Whether read receipts are shared with peers. `None` = no change.
     pub receipt_sharing: Option<bool>,
 }
 
@@ -454,7 +488,9 @@ pub struct CustomEmojiQueryInput<'a> {
     /// Filter to a specific Space's custom emojis. `None` returns all emojis
     /// visible to the account (Space-specific + server-global).
     pub filter_space_id: Option<&'a Id>,
+    /// Zero-based starting offset within the query result.
     pub position: Option<u64>,
+    /// Maximum number of ids to return.
     pub limit: Option<u64>,
 }
 
@@ -496,9 +532,13 @@ impl<'a> CustomEmojiCreateInput<'a> {
 pub struct SpaceInviteCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
+    /// The Space this invite grants access to.
     pub space_id: &'a Id,
+    /// Channel that joining members land in by default. `None` lets the server choose.
     pub default_channel_id: Option<&'a Id>,
+    /// Optional expiry time after which the invite is no longer redeemable.
     pub expires_at: Option<&'a jmap_types::UTCDate>,
+    /// Maximum number of times the invite may be redeemed.
     pub max_uses: Option<u64>,
 }
 
@@ -533,10 +573,13 @@ impl<'a> SpaceInviteCreateInput<'a> {
 pub struct SpaceBanCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
+    /// The Space this ban applies to.
     pub space_id: &'a Id,
     /// ChatContact.id of the user to ban.
     pub user_id: &'a Id,
+    /// Optional human-readable reason for the ban.
     pub reason: Option<&'a str>,
+    /// Optional expiry time after which the ban is automatically lifted.
     pub expires_at: Option<&'a jmap_types::UTCDate>,
 }
 
@@ -567,6 +610,7 @@ impl<'a> SpaceBanCreateInput<'a> {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct ChatContactPatch<'a> {
+    /// Set or unset the blocked flag on this contact. `None` = no change.
     pub blocked: Option<bool>,
     /// `Patch::Clear` clears `displayName`; `Patch::Set(s)` sets it.
     pub display_name: Patch<&'a str>,
@@ -577,8 +621,11 @@ pub struct ChatContactPatch<'a> {
 #[derive(Debug, Clone, PartialEq, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum ContactSortProperty {
+    /// Sort by the contact's `lastSeenAt` timestamp.
     LastSeenAt,
+    /// Sort by the contact's `login` identifier.
     Login,
+    /// Sort by the contact's `lastActiveAt` timestamp.
     LastActiveAt,
 }
 
@@ -588,10 +635,13 @@ pub enum ContactSortProperty {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct ChatContactQueryInput {
+    /// Filter to blocked (`true`) or non-blocked (`false`) contacts.
     pub filter_blocked: Option<bool>,
     /// Filter to contacts with this exact presence state.
     pub filter_presence: Option<crate::types::ContactPresenceFilter>,
+    /// Zero-based starting offset within the query result.
     pub position: Option<u64>,
+    /// Maximum number of ids to return.
     pub limit: Option<u64>,
     /// Sort property.
     pub sort_property: Option<ContactSortProperty>,
@@ -607,7 +657,9 @@ pub struct SpaceCreateInput<'a> {
     pub client_id: Option<&'a str>,
     /// Display name for the Space.
     pub name: &'a str,
+    /// Optional human-readable description.
     pub description: Option<&'a str>,
+    /// Optional blob id of an already-uploaded icon image.
     pub icon_blob_id: Option<&'a Id>,
 }
 
@@ -635,8 +687,11 @@ impl<'a> SpaceCreateInput<'a> {
 pub struct SpaceQueryInput<'a> {
     /// Filter by substring match on Space name.
     pub filter_name: Option<&'a str>,
+    /// Filter to public (`true`) or non-public (`false`) Spaces.
     pub filter_is_public: Option<bool>,
+    /// Zero-based starting offset within the query result.
     pub position: Option<u64>,
+    /// Maximum number of ids to return.
     pub limit: Option<u64>,
 }
 
@@ -716,8 +771,11 @@ pub enum ChatCreateInput<'a> {
         name: &'a str,
         /// ChatContact.ids of initial non-owner members.
         member_ids: &'a [Id],
+        /// Optional human-readable description.
         description: Option<&'a str>,
+        /// Blob id of an already-uploaded avatar image, if any.
         avatar_blob_id: Option<&'a Id>,
+        /// Optional auto-expiry interval applied to new messages.
         message_expiry_seconds: Option<u64>,
     },
     /// Create a channel chat inside a Space.
@@ -728,6 +786,7 @@ pub enum ChatCreateInput<'a> {
         space_id: &'a Id,
         /// Display name for the channel.
         name: &'a str,
+        /// Optional channel description / topic.
         description: Option<&'a str>,
     },
 }
@@ -743,14 +802,17 @@ pub enum ChatCreateInput<'a> {
 #[non_exhaustive]
 #[derive(Debug, Default)]
 pub struct ChatPatch<'a> {
+    /// Mute or unmute this chat. `None` = no change.
     pub muted: Option<bool>,
     /// `Patch::Clear` clears `muteUntil`; `Patch::Set(t)` sets it.
     pub mute_until: Patch<&'a jmap_types::UTCDate>,
+    /// Whether typing indicators from peers are surfaced to the caller. `None` = no change.
     pub receive_typing_indicators: Option<bool>,
     /// Replace the entire pinned-message list. `Some(&[])` clears all pins.
     pub pinned_message_ids: Option<&'a [Id]>,
     /// Spec defines this as `UnsignedInt` (non-nullable).
     pub message_expiry_seconds: Option<u64>,
+    /// Whether read receipts are shared with peers. `None` = no change.
     pub receipt_sharing: Option<bool>,
     /// New display name (group chats, admin only).
     pub name: Option<&'a str>,
@@ -789,6 +851,7 @@ impl<'a> SpaceAddMemberInput<'a> {
 pub struct SpaceUpdateMemberInput<'a> {
     /// ChatContact.id of the member to update.
     pub id: &'a Id,
+    /// Replace the member's SpaceRole.id list. `None` = no change.
     pub role_ids: Option<&'a [Id]>,
     /// `Patch::Clear` clears the nick; `Patch::Set(s)` sets it.
     pub nick: Patch<&'a str>,
@@ -809,9 +872,13 @@ impl<'a> SpaceUpdateMemberInput<'a> {
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct SpaceAddChannelInput<'a> {
+    /// Channel display name.
     pub name: &'a str,
+    /// Optional parent category id. `None` places the channel in `uncategorizedChannelIds`.
     pub category_id: Option<&'a Id>,
+    /// Optional position within the category.
     pub position: Option<u64>,
+    /// Optional channel topic.
     pub topic: Option<&'a str>,
 }
 
@@ -1011,7 +1078,9 @@ pub struct SpacePatch<'a> {
     pub description: Patch<&'a str>,
     /// `Patch::Clear` clears; `Patch::Set(id)` sets.
     pub icon_blob_id: Patch<&'a Id>,
+    /// Toggle public-Space visibility. `None` = no change.
     pub is_public: Option<bool>,
+    /// Toggle whether a public Space is previewable to non-members. `None` = no change.
     pub is_publicly_previewable: Option<bool>,
     /// Members to add (`manage_members` required). `None` = no change.
     pub add_members: Option<&'a [SpaceAddMemberInput<'a>]>,

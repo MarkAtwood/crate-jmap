@@ -1,3 +1,7 @@
+//! JMAP Chat — ChatContact/* method implementations on SessionClient.
+//!
+//! Spec: JMAP Chat draft §5 (ChatContact/get, /changes, /set, /query, /queryChanges).
+
 use jmap_types::{Id, PatchObject, State};
 
 use super::{

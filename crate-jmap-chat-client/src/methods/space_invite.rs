@@ -1,3 +1,7 @@
+//! JMAP Chat — SpaceInvite/* method implementations on SessionClient.
+//!
+//! Spec: JMAP Chat draft §4.17 (SpaceInvite/get, /changes, /set).
+
 use jmap_types::{Id, State};
 
 use super::{ChangesResponse, GetResponse, SetResponse, SpaceInviteCreateInput};

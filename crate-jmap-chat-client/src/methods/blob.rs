@@ -1,8 +1,8 @@
-// Blob/lookup and Blob/convert — urn:ietf:params:jmap:blob2
-//
-// Spec: draft-ietf-jmap-blobext-01 §6 (Blob/lookup), §8 (Blob/convert)
-//
-// These methods use the blob2 capability, NOT USING_CHAT.
+//! Blob/lookup and Blob/convert — urn:ietf:params:jmap:blob2
+//!
+//! Spec: draft-ietf-jmap-blobext-01 §6 (Blob/lookup), §8 (Blob/convert)
+//!
+//! These methods use the blob2 capability, NOT USING_CHAT.
 
 use std::collections::HashMap;
 

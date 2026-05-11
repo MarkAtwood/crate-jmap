@@ -8,11 +8,18 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CustomEmoji {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.17).
     pub id: Id,
+    /// The `name` property (draft-atwood-jmap-chat-00 §4.17).
     pub name: String,
+    /// The `blobId` property (draft-atwood-jmap-chat-00 §4.17).
     pub blob_id: Id,
+    /// The `createdBy` property (draft-atwood-jmap-chat-00 §4.17).
     pub created_by: Id,
+    /// The `createdAt` property (draft-atwood-jmap-chat-00 §4.17).
     pub created_at: UTCDate,
+    /// The `spaceId` property (draft-atwood-jmap-chat-00 §4.17).
+    ///
     /// If absent, the emoji is server-global; if present, scoped to that Space.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub space_id: Option<Id>,

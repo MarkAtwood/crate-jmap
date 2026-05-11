@@ -73,7 +73,9 @@ pub enum ChatSseEvent {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct ChatSseFrame {
+    /// The parsed event payload.
     pub event: ChatSseEvent,
+    /// The value of the SSE `id:` line, if any (used for `Last-Event-ID` on reconnect).
     pub id: Option<String>,
 }
 

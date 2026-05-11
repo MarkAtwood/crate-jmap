@@ -8,11 +8,16 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpaceRole {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.12).
     pub id: Id,
+    /// The `name` property (draft-atwood-jmap-chat-00 §4.12).
     pub name: String,
+    /// The `color` property (draft-atwood-jmap-chat-00 §4.12).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
+    /// The `permissions` property (draft-atwood-jmap-chat-00 §4.12).
     pub permissions: Vec<String>,
+    /// The `position` property (draft-atwood-jmap-chat-00 §4.12).
     pub position: u64,
 }
 
@@ -21,10 +26,14 @@ pub struct SpaceRole {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpaceMember {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.13).
     pub id: Id,
+    /// The `roleIds` property (draft-atwood-jmap-chat-00 §4.13).
     pub role_ids: Vec<Id>,
+    /// The `nick` property (draft-atwood-jmap-chat-00 §4.13).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub nick: Option<String>,
+    /// The `joinedAt` property (draft-atwood-jmap-chat-00 §4.13).
     pub joined_at: UTCDate,
 }
 
@@ -33,9 +42,13 @@ pub struct SpaceMember {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Category {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.14).
     pub id: Id,
+    /// The `name` property (draft-atwood-jmap-chat-00 §4.14).
     pub name: String,
+    /// The `position` property (draft-atwood-jmap-chat-00 §4.14).
     pub position: u64,
+    /// The `channelIds` property (draft-atwood-jmap-chat-00 §4.14).
     pub channel_ids: Vec<Id>,
 }
 
@@ -44,19 +57,31 @@ pub struct Category {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Space {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.16).
     pub id: Id,
+    /// The `name` property (draft-atwood-jmap-chat-00 §4.16).
     pub name: String,
+    /// The `description` property (draft-atwood-jmap-chat-00 §4.16).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub description: Option<String>,
+    /// The `iconBlobId` property (draft-atwood-jmap-chat-00 §4.16).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub icon_blob_id: Option<Id>,
+    /// The `roles` property (draft-atwood-jmap-chat-00 §4.16).
     pub roles: Vec<SpaceRole>,
+    /// The `members` property (draft-atwood-jmap-chat-00 §4.16).
     pub members: Vec<SpaceMember>,
+    /// The `categories` property (draft-atwood-jmap-chat-00 §4.16).
     pub categories: Vec<Category>,
+    /// The `uncategorizedChannelIds` property (draft-atwood-jmap-chat-00 §4.16).
     pub uncategorized_channel_ids: Vec<Id>,
+    /// The `createdAt` property (draft-atwood-jmap-chat-00 §4.16).
     pub created_at: UTCDate,
+    /// The `isPublic` property (draft-atwood-jmap-chat-00 §4.16).
     pub is_public: bool,
+    /// The `isPubliclyPreviewable` property (draft-atwood-jmap-chat-00 §4.16).
     pub is_publicly_previewable: bool,
+    /// The `memberCount` property (draft-atwood-jmap-chat-00 §4.16).
     pub member_count: u64,
 }
 
@@ -65,16 +90,25 @@ pub struct Space {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpaceInvite {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.18).
     pub id: Id,
+    /// The `code` property (draft-atwood-jmap-chat-00 §4.18).
     pub code: String,
+    /// The `spaceId` property (draft-atwood-jmap-chat-00 §4.18).
     pub space_id: Id,
+    /// The `createdBy` property (draft-atwood-jmap-chat-00 §4.18).
     pub created_by: Id,
+    /// The `uses` property (draft-atwood-jmap-chat-00 §4.18).
     pub uses: u64,
+    /// The `createdAt` property (draft-atwood-jmap-chat-00 §4.18).
     pub created_at: UTCDate,
+    /// The `defaultChannelId` property (draft-atwood-jmap-chat-00 §4.18).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub default_channel_id: Option<Id>,
+    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §4.18).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
+    /// The `maxUses` property (draft-atwood-jmap-chat-00 §4.18).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_uses: Option<u64>,
 }
@@ -114,13 +148,20 @@ impl SpaceInvite {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpaceBan {
+    /// The `id` property (draft-atwood-jmap-chat-00 §4.19).
     pub id: Id,
+    /// The `spaceId` property (draft-atwood-jmap-chat-00 §4.19).
     pub space_id: Id,
+    /// The `userId` property (draft-atwood-jmap-chat-00 §4.19).
     pub user_id: Id,
+    /// The `bannedBy` property (draft-atwood-jmap-chat-00 §4.19).
     pub banned_by: Id,
+    /// The `createdAt` property (draft-atwood-jmap-chat-00 §4.19).
     pub created_at: UTCDate,
+    /// The `reason` property (draft-atwood-jmap-chat-00 §4.19).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reason: Option<String>,
+    /// The `expiresAt` property (draft-atwood-jmap-chat-00 §4.19).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
 }

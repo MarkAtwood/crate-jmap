@@ -82,12 +82,16 @@ pub struct ChatPresenceEvent {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "@type")]
 pub enum EphemeralMessage {
+    /// The `ChatStreamEnable` message (draft-atwood-jmap-chat-wss-00 §7.1).
     #[serde(rename = "ChatStreamEnable")]
     Enable(ChatStreamEnable),
+    /// The `ChatStreamDisable` message (draft-atwood-jmap-chat-wss-00 §7.2).
     #[serde(rename = "ChatStreamDisable")]
     Disable(ChatStreamDisable),
+    /// The `ChatTypingEvent` message (draft-atwood-jmap-chat-wss-00 §7.3).
     #[serde(rename = "ChatTypingEvent")]
     Typing(ChatTypingEvent),
+    /// The `ChatPresenceEvent` message (draft-atwood-jmap-chat-wss-00 §7.4).
     #[serde(rename = "ChatPresenceEvent")]
     Presence(ChatPresenceEvent),
     /// Any `@type` not recognized by this version of the library.

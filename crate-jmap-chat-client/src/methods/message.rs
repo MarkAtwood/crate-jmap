@@ -1,15 +1,15 @@
-// JMAP Chat — Message/* method implementations on SessionClient.
-//
-// Each method follows the standard five-step pattern:
-//   1. Validate arguments (defence-in-depth empty-state guards).
-//   2. Call `self.session_parts()?` → `(api_url, account_id)`.
-//   3. Build args JSON with `serde_json::json!({…})`.
-//   4. Call `build_request(method_name, args, USING_CHAT)`.
-//   5. Call `self.call_internal(api_url, &req).await?`.
-//   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
-//
-// SPECIAL: `message_create` additionally inspects `SetResponse.not_created` for
-// `error_type == "rateLimited"` and surfaces it as `ClientError::RateLimited`.
+//! JMAP Chat — Message/* method implementations on SessionClient.
+//!
+//! Each method follows the standard five-step pattern:
+//!   1. Validate arguments (defence-in-depth empty-state guards).
+//!   2. Call `self.session_parts()?` → `(api_url, account_id)`.
+//!   3. Build args JSON with `serde_json::json!({…})`.
+//!   4. Call `build_request(method_name, args, USING_CHAT)`.
+//!   5. Call `self.call_internal(api_url, &req).await?`.
+//!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
+//!
+//! SPECIAL: `message_create` additionally inspects `SetResponse.not_created` for
+//! `error_type == "rateLimited"` and surfaces it as `ClientError::RateLimited`.
 
 use jmap_types::{Id, PatchObject, State};
 

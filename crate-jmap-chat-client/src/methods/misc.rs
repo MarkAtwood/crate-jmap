@@ -1,3 +1,9 @@
+//! Miscellaneous JMAP Chat method implementations on SessionClient.
+//!
+//! Covers the smaller object surfaces — `ReadPosition/*`, `PresenceStatus/*`,
+//! and `PushSubscription/*` (RFC 8620 §7.2 plus the JMAP Chat Push extension,
+//! draft-atwood-jmap-chat-push-00).
+
 use jmap_types::{Id, PatchObject, State};
 
 use super::{

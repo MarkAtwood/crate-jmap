@@ -1,9 +1,9 @@
-// Quota/get — urn:ietf:params:jmap:quota
-//
-// Retrieves storage quota information from the server.  Only call when
-// `ChatSessionExt::supports_quotas()` returns true.
-//
-// Spec: RFC 8621 §2
+//! Quota/get — urn:ietf:params:jmap:quota
+//!
+//! Retrieves storage quota information from the server.  Only call when
+//! `ChatSessionExt::supports_quotas()` returns true.
+//!
+//! Spec: RFC 8621 §2
 
 use serde::Deserialize;
 
