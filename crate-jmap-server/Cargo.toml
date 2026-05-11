@@ -19,3 +19,16 @@ tokio = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# Statistics-driven micro-benchmarking. Used for `cargo bench` targets under
+# `benches/` only — not a runtime dep. Pinned to a major version so the bench
+# wiring is reproducible across the workspace as siblings adopt the same
+# pattern (bd:JMAP-sc1b.18).
+criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+
+# Each benchmark target in `benches/` needs an explicit `[[bench]]` entry so
+# `cargo bench` discovers it and disables libtest's default harness for the
+# file (criterion supplies its own).
+
+[[bench]]
+name = "dispatcher"
+harness = false
