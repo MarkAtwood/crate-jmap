@@ -3,7 +3,7 @@
 //! Retrieves storage quota information from the server.  Only call when
 //! `ChatSessionExt::supports_quotas()` returns true.
 //!
-//! Spec: RFC 8621 §2
+//! Spec: RFC 9425
 
 use serde::Deserialize;
 
@@ -11,7 +11,7 @@ use jmap_types::{Id, State};
 
 use super::{ChangesResponse, GetResponse};
 
-/// A single JMAP Quota object (RFC 8621 §2).
+/// A single JMAP Quota object (RFC 9425 §4).
 ///
 /// Describes a storage limit that applies to one or more data types within
 /// a given scope.  Poll with [`SessionClient::quota_get`] to display storage
@@ -53,7 +53,7 @@ pub struct Quota {
 }
 
 impl super::SessionClient {
-    /// Fetch all Quota objects for the account (RFC 8621 §2.1 Quota/get).
+    /// Fetch all Quota objects for the account (RFC 9425 §4.2 Quota/get).
     ///
     /// Returns all quota records for the primary JMAP Chat account.  Each
     /// [`Quota`] includes `used`, `hard_limit`, and optional `warn_limit` fields
@@ -136,7 +136,7 @@ mod tests {
     //
     // The test deserialises wire JSON containing a synthetic `acmeCorp*`
     // vendor field and asserts it survives in `extra`. The vendor field
-    // name cannot collide with any field defined in RFC 8621 §2, so the
+    // name cannot collide with any field defined in RFC 9425 §4, so the
     // test is independent of the code under test (workspace
     // test-integrity rule).
 
