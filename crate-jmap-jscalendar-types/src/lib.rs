@@ -30,7 +30,7 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{impl_string_enum, Id, PatchObject, UTCDate};
+use jmap_types::{Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
 // ── Scalar wrappers ───────────────────────────────────────────────────────────
@@ -111,243 +111,6 @@ impl AsRef<str> for SignedDuration {
     }
 }
 
-// ── Enumerated-string types ──────────────────────────────────────────────────
-//
-// RFC 8984 enumerates a closed (or vendor-extensible) set of string values
-// for several fields. These are modelled as `#[non_exhaustive] enum` types
-// with an `Other(String)` catch-all that preserves any unrecognised wire
-// value for round-trip fidelity, per the workspace extras-preservation
-// policy (see workspace `AGENTS.md`).
-
-/// A day of the week (RFC 8984 §4.3.3).
-///
-/// The seven canonical lowercase two-letter abbreviations from the
-/// iCalendar BYDAY part. Used for both [`NDay::day`] and
-/// [`RecurrenceRule::first_day_of_week`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum Weekday {
-    /// Monday (`"mo"`).
-    Monday,
-    /// Tuesday (`"tu"`).
-    Tuesday,
-    /// Wednesday (`"we"`).
-    Wednesday,
-    /// Thursday (`"th"`).
-    Thursday,
-    /// Friday (`"fr"`).
-    Friday,
-    /// Saturday (`"sa"`).
-    Saturday,
-    /// Sunday (`"su"`).
-    Sunday,
-    /// Any day string not recognised by this implementation. RFC 8984 §4.3.3
-    /// defines a closed set, but `Other` is kept for forward-compatibility
-    /// and lossless round-trip of unexpected wire values.
-    Other(String),
-}
-
-impl_string_enum!(Weekday, "a JSCalendar weekday string",
-    "mo" => Monday,
-    "tu" => Tuesday,
-    "we" => Wednesday,
-    "th" => Thursday,
-    "fr" => Friday,
-    "sa" => Saturday,
-    "su" => Sunday,
-);
-
-/// Recurrence frequency (RFC 8984 §4.3.3).
-///
-/// The seven canonical lowercase frequency values from the iCalendar FREQ
-/// part. Used for [`RecurrenceRule::frequency`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum Frequency {
-    /// `"yearly"`.
-    Yearly,
-    /// `"monthly"`.
-    Monthly,
-    /// `"weekly"`.
-    Weekly,
-    /// `"daily"`.
-    Daily,
-    /// `"hourly"`.
-    Hourly,
-    /// `"minutely"`.
-    Minutely,
-    /// `"secondly"`.
-    Secondly,
-    /// Any frequency string not recognised by this implementation. RFC 8984
-    /// §4.3.3 defines a closed set, but `Other` is kept for
-    /// forward-compatibility and lossless round-trip of unexpected wire values.
-    Other(String),
-}
-
-impl_string_enum!(Frequency, "a JSCalendar RecurrenceRule frequency string",
-    "yearly"   => Yearly,
-    "monthly"  => Monthly,
-    "weekly"   => Weekly,
-    "daily"    => Daily,
-    "hourly"   => Hourly,
-    "minutely" => Minutely,
-    "secondly" => Secondly,
-);
-
-/// Behaviour when a recurrence rule produces an invalid date (RFC 8984 §4.3.3).
-///
-/// Maps to the iCalendar RSCALE SKIP part. Only meaningful when the rule's
-/// frequency is `"yearly"` or `"monthly"`. Used for [`RecurrenceRule::skip`].
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum RecurrenceSkip {
-    /// Omit invalid dates from the expansion (`"omit"`).
-    Omit,
-    /// Move invalid dates backward to the previous valid date (`"backward"`).
-    Backward,
-    /// Move invalid dates forward to the next valid date (`"forward"`).
-    Forward,
-    /// Any skip mode not recognised by this implementation. RFC 8984 §4.3.3
-    /// defines a closed set, but `Other` is kept for forward-compatibility
-    /// and lossless round-trip of unexpected wire values.
-    Other(String),
-}
-
-impl_string_enum!(RecurrenceSkip, "a JSCalendar RecurrenceRule skip mode string",
-    "omit"     => Omit,
-    "backward" => Backward,
-    "forward"  => Forward,
-);
-
-/// Relation of a sub-object to the event/task time (RFC 8984 §4.2.5, §4.5.2).
-///
-/// Used by [`Location::relative_to`] (to associate a physical location with
-/// the start or end of an event) and [`OffsetTrigger::relative_to`] (to anchor
-/// an alert offset to the start or end of the calendar object).
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum RelativeTo {
-    /// Relative to the start of the calendar object (`"start"`).
-    Start,
-    /// Relative to the end/due time of the calendar object (`"end"`).
-    End,
-    /// Any relativeTo value not recognised by this implementation. RFC 8984
-    /// §4.2.5 permits IANA-registered or vendor-specific values; `Other`
-    /// preserves those for round-trip fidelity. RFC 8984 §4.5.2 defines a
-    /// closed set for OffsetTrigger but `Other` is kept for
-    /// forward-compatibility.
-    Other(String),
-}
-
-impl_string_enum!(RelativeTo, "a JSCalendar relativeTo string",
-    "start" => Start,
-    "end"   => End,
-);
-
-/// Kind of participant (RFC 8984 §4.4.6).
-///
-/// Used for [`Participant::kind`]. The spec permits IANA-registered or
-/// vendor-specific values; unrecognised values land in `Other` and are
-/// preserved for round-trip.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum ParticipantKind {
-    /// A single person (`"individual"`).
-    Individual,
-    /// A collection of people invited as a whole (`"group"`).
-    Group,
-    /// A physical location that needs to be scheduled (`"location"`).
-    Location,
-    /// A non-human resource other than a location, e.g. a projector
-    /// (`"resource"`).
-    Resource,
-    /// Any participant kind not recognised by this implementation.
-    Other(String),
-}
-
-impl_string_enum!(ParticipantKind, "a JSCalendar Participant kind string",
-    "individual" => Individual,
-    "group"      => Group,
-    "location"   => Location,
-    "resource"   => Resource,
-);
-
-/// Participation status of a participant in an event/task (RFC 8984 §4.4.6).
-///
-/// Used for [`Participant::participation_status`]. The spec permits
-/// IANA-registered or vendor-specific values; unrecognised values land in
-/// `Other` and are preserved for round-trip.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum ParticipationStatus {
-    /// No status has yet been set by the participant (`"needs-action"`).
-    NeedsAction,
-    /// The invited participant will participate (`"accepted"`).
-    Accepted,
-    /// The invited participant will not participate (`"declined"`).
-    Declined,
-    /// The invited participant may participate (`"tentative"`).
-    Tentative,
-    /// The invited participant has delegated their attendance to another
-    /// participant (`"delegated"`).
-    Delegated,
-    /// Any participation status not recognised by this implementation.
-    Other(String),
-}
-
-impl_string_enum!(ParticipationStatus, "a JSCalendar Participant participationStatus string",
-    "needs-action" => NeedsAction,
-    "accepted"     => Accepted,
-    "declined"     => Declined,
-    "tentative"    => Tentative,
-    "delegated"    => Delegated,
-);
-
-/// Who is responsible for sending scheduling messages (RFC 8984 §4.4.6).
-///
-/// Used for [`Participant::schedule_agent`]. The spec permits
-/// IANA-registered or vendor-specific values; unrecognised values land in
-/// `Other` and are preserved for round-trip.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum ScheduleAgent {
-    /// The calendar server will send the scheduling messages (`"server"`).
-    Server,
-    /// The calendar client will send the scheduling messages (`"client"`).
-    Client,
-    /// No scheduling messages are to be sent to this participant (`"none"`).
-    None,
-    /// Any scheduling agent value not recognised by this implementation.
-    Other(String),
-}
-
-impl_string_enum!(ScheduleAgent, "a JSCalendar Participant scheduleAgent string",
-    "server" => Server,
-    "client" => Client,
-    "none"   => None,
-);
-
-/// How to present an alert (RFC 8984 §4.5.2).
-///
-/// Used for [`Alert::action`]. The spec permits IANA-registered or
-/// vendor-specific values; unrecognised values land in `Other` and are
-/// preserved for round-trip.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum AlertAction {
-    /// Display the alert on the user's device (`"display"`).
-    Display,
-    /// Send an email notification (`"email"`).
-    Email,
-    /// Any alert action not recognised by this implementation.
-    Other(String),
-}
-
-impl_string_enum!(AlertAction, "a JSCalendar Alert action string",
-    "display" => Display,
-    "email"   => Email,
-);
-
 // ── RecurrenceRule ────────────────────────────────────────────────────────────
 
 /// The `nthOfPeriod` field of an [`NDay`] entry (RFC 8984 §4.3.3).
@@ -359,8 +122,8 @@ pub struct NDay {
     #[serde(rename = "@type")]
     pub at_type: String,
 
-    /// Day of the week. See [`Weekday`] for the seven canonical values.
-    pub day: Weekday,
+    /// Day of the week: `"mo"`, `"tu"`, `"we"`, `"th"`, `"fr"`, `"sa"`, `"su"`.
+    pub day: String,
 
     /// Which occurrence within the period (non-zero integer), or `null`.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -386,8 +149,9 @@ pub struct RecurrenceRule {
     #[serde(rename = "@type")]
     pub at_type: String,
 
-    /// Recurrence frequency. See [`Frequency`] for the seven canonical values.
-    pub frequency: Frequency,
+    /// Recurrence frequency: `"yearly"`, `"monthly"`, `"weekly"`, `"daily"`,
+    /// `"hourly"`, `"minutely"`, or `"secondly"`.
+    pub frequency: String,
 
     /// Interval between recurrences (≥ 1; default 1).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -397,14 +161,13 @@ pub struct RecurrenceRule {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rscale: Option<String>,
 
-    /// How to handle skipped dates. See [`RecurrenceSkip`] for the canonical
-    /// values; defaults to [`RecurrenceSkip::Omit`] when absent.
+    /// How to handle skipped dates: `"omit"`, `"backward"`, `"forward"`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub skip: Option<RecurrenceSkip>,
+    pub skip: Option<String>,
 
-    /// First day of week (default [`Weekday::Monday`]).
+    /// First day of week (default `"mo"`): `"mo"`–`"su"`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub first_day_of_week: Option<Weekday>,
+    pub first_day_of_week: Option<String>,
 
     /// Specific days within the frequency period.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -482,10 +245,9 @@ pub struct Location {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub location_types: Option<HashMap<String, bool>>,
 
-    /// Relation of this location to the event. See [`RelativeTo`] for the
-    /// canonical values.
+    /// Relation of this location to the event: `"start"` or `"end"`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub relative_to: Option<RelativeTo>,
+    pub relative_to: Option<String>,
 
     /// IANA time zone id for this location.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -658,9 +420,9 @@ pub struct Participant {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub send_to: Option<HashMap<String, String>>,
 
-    /// Kind of participant. See [`ParticipantKind`] for the canonical values.
+    /// Kind of participant: `"individual"`, `"group"`, `"location"`, `"resource"`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kind: Option<ParticipantKind>,
+    pub kind: Option<String>,
 
     /// Map of role URIs → `true` (e.g. `"owner"`, `"attendee"`, `"chair"`).
     pub roles: HashMap<String, bool>,
@@ -673,10 +435,9 @@ pub struct Participant {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
 
-    /// Participation status. See [`ParticipationStatus`] for the canonical
-    /// values; defaults to [`ParticipationStatus::NeedsAction`] when absent.
+    /// Participation status (default `"needs-action"`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub participation_status: Option<ParticipationStatus>,
+    pub participation_status: Option<String>,
 
     /// Free-form comment on participation.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -686,10 +447,9 @@ pub struct Participant {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expect_reply: Option<bool>,
 
-    /// Scheduling agent. See [`ScheduleAgent`] for the canonical values;
-    /// defaults to [`ScheduleAgent::Server`] when absent.
+    /// Scheduling agent: `"server"`, `"client"`, or `"none"` (default `"server"`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub schedule_agent: Option<ScheduleAgent>,
+    pub schedule_agent: Option<String>,
 
     /// iTIP scheduling address URI for this participant.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -761,10 +521,10 @@ pub struct OffsetTrigger {
     /// Duration offset from `relative_to`.
     pub offset: SignedDuration,
 
-    /// Whether to measure from start or end of the event. See [`RelativeTo`]
-    /// for the canonical values; defaults to [`RelativeTo::Start`] when absent.
+    /// Whether to measure from `"start"` or `"end"` of the event.
+    /// Default is `"start"`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub relative_to: Option<RelativeTo>,
+    pub relative_to: Option<String>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -871,10 +631,9 @@ pub struct Alert {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub related_to: Option<HashMap<String, Relation>>,
 
-    /// How to present the alert. See [`AlertAction`] for the canonical values;
-    /// defaults to [`AlertAction::Display`] when absent.
+    /// How to present the alert: `"display"` or `"email"` (default `"display"`).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub action: Option<AlertAction>,
+    pub action: Option<String>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -1386,267 +1145,5 @@ mod tests {
                 "PatchObject value MUST be empty per RFC 8984 §4.7.2"
             );
         }
-    }
-
-    // ── Enumerated-string round-trip tests (JMAP-sc1b.77) ────────────────
-    //
-    // Each enum gets two oracles: (1) every known variant deserializes from
-    // its canonical wire string and re-serializes to the same string, and
-    // (2) an unrecognised wire value round-trips losslessly through the
-    // `Other(String)` catch-all. The oracles are the spec-mandated literal
-    // wire strings — never the code under test.
-
-    /// Oracle: every `Weekday` variant maps to the RFC 8984 §4.3.3
-    /// lowercase two-letter day code, and an unknown day round-trips as
-    /// `Other`.
-    #[test]
-    fn weekday_known_variants_round_trip() {
-        let cases = [
-            (r#""mo""#, Weekday::Monday),
-            (r#""tu""#, Weekday::Tuesday),
-            (r#""we""#, Weekday::Wednesday),
-            (r#""th""#, Weekday::Thursday),
-            (r#""fr""#, Weekday::Friday),
-            (r#""sa""#, Weekday::Saturday),
-            (r#""su""#, Weekday::Sunday),
-        ];
-        for (wire, expected) in cases {
-            let got: Weekday = serde_json::from_str(wire).expect("weekday deserialize");
-            assert_eq!(got, expected);
-            assert_eq!(serde_json::to_string(&got).unwrap(), wire);
-        }
-    }
-
-    #[test]
-    fn weekday_unknown_round_trips_via_other() {
-        let raw = r#""xx""#;
-        let got: Weekday = serde_json::from_str(raw).expect("unknown weekday deserialize");
-        assert_eq!(got, Weekday::Other("xx".to_owned()));
-        assert_eq!(serde_json::to_string(&got).unwrap(), raw);
-    }
-
-    /// Oracle: every `Frequency` variant maps to the RFC 8984 §4.3.3
-    /// canonical lowercase token; unknown frequencies round-trip via `Other`.
-    #[test]
-    fn frequency_known_variants_round_trip() {
-        let cases = [
-            (r#""yearly""#, Frequency::Yearly),
-            (r#""monthly""#, Frequency::Monthly),
-            (r#""weekly""#, Frequency::Weekly),
-            (r#""daily""#, Frequency::Daily),
-            (r#""hourly""#, Frequency::Hourly),
-            (r#""minutely""#, Frequency::Minutely),
-            (r#""secondly""#, Frequency::Secondly),
-        ];
-        for (wire, expected) in cases {
-            let got: Frequency = serde_json::from_str(wire).expect("frequency deserialize");
-            assert_eq!(got, expected);
-            assert_eq!(serde_json::to_string(&got).unwrap(), wire);
-        }
-    }
-
-    #[test]
-    fn frequency_unknown_round_trips_via_other() {
-        let raw = r#""quarterly""#;
-        let got: Frequency = serde_json::from_str(raw).expect("unknown frequency deserialize");
-        assert_eq!(got, Frequency::Other("quarterly".to_owned()));
-        assert_eq!(serde_json::to_string(&got).unwrap(), raw);
-    }
-
-    /// Oracle: every `RecurrenceSkip` variant maps to the RFC 8984 §4.3.3
-    /// canonical token; unknown skip modes round-trip via `Other`.
-    #[test]
-    fn recurrence_skip_known_variants_round_trip() {
-        let cases = [
-            (r#""omit""#, RecurrenceSkip::Omit),
-            (r#""backward""#, RecurrenceSkip::Backward),
-            (r#""forward""#, RecurrenceSkip::Forward),
-        ];
-        for (wire, expected) in cases {
-            let got: RecurrenceSkip = serde_json::from_str(wire).expect("skip deserialize");
-            assert_eq!(got, expected);
-            assert_eq!(serde_json::to_string(&got).unwrap(), wire);
-        }
-    }
-
-    #[test]
-    fn recurrence_skip_unknown_round_trips_via_other() {
-        let raw = r#""sideways""#;
-        let got: RecurrenceSkip = serde_json::from_str(raw).expect("unknown skip deserialize");
-        assert_eq!(got, RecurrenceSkip::Other("sideways".to_owned()));
-        assert_eq!(serde_json::to_string(&got).unwrap(), raw);
-    }
-
-    /// Oracle: `RelativeTo::{Start, End}` map to `"start"` / `"end"` per
-    /// RFC 8984 §4.2.5 and §4.5.2; unknown values round-trip via `Other`.
-    #[test]
-    fn relative_to_known_variants_round_trip() {
-        let cases = [
-            (r#""start""#, RelativeTo::Start),
-            (r#""end""#, RelativeTo::End),
-        ];
-        for (wire, expected) in cases {
-            let got: RelativeTo = serde_json::from_str(wire).expect("relativeTo deserialize");
-            assert_eq!(got, expected);
-            assert_eq!(serde_json::to_string(&got).unwrap(), wire);
-        }
-    }
-
-    #[test]
-    fn relative_to_unknown_round_trips_via_other() {
-        let raw = r#""halfway""#;
-        let got: RelativeTo = serde_json::from_str(raw).expect("unknown relativeTo deserialize");
-        assert_eq!(got, RelativeTo::Other("halfway".to_owned()));
-        assert_eq!(serde_json::to_string(&got).unwrap(), raw);
-    }
-
-    /// Oracle: `ParticipantKind` known variants per RFC 8984 §4.4.6;
-    /// unknown values round-trip via `Other`.
-    #[test]
-    fn participant_kind_known_variants_round_trip() {
-        let cases = [
-            (r#""individual""#, ParticipantKind::Individual),
-            (r#""group""#, ParticipantKind::Group),
-            (r#""location""#, ParticipantKind::Location),
-            (r#""resource""#, ParticipantKind::Resource),
-        ];
-        for (wire, expected) in cases {
-            let got: ParticipantKind =
-                serde_json::from_str(wire).expect("participant kind deserialize");
-            assert_eq!(got, expected);
-            assert_eq!(serde_json::to_string(&got).unwrap(), wire);
-        }
-    }
-
-    #[test]
-    fn participant_kind_unknown_round_trips_via_other() {
-        let raw = r#""robot""#;
-        let got: ParticipantKind =
-            serde_json::from_str(raw).expect("unknown participant kind deserialize");
-        assert_eq!(got, ParticipantKind::Other("robot".to_owned()));
-        assert_eq!(serde_json::to_string(&got).unwrap(), raw);
-    }
-
-    /// Oracle: `ParticipationStatus` known variants per RFC 8984 §4.4.6.
-    /// The hyphenated `"needs-action"` exercises the macro's literal-string
-    /// matching. Unknown values round-trip via `Other`.
-    #[test]
-    fn participation_status_known_variants_round_trip() {
-        let cases = [
-            (r#""needs-action""#, ParticipationStatus::NeedsAction),
-            (r#""accepted""#, ParticipationStatus::Accepted),
-            (r#""declined""#, ParticipationStatus::Declined),
-            (r#""tentative""#, ParticipationStatus::Tentative),
-            (r#""delegated""#, ParticipationStatus::Delegated),
-        ];
-        for (wire, expected) in cases {
-            let got: ParticipationStatus =
-                serde_json::from_str(wire).expect("participation status deserialize");
-            assert_eq!(got, expected);
-            assert_eq!(serde_json::to_string(&got).unwrap(), wire);
-        }
-    }
-
-    #[test]
-    fn participation_status_unknown_round_trips_via_other() {
-        let raw = r#""maybe""#;
-        let got: ParticipationStatus =
-            serde_json::from_str(raw).expect("unknown participation status deserialize");
-        assert_eq!(got, ParticipationStatus::Other("maybe".to_owned()));
-        assert_eq!(serde_json::to_string(&got).unwrap(), raw);
-    }
-
-    /// Oracle: `ScheduleAgent` known variants per RFC 8984 §4.4.6;
-    /// unknown values round-trip via `Other`.
-    #[test]
-    fn schedule_agent_known_variants_round_trip() {
-        let cases = [
-            (r#""server""#, ScheduleAgent::Server),
-            (r#""client""#, ScheduleAgent::Client),
-            (r#""none""#, ScheduleAgent::None),
-        ];
-        for (wire, expected) in cases {
-            let got: ScheduleAgent =
-                serde_json::from_str(wire).expect("schedule agent deserialize");
-            assert_eq!(got, expected);
-            assert_eq!(serde_json::to_string(&got).unwrap(), wire);
-        }
-    }
-
-    #[test]
-    fn schedule_agent_unknown_round_trips_via_other() {
-        let raw = r#""peer""#;
-        let got: ScheduleAgent =
-            serde_json::from_str(raw).expect("unknown schedule agent deserialize");
-        assert_eq!(got, ScheduleAgent::Other("peer".to_owned()));
-        assert_eq!(serde_json::to_string(&got).unwrap(), raw);
-    }
-
-    /// Oracle: `AlertAction` known variants per RFC 8984 §4.5.2;
-    /// unknown values round-trip via `Other`.
-    #[test]
-    fn alert_action_known_variants_round_trip() {
-        let cases = [
-            (r#""display""#, AlertAction::Display),
-            (r#""email""#, AlertAction::Email),
-        ];
-        for (wire, expected) in cases {
-            let got: AlertAction = serde_json::from_str(wire).expect("alert action deserialize");
-            assert_eq!(got, expected);
-            assert_eq!(serde_json::to_string(&got).unwrap(), wire);
-        }
-    }
-
-    #[test]
-    fn alert_action_unknown_round_trips_via_other() {
-        let raw = r#""sms""#;
-        let got: AlertAction = serde_json::from_str(raw).expect("unknown alert action deserialize");
-        assert_eq!(got, AlertAction::Other("sms".to_owned()));
-        assert_eq!(serde_json::to_string(&got).unwrap(), raw);
-    }
-
-    /// Oracle: an NDay carrying a typed `Weekday` round-trips through the
-    /// enclosing RecurrenceRule unchanged. Catches a regression where
-    /// the field's serde behaviour deviates from the raw-string form.
-    #[test]
-    fn recurrence_rule_with_typed_weekday_round_trips() {
-        let raw = json!({
-            "@type": "RecurrenceRule",
-            "frequency": "weekly",
-            "byDay": [
-                {"@type": "NDay", "day": "mo"},
-                {"@type": "NDay", "day": "we"},
-                {"@type": "NDay", "day": "fr"}
-            ],
-            "firstDayOfWeek": "su"
-        });
-        let rule: RecurrenceRule = serde_json::from_value(raw.clone()).expect("deserialize");
-        assert_eq!(rule.frequency, Frequency::Weekly);
-        assert_eq!(rule.first_day_of_week, Some(Weekday::Sunday));
-        let days = rule.by_day.as_ref().expect("byDay present");
-        assert_eq!(days[0].day, Weekday::Monday);
-        assert_eq!(days[1].day, Weekday::Wednesday);
-        assert_eq!(days[2].day, Weekday::Friday);
-        let back = serde_json::to_value(&rule).expect("serialize");
-        assert_eq!(back, raw, "wire shape must round-trip unchanged");
-    }
-
-    /// Oracle: a Participant carrying all three typed enums round-trips
-    /// through the enclosing JSON unchanged.
-    #[test]
-    fn participant_with_typed_enums_round_trips() {
-        let raw = json!({
-            "@type": "Participant",
-            "kind": "individual",
-            "roles": {"attendee": true},
-            "participationStatus": "accepted",
-            "scheduleAgent": "server"
-        });
-        let p: Participant = serde_json::from_value(raw.clone()).expect("deserialize");
-        assert_eq!(p.kind, Some(ParticipantKind::Individual));
-        assert_eq!(p.participation_status, Some(ParticipationStatus::Accepted));
-        assert_eq!(p.schedule_agent, Some(ScheduleAgent::Server));
-        let back = serde_json::to_value(&p).expect("serialize");
-        assert_eq!(back, raw, "wire shape must round-trip unchanged");
     }
 }
