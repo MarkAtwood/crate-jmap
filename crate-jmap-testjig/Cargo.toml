@@ -69,7 +69,14 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "
 # features. axum itself is TLS-agnostic; the operator terminates TLS
 # in front of the testjig (or in a future slice we add axum-server with
 # rustls). 0.7 is the current major; we pin caret-minor for now.
-axum = "0.8"
+#
+# The `ws` feature pulls in `axum::extract::ws` (WebSocketUpgrade /
+# WebSocket / Message) for slice bd:JMAP-cf7p.5. axum's `ws` feature
+# pulls in `tokio-tungstenite` transitively but the workspace dep on
+# `tokio-tungstenite` below is kept separately so integration tests
+# can build a client-side WS connection against the testjig without
+# reaching through axum.
+axum = { version = "0.8", features = ["ws"] }
 
 # `http` is the `Request`/`Response`/`StatusCode`/`header` foundation
 # shared with axum. Workspace-declared (used by jmap-server's
@@ -138,3 +145,10 @@ http-body-util = "0.1"
 # dep already pins default-features=false + rustls-tls per the
 # workspace TLS-stack convention.
 reqwest = { workspace = true }
+
+# `futures-util` is needed by the WebSocket integration test
+# (bd:JMAP-cf7p.5) to drive `WebSocketStream`'s `StreamExt::next` and
+# `SinkExt::send` extension methods. Transitively present through
+# reqwest's `stream` feature but kept as an explicit dev-dep so the
+# test's import lines do not depend on transitive resolution.
+futures-util = { version = "0.3", default-features = false }

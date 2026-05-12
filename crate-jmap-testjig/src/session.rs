@@ -48,6 +48,13 @@ pub const BASE_URL: &str = "http://127.0.0.1:8080";
 /// Each URI also appears as a key in `primaryAccounts` mapping to
 /// [`ACCOUNT_ID`], so a client opting into any of them sees the same
 /// single test account.
+///
+/// The RFC 8887 `urn:ietf:params:jmap:websocket` capability is also
+/// advertised but is intentionally NOT in this list — it has no
+/// account-scoped methods (a session-level transport binding) and so
+/// is omitted from `primaryAccounts` and `accountCapabilities`. It is
+/// inserted directly into the `capabilities` object by
+/// [`session_json`] alongside the rest.
 pub const ADVERTISED_CAPABILITIES: &[&str] = &[
     "urn:ietf:params:jmap:core",
     "urn:ietf:params:jmap:mail",
@@ -59,6 +66,23 @@ pub const ADVERTISED_CAPABILITIES: &[&str] = &[
     "urn:ietf:params:jmap:sharing",
     "urn:ietf:params:jmap:metadata",
 ];
+
+/// The RFC 8887 WebSocket subprotocol capability URI. Not in
+/// [`ADVERTISED_CAPABILITIES`] because it carries no account-scoped
+/// methods — see that constant's doc-comment.
+pub const WEBSOCKET_CAPABILITY: &str = "urn:ietf:params:jmap:websocket";
+
+/// WebSocket endpoint advertised in the
+/// [`WEBSOCKET_CAPABILITY`]'s `url` field of the Session response.
+///
+/// RFC 8887 §3 says this MUST be a `wss://` URI for production; the
+/// testjig binds plaintext HTTP on localhost only, so we advertise
+/// the matching `ws://` URI alongside the rest of the
+/// [`BASE_URL`]-derived endpoints. Production deployments behind a
+/// TLS-terminating reverse proxy MAY surface a `wss://` URL here
+/// (RFC 8887 §5.1 explicitly allows this for TLS-terminated
+/// upstreams).
+pub const WEBSOCKET_URL: &str = "ws://127.0.0.1:8080/ws";
 
 /// Build the testjig's hardcoded Session JSON.
 ///
@@ -102,7 +126,7 @@ pub fn session_json() -> Value {
         "collationAlgorithms": ["i;ascii-casemap"],
     });
 
-    let mut capabilities = serde_json::Map::with_capacity(ADVERTISED_CAPABILITIES.len());
+    let mut capabilities = serde_json::Map::with_capacity(ADVERTISED_CAPABILITIES.len() + 1);
     capabilities.insert("urn:ietf:params:jmap:core".to_owned(), core_capability);
     for uri in ADVERTISED_CAPABILITIES
         .iter()
@@ -110,6 +134,18 @@ pub fn session_json() -> Value {
     {
         capabilities.insert((*uri).to_owned(), json!({}));
     }
+
+    // RFC 8887 §3 WebSocket transport binding. `supportsPush=true`
+    // because slice bd:JMAP-cf7p.5 implements the PushEnable/Disable
+    // handshake; the push payload format matches the SSE state-change
+    // poller (bd:JMAP-cf7p.4).
+    capabilities.insert(
+        WEBSOCKET_CAPABILITY.to_owned(),
+        json!({
+            "url": WEBSOCKET_URL,
+            "supportsPush": true,
+        }),
+    );
 
     // Account-capabilities: the 8 extension URIs (Core is session-only).
     let mut account_capabilities =

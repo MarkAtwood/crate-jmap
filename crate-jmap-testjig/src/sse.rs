@@ -92,8 +92,11 @@ use crate::session;
 /// Production push wiring would replace this with a condvar signal
 /// from the backends; see the module-level docs.
 ///
+/// Visible to `crate::ws` so the WebSocket push poller uses the same
+/// cadence as the SSE poller.
+///
 /// [`MemoryBackend`]: jmap_mail_server::memory::MemoryBackend
-const POLL_INTERVAL: Duration = Duration::from_millis(200);
+pub(crate) const POLL_INTERVAL: Duration = Duration::from_millis(200);
 
 /// Bound on the mpsc channel between the polling task and the SSE
 /// response stream.
@@ -186,9 +189,10 @@ impl PingMode {
     }
 }
 
-/// Type-name filter derived from [`EventQuery::types`].
+/// Type-name filter derived from [`EventQuery::types`] (SSE) or
+/// [`crate::ws::PushEnable::data_types`] (WebSocket).
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum TypesFilter {
+pub(crate) enum TypesFilter {
     /// `types=*` (or missing) — every type passes through.
     Wildcard,
     /// `types=Email,Mailbox` — only the named types pass through.
@@ -196,7 +200,7 @@ enum TypesFilter {
 }
 
 impl TypesFilter {
-    /// Parse the `types` query parameter per RFC 8620 §7.3.
+    /// Parse the SSE `types` query parameter per RFC 8620 §7.3.
     ///
     /// `None` and empty string fall back to [`TypesFilter::Wildcard`]
     /// — strictly the URL template always populates `types`, but the
@@ -217,9 +221,21 @@ impl TypesFilter {
         }
     }
 
+    /// Construct a [`TypesFilter`] from an RFC 8887 §4.3.5.2
+    /// `dataTypes` array. `None` (the spec-defined "all types"
+    /// sentinel) and an empty list both map to
+    /// [`TypesFilter::Wildcard`].
+    pub(crate) fn from_data_types(types: Option<Vec<String>>) -> Self {
+        match types {
+            None => TypesFilter::Wildcard,
+            Some(v) if v.is_empty() => TypesFilter::Wildcard,
+            Some(v) => TypesFilter::Only(v.into_iter().collect()),
+        }
+    }
+
     /// Whether the given JMAP type name should be reported in
     /// StateChange events to this client.
-    fn admits(&self, type_name: &str) -> bool {
+    pub(crate) fn admits(&self, type_name: &str) -> bool {
         match self {
             TypesFilter::Wildcard => true,
             TypesFilter::Only(set) => set.contains(type_name),
@@ -372,7 +388,10 @@ async fn poll_loop(
 /// this only happens when an account does not exist on a backend
 /// that requires explicit registration; the SSE consumer can't
 /// distinguish a missing entry from a never-changed entry either way.
-async fn snapshot_all_states(
+///
+/// Visible to `crate::ws` because the WebSocket push handler
+/// (bd:JMAP-cf7p.5) reuses the same polling primitive.
+pub(crate) async fn snapshot_all_states(
     state: &AppStateInner,
     account: &Id,
 ) -> BTreeMap<&'static str, String> {
@@ -438,7 +457,10 @@ async fn snapshot_all_states(
 /// new state differs from the old state for that type; types that
 /// appear in only one snapshot are also reported (using whichever
 /// value exists).
-fn diff_snapshots(
+///
+/// Visible to `crate::ws` so the WebSocket push handler can reuse
+/// the same diff algorithm.
+pub(crate) fn diff_snapshots(
     previous: &BTreeMap<&'static str, String>,
     current: &BTreeMap<&'static str, String>,
     types_filter: &TypesFilter,
