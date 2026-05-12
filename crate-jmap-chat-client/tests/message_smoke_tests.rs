@@ -691,3 +691,238 @@ async fn message_destroy_threads_ids_and_rejects_empty() {
         other => panic!("expected InvalidArgument, got {other:?}"),
     }
 }
+
+// ---------------------------------------------------------------------------
+// readDisposition plumbing — draft-atwood-jmap-chat-00 §Message/set update
+// (line 1012) + §ReadDisposition (lines 305-318).
+//
+// Each test sets `readAt` together with a different `readDisposition` value
+// and asserts the per-id patch object on the wire contains both fields with
+// the expected serialization. The `_omits_field` variant sets `readAt` alone
+// and asserts the `readDisposition` key is absent so that the server's
+// "default to displayed" path (§Message line 540) is reachable from the
+// client side by omitting the field.
+// ---------------------------------------------------------------------------
+
+/// Helper: stock `Message/set` update response used by the readDisposition
+/// plumbing tests. Bound to `msg-1`, account `A13824`.
+fn message_set_update_resp() -> serde_json::Value {
+    json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/set",
+            {
+                "accountId": "A13824",
+                "oldState": "ms-1",
+                "newState": "ms-2",
+                "created": null,
+                "updated": { "msg-1": null },
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    })
+}
+
+/// `MessagePatch.read_disposition = Some(Displayed)` together with `read_at`
+/// must emit both `readAt` and `readDisposition: "displayed"` inside the
+/// per-id patch object (spec §1012 + §ReadDisposition line 309).
+#[tokio::test]
+async fn message_update_with_read_disposition_displayed_serialises_correctly() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(message_set_update_resp()))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.read_at = Some(&read_at);
+    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Displayed);
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let patch_obj = &body["methodCalls"][0][1]["update"]["msg-1"];
+    assert_eq!(
+        patch_obj["readAt"],
+        json!("2026-01-05T10:00:00Z"),
+        "readAt must thread to the wire alongside readDisposition"
+    );
+    assert_eq!(
+        patch_obj["readDisposition"],
+        json!("displayed"),
+        "Displayed must serialize as the wire string \"displayed\""
+    );
+}
+
+/// `MessagePatch.read_disposition = Some(Deleted)` must emit
+/// `readDisposition: "deleted"` (spec §ReadDisposition line 311).
+#[tokio::test]
+async fn message_update_with_read_disposition_deleted_serialises_correctly() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(message_set_update_resp()))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.read_at = Some(&read_at);
+    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Deleted);
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let patch_obj = &body["methodCalls"][0][1]["update"]["msg-1"];
+    assert_eq!(patch_obj["readAt"], json!("2026-01-05T10:00:00Z"));
+    assert_eq!(
+        patch_obj["readDisposition"],
+        json!("deleted"),
+        "Deleted must serialize as the wire string \"deleted\""
+    );
+}
+
+/// `MessagePatch.read_disposition = Some(Processed)` must emit
+/// `readDisposition: "processed"` (spec §ReadDisposition line 313).
+#[tokio::test]
+async fn message_update_with_read_disposition_processed_serialises_correctly() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(message_set_update_resp()))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.read_at = Some(&read_at);
+    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Processed);
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let patch_obj = &body["methodCalls"][0][1]["update"]["msg-1"];
+    assert_eq!(patch_obj["readAt"], json!("2026-01-05T10:00:00Z"));
+    assert_eq!(
+        patch_obj["readDisposition"],
+        json!("processed"),
+        "Processed must serialize as the wire string \"processed\""
+    );
+}
+
+/// `MessagePatch.read_disposition = Some(Other("voice-listened"))` must emit
+/// the literal wire string (spec §ReadDisposition line 318: unrecognized
+/// values stored as-is; vendor extensions like `"voice-listened"` /
+/// `"forwarded"` are explicitly called out).
+#[tokio::test]
+async fn message_update_with_read_disposition_other_serialises_correctly() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(message_set_update_resp()))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.read_at = Some(&read_at);
+    patch.read_disposition = Some(jmap_chat_types::ReadDisposition::Other(
+        "voice-listened".into(),
+    ));
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let patch_obj = &body["methodCalls"][0][1]["update"]["msg-1"];
+    assert_eq!(patch_obj["readAt"], json!("2026-01-05T10:00:00Z"));
+    assert_eq!(
+        patch_obj["readDisposition"],
+        json!("voice-listened"),
+        "Other(\"voice-listened\") must round-trip to the wire as-is"
+    );
+}
+
+/// `MessagePatch.read_at = Some(_)` alone (no `read_disposition`) must emit
+/// `readAt` but NOT a `readDisposition` key, so the server's
+/// "default to displayed" path (spec §Message line 540) is reachable from
+/// the client side by omitting the field.
+#[tokio::test]
+async fn message_update_without_read_disposition_omits_field() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(message_set_update_resp()))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let read_at = UTCDate::from("2026-01-05T10:00:00Z");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.read_at = Some(&read_at);
+    // patch.read_disposition deliberately left as None.
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let patch_obj = &body["methodCalls"][0][1]["update"]["msg-1"];
+    assert_eq!(
+        patch_obj["readAt"],
+        json!("2026-01-05T10:00:00Z"),
+        "readAt must thread to the wire"
+    );
+    assert!(
+        patch_obj.get("readDisposition").is_none(),
+        "readDisposition key must be absent when read_disposition is None; got {:?}",
+        patch_obj.get("readDisposition")
+    );
+}

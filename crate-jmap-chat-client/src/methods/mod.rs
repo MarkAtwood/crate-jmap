@@ -470,6 +470,15 @@ pub struct MessagePatch<'a> {
     pub reaction_changes: Option<&'a [ReactionChange<'a>]>,
     /// Set the read-receipt timestamp (`Message.readAt`).
     pub read_at: Option<&'a jmap_types::UTCDate>,
+    /// Set the read disposition recorded alongside `read_at`
+    /// (draft-atwood-jmap-chat-00 §Message/set update, line 1012).
+    ///
+    /// Setting `read_at` without `read_disposition` causes the server to
+    /// store `"displayed"` (§Message line 540). Supplying both lets the
+    /// client pick `Deleted` or `Processed` explicitly, or use
+    /// `Other("...")` for a vendor / future disposition value. Clients
+    /// SHOULD only set this when they also set `read_at`.
+    pub read_disposition: Option<jmap_chat_types::ReadDisposition>,
     /// Set the deletion timestamp for soft/hard delete.
     pub deleted_at: Option<&'a jmap_types::UTCDate>,
     /// When `Some(true)` and `deleted_at` is also set, deletes for all

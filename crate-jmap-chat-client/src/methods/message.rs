@@ -231,6 +231,12 @@ impl super::SessionClient {
         if let Some(ra) = patch.read_at {
             patch_map.insert("readAt".into(), ra.as_ref().into());
         }
+        if let Some(rd) = &patch.read_disposition {
+            patch_map.insert(
+                "readDisposition".into(),
+                serde_json::to_value(rd).map_err(jmap_base_client::ClientError::Parse)?,
+            );
+        }
         if let Some(da) = patch.deleted_at {
             patch_map.insert("deletedAt".into(), da.as_ref().into());
         }
