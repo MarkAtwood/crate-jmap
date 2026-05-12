@@ -144,6 +144,18 @@ dispatcher's `CallerCtx` value through to the wrapped closure as a fourth
 argument, so backends that need per-request auth context can read it
 without dropping down to a manual `JmapHandler<C>` impl.
 
+## Examples
+
+A runnable end-to-end demo lives in [`examples/dispatcher_minimal.rs`](examples/dispatcher_minimal.rs):
+
+```sh
+cargo run --example dispatcher_minimal -p jmap-server
+```
+
+It registers a single stub `JmapHandler` for `"Core/echo"`, dispatches a
+synthetic [`JmapRequest`], and prints both the wire-format [`JmapResponse`]
+and the typed access paths a real server would consume.
+
 ## Known Limitations
 
 - **`sortAsTree` and `filterAsTree` not implemented.** The generic `handle_query` handler rejects these arguments with `unsupportedSort`/`unsupportedFilter` rather than silently ignoring them. Tree-mode traversal is not implemented.
