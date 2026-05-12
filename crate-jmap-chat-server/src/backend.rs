@@ -59,6 +59,126 @@ pub struct OpResult {
 }
 
 // ---------------------------------------------------------------------------
+// Per-Space content limits
+// ---------------------------------------------------------------------------
+
+/// Implementation-defined per-Space content limits enforced by
+/// `Space/set` handlers.
+///
+/// Per draft-atwood-jmap-chat-00 §Space/set (spec commit `80d5e11`,
+/// 2026-05-11), each `add*` op on a Space MUST return an `overQuota`
+/// SetError (RFC 8620 §5.3) when the resulting count would exceed a
+/// server-defined limit. The spec does not name or normatively define
+/// the cap values; they are implementation-defined and may vary per
+/// account or per tenant.
+///
+/// Backends override [`ChatBackend::limits`] to supply their own values.
+/// The default impl returns conservative reference-impl-grade values
+/// suitable for tests and single-tenant dev servers; production
+/// deployments are expected to override.
+///
+/// Client visibility of these caps (when desired) is via JMAP Quotas
+/// (`urn:ietf:params:jmap:quotas`, RFC 9425), not via this struct.
+/// The `urn:ietf:params:jmap:chat` session capability does NOT advertise
+/// these caps (the previous cap-advertising fields `maxRolesPerSpace`,
+/// `maxSpaceMembers`, `maxChannelsPerSpace`, `maxCategoriesPerSpace`
+/// were removed from the draft in spec commit `80d5e11`).
+///
+/// See the workspace `AGENTS.md` "Backend caps and limits" section for
+/// the cross-extension pattern this struct establishes for JMAP Chat.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChatLimits {
+    /// Maximum number of roles per Space. Enforced against the
+    /// resulting count after applying every `addRoles` entry in a
+    /// `Space/set` update patch.
+    pub max_roles_per_space: u32,
+    /// Maximum number of members per Space. Enforced against the
+    /// resulting count after applying every `addMembers` entry in a
+    /// `Space/set` update patch.
+    pub max_space_members: u32,
+    /// Maximum number of channels per Space. Enforced against the
+    /// resulting count after applying every `addChannels` entry in a
+    /// `Space/set` update patch. The current channel count is the sum
+    /// of `space.uncategorizedChannelIds.len()` and every
+    /// `space.categories[].channelIds.len()`.
+    pub max_channels_per_space: u32,
+    /// Maximum number of categories per Space. Enforced against the
+    /// resulting count after applying every `addCategories` entry in
+    /// a `Space/set` update patch.
+    pub max_categories_per_space: u32,
+}
+
+impl Default for ChatLimits {
+    fn default() -> Self {
+        Self {
+            max_roles_per_space: 50,
+            max_space_members: 10_000,
+            max_channels_per_space: 500,
+            max_categories_per_space: 100,
+        }
+    }
+}
+
+impl ChatLimits {
+    /// Construct a [`ChatLimits`] with the four cap fields specified
+    /// in declaration order: roles, members, channels, categories.
+    ///
+    /// The struct is `#[non_exhaustive]` so external callers (tests
+    /// using `MemoryBackend::set_limits_for_test`, production backends
+    /// overriding [`ChatBackend::limits`]) need a constructor to build
+    /// one. Future cap-field additions to [`ChatLimits`] are an
+    /// additive non-breaking change because the constructor stays
+    /// stable; callers wanting to override the new field combine
+    /// `ChatLimits::new(..)` with [`Self::with_max_roles_per_space`]
+    /// / [`Self::with_max_space_members`] /
+    /// [`Self::with_max_channels_per_space`] /
+    /// [`Self::with_max_categories_per_space`] and a future analogous
+    /// setter.
+    pub fn new(
+        max_roles_per_space: u32,
+        max_space_members: u32,
+        max_channels_per_space: u32,
+        max_categories_per_space: u32,
+    ) -> Self {
+        Self {
+            max_roles_per_space,
+            max_space_members,
+            max_channels_per_space,
+            max_categories_per_space,
+        }
+    }
+
+    /// Builder-style setter for [`Self::max_roles_per_space`].
+    #[must_use]
+    pub fn with_max_roles_per_space(mut self, max: u32) -> Self {
+        self.max_roles_per_space = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_space_members`].
+    #[must_use]
+    pub fn with_max_space_members(mut self, max: u32) -> Self {
+        self.max_space_members = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_channels_per_space`].
+    #[must_use]
+    pub fn with_max_channels_per_space(mut self, max: u32) -> Self {
+        self.max_channels_per_space = max;
+        self
+    }
+
+    /// Builder-style setter for [`Self::max_categories_per_space`].
+    #[must_use]
+    pub fn with_max_categories_per_space(mut self, max: u32) -> Self {
+        self.max_categories_per_space = max;
+        self
+    }
+}
+
+// ---------------------------------------------------------------------------
 // ChatBackend trait
 // ---------------------------------------------------------------------------
 
@@ -142,6 +262,31 @@ pub trait ChatBackend: JmapBackend {
     /// [`getrandom`]: https://docs.rs/getrandom
     fn generate_invite_code(&self) -> String;
 
+    /// Implementation-defined per-Space content limits for this caller
+    /// and account.
+    ///
+    /// Called by `handle_space_set` once per request, before
+    /// dispatching to [`Self::apply_space_patch`], to enforce
+    /// per-aggregate caps on roles, members, channels, and categories
+    /// per Space (draft-atwood-jmap-chat-00 §Space/set, spec commit
+    /// `80d5e11`).
+    ///
+    /// The default implementation returns [`ChatLimits::default`],
+    /// which carries conservative reference-impl-grade values. The
+    /// `caller` and `account_id` arguments are plumbed even though the
+    /// default impl ignores them, so production backends can vary caps
+    /// per-account (Free vs. Pro tier, multi-tenant SaaS, etc.)
+    /// without a future API break. Implementations SHOULD return
+    /// quickly (in-process struct construction, possibly off a cached
+    /// per-account record) — this method is called on the hot
+    /// `Space/set` path.
+    ///
+    /// Workspace cross-extension pattern: see `AGENTS.md` "Backend
+    /// caps and limits".
+    fn limits(&self, _caller: &Self::CallerCtx, _account_id: &jmap_types::Id) -> ChatLimits {
+        ChatLimits::default()
+    }
+
     /// Apply a sequence of structural mutations to a Space
     /// (draft-atwood-jmap-chat-00 §Space/set).
     ///
@@ -164,19 +309,24 @@ pub trait ChatBackend: JmapBackend {
     /// # Permission and limit checks
     ///
     /// Handler-side permission gates (`manage_space`, `manage_roles`,
-    /// `manage_members`, `manage_channels`) and per-aggregate count
-    /// limits on roles, members, channels, and categories per Space are
-    /// tracked in `bd:JMAP-g7wu.2.4.7` and `bd:JMAP-g7wu.2.4.8` and are
-    /// NOT yet applied by the reference handler. When applied,
-    /// exceed-limit cases return `overQuota` SetError (RFC 8620 §5.3)
-    /// per draft-atwood-jmap-chat-00 §Space/set (spec revised
-    /// 2026-05-11, commit `80d5e11`; the previous cap-advertising
-    /// fields `maxRolesPerSpace`, `maxSpaceMembers`,
-    /// `maxChannelsPerSpace`, `maxCategoriesPerSpace` are no longer
-    /// defined on `urn:ietf:params:jmap:chat`). Until those beads land,
-    /// the handler dispatches every well-formed patch to the backend,
-    /// and the backend is responsible for rejecting any op the caller
-    /// is not authorized to perform.
+    /// `manage_members`, `manage_channels`) are tracked in
+    /// `bd:JMAP-g7wu.2.4.7` and are NOT yet applied by the reference
+    /// handler; the backend is responsible for rejecting any op the
+    /// caller is not authorized to perform.
+    ///
+    /// Per-aggregate count limits on roles, members, channels, and
+    /// categories per Space are applied by `handle_space_set` *before*
+    /// it calls this method (bd:JMAP-g7wu.2.4.8). The handler queries
+    /// the backend's [`ChatBackend::limits`] once per request,
+    /// fetches the current Space, and rejects the whole update target
+    /// with an `overQuota` SetError (RFC 8620 §5.3) if any aggregate
+    /// would exceed its cap. This means an `apply_space_patch` call
+    /// that originates from `handle_space_set` will not contain
+    /// `Add*` ops that push the Space over cap. Backends called
+    /// directly (bypassing the handler) MAY enforce caps a second
+    /// time for defense in depth; the reference `MemoryBackend` does
+    /// not. Per draft-atwood-jmap-chat-00 §Space/set (spec commit
+    /// `80d5e11`, 2026-05-11), this behavior is normative.
     ///
     /// The role-position hierarchy check (members may only add or modify
     /// roles whose `position` is strictly less than their own
