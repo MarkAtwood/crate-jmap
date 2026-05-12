@@ -52,3 +52,6 @@
 pub mod auth;
 pub mod http;
 pub mod session;
+pub mod spawn;
+
+pub use spawn::{spawn_in_process, TestjigConfig, TestjigHandle};

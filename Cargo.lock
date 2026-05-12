@@ -1268,6 +1268,7 @@ dependencies = [
  "jmap-sharing-server",
  "jmap-tasks-server",
  "jmap-types",
+ "reqwest",
  "serde",
  "serde_json",
  "subtle",
