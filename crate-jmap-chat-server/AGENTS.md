@@ -84,16 +84,17 @@ Caller identity is read via the foundation seam
 `JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`.
 Backends that have not wired identity (test fixtures, single-user
 dev servers) return `None`; such backends CANNOT correctly implement
-chat role-hierarchy, Space owner protections, or per-user
-visibility scoping. Multi-user production deployments MUST override
-the default impl.
+chat role-hierarchy or per-user visibility scoping. Multi-user
+production deployments MUST override the default impl.
 
 The chat-specific implications: every Space mutation must be
 authorized against the caller's effective permissions resolved
-through the Space's role hierarchy and the implicit-all-permissions
-rule for `Space.ownerId`. The handler computes the candidate
-mutation; the backend's `apply_space_patch` (or equivalent) is the
-canonical point of enforcement.
+through the Space's role hierarchy. Any additional ownership /
+admin model on top of role-based permissions is
+implementation-defined (the JMAP Chat draft does not declare a
+normative ownership field on `Space`). The handler computes the
+candidate mutation; the backend's `apply_space_patch` (or
+equivalent) is the canonical point of enforcement.
 
 ## Non-Interactive Shell Commands
 

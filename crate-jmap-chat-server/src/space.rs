@@ -639,19 +639,8 @@ pub async fn handle_space_set<B: ChatBackend>(
             let now_str = now_utc_string();
             let now: UTCDate = UTCDate::from(now_str.as_str());
 
-            // Resolve the Space owner from the caller's principal id.
-            // Backends that have not wired identity (test fixtures and
-            // single-user dev servers — see `JmapBackend::principal_id`
-            // doc) return `None`; in that case the account id stands
-            // in as the owner, matching the single-user-mode mental
-            // model where each account has exactly one principal.
-            let owner_id = B::principal_id(caller)
-                .cloned()
-                .unwrap_or_else(|| account_id.clone());
-
             let mut space = Space::new(
                 Id::from("placeholder"),
-                owner_id,
                 name,
                 vec![],
                 vec![],
@@ -721,11 +710,8 @@ pub async fn handle_space_set<B: ChatBackend>(
             // `roles`, `members`, `categories`, and `uncategorizedChannelIds` are
             // managed through named semantic mutations (addRoles/removeRoles, etc.)
             // and must never be overwritten directly via a JSON Merge Patch.
-            // `ownerId` is immutable per the field doc — owner transfer is
-            // reserved for a future `Space/transferOwnership` method.
             const SPACE_READONLY: &[&str] = &[
                 "id",
-                "ownerId",
                 "createdAt",
                 "memberCount",
                 "roles",
