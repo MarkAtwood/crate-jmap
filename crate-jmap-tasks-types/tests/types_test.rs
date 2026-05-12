@@ -815,7 +815,8 @@ fn tasks_assignees_account_capability_roundtrip() {
 // follow-up to add `TimeZone` and upgrade this test.
 mod jscalendar_roundtrip {
     use jmap_jscalendar_types::{
-        Alert, AlertTrigger, Link, Location, Participant, RecurrenceRule, Relation, VirtualLocation,
+        Alert, AlertAction, AlertTrigger, Frequency, Link, Location, Participant, RecurrenceRule,
+        Relation, VirtualLocation,
     };
     use jmap_tasks_types::{Task, TaskList};
 
@@ -979,7 +980,7 @@ mod jscalendar_roundtrip {
         let rule: RecurrenceRule =
             serde_json::from_value(entry.clone()).expect("decode RecurrenceRule");
         assert_eq!(rule.at_type, "RecurrenceRule");
-        assert_eq!(rule.frequency, "weekly");
+        assert_eq!(rule.frequency, Frequency::Weekly);
         assert_eq!(
             rule.until.as_ref().map(AsRef::as_ref),
             Some("2020-06-24T09:00:00")
@@ -1013,7 +1014,7 @@ mod jscalendar_roundtrip {
         let rule: RecurrenceRule =
             serde_json::from_value(entry.clone()).expect("decode RecurrenceRule");
         assert_eq!(rule.at_type, "RecurrenceRule");
-        assert_eq!(rule.frequency, "daily");
+        assert_eq!(rule.frequency, Frequency::Daily);
         assert_eq!(rule.by_month.as_deref(), Some(&["12".to_string()][..]));
 
         let round_tripped = serde_json::to_value(&rule).expect("serialize RecurrenceRule");
@@ -1080,7 +1081,7 @@ mod jscalendar_roundtrip {
 
         let alert: Alert = serde_json::from_value(entry.clone()).expect("decode Alert");
         assert_eq!(alert.at_type, "Alert");
-        assert_eq!(alert.action.as_deref(), Some("display"));
+        assert_eq!(alert.action, Some(AlertAction::Display));
         match &alert.trigger {
             AlertTrigger::OffsetTrigger(t) => {
                 assert_eq!(t.offset.as_ref(), "-PT15M");
@@ -1240,7 +1241,7 @@ mod jscalendar_roundtrip {
 
         let alert: Alert = serde_json::from_value(entry.clone()).expect("decode Alert");
         assert_eq!(alert.at_type, "Alert");
-        assert_eq!(alert.action.as_deref(), Some("email"));
+        assert_eq!(alert.action, Some(AlertAction::Email));
         match &alert.trigger {
             AlertTrigger::AbsoluteTrigger(t) => {
                 assert_eq!(t.when.as_ref(), "2024-06-15T08:45:00Z");

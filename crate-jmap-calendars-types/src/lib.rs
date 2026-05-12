@@ -19,7 +19,7 @@
 //! |---|---|
 //! | [`calendar`] | [`Calendar`], [`CalendarRights`], [`IncludeInAvailability`], [`CalendarFilterCondition`] |
 //! | [`event`] | [`CalendarEvent`], [`CalendarEventFilterCondition`], [`CalendarEventComparator`] |
-//! | [`jscalendar`] | Module alias re-exporting `jmap-jscalendar-types`: [`RecurrenceRule`], [`NDay`], [`Location`], [`VirtualLocation`], [`Link`], [`Participant`], [`Alert`], [`AlertTrigger`], [`OffsetTrigger`], [`AbsoluteTrigger`], [`Relation`], [`LocalDateTime`], [`Duration`], [`SignedDuration`] |
+//! | [`jscalendar`] | Module alias re-exporting `jmap-jscalendar-types`: [`RecurrenceRule`], [`NDay`], [`Location`], [`VirtualLocation`], [`Link`], [`Participant`], [`Alert`], [`AlertTrigger`], [`OffsetTrigger`], [`AbsoluteTrigger`], [`Relation`], [`LocalDateTime`], [`Duration`], [`SignedDuration`], [`Weekday`], [`Frequency`], [`RecurrenceSkip`], [`RelativeTo`], [`ParticipantKind`], [`ParticipationStatus`], [`ScheduleAgent`], [`AlertAction`] |
 //! | [`notification`] | [`CalendarEventNotification`], [`Person`], [`NotificationType`], [`NotificationFilterCondition`] |
 //! | [`participant_identity`] | [`ParticipantIdentity`] |
 //! | [`capability`] | [`CalendarsCapability`], [`CalendarsAccountCapability`], URI constants |
@@ -62,9 +62,10 @@ pub use capability::{
 };
 pub use event::{CalendarEvent, CalendarEventComparator, CalendarEventFilterCondition};
 pub use jmap_jscalendar_types::{
-    AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay,
-    OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, TimeZone, TimeZoneRule,
-    VirtualLocation,
+    AbsoluteTrigger, Alert, AlertAction, AlertTrigger, Duration, Frequency, Link, LocalDateTime,
+    Location, NDay, OffsetTrigger, Participant, ParticipantKind, ParticipationStatus,
+    RecurrenceRule, RecurrenceSkip, Relation, RelativeTo, ScheduleAgent, SignedDuration, TimeZone,
+    TimeZoneRule, VirtualLocation, Weekday,
 };
 pub use notification::{
     CalendarAlert, CalendarEventNotification, NotificationFilterCondition, NotificationType, Person,
