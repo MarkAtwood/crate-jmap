@@ -185,6 +185,25 @@ advertises (see `ChatSessionExt::supports_chat_websocket` and
 `chat_push_capability`) and the deployment's network constraints (proxies,
 long-lived connections, etc.).
 
+## Examples
+
+The crate ships two runnable examples under `examples/`. Both spin up an
+in-process tokio listener, emit synthetic JMAP push frames, and drive the
+client read loop. Useful as starting points for integration tests and as a
+demonstration of the public push API.
+
+- [`examples/sse_listen.rs`](examples/sse_listen.rs) — consume a synthetic
+  Server-Sent Events stream via `JmapClient::subscribe_events`. Two
+  `event: state` frames per RFC 8620 §7.3 / JMAP Chat draft §StateChange.
+  Run: `cargo run --example sse_listen -p jmap-chat-client`.
+- [`examples/ws_loop.rs`](examples/ws_loop.rs) — drive a synthetic JMAP
+  WebSocket via `connect_ws` + `ChatWsExt::next_chat_frame`. Emits one
+  `Response` frame and one `StateChange` push frame per RFC 8887 / JMAP
+  Chat WSS draft. Run: `cargo run --example ws_loop -p jmap-chat-client`.
+
+NOT FOR PRODUCTION — single-shot, no retry, no auth, no TLS. Demonstrates
+the consume-side API only.
+
 ## Known Limitations
 
 - **`space_join` is non-standard.** `Space/join` is a JMAP Chat extension method
