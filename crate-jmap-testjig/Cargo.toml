@@ -1,0 +1,79 @@
+[package]
+name = "jmap-testjig"
+version = "0.0.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "In-process JMAP test jig — NOT a JMAP server consumers should run; in-memory only, single-user, no auth integration, no persistence. Internal scaffolding for the workspace's integration testing and demonstration."
+publish = false
+
+# This crate ships both a binary and a library entrypoint:
+# - `cargo run -p jmap-testjig` starts the jig on a hardcoded localhost port.
+# - `jmap_testjig::spawn_in_process(..)` lets per-client-crate integration
+#   tests embed the jig in their own tokio runtime (filed as JMAP-cf7p.7).
+[lib]
+name = "jmap_testjig"
+path = "src/lib.rs"
+
+[[bin]]
+name = "jmap-testjig"
+path = "src/main.rs"
+
+[dependencies]
+# The 8 extension server crates plus the dispatcher foundation. Each
+# extension crate is pulled in with its `memory` feature so the
+# reference MemoryBackend is available to mount on the dispatcher.
+# All 8 reference impls use `type CallerCtx = ();` which lines up with
+# the testjig's single-hardcoded-principal posture.
+jmap-server = { workspace = true }
+jmap-mail-server = { workspace = true, features = ["memory"] }
+jmap-chat-server = { workspace = true, features = ["memory"] }
+jmap-calendars-server = { workspace = true, features = ["memory"] }
+jmap-tasks-server = { workspace = true, features = ["memory"] }
+jmap-contacts-server = { workspace = true, features = ["memory"] }
+jmap-filenode-server = { workspace = true, features = ["memory"] }
+jmap-sharing-server = { workspace = true, features = ["memory"] }
+jmap-metadata-server = { workspace = true, features = ["memory"] }
+jmap-types = { workspace = true }
+
+# Serde for request/response JSON shapes plumbed through the dispatcher
+# (the dispatcher itself uses serde_json::Value internally).
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# tokio: multi-thread runtime + macros + signal so `cargo run` can
+# shut down cleanly on Ctrl+C. The workspace's `tokio` dep advertises
+# only `rt`; the testjig opts into the additional features it needs
+# without bloating siblings.
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "sync"] }
+
+# HTTP transport — axum is introduced for the first time in the
+# workspace by this crate. Per the workspace TLS-stack convention
+# (workspace AGENTS.md), no `native-tls` / `openssl` / `default-tls`
+# features. axum itself is TLS-agnostic; the operator terminates TLS
+# in front of the testjig (or in a future slice we add axum-server with
+# rustls). 0.7 is the current major; we pin caret-minor for now.
+axum = "0.8"
+
+# WebSocket — for slice JMAP-cf7p.5 the testjig will use axum's built-in
+# axum::extract::ws path rather than tokio-tungstenite directly. We
+# still declare tokio-tungstenite as a workspace dep so future slices
+# that need direct WS framing (e.g. a self-test that opens a client WS
+# connection back into the testjig) have it on hand without re-deriving
+# the feature set. The workspace dep is pinned rustls-only — see
+# workspace.dependencies in the root Cargo.toml.
+tokio-tungstenite = { workspace = true }
+
+# Constant-time token comparison for the hardcoded bearer auth middleware
+# (slice JMAP-cf7p.6). Pulled in early so the scaffold dep set already
+# advertises it; the auth layer will use `subtle::ConstantTimeEq::ct_eq`
+# per the workspace's secret-comparison policy (see jmap-chat-server's
+# invite-code precedent in src/space.rs).
+subtle = { workspace = true }
+
+[dev-dependencies]
+# Self-test fixture host for slice .7's in-process integration test. No
+# other test deps yet; the scaffold itself has no tests.
+tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
