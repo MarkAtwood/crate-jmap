@@ -8,7 +8,7 @@
 //! - [`handle_metadata_query_changes`]
 
 use jmap_metadata_types::Metadata;
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MetadataBackend};
@@ -46,26 +46,34 @@ pub async fn handle_metadata_get<B: MetadataBackend>(
 ///   whose `@type` value is in the array. Combined with `filterRelatedType`
 ///   via logical AND.
 ///
-/// # Partial-conformance note
+/// # Conformance split (default impl vs override)
 ///
-/// This implementation filters `created` and `updated` by re-fetching each
-/// Id via `get_objects::<Metadata>` and inspecting `relatedType` /
-/// `@type`. The `destroyed` array is **not** filtered because destroyed
-/// objects no longer exist and the standard `JmapBackend::get_changes`
-/// return value does not carry per-Id metadata for destroyed entries.
-/// Strict conformance with §3.3 for the destroyed case requires a backend
-/// extension method that consults the change log directly. Tracked under
-/// bd JMAP-06zp.3.5. Clients that need precise destroyed filtering can
-/// remember each Id's `relatedType` / `@type` from prior `/get` responses
-/// and filter client-side.
+/// Backends that override [`MetadataBackend::get_metadata_changes`] get
+/// strict §3.3 conformance for all three arrays (`created`, `updated`,
+/// `destroyed`) by pre-filtering at the storage layer.
+///
+/// The default impl on the trait delegates to
+/// `JmapBackend::get_changes::<Metadata>` (turbofish form not link-resolvable
+/// by rustdoc) and ignores the filter args.
+/// In that case this handler post-filters `created` and `updated` by
+/// re-fetching each Id via `get_objects::<Metadata>` and inspecting
+/// `relatedType` / `@type`. The `destroyed` array is **not** post-filtered
+/// under the default impl because destroyed objects no longer exist and
+/// the standard `get_changes` return value does not carry per-Id metadata
+/// for destroyed entries. Clients that need precise destroyed filtering
+/// against a default-impl backend can remember each Id's `relatedType` /
+/// `@type` from prior `/get` responses and filter client-side. Tracked
+/// for the override path under bd:JMAP-06zp.3.5.2.
 pub async fn handle_metadata_changes<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     mut args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    // Extract and remove the Metadata-specific filter args before delegating
-    // to the generic /changes handler. Removing them avoids leaking unknown
-    // args into the inner handler, which is strict about its argument set.
+    // Extract the Metadata-specific filter args before parsing the rest.
+    // We remove them from the arg map even though we no longer delegate to
+    // the generic /changes handler — keeping the wire validation strict
+    // (unknown args remaining after this point would still be ignored
+    // silently, matching RFC 8620 §1.6 forgiveness for unknown fields).
     let filter_related_type: Option<String> = args
         .as_object_mut()
         .and_then(|m| m.remove("filterRelatedType"))
@@ -91,27 +99,65 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
             _ => None,
         });
 
-    // Capture the accountId before delegating; the standard /changes handler
-    // also reads it, but we need it for the post-filter object fetch.
-    let account_id_str: Option<String> = args
-        .get("accountId")
-        .and_then(|v| v.as_str())
-        .map(|s| s.to_owned());
-
-    let (mut response, tail) =
-        jmap_server::handlers::handle_changes::<Metadata, B>(backend, caller, args).await?;
-
-    // Short-circuit: if neither filter is set, return the unfiltered response.
-    if filter_related_type.is_none() && filter_metadata_type.is_none() {
-        return Ok((response, tail));
+    let (account_id, args) = extract_account_id(args)?;
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?
+    {
+        return Err(JmapError::account_not_found());
     }
-    let Some(account_id_str) = account_id_str else {
-        return Ok((response, tail));
-    };
-    let account_id = Id::from(account_id_str.as_str());
 
-    // Post-filter the `created` and `updated` arrays. `destroyed` is left
-    // untouched per the partial-conformance note above.
+    let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
+        Some(s) => State::from(s),
+        None => return Err(JmapError::invalid_arguments("sinceState is required")),
+    };
+
+    let max_changes: Option<u64> = match args.get("maxChanges") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(v.as_u64().filter(|&n| n > 0).ok_or_else(|| {
+            JmapError::invalid_arguments("maxChanges must be a positive integer")
+        })?),
+    };
+
+    let result = backend
+        .get_metadata_changes(
+            caller,
+            &account_id,
+            &since_state,
+            max_changes,
+            filter_related_type.as_deref(),
+            filter_metadata_type.as_deref(),
+        )
+        .await
+        .map_err(JmapError::from)?;
+
+    // Build the wire-format /changes response (mirrors
+    // jmap_server::handlers::handle_changes — the standard RFC 8620 §5.2
+    // shape). `updatedProperties: null` per the same rationale documented
+    // there (server cannot claim per-property change detail it does not
+    // track).
+    let mut response = json!({
+        "accountId": account_id.as_ref(),
+        "oldState": since_state.as_ref(),
+        "newState": result.new_state.as_ref(),
+        "hasMoreChanges": result.has_more_changes,
+        "updatedProperties": Value::Null,
+        "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+    });
+
+    // Short-circuit: no filter args, no post-filter needed.
+    if filter_related_type.is_none() && filter_metadata_type.is_none() {
+        return Ok((response, vec![]));
+    }
+
+    // Post-filter the `created` and `updated` arrays for the default-impl
+    // path. Backends that overrode `get_metadata_changes` have already
+    // pre-filtered, in which case these calls are no-ops on already-pruned
+    // arrays. The cost (per-Id re-fetch) is only paid by default-impl
+    // backends; override backends pay zero overhead.
     filter_changes_array(
         backend,
         caller,
@@ -133,7 +179,7 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
     )
     .await?;
 
-    Ok((response, tail))
+    Ok((response, vec![]))
 }
 
 /// Re-fetch each Id in `response[key]` via `get_objects::<Metadata>` and
