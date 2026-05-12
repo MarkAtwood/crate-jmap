@@ -225,6 +225,21 @@ while let Some(frame) = ws.next_frame().await {
 
 ---
 
+## Examples
+
+A runnable end-to-end demo lives in [`examples/session_fetch.rs`](examples/session_fetch.rs):
+
+```sh
+cargo run --example session_fetch -p jmap-base-client
+```
+
+It starts an in-process `wiremock` server with a hand-written RFC 8620 §2
+Session fixture and prints the parsed `username`, URL fields, capabilities,
+and accounts. Set `JMAP_TEST_URL` (and optionally `JMAP_TEST_TOKEN`) to point
+at a real JMAP endpoint instead of the offline fixture.
+
+---
+
 ## API reference
 
 ### `JmapClient`
