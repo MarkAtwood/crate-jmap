@@ -845,6 +845,7 @@ version = "0.1.1"
 dependencies = [
  "base64",
  "bytes",
+ "criterion",
  "futures",
  "http",
  "jmap-types",
