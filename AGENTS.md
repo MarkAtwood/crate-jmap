@@ -478,9 +478,17 @@ session-capability surface.
 
 - **No spec contract on values**. Workspace policy is that caps are
   NOT spec-mandated. New extensions SHOULD NOT add cap-advertising
-  fields to their JMAP capability objects. The chat draft is being
-  revised (bd:JMAP-kt5k) to remove the cap-advertising fields it
-  currently defines.
+  fields to their JMAP capability objects. The chat draft was revised
+  on 2026-05-11 (jmap-chat-spec commit `80d5e11`, bead bd:JMAP-kt5k) to
+  drop five aggregate-count cap-advertising fields from
+  `urn:ietf:params:jmap:chat` (`maxGroupMembers`, `maxSpaceMembers`,
+  `maxRolesPerSpace`, `maxChannelsPerSpace`, `maxCategoriesPerSpace`).
+  Per-aggregate enforcement is now via standard `overQuota` SetError
+  (RFC 8620 §5.3). The three per-message size/count caps that have
+  RFC 8621 (`urn:ietf:params:jmap:mail`) analogs (`maxBodyBytes`,
+  `maxAttachmentBytes`, `maxAttachmentsPerMessage`) were kept on the
+  capability for consistency with that RFC. Workspace catch-up to the
+  spec edit is tracked by bd:JMAP-v3ff.
 
 - **Client visibility, when desired**: JMAP Quota
   (`urn:ietf:params:jmap:quotas`) is the cross-protocol mechanism for
