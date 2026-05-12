@@ -173,6 +173,19 @@ Every method on `SessionClient` follows the same six-step pipeline:
 6. **`extract_response(&resp, CALL_ID)`** — finds the invocation for call ID
    `"r1"` in the response and deserializes it into the typed return value.
 
+## Examples
+
+The crate ships one runnable example under `examples/` demonstrating the
+end-to-end client flow:
+
+- [`examples/mailbox_list.rs`](examples/mailbox_list.rs) — fetch and
+  print all mailboxes from a synthetic JMAP server (wiremock mock with a
+  hand-written `Mailbox/get` response covering the common RFC 8621 §2.1
+  roles). Run: `cargo run --example mailbox_list -p jmap-mail-client`.
+
+NOT FOR PRODUCTION — synthetic mock-server fixtures only, no auth, no TLS.
+Demonstrates the consume-side API.
+
 ## Known Limitations
 
 - **`email_import` requires a separately uploaded blob.** RFC 8621 §4.8
