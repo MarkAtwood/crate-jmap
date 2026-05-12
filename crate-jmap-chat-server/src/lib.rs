@@ -25,6 +25,31 @@
 //! that do not want to stand up a real database. **Not production.**
 //! API stability is opt-in via this feature and may break across minor
 //! versions while the crate is pre-1.0.
+//!
+//! # Permission enforcement: backend canonical
+//!
+//! All Space/set permission gates live in the backend's
+//! `apply_space_patch` implementation (see `memory::MemoryBackend`
+//! under the `memory` feature for the reference impl). The handler
+//! [`handle_space_set`] does NOT permission-check.
+//!
+//! The pure helper [`required_permissions_for_op`] in [`permissions`]
+//! maps each [`SpacePatchOp`] variant to its required permission strings
+//! per draft-atwood-jmap-chat-00 §Space/set. Backends consume this
+//! helper inside `apply_space_patch` after resolving the caller's
+//! effective permissions via [`jmap_server::JmapBackend::principal_id`].
+//! Handlers MUST NOT consume the helper for gating — backends are the
+//! single source of truth. This mirrors the workspace-wide rule
+//! documented in workspace AGENTS.md "Caller identity (foundation
+//! seam)" (bd:JMAP-ga0q):
+//!
+//! - Handlers do NO permission checking.
+//! - Defense-in-depth handler pre-checks are allowed but the backend
+//!   MUST re-verify atomically with the mutation.
+//! - A `None` return from `JmapBackend::principal_id` means the
+//!   deployment has not wired identity; chat permission semantics
+//!   cannot be honored and the backend MUST reject the patch rather
+//!   than fail open.
 
 #![forbid(unsafe_code)]
 

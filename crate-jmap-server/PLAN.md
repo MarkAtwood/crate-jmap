@@ -161,6 +161,49 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
 - `createdIds` accumulation across `/set` calls in a batch is handled automatically
   per RFC 8620 §3.4.
 
+### JmapBackend supertrait
+
+```rust
+pub trait JmapBackend: Send + Sync + 'static {
+    type Error: std::error::Error + Send + Sync + 'static;
+    type CallerCtx: Clone + Send + Sync + 'static;
+
+    // ... read-side methods (account_exists, get_objects, get_state,
+    //     get_changes, query_objects, query_changes) ...
+
+    /// The caller's stable identity within this account namespace.
+    /// Default impl returns `None`. Backends that honor identity-dependent
+    /// JMAP semantics override.
+    fn principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id> {
+        let _ = caller;
+        None
+    }
+}
+```
+
+**`principal_id` is the foundation identity seam** (bd:JMAP-ga0q.1). It is
+the ONE place the JMAP layer asks "who is the caller"; there is no
+`caller_identity_blob()` escape hatch and no generic claims map.
+
+- Returning `None` is a deliberate deployment signal: this server does not
+  honor identity-dependent JMAP semantics. Test fixtures and single-user
+  dev servers are fine on the default impl.
+- Backends that need richer caller info (groups, claims, roles, device
+  class) add those to their OWN backend trait, NOT to `JmapBackend`.
+  Foundation gives the id; extensions own the meaning.
+- **Permission enforcement is backend-canonical.** Handlers MUST NOT
+  permission-check. Defense-in-depth handler pre-checks are allowed but
+  the backend MUST re-verify atomically with the mutation.
+- Federation does NOT bypass this seam — the federation handler maps
+  peer-signed identity to a local principal once, before invoking the
+  JMAP method.
+
+First consumer: bd:JMAP-g7wu.2.4 (chat `Space/set` permission
+enforcement). Planned downstream consumers: `jmap-mail-server` (RFC 8621
+`$seen` on shared mailboxes), `jmap-calendars-server` (calendar ACLs),
+`jmap-sharing-server` (RFC 9670 `myRights`), `jmap-metadata-server`
+(`isPrivate` visibility scoping).
+
 ## Module Layout
 
 ```
