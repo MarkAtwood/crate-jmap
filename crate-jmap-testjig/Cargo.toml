@@ -94,9 +94,9 @@ tokio-tungstenite = { workspace = true }
 subtle = { workspace = true }
 
 [dev-dependencies]
-# Self-test fixture host for slice .7's in-process integration test. No
-# other test deps yet; the scaffold itself has no tests.
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+# Multi-thread runtime + macros for #[tokio::test] across the
+# in-process spawn integration tests.
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "time", "net"] }
 
 # `tower::ServiceExt::oneshot` drives the axum router from a single
 # `http::Request` inside unit tests without binding a real socket.
@@ -107,3 +107,11 @@ tower = { version = "0.5", features = ["util"] }
 # in test code; same crate as the production `LengthLimitError`
 # dependency, so no extra version surface.
 http-body-util = "0.1"
+
+# `reqwest` is the canonical HTTP client the workspace already uses
+# for jmap-base-client. The spawn_in_process integration tests
+# (bd:JMAP-cf7p.7) build a reqwest client against the jig's bound
+# port to exercise the public spawn API end-to-end. The workspace
+# dep already pins default-features=false + rustls-tls per the
+# workspace TLS-stack convention.
+reqwest = { workspace = true }
