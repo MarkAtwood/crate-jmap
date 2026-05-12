@@ -11,11 +11,10 @@
 //! `r##"..."##` raw string delimiters because `"#` would terminate `r#"..."#`.
 
 use jmap_calendars_types::{
-    Alert, AlertAction, AlertTrigger, BusyPeriod, Calendar, CalendarAlert, CalendarEvent,
+    Alert, AlertTrigger, BusyPeriod, Calendar, CalendarAlert, CalendarEvent,
     CalendarEventFilterCondition, CalendarEventNotification, CalendarRights,
     CalendarsAccountCapability, CalendarsCapability, IncludeInAvailability, Link, Participant,
-    ParticipantIdentity, Person, PrincipalCalendarsCapability, RelativeTo, VirtualLocation,
-    JMAP_CALENDARS_URI,
+    ParticipantIdentity, Person, PrincipalCalendarsCapability, VirtualLocation, JMAP_CALENDARS_URI,
 };
 use jmap_types::Id;
 
@@ -761,7 +760,7 @@ fn alert_offset_trigger_roundtrip() {
         AlertTrigger::OffsetTrigger(t) => {
             assert_eq!(t.at_type, "OffsetTrigger");
             assert_eq!(t.offset.as_ref(), "-PT15M");
-            assert_eq!(t.relative_to, Some(RelativeTo::Start));
+            assert_eq!(t.relative_to.as_deref(), Some("start"));
         }
         _ => panic!("expected OffsetTrigger variant"),
     }
@@ -834,7 +833,7 @@ fn alert_with_offset_trigger() {
 
     let alert: Alert = serde_json::from_str(json).expect("Alert");
     assert_eq!(alert.at_type, "Alert");
-    assert_eq!(alert.action, Some(AlertAction::Display));
+    assert_eq!(alert.action.as_deref(), Some("display"));
     assert!(alert.acknowledged.is_none());
     match &alert.trigger {
         AlertTrigger::OffsetTrigger(t) => assert_eq!(t.offset.as_ref(), "-PT15M"),
