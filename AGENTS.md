@@ -401,6 +401,65 @@ on shared mailboxes), jmap-calendars-server (calendar ACLs),
 jmap-sharing-server (RFC 9670 myRights), jmap-metadata-server
 (isPrivate visibility scoping).
 
+## Backend caps and limits
+
+Extension backend traits that expose implementation-defined caps
+(per-Space content limits, per-account message size limits, etc.)
+follow a workspace pattern that preserves per-account flexibility
+without committing to spec-mandated values or to a client-visible
+session-capability surface.
+
+- **Shape**: `fn limits(&self, caller: &Self::CallerCtx, account_id: &Id) -> XxxLimits` —
+  a sync default method on the extension's backend trait returning a
+  struct of all related caps as a group. Each extension defines its
+  own `XxxLimits` struct (e.g. `ChatLimits`, future `CalendarsLimits`).
+
+- **Struct**: `#[non_exhaustive]` with a `Default` impl carrying
+  conservative reference-impl-grade values. Production backends
+  override the whole method, not individual fields.
+
+- **Args are plumbed even when the default ignores them**. The default
+  impl on the trait silently drops `caller` and `account_id`, but the
+  signature accepts them so production backends can vary caps
+  per-account (Free vs Pro tier, multi-tenant SaaS, etc.) without
+  forcing a future API break.
+
+- **No spec contract on values**. Workspace policy is that caps are
+  NOT spec-mandated. New extensions SHOULD NOT add cap-advertising
+  fields to their JMAP capability objects. The chat draft is being
+  revised (bd:JMAP-kt5k) to remove the cap-advertising fields it
+  currently defines.
+
+- **Client visibility, when desired**: JMAP Quota
+  (`urn:ietf:params:jmap:quotas`) is the cross-protocol mechanism for
+  exposing dynamic caps + usage to clients. The workspace does not
+  implement Quotas yet; when it does, backends with caps SHOULD
+  surface them via Quota records rather than via per-capability
+  fields.
+
+- **Enforcement**: backend is canonical, per the "Caller identity
+  (foundation seam)" rule above. Handlers MAY do defense-in-depth
+  pre-checks before calling the backend, but the backend MUST
+  re-verify atomically with the mutation.
+
+- **Atomicity**: if a multi-entry add op (e.g. `addRoles` with 5
+  entries) would exceed a cap, reject the entire entry, not the
+  over-quota subset. Matches RFC 8620 `/set` atomicity at the target
+  level.
+
+**Precedent**: `ChatBackend::limits(&self, caller, account_id) -> ChatLimits`
+(bd:JMAP-g7wu.2.4.8).
+
+**Older pattern, NOT retroactively reshaped**: `jmap-mail-server`
+predates this convention and exposes individual
+`max_<thing>(caller, account_id)` methods (e.g. `max_body_value_bytes`,
+`max_delayed_send_seconds`, `max_sieve_script_bytes`,
+`max_collapse_threads_emails`). Mail-server's shape is not wrong; it
+just predates the struct pattern. A deliberate consolidation bead is
+required if/when mail-server is to migrate to the struct shape — do
+not propagate the per-method shape to new extensions on the assumption
+that mail-server is canonical for this specifically.
+
 ## Security testing
 
 Two complementary tripwire patterns guard against credential-grade
