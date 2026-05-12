@@ -5,6 +5,58 @@ the JMAP Chat extension). All crates live in `crate-jmap-*/` subdirectories.
 
 Read the crate's `PLAN.md` before touching its code.
 
+## What this workspace builds
+
+A **library kit** for building JMAP servers and clients in Rust. Not a JMAP server you
+run. Not a turnkey product. Building blocks for someone else (kith, stoa, third-party
+consumers) to assemble into a server.
+
+Concretely the workspace ships:
+
+- **Wire-format type crates** (`jmap-types`, `jmap-mail-types`, `jmap-chat-types`,
+  etc.) — sync, runtime-agnostic, model the specs.
+- **Handler-library server crates** (`jmap-server` foundation + 8 extension servers) —
+  method handlers + backend traits + reference `MemoryBackend` impls. **No HTTP, no
+  SSE, no WebSocket, no auth integration, no persistence, no main.rs.** All transport
+  / multi-tenancy / auth / storage is the consumer's responsibility.
+- **Client crates** (`jmap-base-client` + 6 extension clients) — method bindings,
+  session fetch, auth (as types, not as an integration), SSE/WS push connections.
+- **MIME adapter** (`jmap-mime`) for the mail family.
+
+What the workspace explicitly does NOT ship:
+
+- A binary you run to get a working JMAP server (with one exception, the test jig
+  below).
+- HTTP / SSE / WS transport helpers on the `*-server` crates (`serve_axum()`, etc.).
+- Production-grade `MemoryBackend` implementations. The reference impls are
+  in-memory only, intentionally feature-gated, and explicitly demonstration-quality.
+- Auth integrations (OAuth flow handlers, JWT issuance, mTLS, etc.).
+- Persistence backends. Anything that touches disk or a database.
+- Configuration / CLI / env-var machinery.
+
+The downstream **consumers** of this kit (Mark's own products like kith and stoa, plus
+the reference impl at `~/PROJECT/crate-jmapchat-server/`, plus future third-party users)
+bring all of the above. The kit is the published foundation; the consumers are the
+products.
+
+### The one exception: `jmap-testjig`
+
+A single deliberately-minimal workspace member, `crate-jmap-testjig/` (epic
+bd:JMAP-cf7p), exists as a `publish = false` binary crate that wires the kit's pieces
+(dispatcher + 8 extension handlers + reference MemoryBackends) into a running
+HTTP/SSE/WS process for the workspace's **own** integration testing and demonstration.
+It is the only workspace member with `axum` / `tokio-tungstenite` deps. It is loudly
+documented as NOT FOR PRODUCTION: in-memory only, single-user, hardcoded bearer auth,
+no persistence. Its purpose is to support workspace integration tests and contributor
+smoke-testing — not to be a JMAP server anyone deploys.
+
+**Do not propose growing transport / persistence / auth / multi-tenancy into the
+`*-server` crates "for symmetry" or "for completeness".** The transport-less posture
+is intentional. The consumer-brings-everything posture is intentional. If a future
+pressure makes the kit-posture feel wrong, surface it as an explicit
+workspace-architectural decision bead — do not drift toward it via incremental scope
+creep on individual feature beads.
+
 ## Crate Map
 
 | Directory | Crate | Role |
