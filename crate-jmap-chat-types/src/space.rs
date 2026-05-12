@@ -77,19 +77,6 @@ pub struct Category {
 pub struct Space {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.16).
     pub id: Id,
-    /// The `ownerId` property — the `ChatContact.id` of the Space owner
-    /// (draft-atwood-jmap-chat-00 §Space, with the `ownerId` field
-    /// addition).
-    ///
-    /// Set by the server at creation time to the caller's
-    /// `ChatContact.id`. Immutable via `Space/set`; owner transfer
-    /// requires `Space/transferOwnership` (not yet specified).
-    /// `ownerId` MUST always be present in `members[].id` — ownership is
-    /// a tag on top of membership. The owner has implicit
-    /// all-permissions regardless of role assignments
-    /// (draft-atwood-jmap-chat-00 §Space/set line 1108: "The owner
-    /// cannot be removed").
-    pub owner_id: Id,
     /// The `name` property (draft-atwood-jmap-chat-00 §4.16).
     pub name: String,
     /// The `description` property (draft-atwood-jmap-chat-00 §4.16).
@@ -277,14 +264,9 @@ impl Space {
     /// Construct a [`Space`] from its required fields.
     ///
     /// `description` and `icon_blob_id` default to `None`.
-    ///
-    /// `owner_id` is required and immutable; the server is responsible
-    /// for setting it to the caller's `ChatContact.id` at create time.
-    /// See the `owner_id` field doc for the full semantics.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: Id,
-        owner_id: Id,
         name: impl Into<String>,
         roles: Vec<SpaceRole>,
         members: Vec<SpaceMember>,
@@ -297,7 +279,6 @@ impl Space {
     ) -> Self {
         Self {
             id,
-            owner_id,
             name: name.into(),
             roles,
             members,
@@ -323,7 +304,6 @@ mod tests {
     fn space_deser() {
         let json = r#"{
             "id": "s1",
-            "ownerId": "u-owner",
             "name": "My Space",
             "roles": [],
             "members": [],
@@ -335,7 +315,6 @@ mod tests {
             "memberCount": 0
         }"#;
         let space: Space = serde_json::from_str(json).expect("deserialize Space");
-        assert_eq!(space.owner_id, Id::from("u-owner"));
         assert_eq!(space.roles, vec![]);
         assert_eq!(space.members, vec![]);
         assert_eq!(space.categories, vec![]);
@@ -349,7 +328,6 @@ mod tests {
     fn space_with_categories() {
         let json = r#"{
             "id": "s2",
-            "ownerId": "u-owner",
             "name": "Guild",
             "roles": [],
             "members": [],
@@ -377,7 +355,6 @@ mod tests {
     fn space_ser_required_vecs_present() {
         let space = Space {
             id: Id::from("s3"),
-            owner_id: Id::from("u-owner"),
             name: "Empty Space".to_owned(),
             description: None,
             icon_blob_id: None,
@@ -400,42 +377,6 @@ mod tests {
         assert!(
             json.contains("\"categories\":[]"),
             "categories must be present as []"
-        );
-    }
-
-    /// `Space.owner_id` round-trips through deserialize/serialize and the
-    /// wire field name is `ownerId` (draft-atwood-jmap-chat-00 §Space,
-    /// `ownerId` field addition).
-    #[test]
-    fn space_owner_id_round_trips() {
-        let json = r#"{
-            "id": "s4",
-            "ownerId": "u-creator-1",
-            "name": "Owner Round-Trip",
-            "roles": [],
-            "members": [],
-            "categories": [],
-            "uncategorizedChannelIds": [],
-            "createdAt": "2024-01-01T00:00:00Z",
-            "isPublic": false,
-            "isPubliclyPreviewable": false,
-            "memberCount": 0
-        }"#;
-        let space: Space = serde_json::from_str(json).expect("deserialize Space");
-        assert_eq!(
-            space.owner_id,
-            Id::from("u-creator-1"),
-            "ownerId must deserialize into owner_id"
-        );
-        let re_json = serde_json::to_value(&space).expect("serialize Space");
-        assert_eq!(
-            re_json["ownerId"],
-            serde_json::json!("u-creator-1"),
-            "owner_id must serialize back to wire field `ownerId`"
-        );
-        assert!(
-            re_json.get("owner_id").is_none(),
-            "snake_case `owner_id` must NOT appear on the wire"
         );
     }
 
@@ -581,7 +522,6 @@ mod tests {
     fn space_preserves_vendor_extras() {
         let raw = serde_json::json!({
             "id": "s1",
-            "ownerId": "u-owner",
             "name": "My Space",
             "roles": [],
             "members": [],

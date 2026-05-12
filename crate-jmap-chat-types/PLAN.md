@@ -154,18 +154,3 @@ supported `relatedType`s via the capability's `dataTypes` property.
 
 Implementation crates: `jmap-metadata-types`, `jmap-metadata-server`,
 `jmap-metadata-client` (bd JMAP-06zp).
-
-## Reserved for future spec work
-
-### `Space` ownership transfer
-
-`Space.owner_id` is an immutable server-set field (bd:JMAP-g7wu.2.4.11).
-It is populated at create time from the caller's `ChatContact.id` and
-cannot be patched via `Space/set`. Transferring ownership of a Space to
-another principal is reserved for a future `Space/transferOwnership`
-method. The shape of that method, the multi-owner question, and the
-group-chat (`Chat.kind = "group"`) admin/ownership model are all
-intentionally deferred to a later draft (see bd:JMAP-pep4 for the
-spec-author follow-up). Until that work lands, the workspace
-implementation treats `owner_id` as set-once-at-create with implicit
-all-permissions and no transfer mechanism.
