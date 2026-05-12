@@ -38,6 +38,20 @@ jmap-sharing-server = { workspace = true, features = ["memory"] }
 jmap-metadata-server = { workspace = true, features = ["memory"] }
 jmap-types = { workspace = true }
 
+# Each *-types crate is pulled in alongside its *-server pair so the
+# SSE poller (slice bd:JMAP-cf7p.4) can name the [`JmapObject`]
+# implementors directly when calling `MemoryBackend::get_state::<O>`.
+# The *-server crates do not re-export their *-types, so each needs
+# an explicit dep here.
+jmap-mail-types = { workspace = true }
+jmap-chat-types = { workspace = true }
+jmap-calendars-types = { workspace = true }
+jmap-tasks-types = { workspace = true }
+jmap-contacts-types = { workspace = true }
+jmap-filenode-types = { workspace = true }
+jmap-sharing-types = { workspace = true }
+jmap-metadata-types = { workspace = true }
+
 # Serde for request/response JSON shapes plumbed through the dispatcher
 # (the dispatcher itself uses serde_json::Value internally).
 serde = { workspace = true }
@@ -85,6 +99,15 @@ axum-core = "0.5"
 # the feature set. The workspace dep is pinned rustls-only — see
 # workspace.dependencies in the root Cargo.toml.
 tokio-tungstenite = { workspace = true }
+
+# tokio-stream — wraps a `tokio::sync::mpsc::Receiver<T>` as a
+# `futures_core::Stream<Item = T>`, which is what axum's
+# `Sse::new(stream)` constructor accepts. Used by the SSE handler
+# (slice bd:JMAP-cf7p.4) to push polling-derived StateChange events
+# from a background task into the event-source response without
+# adding a heavier `async-stream` macro dep or hand-rolling a
+# `Stream` impl.
+tokio-stream = "0.1"
 
 # Constant-time token comparison for the hardcoded bearer auth middleware
 # (slice JMAP-cf7p.6). Pulled in early so the scaffold dep set already

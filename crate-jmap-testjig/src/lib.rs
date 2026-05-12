@@ -38,14 +38,22 @@
 //! # Slice status
 //!
 //! - `bd:JMAP-cf7p.1` (closed): crate scaffold + dependency wiring.
-//! - `bd:JMAP-cf7p.2` (this slice): axum [`http::router`] with
+//! - `bd:JMAP-cf7p.2` (closed): axum [`http::router`] with
 //!   `POST /jmap` (RFC 8620 §3 dispatch) and
 //!   `GET /.well-known/jmap` (RFC 8620 §2 Session). A built-in
 //!   `Core/echo` handler (RFC 8620 §4) is registered so the
 //!   dispatcher demonstrates end-to-end request/response flow.
-//! - Remaining slices (`.3` through `.8`): extension MemoryBackend
-//!   wiring, SSE endpoint, WebSocket endpoint, bearer-auth
-//!   middleware, in-process spawn helper, docs.
+//! - `bd:JMAP-cf7p.3` (closed): 8 reference MemoryBackends wired.
+//! - `bd:JMAP-cf7p.4` (this slice): SSE endpoint [`sse::get_events`]
+//!   exposing `GET /events` (RFC 8620 §7.3) that pushes
+//!   [RFC 8620 §7.1] `StateChange` events derived from a tight
+//!   polling loop across all 8 backends.
+//! - `bd:JMAP-cf7p.6` (closed): bearer-token middleware.
+//! - `bd:JMAP-cf7p.7` (closed): [`spawn_in_process`] for tests.
+//! - Remaining slices (`.5`, `.8`): WebSocket endpoint, README +
+//!   rustdoc warnings.
+//!
+//! [RFC 8620 §7.1]: https://www.rfc-editor.org/rfc/rfc8620.html#section-7.1
 
 #![forbid(unsafe_code)]
 
@@ -53,5 +61,6 @@ pub mod auth;
 pub mod http;
 pub mod session;
 pub mod spawn;
+pub mod sse;
 
 pub use spawn::{spawn_in_process, TestjigConfig, TestjigHandle};
