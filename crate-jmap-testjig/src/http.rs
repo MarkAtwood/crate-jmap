@@ -63,17 +63,42 @@ pub const MAX_CALLS_IN_REQUEST: usize = 16;
 /// separately from the per-route handler state.
 #[derive(Clone)]
 pub struct AppState {
-    inner: Arc<AppStateInner>,
+    pub(crate) inner: Arc<AppStateInner>,
     auth: AuthState,
 }
 
-struct AppStateInner {
+/// The 8 reference MemoryBackends, kept alive alongside the dispatcher
+/// they registered handlers on.
+///
+/// `register_*_handlers` clones an `Arc<MemoryBackend>` into every
+/// handler closure, so the backends would stay alive purely through
+/// the dispatcher even if these fields were dropped. We retain the
+/// typed Arcs here for two reasons:
+///
+/// 1. The SSE poller (slice bd:JMAP-cf7p.4) calls
+///    `MemoryBackend::get_state::<O>(...)` per known [`JmapObject`]
+///    type to assemble the StateChange map. Reaching the backend
+///    through the dispatcher would require a typed handler probe and
+///    is significantly more awkward; a direct Arc reference is the
+///    minimum viable surface.
+/// 2. Future slices (e.g. WebSocket push) need the same access.
+///
+/// [`JmapObject`]: jmap_server::JmapObject
+pub(crate) struct AppStateInner {
     /// The JMAP method dispatcher. Caller context is `()` because the
     /// testjig is single-user — there is no per-request identity to
     /// thread through. Extension MemoryBackends use
     /// `type CallerCtx = ();` so this dispatcher is compatible with
     /// every handler the testjig will mount in later slices.
-    dispatcher: Dispatcher<()>,
+    pub(crate) dispatcher: Dispatcher<()>,
+    pub(crate) mail: Arc<jmap_mail_server::memory::MemoryBackend>,
+    pub(crate) chat: Arc<jmap_chat_server::memory::MemoryBackend>,
+    pub(crate) calendars: Arc<jmap_calendars_server::memory::MemoryBackend>,
+    pub(crate) tasks: Arc<jmap_tasks_server::memory::MemoryBackend>,
+    pub(crate) contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
+    pub(crate) filenode: Arc<jmap_filenode_server::memory::MemoryBackend>,
+    pub(crate) sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
+    pub(crate) metadata: Arc<jmap_metadata_server::memory::MemoryBackend>,
 }
 
 impl AppState {
@@ -101,23 +126,21 @@ impl AppState {
     pub fn with_token(token: impl Into<String>) -> Self {
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         dispatcher.register("Core/echo", Arc::new(EchoHandler));
-        register_all_extensions(&mut dispatcher);
+        let backends = register_all_extensions(&mut dispatcher);
         Self {
-            inner: Arc::new(AppStateInner { dispatcher }),
+            inner: Arc::new(AppStateInner {
+                dispatcher,
+                mail: backends.mail,
+                chat: backends.chat,
+                calendars: backends.calendars,
+                tasks: backends.tasks,
+                contacts: backends.contacts,
+                filenode: backends.filenode,
+                sharing: backends.sharing,
+                metadata: backends.metadata,
+            }),
             auth: AuthState::new(token),
         }
-    }
-
-    /// Borrow the dispatcher (e.g. to register additional handlers
-    /// during integration-test setup). Returns `None` if the state has
-    /// been cloned and the cloned references are still alive; callers
-    /// must mutate the dispatcher before sharing the state.
-    ///
-    /// Slice bd:JMAP-cf7p.3 will switch the dispatcher to be
-    /// pre-populated at construction time, at which point this
-    /// borrow-mut accessor is no longer needed.
-    pub fn dispatcher_mut(&mut self) -> Option<&mut Dispatcher<()>> {
-        Arc::get_mut(&mut self.inner).map(|inner| &mut inner.dispatcher)
     }
 }
 
@@ -134,15 +157,16 @@ impl Default for AppState {
 ///
 /// - `GET /.well-known/jmap` → [`get_session`]
 /// - `POST /jmap` → [`post_jmap`]
+/// - `GET /events` → [`crate::sse::get_events`] (RFC 8620 §7.3)
 ///
-/// Slice bd:JMAP-cf7p.4 will add `GET /events` (SSE).
-/// Slice bd:JMAP-cf7p.5 will add `GET /ws` (WebSocket).
-/// Both will inherit the same auth layer automatically.
+/// Slice bd:JMAP-cf7p.5 will add `GET /ws` (WebSocket); it will
+/// inherit the same auth layer automatically.
 pub fn router(state: AppState) -> Router {
     let auth = state.auth.clone();
     Router::new()
         .route("/.well-known/jmap", get(get_session))
         .route("/jmap", post(post_jmap))
+        .route("/events", get(crate::sse::get_events))
         .route_layer(axum::middleware::from_fn_with_state(
             auth,
             require_bearer_token,
@@ -264,15 +288,35 @@ impl IntoResponse for ApiError {
     }
 }
 
+/// The typed [`Arc<MemoryBackend>`] handles produced by
+/// [`register_all_extensions`].
+///
+/// Returned (rather than dropped) so the caller can retain typed
+/// references on [`AppStateInner`]; the SSE poller (slice
+/// bd:JMAP-cf7p.4) needs direct access to call
+/// `MemoryBackend::get_state::<O>(...)` per [`JmapObject`] type.
+///
+/// [`JmapObject`]: jmap_server::JmapObject
+struct ExtensionBackends {
+    mail: Arc<jmap_mail_server::memory::MemoryBackend>,
+    chat: Arc<jmap_chat_server::memory::MemoryBackend>,
+    calendars: Arc<jmap_calendars_server::memory::MemoryBackend>,
+    tasks: Arc<jmap_tasks_server::memory::MemoryBackend>,
+    contacts: Arc<jmap_contacts_server::memory::MemoryBackend>,
+    filenode: Arc<jmap_filenode_server::memory::MemoryBackend>,
+    sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
+    metadata: Arc<jmap_metadata_server::memory::MemoryBackend>,
+}
+
 /// Construct one reference [`MemoryBackend`] from each extension-server
 /// crate, register the testjig's single account on it, and mount its
 /// handlers on the dispatcher.
 ///
 /// Backend lifetimes: `register_*_handlers` clones the `Arc<B>` into
 /// every registered handler closure, so the backend stays alive as
-/// long as the dispatcher does. The local `Arc` bindings dropped at
-/// the end of this function are not the last owners — the dispatcher
-/// keeps them alive through its registered handlers.
+/// long as the dispatcher does. The returned [`ExtensionBackends`]
+/// adds a second owner so the caller can poll state directly without
+/// reaching through the dispatcher.
 ///
 /// Account registration: five of the eight reference backends
 /// (`mail`, `chat`, `calendars`, `tasks`, `contacts`) expose
@@ -282,7 +326,7 @@ impl IntoResponse for ApiError {
 /// `new_with_accounts`. The three different shapes pre-date this
 /// slice — a follow-up sweep could normalise them, but `.3` does not
 /// in-scope that.
-fn register_all_extensions(dispatcher: &mut Dispatcher<()>) {
+fn register_all_extensions(dispatcher: &mut Dispatcher<()>) -> ExtensionBackends {
     let account = Id::from(session::ACCOUNT_ID);
 
     // Mail (RFC 8621): Mailbox, Thread, Email, SearchSnippet,
@@ -333,6 +377,17 @@ fn register_all_extensions(dispatcher: &mut Dispatcher<()>) {
         jmap_metadata_server::memory::MemoryBackend::new_with_accounts(&[session::ACCOUNT_ID]),
     );
     jmap_metadata_server::register_metadata_handlers(dispatcher, Arc::clone(&metadata));
+
+    ExtensionBackends {
+        mail,
+        chat,
+        calendars,
+        tasks,
+        contacts,
+        filenode,
+        sharing,
+        metadata,
+    }
 }
 
 /// Built-in `Core/echo` handler (RFC 8620 §4): returns its arguments
