@@ -4347,3 +4347,337 @@ async fn ban_set_create_reason_too_long() {
     assert!(props.iter().any(|p| p == "reason"));
     assert_eq!(resp["created"], json!(null));
 }
+
+// ---------------------------------------------------------------------------
+// Space/set count-limit enforcement (bd:JMAP-g7wu.2.4.8)
+//
+// These tests install tight ChatLimits via MemoryBackend::set_limits_for_test
+// to exercise the `overQuota` rejection path without seeding hundreds of
+// objects. The oracle for the assertion shape is RFC 8620 §5.3 SetError
+// (objects in `notUpdated[id]` with a `type` of "overQuota") plus the
+// draft-atwood-jmap-chat-00 §Space/set normative requirement that an
+// over-cap `add*` MUST return overQuota (spec commit `80d5e11`).
+// ---------------------------------------------------------------------------
+
+/// Oracle: a backend that returns the default ChatLimits passes a small
+/// addCategories patch (well under the 100-category cap).
+#[tokio::test]
+async fn space_set_count_limits_default_caps_allow_normal_patch() {
+    let backend = MemoryBackend::new();
+    let space_id = make_space(&backend, "Default Caps").await;
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "Voice",
+                        "position": 0,
+                        "channelIds": [],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert!(
+        resp["notUpdated"].is_null(),
+        "default 100-category cap should not reject 1 add: {:?}",
+        resp["notUpdated"]
+    );
+}
+
+/// Oracle: addCategories beyond the cap rejects the whole update target
+/// with an overQuota SetError naming the offending collection.
+#[tokio::test]
+async fn space_set_count_limits_add_categories_over_cap_rejects() {
+    let backend = MemoryBackend::new();
+    backend.set_limits_for_test(Some(
+        jmap_chat_server::ChatLimits::default().with_max_categories_per_space(1),
+    ));
+
+    let space_id = make_space(&backend, "Tight Categories").await;
+
+    // First add succeeds — fills the 1-category cap.
+    let (resp1, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "Voice",
+                        "position": 0,
+                        "channelIds": [],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("first add");
+    assert!(resp1["notUpdated"].is_null(), "first add should succeed");
+
+    // Second add (any size) puts us over cap.
+    let (resp2, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [{
+                        "id": "placeholder",
+                        "name": "Text",
+                        "position": 1,
+                        "channelIds": [],
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("second add");
+
+    assert!(
+        resp2["notUpdated"][&space_id].is_object(),
+        "second add must be rejected"
+    );
+    assert_eq!(resp2["notUpdated"][&space_id]["type"], "overQuota");
+    let desc = resp2["notUpdated"][&space_id]["description"]
+        .as_str()
+        .expect("description");
+    assert!(
+        desc.contains("categories"),
+        "description must name the categories collection: {desc:?}"
+    );
+    assert!(
+        resp2["updated"].is_null(),
+        "the rejected target must not also appear in updated"
+    );
+}
+
+/// Oracle: a single addCategories op containing N entries that collectively
+/// cross the cap is rejected atomically — none of the entries are applied.
+#[tokio::test]
+async fn space_set_count_limits_atomic_reject_whole_target() {
+    let backend = MemoryBackend::new();
+    backend.set_limits_for_test(Some(
+        jmap_chat_server::ChatLimits::default().with_max_categories_per_space(2),
+    ));
+
+    let space_id = make_space(&backend, "Atomic Reject").await;
+
+    // 3 categories in one op against a cap of 2 — entire target rejected.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [
+                        { "id": "p1", "name": "A", "position": 0, "channelIds": [] },
+                        { "id": "p2", "name": "B", "position": 1, "channelIds": [] },
+                        { "id": "p3", "name": "C", "position": 2, "channelIds": [] },
+                    ]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert_eq!(resp["notUpdated"][&space_id]["type"], "overQuota");
+
+    // Verify atomicity: zero categories actually landed on the Space.
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&space_id] }),
+    )
+    .await
+    .expect("handle_space_get");
+    let cats = get_resp["list"][0]["categories"]
+        .as_array()
+        .expect("categories array");
+    assert_eq!(
+        cats.len(),
+        0,
+        "no categories should have landed when the whole target is rejected"
+    );
+}
+
+/// Oracle: addChannels at-cap is rejected. Channel count = uncategorized + categorized.
+#[tokio::test]
+async fn space_set_count_limits_add_channels_over_cap_rejects() {
+    let backend = MemoryBackend::new();
+    backend.set_limits_for_test(Some(
+        jmap_chat_server::ChatLimits::default().with_max_channels_per_space(2),
+    ));
+
+    let space_id = make_space(&backend, "Tight Channels").await;
+
+    // Fill the cap with two addChannels.
+    let (resp1, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: { "addChannels": [{ "name": "general" }, { "name": "random" }] }
+            }
+        }),
+    )
+    .await
+    .expect("first batch");
+    assert!(
+        resp1["notUpdated"].is_null(),
+        "first batch should succeed: {:?}",
+        resp1["notUpdated"]
+    );
+
+    // Third channel — over cap.
+    let (resp2, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: { "addChannels": [{ "name": "off-topic" }] }
+            }
+        }),
+    )
+    .await
+    .expect("over-cap add");
+
+    assert_eq!(resp2["notUpdated"][&space_id]["type"], "overQuota");
+    let desc = resp2["notUpdated"][&space_id]["description"]
+        .as_str()
+        .expect("description");
+    assert!(
+        desc.contains("channels"),
+        "description must name the channels collection: {desc:?}"
+    );
+}
+
+/// Oracle: a patch with both an over-cap addChannels and an under-cap
+/// addCategories rejects the whole target with the first offender. The
+/// reference handler surfaces the first cap to trip in struct-field
+/// declaration order: roles, members, channels, categories.
+#[tokio::test]
+async fn space_set_count_limits_first_offender_surfaces() {
+    let backend = MemoryBackend::new();
+    backend.set_limits_for_test(Some(
+        jmap_chat_server::ChatLimits::default()
+            .with_max_channels_per_space(0)
+            .with_max_categories_per_space(0),
+    ));
+    let space_id = make_space(&backend, "First Offender").await;
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addChannels": [{ "name": "general" }],
+                    "addCategories": [
+                        { "id": "p1", "name": "Voice", "position": 0, "channelIds": [] }
+                    ]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert_eq!(resp["notUpdated"][&space_id]["type"], "overQuota");
+    let desc = resp["notUpdated"][&space_id]["description"]
+        .as_str()
+        .expect("description");
+    // The helper checks roles → members → channels → categories in
+    // that order, so channels trips first when both are over cap.
+    assert!(
+        desc.contains("channels"),
+        "channels should be reported first (before categories): {desc:?}"
+    );
+}
+
+/// Oracle: a patch with zero Add* ops (only Remove/Update) is not
+/// gated by limits — the handler skips the count-limit check entirely
+/// when there are no Adds. The Forbidden return is from the
+/// not-yet-implemented backend variants (bd:JMAP-g7wu.2.4.3), proving
+/// the patch reached `apply_space_patch` rather than being short-
+/// circuited by the cap check.
+#[tokio::test]
+async fn space_set_count_limits_no_add_ops_bypasses_check() {
+    let backend = MemoryBackend::new();
+    // Set roles cap to 0; if the check were running unconditionally, a
+    // bare removeRoles patch would falsely trip a cap.
+    backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
+    let space_id = make_space(&backend, "No-Add Patch").await;
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: { "removeRoles": ["nonexistent-role-id"] }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    // Backend stub returns Forbidden for unimplemented Role variants
+    // (bd:JMAP-g7wu.2.4.3). The point of this assertion is *not*
+    // overQuota — that's the failure we're guarding against.
+    assert!(
+        resp["notUpdated"][&space_id].is_object(),
+        "Remove* patch should reach the backend stub: {:?}",
+        resp["notUpdated"]
+    );
+    assert_ne!(
+        resp["notUpdated"][&space_id]["type"], "overQuota",
+        "no-Add* patches must not be cap-rejected"
+    );
+}
+
+/// Oracle: a non-update Space/set request (pure create or pure
+/// destroy) does not invoke the count-limit check. The `create`
+/// arm has its own creation logic and does not pre-fetch the Space.
+#[tokio::test]
+async fn space_set_count_limits_create_only_unaffected() {
+    let backend = MemoryBackend::new();
+    backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "s0": { "name": "Free Standing" } }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    // Space create itself contains no Add* ops; the cap check is not
+    // invoked for pure create paths.
+    assert!(
+        resp["created"]["s0"].is_object(),
+        "create should succeed regardless of cap settings: {:?}",
+        resp
+    );
+}

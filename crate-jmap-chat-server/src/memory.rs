@@ -54,9 +54,9 @@ use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 
 use crate::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, GetObject,
-    JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult, SetError,
-    SetErrorType, SetObject, SpacePatchOp,
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits,
+    GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
+    SetError, SetErrorType, SetObject, SpacePatchOp,
 };
 use jmap_server::{json_merge_patch, now_utc_string};
 use jmap_types::{Id, State};
@@ -86,6 +86,10 @@ struct Inner {
     change_log: HashMap<(&'static str, String), Vec<ChangeEntry>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
     known_accounts: HashSet<String>,
+    /// Test-only override for [`ChatBackend::limits`]. `None` means use
+    /// [`ChatLimits::default`]. Set via
+    /// [`MemoryBackend::set_limits_for_test`].
+    limits_override: Option<ChatLimits>,
 }
 
 impl Inner {
@@ -168,6 +172,22 @@ impl MemoryBackend {
             .objects_ref(type_name, account_id)
             .map_or(0, |m| m.len());
         Id::from(format!("{}{}", type_name.to_ascii_lowercase(), n + 1))
+    }
+
+    /// Test-only: override the [`ChatLimits`] returned by
+    /// [`ChatBackend::limits`].
+    ///
+    /// Pass `Some(limits)` to install a custom cap structure, or `None`
+    /// to revert to [`ChatLimits::default`]. Used by count-limit
+    /// enforcement integration tests (bd:JMAP-g7wu.2.4.8) that need
+    /// tight caps to exercise the `overQuota` path without seeding
+    /// hundreds of objects. Production callers must not use this
+    /// method; the API stability disclaimer on the `memory` feature
+    /// applies doubly here.
+    #[doc(hidden)]
+    pub fn set_limits_for_test(&self, limits: Option<ChatLimits>) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.limits_override = limits;
     }
 
     /// Test-only: directly inject a JSON-shaped object into the backend
@@ -635,6 +655,18 @@ impl ChatBackend for MemoryBackend {
             let _ = write!(out, "{byte:02x}");
         }
         out
+    }
+
+    /// Reference implementation of [`ChatBackend::limits`].
+    ///
+    /// Returns the test-only override set via
+    /// [`MemoryBackend::set_limits_for_test`] when present, else falls
+    /// back to [`ChatLimits::default`]. Production backends ignore the
+    /// override knob and read from their own per-account
+    /// configuration.
+    fn limits(&self, _caller: &(), _account_id: &Id) -> ChatLimits {
+        let inner = self.inner.lock().unwrap();
+        inner.limits_override.unwrap_or_default()
     }
 
     /// Reference implementation of [`ChatBackend::apply_space_patch`].

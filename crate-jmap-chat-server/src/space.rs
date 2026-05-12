@@ -8,7 +8,9 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 use subtle::ConstantTimeEq;
 
-use crate::backend::{BackendSetError, ChatBackend, SpacePatchOp};
+use crate::backend::{
+    BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType, SpacePatchOp,
+};
 use crate::helpers::{
     extract_account_id, finalize_set_response, iso8601_before, not_found_json, now_utc_string, ser,
     set_error_value, SetAccumulators,
@@ -412,6 +414,157 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 }
 
 // ---------------------------------------------------------------------------
+// Space/set count-limit enforcement (bd:JMAP-g7wu.2.4.8)
+// ---------------------------------------------------------------------------
+
+/// Count `Add*` ops by collection (roles / members / channels / categories)
+/// in a parsed `Vec<SpacePatchOp>`.
+///
+/// Returns a tuple of `(add_roles, add_members, add_channels, add_categories)`.
+/// `Remove*` and `Update*` ops are not counted — per the bd:JMAP-g7wu.2.4.8
+/// design, the conservative `existing + add` check ignores in-flight removes
+/// so the resulting count is bounded even if ops are reordered by the
+/// backend. The check rejects strictly more patches than strict
+/// "final-count" enforcement; both are spec-conformant (the spec only
+/// requires that the resulting count not exceed the cap).
+fn count_add_ops(ops: &[SpacePatchOp]) -> (u32, u32, u32, u32) {
+    let mut add_roles: u32 = 0;
+    let mut add_members: u32 = 0;
+    let mut add_channels: u32 = 0;
+    let mut add_categories: u32 = 0;
+    for op in ops {
+        match op {
+            SpacePatchOp::AddRole(_) => add_roles = add_roles.saturating_add(1),
+            SpacePatchOp::AddMember { .. } => add_members = add_members.saturating_add(1),
+            SpacePatchOp::AddChannel(_) => add_channels = add_channels.saturating_add(1),
+            SpacePatchOp::AddCategory(_) => add_categories = add_categories.saturating_add(1),
+            _ => {}
+        }
+    }
+    (add_roles, add_members, add_channels, add_categories)
+}
+
+/// Enforce per-Space count limits before dispatching structural ops to
+/// [`ChatBackend::apply_space_patch`] (bd:JMAP-g7wu.2.4.8).
+///
+/// Per draft-atwood-jmap-chat-00 §Space/set (spec commit `80d5e11`,
+/// 2026-05-11), each of the four `add*` ops MUST return an `overQuota`
+/// SetError (RFC 8620 §5.3) when the resulting count would exceed a
+/// server-defined limit. The handler queries the backend's
+/// [`ChatBackend::limits`] for the cap values, fetches the current
+/// Space to count existing roles/members/channels/categories, then
+/// compares `existing + add` against the cap for each affected
+/// collection.
+///
+/// Atomicity: if any aggregate would exceed its cap, the whole update
+/// target is rejected with one `overQuota` SetError — matching
+/// RFC 8620 §5.3 `/set` semantics at the target level. The handler
+/// surfaces the failure in `notUpdated[id]` and skips the
+/// `apply_space_patch` call entirely.
+///
+/// # Returns
+///
+/// - `Ok(None)` — no Add* ops in the patch, or all caps satisfied.
+/// - `Ok(Some(SetError))` — one or more caps would be exceeded; the
+///   SetError is `overQuota` with a description naming the offending
+///   collection.
+/// - `Err(JmapError)` — the backend read failed; the caller propagates
+///   as a `serverFail` for the whole `Space/set` request.
+///
+/// If `get_objects` returns the Space as missing (e.g. the id was
+/// destroyed since `get_state` was read), this helper returns
+/// `Ok(None)` and lets `apply_space_patch` return the canonical
+/// `notFound` SetError for consistency with the existing not-found
+/// path.
+async fn check_space_count_limits<B: ChatBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    space_id: &Id,
+    ops: &[SpacePatchOp],
+    limits: &ChatLimits,
+) -> Result<Option<SetError>, JmapError> {
+    let (add_roles, add_members, add_channels, add_categories) = count_add_ops(ops);
+    if add_roles == 0 && add_members == 0 && add_channels == 0 && add_categories == 0 {
+        return Ok(None);
+    }
+
+    let (found, _not_found) = backend
+        .get_objects::<Space>(caller, account_id, Some(std::slice::from_ref(space_id)), None)
+        .await
+        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    // If the Space is missing, let apply_space_patch surface notFound
+    // through its existing path. The cap check has nothing to do.
+    let Some(space) = found.into_iter().next() else {
+        return Ok(None);
+    };
+
+    let cur_roles = u32::try_from(space.roles.len()).unwrap_or(u32::MAX);
+    let cur_members = u32::try_from(space.members.len()).unwrap_or(u32::MAX);
+    let cur_categories = u32::try_from(space.categories.len()).unwrap_or(u32::MAX);
+    let cur_channels = u32::try_from(
+        space.uncategorized_channel_ids.len()
+            + space
+                .categories
+                .iter()
+                .map(|c| c.channel_ids.len())
+                .sum::<usize>(),
+    )
+    .unwrap_or(u32::MAX);
+
+    // Build an overQuota SetError naming the first offending collection.
+    // The handler emits a single error per target, so we surface the
+    // first cap to trip; a client retry after fixing that collection
+    // would expose any second offender on the next request.
+    let exceeded = |label: &'static str, current: u32, add: u32, cap: u32| -> Option<SetError> {
+        if add == 0 {
+            return None;
+        }
+        let proposed = current.saturating_add(add);
+        if proposed > cap {
+            Some(
+                SetError::new(SetErrorType::OverQuota).with_description(format!(
+                    "{label}: would have {proposed} after adding {add} (existing {current}, cap {cap})"
+                )),
+            )
+        } else {
+            None
+        }
+    };
+
+    if let Some(e) = exceeded("roles", cur_roles, add_roles, limits.max_roles_per_space) {
+        return Ok(Some(e));
+    }
+    if let Some(e) = exceeded(
+        "members",
+        cur_members,
+        add_members,
+        limits.max_space_members,
+    ) {
+        return Ok(Some(e));
+    }
+    if let Some(e) = exceeded(
+        "channels",
+        cur_channels,
+        add_channels,
+        limits.max_channels_per_space,
+    ) {
+        return Ok(Some(e));
+    }
+    if let Some(e) = exceeded(
+        "categories",
+        cur_categories,
+        add_categories,
+        limits.max_categories_per_space,
+    ) {
+        return Ok(Some(e));
+    }
+
+    Ok(None)
+}
+
+// ---------------------------------------------------------------------------
 // Space/set
 // ---------------------------------------------------------------------------
 
@@ -546,6 +699,15 @@ pub async fn handle_space_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     // update
     // -----------------------------------------------------------------------
+    //
+    // Query per-Space content limits once for the whole request. The
+    // values are implementation-defined (bd:JMAP-g7wu.2.4.8 / workspace
+    // AGENTS.md "Backend caps and limits") and the trait method is a
+    // sync default that backends can override per-account. Querying
+    // once per request (rather than once per target) is correct because
+    // the limits are scoped to the account, not the Space.
+    let space_limits = backend.limits(caller, &account_id);
+
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
@@ -677,6 +839,34 @@ pub async fn handle_space_set<B: ChatBackend>(
                     json!({ "type": "invalidPatch", "description": "patch contains no valid fields" }),
                 );
                 continue;
+            }
+
+            // Enforce per-Space count limits before dispatching structural
+            // ops to the backend (bd:JMAP-g7wu.2.4.8). If any aggregate
+            // would exceed its cap, reject the whole update target with
+            // a single `overQuota` SetError per RFC 8620 §5.3 atomicity
+            // at the target level. The cap values come from the
+            // backend's `ChatBackend::limits` (queried once per request
+            // above the loop); the current per-collection counts come
+            // from a `get_objects::<Space>` read of the target Space.
+            if !ops.is_empty() {
+                match check_space_count_limits(
+                    backend,
+                    caller,
+                    &account_id,
+                    &id,
+                    &ops,
+                    &space_limits,
+                )
+                .await
+                {
+                    Ok(Some(err)) => {
+                        not_updated.insert(id_str, set_error_value(&err));
+                        continue;
+                    }
+                    Ok(None) => {}
+                    Err(je) => return Err(je),
+                }
             }
 
             // Apply structural ops first. If any op fails, surface the first

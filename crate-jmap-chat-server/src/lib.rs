@@ -77,9 +77,9 @@ pub mod presence;
 pub mod space;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, GetObject,
-    JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult, SetError,
-    SetErrorType, SetObject, SpacePatchOp,
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits,
+    GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
+    SetError, SetErrorType, SetObject, SpacePatchOp,
 };
 pub use ban::{handle_ban_changes, handle_ban_get, handle_ban_set};
 pub use chat::{
