@@ -30,6 +30,7 @@ members = [
     "crate-jmap-filenode-client",
     "crate-jmap-metadata-client",
     "crate-jmap-sharing-client",
+    "crate-jmap-testjig",
 ]
 resolver = "2"
 
