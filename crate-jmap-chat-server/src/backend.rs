@@ -164,14 +164,19 @@ pub trait ChatBackend: JmapBackend {
     /// # Permission and limit checks
     ///
     /// Handler-side permission gates (`manage_space`, `manage_roles`,
-    /// `manage_members`, `manage_channels`) and add-op count limits
-    /// (`maxRolesPerSpace`, `maxSpaceMembers`, `maxChannelsPerSpace`,
-    /// `maxCategoriesPerSpace`) are tracked in
-    /// `bd:JMAP-g7wu.2.4.7` and `bd:JMAP-g7wu.2.4.8` and are NOT yet
-    /// applied by the reference handler. Until those land, the handler
-    /// dispatches every well-formed patch to the backend, and the
-    /// backend is responsible for rejecting any op the caller is not
-    /// authorized to perform.
+    /// `manage_members`, `manage_channels`) and per-aggregate count
+    /// limits on roles, members, channels, and categories per Space are
+    /// tracked in `bd:JMAP-g7wu.2.4.7` and `bd:JMAP-g7wu.2.4.8` and are
+    /// NOT yet applied by the reference handler. When applied,
+    /// exceed-limit cases return `overQuota` SetError (RFC 8620 §5.3)
+    /// per draft-atwood-jmap-chat-00 §Space/set (spec revised
+    /// 2026-05-11, commit `80d5e11`; the previous cap-advertising
+    /// fields `maxRolesPerSpace`, `maxSpaceMembers`,
+    /// `maxChannelsPerSpace`, `maxCategoriesPerSpace` are no longer
+    /// defined on `urn:ietf:params:jmap:chat`). Until those beads land,
+    /// the handler dispatches every well-formed patch to the backend,
+    /// and the backend is responsible for rejecting any op the caller
+    /// is not authorized to perform.
     ///
     /// The role-position hierarchy check (members may only add or modify
     /// roles whose `position` is strictly less than their own
