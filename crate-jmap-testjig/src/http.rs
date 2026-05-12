@@ -32,7 +32,7 @@ use axum::{
 };
 use http_body_util::LengthLimitError;
 use jmap_server::{parse_request, request_error, Dispatcher, JmapError, JmapHandler, RequestError};
-use jmap_types::{Invocation, State};
+use jmap_types::{Id, Invocation, State};
 use serde_json::Value;
 
 use crate::auth::{require_bearer_token, AuthState};
@@ -90,13 +90,18 @@ impl AppState {
     /// Build the testjig's application state with a custom bearer
     /// token (rather than the [`crate::auth::DEFAULT_BEARER_TOKEN`]).
     ///
-    /// The dispatcher is constructed the same way as in [`Self::new`].
-    /// Callers who need to register additional methods on the
-    /// dispatcher should use [`Self::dispatcher_mut`] before the
-    /// state is cloned by the router builder.
+    /// Constructs all 8 reference MemoryBackends from the workspace's
+    /// extension-server crates, registers the testjig's single
+    /// account ([`session::ACCOUNT_ID`]) on each, and mounts every
+    /// crate's `register_*_handlers` function on a single dispatcher
+    /// alongside the built-in `Core/echo` handler.
+    ///
+    /// All 8 reference backends use `type CallerCtx = ();`, which
+    /// lines up with the testjig's single-hardcoded-principal posture.
     pub fn with_token(token: impl Into<String>) -> Self {
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         dispatcher.register("Core/echo", Arc::new(EchoHandler));
+        register_all_extensions(&mut dispatcher);
         Self {
             inner: Arc::new(AppStateInner { dispatcher }),
             auth: AuthState::new(token),
@@ -257,6 +262,77 @@ impl IntoResponse for ApiError {
         let (parts, body) = self.0.into_response().into_parts();
         Response::from_parts(parts, Body::from(body))
     }
+}
+
+/// Construct one reference [`MemoryBackend`] from each extension-server
+/// crate, register the testjig's single account on it, and mount its
+/// handlers on the dispatcher.
+///
+/// Backend lifetimes: `register_*_handlers` clones the `Arc<B>` into
+/// every registered handler closure, so the backend stays alive as
+/// long as the dispatcher does. The local `Arc` bindings dropped at
+/// the end of this function are not the last owners — the dispatcher
+/// keeps them alive through its registered handlers.
+///
+/// Account registration: five of the eight reference backends
+/// (`mail`, `chat`, `calendars`, `tasks`, `contacts`) expose
+/// `register_account(&Id)` for explicit per-account initialisation;
+/// `filenode` uses a builder-style `with_account(&str)`; `sharing`
+/// and `metadata` accept a slice of account ids at construction via
+/// `new_with_accounts`. The three different shapes pre-date this
+/// slice — a follow-up sweep could normalise them, but `.3` does not
+/// in-scope that.
+fn register_all_extensions(dispatcher: &mut Dispatcher<()>) {
+    let account = Id::from(session::ACCOUNT_ID);
+
+    // Mail (RFC 8621): Mailbox, Thread, Email, SearchSnippet,
+    // Identity, EmailSubmission, VacationResponse.
+    let mail = Arc::new(jmap_mail_server::memory::MemoryBackend::new());
+    mail.register_account(&account);
+    jmap_mail_server::register_mail_handlers(dispatcher, Arc::clone(&mail));
+
+    // Chat (draft-atwood-jmap-chat-00): Chat, Message, Space,
+    // SpaceBan, ChatContact, ReadPosition, CustomEmoji, SpaceInvite,
+    // PresenceStatus.
+    let chat = Arc::new(jmap_chat_server::memory::MemoryBackend::new());
+    chat.register_account(&account);
+    jmap_chat_server::register_chat_handlers(dispatcher, Arc::clone(&chat));
+
+    // Calendars (draft-ietf-jmap-calendars): Calendar, CalendarEvent,
+    // Participant, ParticipantIdentity.
+    let calendars = Arc::new(jmap_calendars_server::memory::MemoryBackend::new());
+    calendars.register_account(&account);
+    jmap_calendars_server::register_calendars_handlers(dispatcher, Arc::clone(&calendars));
+
+    // Tasks (draft-ietf-jmap-tasks): Task, TaskList.
+    let tasks = Arc::new(jmap_tasks_server::memory::MemoryBackend::new());
+    tasks.register_account(&account);
+    jmap_tasks_server::register_tasks_handlers(dispatcher, Arc::clone(&tasks));
+
+    // Contacts (draft-ietf-jmap-contacts): ContactCard, AddressBook.
+    let contacts = Arc::new(jmap_contacts_server::memory::MemoryBackend::new());
+    contacts.register_account(&account);
+    jmap_contacts_server::register_contacts_handlers(dispatcher, Arc::clone(&contacts));
+
+    // FileNode (draft-atwood-jmap-chat-filenode-00): FileNode tree.
+    // Uses a builder shape — `with_account` consumes self and returns
+    // the seeded backend, which we then wrap in an Arc.
+    let filenode = Arc::new(
+        jmap_filenode_server::memory::MemoryBackend::new().with_account(session::ACCOUNT_ID),
+    );
+    jmap_filenode_server::register_filenode_handlers(dispatcher, Arc::clone(&filenode));
+
+    // Sharing (RFC 9670): Principal, Permission.
+    let sharing = Arc::new(
+        jmap_sharing_server::memory::MemoryBackend::new_with_accounts(&[session::ACCOUNT_ID]),
+    );
+    jmap_sharing_server::register_sharing_handlers(dispatcher, Arc::clone(&sharing));
+
+    // Metadata (draft-ietf-jmap-metadata): Metadata, Annotation.
+    let metadata = Arc::new(
+        jmap_metadata_server::memory::MemoryBackend::new_with_accounts(&[session::ACCOUNT_ID]),
+    );
+    jmap_metadata_server::register_metadata_handlers(dispatcher, Arc::clone(&metadata));
 }
 
 /// Built-in `Core/echo` handler (RFC 8620 §4): returns its arguments
@@ -582,6 +658,144 @@ mod tests {
         )
         .await;
         assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    /// Oracle: bd:JMAP-cf7p.3 — every extension's reference
+    /// MemoryBackend is mounted on the dispatcher and the testjig's
+    /// hardcoded account is registered on it. Sample one method
+    /// from the canonical extension-server template (Mailbox/get,
+    /// RFC 8621 §2.2) and confirm the dispatcher returns a
+    /// well-formed /get response, not `unknownMethod` and not an
+    /// `accountNotFound` error.
+    #[tokio::test]
+    async fn post_jmap_mailbox_get_works_against_mounted_mail_backend() {
+        let state = AppState::new();
+        let router = router(state);
+        let req_body = serde_json::to_string(&json!({
+            "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"],
+            "methodCalls": [
+                ["Mailbox/get", {"accountId": session::ACCOUNT_ID, "ids": null}, "c1"]
+            ]
+        }))
+        .unwrap();
+        let (status, body) = send(router, http::Method::POST, "/jmap", Some(&req_body)).await;
+        assert_eq!(status, StatusCode::OK);
+        let inv = &body["methodResponses"][0];
+        assert_eq!(
+            inv[0], "Mailbox/get",
+            "Mailbox/get must dispatch to the mail backend"
+        );
+        assert_eq!(
+            inv[1]["accountId"],
+            session::ACCOUNT_ID,
+            "successful /get response must echo accountId"
+        );
+        assert!(
+            inv[1]["list"].is_array(),
+            "successful /get response must carry a list array per RFC 8620 §5.1"
+        );
+    }
+
+    /// Oracle: bd:JMAP-cf7p.3 — same as the Mailbox/get test but for
+    /// Chat/get (draft-atwood-jmap-chat-00) to confirm the chat
+    /// reference MemoryBackend is mounted on the same dispatcher.
+    #[tokio::test]
+    async fn post_jmap_chat_get_works_against_mounted_chat_backend() {
+        let state = AppState::new();
+        let router = router(state);
+        let req_body = serde_json::to_string(&json!({
+            "using": ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:chat"],
+            "methodCalls": [
+                ["Chat/get", {"accountId": session::ACCOUNT_ID, "ids": null}, "c1"]
+            ]
+        }))
+        .unwrap();
+        let (status, body) = send(router, http::Method::POST, "/jmap", Some(&req_body)).await;
+        assert_eq!(status, StatusCode::OK);
+        let inv = &body["methodResponses"][0];
+        assert_eq!(inv[0], "Chat/get");
+        assert_eq!(inv[1]["accountId"], session::ACCOUNT_ID);
+        assert!(inv[1]["list"].is_array());
+    }
+
+    /// Oracle: RFC 8620 §3.3 — methodCalls processed in order in a
+    /// single envelope, each independently dispatched to the right
+    /// extension backend. Cross-extension batches are a primary
+    /// reason JMAP exists (one round trip across data types).
+    #[tokio::test]
+    async fn post_jmap_cross_extension_batch() {
+        let state = AppState::new();
+        let router = router(state);
+        let req_body = serde_json::to_string(&json!({
+            "using": [
+                "urn:ietf:params:jmap:core",
+                "urn:ietf:params:jmap:mail",
+                "urn:ietf:params:jmap:chat",
+            ],
+            "methodCalls": [
+                ["Mailbox/get", {"accountId": session::ACCOUNT_ID, "ids": null}, "c1"],
+                ["Chat/get", {"accountId": session::ACCOUNT_ID, "ids": null}, "c2"],
+                ["Core/echo", {"trailing": true}, "c3"],
+            ]
+        }))
+        .unwrap();
+        let (status, body) = send(router, http::Method::POST, "/jmap", Some(&req_body)).await;
+        assert_eq!(status, StatusCode::OK);
+        let calls = body["methodResponses"].as_array().unwrap();
+        assert_eq!(calls.len(), 3, "all three calls must produce a response");
+        assert_eq!(calls[0][0], "Mailbox/get");
+        assert_eq!(calls[1][0], "Chat/get");
+        assert_eq!(calls[2][0], "Core/echo");
+        // Ordering: each response carries its original call_id.
+        assert_eq!(calls[0][2], "c1");
+        assert_eq!(calls[1][2], "c2");
+        assert_eq!(calls[2][2], "c3");
+        // Core/echo must echo args unchanged.
+        assert_eq!(calls[2][1], json!({"trailing": true}));
+    }
+
+    /// Oracle: bd:JMAP-cf7p.3 — every one of the 8 extension-server
+    /// crates has at least one `/get` method registered on the
+    /// dispatcher. Probe one representative method per extension to
+    /// confirm the dispatcher routes it (rather than returning
+    /// `unknownMethod`). We don't assert success — we only assert
+    /// the response method-name is NOT `error` with type
+    /// `unknownMethod`, which would mean the handler wasn't
+    /// registered. Some extensions may return method-level errors
+    /// for /get with null ids on an empty store; that's still a
+    /// successful dispatch.
+    #[tokio::test]
+    async fn post_jmap_all_eight_extension_get_methods_dispatch() {
+        // (method name, capability URI) per extension.
+        let probes = [
+            ("Mailbox/get", "urn:ietf:params:jmap:mail"),
+            ("Chat/get", "urn:ietf:params:jmap:chat"),
+            ("Calendar/get", "urn:ietf:params:jmap:calendars"),
+            ("Task/get", "urn:ietf:params:jmap:tasks"),
+            ("ContactCard/get", "urn:ietf:params:jmap:contacts"),
+            ("FileNode/get", "urn:ietf:params:jmap:filenode"),
+            ("Principal/get", "urn:ietf:params:jmap:sharing"),
+            ("Metadata/get", "urn:ietf:params:jmap:metadata"),
+        ];
+        for (method, capability) in probes {
+            let state = AppState::new();
+            let router = router(state);
+            let req_body = serde_json::to_string(&json!({
+                "using": ["urn:ietf:params:jmap:core", capability],
+                "methodCalls": [[method, {"accountId": session::ACCOUNT_ID, "ids": null}, "c1"]]
+            }))
+            .unwrap();
+            let (status, body) = send(router, http::Method::POST, "/jmap", Some(&req_body)).await;
+            assert_eq!(status, StatusCode::OK, "probe {method} status");
+            let inv = &body["methodResponses"][0];
+            // If the handler was not registered the dispatcher would
+            // emit ('error', {type: 'unknownMethod'}, call_id).
+            let is_unknown = inv[0] == "error" && inv[1]["type"] == "unknownMethod";
+            assert!(
+                !is_unknown,
+                "{method} must be registered on the dispatcher; got response: {inv}"
+            );
+        }
     }
 
     /// Oracle: bd:JMAP-cf7p.6 — a custom token configured via
