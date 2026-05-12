@@ -160,19 +160,18 @@ impl Default for AppState {
 /// - `POST /jmap` → `post_jmap` (API endpoint, RFC 8620 §3)
 /// - `GET /events` → [`crate::sse::get_events`] (RFC 8620 §7.3
 ///   EventSource)
+/// - `GET /ws` → [`crate::ws::get_ws`] (RFC 8887 JMAP-over-WebSocket)
 ///
-/// `get_session` and `post_jmap` are module-private; the SSE
-/// handler is named via its `pub` path so consumers reading the
-/// rendered docs can follow it.
-///
-/// Slice bd:JMAP-cf7p.5 will add `GET /ws` (WebSocket); it will
-/// inherit the same auth layer automatically.
+/// `get_session` and `post_jmap` are module-private; the SSE and WS
+/// handlers are named via their `pub` paths so consumers reading the
+/// rendered docs can follow them.
 pub fn router(state: AppState) -> Router {
     let auth = state.auth.clone();
     Router::new()
         .route("/.well-known/jmap", get(get_session))
         .route("/jmap", post(post_jmap))
         .route("/events", get(crate::sse::get_events))
+        .route("/ws", get(crate::ws::get_ws))
         .route_layer(axum::middleware::from_fn_with_state(
             auth,
             require_bearer_token,
