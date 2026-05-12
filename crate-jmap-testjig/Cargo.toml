@@ -57,6 +57,26 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal", "
 # rustls). 0.7 is the current major; we pin caret-minor for now.
 axum = "0.8"
 
+# `http` is the `Request`/`Response`/`StatusCode`/`header` foundation
+# shared with axum. Workspace-declared (used by jmap-server's
+# RequestError helper) so version-pin stays consistent.
+http = { workspace = true }
+
+# `http-body-util` provides `LengthLimitError`, which axum's
+# `to_bytes(.., limit)` returns inside its error chain when the body
+# exceeds the cap. The testjig needs to distinguish "too big" from
+# generic transport faults so it can emit RFC 8620 `requestTooLarge`
+# (HTTP 400) rather than a generic 4xx. Pinned to the same minor as
+# axum's transitive dep.
+http-body-util = "0.1"
+
+# `axum-core` exposes the error type returned by `axum::body::to_bytes`
+# so the testjig can walk its `Error::source` chain looking for
+# `LengthLimitError`. Pulled in directly (rather than reached through
+# the axum transitive) so a future axum minor bump cannot silently
+# break access to the type.
+axum-core = "0.5"
+
 # WebSocket — for slice JMAP-cf7p.5 the testjig will use axum's built-in
 # axum::extract::ws path rather than tokio-tungstenite directly. We
 # still declare tokio-tungstenite as a workspace dep so future slices
@@ -77,3 +97,13 @@ subtle = { workspace = true }
 # Self-test fixture host for slice .7's in-process integration test. No
 # other test deps yet; the scaffold itself has no tests.
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
+
+# `tower::ServiceExt::oneshot` drives the axum router from a single
+# `http::Request` inside unit tests without binding a real socket.
+# `util` is the smallest feature that provides `oneshot`.
+tower = { version = "0.5", features = ["util"] }
+
+# `http_body_util::BodyExt::collect` reads the response body into bytes
+# in test code; same crate as the production `LengthLimitError`
+# dependency, so no extra version surface.
+http-body-util = "0.1"

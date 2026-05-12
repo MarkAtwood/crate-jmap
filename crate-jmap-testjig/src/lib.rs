@@ -35,11 +35,19 @@
 //! transport, auth, persistence, and multi-tenancy). See the workspace
 //! `AGENTS.md` "What this workspace builds" section.
 //!
-//! # Scaffold status
+//! # Slice status
 //!
-//! This scaffold slice (`bd:JMAP-cf7p.1`) sets up the crate directory and
-//! dependency graph only. The actual routes, handler wiring, SSE / WS
-//! endpoints, auth middleware, and `spawn_in_process` API land in
-//! subsequent slices (`bd:JMAP-cf7p.2` through `.7`).
+//! - `bd:JMAP-cf7p.1` (closed): crate scaffold + dependency wiring.
+//! - `bd:JMAP-cf7p.2` (this slice): axum [`http::router`] with
+//!   `POST /jmap` (RFC 8620 §3 dispatch) and
+//!   `GET /.well-known/jmap` (RFC 8620 §2 Session). A built-in
+//!   `Core/echo` handler (RFC 8620 §4) is registered so the
+//!   dispatcher demonstrates end-to-end request/response flow.
+//! - Remaining slices (`.3` through `.8`): extension MemoryBackend
+//!   wiring, SSE endpoint, WebSocket endpoint, bearer-auth
+//!   middleware, in-process spawn helper, docs.
 
 #![forbid(unsafe_code)]
+
+pub mod http;
+pub mod session;
