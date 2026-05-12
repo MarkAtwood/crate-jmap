@@ -704,6 +704,29 @@ pub trait JmapBackend: Send + Sync + 'static {
     ) -> impl std::future::Future<
         Output = Result<QueryChangesResult, BackendChangesError<Self::Error>>,
     > + Send;
+
+    /// The caller's stable identity within this account namespace.
+    ///
+    /// Returns `None` for deployments that have not wired identity
+    /// (test fixtures, single-user dev servers). A `None`-returning
+    /// backend CANNOT honor JMAP semantics that depend on caller
+    /// identity — chat role-hierarchy, calendar ACLs, sharing/myRights,
+    /// per-user $seen on shared mailboxes, metadata isPrivate
+    /// visibility scoping, etc. Authentication is still the HTTP
+    /// layer's job; this method exposes the result of that
+    /// authentication to the JMAP layer for in-method semantics.
+    ///
+    /// Implementations MUST NOT mint identity — they MUST read it
+    /// from the `CallerCtx` populated by the HTTP/auth middleware
+    /// before `dispatch()` was called.
+    ///
+    /// Backends that honor identity-dependent semantics MUST override
+    /// this method. Handlers and downstream backend traits MAY rely on
+    /// it being correct when it returns `Some`.
+    fn principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id> {
+        let _ = caller;
+        None
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -778,6 +801,103 @@ mod tests {
         assert_eq!(
             deserialized, original,
             "Singleton must deserialize back to Singleton"
+        );
+    }
+
+    /// Oracle (bd:JMAP-ga0q.1): `JmapBackend::principal_id` has a default impl
+    /// that returns `None`. A backend whose `CallerCtx = ()` and that does NOT
+    /// override `principal_id` inherits that default and signals "identity not
+    /// wired" to callers. JMAP semantics that depend on caller identity must
+    /// treat `None` as a hard "cannot honor".
+    #[test]
+    fn principal_id_default_impl_returns_none_for_unit_caller_ctx() {
+        // Minimal stub backend exercising only the default impl. All other
+        // trait methods are stubbed with `unreachable!()` and never invoked.
+        struct StubBackend;
+
+        #[derive(Debug)]
+        struct StubError;
+
+        impl std::fmt::Display for StubError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("stub")
+            }
+        }
+        impl std::error::Error for StubError {}
+
+        impl JmapBackend for StubBackend {
+            type Error = StubError;
+            type CallerCtx = ();
+
+            async fn account_exists(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+            ) -> Result<bool, Self::Error> {
+                unreachable!("only principal_id is exercised in this test")
+            }
+
+            async fn get_objects<O: GetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _ids: Option<&[jmap_types::Id]>,
+                _properties: Option<&[String]>,
+            ) -> Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error> {
+                unreachable!("only principal_id is exercised in this test")
+            }
+
+            async fn get_state<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+            ) -> Result<jmap_types::State, Self::Error> {
+                unreachable!("only principal_id is exercised in this test")
+            }
+
+            async fn get_changes<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _since_state: &jmap_types::State,
+                _max_changes: Option<u64>,
+            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+                unreachable!("only principal_id is exercised in this test")
+            }
+
+            async fn query_objects<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+            ) -> Result<QueryResult, Self::Error> {
+                unreachable!("only principal_id is exercised in this test")
+            }
+
+            async fn query_changes<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _since_query_state: &jmap_types::State,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _max_changes: Option<u64>,
+                _up_to_id: Option<&jmap_types::Id>,
+                _collapse_threads: bool,
+            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                unreachable!("only principal_id is exercised in this test")
+            }
+        }
+
+        let caller: <StubBackend as JmapBackend>::CallerCtx = ();
+        let id = <StubBackend as JmapBackend>::principal_id(&caller);
+        assert!(
+            id.is_none(),
+            "default principal_id impl must return None; got Some({:?})",
+            id
         );
     }
 }
