@@ -51,7 +51,7 @@ impl TryFrom<jmap_chat_types::Presence> for ContactPresenceFilter {
 // QuotaScope
 // ---------------------------------------------------------------------------
 
-/// RFC 8620 §6.2 quota scope — the set of accounts the quota limit applies to.
+/// RFC 9425 §3.1 Scope — the set of accounts the quota limit applies to.
 ///
 /// Wire strings: `"account"`, `"domain"`, `"global"`.
 /// `Other(String)` preserves any unrecognized value for lossless round-trip.
