@@ -155,9 +155,15 @@ impl Default for AppState {
 ///
 /// Routes (all gated behind the bearer token from [`AppState`]):
 ///
-/// - `GET /.well-known/jmap` → [`get_session`]
-/// - `POST /jmap` → [`post_jmap`]
-/// - `GET /events` → [`crate::sse::get_events`] (RFC 8620 §7.3)
+/// - `GET /.well-known/jmap` → `get_session` (Session resource,
+///   RFC 8620 §2)
+/// - `POST /jmap` → `post_jmap` (API endpoint, RFC 8620 §3)
+/// - `GET /events` → [`crate::sse::get_events`] (RFC 8620 §7.3
+///   EventSource)
+///
+/// `get_session` and `post_jmap` are module-private; the SSE
+/// handler is named via its `pub` path so consumers reading the
+/// rendered docs can follow it.
 ///
 /// Slice bd:JMAP-cf7p.5 will add `GET /ws` (WebSocket); it will
 /// inherit the same auth layer automatically.
