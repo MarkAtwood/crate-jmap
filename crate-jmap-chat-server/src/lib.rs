@@ -46,6 +46,7 @@ pub mod invite;
 #[cfg(feature = "memory")]
 pub mod memory;
 pub mod message;
+pub mod permissions;
 pub mod position;
 pub mod presence;
 pub mod space;
@@ -72,6 +73,9 @@ pub use invite::{handle_invite_changes, handle_invite_get, handle_invite_set};
 pub use message::{
     handle_message_changes, handle_message_get, handle_message_query, handle_message_query_changes,
     handle_message_set,
+};
+pub use permissions::{
+    required_permissions_for_op, MANAGE_CHANNELS, MANAGE_MEMBERS, MANAGE_ROLES, MANAGE_SPACE,
 };
 pub use position::{handle_position_changes, handle_position_get, handle_position_set};
 pub use presence::{handle_presence_changes, handle_presence_get, handle_presence_set};
