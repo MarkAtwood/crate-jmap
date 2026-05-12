@@ -131,7 +131,7 @@ Run all four before considering any work done.
 | Decision | Choice | Rationale |
 |---|---|---|
 | Async vs sync | Always async (tokio) | No sync path; `maybe-async` is dead weight |
-| Auth | Not in dispatcher | Caller's responsibility — do it before `dispatch()` |
+| Auth | HTTP layer authenticates; JMAP layer reads caller via `JmapBackend::principal_id` | Foundation provides the identity seam (bd:JMAP-ga0q.1); backends decide what to do with it. **Handler-side permission gates are FORBIDDEN — backends are canonical.** |
 | `max_calls` | Parameter to `parse_request` | Each consumer sets its own limit |
 | Unknown method | `unknownMethod` error invocation | Not a crash, not a 4xx |
 | Panic isolation | `tokio::task::spawn` per handler | Panicking handler → `serverFail`, not crashed task |

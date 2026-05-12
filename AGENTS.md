@@ -358,6 +358,49 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   `cargo tree -i openssl --workspace` — it MUST report
   "did not match any packages".
 
+## Caller identity (foundation seam)
+
+Locks in the workspace-wide answer to "how does a JMAP method know who
+the caller is". Established by bd:JMAP-ga0q; the foundation method
+landed in bd:JMAP-ga0q.1.
+
+- **The seam**:
+  `JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`
+  is the ONLY way the JMAP layer asks "who is the caller". No
+  alternate path exists, no `caller_identity_blob()` escape hatch,
+  no generic claims map. The return type is `Option<&Id>` — typed,
+  borrowing the id from the caller context the HTTP/auth middleware
+  populated.
+- **Backends are canonical for permission enforcement.** Handlers do
+  NO permission checking. Defense-in-depth handler-side pre-checks
+  are allowed but the backend MUST re-verify atomically with the
+  mutation. A handler that "trusts" a handler-side check and skips
+  the backend re-check is a bug.
+- **Identity is a foundation concept, not an extension feature.**
+  Decide once in `jmap-server`; every extension inherits. Future
+  extensions that need richer caller info (groups, claims, roles,
+  device class) add those to their OWN backend trait, NOT to
+  `JmapBackend`. Foundation provides the id; extensions own the
+  meaning.
+- **Federation does NOT bypass this seam.** The federation handler
+  maps peer-signed identity to a local principal once, before
+  invoking the JMAP method. JMAP method code sees a normal
+  `principal_id()` return value. No second identity path exists.
+- **`None` is deliberate, not an error.** A backend that returns
+  `None` from `principal_id` is signalling "this deployment does
+  not honor identity-dependent JMAP semantics". Such a backend
+  CANNOT correctly implement chat role-hierarchy, calendar ACLs,
+  sharing/myRights, per-user `$seen` on shared mailboxes, or
+  metadata `isPrivate` visibility scoping. Test fixtures and
+  single-user dev servers use the default `None`-returning impl
+  and are fine; multi-user production deployments MUST override.
+
+The first consumer is bd:JMAP-g7wu.2.4 (chat Space/set permission
+enforcement). Future consumers: jmap-mail-server (RFC 8621 `$seen`
+on shared mailboxes), jmap-calendars-server (calendar ACLs),
+jmap-sharing-server (RFC 9670 myRights), jmap-metadata-server
+(isPrivate visibility scoping).
+
 ## Key Rules
 
 - **`cargo test --workspace`** must pass before any commit.
