@@ -35,6 +35,7 @@ use jmap_server::{parse_request, request_error, Dispatcher, JmapError, JmapHandl
 use jmap_types::{Invocation, State};
 use serde_json::Value;
 
+use crate::auth::{require_bearer_token, AuthState};
 use crate::session;
 
 /// Maximum size, in bytes, of a single `POST /jmap` request body.
@@ -57,9 +58,13 @@ pub const MAX_CALLS_IN_REQUEST: usize = 16;
 ///
 /// Wrapped in [`Arc`] internally so cloning the router state is cheap
 /// even though `Dispatcher<()>` does not itself implement `Clone`.
+/// The [`AuthState`] is its own field (not behind the same `Arc`)
+/// because axum's `from_fn_with_state` middleware extracts it
+/// separately from the per-route handler state.
 #[derive(Clone)]
 pub struct AppState {
     inner: Arc<AppStateInner>,
+    auth: AuthState,
 }
 
 struct AppStateInner {
@@ -73,15 +78,28 @@ struct AppStateInner {
 
 impl AppState {
     /// Build the testjig's application state with the foundation
-    /// `Core/echo` handler registered.
+    /// `Core/echo` handler registered and the default bearer token
+    /// (`test-token`) configured for the auth middleware.
     ///
     /// Slice bd:JMAP-cf7p.3 will extend this to register the 8
     /// extension reference MemoryBackend handlers.
     pub fn new() -> Self {
+        Self::with_token(crate::auth::DEFAULT_BEARER_TOKEN)
+    }
+
+    /// Build the testjig's application state with a custom bearer
+    /// token (rather than the [`crate::auth::DEFAULT_BEARER_TOKEN`]).
+    ///
+    /// The dispatcher is constructed the same way as in [`Self::new`].
+    /// Callers who need to register additional methods on the
+    /// dispatcher should use [`Self::dispatcher_mut`] before the
+    /// state is cloned by the router builder.
+    pub fn with_token(token: impl Into<String>) -> Self {
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         dispatcher.register("Core/echo", Arc::new(EchoHandler));
         Self {
             inner: Arc::new(AppStateInner { dispatcher }),
+            auth: AuthState::new(token),
         }
     }
 
@@ -104,21 +122,26 @@ impl Default for AppState {
     }
 }
 
-/// Build the axum router with the foundation routes mounted.
+/// Build the axum router with the foundation routes mounted and the
+/// bearer-token middleware applied to every route.
 ///
-/// Routes:
+/// Routes (all gated behind the bearer token from [`AppState`]):
 ///
 /// - `GET /.well-known/jmap` → [`get_session`]
 /// - `POST /jmap` → [`post_jmap`]
 ///
 /// Slice bd:JMAP-cf7p.4 will add `GET /events` (SSE).
 /// Slice bd:JMAP-cf7p.5 will add `GET /ws` (WebSocket).
-/// Slice bd:JMAP-cf7p.6 will wrap the router with the bearer-auth
-/// middleware.
+/// Both will inherit the same auth layer automatically.
 pub fn router(state: AppState) -> Router {
+    let auth = state.auth.clone();
     Router::new()
         .route("/.well-known/jmap", get(get_session))
         .route("/jmap", post(post_jmap))
+        .route_layer(axum::middleware::from_fn_with_state(
+            auth,
+            require_bearer_token,
+        ))
         .with_state(state)
 }
 
@@ -271,18 +294,41 @@ mod tests {
     use http_body_util::BodyExt;
     use serde_json::json;
 
-    // Helper: drive a request through the router and return
-    // (StatusCode, parsed JSON body).
+    /// The bearer token every test helper attaches to outbound
+    /// requests. Matches the default carried by `AppState::new`.
+    const TEST_TOKEN: &str = crate::auth::DEFAULT_BEARER_TOKEN;
+
+    /// Drive an authenticated request through the router and return
+    /// `(StatusCode, parsed JSON body)`. The default `Authorization:
+    /// Bearer test-token` header lets the bearer-auth middleware pass
+    /// so the test exercises the route logic itself.
     async fn send(
         router: Router,
         method: http::Method,
         path: &str,
         body: Option<&str>,
     ) -> (StatusCode, Value) {
-        let req = http::Request::builder()
+        send_with_token(router, method, path, body, Some(TEST_TOKEN)).await
+    }
+
+    /// Same as [`send`] but allows the caller to omit the bearer
+    /// token (to exercise the 401 path) or supply a custom one
+    /// (to exercise mismatch).
+    async fn send_with_token(
+        router: Router,
+        method: http::Method,
+        path: &str,
+        body: Option<&str>,
+        token: Option<&str>,
+    ) -> (StatusCode, Value) {
+        let mut builder = http::Request::builder()
             .method(method)
             .uri(path)
-            .header(header::CONTENT_TYPE, "application/json")
+            .header(header::CONTENT_TYPE, "application/json");
+        if let Some(tok) = token {
+            builder = builder.header(header::AUTHORIZATION, format!("Bearer {tok}"));
+        }
+        let req = builder
             .body(body.map(|s| Body::from(s.to_owned())).unwrap_or_default())
             .expect("test fixture: request builder should succeed");
         let resp = <Router as tower::ServiceExt<_>>::oneshot(router, req)
@@ -295,8 +341,10 @@ mod tests {
             .await
             .expect("test fixture: body collect should succeed")
             .to_bytes();
-        let value: Value = serde_json::from_slice(&bytes)
-            .unwrap_or_else(|_| panic!("non-JSON body: {:?}", String::from_utf8_lossy(&bytes)));
+        // 401 responses return a non-JSON body; callers that want to
+        // inspect the 401 body should consume the bytes directly. For
+        // the JSON-body tests, parse and surface the value.
+        let value: Value = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
         (status, value)
     }
 
@@ -450,7 +498,8 @@ mod tests {
     }
 
     /// Oracle: RFC 8620 §2 — `GET /.well-known/jmap` returns a
-    /// well-formed Session object as `application/json`.
+    /// well-formed Session object as `application/json` when the
+    /// caller authenticates correctly.
     #[tokio::test]
     async fn get_session_returns_session_json_at_200() {
         let state = AppState::new();
@@ -458,6 +507,7 @@ mod tests {
         let req = http::Request::builder()
             .method(http::Method::GET)
             .uri("/.well-known/jmap")
+            .header(header::AUTHORIZATION, format!("Bearer {TEST_TOKEN}"))
             .body(Body::empty())
             .unwrap();
         let resp = <Router as tower::ServiceExt<_>>::oneshot(router, req)
@@ -476,5 +526,85 @@ mod tests {
         assert_eq!(body["state"], session::STATE);
         assert!(body["capabilities"]["urn:ietf:params:jmap:core"].is_object());
         assert!(body["accounts"][session::ACCOUNT_ID].is_object());
+    }
+
+    /// Oracle: bd:JMAP-cf7p.6 design decision — `GET /.well-known/jmap`
+    /// requires the bearer token. Anonymous discovery is not honored.
+    #[tokio::test]
+    async fn get_session_without_auth_returns_401() {
+        let state = AppState::new();
+        let router = router(state);
+        let req = http::Request::builder()
+            .method(http::Method::GET)
+            .uri("/.well-known/jmap")
+            .body(Body::empty())
+            .unwrap();
+        let resp = <Router as tower::ServiceExt<_>>::oneshot(router, req)
+            .await
+            .unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    /// Oracle: bd:JMAP-cf7p.6 — `POST /jmap` requires the bearer
+    /// token. Anonymous calls receive 401 (not a JMAP error envelope
+    /// because the auth middleware fires before any JMAP machinery).
+    #[tokio::test]
+    async fn post_jmap_without_auth_returns_401() {
+        let state = AppState::new();
+        let router = router(state);
+        let req_body = serde_json::to_string(&json!({
+            "using": ["urn:ietf:params:jmap:core"],
+            "methodCalls": [["Core/echo", {}, "c1"]]
+        }))
+        .unwrap();
+        let (status, _) =
+            send_with_token(router, http::Method::POST, "/jmap", Some(&req_body), None).await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    /// Oracle: bd:JMAP-cf7p.6 — supplying the wrong bearer token
+    /// also returns 401.
+    #[tokio::test]
+    async fn post_jmap_wrong_token_returns_401() {
+        let state = AppState::new();
+        let router = router(state);
+        let req_body = serde_json::to_string(&json!({
+            "using": ["urn:ietf:params:jmap:core"],
+            "methodCalls": [["Core/echo", {}, "c1"]]
+        }))
+        .unwrap();
+        let (status, _) = send_with_token(
+            router,
+            http::Method::POST,
+            "/jmap",
+            Some(&req_body),
+            Some("wrong-token"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::UNAUTHORIZED);
+    }
+
+    /// Oracle: bd:JMAP-cf7p.6 — a custom token configured via
+    /// `AppState::with_token` is honored end-to-end (the
+    /// CLI-supplied-token path that slice `.8` will surface).
+    #[tokio::test]
+    async fn post_jmap_custom_configured_token_authorizes() {
+        let state = AppState::with_token("custom-jig-token");
+        let router = router(state);
+        let req_body = serde_json::to_string(&json!({
+            "using": ["urn:ietf:params:jmap:core"],
+            "methodCalls": [["Core/echo", {}, "c1"]]
+        }))
+        .unwrap();
+        let (status, body) = send_with_token(
+            router,
+            http::Method::POST,
+            "/jmap",
+            Some(&req_body),
+            Some("custom-jig-token"),
+        )
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(body["methodResponses"][0][0], "Core/echo");
     }
 }
