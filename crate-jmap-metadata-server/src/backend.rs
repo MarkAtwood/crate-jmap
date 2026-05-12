@@ -114,4 +114,42 @@ pub trait MetadataBackend: JmapBackend {
     /// NOT called internally by the handler library. Backends that support
     /// Metadata unconditionally can return `true` always.
     fn supports_type<O: JmapObject>(&self) -> bool;
+
+    /// Return changes since `since_state` filtered by the metadata-specific
+    /// filter args from draft-ietf-jmap-metadata-01 §3.3 (`filterRelatedType`,
+    /// `filterMetadataType`).
+    ///
+    /// Default impl delegates to [`JmapBackend::get_changes`], ignoring the
+    /// filter args; the handler then post-filters `created` and `updated`
+    /// by re-fetching objects via `get_objects::<Metadata>`. The `destroyed`
+    /// array is returned unfiltered under the default impl — strict §3.3
+    /// conformance requires overriding this method (see bd:JMAP-06zp.3.5.2).
+    ///
+    /// Backends that index their change log on `(relatedType, @type)` SHOULD
+    /// override to pre-filter at the storage layer, which gains strict §3.3
+    /// conformance for the `destroyed` array and removes the per-Id re-fetch
+    /// cost for `created`/`updated`.
+    ///
+    /// The state token returned in `ChangesResult::new_state` is independent
+    /// of the filter args per draft §3.3: a backend MUST NOT advance state
+    /// based on filtered-out changes only. The handler does not enforce this
+    /// — implementations honor the constraint themselves.
+    fn get_metadata_changes(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        since_state: &jmap_types::State,
+        max_changes: Option<u64>,
+        filter_related_type: Option<&str>,
+        filter_metadata_type: Option<&[String]>,
+    ) -> impl std::future::Future<Output = Result<ChangesResult, BackendChangesError<Self::Error>>> + Send
+    {
+        let _ = (filter_related_type, filter_metadata_type);
+        self.get_changes::<jmap_metadata_types::Metadata>(
+            caller,
+            account_id,
+            since_state,
+            max_changes,
+        )
+    }
 }
