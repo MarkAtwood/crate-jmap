@@ -1255,6 +1255,9 @@ name = "jmap-testjig"
 version = "0.0.0"
 dependencies = [
  "axum",
+ "axum-core",
+ "http",
+ "http-body-util",
  "jmap-calendars-server",
  "jmap-chat-server",
  "jmap-contacts-server",
@@ -1270,6 +1273,7 @@ dependencies = [
  "subtle",
  "tokio",
  "tokio-tungstenite",
+ "tower",
 ]
 
 [[package]]
