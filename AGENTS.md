@@ -398,6 +398,52 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   type carries the same exclusion + dual-future-hook notice. The
   propagation epic that drove that rustdoc sweep is `JMAP-9wh7`
   (closed).
+
+  **Externally-owned-schema classifier strings are also EXCLUDED**
+  (decided 2026-05-12). Classifier-attribute strings on data-object
+  sub-types in type crates that mirror an externally-owned schema
+  (RFC 9553 JSContact, RFC 8984 JSCalendar) MUST NOT receive the
+  typed-enum-with-`Other(String)` catch-all pattern.
+
+  Examples in scope of this exclusion: `NameComponent.kind`,
+  `Title.kind`, `Calendar.kind`, `Anniversary.kind`,
+  `PersonalInfo.kind` in `jmap-jscontact-types`; `Participant.kind`,
+  `RecurrenceRule.frequency`, `Alert.action`, `Location.relativeTo`
+  in `jmap-jscalendar-types`.
+
+  Rationale: RFC 9553 and RFC 8984 enumerate classifier values as if
+  authoritative, but operational reality is that real-world
+  implementers (Outlook, Google, Apple, vCard exporters, localized
+  clients, third-party CalDAV servers, etc.) routinely send values
+  outside the spec enumeration. Typing these into
+  `enum { Variant1, ..., Other(String) }` creates a fiction where
+  the catch-all does most of the real work and the named variants do
+  effectively no programmatic dispatch. The maintenance cost
+  (variant additions on every spec revision, `#[non_exhaustive]`
+  surface, propagation through consumers) is paid for no programmatic
+  benefit.
+
+  Leave these fields as `Option<String>` or `String`. Consumers that
+  care about specific values match string literals.
+
+  This exclusion is narrow. It does NOT apply to:
+  - JMAP-native result enums (`MailboxRole`, `DeliveryState`,
+    `NodeType`, `EmojiKind`, `ChatKind`, `ParticipantRole`, etc.) —
+    those stay in scope of the typed-enum-with-`Other(String)`
+    mechanism. Consumers DO dispatch reliably on them.
+  - Field shapes that are whole nested objects (whose value shape is
+    owned by an external spec) — those follow the Sloppy-Value
+    pattern documented earlier in this section.
+  - Wire-protocol control values defined by RFC 8620 itself
+    (`Operator`, `ComparatorProperty`) — those are governed by the
+    Filter-algebra exclusion above.
+
+  Cross-references:
+  - `JMAP-sc1b.77` — the original jscalendar-types conversion that
+    this exclusion makes wrong in retrospect (revert tracked at
+    `JMAP-sc1b.111`).
+  - `JMAP-sc1b.108` — the parallel jscontact-types propagation that
+    triggered this policy discussion.
 - **TLS stack**: this workspace uses **rustls**, NOT native-tls / openssl.
   Both `reqwest` and `tokio-tungstenite` MUST be declared with
   `default-features = false` and only `rustls-tls-*` features enabled.
