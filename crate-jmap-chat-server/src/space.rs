@@ -490,7 +490,12 @@ async fn check_space_count_limits<B: ChatBackend>(
     }
 
     let (found, _not_found) = backend
-        .get_objects::<Space>(caller, account_id, Some(std::slice::from_ref(space_id)), None)
+        .get_objects::<Space>(
+            caller,
+            account_id,
+            Some(std::slice::from_ref(space_id)),
+            None,
+        )
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
