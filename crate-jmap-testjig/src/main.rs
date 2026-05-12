@@ -13,6 +13,7 @@
 
 use std::net::SocketAddr;
 
+use jmap_testjig::auth::DEFAULT_BEARER_TOKEN;
 use jmap_testjig::http::{router, AppState};
 
 #[tokio::main]
@@ -33,6 +34,7 @@ async fn main() -> std::io::Result<()> {
     );
     eprintln!("  GET  /.well-known/jmap   — RFC 8620 §2 Session resource");
     eprintln!("  POST /jmap               — RFC 8620 §3 API endpoint");
+    eprintln!("  Authorization: Bearer {DEFAULT_BEARER_TOKEN}");
 
     axum::serve(listener, app)
         .with_graceful_shutdown(shutdown_signal())
