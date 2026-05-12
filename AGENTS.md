@@ -401,6 +401,46 @@ on shared mailboxes), jmap-calendars-server (calendar ACLs),
 jmap-sharing-server (RFC 9670 myRights), jmap-metadata-server
 (isPrivate visibility scoping).
 
+## Security testing
+
+Two complementary tripwire patterns guard against credential-grade
+secret literals appearing in places they shouldn't:
+
+1. **Per-type `Debug` redaction canary** — a unit test that constructs
+   the type with a canary literal under the test's control and asserts
+   the canary does not appear in `format!("{value:?}")` output.
+   Precedent: bd:JMAP-sc1b.79 (`BearerAuth`, `BasicAuth` in
+   `crate-jmap-base-client`), bd:JMAP-sc1b.99 / .104 (`Session`,
+   `AccountInfo`). Required when any new type wraps a credential
+   string, a session token, a verification code, an invite code, or
+   any other secret the workspace owns. Lives in the same module as
+   the type.
+
+2. **Log-capture canary** — an integration test that installs a
+   thread-local buffering `tracing` subscriber, exercises the same
+   code paths that a future contributor adding `tracing::*`
+   instrumentation might write (e.g. `tracing::info!(auth = ?auth,
+   ...)`, `tracing::debug!("{auth:?}")`), and asserts the captured
+   buffer contains no canary literal. Tracks bd:JMAP-sc1b.102.
+   Reference harness: `crate-jmap-base-client/tests/common/log_capture.rs`.
+   Reference canaries: `crate-jmap-base-client/tests/log_redaction.rs`.
+   Required when any new module emits `tracing::*` events with an
+   argument that interpolates a secret-bearing type via `?` or `%`
+   syntax — the test should pattern-match the existing reference test
+   and supply a canary literal of the new type.
+
+The two patterns are complementary, not interchangeable. Pattern 1
+catches a future refactor that adds `#[derive(Debug)]` to a type that
+should have a manual redacting impl. Pattern 2 catches a future
+`tracing::*` call that interpolates a Display value (which Pattern 1
+does not cover) or that bypasses the type's Debug impl via a custom
+formatter.
+
+When adding a new type or a new logging call site that crosses these
+boundaries, file a follow-up bead if the canary test cannot land in
+the same commit. Do not ship the type or the logging call without the
+matching canary.
+
 ## Key Rules
 
 - **`cargo test --workspace`** must pass before any commit.
