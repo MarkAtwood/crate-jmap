@@ -176,7 +176,7 @@ public surface; the policy here applies uniformly to the Deserialize
 method-response structs enumerated below.
 
 This crate implements the JMAP Chat draft
-(`draft-atwood-jmap-chat-*`) plus Quota (RFC 8621 §2) and the
+(`draft-atwood-jmap-chat-*`) plus Quota (RFC 9425) and the
 blob-extension types (`draft-ietf-jmap-blobext-*`).
 
 In scope in this crate (each has at least one round-trip preservation
