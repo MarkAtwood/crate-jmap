@@ -429,3 +429,211 @@ async fn all_five_methods_registered() {
         );
     }
 }
+
+// ---------------------------------------------------------------------------
+// Metadata/changes strict §3.3 conformance — destroyed-array filtering
+//
+// These tests exercise the `MemoryBackend::get_metadata_changes` override
+// (bd:JMAP-06zp.3.5.2) which pre-filters all three arrays at the storage
+// layer using the per-record (related_type, type_name) snapshot captured
+// at mutation time. The default trait impl on `MetadataBackend` cannot
+// filter `destroyed` because destroyed objects no longer exist for
+// post-fetch inspection — so these tests would fail against a
+// default-impl backend (e.g. MockBackend in the unit tests).
+// ---------------------------------------------------------------------------
+
+/// Oracle: draft §3.3 — `filterRelatedType: "Email"` must drop a
+/// destroyed Metadata whose `relatedType` was "Mailbox" while retaining
+/// a destroyed Metadata whose `relatedType` was "Email".
+///
+/// Verifies strict-conformance of the destroyed array against the
+/// override (the default impl cannot honor this — see module-level note).
+#[tokio::test]
+async fn changes_filter_drops_non_matching_destroyed() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let email_id = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM1"}),
+    )
+    .await;
+    let mailbox_id = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Mailbox", "relatedId": "MB1"}),
+    )
+    .await;
+
+    // Destroy both. The (related_type, type_name) tuple is captured at
+    // destroy time by the override's ChangeRecord — without that
+    // snapshot the override could not filter the destroyed array.
+    backend
+        .destroy_object::<Metadata>(&(), &Id::from("acc1"), &email_id)
+        .await
+        .expect("destroy email-related must succeed");
+    backend
+        .destroy_object::<Metadata>(&(), &Id::from("acc1"), &mailbox_id)
+        .await
+        .expect("destroy mailbox-related must succeed");
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/changes",
+        json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": "Email"
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let destroyed: Vec<&str> = args["destroyed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        destroyed.contains(&email_id.as_ref()),
+        "Email-related destroyed id must survive filter: {args}",
+    );
+    assert!(
+        !destroyed.contains(&mailbox_id.as_ref()),
+        "Mailbox-related destroyed id must be dropped under strict §3.3: {args}",
+    );
+
+    // State counter is filter-independent: 2 creates + 2 destroys = "4".
+    assert_eq!(
+        args["newState"], "4",
+        "state token must NOT be filtered: {args}",
+    );
+}
+
+/// Oracle: draft §3.3 — `filterRelatedType` and `filterMetadataType`
+/// combine with logical AND across all three change arrays.
+///
+/// Setup: four Metadata creates spanning the cross-product of
+/// `relatedType in {Email, Mailbox}` × `@type in {Annotation,
+/// ImapMetadata}`. Filter on `relatedType: Email` AND
+/// `@type: Annotation` and assert only the one matching id survives in
+/// `created`. Then destroy all four and re-assert the AND combination
+/// applies identically to `destroyed`.
+#[tokio::test]
+async fn changes_filter_combined_related_type_and_metadata_type() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+
+    // Four creates spanning the (relatedType × @type) cross-product.
+    let email_ann = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM1"}),
+    )
+    .await;
+    let email_imap = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "ImapMetadata", "relatedType": "Email", "relatedId": "EM2", "metadata": {}}),
+    )
+    .await;
+    let mailbox_ann = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Mailbox", "relatedId": "MB1"}),
+    )
+    .await;
+    let mailbox_imap = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "ImapMetadata", "relatedType": "Mailbox", "relatedId": "MB2", "metadata": {}}),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    // AND filter on created.
+    let req = single_call(
+        "Metadata/changes",
+        json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": "Email",
+            "filterMetadataType": ["Annotation"]
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+    let created: Vec<&str> = args["created"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(
+        created.len(),
+        1,
+        "AND filter must yield exactly one id: {args}",
+    );
+    assert!(
+        created.contains(&email_ann.as_ref()),
+        "only Email + Annotation must survive: {args}",
+    );
+
+    // Destroy all four, then re-run /changes from "0" with the same
+    // AND filter. The destroyed array must show only the
+    // (Email, Annotation) id.
+    for id in [&email_ann, &email_imap, &mailbox_ann, &mailbox_imap] {
+        backend
+            .destroy_object::<Metadata>(&(), &Id::from("acc1"), id)
+            .await
+            .expect("destroy must succeed");
+    }
+
+    let req = single_call(
+        "Metadata/changes",
+        json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": "Email",
+            "filterMetadataType": ["Annotation"]
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    // Created and destroyed for the same id within the same /changes
+    // window collapse to destroyed (later supersedes earlier) per the
+    // override's create-then-destroy precedence. So the (Email,
+    // Annotation) id must appear in destroyed, NOT in created.
+    let created: Vec<&str> = args["created"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    let destroyed: Vec<&str> = args["destroyed"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        created.is_empty(),
+        "no surviving creates when every id is also destroyed: {args}",
+    );
+    assert_eq!(
+        destroyed.len(),
+        1,
+        "AND filter on destroyed must yield exactly one id: {args}",
+    );
+    assert!(
+        destroyed.contains(&email_ann.as_ref()),
+        "only (Email, Annotation) must survive on destroyed: {args}",
+    );
+}

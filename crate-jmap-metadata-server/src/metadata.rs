@@ -50,7 +50,9 @@ pub async fn handle_metadata_get<B: MetadataBackend>(
 ///
 /// Backends that override [`MetadataBackend::get_metadata_changes`] get
 /// strict §3.3 conformance for all three arrays (`created`, `updated`,
-/// `destroyed`) by pre-filtering at the storage layer.
+/// `destroyed`) by pre-filtering at the storage layer. The workspace's
+/// reference `MemoryBackend` (gated behind `feature = "memory"`)
+/// achieves strict §3.3 conformance via this override (bd:JMAP-06zp.3.5.2).
 ///
 /// The default impl on the trait delegates to
 /// `JmapBackend::get_changes::<Metadata>` (turbofish form not link-resolvable
@@ -62,8 +64,7 @@ pub async fn handle_metadata_get<B: MetadataBackend>(
 /// the standard `get_changes` return value does not carry per-Id metadata
 /// for destroyed entries. Clients that need precise destroyed filtering
 /// against a default-impl backend can remember each Id's `relatedType` /
-/// `@type` from prior `/get` responses and filter client-side. Tracked
-/// for the override path under bd:JMAP-06zp.3.5.2.
+/// `@type` from prior `/get` responses and filter client-side.
 pub async fn handle_metadata_changes<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,

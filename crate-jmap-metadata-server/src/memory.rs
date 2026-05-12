@@ -84,14 +84,29 @@ use jmap_types::{Id, State};
 // Internal state
 // ---------------------------------------------------------------------------
 
+/// A per-Id record in the change log.
+///
+/// `related_type` and `type_name` are populated at log-push time when the
+/// stored object is Metadata. For change log entries belonging to other
+/// JmapObject types (none in this crate today; MemoryBackend only supports
+/// Metadata) the strings are empty — those entries are never consumed by
+/// [`MemoryBackend::get_metadata_changes`], which filters on the
+/// type-keyed log directly.
+#[derive(Clone, Debug)]
+struct ChangeRecord {
+    id: Id,
+    related_type: String,
+    type_name: String,
+}
+
 /// A change log entry for one state transition.
 #[derive(Clone, Debug)]
 struct ChangeEntry {
     /// The state counter AFTER this change.
     new_state: u64,
-    created: Vec<Id>,
-    updated: Vec<Id>,
-    destroyed: Vec<Id>,
+    created: Vec<ChangeRecord>,
+    updated: Vec<ChangeRecord>,
+    destroyed: Vec<ChangeRecord>,
 }
 
 /// Shared inner state, behind `Arc<Mutex>`.
@@ -381,21 +396,24 @@ impl JmapBackend for MemoryBackend {
         let mut destroyed: Vec<Id> = Vec::new();
 
         for entry in &relevant {
-            for id in &entry.created {
-                if !destroyed.contains(id) && !created.contains(id) {
-                    created.push(id.clone());
+            for rec in &entry.created {
+                if !destroyed.contains(&rec.id) && !created.contains(&rec.id) {
+                    created.push(rec.id.clone());
                 }
             }
-            for id in &entry.updated {
-                if !destroyed.contains(id) && !created.contains(id) && !updated.contains(id) {
-                    updated.push(id.clone());
+            for rec in &entry.updated {
+                if !destroyed.contains(&rec.id)
+                    && !created.contains(&rec.id)
+                    && !updated.contains(&rec.id)
+                {
+                    updated.push(rec.id.clone());
                 }
             }
-            for id in &entry.destroyed {
-                created.retain(|c| c != id);
-                updated.retain(|u| u != id);
-                if !destroyed.contains(id) {
-                    destroyed.push(id.clone());
+            for rec in &entry.destroyed {
+                created.retain(|c| c != &rec.id);
+                updated.retain(|u| u != &rec.id);
+                if !destroyed.contains(&rec.id) {
+                    destroyed.push(rec.id.clone());
                 }
             }
         }
@@ -564,6 +582,23 @@ impl MetadataBackend for MemoryBackend {
 
         inner.known_accounts.insert(account_id.as_ref().to_owned());
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        // Capture related_type / type_name from the stored value BEFORE the
+        // val moves into objects_mut. For non-Metadata types these strings
+        // are empty — get_metadata_changes only consumes them when the
+        // change log key matches Metadata::TYPE_NAME.
+        let record = ChangeRecord {
+            id: server_id.clone(),
+            related_type: val
+                .get("relatedType")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_owned(),
+            type_name: val
+                .get("@type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_owned(),
+        };
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(server_id.clone(), val);
@@ -571,7 +606,7 @@ impl MetadataBackend for MemoryBackend {
             .change_log_mut(O::TYPE_NAME, account_id.as_ref())
             .push(ChangeEntry {
                 new_state,
-                created: vec![server_id.clone()],
+                created: vec![record],
                 updated: vec![],
                 destroyed: vec![],
             });
@@ -631,6 +666,22 @@ impl MetadataBackend for MemoryBackend {
         }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        // Capture related_type / type_name from the post-patch value
+        // BEFORE current moves into objects_mut. For non-Metadata types
+        // these strings are empty (see ChangeRecord rustdoc).
+        let record = ChangeRecord {
+            id: id.clone(),
+            related_type: current
+                .get("relatedType")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_owned(),
+            type_name: current
+                .get("@type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_owned(),
+        };
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(id.clone(), current);
@@ -639,7 +690,7 @@ impl MetadataBackend for MemoryBackend {
             .push(ChangeEntry {
                 new_state,
                 created: vec![],
-                updated: vec![id.clone()],
+                updated: vec![record],
                 destroyed: vec![],
             });
 
@@ -659,7 +710,25 @@ impl MetadataBackend for MemoryBackend {
             .remove(id);
 
         match removed {
-            Some(_) => {
+            // Capture related_type / type_name from the doomed value
+            // BEFORE we drop it. Critical for §3.3 strict conformance:
+            // without this snapshot the destroyed array cannot be
+            // filtered after the fact (the object no longer exists in
+            // `objects` for the override to inspect).
+            Some(val) => {
+                let record = ChangeRecord {
+                    id: id.clone(),
+                    related_type: val
+                        .get("relatedType")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_owned(),
+                    type_name: val
+                        .get("@type")
+                        .and_then(|v| v.as_str())
+                        .unwrap_or("")
+                        .to_owned(),
+                };
                 let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
                 inner
                     .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -667,7 +736,7 @@ impl MetadataBackend for MemoryBackend {
                         new_state,
                         created: vec![],
                         updated: vec![],
-                        destroyed: vec![id.clone()],
+                        destroyed: vec![record],
                     });
                 Ok(())
             }
@@ -679,6 +748,119 @@ impl MetadataBackend for MemoryBackend {
 
     fn supports_type<O: JmapObject>(&self) -> bool {
         O::TYPE_NAME == Metadata::TYPE_NAME
+    }
+
+    /// Override of [`crate::MetadataBackend::get_metadata_changes`] for
+    /// strict draft-ietf-jmap-metadata-01 §3.3 conformance.
+    ///
+    /// Walks the Metadata-keyed change log entries newer than `since_state`
+    /// and filters each change record by `(related_type, type_name)`
+    /// against the supplied filter args in a single pass. Unlike the
+    /// default impl on the trait (which post-filters via re-fetch and
+    /// can therefore not filter the destroyed array), this override
+    /// honors all three arrays — including destroyed Ids whose objects
+    /// no longer exist in `objects`. The per-Id `(related_type,
+    /// type_name)` snapshot is captured at mutation time (in
+    /// `create_object`, `update_object`, and `destroy_object`) and
+    /// stored in the change log entry, so destroyed records carry the
+    /// tuple they had at destroy time.
+    ///
+    /// The state token returned is the current Metadata state for the
+    /// account, independent of the filter args (§3.3): a backend MUST
+    /// NOT advance state based on filtered-out changes only.
+    async fn get_metadata_changes(
+        &self,
+        _caller: &Self::CallerCtx,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+        filter_related_type: Option<&str>,
+        filter_metadata_type: Option<&[String]>,
+    ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        let inner = self.inner.lock().unwrap();
+
+        let since_n: u64 = since_state
+            .as_ref()
+            .parse()
+            .map_err(|_| BackendChangesError::TooManyChanges { limit: 0 })?;
+
+        let log = inner
+            .change_log
+            .get(&(Metadata::TYPE_NAME, account_id.as_ref().to_owned()))
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+
+        let relevant: Vec<&ChangeEntry> = log.iter().filter(|e| e.new_state > since_n).collect();
+
+        let current_state = inner.current_state(Metadata::TYPE_NAME, account_id.as_ref());
+
+        if let Some(max) = max_changes {
+            if relevant.len() as u64 > max {
+                return Err(BackendChangesError::TooManyChanges { limit: max });
+            }
+        }
+
+        let record_matches = |rec: &ChangeRecord| -> bool {
+            if let Some(rt) = filter_related_type {
+                if rec.related_type != rt {
+                    return false;
+                }
+            }
+            if let Some(types) = filter_metadata_type {
+                if !types.iter().any(|t| t == &rec.type_name) {
+                    return false;
+                }
+            }
+            true
+        };
+
+        let mut created: Vec<Id> = Vec::new();
+        let mut updated: Vec<Id> = Vec::new();
+        let mut destroyed: Vec<Id> = Vec::new();
+
+        for entry in &relevant {
+            for rec in &entry.created {
+                if !record_matches(rec) {
+                    continue;
+                }
+                if !destroyed.contains(&rec.id) && !created.contains(&rec.id) {
+                    created.push(rec.id.clone());
+                }
+            }
+            for rec in &entry.updated {
+                if !record_matches(rec) {
+                    continue;
+                }
+                if !destroyed.contains(&rec.id)
+                    && !created.contains(&rec.id)
+                    && !updated.contains(&rec.id)
+                {
+                    updated.push(rec.id.clone());
+                }
+            }
+            for rec in &entry.destroyed {
+                // Suppress from created/updated even when the destroy
+                // entry itself does not pass the filter — a destroy
+                // strictly supersedes earlier create/update for the
+                // same id. Then conditionally record in destroyed.
+                created.retain(|c| c != &rec.id);
+                updated.retain(|u| u != &rec.id);
+                if !record_matches(rec) {
+                    continue;
+                }
+                if !destroyed.contains(&rec.id) {
+                    destroyed.push(rec.id.clone());
+                }
+            }
+        }
+
+        Ok(ChangesResult::new(
+            created,
+            updated,
+            destroyed,
+            false,
+            State::from(current_state.to_string()),
+        ))
     }
 }
 
