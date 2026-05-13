@@ -42,6 +42,32 @@ pub struct SetError {
     /// Maximum message size in octets (for `tooLarge` on EmailSubmission — RFC 8621 §7.5).
     #[serde(rename = "maxSize", skip_serializing_if = "Option::is_none")]
     pub max_size: Option<u64>,
+    /// Catch-all for extension-defined SetError fields not covered by
+    /// the typed members above.
+    ///
+    /// JMAP extensions sometimes ship error variants whose wire shape
+    /// includes additional structured fields beyond the RFC 8620 §5.3
+    /// base set — e.g. JMAP Chat's `rateLimited` SetError carries a
+    /// `serverRetryAfter` UTCDate telling the client when it may
+    /// retry, and `mdnAlreadySent` (RFC 8621 §7.7) is a typed
+    /// extension error variant. This map preserves any such field
+    /// across serialize / deserialize round-trip, mirroring the
+    /// extras-preservation policy on the client-side
+    /// [`jmap_types::SetError`] type.
+    ///
+    /// Use [`SetError::with_extra`] to populate from handler code:
+    ///
+    /// ```ignore
+    /// SetError::new(SetErrorType::custom("rateLimited"))
+    ///     .with_description("Slow mode is active for this chat")
+    ///     .with_extra("serverRetryAfter", json!(retry_after_str))
+    /// ```
+    ///
+    /// Per workspace AGENTS.md "Extras-preservation policy" — wire
+    /// format is byte-identical to a pre-extras SetError when the
+    /// map is empty (the `skip_serializing_if` collapses it).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl SetError {
@@ -56,6 +82,7 @@ impl SetError {
             invalid_recipients: None,
             not_found: None,
             max_size: None,
+            extra: serde_json::Map::new(),
         }
     }
 
@@ -106,6 +133,30 @@ impl SetError {
     /// Set the maximum message size in octets (used with `tooLarge` on EmailSubmission — RFC 8621 §7.5).
     pub fn with_max_size(mut self, n: u64) -> Self {
         self.max_size = Some(n);
+        self
+    }
+
+    /// Insert an extension-defined field into [`Self::extra`].
+    ///
+    /// Used by handlers to attach typed wire fields that no `with_*`
+    /// builder covers — for example JMAP Chat's `rateLimited` SetError
+    /// must carry a `serverRetryAfter` UTCDate:
+    ///
+    /// ```ignore
+    /// SetError::new(SetErrorType::custom("rateLimited"))
+    ///     .with_description("Slow mode is active for this chat")
+    ///     .with_extra("serverRetryAfter", serde_json::json!(retry_after_str))
+    /// ```
+    ///
+    /// The serialized wire shape merges `key`/`value` at the same
+    /// level as the typed fields (via `#[serde(flatten)]` on
+    /// [`Self::extra`]). Calling `with_extra("type", ...)`,
+    /// `with_extra("properties", ...)`, or any other reserved
+    /// wire-name will produce a malformed SetError on the wire —
+    /// callers are responsible for choosing extension-namespace keys
+    /// that do not collide with the typed-field wire names.
+    pub fn with_extra(mut self, key: &str, value: serde_json::Value) -> Self {
+        self.extra.insert(key.to_owned(), value);
         self
     }
 }
@@ -784,6 +835,81 @@ mod tests {
         assert_eq!(
             deserialized, original,
             "Custom must deserialize back to Custom"
+        );
+    }
+
+    /// Oracle (bd:JMAP-dha0): SetError gains an `extra` map that captures
+    /// extension-defined fields not covered by the typed `with_*` builders.
+    /// A handler that emits `rateLimited` with `serverRetryAfter` must
+    /// see the value round-trip through serialize / deserialize.
+    #[test]
+    fn set_error_extra_field_round_trips() {
+        let original = SetError::new(SetErrorType::custom("rateLimited"))
+            .with_description("Slow mode is active")
+            .with_extra(
+                "serverRetryAfter",
+                serde_json::Value::String("2025-12-31T23:59:59Z".to_owned()),
+            );
+
+        let wire = serde_json::to_value(&original).expect("serialize");
+        assert_eq!(wire["type"], "rateLimited");
+        assert_eq!(wire["description"], "Slow mode is active");
+        assert_eq!(
+            wire["serverRetryAfter"], "2025-12-31T23:59:59Z",
+            "extra field must flatten into the SetError wire shape"
+        );
+
+        let round: SetError = serde_json::from_value(wire).expect("deserialize");
+        assert_eq!(round.error_type, original.error_type);
+        assert_eq!(round.description, original.description);
+        assert_eq!(
+            round.extra.get("serverRetryAfter").and_then(|v| v.as_str()),
+            Some("2025-12-31T23:59:59Z"),
+            "extra field must survive deserialize"
+        );
+    }
+
+    /// Oracle (bd:JMAP-dha0): a SetError with no extras serializes to a
+    /// wire shape byte-identical to the pre-extras layout. The
+    /// `skip_serializing_if` on `extra` collapses the empty map.
+    #[test]
+    fn set_error_empty_extra_is_invisible_on_the_wire() {
+        let err = SetError::new(SetErrorType::Forbidden);
+        let wire = serde_json::to_value(&err).expect("serialize");
+        let obj = wire.as_object().expect("object");
+        assert!(
+            !obj.contains_key("extra"),
+            "empty `extra` map must not appear on the wire (got {wire})"
+        );
+        // The only key on the wire for a bare SetError must be `type`.
+        assert_eq!(
+            obj.len(),
+            1,
+            "bare SetError must have exactly one key on the wire"
+        );
+        assert_eq!(obj["type"], "forbidden");
+    }
+
+    /// Oracle (bd:JMAP-dha0): unknown wire fields on a deserialized
+    /// SetError land in `extra`. This means a future spec adding
+    /// `someNewSetErrorField` will round-trip through current
+    /// versions of the kit losslessly.
+    #[test]
+    fn set_error_unknown_field_lands_in_extra() {
+        let wire = serde_json::json!({
+            "type": "forbidden",
+            "futureSpecField": "future-value",
+            "anotherOne": 42
+        });
+        let err: SetError = serde_json::from_value(wire).expect("deserialize");
+        assert_eq!(err.error_type, SetErrorType::Forbidden);
+        assert_eq!(
+            err.extra.get("futureSpecField").and_then(|v| v.as_str()),
+            Some("future-value")
+        );
+        assert_eq!(
+            err.extra.get("anotherOne").and_then(|v| v.as_u64()),
+            Some(42)
         );
     }
 

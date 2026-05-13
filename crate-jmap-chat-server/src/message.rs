@@ -4,7 +4,7 @@ use jmap_chat_types::{DeliveryState, Message, SenderId};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, ChatBackend};
+use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use std::collections::HashSet;
 
 use crate::helpers::{
@@ -407,22 +407,20 @@ pub async fn handle_message_set<B: ChatBackend>(
             // message touch storage. On a Throttled return the backend
             // tells us when the caller may retry; we surface that
             // verbatim as the `serverRetryAfter` extra field on the
-            // `rateLimited` SetError. `serverRetryAfter` is the
-            // workspace convention paired with `rateLimited` (read by
+            // `rateLimited` SetError, built via the typed
+            // `SetError::with_extra` builder added in bd:JMAP-dha0.
+            // `serverRetryAfter` is the workspace convention paired
+            // with `rateLimited` (read by
             // `jmap_chat_client::server_retry_after` on the client
             // side); `SetErrorType::custom("rateLimited")` produces
             // the spec wire string. The reference `MemoryBackend`
             // never returns an Err here.
             if let Err(slow_err) = backend.slow_mode_check(caller, &account_id, &chat_id).await {
-                let retry_after_str: &str = slow_err.retry_after.as_ref();
-                not_created.insert(
-                    create_id.clone(),
-                    json!({
-                        "type": "rateLimited",
-                        "description": "Slow mode is active for this chat",
-                        "serverRetryAfter": retry_after_str,
-                    }),
-                );
+                let retry_after_str: String = slow_err.retry_after.as_ref().to_owned();
+                let set_err = SetError::new(SetErrorType::custom("rateLimited"))
+                    .with_description("Slow mode is active for this chat")
+                    .with_extra("serverRetryAfter", json!(retry_after_str));
+                not_created.insert(create_id.clone(), set_error_value(&set_err));
                 continue;
             }
 
