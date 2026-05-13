@@ -112,6 +112,6 @@ The `Jmap*Ext` extension trait (`JmapTasksExt`) adds the
 - **[draft-ietf-jmap-tasks-06]** — JMAP Tasks
 - **[RFC 8620]** — JMAP Core
 
-[draft-ietf-jmap-tasks-06]: https://www.ietf.org/archive/id/draft-ietf-jmap-tasks-06.txt
+[draft-ietf-jmap-tasks-06]: https://datatracker.ietf.org/doc/draft-ietf-jmap-tasks/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client

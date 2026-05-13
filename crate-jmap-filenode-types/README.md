@@ -133,5 +133,5 @@ round-trip without data loss.
 - **[draft-ietf-jmap-filenode-13]** — JMAP FileNode (normative for all type definitions)
 - **[RFC 8620]** — JMAP Core (Id, State, SetError, request/response shape)
 
-[draft-ietf-jmap-filenode-13]: https://www.ietf.org/archive/id/draft-ietf-jmap-filenode-13.txt
+[draft-ietf-jmap-filenode-13]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

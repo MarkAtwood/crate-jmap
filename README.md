@@ -456,10 +456,10 @@ jmap-testjig  (publish = false; depends on every server crate plus axum
 [RFC 5545]: https://www.rfc-editor.org/rfc/rfc5545
 [RFC 6350]: https://www.rfc-editor.org/rfc/rfc6350
 [RFC 9420]: https://www.rfc-editor.org/rfc/rfc9420
-[draft-ietf-jmap-calendars]: https://www.ietf.org/archive/id/draft-ietf-jmap-calendars-26.txt
-[draft-ietf-jmap-tasks]: https://www.ietf.org/archive/id/draft-ietf-jmap-tasks-06.txt
-[draft-ietf-jmap-filenode]: https://www.ietf.org/archive/id/draft-ietf-jmap-filenode-13.txt
-[draft-ietf-jmap-blobext]: https://www.ietf.org/archive/id/draft-ietf-jmap-blobext-01.txt
+[draft-ietf-jmap-calendars]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
+[draft-ietf-jmap-tasks]: https://datatracker.ietf.org/doc/draft-ietf-jmap-tasks/
+[draft-ietf-jmap-filenode]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
+[draft-ietf-jmap-blobext]: https://datatracker.ietf.org/doc/draft-ietf-jmap-blobext/
 [draft-ietf-jmap-essential]: https://datatracker.ietf.org/doc/draft-ietf-jmap-essential/
 [draft-ietf-jmap-metadata]: https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/
 [draft-ietf-jmap-emailpush]: https://datatracker.ietf.org/doc/draft-ietf-jmap-emailpush/

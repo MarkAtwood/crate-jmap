@@ -1,7 +1,7 @@
 # jmap-metadata-server — Implementation Plan
 
 JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-01](https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt))
+([draft-ietf-jmap-metadata-01](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
 method handlers. Plugs into `jmap-server`'s `Dispatcher`. Backend-agnostic:
 defines a `MetadataBackend` trait; consumers provide the implementation.
 

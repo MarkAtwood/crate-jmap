@@ -1,7 +1,7 @@
 //! jmap-metadata-client — JMAP Object Metadata extension method implementations.
 //!
 //! Implements the client-side method bindings for
-//! [draft-ietf-jmap-metadata-01](https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt).
+//! [draft-ietf-jmap-metadata-01](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/).
 //! Depends on `jmap-base-client` for transport, auth, and session, and on
 //! `jmap-metadata-types` for the wire types.
 //!

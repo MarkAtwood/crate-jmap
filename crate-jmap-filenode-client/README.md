@@ -156,6 +156,6 @@ typed `async fn`.
 - **[draft-ietf-jmap-filenode-13]** — JMAP FileNode
 - **[RFC 8620]** — JMAP Core
 
-[draft-ietf-jmap-filenode-13]: https://www.ietf.org/archive/id/draft-ietf-jmap-filenode-13.txt
+[draft-ietf-jmap-filenode-13]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client
