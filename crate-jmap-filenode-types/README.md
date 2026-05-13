@@ -3,7 +3,7 @@
 Serde-annotated Rust types for the JMAP FileNode extension ([draft-ietf-jmap-filenode-13]).
 Types only — no method handlers, no async, no network I/O.
 
-## What
+## What it is
 
 | Type | Description |
 |---|---|
@@ -20,6 +20,13 @@ Capability URI constant:
 | Constant | Value |
 |---|---|
 | `JMAP_FILENODE_URI` | `"urn:ietf:params:jmap:filenode"` |
+
+## What it's for
+
+draft-ietf-jmap-filenode data types, consumed by `jmap-filenode-server`
+(method handlers + the `FileNodeBackend` trait) and `jmap-filenode-client`
+(typed method bindings). Sibling to `jmap-mail-types` and
+`jmap-sharing-types` in the workspace's extension-types family.
 
 ## Filter extensibility
 
@@ -62,7 +69,7 @@ decision is bd JMAP-lbdy.
 - §3.2.3 — `FileNodeFilterCondition` query filter
 - §1.6 — `FileNodeCapability` and `JMAP_FILENODE_URI`
 
-## Usage
+## How to use
 
 ```rust
 use jmap_filenode_types::{FileNode, NodeType};
@@ -116,7 +123,7 @@ annotations because their wire names clash with Rust keywords or conventions:
 so that unrecognised values from the IANA registry (added after this crate was written)
 round-trip without data loss.
 
-## Known Limitations
+## Gotchas
 
 - `ArchiveEntry` integration types for the JMAP Blob Extensions draft
   (`RFC 9404) are not implemented.
@@ -128,7 +135,3 @@ round-trip without data loss.
 
 [draft-ietf-jmap-filenode-13]: https://www.ietf.org/archive/id/draft-ietf-jmap-filenode-13.txt
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0

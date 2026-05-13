@@ -3,7 +3,7 @@
 Serde-annotated Rust types for JMAP Contacts ([RFC 9610]) and
 JSContact ([RFC 9553]). Types only — no method handlers, no async, no network I/O.
 
-## What
+## What it is
 
 | Type | Module | Source |
 |---|---|---|
@@ -27,6 +27,16 @@ sub-type. See the [JSContact sub-objects](#jscontact-sub-objects) section
 below for the usage pattern.
 
 [`jmap-jscontact-types`]: https://crates.io/crates/jmap-jscontact-types
+
+## What it's for
+
+RFC 6889 / draft-ietf-jmap-contacts data types, consumed by
+`jmap-contacts-server` (method handlers + the `ContactsBackend` trait)
+and `jmap-contacts-client` (typed method bindings). Re-exports
+`jmap-jscontact-types` as the `jscontact` module so callers can opt into
+typed RFC 9553 JSContact sub-objects without taking an extra direct
+dependency. Sibling to `jmap-mail-types` and `jmap-calendars-types` in
+the workspace's extension-types family.
 
 ## Filter extensibility
 
@@ -73,7 +83,7 @@ decision is bd JMAP-lbdy.
 | vCard/jCard import-export | Out of scope |
 | JSContact-to-vCard conversion (RFC 9555) | Out of scope |
 
-## Usage
+## How to use
 
 ### AddressBook deserialization
 
@@ -239,7 +249,7 @@ They are open-ended (a `Custom(String)` variant accepts vendor extensions) and
 serialize to the JSContact wire-format property name (including slash-keyed
 JSContact paths such as `name/given`).
 
-## Known Limitations
+## Gotchas
 
 ### JSContact sub-object fields on `ContactCard` are `serde_json::Value` on the wire
 
@@ -289,7 +299,3 @@ remain that way until the family is published to crates.io.
 [RFC 9610]: https://www.rfc-editor.org/rfc/rfc9610
 [RFC 9553]: https://www.rfc-editor.org/rfc/rfc9553
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0

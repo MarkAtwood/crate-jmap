@@ -1,10 +1,25 @@
 # jmap-filenode-server
 
-JMAP FileNode ([draft-ietf-jmap-filenode-13]) method handlers for Rust. Plugs into
-[`jmap-server`]'s `Dispatcher`. Implements all 6 FileNode method names.
-Storage-agnostic — consumers implement the `FileNodeBackend` trait for their own data layer.
+## What it is
 
-## Usage
+JMAP FileNode ([draft-ietf-jmap-filenode-13]) method handlers and the
+`FileNodeBackend` trait. Plugs into [`jmap-server`]'s `Dispatcher`. Implements
+all 6 FileNode method names. Storage-agnostic — consumers implement the
+`FileNodeBackend` trait for their own data layer.
+
+## What it's for
+
+Implements draft-ietf-jmap-filenode — tree-structured FileNode objects with
+cycle detection, `onExists` collision handling, and `onDestroyRemoveChildren`
+cascade — so consumers can wire JMAP FileNode method dispatch into their HTTP
+transport. Sibling to `jmap-mail-server` (the canonical extension-server
+template) and the other `jmap-*-server` crates; all of them inter-depend
+through the workspace `JmapHandler` trait in `jmap-server`. The consumer
+supplies a `FileNodeBackend` impl (storage), a `CallerCtx` type (auth
+identity), and wires the dispatcher into HTTP / SSE / WebSocket transport
+themselves.
+
+## How to use
 
 ```rust
 use std::sync::Arc;
@@ -214,7 +229,7 @@ jmap-types
 Path dependencies between crates use `path = "../crate-jmap-*"` and will remain that way
 until the family is published to crates.io.
 
-## Known Limitations
+## Gotchas
 
 - `get_ancestors`, `get_descendant_ids`, `find_sibling_by_name`, and `blob_exists` have no
   default implementations; backends must implement all four.
@@ -233,7 +248,3 @@ until the family is published to crates.io.
 [draft-ietf-jmap-filenode-13]: https://www.ietf.org/archive/id/draft-ietf-jmap-filenode-13.txt
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server
-
-## License
-
-MIT OR Apache-2.0

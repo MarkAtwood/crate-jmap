@@ -4,7 +4,25 @@ Backend-agnostic JMAP server framework for Rust. Implements the [RFC 8620] wire
 protocol: request parsing, ResultReference resolution, and the `Dispatcher`
 machinery. No opinion on authentication, method sets, capability URIs, or storage.
 
-## Usage
+## What it is
+
+The foundation server crate for the `jmap-*` family — `Dispatcher`, the
+`JmapHandler` trait, `parse_request`, `ResultReference` resolution, the
+`JmapBackend` supertrait, generic `/get` / `/changes` / `/query` /
+`/queryChanges` handlers, the `CallerCtx` identity seam, and panic isolation
+via `tokio::task::spawn`. No HTTP / SSE / WebSocket transport — that is the
+consumer's responsibility, per the workspace's library-kit posture.
+
+## What it's for
+
+Every `jmap-*-server` extension in the workspace (mail, chat, contacts,
+calendars, tasks, filenode, sharing, metadata) builds on this crate by
+extending the `JmapBackend` supertrait with its own backend methods and
+registering handlers via `Dispatcher::register`. Downstream consumers like
+kith and stoa, and the in-workspace `jmap-testjig`, wire this crate into
+their own HTTP transport, auth integration, and persistence story.
+
+## How to use
 
 ```rust
 use std::sync::Arc;
@@ -156,13 +174,32 @@ It registers a single stub `JmapHandler` for `"Core/echo"`, dispatches a
 synthetic [`JmapRequest`], and prints both the wire-format [`JmapResponse`]
 and the typed access paths a real server would consume.
 
-## Known Limitations
+## How it works
+
+- `parse_request` decodes the body, validates `using` is non-empty, and
+  caps the method-call count at the caller-supplied `max_calls` (see the
+  [Request parsing](#request-parsing) section). Capability-URI checking is
+  the caller's job, not this crate's.
+- `Dispatcher<C>` is generic over a `CallerCtx` type the HTTP/auth layer
+  produces; it walks the request's `method_calls`, resolves
+  [`ResultReference`](#re-exports) back-references via JSON Pointer
+  (RFC 6901), and invokes each handler under `tokio::task::spawn` so a
+  panicking handler degrades to `serverFail` instead of crashing the
+  process. See [CallerCtx](#callerctx) for the identity seam.
+- Errors split cleanly between request-level (HTTP 400 / 403 / 500, RFC
+  7807 body — see [Error responses](#error-responses)) and method-level
+  (HTTP 200 inside `methodResponses`, returned by the handler).
+- The crate re-exports the wire types from `jmap-types`, the backend
+  trait surface, and helper utilities so consumers do not have to take a
+  direct `jmap-types` dependency — see [Re-exports](#re-exports).
+
+## Gotchas
 
 - **`sortAsTree` and `filterAsTree` not implemented.** The generic `handle_query` handler rejects these arguments with `unsupportedSort`/`unsupportedFilter` rather than silently ignoring them. Tree-mode traversal is not implemented.
 - **In-process filtering only.** `handle_query` fetches all objects and filters them in-process. For large accounts this is O(N) in the number of objects. Backends that can push filtering to storage should implement `query_objects` with real filter logic rather than relying on the generic handler.
 - **Single-process only.** The dispatcher holds no shared state between requests and is safe to use concurrently; however, there is no built-in clustering support. State consistency across multiple processes is the backend's responsibility.
 
-## Spec references
+## References
 
 - **[RFC 8620]** — JMAP base protocol (request format, ResultReference, error types)
 - **[RFC 6901]** — JSON Pointer (used by ResultReference path resolution)

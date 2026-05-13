@@ -1,10 +1,20 @@
 # jmap-tasks-client
 
+## What it is
+
 Typed client methods for the JMAP Tasks extension ([draft-ietf-jmap-tasks-06]). Wraps
 [`jmap-base-client`] transport with strongly-typed request builders and response types for
 all 14 JMAP Tasks method names.
 
-## Usage
+## What it's for
+
+Implements draft-ietf-jmap-tasks method bindings on top of `jmap-base-client`:
+`TaskList/*`, `Task/*`, and `TaskNotification/*`. Sibling of
+`jmap-mail-client` in the extension-client family — mirrors that crate's
+shape. Depends on `jmap-base-client` for transport and session, and on
+`jmap-tasks-types` for the wire types.
+
+## How to use
 
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
@@ -71,7 +81,26 @@ All `pub async fn` on `SessionClient`:
 objects automatically; clients may only remove them. Any create or update sent to the server
 would be rejected with `forbidden`.
 
-## Known Limitations
+## How it works
+
+Each method on `SessionClient` runs the same pipeline:
+
+1. Validate arguments (typed `&Id` / `&[Id]` makes invalid Ids unrepresentable;
+   defence-in-depth empty-state guards return `InvalidArgument` before any I/O).
+2. Resolve `(api_url, account_id)` from the bound session for
+   `urn:ietf:params:jmap:tasks`.
+3. Build the method-arguments JSON.
+4. Wrap it into a `JmapRequest` via `JmapRequestBuilder` with
+   `using = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:tasks"]`.
+5. POST it via `jmap_base_client::JmapClient::call`.
+6. `extract_response::<T>` finds the typed result for call ID `"r1"`.
+
+The `Jmap*Ext` extension trait (`JmapTasksExt`) adds the
+`with_tasks_session(session)` accessor to `JmapClient`. The returned
+`SessionClient` carries the session and exposes every Tasks method as a typed
+`async fn`.
+
+## Gotchas
 
 - The draft expired in 2023; if the spec is revised and published as an RFC, method
   signatures may change.
@@ -86,7 +115,3 @@ would be rejected with `forbidden`.
 [draft-ietf-jmap-tasks-06]: https://www.ietf.org/archive/id/draft-ietf-jmap-tasks-06.txt
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client
-
-## License
-
-MIT OR Apache-2.0

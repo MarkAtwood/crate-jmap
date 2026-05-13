@@ -1,12 +1,30 @@
 # jmap-metadata-server
 
+## What it is
+
 JMAP Object Metadata extension
 ([draft-ietf-jmap-metadata-01](https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt))
-method handlers for Rust. Plugs into [`jmap-server`]'s `Dispatcher`. Implements
-all five `Metadata/*` method names. Storage-agnostic — consumers implement the
-`MetadataBackend` trait for their own data layer.
+method handlers and the `MetadataBackend` trait. Plugs into [`jmap-server`]'s
+`Dispatcher`. Implements all five `Metadata/*` method names. Storage-agnostic
+— consumers implement the `MetadataBackend` trait for their own data layer.
 
-## Usage
+## What it's for
+
+Implements draft-ietf-jmap-metadata-01 — `Metadata/get`, `/changes`, `/set`,
+`/query`, `/queryChanges` — so consumers can attach typed `Annotation`
+records (ImapMetadata, WebDavMetadata, vendor extensions) to other JMAP
+objects and query them. This is the **workspace-recommended IETF-track
+escape** for vendor data that needs to be queryable beyond the workspace
+extras-preservation pattern (which round-trips unknown fields but does not
+make them filter-targets). Sibling to `jmap-mail-server` (the canonical
+extension-server template) and the other `jmap-*-server` crates; all of
+them inter-depend through the workspace `JmapHandler` trait in
+`jmap-server`. The consumer supplies a `MetadataBackend` impl (storage), a
+`CallerCtx` type (auth identity, required for `isPrivate` visibility
+scoping), and wires the dispatcher into HTTP / SSE / WebSocket transport
+themselves.
+
+## How to use
 
 ```rust
 use std::sync::Arc;
@@ -207,7 +225,7 @@ reference when writing a real backend. **Not production.** API stability
 is opt-in via this feature and may break across minor versions while the
 crate is pre-1.0.
 
-## Known Limitations
+## Gotchas
 
 - The handler does NOT enforce uniqueness, `maySetPrivate`, quota, or
   related-object validation. Those are backend responsibilities per
@@ -243,7 +261,3 @@ remain that way until the family is published to crates.io.
 [draft-ietf-jmap-metadata-01]: https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server
-
-## License
-
-MIT OR Apache-2.0

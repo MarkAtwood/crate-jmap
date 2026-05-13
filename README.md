@@ -1,15 +1,32 @@
 # jmap-*
 
 A Rust workspace implementing the JMAP protocol suite as a set of composable,
-backend-agnostic library crates. Covers [RFC 8620] (JMAP Core), [RFC 8621] (JMAP
-for Mail), [RFC 8887] (JMAP over WebSocket), [RFC 9670] (JMAP Sharing), the
-JSCalendar-based Calendars and Tasks extensions, the JMAP Chat extension, JMAP
-FileNode, and JMAP Contacts.
+backend-agnostic library crates. Covers:
 
-This is a **protocol library**, not a server application. You bring storage,
+- [RFC 8620] (JMAP Core), [RFC 8621] (JMAP for Mail), [RFC 8887] (JMAP over
+  WebSocket), [RFC 9670] (JMAP Sharing).
+- [RFC 9007] (Message Disposition Notifications) and [RFC 9661] (Sieve Scripts)
+  as feature-gated extensions on the Mail server.
+- [RFC 8984] JSCalendar and [RFC 9553] JSContact typed sub-types as standalone
+  no-async crates consumed by Calendars/Tasks and Contacts respectively.
+- The JMAP Contacts ([RFC 9610]), Calendars ([draft-ietf-jmap-calendars]),
+  Tasks ([draft-ietf-jmap-tasks]), and FileNode ([draft-ietf-jmap-filenode])
+  extensions.
+- The JMAP Object Metadata extension ([draft-ietf-jmap-metadata]), the
+  workspace-recommended IETF-track path for vendor data that must be queryable.
+- The JMAP Content Identifier extension ([draft-atwood-jmap-cid]) for blob
+  integrity hashes.
+- The JMAP Chat extension ([draft-atwood-jmap-chat]).
+
+This is a **protocol library kit**, not a server application. You bring storage,
 authentication, and HTTP. The library handles JMAP wire framing, ResultReference
 resolution, batch dispatch, type-safe request/response shapes, and the
-specification-mandated validation logic for each object type.
+specification-mandated validation logic for each object type. Reference
+`MemoryBackend` implementations gated behind a `memory` feature exist on every
+extension server crate for testing — they are intentionally demonstration-only
+and not for production. A separate `jmap-testjig` workspace member (publish =
+false) wires the kit into a runnable HTTP/SSE/WS process for the workspace's
+own integration testing.
 
 ---
 
@@ -63,6 +80,8 @@ Use it to carry per-request auth identity, tenant ID, or rate-limit tokens.
 | Crate | Spec | Role |
 |---|---|---|
 | `jmap-jscalendar-types` | [RFC 8984] | JSCalendar typed sub-objects: `LocalDateTime`, `Duration`, `RecurrenceRule`, `Location`, `Participant`, `Alert`, etc. Consumed by Calendars and (planned) Tasks. No JMAP dep. |
+| `jmap-jscontact-types` | [RFC 9553] | JSContact typed sub-objects: `Name`, `EmailAddress`, `Phone`, `Address`, `Organization`, `Anniversary`, `PersonalInfo`, etc. Consumed by Contacts. No JMAP dep. |
+| `jmap-cid-types` | [draft-atwood-jmap-cid] | `CidCapability` (`urn:ietf:params:jmap:cid`) and the `Sha256` typed wire shape (lowercase hex, 64 chars). Feeds Blob upload responses and FileNode integrity fields. No async. |
 
 ### Mail
 
@@ -70,7 +89,7 @@ Use it to carry per-request auth identity, tenant ID, or rate-limit tokens.
 |---|---|---|
 | `jmap-mail-types` | [RFC 8621] | `Email`, `Mailbox`, `Thread`, `Identity`, `EmailSubmission`, `VacationResponse` |
 | `jmap-mime` | [RFC 5322] | Adapter: `mime_tree` parsed output → `jmap-mail-types` body structures |
-| `jmap-mail-server` | [RFC 8621] | All 26 RFC 8621 method handlers; `MailBackend` trait |
+| `jmap-mail-server` | [RFC 8621], [RFC 9007], [RFC 9661] | All 26 RFC 8621 method handlers via `register_mail_handlers`; `MailBackend` trait. Feature-gated `register_mdn_handlers` (RFC 9007, `mdn` feature) and `register_sieve_handlers` (RFC 9661, `sieve` feature) with their own backend traits. Reference `MemoryBackend` under the `memory` feature. |
 | `jmap-mail-client` | [RFC 8621] | Typed client methods for all 26 methods |
 
 ### Chat
@@ -85,7 +104,7 @@ Use it to carry per-request auth identity, tenant ID, or rate-limit tokens.
 
 | Crate | Spec | Role |
 |---|---|---|
-| `jmap-contacts-types` | [RFC 9610], [RFC 9553] | `ContactCard`, `AddressBook`, `AddressBookRights`; JSContact sub-objects as `serde_json::Value` |
+| `jmap-contacts-types` | [RFC 9610], [RFC 9553] | `ContactCard`, `AddressBook`, `AddressBookRights`; JSContact sub-objects as `serde_json::Value` on the wire with typed access via `jmap-jscontact-types` re-exported as the `jscontact` module |
 | `jmap-contacts-server` | [RFC 9610] | Contacts method handlers; `ContactsBackend` trait |
 | `jmap-contacts-client` | [RFC 9610] | Typed client methods |
 
@@ -121,58 +140,107 @@ Use it to carry per-request auth identity, tenant ID, or rate-limit tokens.
 | `jmap-filenode-server` | [draft-ietf-jmap-filenode] | FileNode method handlers including cycle detection, collision policy, cascade destroy; `FileNodeBackend` trait |
 | `jmap-filenode-client` | [draft-ietf-jmap-filenode] | Typed client methods |
 
+### Metadata
+
+| Crate | Spec | Role |
+|---|---|---|
+| `jmap-metadata-types` | [draft-ietf-jmap-metadata] | `Metadata`, `Annotation`, `ImapMetadata`, `WebDavMetadata`, `MetadataFilterCondition`, `MetadataCapability`. The IETF-track escape for vendor data that must be queryable. |
+| `jmap-metadata-server` | [draft-ietf-jmap-metadata] | `Metadata/get/changes/set/query/queryChanges`; `MetadataBackend` trait |
+| `jmap-metadata-client` | [draft-ietf-jmap-metadata] | Typed client methods |
+
+### Workspace-only
+
+| Crate | Role |
+|---|---|
+| `jmap-testjig` | Workspace integration test jig. Wires the dispatcher + all extension handlers + reference `MemoryBackend`s into a runnable HTTP/SSE/WS process. `publish = false`. Single-user, hardcoded bearer auth, in-memory only — explicitly NOT FOR PRODUCTION. |
+
 ---
 
 ## Backend traits
 
 Each server crate defines a `*Backend` trait that is the only integration surface
 between the library and your storage layer. The read side (`get_objects`,
-`get_state`, `get_changes`, `query_objects`, `query_changes`, `account_exists`)
-is defined on the `JmapBackend` supertrait in `jmap-server`. Extension-specific
-write and structural operations live on the extension trait.
+`get_state`, `get_changes`, `query_objects`, `query_changes`, `account_exists`,
+`principal_id`) is defined on the `JmapBackend` supertrait in `jmap-server`.
+Extension-specific write and structural operations live on the extension trait.
+
+Every backend method takes `caller: &Self::CallerCtx` as its first argument
+after `&self`. This is the foundation seam for caller identity:
+`JmapBackend::principal_id(caller) -> Option<&Id>` is the canonical way the
+JMAP layer asks "who is the caller", and backends are canonical for permission
+enforcement using that value. See workspace `AGENTS.md` "Caller identity
+(foundation seam)" for the full rule set.
 
 Example (`MailBackend`, abbreviated):
 
 ```rust
 pub trait MailBackend: JmapBackend {
-    fn create_object<O: SetObject>(&self, account_id: &Id, create_id: &str, obj: O)
-        -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>>;
+    fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        create_id: &str,
+        obj: O,
+    ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>>;
 
-    fn import_email(&self, account_id: &Id, blob_id: &Id, mailbox_ids: &[Id],
-        keywords: &[Keyword], received_at: Option<&UTCDate>)
-        -> impl Future<Output = Result<(Id, Email), BackendSetError<Self::Error>>>;
+    fn import_email(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        blob_id: &Id,
+        mailbox_ids: &[Id],
+        keywords: &[Keyword],
+        received_at: Option<&UTCDate>,
+    ) -> impl Future<Output = Result<(Id, Email), BackendSetError<Self::Error>>>;
 
-    fn find_thread_by_message_ids(&self, account_id: &Id, message_ids: &[&str])
-        -> impl Future<Output = Result<Option<Id>, Self::Error>>;
+    fn find_thread_by_message_ids(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        message_ids: &[&str],
+    ) -> impl Future<Output = Result<Option<Id>, Self::Error>>;
 
-    fn search_snippets(&self, account_id: &Id, email_ids: &[Id],
-        filter: Option<&EmailFilterCondition>)
-        -> impl Future<Output = Result<Vec<SearchSnippet>, Self::Error>>;
+    fn search_snippets(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        email_ids: &[Id],
+        filter: Option<&EmailFilterCondition>,
+    ) -> impl Future<Output = Result<Vec<SearchSnippet>, Self::Error>>;
 
     // ... (update, destroy, copy, parse, blob_exists, and optional overrides)
 }
 ```
 
-All traits use Rust's native async fn in trait (AFIT, stable since 1.75). No
-`#[async_trait]` macro.
+All traits use Rust's native async fn in trait (AFIT). No `#[async_trait]`
+macro.
 
 ---
 
 ## Design notes
 
-### JSContact sub-objects are `serde_json::Value`
+### JSContact and JSCalendar sub-objects: hybrid sloppy-value pattern
 
-`ContactCard` in `jmap-contacts-types` stores all JSContact sub-objects — names,
-phones, addresses, emails, organizations, etc. — as `serde_json::Value` rather
-than typed Rust structs. This is intentional.
+`ContactCard` in `jmap-contacts-types` and `CalendarEvent` in
+`jmap-calendars-types` store their RFC 9553 / RFC 8984 sub-objects (names,
+phones, addresses, organizations, recurrence rules, participants, alerts, etc.)
+as `serde_json::Value` on the wire. This is intentional: both specs permit
+arbitrary vendor extension properties on every sub-object, and the schemas
+evolve between revisions. Storing the wire field as `Value` preserves all
+data from any server response across deserialize/serialize round-trips at the
+cost of compile-time field access.
 
-[RFC 9553] permits arbitrary vendor extension properties on every sub-object, and
-the schema has evolved between versions. Using typed structs would either silently
-drop extension fields on round-trip or lock the library to a specific schema
-revision. The `Value` approach preserves all data from any server response, at
-the cost of compile-time field access. Callers that need to extract a phone number
-or address deserialize the relevant `Value` field themselves using RFC 9553 as the
-schema.
+For callers that want typed access, the workspace ships standalone typed
+sub-type crates that mirror the spec's object model:
+
+- `jmap-jscontact-types` — typed RFC 9553 sub-types, re-exported by
+  `jmap-contacts-types` as the `jscontact` module.
+- `jmap-jscalendar-types` — typed RFC 8984 sub-types, re-exported by
+  `jmap-calendars-types` as the `jscalendar` module.
+
+The hybrid pattern is: the wire field stays `Value` (round-trip fidelity);
+typed access is opt-in via `serde_json::from_value::<jscontact::Name>(...)`.
+See `crate-jmap-calendars-types/PLAN.md` for the per-field rationale.
 
 ### `Person`-like attribution types are not unified
 
@@ -198,13 +266,42 @@ structs remain separate. Application code that displays "who made this change"
 across object types should extract name and contact information at the application
 layer.
 
-### `CallerCtx` forwarding
+### `CallerCtx` forwarding and identity enforcement
 
 The `register_*_handlers` functions use `ClosureHandler` internally, which
-forwards the `CallerCtx` value from `Dispatcher::dispatch` to every handler closure
-as `_ctx: C`. The handlers themselves do not yet act on this parameter — it is
-available for applications that implement `JmapHandler<C>` directly and need
-per-request auth context (e.g. tenant isolation or row-level security).
+forwards the `CallerCtx` value from `Dispatcher::dispatch` to every handler
+closure as `&ctx`. Handlers pass `caller` through to every `*Backend` method
+call as the first argument after `&self` — this is the foundation seam
+codified in workspace `AGENTS.md` "Caller identity (foundation seam)".
+
+Identity flows as follows:
+
+1. HTTP / auth middleware builds the `CallerCtx` value (the type your
+   `MailBackend::CallerCtx` associated type names).
+2. `Dispatcher::dispatch(request, caller, session_state).await` clones it
+   into every handler invocation.
+3. Each handler forwards `&caller` to every backend method.
+4. The backend asks `JmapBackend::principal_id(caller) -> Option<&Id>` for
+   the canonical identity, and is the sole authority on permission
+   enforcement (handlers may pre-check defensively, but the backend MUST
+   re-verify atomically with the mutation).
+
+A backend that returns `None` from `principal_id` is signalling that this
+deployment does not honor identity-dependent JMAP semantics — fine for
+single-user dev jigs and tests, but production multi-user deployments MUST
+override.
+
+### Extras-preservation policy
+
+Every public deserialize struct on the JMAP wire carries an `extra:
+serde_json::Map<String, serde_json::Value>` flatten field; every wire-format
+result string enum (e.g. `MailboxRole`, `NodeType`, `ChatKind`,
+`ParticipantRole`) carries an `Unknown(String)` variant. Together these
+preserve vendor / site / private-extension fields and unrecognised result
+values across deserialize / serialize round-trip. Filter algebra types,
+control enums (`Operator`, `ComparatorProperty`), and externally-owned
+classifier strings (RFC 9553 `kind` fields, RFC 8984 `kind` fields) are
+explicitly excluded — see workspace `AGENTS.md` for the per-axis rationale.
 
 ---
 
@@ -217,7 +314,9 @@ cargo clippy --workspace -- -D warnings
 cargo fmt --all
 ```
 
-MSRV: 1.75 (required for async fn in trait).
+MSRV: 1.88. The actual floor is driven by transitive dependencies (`icu_*@2.2.0`
+requires 1.86; `hashbrown@0.17.0` needs the edition2024 Cargo feature stabilized
+in 1.85); 1.88 is the conservative pick with a margin against further dep churn.
 
 ---
 
@@ -233,25 +332,38 @@ jmap-types
     │       ├── jmap-calendars-client
     │       ├── jmap-sharing-client
     │       ├── jmap-tasks-client
-    │       └── jmap-filenode-client
+    │       ├── jmap-filenode-client
+    │       └── jmap-metadata-client
     ├── jmap-mail-types
     │       ├── jmap-mime
     │       └── jmap-mail-server
     ├── jmap-chat-types
     │       └── jmap-chat-server
-    ├── jmap-contacts-types
+    ├── jmap-contacts-types ── (also consumes jmap-jscontact-types)
     │       └── jmap-contacts-server
     ├── jmap-calendars-types ── (also consumes jmap-jscalendar-types)
     │       └── jmap-calendars-server
     ├── jmap-sharing-types
     │       └── jmap-sharing-server
-    ├── jmap-tasks-types
+    ├── jmap-tasks-types ── (will consume jmap-jscalendar-types)
     │       └── jmap-tasks-server
-    └── jmap-filenode-types
-            └── jmap-filenode-server
+    ├── jmap-filenode-types
+    │       └── jmap-filenode-server
+    ├── jmap-metadata-types
+    │       └── jmap-metadata-server
+    └── jmap-cid-types  (CidCapability + Sha256 typed wire shape; feeds
+                         jmap-base-client BlobUploadResponse and future
+                         FileNode integrity fields)
 
 jmap-jscalendar-types  (RFC 8984 JSCalendar typed sub-objects, no JMAP dep)
-    └── jmap-calendars-types  (re-exports as `jscalendar` module alias)
+    ├── jmap-calendars-types  (re-exports as `jscalendar` module alias)
+    └── jmap-tasks-types      (planned consumer)
+
+jmap-jscontact-types   (RFC 9553 JSContact typed sub-objects, no JMAP dep)
+    └── jmap-contacts-types   (re-exports as `jscontact` module alias)
+
+jmap-testjig  (publish = false; depends on every server crate plus axum
+               and tokio-tungstenite for the integration test process)
 ```
 
 ---
@@ -283,13 +395,26 @@ jmap-jscalendar-types  (RFC 8984 JSCalendar typed sub-objects, no JMAP dep)
 | [draft-ietf-jmap-calendars] | JMAP for Calendars | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/) |
 | [draft-ietf-jmap-tasks] | JMAP for Tasks | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-tasks/) |
 | [draft-ietf-jmap-filenode] | JMAP File Node | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/) |
-| [draft-ietf-jmap-blobext] | JMAP Blob Management Extension | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-blobext/) |
+| [draft-ietf-jmap-blobext] | JMAP Blob Management Extension (obsoletes RFC 9404 if approved; introduces `urn:ietf:params:jmap:blob2`) | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-blobext/) |
 | [draft-ietf-jmap-essential] | JMAP Essential Extensions | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-essential/) |
-| [draft-ietf-jmap-metadata] | JMAP for Message Metadata | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/) |
+| [draft-ietf-jmap-metadata] | JMAP for Object Metadata | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/) |
 | [draft-ietf-jmap-emailpush] | JMAP Email Push | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-emailpush/) |
 | [draft-ietf-jmap-refplus] | JMAP Reference Pointer Extensions | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-refplus/) |
 | [draft-ietf-jmap-mail-sharing] | JMAP for Mail Sharing | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-mail-sharing/) |
 | [draft-ietf-jmap-portability-extensions] | JMAP Portability Extensions | [tracker](https://datatracker.ietf.org/doc/draft-ietf-jmap-portability-extensions/) |
+
+### Independent drafts
+
+| Draft | Title | Source |
+|---|---|---|
+| [draft-atwood-jmap-cid] | JMAP Content Identifier (`urn:ietf:params:jmap:cid`) | [spec repo](https://github.com/MarkAtwood/jmap-chat-spec) |
+| [draft-atwood-jmap-chat] | JMAP Chat | [spec repo](https://github.com/MarkAtwood/jmap-chat-spec) |
+| draft-atwood-jmap-chat-push | JMAP Chat: Push payloads | (in jmap-chat-spec repo) |
+| draft-atwood-jmap-chat-wss | JMAP Chat: WebSocket ephemeral events | (in jmap-chat-spec repo) |
+| draft-atwood-jmap-chat-federation | JMAP Chat: Federation (not yet implemented in this workspace) | (in jmap-chat-spec repo) |
+| draft-atwood-jmap-chat-filenode | JMAP Chat: File attachment objects (not yet implemented) | (in jmap-chat-spec repo) |
+| draft-atwood-jmap-chat-calendars | JMAP Chat: Calendar integration (not yet implemented) | (in jmap-chat-spec repo) |
+| draft-atwood-jmap-chat-tasks | JMAP Chat: Task integration (not yet implemented) | (in jmap-chat-spec repo) |
 
 ### Related standards
 
@@ -342,7 +467,4 @@ jmap-jscalendar-types  (RFC 8984 JSCalendar typed sub-objects, no JMAP dep)
 [draft-ietf-jmap-mail-sharing]: https://datatracker.ietf.org/doc/draft-ietf-jmap-mail-sharing/
 [draft-ietf-jmap-portability-extensions]: https://datatracker.ietf.org/doc/draft-ietf-jmap-portability-extensions/
 [draft-atwood-jmap-chat]: https://github.com/MarkAtwood/jmap-chat-spec
-
-## License
-
-MIT OR Apache-2.0
+[draft-atwood-jmap-cid]: https://github.com/MarkAtwood/jmap-chat-spec

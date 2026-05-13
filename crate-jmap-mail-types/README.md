@@ -10,7 +10,7 @@ This crate is **types only** — no method handlers, no async, no network I/O. I
 between `jmap-types` (shared wire primitives from RFC 8620) and `jmap-mail-server`
 (the method handler layer).
 
-## What
+## What it is
 
 | Type | RFC 8621 § | Description |
 |------|-----------|-------------|
@@ -122,7 +122,7 @@ Enables `pub mod sieve`. Adds the following public types and constants:
 | `SieveAccountCapability` | RFC 9661 §2 — per-account limits and supported extensions |
 | `SieveScriptProperty` (re-exported from `backend`) | RFC 9661 §3 — property enum for `SieveScript/get` |
 
-## Why
+## What it's for
 
 `jmap-mail-server` needs these types to implement method handlers. `jmap-mail-client`
 needs them to build requests and parse responses. Neither should carry the other's
@@ -130,7 +130,7 @@ dependencies. `jmap-mail-types` has exactly four runtime dependencies — `jmap-
 `serde`, `serde_json`, and nothing else — and no async runtime, no HTTP framework,
 and no application logic. Any crate in the `jmap-*` family can depend on it without cost.
 
-## Usage
+## How to use
 
 Add to `Cargo.toml`:
 
@@ -416,7 +416,7 @@ jmap-types                 shared wire primitives (RFC 8620)
             └── jmap-mail-client   RFC 8621 HTTP client methods
 ```
 
-## Known Limitations
+## Gotchas
 
 - **Partial `Email/get` responses cannot deserialize into `Email`.** The `Email` struct requires all six metadata fields (`id`, `blobId`, `threadId`, `mailboxIds`, `size`, `receivedAt`) to be present. When a `Email/get` request uses `properties` to fetch only a subset of fields, the server omits the unrequested fields and the response will fail to deserialize into `GetResponse<Email>`. Use `GetResponse<serde_json::Value>` for partial-property responses and deserialize individual fields manually.
 - **No keyword validation.** `Keyword::new("$invalid key with spaces")` succeeds. RFC 8621 §4.1.1 keyword syntax rules (no spaces, ASCII visible characters, system keywords must start with `$`) are not enforced at the type layer.
@@ -440,7 +440,3 @@ jmap-types                 shared wire primitives (RFC 8620)
 [RFC 4314]: https://www.rfc-editor.org/rfc/rfc4314
 [RFC 9007]: https://www.rfc-editor.org/rfc/rfc9007
 [RFC 9661]: https://www.rfc-editor.org/rfc/rfc9661
-
-## License
-
-Licensed under either of [MIT License](LICENSE-MIT) or [Apache License, Version 2.0](LICENSE-APACHE) at your option.

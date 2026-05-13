@@ -1,11 +1,21 @@
 # jmap-metadata-client
 
+## What it is
+
 Typed client methods for the JMAP Object Metadata extension
 ([draft-ietf-jmap-metadata-01]). Depends on [`jmap-base-client`] for
 transport, authentication, and session management, and on
 [`jmap-metadata-types`] for wire types.
 
-## Usage
+## What it's for
+
+Implements draft-ietf-jmap-metadata-01 method bindings on top of
+`jmap-base-client`: `Metadata/get|changes|set|query|queryChanges`. Sibling
+of `jmap-mail-client` in the extension-client family — mirrors that crate's
+shape. Depends on `jmap-base-client` for transport and session, and on
+`jmap-metadata-types` for the wire types.
+
+## How to use
 
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
@@ -119,6 +129,18 @@ Every method follows the same five-step pattern:
 The capability `using` array for all metadata requests is:
 `["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:metadata"]`.
 
+## Gotchas
+
+- **Pinned to draft-01.** This crate tracks
+  [draft-ietf-jmap-metadata-01]; later draft revisions (or a final RFC)
+  may rename methods, alter argument shapes, or change response fields.
+- **`Metadata/changes` filter consistency.** Per draft §3.3 the state
+  token returned represents the complete account state and is
+  independent of `filterRelatedType` / `filterMetadataType`. Callers
+  MUST re-use the same filter values across subsequent
+  `Metadata/changes` calls; mixing different filters against the same
+  state token will produce inconsistent synchronisation results.
+
 ## Crate family
 
 ```
@@ -139,7 +161,3 @@ jmap-types
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client
 [`jmap-metadata-types`]: ../crate-jmap-metadata-types
-
-## License
-
-MIT OR Apache-2.0

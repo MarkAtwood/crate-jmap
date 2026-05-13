@@ -9,7 +9,7 @@ this crate and add their method implementations as extension traits on
 
 ---
 
-## What this crate provides
+## What it is
 
 - **Session fetch** — GET `/.well-known/jmap`, parse and validate the Session object
 - **API calls** — POST typed `JmapRequest` to `session.api_url`, receive `JmapResponse`
@@ -18,6 +18,19 @@ this crate and add their method implementations as extension traits on
 - **WebSocket transport** — RFC 8887 request/response and `StateChange` push frames
 - **Auth** — `BearerAuth`, `BasicAuth`, `NoneAuth`; pluggable via `AuthProvider` trait
 - **Transport** — `DefaultTransport` (webpki roots) and `CustomCaTransport` (private CA)
+
+---
+
+## What it's for
+
+The foundation client crate for the `jmap-*` family. Every extension client
+in the workspace (mail, chat, contacts, calendars, tasks, filenode, sharing,
+metadata) builds on this crate by adding its own `Jmap*Ext` extension trait
+on `JmapClient` plus a per-extension `SessionClient`. The private transport
+dependencies (`reqwest` for HTTP, `tokio-tungstenite` for WebSocket) are
+wrapped in opaque `HttpError`, `WebSocketError`, and
+`InvalidHeaderValueError` types so they stay SemVer-isolated — those crates
+can be bumped or swapped without breaking downstream extensions.
 
 ---
 
@@ -31,7 +44,7 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 
 ---
 
-## Usage
+## How to use
 
 ### Basic setup: construct client, fetch session, make a call
 
@@ -566,7 +579,7 @@ Dependencies flow downward only. Type crates (`jmap-types`, `jmap-mail-types`,
 
 ---
 
-## Known Limitations
+## Gotchas
 
 - **No automatic SSE reconnect.** `subscribe_events` returns an `async Stream` that terminates when the server closes the connection. Reconnect logic (with exponential backoff and `Last-Event-ID` header) is the caller's responsibility.
 - **No WebSocket ping/pong keepalive.** `WsSession` does not send RFC 6455 ping frames. If your server closes idle WebSocket connections, implement keepalive in the caller.
@@ -585,10 +598,3 @@ Dependencies flow downward only. Type crates (`jmap-types`, `jmap-mail-types`,
 - [RFC 6750](https://www.rfc-editor.org/rfc/rfc6750) — Bearer Token Usage
 - [RFC 7617](https://www.rfc-editor.org/rfc/rfc7617) — HTTP Basic Authentication
 - [RFC 6570](https://www.rfc-editor.org/rfc/rfc6570) — URI Template
-
----
-
-## License
-
-Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE) or
-[MIT license](LICENSE-MIT) at your option.

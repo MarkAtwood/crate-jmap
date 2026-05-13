@@ -3,7 +3,7 @@
 Serde-annotated Rust types for the JMAP Tasks extension ([draft-ietf-jmap-tasks-06]) and
 JSCalendar Task subset ([RFC 8984]). Types only — no method handlers, no async, no network I/O.
 
-## What
+## What it is
 
 | Type | Description |
 |---|---|
@@ -44,6 +44,15 @@ Capability URI constants:
 | `JMAP_TASKS_ALERTS_URI` | `"urn:ietf:params:jmap:tasks:alerts"` |
 | `JMAP_TASKS_MULTILINGUAL_URI` | `"urn:ietf:params:jmap:tasks:multilingual"` |
 | `JMAP_TASKS_CUSTOMTIMEZONES_URI` | `"urn:ietf:params:jmap:tasks:customtimezones"` |
+
+## What it's for
+
+draft-ietf-jmap-tasks data types, consumed by `jmap-tasks-server`
+(method handlers + the `TasksBackend` trait) and `jmap-tasks-client`
+(typed method bindings). Planned to consume `jmap-jscalendar-types` for
+shared RFC 8984 JSCalendar sub-objects alongside `jmap-calendars-types`.
+Sibling to `jmap-mail-types`, `jmap-contacts-types`, and
+`jmap-calendars-types` in the workspace's extension-types family.
 
 ## Filter extensibility
 
@@ -96,7 +105,7 @@ decision is bd JMAP-lbdy.
 - §4.1 — `Task` base properties inherited from JSCalendar (`uid`, `title`, `description`, `start`, `due`, `timeZone`, `showWithoutTime`, `estimatedDuration`, `priority`, `privacy`, `color`, `keywords`)
 - §4.4 — `Comment` and `Person` types
 
-## Usage
+## How to use
 
 ```rust
 use jmap_tasks_types::{TaskList, Task};
@@ -140,7 +149,7 @@ that adding new optional fields in a future draft revision is not a breaking cha
 The `TaskListRole` and `TaskProgress` types are string-backed enums with an `Other(String)`
 fallback variant so that unrecognised server values round-trip without data loss.
 
-## Known Limitations
+## Gotchas
 
 - The draft expired in November 2023 and has not been updated; some fields use best-judgment
   interpretation where the spec is ambiguous or contradicts itself. In particular, `isVisible`
@@ -162,7 +171,3 @@ fallback variant so that unrecognised server values round-trip without data loss
 [draft-ietf-jmap-tasks-06]: https://www.ietf.org/archive/id/draft-ietf-jmap-tasks-06.txt
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0

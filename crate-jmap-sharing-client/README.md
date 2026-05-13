@@ -1,9 +1,20 @@
 # jmap-sharing-client
 
+## What it is
+
 Typed client methods for JMAP Sharing ([RFC 9670]). Depends on
 [`jmap-base-client`] for transport, authentication, and session management.
 
-## Usage
+## What it's for
+
+Implements RFC 9670 / draft-ietf-jmap-sharing method bindings on top of
+`jmap-base-client`: `Principal/get|changes|set|query|queryChanges` and
+`ShareNotification/get|changes|set|query|queryChanges`. Sibling of
+`jmap-mail-client` in the extension-client family — mirrors that crate's
+shape. Depends on `jmap-base-client` for transport and session, and on
+`jmap-sharing-types` for the wire types.
+
+## How to use
 
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
@@ -116,7 +127,7 @@ Every method follows the same five-step pattern:
 The capability `using` array for all sharing requests is:
 `["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:principals"]`.
 
-## Known Limitations
+## Gotchas
 
 `Principal.accounts` is `Option<HashMap<Id, serde_json::Value>>` because
 Account capability objects vary per JMAP extension — each extension defines its
@@ -143,7 +154,3 @@ jmap-types
 [RFC 9670]: https://www.rfc-editor.org/rfc/rfc9670
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client
-
-## License
-
-MIT OR Apache-2.0

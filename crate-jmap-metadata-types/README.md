@@ -4,7 +4,7 @@ Serde-annotated Rust types for the JMAP Object Metadata extension
 ([draft-ietf-jmap-metadata-01]). Types only — no method handlers,
 no async, no network I/O.
 
-## What
+## What it is
 
 | Type | Description |
 |---|---|
@@ -21,6 +21,19 @@ Capability URI constant:
 | Constant | Value |
 |---|---|
 | `JMAP_METADATA_URI` | `"urn:ietf:params:jmap:metadata"` |
+
+## What it's for
+
+draft-ietf-jmap-metadata data types — `Metadata`, `Annotation`,
+`ImapMetadata`, `WebDavMetadata`, `MetadataFilterCondition`, and
+`MetadataCapability` — consumed by `jmap-metadata-server` (method
+handlers + `MetadataBackend` trait) and `jmap-metadata-client`
+(client-side method bindings). This crate is the workspace-recommended
+IETF-track escape hatch for vendor data that needs to be queryable:
+the workspace extras-preservation policy excludes filter algebra
+(silent-drop is a query-correctness bug), so vendors who need
+filterable metadata route through this object rather than via a
+vendor-extended filter condition.
 
 ## Why this crate exists
 
@@ -75,7 +88,7 @@ Vendor extras that need to be filterable belong in an `Annotation`
 payload and are queried via the spec's own `textMatch` filter, not
 via a vendor-extended filter condition.
 
-## Usage
+## How to use
 
 ```rust
 use jmap_metadata_types::{Annotation, Metadata};
@@ -119,13 +132,19 @@ but serialises as the literal wire name `"@type"` via
 `ImapMetadata` and `WebDavMetadata` use `BTreeMap<String, String>`
 for their `metadata` field so round-trip output is deterministic.
 
-## Draft-version pin
+## Gotchas
 
 Tests are named with `_draft_01_` to pin them to the current
-revision. When draft-ietf-jmap-metadata revs, expect to update or
-replace these tests alongside the wire-format changes. The
+draft-ietf-jmap-metadata revision. When the draft revs, expect to
+update or replace these tests alongside the wire-format changes. The
 `#[non_exhaustive]` derive on every struct and enum keeps additive
-spec evolution non-breaking.
+spec evolution non-breaking, but a renamed or removed wire field
+would still be a breaking change in the next 0.x bump.
+
+`MetadataFilterCondition` does not carry the workspace
+extras-preservation `extra` field — see the
+[Filter-algebra exclusion](#filter-algebra-exclusion) section above
+and the workspace [AGENTS.md](../AGENTS.md) for the rationale.
 
 ## References
 
@@ -135,7 +154,3 @@ spec evolution non-breaking.
 
 [draft-ietf-jmap-metadata-01]: https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0

@@ -1,10 +1,24 @@
 # jmap-mail-client
 
+## What it is
+
+RFC 8621 JMAP for Mail client methods — typed bindings on top of `jmap-base-client`.
+
 Typed JMAP client methods for JMAP Mail ([RFC 8621]). An extension trait on
 `jmap-base-client::JmapClient` that adds all 26 RFC 8621 method calls as typed
 async methods.
 
-## Usage
+## What it's for
+
+Implements RFC 8621 method bindings (`Email/get`, `Mailbox/get`/`set`/`changes`,
+`Thread/get`, `EmailSubmission/set`, `Identity/get`, `SearchSnippet/get`,
+`MDN/send`, etc.) on top of `jmap-base-client`. This crate is the canonical
+template for every extension `*-client` crate in the workspace — chat, calendars,
+tasks, contacts, filenode, sharing, and metadata all mirror its module layout
+and method-shape conventions. Depends on `jmap-base-client` for transport and
+session, and on `jmap-mail-types` for the wire types.
+
+## How to use
 
 ```rust
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
@@ -186,7 +200,7 @@ end-to-end client flow:
 NOT FOR PRODUCTION — synthetic mock-server fixtures only, no auth, no TLS.
 Demonstrates the consume-side API.
 
-## Known Limitations
+## Gotchas
 
 - **`email_import` requires a separately uploaded blob.** RFC 8621 §4.8
   `Email/import` operates on a previously uploaded raw RFC 5322 message;
@@ -235,7 +249,3 @@ remain that way until the family is published to crates.io.
 [RFC 8621]: https://www.rfc-editor.org/rfc/rfc8621
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 5322]: https://www.rfc-editor.org/rfc/rfc5322
-
-## License
-
-MIT OR Apache-2.0
