@@ -32,9 +32,10 @@ use tokio_tungstenite::tungstenite::client::IntoClientRequest;
 use tokio_tungstenite::tungstenite::protocol::Message;
 
 /// Cap on how long the test waits for any single inbound WS message
-/// before declaring the slice broken. The testjig's push polling
-/// interval is 200 ms; 5 seconds is comfortably long enough to absorb
-/// CI scheduling jitter without producing false negatives.
+/// before declaring the slice broken. Push is signal-driven (the
+/// dispatcher wakes a `watch::Receiver` per bd:JMAP-cf7p.9), so the
+/// in-process latency is sub-millisecond; the 5 s budget here is
+/// purely defensive against CI scheduler hiccups.
 const WS_WAIT_BUDGET: Duration = Duration::from_secs(5);
 
 #[tokio::test]
@@ -121,9 +122,11 @@ async fn ws_request_response_and_push_lifecycle() {
         .await
         .expect("send PushEnable");
 
-    // Give the push poll task a tick to capture its baseline snapshot
-    // before we mutate state. 50 ms is well below the 200 ms poll
-    // interval but long enough that the polling task is running.
+    // Give the push task a tick to subscribe to the state-change
+    // watch channel and capture its baseline snapshot before we
+    // mutate state. Signal-driven push (bd:JMAP-cf7p.9) does not
+    // need polling-tick alignment, but the subscribe still needs to
+    // complete before the dispatch wake fires; 50 ms is comfortable.
     tokio::time::sleep(Duration::from_millis(50)).await;
 
     let http = reqwest::Client::new();
@@ -190,9 +193,11 @@ async fn ws_request_response_and_push_lifecycle() {
         .expect("Space/set HTTP request (post-disable)");
     assert_eq!(post2.status().as_u16(), 200);
 
-    // Wait two poll cycles (400 ms is one full + ~50 ms slack on each
-    // side). If a StateChange arrives in this window, push was not
-    // actually disabled.
+    // With signal-driven push the disable abort is immediate; a
+    // 600 ms negative-result window is more than enough to catch a
+    // stray frame from a still-running push task. (The safety-net
+    // timer is 5 s and the dispatch wake is sub-millisecond, so any
+    // frame that did arrive would be in the first few ms.)
     match tokio::time::timeout(Duration::from_millis(600), recv_text(&mut socket)).await {
         Ok(Some(unexpected)) => panic!(
             "PushDisable must suppress further state changes; got unexpected frame: {unexpected}"
