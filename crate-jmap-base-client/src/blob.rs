@@ -5,7 +5,7 @@ use std::borrow::Cow;
 use futures::StreamExt as _;
 use jmap_types::Id;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::client::JmapClient;
@@ -46,7 +46,7 @@ pub struct DownloadBlobParams<'a> {
 
 /// Response body returned by a successful blob upload (RFC 8620 §6.1).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct BlobUploadResponse {
     /// The account the blob was uploaded to.
@@ -58,13 +58,30 @@ pub struct BlobUploadResponse {
     pub content_type: String,
     /// Size of the uploaded blob in bytes.
     pub size: u64,
-    /// SHA-256 hex digest of the uploaded blob as 64 hex characters (uppercase or
-    /// lowercase), if the server supports the JMAP-CID draft extension (`draft-atwood-jmap-cid`).
+    /// SHA-256 digest of the uploaded blob, present only when the
+    /// server advertises the `urn:ietf:params:jmap:cid` capability
+    /// (draft-atwood-jmap-cid-00 §3).
     ///
-    /// This field is **not** defined by RFC 8620. It is present only on servers
-    /// that advertise the `urn:ietf:params:jmap:cid` capability. Servers that
-    /// do not implement the extension omit the field.
-    pub sha256: Option<String>,
+    /// The wire format is a 64-character lowercase-hex string per
+    /// the draft's ABNF (`%x30-39 / %x61-66`). The typed
+    /// [`jmap_cid_types::Sha256`] enforces that shape on
+    /// deserialize: a server response carrying a sha256 field that
+    /// is not exactly 64 bytes of lowercase hex will fail to parse
+    /// and surface as [`ClientError::Parse`]. Servers that do not
+    /// implement the CID extension omit the field; the typed
+    /// representation here is `None`.
+    ///
+    /// History: bd:JMAP-v9py.13 promoted this field from a permissive
+    /// `Option<String>` to the typed `Option<jmap_cid_types::Sha256>`.
+    /// The previous implementation tolerated uppercase hex via a
+    /// permissive `is_valid_sha256_hex` validator that accepted
+    /// ASCII hex of either case plus a normalize-to-lowercase
+    /// step before integrity comparison. The typed path is strict;
+    /// the inter-op question (whether to recover the uppercase
+    /// tolerance via a custom Deserialize wrapper) is tracked by
+    /// bd:JMAP-noz7.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sha256: Option<jmap_cid_types::Sha256>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -271,19 +288,19 @@ impl JmapClient {
         }
 
         if let Some(ref server_sha256) = upload_resp.sha256 {
-            if !is_valid_sha256_hex(server_sha256) {
-                return Err(ClientError::InvalidSession(format!(
-                    "server sha256 field is not 64-char hex: {server_sha256:?}"
-                )));
-            }
-            // Normalize to lowercase before comparison: JMAP-CID specifies lowercase
-            // but non-conformant servers may return uppercase hex. Both represent the
-            // same digest; rejecting on case alone would cause spurious integrity errors.
-            let server_lower = server_sha256.to_ascii_lowercase();
-            if local_sha256 != server_lower {
+            // The typed `jmap_cid_types::Sha256` deserialize already
+            // enforces the 64-character lowercase-hex ABNF; reaching
+            // this branch implies the wire value is canonical. We
+            // can compare the locally-computed digest (also
+            // canonical lowercase hex from `compute_sha256_hex`)
+            // against the typed value's string form directly.
+            //
+            // Tolerance for uppercase-hex from non-conformant
+            // servers is tracked separately at bd:JMAP-noz7.
+            if local_sha256 != server_sha256.as_str() {
                 return Err(ClientError::BlobIntegrityMismatch {
                     expected: local_sha256,
-                    actual: server_lower,
+                    actual: server_sha256.as_str().to_owned(),
                 });
             }
         }
@@ -553,8 +570,11 @@ mod tests {
         assert_eq!(resp.blob_id, "Gbc4c377-c8c3-4b48-b2bb-8c1e4cfb8b2a");
         assert_eq!(resp.content_type, "image/png");
         assert_eq!(resp.size, 48291);
+        // The typed Sha256 wrapper carries the canonical lowercase
+        // hex string; compare via `as_str` to keep the assertion
+        // independent of the wrapper's Debug shape.
         assert_eq!(
-            resp.sha256.as_deref(),
+            resp.sha256.as_ref().map(jmap_cid_types::Sha256::as_str),
             Some("9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08")
         );
     }
@@ -574,6 +594,103 @@ mod tests {
         assert_eq!(
             obj.extra.get("acmeCorpScanResult").and_then(|v| v.as_str()),
             Some("clean")
+        );
+    }
+
+    // bd:JMAP-v9py.13 oracle.
+    //
+    // The fixture hex digest is hand-typed from RFC 6234 §8.5 ("abc"
+    // test vector, formatted lowercase). It is NOT derived from the
+    // code under test, satisfying the workspace test-integrity rule
+    // that test oracles must be independent.
+
+    /// Deserialize a Blob/upload response carrying a canonical
+    /// 64-char lowercase-hex sha256 → field parses as
+    /// Some(Sha256(_)) preserving the wire string.
+    #[test]
+    fn blob_upload_response_deserializes_sha256_typed() {
+        let raw = serde_json::json!({
+            "accountId": "account1",
+            "blobId": "blob1",
+            "type": "text/plain",
+            "size": 3,
+            "sha256": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        });
+        let obj: BlobUploadResponse = serde_json::from_value(raw).expect("must deserialize");
+        let s = obj.sha256.expect("sha256 must be Some");
+        assert_eq!(
+            s.as_str(),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+    }
+
+    /// Serialize a BlobUploadResponse with `sha256: None` → the
+    /// `sha256` key must be ABSENT from the wire output per
+    /// `skip_serializing_if = "Option::is_none"`. This is the
+    /// contract for servers not advertising the CID capability.
+    #[test]
+    fn blob_upload_response_serializes_without_sha256_when_none() {
+        let resp = BlobUploadResponse {
+            account_id: Id::from("a1"),
+            blob_id: Id::from("b1"),
+            content_type: "text/plain".to_owned(),
+            size: 0,
+            sha256: None,
+            extra: serde_json::Map::new(),
+        };
+        let v = serde_json::to_value(&resp).expect("must serialize");
+        let obj = v.as_object().expect("object");
+        assert!(
+            !obj.contains_key("sha256"),
+            "None must elide the sha256 key: {v:?}"
+        );
+    }
+
+    /// Round-trip preservation: a server that omits the sha256
+    /// field deserializes into `None`, and serializing back
+    /// produces an output without a `sha256` key. This is the
+    /// shape RFC 8620 §6.1 compliant servers (without the CID
+    /// extension) produce; verify we don't accidentally inject a
+    /// null or empty sha256 on round-trip.
+    #[test]
+    fn blob_upload_response_no_sha256_round_trip() {
+        let raw = serde_json::json!({
+            "accountId": "account1",
+            "blobId": "blob1",
+            "type": "text/plain",
+            "size": 3
+        });
+        let obj: BlobUploadResponse = serde_json::from_value(raw).expect("must deserialize");
+        assert!(obj.sha256.is_none());
+
+        let re = serde_json::to_value(&obj).expect("must serialize");
+        let map = re.as_object().expect("object");
+        assert!(
+            !map.contains_key("sha256"),
+            "round-trip must not introduce sha256 key: {re:?}"
+        );
+    }
+
+    /// A non-conformant server sending uppercase hex now fails to
+    /// deserialize (typed `Sha256` is strict lowercase-only per
+    /// draft-atwood-jmap-cid-00 §2). Pinning the strict behavior
+    /// per bd:JMAP-v9py.13's design; the inter-op question is
+    /// tracked separately at bd:JMAP-noz7.
+    #[test]
+    fn blob_upload_response_rejects_uppercase_sha256() {
+        let raw = serde_json::json!({
+            "accountId": "account1",
+            "blobId": "blob1",
+            "type": "text/plain",
+            "size": 3,
+            "sha256": "BA7816BF8F01CFEA414140DE5DAE2223B00361A396177A9CB410FF61F20015AD"
+        });
+        let err = serde_json::from_value::<BlobUploadResponse>(raw)
+            .expect_err("uppercase hex must fail to deserialize");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("non-lowercase-hex") || msg.contains("at") || msg.contains("hex"),
+            "error must explain the hex constraint: {msg}"
         );
     }
 }

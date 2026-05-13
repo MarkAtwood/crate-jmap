@@ -12,6 +12,7 @@ categories = ["network-programming", "asynchronous", "api-bindings"]
 
 [dependencies]
 jmap-types = { workspace = true }
+jmap-cid-types = { workspace = true }
 base64 = "0.22"
 bytes = "1"
 futures = { workspace = true }
