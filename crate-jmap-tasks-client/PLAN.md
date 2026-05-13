@@ -37,7 +37,7 @@ through `jmap-base-client`.
 This is greenfield — no existing Rust JMAP Tasks client to extract from.
 
 Design pattern to follow:
-- `~/PROJECT/JMAP/crate-jmap-mail-client/src/` — how the extension trait is
+- `~/PROJECT/crate-jmap/crate-jmap-mail-client/src/` — how the extension trait is
   structured, how `JmapRequestBuilder` is used to issue calls, how request
   and response types are declared per module
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method inputs and

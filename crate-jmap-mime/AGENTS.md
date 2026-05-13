@@ -3,7 +3,7 @@
 Thin adapter crate in the JMAP workspace. Converts `mime-tree` output types to
 `jmap-mail-types` types. No parsing logic lives here.
 
-Read `~/PROJECT/JMAP/AGENTS.md` before doing anything.
+Read `~/PROJECT/crate-jmap/AGENTS.md` before doing anything.
 
 ## Role in the Workspace
 

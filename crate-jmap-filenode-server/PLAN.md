@@ -44,7 +44,7 @@ and behavioral requirements come from the spec, not from memory.
 
 ### Backend trait pattern — copy this
 
-`~/PROJECT/JMAP/crate-jmap-mail-server/src/backend.rs`
+`~/PROJECT/crate-jmap/crate-jmap-mail-server/src/backend.rs`
 
 The `MailBackend` trait (which itself follows `StorageBackend` from
 `~/PROJECT/crate-jmapchat-server/jmapchat-server/src/backend.rs`) is the exact

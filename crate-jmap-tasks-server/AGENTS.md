@@ -26,7 +26,7 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 
 1. Read `PLAN.md` — `TasksBackend` trait, module layout, handler pattern
 2. Read the relevant draft-ietf-jmap-tasks-06 section for the method you are implementing
-3. Cross-check the canonical sibling `~/PROJECT/JMAP/crate-jmap-mail-server/` for the handler/backend pattern to follow
+3. Cross-check the canonical sibling `~/PROJECT/crate-jmap/crate-jmap-mail-server/` for the handler/backend pattern to follow
 4. Run `bd ready` — check for open issues before creating new ones
 
 ## What This Is
@@ -61,7 +61,7 @@ match exactly.
 
 ## Reference Pattern
 
-Study `~/PROJECT/JMAP/crate-jmap-mail-server/` (the canonical
+Study `~/PROJECT/crate-jmap/crate-jmap-mail-server/` (the canonical
 extension-server template) for:
 - How the `Backend` trait is structured (analog of `TasksBackend`)
 - How handlers are registered with `Dispatcher`

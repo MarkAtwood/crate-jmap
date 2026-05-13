@@ -45,7 +45,7 @@ queryChanges).
 
 ### Backend trait pattern — copy this
 
-`~/PROJECT/JMAP/crate-jmap-mail-server/src/backend.rs`
+`~/PROJECT/crate-jmap/crate-jmap-mail-server/src/backend.rs`
 
 `JmapBackend`, `BackendChangesError`, `BackendSetError`, `ChangesResult`,
 `QueryResult`, `QueryChangesResult` are the exact pattern to follow for
