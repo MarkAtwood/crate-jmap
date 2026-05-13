@@ -434,6 +434,10 @@ impl ChatBackend for TrackingBackend {
             .await
     }
 
+    fn retains_edit_history(&self) -> bool {
+        self.inner.retains_edit_history()
+    }
+
     async fn expire_message(
         &self,
         caller: &(),

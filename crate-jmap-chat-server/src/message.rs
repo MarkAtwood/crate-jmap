@@ -43,10 +43,26 @@ pub async fn handle_message_get<B: ChatBackend>(
     };
 
     let ids_slice = ids.as_deref();
-    let (list, not_found) = backend
+    let (mut list, not_found) = backend
         .get_objects::<Message>(caller, &account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
+
+    // Edit-history retention gate (draft-atwood-jmap-chat-00 commit
+    // `0783fc4` + §Message editHistory). When the backend does not
+    // retain edit history, the `editHistory` field MUST be omitted
+    // from every returned Message. Setting `edit_history = None`
+    // here causes serde's `skip_serializing_if = "Option::is_none"`
+    // to collapse it on the wire, satisfying the spec MUST.
+    //
+    // `Message/changes` per RFC 8620 §5.2 returns id arrays only
+    // (no Message objects), so the spec's "omit from /changes" has
+    // no wire-level effect — only `Message/get` needs this gate.
+    if !backend.retains_edit_history() {
+        for msg in list.iter_mut() {
+            msg.edit_history = None;
+        }
+    }
 
     let state = backend
         .get_state::<Message>(caller, &account_id)
