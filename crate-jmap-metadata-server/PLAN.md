@@ -46,7 +46,7 @@ error codes, and behavioral requirements come from the spec, not from memory.
 
 ### Canonical template
 
-`~/PROJECT/JMAP/crate-jmap-sharing-server/` — closest single-extension-server
+`~/PROJECT/crate-jmap/crate-jmap-sharing-server/` — closest single-extension-server
 analog. `MetadataBackend` is cookie-cut from `SharingBackend`; the `helpers.rs`,
 `register_metadata_handlers`, and dispatcher-registration scaffolding are
 copied verbatim with type names adjusted.

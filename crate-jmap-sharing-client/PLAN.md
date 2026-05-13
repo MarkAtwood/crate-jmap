@@ -54,7 +54,7 @@ and FileNode types. This crate does NOT provide methods to set or modify
 This is **greenfield** — no existing Rust implementation to extract from.
 
 Design pattern to follow:
-- `~/PROJECT/JMAP/crate-jmap-mail-client/` — identical extension trait
+- `~/PROJECT/crate-jmap/crate-jmap-mail-client/` — identical extension trait
   pattern, identical `JmapMailExt` structure
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method
   inputs/outputs are structured and how `JmapRequestBuilder` is used

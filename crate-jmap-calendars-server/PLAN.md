@@ -53,7 +53,7 @@ query. §5.6 for queryChanges.
 
 ### Backend trait pattern — copy this
 
-`~/PROJECT/JMAP/crate-jmap-mail-server/src/backend.rs` —
+`~/PROJECT/crate-jmap/crate-jmap-mail-server/src/backend.rs` —
 `MailBackend` is the exact structural pattern to follow for `CalendarsBackend`.
 Copy the supertrait structure, error types, and AFIT method signatures. The
 `JmapBackend` supertrait supplies `get_objects`, `get_state`, `get_changes`,

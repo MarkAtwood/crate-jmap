@@ -49,7 +49,7 @@ spec, not from memory or reference code.
 
 ### Backend trait pattern — follow this exactly
 
-`~/PROJECT/JMAP/crate-jmap-mail-server/src/backend.rs`
+`~/PROJECT/crate-jmap/crate-jmap-mail-server/src/backend.rs`
 
 `MailBackend` and its supertrait `JmapBackend` are the exact pattern to
 follow for `SharingBackend`. The read-side operations (`get_objects`,

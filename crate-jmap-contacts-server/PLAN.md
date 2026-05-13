@@ -47,7 +47,7 @@ method semantics come from the spec, not from memory.
 
 ### Backend trait pattern — follow this exactly
 
-`~/PROJECT/JMAP/crate-jmap-mail-server/src/backend.rs`
+`~/PROJECT/crate-jmap/crate-jmap-mail-server/src/backend.rs`
 
 `JmapBackend` supertrait (in `jmap-server`) provides the generic read-side
 operations.  `MailBackend` extends it with write operations and mail-specific
@@ -60,7 +60,7 @@ method (`copy_contact_card`) mirrors `copy_email`.
 
 ### Handler logic reference — read, do not copy
 
-`~/PROJECT/JMAP/crate-jmap-mail-server/src/` — the mail server handler modules
+`~/PROJECT/crate-jmap/crate-jmap-mail-server/src/` — the mail server handler modules
 are the primary structural reference.  Mailbox maps to AddressBook;
 Email maps to ContactCard.
 

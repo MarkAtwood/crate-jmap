@@ -34,7 +34,7 @@ helpers defined here. No new HTTP machinery — all network operations go throug
 ## Source Material
 
 Design pattern to follow:
-- `~/PROJECT/JMAP/crate-jmap-mail-client/PLAN.md` and `src/` — identical extension
+- `~/PROJECT/crate-jmap/crate-jmap-mail-client/PLAN.md` and `src/` — identical extension
   trait pattern; copy the structure exactly
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method inputs/outputs are
   structured and how `JmapRequestBuilder` is used

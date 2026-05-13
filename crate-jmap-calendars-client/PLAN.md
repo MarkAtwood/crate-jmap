@@ -42,7 +42,7 @@ through `jmap-base-client`.
 This is greenfield — no existing Rust implementation to extract from.
 
 Design pattern to follow:
-- `~/PROJECT/JMAP/crate-jmap-mail-client/` — identical extension trait pattern,
+- `~/PROJECT/crate-jmap/crate-jmap-mail-client/` — identical extension trait pattern,
   module layout, and test approach
 - `~/PROJECT/crate-jmapchat-client/src/methods/` — how method request/response
   types are structured and how `JmapRequestBuilder` is used
