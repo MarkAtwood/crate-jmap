@@ -487,9 +487,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 )
                 .await
             {
-                Ok((found, _not_found)) => {
-                    found.first().map(|emoji| emoji.space_id.clone())
-                }
+                Ok((found, _not_found)) => found.first().map(|emoji| emoji.space_id.clone()),
                 Err(e) => {
                     not_updated.insert(
                         id_str,
