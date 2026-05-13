@@ -295,8 +295,9 @@ impl JmapClient {
             // canonical lowercase hex from `compute_sha256_hex`)
             // against the typed value's string form directly.
             //
-            // Tolerance for uppercase-hex from non-conformant
-            // servers is tracked separately at bd:JMAP-noz7.
+            // Uppercase-hex from a non-conformant server is rejected
+            // at deserialize per draft-atwood-jmap-cid-00 §2 ABNF and
+            // surfaces as ClientError::Parse before this branch runs.
             if local_sha256 != server_sha256.as_str() {
                 return Err(ClientError::BlobIntegrityMismatch {
                     expected: local_sha256,
