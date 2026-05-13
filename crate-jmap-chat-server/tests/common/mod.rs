@@ -22,10 +22,11 @@
 pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 
 use jmap_chat_server::{
-    BackendChangesError, BackendSetError, ChangesResult, ChatBackend, GetObject, JmapBackend,
-    JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult, SetObject, SpacePatchOp,
+    BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits, GetObject,
+    JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult, SetObject,
+    SlowModeError, SpacePatchOp,
 };
-use jmap_types::{Id, State};
+use jmap_types::{Id, State, UTCDate};
 
 // ---------------------------------------------------------------------------
 // FaultyBackend — always returns errors, for negative-path testing
@@ -164,5 +165,219 @@ impl ChatBackend for FaultyBackend {
         Err(BackendSetError::Other(MemoryError(
             "storage unavailable".to_owned(),
         )))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// TrackingBackend — MemoryBackend with policy hooks overridable per-test
+// ---------------------------------------------------------------------------
+
+/// A `MemoryBackend` wrapper that lets a test inject custom outcomes for
+/// individual [`ChatBackend`] policy hooks (`slow_mode_check`, etc.) while
+/// otherwise delegating to the reference impl for storage, change-log, and
+/// all read/write methods.
+///
+/// The current implementation only knobs `slow_mode_check`. Future Layer B
+/// beads (`is_contact_blocked`, `may_set_custom_emoji`, etc.) extend the
+/// configuration surface with the same wrapper pattern rather than
+/// inventing a fresh test backend per method.
+#[derive(Clone, Default)]
+pub struct TrackingBackend {
+    inner: MemoryBackend,
+    /// When `Some`, [`ChatBackend::slow_mode_check`] returns
+    /// `Err(SlowModeError { retry_after: <this> })`. When `None`,
+    /// forwards to `inner` (which is a no-op).
+    slow_mode_block: Option<UTCDate>,
+}
+
+impl TrackingBackend {
+    /// Fresh `TrackingBackend` with all policy hooks at their default
+    /// no-op behaviour (slow-mode allows everything).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Configure the wrapper so [`ChatBackend::slow_mode_check`] always
+    /// rejects with the given `retry_after` UTCDate. The wrapped
+    /// `MemoryBackend` is otherwise functional.
+    pub fn with_slow_mode_blocking(retry_after: UTCDate) -> Self {
+        Self {
+            inner: MemoryBackend::new(),
+            slow_mode_block: Some(retry_after),
+        }
+    }
+
+    /// Borrow the underlying `MemoryBackend` for test seeding (e.g.
+    /// `register_account`).
+    pub fn inner(&self) -> &MemoryBackend {
+        &self.inner
+    }
+}
+
+impl JmapBackend for TrackingBackend {
+    type Error = MemoryError;
+    type CallerCtx = ();
+
+    async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+        self.inner.account_exists(caller, account_id).await
+    }
+
+    async fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        properties: Option<&[String]>,
+    ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+        self.inner
+            .get_objects::<O>(caller, account_id, ids, properties)
+            .await
+    }
+
+    async fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+    ) -> Result<State, Self::Error> {
+        self.inner.get_state::<O>(caller, account_id).await
+    }
+
+    async fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        self.inner
+            .get_changes::<O>(caller, account_id, since_state, max_changes)
+            .await
+    }
+
+    async fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        limit: Option<u64>,
+        position: i64,
+    ) -> Result<QueryResult, Self::Error> {
+        self.inner
+            .query_objects::<O>(caller, account_id, filter, sort, limit, position)
+            .await
+    }
+
+    async fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        since_query_state: &State,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        max_changes: Option<u64>,
+        up_to_id: Option<&Id>,
+        collapse_threads: bool,
+    ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        self.inner
+            .query_changes::<O>(
+                caller,
+                account_id,
+                since_query_state,
+                filter,
+                sort,
+                max_changes,
+                up_to_id,
+                collapse_threads,
+            )
+            .await
+    }
+}
+
+impl ChatBackend for TrackingBackend {
+    async fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        create_id: &str,
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        self.inner
+            .create_object::<O>(caller, account_id, create_id, obj)
+            .await
+    }
+
+    async fn update_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        self.inner
+            .update_object::<O>(caller, account_id, id, patch)
+            .await
+    }
+
+    async fn destroy_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        self.inner.destroy_object::<O>(caller, account_id, id).await
+    }
+
+    fn supports_type<O: JmapObject>(&self) -> bool {
+        self.inner.supports_type::<O>()
+    }
+
+    fn generate_invite_code(&self) -> String {
+        self.inner.generate_invite_code()
+    }
+
+    fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
+        self.inner.limits(caller, account_id)
+    }
+
+    async fn apply_space_patch(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+        ops: Vec<SpacePatchOp>,
+    ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
+        self.inner
+            .apply_space_patch(caller, account_id, space_id, ops)
+            .await
+    }
+
+    async fn slow_mode_check(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<(), SlowModeError> {
+        match &self.slow_mode_block {
+            Some(d) => Err(SlowModeError {
+                retry_after: d.clone(),
+            }),
+            None => {
+                self.inner
+                    .slow_mode_check(caller, account_id, chat_id)
+                    .await
+            }
+        }
+    }
+
+    async fn expire_message(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        message_id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        self.inner
+            .expire_message(caller, account_id, message_id)
+            .await
     }
 }

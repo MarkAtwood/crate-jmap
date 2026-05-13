@@ -398,6 +398,34 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
 
+            // Slow-mode rate-limit gate (draft-atwood-jmap-chat-00
+            // §Chat `slowModeSeconds` + spec commit `de60acb`).
+            //
+            // Runs AFTER wire-format validation so malformed requests
+            // don't consume rate-tracker slots, and BEFORE the
+            // `create_object` call so a throttled sender never sees the
+            // message touch storage. On a Throttled return the backend
+            // tells us when the caller may retry; we surface that
+            // verbatim as the `serverRetryAfter` extra field on the
+            // `rateLimited` SetError. `serverRetryAfter` is the
+            // workspace convention paired with `rateLimited` (read by
+            // `jmap_chat_client::server_retry_after` on the client
+            // side); `SetErrorType::custom("rateLimited")` produces
+            // the spec wire string. The reference `MemoryBackend`
+            // never returns an Err here.
+            if let Err(slow_err) = backend.slow_mode_check(caller, &account_id, &chat_id).await {
+                let retry_after_str: &str = slow_err.retry_after.as_ref();
+                not_created.insert(
+                    create_id.clone(),
+                    json!({
+                        "type": "rateLimited",
+                        "description": "Slow mode is active for this chat",
+                        "serverRetryAfter": retry_after_str,
+                    }),
+                );
+                continue;
+            }
+
             let now_str = now_utc_string();
             let received_at: UTCDate = UTCDate::from(now_str.as_str());
 
