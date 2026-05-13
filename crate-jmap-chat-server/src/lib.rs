@@ -78,8 +78,8 @@ pub mod space;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits,
-    GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
-    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject,
+    QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
 pub use ban::{handle_ban_changes, handle_ban_get, handle_ban_set};
 pub use chat::{
