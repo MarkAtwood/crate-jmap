@@ -688,9 +688,8 @@ scope, a choice between non-equivalent refactors — **do not invoke the
 interactive `question` tool**. Instead:
 
 ```bash
-bd update <id> --add-label human \
-   --add-comment "<the question, including any options considered and your recommendation if you have one>" \
-   --status open
+bd update <id> --add-label human --status open
+bd comment <id> "<the question, including any options considered and your recommendation if you have one>"
 ```
 
 …and move on to the next ready bead. The verbatim rule is: **"turn
@@ -707,6 +706,54 @@ recovery.
 
 Apply this rule recursively: any subagent you spawn must also
 file-and-continue rather than ask.
+
+### When NOT to file `human`
+
+The `human` label is high-cost: every labeled bead consumes attention
+on a future review pass and slows the autonomous frontier. Default to
+**not** filing `human`. The label is appropriate only when a genuine
+human-judgment call is unresolved AND the bead is not already
+self-deciding by one of the four patterns below.
+
+**1. Frontier-cycling escalation.** Do NOT auto-label a parent epic
+`human` just because its only-open-child is `human`. That escalation
+shifts cycling-avoidance burden onto the human-decision frontier
+where it doesn't belong — the parent has no actual decision pending,
+only its child does. Fix the cycling at the picker layer (skip
+parents whose only-open-children are filter-blocked) rather than by
+labeling them with semantics that aren't true.
+
+**2. "You already decided this."** Do NOT label `human` on work the
+human has explicitly deferred or scoped out. `deferred` is the
+signal for parked backlog; `human` is the signal for unresolved
+judgment. They are not interchangeable and they do not stack. If a
+bead carries `deferred`, do NOT also add `human` — the
+deferred-vs-human distinction is exactly the difference between
+"park it" and "the human owes a decision".
+
+**3. "Should we do the obvious thing."** Do NOT label `human` when
+the bead body or its most recent comment already contains a clear
+recommendation that the agent itself authored. If you write
+"Recommendation: option (a). Rationale: ..." in a bead comment, the
+recommendation IS the decision unless a high-stakes qualifier
+applies: destructive action, public API breaking, security boundary,
+or two equally-plausible options presented without a recommendation.
+Filing `human` to ratify your own recommendation transfers cost
+from the agent (who already did the analysis) to the human (who
+now has to re-do it).
+
+**4. "It might already be done."** Before filing `human` on a bead
+that asks whether external state should change (spec edit needed,
+upstream library version, third-party CVE, etc.), spend 60 seconds
+checking whether the state already changed. `git log` the relevant
+repo, check the upstream issue, run `cargo tree` — whatever the
+cheap verification is. Most "should we still do X?" questions
+evaporate when you actually look.
+
+Recursive application: subagents spawned by `/do-beads` or any other
+macro must apply the same four rules. A subagent that files `human`
+to defer to its parent agent is filing the wrong label — that's an
+intra-agent escalation, not a human-judgment call.
 
 ## Session Completion
 
