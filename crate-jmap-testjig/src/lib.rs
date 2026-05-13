@@ -54,7 +54,13 @@
 //!   over a `jmap` subprotocol connection.
 //! - `bd:JMAP-cf7p.6` (closed): bearer-token middleware.
 //! - `bd:JMAP-cf7p.7` (closed): [`spawn_in_process`] for tests.
-//! - Remaining slices (`.8`): README + rustdoc warnings.
+//! - `bd:JMAP-cf7p.8` (closed): README + rustdoc warnings.
+//! - `bd:JMAP-cf7p.9` (closed): signal-driven SSE/WS push via watch
+//!   channel; producer-driven event log replaces per-subscriber diff.
+//! - `bd:JMAP-cf7p.10` (closed): SSE Last-Event-ID replay against
+//!   the internal `replay::StateChangeLog` ring buffer.
+//! - `bd:JMAP-cf7p.12` (closed): WebSocket `pushState` replay against
+//!   the same log.
 //!
 //! [RFC 8620 §7.1]: https://www.rfc-editor.org/rfc/rfc8620.html#section-7.1
 
@@ -62,6 +68,7 @@
 
 pub mod auth;
 pub mod http;
+pub(crate) mod replay;
 pub mod session;
 pub mod spawn;
 pub mod sse;

@@ -104,10 +104,12 @@ pub(crate) struct AppStateInner {
     ///
     /// Every successful `POST /jmap` dispatch and every WebSocket
     /// `Request`-envelope dispatch increments the carrier counter via
-    /// [`tokio::sync::watch::Sender::send_modify`]. SSE and WS push
-    /// loops hold a [`tokio::sync::watch::Receiver`] and `await` on
-    /// [`Receiver::changed`] to wake immediately after the mutation
-    /// (rather than waiting up to 200 ms for the next polling tick).
+    /// [`tokio::sync::watch::Sender::send_modify`] after recording any
+    /// resulting state changes to [`AppStateInner::state_log`]. SSE
+    /// and WS push loops hold a [`tokio::sync::watch::Receiver`] and
+    /// `await` on `Receiver::changed` to wake immediately and then
+    /// pull recorded entries from the log via
+    /// [`crate::replay::StateChangeLog::events_since`].
     ///
     /// Choice of `watch` over `Notify`: `watch::Receiver::changed`
     /// tracks a seen-version counter, so a `send_modify` that fires
@@ -126,18 +128,46 @@ pub(crate) struct AppStateInner {
     /// not register as "changed" without `send_modify`'s explicit
     /// version bump.
     pub(crate) state_change_tx: tokio::sync::watch::Sender<u64>,
+
+    /// Producer-driven state-change event log for SSE Last-Event-ID
+    /// replay (bd:JMAP-cf7p.10) and WebSocket `pushState` replay
+    /// (bd:JMAP-cf7p.12).
+    ///
+    /// [`AppStateInner::notify_state_changed`] is the sole producer:
+    /// after each dispatch it captures a per-type state-token
+    /// snapshot, diffs against the log's canonical state, and
+    /// records the changed `(type, state_token)` tuples with
+    /// process-global monotonic event ids. SSE / WS push loops are
+    /// the consumers — they hold a `last_seen_event_id` and pull
+    /// new entries via [`crate::replay::StateChangeLog::events_since`]
+    /// on every watch-channel wake.
+    ///
+    /// See [`crate::replay`] for the full architecture rationale.
+    pub(crate) state_log: Arc<crate::replay::StateChangeLog>,
 }
 
 impl AppStateInner {
-    /// Signal that a state mutation may have just occurred and any
-    /// SSE / WS push subscribers should re-snapshot. Called once per
-    /// dispatcher invocation from [`post_jmap`] and from the
+    /// Signal that a state mutation may have just occurred. Called
+    /// once per dispatcher invocation from [`post_jmap`] and from the
     /// WebSocket `Request`-frame handler.
     ///
-    /// Spurious wakes (e.g. read-only `Foo/get`) are harmless — the
-    /// SSE / WS poller will re-snapshot, diff against the previous
-    /// snapshot, find no changes, and emit nothing.
-    pub(crate) fn notify_state_changed(&self) {
+    /// Two-step protocol:
+    /// 1. Snapshot per-type state-tokens across all 8 reference
+    ///    backends.
+    /// 2. Hand the snapshot to [`crate::replay::StateChangeLog::record_from_snapshot`]
+    ///    which diffs against the canonical state, assigns event ids
+    ///    to changed entries, and appends them to per-type ring buffers.
+    /// 3. Bump the watch-channel carrier so SSE / WS push loops wake
+    ///    and pull the new entries via `events_since`.
+    ///
+    /// Spurious wakes (e.g. read-only `Foo/get` that produced no
+    /// state change) bump the watch counter but record nothing into
+    /// the log — subscribers wake, query `events_since(last_seen, …)`,
+    /// get an empty result, and emit nothing.
+    pub(crate) async fn notify_state_changed(&self) {
+        let account = jmap_types::Id::from(session::ACCOUNT_ID);
+        let current = crate::sse::snapshot_all_states(self, &account).await;
+        self.state_log.record_from_snapshot(current);
         self.state_change_tx.send_modify(|n| {
             *n = n.wrapping_add(1);
         });
@@ -176,6 +206,7 @@ impl AppState {
         dispatcher.register("Core/echo", Arc::new(EchoHandler));
         let backends = register_all_extensions(&mut dispatcher);
         let (state_change_tx, _) = tokio::sync::watch::channel::<u64>(0);
+        let state_log = Arc::new(crate::replay::StateChangeLog::new());
         Self {
             inner: Arc::new(AppStateInner {
                 dispatcher,
@@ -188,6 +219,7 @@ impl AppState {
                 sharing: backends.sharing,
                 metadata: backends.metadata,
                 state_change_tx,
+                state_log,
             }),
             auth: AuthState::new(token),
         }
@@ -283,13 +315,14 @@ async fn post_jmap(
         .dispatch(request, (), State::from(session::STATE))
         .await;
 
-    // Signal-driven SSE / WS push (bd:JMAP-cf7p.9): wake any
-    // subscribed event loops so they re-snapshot per-type state and
-    // emit a `StateChange` immediately rather than waiting for the
-    // next 5 s safety-net poll tick. Spurious wakes from read-only
-    // `Foo/get` calls are harmless — the subscriber will re-snapshot,
-    // diff, find no changes, and emit nothing.
-    state.inner.notify_state_changed();
+    // Signal-driven SSE / WS push (bd:JMAP-cf7p.9 / .10 / .12):
+    // snapshot per-type state, record any changes into the producer-
+    // driven event log, and bump the watch counter so subscribed
+    // SSE / WS push loops wake and pull the new entries via
+    // events_since(). Spurious wakes from read-only `Foo/get` calls
+    // are harmless — the snapshot is byte-equal to canonical so the
+    // log records nothing and subscribers get an empty result.
+    state.inner.notify_state_changed().await;
 
     let body = serde_json::to_string(&response)
         .expect("JmapResponse is built from JSON-safe primitives — Serialize is infallible");

@@ -247,12 +247,12 @@ impl TypesFilter {
         }
     }
 
-    /// Whether the given JMAP type name should be reported in
-    /// StateChange events to this client.
-    pub(crate) fn admits(&self, type_name: &str) -> bool {
+    /// Borrow as a [`crate::replay::TypeFilter`] for passing to the
+    /// state log without cloning the underlying type-name set.
+    pub(crate) fn as_replay_filter(&self) -> crate::replay::TypeFilter<'_> {
         match self {
-            TypesFilter::Wildcard => true,
-            TypesFilter::Only(set) => set.contains(type_name),
+            TypesFilter::Wildcard => crate::replay::TypeFilter::Wildcard,
+            TypesFilter::Only(set) => crate::replay::TypeFilter::Only(set),
         }
     }
 }
@@ -292,28 +292,58 @@ impl CloseAfter {
 /// the loop and releasing the backend Arc clones.
 pub async fn get_events(
     AxumState(state): AxumState<AppState>,
+    headers: axum::http::HeaderMap,
     Query(query): Query<EventQuery>,
 ) -> Sse<ReceiverStream<Result<Event, Infallible>>> {
     let types_filter = TypesFilter::from_query(query.types.as_deref());
     let ping_mode = PingMode::from_query(query.ping);
     let close_after = CloseAfter::from_query(query.closeafter.as_deref());
+    let last_event_id = parse_last_event_id(&headers);
 
     let account = Id::from(session::ACCOUNT_ID);
 
-    // Subscribe to state-change wakes BEFORE snapshotting the baseline
-    // so any dispatch that races our setup is captured as a pending
-    // wake. The watch channel's seen-version semantics guarantee that
-    // a `send_modify` between `subscribe()` and the first `changed()`
-    // .await still fires (unlike `Notify::notify_waiters`).
+    // Subscribe to state-change wakes BEFORE reading the log's
+    // current position so any dispatch that races our setup is
+    // captured. The watch channel's seen-version semantics guarantee
+    // that a `send_modify` between `subscribe()` and the first
+    // `changed()` .await still fires.
     let state_changes = state.inner.subscribe_state_changes();
-    let baseline = snapshot_all_states(&state.inner, &account).await;
+
+    // Determine the subscriber's starting position. RFC 8620 §7.3:
+    // > When a new connection is made to the event-source endpoint,
+    // > a client following the server-sent events specification will
+    // > send a Last-Event-ID HTTP header field with the last id it
+    // > saw, which the server can use to work out whether the client
+    // > has missed some changes. If so, it SHOULD send these changes
+    // > immediately on connection.
+    //
+    // Three cases:
+    // 1. No `Last-Event-ID` header: start at the log's current id so
+    //    only genuinely-new mutations produce events.
+    // 2. `Last-Event-ID: N` where N is within the retained window:
+    //    start at N; the first `events_since` call will replay
+    //    everything missed.
+    // 3. `Last-Event-ID: N` where N predates the oldest retained
+    //    entry (ring buffer rolled over): start at the log's current
+    //    id and drop a replay-incomplete `state` event so the client
+    //    knows to resync via `Foo/changes`. The testjig MVP starts
+    //    at current and lets the client notice missing ids; a
+    //    production server would emit a `Connection: close` after a
+    //    distinct error event.
+    let log_current = state.inner.state_log.current_event_id();
+    let log_oldest = state.inner.state_log.oldest_event_id();
+    let last_seen = match last_event_id {
+        Some(n) if log_oldest == 0 || n + 1 >= log_oldest => n,
+        Some(_) => log_current,
+        None => log_current,
+    };
 
     let (tx, rx) = mpsc::channel::<Result<Event, Infallible>>(SSE_CHANNEL_BOUND);
 
     tokio::spawn(poll_loop(
         Arc::clone(&state.inner),
         account,
-        baseline,
+        last_seen,
         state_changes,
         types_filter,
         ping_mode,
@@ -324,18 +354,37 @@ pub async fn get_events(
     Sse::new(ReceiverStream::new(rx))
 }
 
+/// Parse the `Last-Event-ID` request header per RFC 8620 §7.3 /
+/// HTML Living Standard server-sent events specification.
+///
+/// Returns `None` when the header is absent, empty, or not a valid
+/// `u64`. RFC 8620 says the field is the last event id the client
+/// saw; the testjig assigns u64 ids from
+/// [`crate::replay::StateChangeLog`], so anything outside that range
+/// is treated as "no last id" and the subscriber starts fresh.
+fn parse_last_event_id(headers: &axum::http::HeaderMap) -> Option<u64> {
+    let v = headers.get("last-event-id")?.to_str().ok()?;
+    let s = v.trim();
+    if s.is_empty() {
+        return None;
+    }
+    s.parse::<u64>().ok()
+}
+
 /// The poller task. Runs until the receiver is dropped or until
 /// [`CloseAfter::State`] fires after the first state event.
 ///
-/// Loop body uses [`tokio::select!`] across:
+/// On entry, if `last_seen < log_current` the loop immediately emits
+/// any retained replay events past `last_seen` (bd:JMAP-cf7p.10).
+/// Then enters the live loop, which uses [`tokio::select!`] across:
 ///
 /// - A state-change watch [`tokio::sync::watch::Receiver::changed`]
 ///   future that fires immediately after every dispatcher invocation
-///   (bd:JMAP-cf7p.9). On wake the loop re-snapshots per-type state
-///   and emits a `state` event if any tracked type's token changed.
-/// - A safety-net poll tick at [`POLL_INTERVAL`] (5 s) that performs
-///   the same snapshot-and-diff in case a watch wake is somehow lost
-///   or an out-of-band mutation occurs.
+///   (bd:JMAP-cf7p.9). On wake the loop pulls newly-recorded entries
+///   from the [`crate::replay::StateChangeLog`] and emits one
+///   `state` event per `(account, changed_map)`.
+/// - A safety-net poll tick at `POLL_INTERVAL` (5 s) that performs
+///   the same log-pull in case a watch wake is somehow lost.
 /// - The configured ping interval (when not [`PingMode::Disabled`])
 ///   that emits a `ping` event with the honored interval.
 ///
@@ -346,24 +395,31 @@ pub async fn get_events(
 async fn poll_loop(
     state: Arc<AppStateInner>,
     account: Id,
-    baseline: BTreeMap<&'static str, String>,
+    mut last_seen: u64,
     mut state_changes: tokio::sync::watch::Receiver<u64>,
     types_filter: TypesFilter,
     ping_mode: PingMode,
     close_after: CloseAfter,
     tx: mpsc::Sender<Result<Event, Infallible>>,
 ) {
-    let mut previous = baseline;
-    let mut state_event_id: u64 = 0;
-
-    // Mark the baseline as the last-seen wake version so the first
-    // `changed()` waits for a genuine post-baseline mutation rather
-    // than firing immediately on the channel's initial value.
+    // Mark the current watch version as seen so the first
+    // `changed()` waits for a genuine post-spawn mutation rather than
+    // firing immediately on the channel's initial value.
     state_changes.mark_unchanged();
 
+    // Replay any retained entries past `last_seen` BEFORE entering
+    // the live loop. RFC 8620 §7.3: "the server [...] SHOULD send
+    // these changes immediately on connection."
+    if let Some(()) = emit_pending(&state, &account, &mut last_seen, &types_filter, &tx).await {
+        if let CloseAfter::State = close_after {
+            return;
+        }
+    } else if tx.is_closed() {
+        return;
+    }
+
     let mut poll = tokio::time::interval(POLL_INTERVAL);
-    // The first `interval` tick fires immediately; skip it so we don't
-    // re-snapshot the same baseline we just captured.
+    // The first `interval` tick fires immediately; skip it.
     poll.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     poll.tick().await;
 
@@ -380,29 +436,17 @@ async fn poll_loop(
     }
 
     loop {
-        // `wake` is true when the iteration should re-snapshot per-type
-        // state and consider emitting a `state` SSE event. It is set by
-        // either branch of the wake-or-tick `select!` arms.
         let wake;
         tokio::select! {
-            // State-change wake: dispatcher just completed a request.
-            // Re-snapshot immediately. An `Err` here means the watch
-            // sender was dropped — the AppState is being torn down, so
-            // exit cleanly.
             changed = state_changes.changed() => {
                 if changed.is_err() {
                     return;
                 }
                 wake = true;
             }
-            // Safety-net timer: ensures the loop re-snapshots even if
-            // a watch wake were somehow lost or an out-of-band mutation
-            // occurred. In steady state (active subscriber, watch
-            // working) this branch almost never wins the select.
             _ = poll.tick() => {
                 wake = true;
             }
-            // Ping branch: emits a `ping` event independent of state.
             _ = async {
                 match ping.as_mut() {
                     Some(p) => { p.tick().await; }
@@ -421,21 +465,61 @@ async fn poll_loop(
             continue;
         }
 
-        let current = snapshot_all_states(&state, &account).await;
-        let changes = diff_snapshots(&previous, &current, &types_filter);
-        previous = current;
-        if changes.is_empty() {
-            continue;
-        }
-        state_event_id = state_event_id.wrapping_add(1);
-        let event = build_state_event(&account, &changes, state_event_id);
-        if tx.send(Ok(event)).await.is_err() {
-            return; // receiver gone
-        }
-        if let CloseAfter::State = close_after {
+        let emitted = emit_pending(&state, &account, &mut last_seen, &types_filter, &tx).await;
+        if tx.is_closed() {
             return;
         }
+        if emitted.is_some() {
+            if let CloseAfter::State = close_after {
+                return;
+            }
+        }
     }
+}
+
+/// Pull entries past `last_seen` from the state log, emit them as a
+/// single `state` SSE event (if non-empty), and advance `last_seen`
+/// to the largest emitted id.
+///
+/// Returns `Some(())` iff an event was emitted. Returns `None` when
+/// the log has no new entries OR when the `tx.send` failed (caller
+/// checks `tx.is_closed()` to distinguish).
+async fn emit_pending(
+    state: &Arc<AppStateInner>,
+    account: &Id,
+    last_seen: &mut u64,
+    types_filter: &TypesFilter,
+    tx: &mpsc::Sender<Result<Event, Infallible>>,
+) -> Option<()> {
+    let filter = types_filter.as_replay_filter();
+    let entries = state.state_log.events_since(*last_seen, &filter);
+    if entries.is_empty() {
+        return None;
+    }
+
+    // Coalesce per-type: the wire StateChange object carries one
+    // state token per type (the latest one), not a per-event list.
+    // Walk the entries in ascending id order; the last entry for
+    // each type wins.
+    let mut latest_per_type: BTreeMap<&'static str, &str> = BTreeMap::new();
+    let mut max_id = *last_seen;
+    for entry in &entries {
+        latest_per_type.insert(entry.type_name, entry.state_token.as_str());
+        if entry.event_id > max_id {
+            max_id = entry.event_id;
+        }
+    }
+    let changes: BTreeMap<String, String> = latest_per_type
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .collect();
+
+    let event = build_state_event(account, &changes, max_id);
+    if tx.send(Ok(event)).await.is_err() {
+        return None;
+    }
+    *last_seen = max_id;
+    Some(())
 }
 
 /// Snapshot every well-known JMAP type's state token for the given
@@ -510,44 +594,14 @@ pub(crate) async fn snapshot_all_states(
     out
 }
 
-/// Compute the per-type StateChange map between two snapshots.
-///
-/// Filters by `types_filter` so a client that only subscribed to
-/// `Email` does not see a `Space` change. Returns entries where the
-/// new state differs from the old state for that type; types that
-/// appear in only one snapshot are also reported (using whichever
-/// value exists).
-///
-/// Visible to `crate::ws` so the WebSocket push handler can reuse
-/// the same diff algorithm.
-pub(crate) fn diff_snapshots(
-    previous: &BTreeMap<&'static str, String>,
-    current: &BTreeMap<&'static str, String>,
-    types_filter: &TypesFilter,
-) -> BTreeMap<String, String> {
-    let mut out = BTreeMap::new();
-    for (type_name, new_state) in current {
-        if !types_filter.admits(type_name) {
-            continue;
-        }
-        match previous.get(type_name) {
-            Some(old) if old == new_state => {}
-            _ => {
-                out.insert((*type_name).to_owned(), new_state.clone());
-            }
-        }
-    }
-    out
-}
-
 /// Build the `state` SSE event carrying an RFC 8620 §7.1 StateChange
 /// JSON object.
 ///
-/// The event id is a monotonic counter rather than the
-/// "encodes the entire server state" guidance from RFC 8620 §7.3 —
-/// the testjig does not implement Last-Event-ID replay (tracked at
-/// bd:JMAP-cf7p.10), so the id is decorative. A future replay
-/// implementation can swap this for a real snapshot id.
+/// The event id is the largest [`crate::replay::StateChangeLog`]
+/// event id in the emitted batch. Per RFC 8620 §7.3, this is the
+/// `Last-Event-ID` the SSE client will echo on reconnect; the server
+/// replays retained entries with `event_id > Last-Event-ID` and then
+/// resumes live push (bd:JMAP-cf7p.10).
 fn build_state_event(account: &Id, changes: &BTreeMap<String, String>, id: u64) -> Event {
     let body = json!({
         "@type": "StateChange",
@@ -616,21 +670,6 @@ mod tests {
         assert_eq!(set.len(), 2);
     }
 
-    /// Oracle: wildcard admits every type name.
-    #[test]
-    fn types_filter_wildcard_admits_anything() {
-        assert!(TypesFilter::Wildcard.admits("Email"));
-        assert!(TypesFilter::Wildcard.admits("MadeUpType"));
-    }
-
-    /// Oracle: a typed filter rejects names not in the set.
-    #[test]
-    fn types_filter_only_rejects_unlisted() {
-        let f = TypesFilter::from_query(Some("Email"));
-        assert!(f.admits("Email"));
-        assert!(!f.admits("Mailbox"));
-    }
-
     /// Oracle: RFC 8620 §7.3 — `ping=0` disables pings.
     #[test]
     fn ping_zero_is_disabled() {
@@ -697,61 +736,10 @@ mod tests {
         assert_eq!(CloseAfter::from_query(Some("garbage")), CloseAfter::No);
     }
 
-    /// Oracle: snapshot diffs surface the new state for types whose
-    /// token changed AND for types that newly appeared. Stable types
-    /// (same token before and after) are omitted.
-    #[test]
-    fn diff_surfaces_changed_and_new_types() {
-        let mut prev = BTreeMap::new();
-        prev.insert("Email", "0".to_owned());
-        prev.insert("Mailbox", "5".to_owned());
-
-        let mut cur = BTreeMap::new();
-        cur.insert("Email", "1".to_owned()); // changed
-        cur.insert("Mailbox", "5".to_owned()); // unchanged → omitted
-        cur.insert("Space", "1".to_owned()); // new → surfaced
-
-        let out = diff_snapshots(&prev, &cur, &TypesFilter::Wildcard);
-        assert_eq!(out.get("Email").map(String::as_str), Some("1"));
-        assert!(!out.contains_key("Mailbox"));
-        assert_eq!(out.get("Space").map(String::as_str), Some("1"));
-    }
-
-    /// Oracle: a non-wildcard `types` filter restricts the diff to
-    /// the requested type names. Spec §7.3: "The server MUST only
-    /// push changes for the types in this list".
-    #[test]
-    fn diff_respects_types_filter() {
-        let mut prev = BTreeMap::new();
-        prev.insert("Email", "0".to_owned());
-        prev.insert("Space", "0".to_owned());
-
-        let mut cur = BTreeMap::new();
-        cur.insert("Email", "1".to_owned());
-        cur.insert("Space", "1".to_owned());
-
-        let filter = TypesFilter::Only(["Email".to_owned()].into_iter().collect());
-        let out = diff_snapshots(&prev, &cur, &filter);
-        assert!(out.contains_key("Email"));
-        assert!(!out.contains_key("Space"));
-    }
-
-    /// Oracle: when no types changed (identical snapshots), the diff
-    /// is empty. The poll loop uses this to decide whether to emit a
-    /// state event at all.
-    #[test]
-    fn diff_empty_when_unchanged() {
-        let mut prev = BTreeMap::new();
-        prev.insert("Email", "0".to_owned());
-        let cur = prev.clone();
-        let out = diff_snapshots(&prev, &cur, &TypesFilter::Wildcard);
-        assert!(out.is_empty());
-    }
-
     /// Oracle: RFC 8620 §7.1 — StateChange shape:
     /// `{"@type":"StateChange","changed":{"<accountId>":{...}}}`.
-    /// The id field of the SSE event is the monotonic counter the
-    /// loop maintains.
+    /// The id field of the SSE event is the largest
+    /// [`crate::replay::StateChangeLog`] event id in the batch.
     #[tokio::test]
     async fn state_event_shape_matches_rfc_8620_section_7_1() {
         let account = Id::from("acct-1");
@@ -801,6 +789,44 @@ mod tests {
             !serialized.contains("\nid:"),
             "ping events MUST NOT set an event id per RFC 8620 §7.3, got:\n{serialized}"
         );
+    }
+
+    /// Oracle: RFC 8620 §7.3 + HTML SSE spec — the
+    /// `Last-Event-ID` header is the last event id the client saw.
+    /// Missing or empty values map to `None`.
+    #[test]
+    fn parse_last_event_id_handles_missing_and_empty() {
+        let h = axum::http::HeaderMap::new();
+        assert_eq!(parse_last_event_id(&h), None);
+
+        let mut h = axum::http::HeaderMap::new();
+        h.insert("Last-Event-ID", "".parse().unwrap());
+        assert_eq!(parse_last_event_id(&h), None);
+
+        let mut h = axum::http::HeaderMap::new();
+        h.insert("Last-Event-ID", "   ".parse().unwrap());
+        assert_eq!(parse_last_event_id(&h), None);
+    }
+
+    /// Oracle: a numeric Last-Event-ID parses as the u64 event id.
+    #[test]
+    fn parse_last_event_id_numeric() {
+        let mut h = axum::http::HeaderMap::new();
+        h.insert("Last-Event-ID", "42".parse().unwrap());
+        assert_eq!(parse_last_event_id(&h), Some(42));
+    }
+
+    /// Oracle: non-numeric or out-of-range values fall back to `None`
+    /// so the subscriber starts at "current" rather than crashing.
+    #[test]
+    fn parse_last_event_id_non_numeric_is_none() {
+        let mut h = axum::http::HeaderMap::new();
+        h.insert("Last-Event-ID", "abc".parse().unwrap());
+        assert_eq!(parse_last_event_id(&h), None);
+
+        let mut h = axum::http::HeaderMap::new();
+        h.insert("Last-Event-ID", "99999999999999999999999".parse().unwrap());
+        assert_eq!(parse_last_event_id(&h), None);
     }
 
     /// Helper: drive a single [`Event`] through axum's `Sse` response
