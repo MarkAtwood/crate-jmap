@@ -1593,6 +1593,176 @@ async fn memory_backend_expire_message_idempotent_on_missing() {
 }
 
 // ---------------------------------------------------------------------------
+// Edit-history retention gate
+// (draft-atwood-jmap-chat-00 commit 0783fc4 + §Message editHistory)
+// ---------------------------------------------------------------------------
+
+/// Oracle: with the reference backend's default
+/// `retains_edit_history() == false`, `Message/get` MUST omit the
+/// `editHistory` field from every returned Message, even when the
+/// underlying stored Message carries it. Spec MUST.
+#[tokio::test]
+async fn message_get_default_omits_edit_history() {
+    let backend = MemoryBackend::new();
+    backend.insert_object_for_test(
+        "Message",
+        "a1",
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smsg1",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "edited",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": [],
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2024-01-01T00:00:00Z",
+            "receivedAt": "2024-01-01T00:00:01Z",
+            "deliveryState": "delivered",
+            "editedAt": "2024-01-02T00:00:00Z",
+            "editHistory": [
+                {
+                    "body": "original",
+                    "bodyType": "text/plain",
+                    "editedAt": "2024-01-02T00:00:00Z"
+                }
+            ]
+        }),
+    );
+
+    let (resp, _) = handle_message_get(&backend, &(), json!({ "accountId": "a1", "ids": ["m1"] }))
+        .await
+        .expect("handle_message_get");
+
+    let msg = &resp["list"][0];
+    assert_eq!(msg["body"], "edited", "the message itself round-trips");
+    assert_eq!(
+        msg["editHistory"],
+        json!(null),
+        "editHistory MUST be omitted (default retains_edit_history == false)"
+    );
+}
+
+/// Oracle: when the backend reports `retains_edit_history() == true`,
+/// `Message/get` returns the stored `editHistory` verbatim.
+#[tokio::test]
+async fn message_get_with_retention_returns_edit_history() {
+    let backend = MemoryBackend::new();
+    backend.set_retains_edit_history_for_test(true);
+    backend.insert_object_for_test(
+        "Message",
+        "a1",
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smsg1",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "edited",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": [],
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2024-01-01T00:00:00Z",
+            "receivedAt": "2024-01-01T00:00:01Z",
+            "deliveryState": "delivered",
+            "editedAt": "2024-01-02T00:00:00Z",
+            "editHistory": [
+                {
+                    "body": "original",
+                    "bodyType": "text/plain",
+                    "editedAt": "2024-01-02T00:00:00Z"
+                }
+            ]
+        }),
+    );
+
+    let (resp, _) = handle_message_get(&backend, &(), json!({ "accountId": "a1", "ids": ["m1"] }))
+        .await
+        .expect("handle_message_get");
+
+    let history = resp["list"][0]["editHistory"]
+        .as_array()
+        .expect("editHistory must be an array when retention is on");
+    assert_eq!(history.len(), 1);
+    assert_eq!(history[0]["body"], "original");
+    assert_eq!(history[0]["editedAt"], "2024-01-02T00:00:00Z");
+}
+
+/// Oracle: a client that explicitly asks for `editHistory` via the
+/// `properties` filter MUST still see it omitted when the backend
+/// reports `retains_edit_history() == false`. The spec MUST overrides
+/// the client's properties selector.
+#[tokio::test]
+async fn message_get_properties_does_not_force_edit_history_when_retention_off() {
+    let backend = MemoryBackend::new();
+    backend.insert_object_for_test(
+        "Message",
+        "a1",
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smsg1",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "edited",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": [],
+            "actions": [],
+            "reactions": {},
+            "sentAt": "2024-01-01T00:00:00Z",
+            "receivedAt": "2024-01-01T00:00:01Z",
+            "deliveryState": "delivered",
+            "editedAt": "2024-01-02T00:00:00Z",
+            "editHistory": [
+                {
+                    "body": "original",
+                    "bodyType": "text/plain",
+                    "editedAt": "2024-01-02T00:00:00Z"
+                }
+            ]
+        }),
+    );
+
+    let (resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "ids": ["m1"],
+            "properties": ["editHistory"]
+        }),
+    )
+    .await
+    .expect("handle_message_get");
+
+    let msg = &resp["list"][0];
+    assert_eq!(
+        msg["editHistory"],
+        json!(null),
+        "editHistory MUST be omitted even when the client explicitly asks for it"
+    );
+}
+
+/// Oracle: `ChatBackend::retains_edit_history()` default impl returns
+/// `false`. This is the workspace's "kit defines the hook; consumer
+/// enforces the policy" posture — the default is conservative
+/// (no retention) and production backends opt in.
+#[tokio::test]
+async fn memory_backend_retains_edit_history_default_is_false() {
+    let backend = MemoryBackend::new();
+    assert!(
+        !backend.retains_edit_history(),
+        "default MemoryBackend must report retains_edit_history() == false"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Slow-mode rate-limit gate (draft-atwood-jmap-chat-00 §Chat slowModeSeconds
 // + spec commit de60acb)
 // ---------------------------------------------------------------------------

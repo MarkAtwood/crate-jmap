@@ -404,6 +404,47 @@ pub trait ChatBackend: JmapBackend {
         ops: Vec<SpacePatchOp>,
     ) -> impl std::future::Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
 
+    /// Whether the backend retains edit history for messages.
+    ///
+    /// Per draft-atwood-jmap-chat-00 commit `0783fc4` ("condition
+    /// MessageRevision push on edit-history retention") +
+    /// `§Message editHistory`: servers MAY limit retained
+    /// MessageRevisions, and when the server does not retain edit
+    /// history, the `editHistory` field MUST be omitted from
+    /// `Message/get` and (in principle) `Message/changes` responses.
+    /// `Message/changes` per RFC 8620 §5.2 returns only id arrays,
+    /// not Message objects, so the spec's "omit from /changes" is
+    /// a no-op at the wire level — the kit only enforces the
+    /// `Message/get` projection.
+    ///
+    /// # When the handler calls this
+    ///
+    /// `handle_message_get` consults this predicate once per call.
+    /// When `false`, every returned `Message` has its
+    /// `edit_history` field set to `None` before serialization,
+    /// which serde's `skip_serializing_if = "Option::is_none"`
+    /// collapses to a wire-absent field per spec.
+    ///
+    /// # Why sync, not async
+    ///
+    /// This is a static deployment-policy flag, not a per-call
+    /// decision — it does not consult per-account state, principal
+    /// identity, or per-message bounds. Production backends that
+    /// need to vary retention per-account would file a follow-up
+    /// bead for a parallel `retains_edit_history_for_account` hook
+    /// rather than reshaping this method.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `false` — no retention. This matches the workspace's
+    /// "kit defines the hook; consumer enforces the policy" posture.
+    /// Production backends that retain edit history MUST override
+    /// this to `true`; the reference `MemoryBackend` exposes a
+    /// test-only setter for tests that need the retain-on path.
+    fn retains_edit_history(&self) -> bool {
+        false
+    }
+
     /// Predicate consulted by typing/presence fan-out paths: is the
     /// requesting caller blocked by the given contact?
     ///

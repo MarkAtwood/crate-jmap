@@ -90,6 +90,9 @@ struct Inner {
     /// [`ChatLimits::default`]. Set via
     /// [`MemoryBackend::set_limits_for_test`].
     limits_override: Option<ChatLimits>,
+    /// Test-only override for [`ChatBackend::retains_edit_history`].
+    /// Set via [`MemoryBackend::set_retains_edit_history_for_test`].
+    retains_edit_history: bool,
 }
 
 impl Inner {
@@ -172,6 +175,18 @@ impl MemoryBackend {
             .objects_ref(type_name, account_id)
             .map_or(0, |m| m.len());
         Id::from(format!("{}{}", type_name.to_ascii_lowercase(), n + 1))
+    }
+
+    /// Test-only: flip the [`ChatBackend::retains_edit_history`] flag.
+    ///
+    /// Pass `true` to make `Message/get` return `editHistory` on
+    /// fetched messages, or `false` to omit it. The default is
+    /// `false`, matching the trait default (the reference backend
+    /// does not retain edit history out of the box).
+    #[doc(hidden)]
+    pub fn set_retains_edit_history_for_test(&self, retain: bool) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.retains_edit_history = retain;
     }
 
     /// Test-only: override the [`ChatLimits`] returned by
@@ -826,6 +841,19 @@ impl ChatBackend for MemoryBackend {
         }
 
         Ok(results)
+    }
+
+    /// Reference implementation of [`ChatBackend::retains_edit_history`].
+    ///
+    /// Returns the test-only override set via
+    /// [`MemoryBackend::set_retains_edit_history_for_test`] when set;
+    /// otherwise returns `false`, matching the trait default. The
+    /// reference backend does not retain edit history out of the box.
+    ///
+    /// Spec: draft-atwood-jmap-chat-00 commit `0783fc4`.
+    fn retains_edit_history(&self) -> bool {
+        let inner = self.inner.lock().unwrap();
+        inner.retains_edit_history
     }
 
     /// Reference implementation of [`ChatBackend::is_contact_blocked`].
