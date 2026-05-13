@@ -913,6 +913,7 @@ dependencies = [
  "criterion",
  "futures",
  "http",
+ "jmap-cid-types",
  "jmap-types",
  "reqwest",
  "serde",
