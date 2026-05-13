@@ -22,6 +22,15 @@ categories = ["network-programming", "web-programming::http-server"]
 # the `ChatBackend::generate_invite_code` trait method (bd:JMAP-sc1b.93).
 memory = ["dep:getrandom"]
 
+# Switches `MemoryBackend::demo_next_id` from the default deterministic
+# `"<type><n:016x>"` pattern to a process-global timestamp+counter
+# pattern matching the canonical `jmap-mail-server` `next_id` at
+# `email.rs:1748`. Both modes are explicitly demonstration-quality;
+# production backends must mint real ULIDs (or equivalent
+# globally-unique, monotonic, persistent-across-restarts ids) and never
+# use this helper as a copy-paste source.
+realistic-demo-ids = []
+
 [dependencies]
 jmap-types = { workspace = true }
 jmap-chat-types = { workspace = true }
