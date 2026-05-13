@@ -171,6 +171,29 @@ impl Session {
             .map(Some)
             .map_err(ClientError::Parse)
     }
+
+    /// Returns `true` if the server advertises the JMAP Blob Content
+    /// Identifiers extension (draft-atwood-jmap-cid-00).
+    ///
+    /// Checks for presence of `capabilities["urn:ietf:params:jmap:cid"]`.
+    /// The capability value object is empty per the draft (§2: "no
+    /// capability fields defined at this time"), so the presence of the
+    /// key is sufficient — no value-shape check is required.
+    ///
+    /// When `true`, the server commits to including a `sha256` field
+    /// (the 64-character lowercase-hex SHA-256 digest of the uploaded
+    /// content) on Blob upload responses, and on FileNode objects when
+    /// the JMAP FileNode extension is also supported. See
+    /// [`jmap_cid_types::Sha256`] for the typed wire shape.
+    ///
+    /// Mirrors the `supports_*` capability-probe pattern established by
+    /// `ChatSessionExt::supports_quotas` and
+    /// `ChatSessionExt::supports_refplus` in `jmap-chat-client`.
+    ///
+    /// [`jmap_cid_types::Sha256`]: https://docs.rs/jmap-cid-types
+    pub fn supports_cid(&self) -> bool {
+        self.capabilities.contains_key("urn:ietf:params:jmap:cid")
+    }
 }
 
 /// Manual `Debug` impl that redacts privacy-sensitive fields (bd:JMAP-sc1b.99).
@@ -643,6 +666,82 @@ mod tests {
             .expect("websocket capability must be present");
         assert_eq!(ws.url, "wss://jmap.example.com/ws");
         assert!(ws.supports_push);
+    }
+
+    /// Oracle: `Session::supports_cid()` returns `false` when the JMAP
+    /// CID capability URI is not present in the capabilities map
+    /// (bd:JMAP-v9py.14).
+    ///
+    /// Mirrors the absent-key precedent of
+    /// `session_websocket_capability_absent_returns_ok_none`. The test
+    /// fixture has an empty capabilities map; the negative answer must
+    /// be `false`, not `Err` or panic.
+    #[test]
+    fn supports_cid_returns_false_when_capability_absent() {
+        let raw = r#"{
+            "capabilities": {},
+            "accounts": {},
+            "primaryAccounts": {},
+            "username": "u@example.com",
+            "apiUrl": "https://jmap.example.com/api/",
+            "downloadUrl": "https://jmap.example.com/dl/{accountId}/{blobId}/{name}?accept={type}",
+            "uploadUrl": "https://jmap.example.com/ul/{accountId}/",
+            "eventSourceUrl": "https://jmap.example.com/sse/?types={types}&closeafter={closeafter}&ping={ping}",
+            "state": "s1"
+        }"#;
+        let session: Session = serde_json::from_str(raw).expect("Session must deserialize");
+        assert!(!session.supports_cid());
+    }
+
+    /// Oracle: `Session::supports_cid()` returns `true` when the JMAP
+    /// CID capability URI is present in the capabilities map, even
+    /// though the value object is empty per draft-atwood-jmap-cid-00
+    /// §2 ("no capability fields defined at this time")
+    /// (bd:JMAP-v9py.14).
+    #[test]
+    fn supports_cid_returns_true_when_capability_present_empty_value() {
+        let raw = r#"{
+            "capabilities": {
+                "urn:ietf:params:jmap:cid": {}
+            },
+            "accounts": {},
+            "primaryAccounts": {},
+            "username": "u@example.com",
+            "apiUrl": "https://jmap.example.com/api/",
+            "downloadUrl": "https://jmap.example.com/dl/{accountId}/{blobId}/{name}?accept={type}",
+            "uploadUrl": "https://jmap.example.com/ul/{accountId}/",
+            "eventSourceUrl": "https://jmap.example.com/sse/?types={types}&closeafter={closeafter}&ping={ping}",
+            "state": "s1"
+        }"#;
+        let session: Session = serde_json::from_str(raw).expect("Session must deserialize");
+        assert!(session.supports_cid());
+    }
+
+    /// Oracle: `Session::supports_cid()` checks only for the URI key —
+    /// presence with a non-empty value object (vendor extras inside the
+    /// CID capability) still returns `true`. The draft reserves the
+    /// shape of the capability value but does not currently define any
+    /// fields; a server that pre-populates vendor fields under the URI
+    /// must still be detected as supporting CID.
+    #[test]
+    fn supports_cid_returns_true_when_capability_present_with_extra_fields() {
+        let raw = r#"{
+            "capabilities": {
+                "urn:ietf:params:jmap:cid": {
+                    "x-vendor-flag": "future-shape"
+                }
+            },
+            "accounts": {},
+            "primaryAccounts": {},
+            "username": "u@example.com",
+            "apiUrl": "https://jmap.example.com/api/",
+            "downloadUrl": "https://jmap.example.com/dl/{accountId}/{blobId}/{name}?accept={type}",
+            "uploadUrl": "https://jmap.example.com/ul/{accountId}/",
+            "eventSourceUrl": "https://jmap.example.com/sse/?types={types}&closeafter={closeafter}&ping={ping}",
+            "state": "s1"
+        }"#;
+        let session: Session = serde_json::from_str(raw).expect("Session must deserialize");
+        assert!(session.supports_cid());
     }
 
     /// Oracle: Session's manual Debug impl never reveals the authenticated
