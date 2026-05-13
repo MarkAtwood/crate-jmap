@@ -510,6 +510,40 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
 
+            // Detect a non-null readAt assignment in the patch. A
+            // `readAt: null` is a PatchObject clear (RFC 8620 §5.3), not a
+            // "mark as read" event, so it does not trigger burn-on-read.
+            // draft-atwood-jmap-chat-00 §Message `burnOnRead`: the
+            // receiving server MUST hard-delete immediately after setting
+            // readAt on a message whose `burnOnRead` is `true`.
+            let patch_sets_read_at = augmented.get("readAt").is_some_and(|v| !v.is_null());
+
+            // If the patch sets readAt, pre-fetch the message so we can
+            // decide whether it is burn-on-read. We deliberately consult
+            // the pre-patch state: a recipient setting readAt for the
+            // first time should fire the burn, regardless of whether the
+            // same patch attempts to also clear `burnOnRead` (which is a
+            // sender-set field and the spec does not authorize a
+            // recipient to flip).
+            let pre_patch_burn_on_read = if patch_sets_read_at {
+                match backend
+                    .get_objects::<Message>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(&id)),
+                        None,
+                    )
+                    .await
+                {
+                    Ok((found, _not_found)) => {
+                        found.first().and_then(|m| m.burn_on_read) == Some(true)
+                    }
+                    Err(_) => false,
+                }
+            } else {
+                false
+            };
+
             // Convert the augmented wire-format Value into a typed
             // PatchObject (RFC 8620 §5.3). Non-object values yield
             // invalidPatch.
@@ -523,30 +557,21 @@ pub async fn handle_message_set<B: ChatBackend>(
                     continue;
                 }
             };
-            match backend
+            let update_outcome = backend
                 .update_object::<Message>(caller, &account_id, &id, patch)
-                .await
-            {
-                Ok(Some(obj)) => {
-                    mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
-                }
-                Ok(None) => {
-                    mutated = true;
-                    updated.insert(id_str, Value::Null);
-                }
+                .await;
+            let maybe_updated_obj = match update_outcome {
+                Ok(maybe_obj) => maybe_obj,
                 Err(BackendSetError::SetError(set_err)) => {
                     not_updated.insert(id_str, set_error_value(&set_err));
+                    continue;
                 }
                 Err(BackendSetError::Other(e)) => {
                     not_updated.insert(
                         id_str,
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
+                    continue;
                 }
                 Err(_) => {
                     not_updated.insert(
@@ -556,6 +581,72 @@ pub async fn handle_message_set<B: ChatBackend>(
                             "description": "unhandled backend error variant",
                         }),
                     );
+                    continue;
+                }
+            };
+
+            // Burn-on-read fires AFTER the readAt patch has been applied.
+            // draft-atwood-jmap-chat-00 §Message `burnOnRead`: hard-delete
+            // immediately. The patch already succeeded above; the hard
+            // delete is its own backend call so that a production backend
+            // can either (a) leave the default no-op and override
+            // `update_object` for atomic write+delete, or (b) override
+            // this method for a separate two-step deletion. The reference
+            // `MemoryBackend` uses (b). Both are conforming.
+            if patch_sets_read_at && pre_patch_burn_on_read {
+                match backend.expire_message(caller, &account_id, &id).await {
+                    Ok(()) => {}
+                    Err(burn_err) => {
+                        // The readAt patch already landed in storage but
+                        // the spec-mandated hard-delete failed. Surface
+                        // as serverFail; the recipient will retry, and
+                        // the next pre-fetch will still see
+                        // `burnOnRead: true` (a sender-set field a
+                        // recipient cannot flip), so the burn will be
+                        // attempted again. Production backends that
+                        // need atomic readAt-and-burn semantics SHOULD
+                        // override `update_object` to perform both
+                        // inside a single transaction; the reference
+                        // `MemoryBackend::expire_message` does not
+                        // surface failures and so this branch is
+                        // unreachable for it.
+                        let description = match &burn_err {
+                            BackendSetError::Other(e) => e.to_string(),
+                            _ => "expire_message returned a non-Other error".to_owned(),
+                        };
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "serverFail",
+                                "description":
+                                    format!("burn-on-read hard-delete failed: {description}"),
+                            }),
+                        );
+                        // Bump mutated regardless, because the readAt
+                        // write is committed even though we report
+                        // notUpdated for the wire response. Callers
+                        // relying on `mutated` to decide whether to
+                        // rotate the state token will rotate, which
+                        // correctly reflects that something changed in
+                        // storage.
+                        mutated = true;
+                        continue;
+                    }
+                }
+            }
+
+            // Update succeeded (and burn, if applicable, succeeded too).
+            mutated = true;
+            match maybe_updated_obj {
+                Some(obj) => {
+                    updated.insert(
+                        id_str,
+                        serde_json::to_value(&obj)
+                            .expect("derive(Serialize) on plain data is infallible"),
+                    );
+                }
+                None => {
+                    updated.insert(id_str, Value::Null);
                 }
             }
         }

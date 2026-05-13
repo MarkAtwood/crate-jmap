@@ -827,6 +827,43 @@ impl ChatBackend for MemoryBackend {
 
         Ok(results)
     }
+
+    /// Reference implementation of [`ChatBackend::expire_message`].
+    ///
+    /// Hard-deletes the message from the in-memory store and appends a
+    /// `Message` change-log entry recording the id as `destroyed`, so
+    /// subsequent `Message/changes` calls see the expiry per
+    /// draft-atwood-jmap-chat-00.
+    ///
+    /// If the message is already gone (e.g., a previous `expire_message`
+    /// call or a cascade destroy already removed it), returns `Ok(())`
+    /// without bumping state — the expiry is a no-op, consistent with
+    /// the trait's idempotency contract.
+    async fn expire_message(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        message_id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        let mut inner = self.inner.lock().unwrap();
+
+        let removed = inner
+            .objects_mut("Message", account_id.as_ref())
+            .remove(message_id);
+
+        if removed.is_some() {
+            let new_state = inner.bump_state("Message", account_id.as_ref());
+            inner
+                .change_log_mut("Message", account_id.as_ref())
+                .push(ChangeEntry {
+                    new_state,
+                    created: vec![],
+                    updated: vec![],
+                    destroyed: vec![message_id.clone()],
+                });
+        }
+        Ok(())
+    }
 }
 
 /// Apply one Category-family [`SpacePatchOp`] to the in-memory Space.

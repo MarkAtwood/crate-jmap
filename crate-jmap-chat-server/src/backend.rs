@@ -356,4 +356,68 @@ pub trait ChatBackend: JmapBackend {
         space_id: &jmap_types::Id,
         ops: Vec<SpacePatchOp>,
     ) -> impl std::future::Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
+
+    /// Hard-delete a message ("expire" it) due to a per-message expiry
+    /// event.
+    ///
+    /// Called by the kit from two places:
+    ///
+    /// 1. The `Message/set` update handler when a patch sets `readAt` on
+    ///    a message whose pre-patch `burnOnRead` is `true`
+    ///    (draft-atwood-jmap-chat-00 §Message `burnOnRead`).
+    /// 2. A deployment-provided scheduler when a message's
+    ///    `senderExpiresAt` fires (draft-atwood-jmap-chat-00 §Message
+    ///    `senderExpiresAt`). The kit does NOT run a scheduler;
+    ///    consumers wire one in and call this method directly when a
+    ///    timer fires.
+    ///
+    /// # Contract
+    ///
+    /// Per draft-atwood-jmap-chat-00, an expiry MUST hard-delete the
+    /// row (not tombstone) and the message MUST appear in the
+    /// `destroyed` set of subsequent `Message/changes` results.
+    /// Implementations therefore SHOULD:
+    ///
+    /// - Remove the underlying record so a subsequent `Message/get`
+    ///   does not find it.
+    /// - Bump the per-account `Message` state token and record the id
+    ///   in the change log so `Message/changes` sees it as destroyed.
+    ///
+    /// # Idempotency
+    ///
+    /// If the message no longer exists — because a previous
+    /// `expire_message` call or an atomic `update_object`
+    /// implementation has already deleted it — this method SHOULD
+    /// return `Ok(())` rather than
+    /// `BackendSetError::SetError(SetError::NotFound)`. Expiry events
+    /// are inherently retry-friendly (a scheduler may re-fire if it
+    /// crashed mid-batch) and the burn-on-read handler integration
+    /// also treats a not-found backend response as a no-op.
+    ///
+    /// # Atomicity with `Message/set` update
+    ///
+    /// The reference burn-on-read handler integration calls
+    /// `update_object` to apply the `readAt` patch and then calls
+    /// `expire_message` as a separate step. A backend that wants
+    /// strict atomicity between the `readAt` write and the hard-delete
+    /// SHOULD override `update_object` to perform both inside a
+    /// single transaction; in that case `expire_message` becomes
+    /// idempotent for this code path (the message is already gone
+    /// when the handler calls it).
+    ///
+    /// # Default implementation
+    ///
+    /// The default returns `Ok(())` without doing anything. This is
+    /// appropriate for backends that have not yet implemented expiry
+    /// or that handle the burn-on-read flow atomically inside their
+    /// own `update_object`. Production backends that need expiry
+    /// SHOULD override this method.
+    fn expire_message(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _message_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send {
+        async { Ok(()) }
+    }
 }
