@@ -307,24 +307,16 @@ async fn non_member_properties_filter_full_allowed_set() {
 }
 
 // ---------------------------------------------------------------------------
-// Rule 3 — non-member non-previewable case (Layer A TODO marker)
+// Rule 3 — non-member non-previewable case classified as notFound
+// (bd:JMAP-v9py.20)
 // ---------------------------------------------------------------------------
 
-/// Oracle: bd:JMAP-v9py.4 + bd:JMAP-v9py.20. Layer A (this bead) does
-/// NOT classify non-previewable Spaces as `notFound` for non-member
-/// callers — that's split to bd:JMAP-v9py.20. The TODO marker in
-/// `project_space_for_caller` leaves the current behavior in place:
-/// the full Space leaks through to non-members for non-previewable
-/// Spaces. This test pins that gap explicitly so a future fix can
-/// flip it cleanly (the test should be UPDATED, not regressed-away,
-/// when .20 lands).
-///
-/// If this test starts failing because non-member non-previewable
-/// access is now correctly producing notFound, that's a sign
-/// bd:JMAP-v9py.20 work landed. Update this test to assert the
-/// notFound behavior at that point.
+/// Oracle: bd:JMAP-v9py.20. A non-member caller of a Space with
+/// `isPubliclyPreviewable: false` MUST receive the Space id back in
+/// the `notFound` array, NOT in `list`. The non-previewable
+/// existence of the Space MUST NOT leak in any field.
 #[tokio::test]
-async fn non_member_non_previewable_currently_leaks_pending_v9py20() {
+async fn non_member_non_previewable_classified_as_not_found() {
     let backend = IdentityBackend::new();
     seed_space(&backend, /* previewable = */ false);
     let outsider = Id::from("outsider");
@@ -337,26 +329,146 @@ async fn non_member_non_previewable_currently_leaks_pending_v9py20() {
     .await
     .expect("handle_space_get");
 
-    // Current (Layer A) behavior: full Space in list, notFound empty.
-    // bd:JMAP-v9py.20 will move the id into notFound.
+    assert!(
+        resp["list"].as_array().map(Vec::is_empty).unwrap_or(false),
+        "list must be empty for non-member of non-previewable Space: {resp:?}"
+    );
+    let not_found: Vec<&str> = resp["notFound"]
+        .as_array()
+        .expect("notFound array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(
+        not_found,
+        &[SPACE_ID],
+        "notFound must contain exactly the requested id: {resp:?}"
+    );
+}
+
+/// Oracle: bd:JMAP-v9py.20 — indistinguishability. A non-member
+/// caller's request for a non-existent Space and for a
+/// non-previewable Space MUST produce identical response shapes.
+/// This prevents existence-probing.
+#[tokio::test]
+async fn non_member_cannot_distinguish_non_previewable_from_nonexistent() {
+    let backend = IdentityBackend::new();
+    seed_space(&backend, /* previewable = */ false);
+    let outsider = Id::from("outsider");
+
+    // Request the seeded non-previewable Space.
+    let (resp_priv, _) = handle_space_get(
+        &backend,
+        &outsider,
+        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+    )
+    .await
+    .expect("handle_space_get private");
+
+    // Request a Space that does not exist.
+    let (resp_missing, _) = handle_space_get(
+        &backend,
+        &outsider,
+        json!({ "accountId": ACCOUNT_ID, "ids": ["does-not-exist"] }),
+    )
+    .await
+    .expect("handle_space_get nonexistent");
+
+    // Both responses must have empty `list` and a single-entry
+    // `notFound` carrying the requested id. The only difference is
+    // the id string itself — by construction.
+    let list_priv = resp_priv["list"].as_array().expect("list");
+    let list_missing = resp_missing["list"].as_array().expect("list");
+    assert!(list_priv.is_empty() && list_missing.is_empty());
+
+    let nf_priv: Vec<&str> = resp_priv["notFound"]
+        .as_array()
+        .expect("nf")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    let nf_missing: Vec<&str> = resp_missing["notFound"]
+        .as_array()
+        .expect("nf")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(nf_priv, &[SPACE_ID]);
+    assert_eq!(nf_missing, &["does-not-exist"]);
+
+    // No other top-level key should differ — `state` MAY differ if
+    // the test seeded an account state token (it does), so we just
+    // assert the `list` and `notFound` shapes are matched.
+}
+
+/// Oracle: bd:JMAP-v9py.20. The notFound classification does NOT
+/// fire for member callers of a non-previewable Space — they see
+/// the full object. Regression guard for the member-vs-non-member
+/// branch.
+#[tokio::test]
+async fn member_caller_unaffected_by_non_previewable_classification() {
+    let backend = IdentityBackend::new();
+    seed_space(&backend, /* previewable = */ false);
+    let caller = Id::from("member-user");
+
+    let (resp, _) = handle_space_get(
+        &backend,
+        &caller,
+        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+    )
+    .await
+    .expect("handle_space_get");
+
     assert_eq!(
         resp["list"].as_array().map(Vec::len).unwrap_or(0),
         1,
-        "Layer A still returns the Space in list: {resp:?}"
+        "member must see the Space in list: {resp:?}"
     );
+    let not_found = resp["notFound"].as_array().expect("notFound");
     assert!(
-        resp["notFound"]
-            .as_array()
-            .map(Vec::is_empty)
-            .unwrap_or(false),
-        "Layer A leaves notFound empty: {resp:?}"
+        not_found.is_empty(),
+        "member must not see notFound entry: {resp:?}"
     );
-    // The leaked object carries every field — the field trim does
-    // NOT fire for non-previewable Spaces in Layer A.
     let s = resp["list"][0].as_object().expect("space obj");
     assert!(
         s.contains_key("roles"),
-        "roles leaks through for non-previewable non-member (pending .20): {s:?}"
+        "member sees full Space even when non-previewable: {s:?}"
+    );
+}
+
+/// Oracle: bd:JMAP-v9py.20. The notFound classification does NOT
+/// fire for non-member callers of a publicly-previewable Space —
+/// they get the 8-field restricted view. Regression guard for the
+/// previewable-vs-non-previewable branch (bd:JMAP-v9py.4 path
+/// remains intact).
+#[tokio::test]
+async fn non_member_previewable_unaffected_by_classification() {
+    let backend = IdentityBackend::new();
+    seed_space(&backend, /* previewable = */ true);
+    let outsider = Id::from("outsider");
+
+    let (resp, _) = handle_space_get(
+        &backend,
+        &outsider,
+        json!({ "accountId": ACCOUNT_ID, "ids": [SPACE_ID] }),
+    )
+    .await
+    .expect("handle_space_get");
+
+    assert_eq!(
+        resp["list"].as_array().map(Vec::len).unwrap_or(0),
+        1,
+        "non-member sees previewable Space in list: {resp:?}"
+    );
+    let not_found = resp["notFound"].as_array().expect("notFound");
+    assert!(
+        not_found.is_empty(),
+        "non-member of previewable Space sees no notFound entry: {resp:?}"
+    );
+    let s = resp["list"][0].as_object().expect("space obj");
+    assert!(
+        !s.contains_key("roles"),
+        "non-member of previewable Space still gets the restricted view: {s:?}"
     );
 }
 
