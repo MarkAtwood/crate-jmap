@@ -7,7 +7,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "JMAP Chat HTTP client — auth-agnostic, WebSocket and SSE support"
-keywords = ["jmap", "draft-atwood-jmap-chat", "client", "chat"]
+keywords = ["jmap", "draft-atwood-chat", "client", "chat"]
 categories = ["network-programming", "asynchronous", "api-bindings"]
 
 [dependencies]

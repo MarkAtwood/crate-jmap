@@ -7,7 +7,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "JMAP Chat extension method handlers — backend-agnostic, plugs into jmap-server Dispatcher"
-keywords = ["jmap", "draft-atwood-jmap-chat", "server", "chat"]
+keywords = ["jmap", "draft-atwood-chat", "server", "chat"]
 categories = ["network-programming", "web-programming::http-server"]
 
 [features]
