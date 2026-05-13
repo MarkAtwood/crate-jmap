@@ -216,9 +216,22 @@ pub async fn handle_space_get<B: ChatBackend>(
         ),
     };
 
+    // Parse the `properties` request argument per RFC 8620 §5.1. The
+    // reference `MemoryBackend` returns full Space objects regardless;
+    // this handler applies the projection post-hoc (which is also
+    // where the non-member field trim layers on, per
+    // draft-atwood-jmap-chat-00 §Space/get + bd:JMAP-v9py.4).
+    let properties: Option<Vec<String>> = match args.remove("properties").unwrap_or(Value::Null) {
+        Value::Null => None,
+        v => Some(
+            serde_json::from_value(v)
+                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
+        ),
+    };
+
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
-        .get_objects::<Space>(caller, &account_id, ids_slice, None)
+        .get_objects::<Space>(caller, &account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
@@ -227,7 +240,20 @@ pub async fn handle_space_get<B: ChatBackend>(
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
 
-    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
+    // Resolve the caller's identity once for the whole request. The
+    // membership check fires per Space; the per-Space cost is a
+    // linear scan over `members` (small in the reference impl).
+    // When `principal_id` returns `None` the backend has not wired
+    // identity (single-user mode) — treat every Space as if the
+    // caller were a member, which keeps the kit's no-identity
+    // posture intact and preserves prior behavior for existing
+    // single-user tests.
+    let caller_principal: Option<&Id> = B::principal_id(caller);
+
+    let list_json: Vec<Value> = list
+        .iter()
+        .map(|space| project_space_for_caller(space, caller_principal, properties.as_deref()))
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok((
         json!({
@@ -238,6 +264,124 @@ pub async fn handle_space_get<B: ChatBackend>(
         }),
         vec![],
     ))
+}
+
+/// Fields a non-member caller may see on a publicly-previewable Space,
+/// per draft-atwood-jmap-chat-00 §Space/get (bd:JMAP-v9py.4).
+///
+/// The list is exhaustive — any field NOT named here MUST be omitted
+/// from the returned object even when the caller explicitly requests
+/// it via the `/get` `properties` argument. The handler treats the
+/// list as a hard cap, intersected against any `properties` filter.
+const NON_MEMBER_PREVIEWABLE_FIELDS: &[&str] = &[
+    "id",
+    "name",
+    "description",
+    "iconBlobId",
+    "memberCount",
+    "createdAt",
+    "isPublic",
+    "isPubliclyPreviewable",
+];
+
+/// Apply the JMAP `/get` `properties` filter plus the
+/// non-member-previewable field trim to a single Space object before
+/// it lands in the response `list`.
+///
+/// Three cases (draft-atwood-jmap-chat-00 §Space/get +
+/// bd:JMAP-v9py.4):
+///
+/// 1. **Member caller** (the caller's principal id matches a
+///    `members[i].id`) → return the full Space, intersected with
+///    `properties` if specified. No restricted-view trim.
+/// 2. **Anonymous caller** (`principal_id` returned `None`, i.e.
+///    single-user mode where the backend has not wired identity) →
+///    same as the member case. The kit's no-identity posture treats
+///    every caller as fully authorized; multi-user deployments
+///    override `principal_id` to opt out.
+/// 3. **Non-member caller AND `isPubliclyPreviewable: true`** →
+///    return the 8-field restricted view, intersected with
+///    `properties` if specified. Fields outside
+///    [`NON_MEMBER_PREVIEWABLE_FIELDS`] are omitted even when the
+///    caller asked for them.
+/// 4. **Non-member caller AND `isPubliclyPreviewable: false`** →
+///    TODO bd:JMAP-v9py.20. Per draft-atwood-jmap-chat-00
+///    §Space/get the id MUST land in the `notFound` array and the
+///    Space MUST NOT appear in `list` at all. That requires
+///    cooperation between this handler and the prior
+///    `backend.get_objects` call (the kit currently returns the
+///    Space in `list`, not in `not_found`). bd:JMAP-v9py.4 is
+///    Layer A — field-trim-on-previewable only. The full
+///    notFound-classification work is tracked by .20. Until then
+///    the non-previewable non-member case falls through unchanged
+///    (full Space leaks through) — same behavior as before this
+///    bead. This is a known gap, NOT a silent change.
+fn project_space_for_caller(
+    space: &Space,
+    caller_principal: Option<&Id>,
+    properties: Option<&[String]>,
+) -> Result<Value, JmapError> {
+    let full = ser(space)?;
+
+    // Compute the field set the caller is allowed to see.
+    let allowed_fields: Option<Vec<&str>> = match caller_principal {
+        // Anonymous (no-identity mode) — full visibility.
+        None => None,
+        Some(principal) => {
+            let is_member = space
+                .members
+                .iter()
+                .any(|m| m.id.as_ref() == principal.as_ref());
+            if is_member {
+                None
+            } else if space.is_publicly_previewable {
+                // Non-member, but the Space is publicly
+                // previewable. Apply the 8-field restricted view.
+                Some(NON_MEMBER_PREVIEWABLE_FIELDS.to_vec())
+            } else {
+                // TODO bd:JMAP-v9py.20 — non-member callers of a
+                // non-previewable Space MUST receive `notFound`
+                // for the id and the Space MUST NOT appear in
+                // `list`. Implementing that requires lifting the
+                // id out of `list` and into `not_found` after the
+                // backend call, which is a separate change. Until
+                // .20 lands, this branch leaks the full Space to
+                // non-members — known gap, preserves pre-.4
+                // behavior.
+                None
+            }
+        }
+    };
+
+    // Intersect the allowed set with the request `properties`
+    // filter, then apply both. Either filter being `None` means
+    // "no constraint from this layer".
+    let request_filter: Option<&[String]> = properties;
+    match (allowed_fields, request_filter) {
+        (None, None) => Ok(full),
+        (None, Some(props)) => Ok(filter_object_fields(full, |k| props.iter().any(|p| p == k))),
+        (Some(cap), None) => Ok(filter_object_fields(full, |k| cap.contains(&k))),
+        (Some(cap), Some(props)) => Ok(filter_object_fields(full, |k| {
+            cap.contains(&k) && props.iter().any(|p| p == k)
+        })),
+    }
+}
+
+/// Retain only the top-level fields of `value` for which `keep`
+/// returns true. If `value` is not a JSON object, return it
+/// unchanged.
+///
+/// The filter operates on TOP-LEVEL keys only. Nested objects
+/// (e.g. inside `roles[].permissions`) are unaffected. This matches
+/// the RFC 8620 `/get` `properties` semantics and the spec's
+/// restricted-view rule (both reference top-level Space fields).
+fn filter_object_fields<F: Fn(&str) -> bool>(value: Value, keep: F) -> Value {
+    match value {
+        Value::Object(map) => {
+            Value::Object(map.into_iter().filter(|(k, _)| keep(k.as_str())).collect())
+        }
+        other => other,
+    }
 }
 
 // ---------------------------------------------------------------------------
