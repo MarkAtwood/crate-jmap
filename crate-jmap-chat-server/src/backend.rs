@@ -179,6 +179,31 @@ impl ChatLimits {
 }
 
 // ---------------------------------------------------------------------------
+// Custom emoji authorization gate
+// ---------------------------------------------------------------------------
+
+/// Identifies the kind of `CustomEmoji/set` operation being authorized by
+/// [`ChatBackend::may_set_custom_emoji`].
+///
+/// Per draft-atwood-jmap-chat-00 commit `9344aec` (2026-05-11, "refactor:
+/// implementation-defined emoji authorization"), authorization for
+/// `CustomEmoji/set` is fully implementation-defined for both server-global
+/// and Space-scoped emoji. The kit forwards the op kind so the backend can
+/// apply different policies per op (e.g. allow create+update but require
+/// elevated rights for destroy).
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EmojiSetOp {
+    /// `CustomEmoji/set` `create` — a new emoji is being added.
+    Create,
+    /// `CustomEmoji/set` `update` — an existing emoji's mutable fields
+    /// (currently `name` and `blobId`) are being patched.
+    Update,
+    /// `CustomEmoji/set` `destroy` — an existing emoji is being removed.
+    Destroy,
+}
+
+// ---------------------------------------------------------------------------
 // Slow-mode rate-limit gate
 // ---------------------------------------------------------------------------
 
@@ -378,6 +403,75 @@ pub trait ChatBackend: JmapBackend {
         space_id: &jmap_types::Id,
         ops: Vec<SpacePatchOp>,
     ) -> impl std::future::Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
+
+    /// Authorization gate consulted by `handle_emoji_set` before every
+    /// `CustomEmoji/set` create, update, or destroy.
+    ///
+    /// Per draft-atwood-jmap-chat-00 commit `9344aec` (2026-05-11,
+    /// "refactor: implementation-defined emoji authorization"):
+    /// authorization for `CustomEmoji/set` is fully
+    /// implementation-defined, for both server-global and Space-scoped
+    /// emoji. When the caller is not authorized, the handler emits a
+    /// `forbidden` SetError (RFC 8620 §5.3).
+    ///
+    /// # `target_space_id` semantics
+    ///
+    /// `target_space_id` is the **actual scope of the emoji this op
+    /// targets**:
+    ///
+    /// - `None` — the emoji is server-global (its `spaceId` field is
+    ///   absent / null).
+    /// - `Some(id)` — the emoji is scoped to that Space (its `spaceId`
+    ///   field equals `id`).
+    ///
+    /// For `Create`, the handler reads the scope from the create
+    /// payload. For `Update` and `Destroy`, the handler pre-fetches
+    /// the existing emoji via `get_objects` and passes its current
+    /// `spaceId`. If the pre-fetch reports the id as not found, the
+    /// handler skips this gate entirely and lets `update_object` /
+    /// `destroy_object` surface a `notFound` SetError naturally — a
+    /// non-existent target consumes no authorization decision.
+    ///
+    /// # When the handler calls this
+    ///
+    /// Exactly once per create/update/destroy entry in the request,
+    /// AFTER wire-format validation has succeeded and BEFORE the
+    /// corresponding `create_object` / `update_object` /
+    /// `destroy_object` call. On `Ok(false)` the handler maps to a
+    /// `forbidden` SetError and skips the underlying mutation.
+    /// On `Err(e)` the handler maps to a `serverFail` SetError.
+    ///
+    /// # Default implementation
+    ///
+    /// The default returns `Ok(true)` — every op is permitted. This
+    /// matches the workspace's "kit defines the hook; consumer
+    /// enforces the policy" posture (see the parallel design of
+    /// [`Self::slow_mode_check`]). Production backends SHOULD override
+    /// this method to apply the deployment's permission model — e.g.
+    /// "only members of `target_space_id` may modify a Space-scoped
+    /// emoji" or "only `manage_emoji` permission-holders may modify
+    /// server-global emoji."
+    ///
+    /// # Foundation seam
+    ///
+    /// Backends that wish to identify the caller call
+    /// [`jmap_server::JmapBackend::principal_id`] on `caller` and
+    /// compare against the Space's `members` list, ACLs, or whatever
+    /// permission model the deployment uses. Backends whose
+    /// `principal_id` returns `None` (the workspace default, see the
+    /// "Caller identity (foundation seam)" section of the workspace
+    /// `AGENTS.md`) cannot meaningfully implement identity-scoped
+    /// authorization — they should either override `principal_id`
+    /// first or return `Ok(true)` to match the reference posture.
+    fn may_set_custom_emoji(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _target_space_id: Option<&jmap_types::Id>,
+        _op: EmojiSetOp,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        async { Ok(true) }
+    }
 
     /// Throttle gate consulted before a `Message/set` create lands on
     /// the rate-limited path.

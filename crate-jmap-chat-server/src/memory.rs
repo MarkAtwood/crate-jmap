@@ -55,8 +55,8 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits,
-    GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
-    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject,
+    QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
 use jmap_server::{json_merge_patch, now_utc_string};
 use jmap_types::{Id, State};
@@ -826,6 +826,28 @@ impl ChatBackend for MemoryBackend {
         }
 
         Ok(results)
+    }
+
+    /// Reference implementation of [`ChatBackend::may_set_custom_emoji`].
+    ///
+    /// Demonstration-only: returns `Ok(true)` unconditionally. The
+    /// reference backend does not honor identity-scoped permissions
+    /// because `JmapBackend::principal_id(&())` returns `None` for the
+    /// workspace's `CallerCtx = ()` default. A meaningful permission
+    /// model — e.g. "only members of the target Space may modify a
+    /// Space-scoped emoji" — requires the production backend to
+    /// override both `principal_id` and this method.
+    ///
+    /// Spec: draft-atwood-jmap-chat-00 commit `9344aec` (authorization
+    /// for `CustomEmoji/set` is implementation-defined).
+    async fn may_set_custom_emoji(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _target_space_id: Option<&Id>,
+        _op: EmojiSetOp,
+    ) -> Result<bool, Self::Error> {
+        Ok(true)
     }
 
     /// Reference implementation of [`ChatBackend::slow_mode_check`].

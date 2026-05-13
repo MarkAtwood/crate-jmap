@@ -22,9 +22,9 @@
 pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 
 use jmap_chat_server::{
-    BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits, GetObject,
-    JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult, SetObject,
-    SlowModeError, SpacePatchOp,
+    BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits, EmojiSetOp,
+    GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
+    SetObject, SlowModeError, SpacePatchOp,
 };
 use jmap_types::{Id, State, UTCDate};
 
@@ -188,11 +188,16 @@ pub struct TrackingBackend {
     /// `Err(SlowModeError { retry_after: <this> })`. When `None`,
     /// forwards to `inner` (which is a no-op).
     slow_mode_block: Option<UTCDate>,
+    /// When `true`, [`ChatBackend::may_set_custom_emoji`] returns
+    /// `Ok(false)` for every op (Create/Update/Destroy). When `false`,
+    /// forwards to `inner` (which returns `Ok(true)`).
+    emoji_set_deny: bool,
 }
 
 impl TrackingBackend {
     /// Fresh `TrackingBackend` with all policy hooks at their default
-    /// no-op behaviour (slow-mode allows everything).
+    /// no-op behaviour (slow-mode allows everything, emoji-set
+    /// authorization allows everything).
     pub fn new() -> Self {
         Self::default()
     }
@@ -204,6 +209,18 @@ impl TrackingBackend {
         Self {
             inner: MemoryBackend::new(),
             slow_mode_block: Some(retry_after),
+            emoji_set_deny: false,
+        }
+    }
+
+    /// Configure the wrapper so [`ChatBackend::may_set_custom_emoji`]
+    /// returns `Ok(false)` for every op. The wrapped `MemoryBackend`
+    /// is otherwise functional.
+    pub fn with_emoji_set_denied() -> Self {
+        Self {
+            inner: MemoryBackend::new(),
+            slow_mode_block: None,
+            emoji_set_deny: true,
         }
     }
 
@@ -367,6 +384,22 @@ impl ChatBackend for TrackingBackend {
                     .slow_mode_check(caller, account_id, chat_id)
                     .await
             }
+        }
+    }
+
+    async fn may_set_custom_emoji(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        target_space_id: Option<&Id>,
+        op: EmojiSetOp,
+    ) -> Result<bool, Self::Error> {
+        if self.emoji_set_deny {
+            Ok(false)
+        } else {
+            self.inner
+                .may_set_custom_emoji(caller, account_id, target_space_id, op)
+                .await
         }
     }
 

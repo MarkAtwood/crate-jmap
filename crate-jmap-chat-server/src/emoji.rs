@@ -4,7 +4,7 @@ use jmap_chat_types::CustomEmoji;
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, ChatBackend};
+use crate::backend::{BackendSetError, ChatBackend, EmojiSetOp};
 use crate::helpers::{
     extract_account_id, finalize_set_response, not_found_json, now_utc_string, ser,
     set_error_value, SetAccumulators,
@@ -350,6 +350,38 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             let now_str = now_utc_string();
             let now: UTCDate = UTCDate::from(now_str.as_str());
 
+            // Authorization gate (draft-atwood-jmap-chat-00 commit
+            // `9344aec`). Runs AFTER wire-format validation so
+            // malformed creates don't consume an authorization
+            // decision, and BEFORE `create_object` so an unauthorized
+            // emoji never touches storage. The target scope is
+            // whatever spaceId the create payload supplies (None for
+            // server-global).
+            match backend
+                .may_set_custom_emoji(caller, &account_id, space_id.as_ref(), EmojiSetOp::Create)
+                .await
+            {
+                Ok(true) => {}
+                Ok(false) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({
+                            "type": "forbidden",
+                            "description":
+                                "Implementation-defined emoji authorization denied this operation.",
+                        }),
+                    );
+                    continue;
+                }
+                Err(e) => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            }
+
             let mut emoji = CustomEmoji::new(
                 Id::from("placeholder"),
                 name,
@@ -438,6 +470,62 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 continue;
             }
 
+            // Authorization gate (draft-atwood-jmap-chat-00 commit
+            // `9344aec`). Pre-fetch the existing emoji to learn its
+            // `spaceId` (which `target_space_id` carries verbatim into
+            // the gate). If the pre-fetch reports the id as not
+            // found, skip the gate entirely — `update_object` will
+            // surface `notFound` and we don't want to consume an
+            // authorization decision for a non-existent target. A
+            // pre-fetch storage error is surfaced as `serverFail`.
+            let existing_space_id: Option<Option<Id>> = match backend
+                .get_objects::<CustomEmoji>(
+                    caller,
+                    &account_id,
+                    Some(std::slice::from_ref(&id)),
+                    None,
+                )
+                .await
+            {
+                Ok((found, _not_found)) => {
+                    found.first().map(|emoji| emoji.space_id.clone())
+                }
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+            if let Some(scope) = existing_space_id.as_ref() {
+                let scope_ref: Option<&Id> = scope.as_ref();
+                match backend
+                    .may_set_custom_emoji(caller, &account_id, scope_ref, EmojiSetOp::Update)
+                    .await
+                {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "forbidden",
+                                "description":
+                                    "Implementation-defined emoji authorization denied this operation.",
+                            }),
+                        );
+                        continue;
+                    }
+                    Err(e) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                        continue;
+                    }
+                }
+            }
+
             match backend
                 .update_object::<CustomEmoji>(
                     caller,
@@ -499,6 +587,58 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 None => continue, // unreachable: validated above
             };
             let id = Id::from(id_str);
+
+            // Authorization gate (draft-atwood-jmap-chat-00 commit
+            // `9344aec`). Pre-fetch the existing emoji to learn its
+            // `spaceId`. If pre-fetch reports the id as not found,
+            // skip the gate so `destroy_object` can surface
+            // `notFound` naturally. A pre-fetch storage error is
+            // surfaced as `serverFail`.
+            let existing_space_id: Option<Option<Id>> = match backend
+                .get_objects::<CustomEmoji>(
+                    caller,
+                    &account_id,
+                    Some(std::slice::from_ref(&id)),
+                    None,
+                )
+                .await
+            {
+                Ok((found, _not_found)) => found.first().map(|emoji| emoji.space_id.clone()),
+                Err(e) => {
+                    not_destroyed.insert(
+                        id_str.to_owned(),
+                        json!({ "type": "serverFail", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+            if let Some(scope) = existing_space_id.as_ref() {
+                let scope_ref: Option<&Id> = scope.as_ref();
+                match backend
+                    .may_set_custom_emoji(caller, &account_id, scope_ref, EmojiSetOp::Destroy)
+                    .await
+                {
+                    Ok(true) => {}
+                    Ok(false) => {
+                        not_destroyed.insert(
+                            id_str.to_owned(),
+                            json!({
+                                "type": "forbidden",
+                                "description":
+                                    "Implementation-defined emoji authorization denied this operation.",
+                            }),
+                        );
+                        continue;
+                    }
+                    Err(e) => {
+                        not_destroyed.insert(
+                            id_str.to_owned(),
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                        continue;
+                    }
+                }
+            }
 
             match backend
                 .destroy_object::<CustomEmoji>(caller, &account_id, &id)
