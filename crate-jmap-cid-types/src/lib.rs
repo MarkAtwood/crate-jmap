@@ -32,12 +32,23 @@
 //!     └── jmap-cid-types  ← this crate (capability + sha256 type)
 //! ```
 //!
+//! ## Public surface
+//!
+//! - [`Sha256`] — the 64-character lowercase-hex `sha256-value`
+//!   from draft §2, with parse-time ABNF validation on construction
+//!   and on deserialize.
+//! - [`Sha256DigestError`] / [`Sha256DigestErrorKind`] — parse error
+//!   reported by [`Sha256::from_hex`] and the [`Sha256`]
+//!   `Deserialize` impl.
+//!
 //! ## What this crate is not (yet)
 //!
-//! This is the **skeleton** crate created by bd:JMAP-v9py.11. The
-//! `Sha256` typed shape with parse-time 64-hex-char validation,
-//! Blob upload-response wiring, and `supports_cid()` Session
+//! Blob upload-response wiring and the `supports_cid()` Session
 //! advertisement detection are tracked separately as follow-up beads
-//! (bd:JMAP-v9py.12, .13, .14 — see `PLAN.md`).
+//! (bd:JMAP-v9py.13 and bd:JMAP-v9py.14 — see `PLAN.md`).
 
 #![forbid(unsafe_code)]
+
+pub mod digest;
+
+pub use digest::{Sha256, Sha256DigestError, Sha256DigestErrorKind};
