@@ -93,6 +93,14 @@ struct Inner {
     /// Test-only override for [`ChatBackend::retains_edit_history`].
     /// Set via [`MemoryBackend::set_retains_edit_history_for_test`].
     retains_edit_history: bool,
+    /// Test-only override for [`ChatBackend::protect_last_admin`].
+    ///
+    /// Default `false` — opposite the trait default of `true` — so
+    /// existing tests that do not seed admin memberships are not
+    /// broken. Tests that exercise the protection path opt in via
+    /// [`MemoryBackend::set_protect_last_admin_for_test`].
+    /// Production deployments override the trait method instead.
+    protect_last_admin: bool,
 }
 
 impl Inner {
@@ -187,6 +195,60 @@ impl MemoryBackend {
     pub fn set_retains_edit_history_for_test(&self, retain: bool) {
         let mut inner = self.inner.lock().unwrap();
         inner.retains_edit_history = retain;
+    }
+
+    /// Test-only: flip the [`ChatBackend::protect_last_admin`] flag.
+    ///
+    /// Pass `true` to enable last-admin protection on `RemoveMember`
+    /// ops, or `false` to disable. The default is `false`, opposite
+    /// the trait default of `true` — this is intentional: production
+    /// deployments inherit the trait default; the reference backend
+    /// opts out so existing demo tests don't have to seed admin
+    /// memberships. Production callers must not use this method; the
+    /// API stability disclaimer on the `memory` feature applies
+    /// doubly here.
+    ///
+    /// See `bd:JMAP-g7wu.2.4.3` for the design rationale (last-admin
+    /// protection replacing the dropped `Space.ownerId` design).
+    #[doc(hidden)]
+    pub fn set_protect_last_admin_for_test(&self, value: bool) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.protect_last_admin = value;
+    }
+
+    /// Test-only: apply a [`SpacePatchOp`] sequence as if the caller's
+    /// resolved principal id were `caller_id`, bypassing the normal
+    /// `Self::principal_id(caller)` lookup.
+    ///
+    /// Used by integration-test backends whose `CallerCtx` is a
+    /// richer type than `()` and that override
+    /// [`jmap_server::JmapBackend::principal_id`] to expose a real
+    /// caller identity. The wrapped `MemoryBackend`'s
+    /// `CallerCtx = ()` prevents the test backend from driving
+    /// identity through `MemoryBackend`'s own
+    /// [`ChatBackend::apply_space_patch`] surface; this method offers
+    /// a direct entry point that supplies the resolved caller id to
+    /// the per-op enforcement code.
+    ///
+    /// `caller_id == None` produces single-user-mode behavior
+    /// identical to the trait method's default (criterion 7 in
+    /// `bd:JMAP-g7wu.2.4.3`): identity-dependent gates are skipped.
+    /// Production callers must not use this method; the API
+    /// stability disclaimer on the `memory` feature applies doubly
+    /// here.
+    ///
+    /// See `bd:JMAP-g7wu.2.4.3`.
+    #[doc(hidden)]
+    #[allow(clippy::result_large_err)]
+    pub fn apply_space_patch_with_caller_id(
+        &self,
+        caller_id: Option<&Id>,
+        account_id: &Id,
+        space_id: &Id,
+        ops: Vec<SpacePatchOp>,
+    ) -> Result<Vec<OpResult>, BackendSetError<MemoryError>> {
+        let mut inner = self.inner.lock().unwrap();
+        apply_space_patch_impl(&mut inner, caller_id, account_id, space_id, ops)
     }
 
     /// Test-only: override the [`ChatLimits`] returned by
@@ -684,20 +746,52 @@ impl ChatBackend for MemoryBackend {
         inner.limits_override.unwrap_or_default()
     }
 
+    /// Reference implementation of [`ChatBackend::protect_last_admin`].
+    ///
+    /// Returns the test-only override set via
+    /// [`MemoryBackend::set_protect_last_admin_for_test`] when set;
+    /// otherwise returns `false`, **opposite** the trait default of
+    /// `true`. See that method's documentation and `bd:JMAP-g7wu.2.4.3`
+    /// for the rationale: production deployments inherit the trait
+    /// default; the reference backend opts out so existing demo tests
+    /// don't have to seed admin memberships.
+    fn protect_last_admin(&self, _caller: &(), _account_id: &Id) -> bool {
+        let inner = self.inner.lock().unwrap();
+        inner.protect_last_admin
+    }
+
     /// Reference implementation of [`ChatBackend::apply_space_patch`].
     ///
-    /// Dispatches each [`SpacePatchOp`] to a per-variant helper. Currently
-    /// implemented: Category variants (Add/Remove/Update) per
-    /// `bd:JMAP-g7wu.2.4.5` and Channel variants (Add/Remove/Update) per
-    /// `bd:JMAP-g7wu.2.4.4`. Other variants return a `Forbidden` `OpResult`
-    /// whose description names the tracking bead (`.4.3` for Role/Member).
+    /// Dispatches each [`SpacePatchOp`] to a per-variant helper. All
+    /// twelve variants are implemented: Category (bd:JMAP-g7wu.2.4.5),
+    /// Channel (bd:JMAP-g7wu.2.4.4), and Role/Member
+    /// (bd:JMAP-g7wu.2.4.3).
     ///
     /// The entire patch runs under one mutex acquisition, providing
-    /// best-effort transactional semantics for the reference impl: a
-    /// failure mid-way through the op vector does NOT roll back ops that
-    /// already succeeded — they remain applied. Production backends
-    /// should wrap the sequence in a real transaction. This caveat is
-    /// documented on the trait.
+    /// best-effort transactional semantics for the reference impl. A
+    /// failure mid-way through the op vector does NOT roll back ops
+    /// that already succeeded — they remain applied. **Exception:**
+    /// when caller identity is resolvable (`principal_id` returns
+    /// `Some(id)`), the helper runs a pre-validation pass over
+    /// Role/Member ops and rejects the whole patch up-front with a
+    /// single `forbidden` SetError if any op would fail permission or
+    /// role-hierarchy enforcement. This implements criterion 6
+    /// "whole-patch reject on permission failure" from
+    /// `bd:JMAP-g7wu.2.4.3`. Per-op failures with other error types
+    /// (NotFound, InvalidProperties) keep the legacy per-op outcome
+    /// shape. Production backends should wrap the sequence in a real
+    /// transaction.
+    ///
+    /// # Caller identity
+    ///
+    /// MemoryBackend uses `CallerCtx = ()` and inherits the default
+    /// `JmapBackend::principal_id` impl returning `None`, putting it
+    /// in single-user mode (criterion 7): identity-dependent gates
+    /// (permission, hierarchy) are skipped, so every caller may
+    /// apply every Role/Member op. The identity-bearing integration-
+    /// test backend in `tests/common/mod.rs` calls
+    /// [`MemoryBackend::apply_space_patch_with_caller_id`] directly to
+    /// drive identity through the helper.
     ///
     /// # Change-log emission
     ///
@@ -718,129 +812,25 @@ impl ChatBackend for MemoryBackend {
     /// it (bd:JMAP-g7wu.2.4.9 closed the original gap).
     async fn apply_space_patch(
         &self,
-        _caller: &(),
+        caller: &(),
         account_id: &Id,
         space_id: &Id,
         ops: Vec<SpacePatchOp>,
     ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
+        // Resolve caller identity through the foundation seam. With
+        // `CallerCtx = ()` the default returns None and the helper
+        // skips identity-dependent enforcement (criterion 7 of
+        // bd:JMAP-g7wu.2.4.3 — "no-identity mode; not suitable for
+        // multi-user deployments").
+        let caller_id_owned = <Self as JmapBackend>::principal_id(caller).cloned();
         let mut inner = self.inner.lock().unwrap();
-
-        // Confirm the target Space exists before doing any work.
-        if !inner
-            .objects_ref("Space", account_id.as_ref())
-            .is_some_and(|m| m.contains_key(space_id))
-        {
-            return Err(BackendSetError::SetError(SetError::new(
-                SetErrorType::NotFound,
-            )));
-        }
-
-        let mut results = Vec::with_capacity(ops.len());
-        let mut space_mutated = false;
-        let mut chats_created: Vec<Id> = Vec::new();
-        let mut chats_updated: HashSet<Id> = HashSet::new();
-        let mut chats_destroyed: Vec<Id> = Vec::new();
-        let mut messages_destroyed: Vec<Id> = Vec::new();
-
-        for (op_index, op) in ops.into_iter().enumerate() {
-            let outcome =
-                match &op {
-                    SpacePatchOp::AddCategory(_)
-                    | SpacePatchOp::RemoveCategory(_)
-                    | SpacePatchOp::UpdateCategory { .. } => apply_category_op(
-                        &mut inner,
-                        account_id.as_ref(),
-                        space_id,
-                        op,
-                        &mut chats_updated,
-                        &mut space_mutated,
-                    ),
-                    SpacePatchOp::AddChannel(_) => apply_add_channel(
-                        &mut inner,
-                        account_id.as_ref(),
-                        space_id,
-                        op,
-                        &mut chats_created,
-                        &mut space_mutated,
-                    ),
-                    SpacePatchOp::RemoveChannel(_) => apply_remove_channel(
-                        &mut inner,
-                        account_id.as_ref(),
-                        space_id,
-                        op,
-                        &mut chats_destroyed,
-                        &mut messages_destroyed,
-                        &mut space_mutated,
-                    ),
-                    SpacePatchOp::UpdateChannel { .. } => apply_update_channel(
-                        &mut inner,
-                        account_id.as_ref(),
-                        space_id,
-                        op,
-                        &mut chats_updated,
-                        &mut space_mutated,
-                    ),
-                    _ => Err(SetError::new(SetErrorType::Forbidden)
-                        .with_description(stub_description(&op))),
-                };
-            results.push(OpResult { op_index, outcome });
-        }
-
-        // Bump state + log a change entry on the Space if any op mutated it.
-        // We deliberately log one change per call rather than one per op:
-        // the wire response surfaces the whole patch as a single update,
-        // and one change-log entry per call keeps `Space/changes` from
-        // amplifying state-token rotations unnecessarily.
-        if space_mutated {
-            let new_state = inner.bump_state("Space", account_id.as_ref());
-            inner
-                .change_log_mut("Space", account_id.as_ref())
-                .push(ChangeEntry {
-                    new_state,
-                    created: vec![],
-                    updated: vec![space_id.clone()],
-                    destroyed: vec![],
-                });
-        }
-
-        // Same batching rationale: one Chat change-log entry per call,
-        // combining every channel created, updated, and destroyed by
-        // this patch.
-        if !chats_created.is_empty() || !chats_updated.is_empty() || !chats_destroyed.is_empty() {
-            let new_state = inner.bump_state("Chat", account_id.as_ref());
-            // De-dup `updated` against `created` and `destroyed` so a
-            // channel touched by multiple ops in the same patch surfaces
-            // in only the most-impactful list (destroyed > created >
-            // updated). HashSet iteration is non-deterministic; sort the
-            // updated ids so the change-log entry is reproducible.
-            let mut updated: Vec<Id> = chats_updated
-                .into_iter()
-                .filter(|id| !chats_created.contains(id) && !chats_destroyed.contains(id))
-                .collect();
-            updated.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-            inner
-                .change_log_mut("Chat", account_id.as_ref())
-                .push(ChangeEntry {
-                    new_state,
-                    created: chats_created,
-                    updated,
-                    destroyed: chats_destroyed,
-                });
-        }
-
-        if !messages_destroyed.is_empty() {
-            let new_state = inner.bump_state("Message", account_id.as_ref());
-            inner
-                .change_log_mut("Message", account_id.as_ref())
-                .push(ChangeEntry {
-                    new_state,
-                    created: vec![],
-                    updated: vec![],
-                    destroyed: messages_destroyed,
-                });
-        }
-
-        Ok(results)
+        apply_space_patch_impl(
+            &mut inner,
+            caller_id_owned.as_ref(),
+            account_id,
+            space_id,
+            ops,
+        )
     }
 
     /// Reference implementation of [`ChatBackend::retains_edit_history`].
@@ -966,6 +956,193 @@ impl ChatBackend for MemoryBackend {
         }
         Ok(())
     }
+}
+
+/// Apply a [`SpacePatchOp`] sequence to the in-memory Space store.
+///
+/// This is the implementation core shared by
+/// [`ChatBackend::apply_space_patch`] (whose trait method resolves
+/// `caller_id` from `Self::principal_id` and locks the `Inner` mutex
+/// before invoking it) and
+/// [`MemoryBackend::apply_space_patch_with_caller_id`] (the test-only
+/// public entry point that lets an integration-test backend with a
+/// richer `CallerCtx` drive a non-`None` `caller_id`).
+///
+/// `caller_id == None` is single-user mode: identity-dependent
+/// enforcement (permission gating, role-position hierarchy) is
+/// skipped. Identity-independent enforcement (last-admin protection
+/// when `inner.protect_last_admin == true`) still fires.
+///
+/// See `bd:JMAP-g7wu.2.4.3` for the acceptance criteria this
+/// implements (criteria 1, 2, 4, 5, 6, 7).
+#[allow(clippy::result_large_err)]
+fn apply_space_patch_impl(
+    inner: &mut Inner,
+    caller_id: Option<&Id>,
+    account_id: &Id,
+    space_id: &Id,
+    ops: Vec<SpacePatchOp>,
+) -> Result<Vec<OpResult>, BackendSetError<MemoryError>> {
+    // Confirm the target Space exists before doing any work.
+    if !inner
+        .objects_ref("Space", account_id.as_ref())
+        .is_some_and(|m| m.contains_key(space_id))
+    {
+        return Err(BackendSetError::SetError(SetError::new(
+            SetErrorType::NotFound,
+        )));
+    }
+
+    // ---------------------------------------------------------------
+    // Pre-validation: identity-dependent and identity-independent
+    // policy checks that, on failure, reject the WHOLE patch with a
+    // single `forbidden` SetError. Per criterion 6 of
+    // bd:JMAP-g7wu.2.4.3: "if any op in the patch is forbidden, the
+    // WHOLE update for that Space id is rejected."
+    //
+    // Other failure shapes (NotFound on a non-existent role id,
+    // InvalidProperties on a malformed payload) keep the legacy
+    // per-op outcome — those are structural, not policy.
+    // ---------------------------------------------------------------
+    let protect_last_admin = inner.protect_last_admin;
+    // Snapshot the Space for pre-validation reads.
+    let space_snapshot = inner
+        .objects_ref("Space", account_id.as_ref())
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+
+    if let Err(e) = validate_role_member_ops(&space_snapshot, caller_id, &ops, protect_last_admin) {
+        return Err(BackendSetError::SetError(e));
+    }
+
+    let mut results = Vec::with_capacity(ops.len());
+    let mut space_mutated = false;
+    let mut chats_created: Vec<Id> = Vec::new();
+    let mut chats_updated: HashSet<Id> = HashSet::new();
+    let mut chats_destroyed: Vec<Id> = Vec::new();
+    let mut messages_destroyed: Vec<Id> = Vec::new();
+
+    for (op_index, op) in ops.into_iter().enumerate() {
+        let outcome = match &op {
+            SpacePatchOp::AddRole(_) => {
+                apply_add_role(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
+            }
+            SpacePatchOp::RemoveRole(_) => {
+                apply_remove_role(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
+            }
+            SpacePatchOp::UpdateRole { .. } => {
+                apply_update_role(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
+            }
+            SpacePatchOp::AddMember { .. } => {
+                apply_add_member(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
+            }
+            SpacePatchOp::RemoveMember(_) => {
+                apply_remove_member(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
+            }
+            SpacePatchOp::UpdateMember { .. } => {
+                apply_update_member(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
+            }
+            SpacePatchOp::AddCategory(_)
+            | SpacePatchOp::RemoveCategory(_)
+            | SpacePatchOp::UpdateCategory { .. } => apply_category_op(
+                inner,
+                account_id.as_ref(),
+                space_id,
+                op,
+                &mut chats_updated,
+                &mut space_mutated,
+            ),
+            SpacePatchOp::AddChannel(_) => apply_add_channel(
+                inner,
+                account_id.as_ref(),
+                space_id,
+                op,
+                &mut chats_created,
+                &mut space_mutated,
+            ),
+            SpacePatchOp::RemoveChannel(_) => apply_remove_channel(
+                inner,
+                account_id.as_ref(),
+                space_id,
+                op,
+                &mut chats_destroyed,
+                &mut messages_destroyed,
+                &mut space_mutated,
+            ),
+            SpacePatchOp::UpdateChannel { .. } => apply_update_channel(
+                inner,
+                account_id.as_ref(),
+                space_id,
+                op,
+                &mut chats_updated,
+                &mut space_mutated,
+            ),
+            // `SpacePatchOp` is `#[non_exhaustive]` upstream. A
+            // future-added variant cannot be matched at compile time;
+            // fail closed.
+            _ => {
+                Err(SetError::new(SetErrorType::Forbidden).with_description(stub_description(&op)))
+            }
+        };
+        results.push(OpResult { op_index, outcome });
+    }
+
+    // Bump state + log a change entry on the Space if any op mutated it.
+    // We deliberately log one change per call rather than one per op:
+    // the wire response surfaces the whole patch as a single update,
+    // and one change-log entry per call keeps `Space/changes` from
+    // amplifying state-token rotations unnecessarily.
+    if space_mutated {
+        let new_state = inner.bump_state("Space", account_id.as_ref());
+        inner
+            .change_log_mut("Space", account_id.as_ref())
+            .push(ChangeEntry {
+                new_state,
+                created: vec![],
+                updated: vec![space_id.clone()],
+                destroyed: vec![],
+            });
+    }
+
+    // Same batching rationale: one Chat change-log entry per call,
+    // combining every channel created, updated, and destroyed by
+    // this patch.
+    if !chats_created.is_empty() || !chats_updated.is_empty() || !chats_destroyed.is_empty() {
+        let new_state = inner.bump_state("Chat", account_id.as_ref());
+        // De-dup `updated` against `created` and `destroyed` so a
+        // channel touched by multiple ops in the same patch surfaces
+        // in only the most-impactful list (destroyed > created >
+        // updated). HashSet iteration is non-deterministic; sort the
+        // updated ids so the change-log entry is reproducible.
+        let mut updated: Vec<Id> = chats_updated
+            .into_iter()
+            .filter(|id| !chats_created.contains(id) && !chats_destroyed.contains(id))
+            .collect();
+        updated.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        inner
+            .change_log_mut("Chat", account_id.as_ref())
+            .push(ChangeEntry {
+                new_state,
+                created: chats_created,
+                updated,
+                destroyed: chats_destroyed,
+            });
+    }
+
+    if !messages_destroyed.is_empty() {
+        let new_state = inner.bump_state("Message", account_id.as_ref());
+        inner
+            .change_log_mut("Message", account_id.as_ref())
+            .push(ChangeEntry {
+                new_state,
+                created: vec![],
+                updated: vec![],
+                destroyed: messages_destroyed,
+            });
+    }
+
+    Ok(results)
 }
 
 /// Apply one Category-family [`SpacePatchOp`] to the in-memory Space.
@@ -1765,6 +1942,783 @@ fn apply_update_channel(
     Ok(None)
 }
 
+// ===========================================================================
+// Role + Member variant helpers (bd:JMAP-g7wu.2.4.3)
+// ===========================================================================
+
+/// Apply `SpacePatchOp::AddRole`: assign a fresh `RoleId`, push the role
+/// into `space.roles`. Permission and role-position hierarchy
+/// enforcement happens in [`validate_role_member_ops`] before this
+/// helper runs.
+#[allow(clippy::result_large_err)]
+fn apply_add_role(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    let role = match op {
+        SpacePatchOp::AddRole(r) => r,
+        _ => unreachable!("apply_add_role called with non-AddRole variant"),
+    };
+
+    // Server-assign a fresh RoleId. The wire payload's `id` field is
+    // a client-supplied placeholder per `SpacePatchOp::AddRole` doc
+    // comment; we overwrite it before storage.
+    let new_id = MemoryBackend::next_id(inner, "Role", account_id);
+    let mut role = role;
+    role.id = new_id.clone();
+
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+    let roles = space_val
+        .get_mut("roles")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| {
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("internal: Space.roles not an array")
+        })?;
+
+    roles.push(serde_json::to_value(&role).map_err(|e| {
+        SetError::new(SetErrorType::Forbidden)
+            .with_description(format!("internal: serialize SpaceRole: {e}"))
+    })?);
+
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+    *space_mutated = true;
+    Ok(Some(new_id))
+}
+
+/// Apply `SpacePatchOp::RemoveRole`: remove the named role and cascade-
+/// demote any members whose only remaining role would be the removed
+/// one (draft-atwood-jmap-chat-00 §Space/set line 1099). Permission
+/// and hierarchy checks happen in [`validate_role_member_ops`].
+#[allow(clippy::result_large_err)]
+fn apply_remove_role(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    let target_id = match op {
+        SpacePatchOp::RemoveRole(id) => id,
+        _ => unreachable!("apply_remove_role called with non-RemoveRole variant"),
+    };
+
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+    let roles = space_val
+        .get_mut("roles")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| {
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("internal: Space.roles not an array")
+        })?;
+    let pos = roles
+        .iter()
+        .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(target_id.as_ref()));
+    let Some(pos) = pos else {
+        return Err(SetError::new(SetErrorType::NotFound)
+            .with_description(format!("role {} not found", target_id.as_ref())));
+    };
+    roles.remove(pos);
+
+    // Cascade: members holding the removed role have it stripped from
+    // their `roleIds`. Members whose only role was the removed one
+    // are left with an empty `roleIds`, which is the `@everyone`-only
+    // state (draft-atwood-jmap-chat-00 §Space/set line 1099 + the
+    // conventional empty-role-ids representation).
+    if let Some(members) = space_val.get_mut("members").and_then(|v| v.as_array_mut()) {
+        for member in members.iter_mut() {
+            if let Some(role_ids) = member.get_mut("roleIds").and_then(|v| v.as_array_mut()) {
+                role_ids.retain(|v| v.as_str() != Some(target_id.as_ref()));
+            }
+        }
+    }
+
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+    *space_mutated = true;
+    Ok(None)
+}
+
+/// Apply `SpacePatchOp::UpdateRole`: apply the [`RolePatch`] to the
+/// named role. Permission and hierarchy checks happen in
+/// [`validate_role_member_ops`].
+#[allow(clippy::result_large_err)]
+fn apply_update_role(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    use jmap_chat_types::clearable::Clearable;
+    use jmap_chat_types::space::SpaceRole;
+
+    let (target_id, patch) = match op {
+        SpacePatchOp::UpdateRole { id, patch } => (id, patch),
+        _ => unreachable!("apply_update_role called with non-UpdateRole variant"),
+    };
+
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+    let roles = space_val
+        .get_mut("roles")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| {
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("internal: Space.roles not an array")
+        })?;
+    let pos = roles
+        .iter()
+        .position(|v| v.get("id").and_then(|s| s.as_str()) == Some(target_id.as_ref()));
+    let Some(pos) = pos else {
+        return Err(SetError::new(SetErrorType::NotFound)
+            .with_description(format!("role {} not found", target_id.as_ref())));
+    };
+
+    // Deserialize, apply patch, re-serialize. The `#[non_exhaustive]`
+    // attribute on `SpaceRole` makes the struct-expression update
+    // syntax illegal, so the in-place mutation pattern is required.
+    let mut role: SpaceRole = serde_json::from_value(roles[pos].clone()).map_err(|e| {
+        SetError::new(SetErrorType::Forbidden)
+            .with_description(format!("internal: deserialize SpaceRole: {e}"))
+    })?;
+    if let Some(name) = patch.name {
+        role.name = name;
+    }
+    match patch.color {
+        Some(Clearable::Set(c)) => role.color = Some(c),
+        Some(Clearable::Clear) => role.color = None,
+        None => {}
+    }
+    if let Some(permissions) = patch.permissions {
+        role.permissions = permissions;
+    }
+    if let Some(position) = patch.position {
+        role.position = position;
+    }
+    roles[pos] = serde_json::to_value(&role).map_err(|e| {
+        SetError::new(SetErrorType::Forbidden)
+            .with_description(format!("internal: serialize SpaceRole: {e}"))
+    })?;
+
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+    *space_mutated = true;
+    Ok(None)
+}
+
+/// Apply `SpacePatchOp::AddMember`: push a new `SpaceMember` into the
+/// Space's `members` array and bump `memberCount`. Permission and
+/// hierarchy checks (and existence checks on each role id) happen in
+/// [`validate_role_member_ops`].
+#[allow(clippy::result_large_err)]
+fn apply_add_member(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    let (user_id, role_ids) = match op {
+        SpacePatchOp::AddMember { user_id, role_ids } => (user_id, role_ids),
+        _ => unreachable!("apply_add_member called with non-AddMember variant"),
+    };
+
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+    // Reject if already a member: duplicate-add is an
+    // invalidProperties error against the wire-level userId field.
+    if space_val
+        .get("members")
+        .and_then(|v| v.as_array())
+        .is_some_and(|members| {
+            members
+                .iter()
+                .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(user_id.as_ref()))
+        })
+    {
+        return Err(SetError::new(SetErrorType::InvalidProperties)
+            .with_properties(vec!["userId".to_owned()])
+            .with_description(format!(
+                "member {} is already a member of this Space",
+                user_id.as_ref()
+            )));
+    }
+
+    // Validate every role_id refers to an existing SpaceRole on this
+    // Space. A nonexistent role_id would create a dangling
+    // reference; reject as InvalidProperties on `roleIds`.
+    if !role_ids.is_empty() {
+        let existing: HashSet<String> = space_val
+            .get("roles")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        for rid in &role_ids {
+            if !existing.contains(rid.as_ref()) {
+                return Err(SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(vec!["roleIds".to_owned()])
+                    .with_description(format!(
+                        "role {} does not exist in this Space",
+                        rid.as_ref()
+                    )));
+            }
+        }
+    }
+
+    // Build the wire-shape member object directly. `SpaceMember` is
+    // `#[non_exhaustive]`, so the struct-expression construction is
+    // illegal; serializing a freshly-built JSON Map sidesteps that.
+    let mut member_obj = serde_json::Map::new();
+    member_obj.insert(
+        "id".to_owned(),
+        serde_json::Value::String(user_id.as_ref().to_owned()),
+    );
+    member_obj.insert(
+        "roleIds".to_owned(),
+        serde_json::Value::Array(
+            role_ids
+                .iter()
+                .map(|id| serde_json::Value::String(id.as_ref().to_owned()))
+                .collect(),
+        ),
+    );
+    member_obj.insert(
+        "joinedAt".to_owned(),
+        serde_json::Value::String(now_utc_string()),
+    );
+
+    let members = space_val
+        .get_mut("members")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| {
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("internal: Space.members not an array")
+        })?;
+    members.push(serde_json::Value::Object(member_obj));
+
+    // Keep `memberCount` consistent with `members.len()`. The field
+    // is required on Space (draft §4.11) and clients rely on it for
+    // UI counts.
+    let new_count = members.len() as u64;
+    if let Some(count_field) = space_val.get_mut("memberCount") {
+        *count_field = serde_json::Value::from(new_count);
+    }
+
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+    *space_mutated = true;
+    Ok(None)
+}
+
+/// Apply `SpacePatchOp::RemoveMember`: remove the named member and
+/// decrement `memberCount`. Permission and last-admin-protection
+/// checks happen in [`validate_role_member_ops`].
+#[allow(clippy::result_large_err)]
+fn apply_remove_member(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    let target_id = match op {
+        SpacePatchOp::RemoveMember(id) => id,
+        _ => unreachable!("apply_remove_member called with non-RemoveMember variant"),
+    };
+
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+    let members = space_val
+        .get_mut("members")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| {
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("internal: Space.members not an array")
+        })?;
+
+    let pos = members
+        .iter()
+        .position(|m| m.get("id").and_then(|v| v.as_str()) == Some(target_id.as_ref()));
+    let Some(pos) = pos else {
+        return Err(SetError::new(SetErrorType::NotFound)
+            .with_description(format!("member {} not found", target_id.as_ref())));
+    };
+    members.remove(pos);
+
+    // Keep `memberCount` consistent with `members.len()`.
+    let new_count = members.len() as u64;
+    if let Some(count_field) = space_val.get_mut("memberCount") {
+        *count_field = serde_json::Value::from(new_count);
+    }
+
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+    *space_mutated = true;
+    Ok(None)
+}
+
+/// Apply `SpacePatchOp::UpdateMember`: apply the [`MemberPatch`] to
+/// the named member. Permission and hierarchy checks happen in
+/// [`validate_role_member_ops`].
+#[allow(clippy::result_large_err)]
+fn apply_update_member(
+    inner: &mut Inner,
+    account_id: &str,
+    space_id: &Id,
+    op: SpacePatchOp,
+    space_mutated: &mut bool,
+) -> Result<Option<Id>, SetError> {
+    use jmap_chat_types::clearable::Clearable;
+
+    let (user_id, patch) = match op {
+        SpacePatchOp::UpdateMember { user_id, patch } => (user_id, patch),
+        _ => unreachable!("apply_update_member called with non-UpdateMember variant"),
+    };
+
+    let mut space_val = inner
+        .objects_ref("Space", account_id)
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| SetError::new(SetErrorType::NotFound))?;
+
+    // Validate any new role ids referenced in the patch before mutating.
+    if let Some(role_ids) = &patch.role_ids {
+        let existing: HashSet<String> = space_val
+            .get("roles")
+            .and_then(|v| v.as_array())
+            .map(|arr| {
+                arr.iter()
+                    .filter_map(|r| r.get("id").and_then(|v| v.as_str()).map(str::to_owned))
+                    .collect()
+            })
+            .unwrap_or_default();
+        for rid in role_ids {
+            if !existing.contains(rid.as_ref()) {
+                return Err(SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(vec!["roleIds".to_owned()])
+                    .with_description(format!(
+                        "role {} does not exist in this Space",
+                        rid.as_ref()
+                    )));
+            }
+        }
+    }
+
+    let members = space_val
+        .get_mut("members")
+        .and_then(|v| v.as_array_mut())
+        .ok_or_else(|| {
+            SetError::new(SetErrorType::Forbidden)
+                .with_description("internal: Space.members not an array")
+        })?;
+
+    let pos = members
+        .iter()
+        .position(|m| m.get("id").and_then(|v| v.as_str()) == Some(user_id.as_ref()));
+    let Some(pos) = pos else {
+        return Err(SetError::new(SetErrorType::NotFound)
+            .with_description(format!("member {} not found", user_id.as_ref())));
+    };
+
+    // Apply the patch in place on the wire-shape JSON object. The
+    // `SpaceMember` type is `#[non_exhaustive]`, so direct
+    // struct-expression update is illegal; in-place edits on the
+    // JSON map preserve unknown fields (extras-preservation policy).
+    let member_obj = members[pos].as_object_mut().ok_or_else(|| {
+        SetError::new(SetErrorType::Forbidden)
+            .with_description("internal: SpaceMember not a JSON object")
+    })?;
+    if let Some(role_ids) = patch.role_ids {
+        member_obj.insert(
+            "roleIds".to_owned(),
+            serde_json::Value::Array(
+                role_ids
+                    .iter()
+                    .map(|id| serde_json::Value::String(id.as_ref().to_owned()))
+                    .collect(),
+            ),
+        );
+    }
+    match patch.nick {
+        Some(Clearable::Set(s)) => {
+            member_obj.insert("nick".to_owned(), serde_json::Value::String(s));
+        }
+        Some(Clearable::Clear) => {
+            member_obj.remove("nick");
+        }
+        None => {}
+    }
+
+    inner
+        .objects_mut("Space", account_id)
+        .insert(space_id.clone(), space_val);
+    *space_mutated = true;
+    Ok(None)
+}
+
+// ---------------------------------------------------------------------------
+// Permission / hierarchy / last-admin pre-validation helpers
+// (bd:JMAP-g7wu.2.4.3 criteria 1, 2, 3-replacement, 6, 7)
+// ---------------------------------------------------------------------------
+
+/// Pre-validate Role/Member ops in the patch.
+///
+/// Walks the patch's Role/Member ops and applies:
+///
+/// - **Permission gating** (criterion 1): the caller's effective
+///   permissions must be a superset of [`required_permissions_for_op`]'s
+///   return value for each op.
+/// - **Role-position hierarchy** (criterion 2): the caller may only
+///   add or modify roles whose `position` is strictly less than their
+///   own highest-position role (draft §Space/set lines 1096, 1102).
+///   Cross-cuts AddRole, UpdateRole, AddMember (when `role_ids` is
+///   non-empty), and UpdateMember (when `patch.role_ids` is set).
+/// - **Last-admin protection** (criterion 3 replacement): when
+///   `protect_last_admin` is true, the patch's `RemoveMember` ops in
+///   aggregate must not leave the Space with zero members holding
+///   either `manage_members` or `manage_space`.
+///
+/// Returns `Ok(())` if the patch passes all checks. Returns
+/// `Err(SetError)` on the FIRST failure encountered — this is the
+/// whole-patch reject of criterion 6.
+///
+/// Single-user mode (`caller_id == None`, criterion 7) skips the
+/// identity-dependent checks (permission gating, hierarchy). The
+/// last-admin-protection check is identity-independent and still
+/// fires when its config flag is on.
+#[allow(clippy::result_large_err)]
+fn validate_role_member_ops(
+    space_val: &serde_json::Value,
+    caller_id: Option<&Id>,
+    ops: &[SpacePatchOp],
+    protect_last_admin: bool,
+) -> Result<(), SetError> {
+    use crate::permissions::{required_permissions_for_op, MANAGE_MEMBERS, MANAGE_SPACE};
+
+    // Identity-dependent checks: permission gating + hierarchy.
+    if let Some(caller_id) = caller_id {
+        let caller_perms = caller_effective_permissions(space_val, caller_id).unwrap_or_default();
+        let caller_highest = caller_highest_position(space_val, caller_id).unwrap_or(0);
+
+        for op in ops {
+            // Only Role/Member ops are pre-validated here. Channel
+            // and Category permission gating is deferred to a future
+            // bead (out of scope for bd:JMAP-g7wu.2.4.3).
+            let is_role_member = matches!(
+                op,
+                SpacePatchOp::AddRole(_)
+                    | SpacePatchOp::RemoveRole(_)
+                    | SpacePatchOp::UpdateRole { .. }
+                    | SpacePatchOp::AddMember { .. }
+                    | SpacePatchOp::RemoveMember(_)
+                    | SpacePatchOp::UpdateMember { .. }
+            );
+            if !is_role_member {
+                continue;
+            }
+
+            // Permission gate (criterion 1).
+            let required = required_permissions_for_op(op);
+            for req in required {
+                if !caller_perms.contains(*req) {
+                    return Err(
+                        SetError::new(SetErrorType::Forbidden).with_description(format!(
+                            "caller lacks required permission `{}` for {}",
+                            req,
+                            variant_name(op)
+                        )),
+                    );
+                }
+            }
+
+            // Hierarchy gate (criterion 2). Only applies to ops that
+            // grant or modify role placements:
+            //   - AddRole: the new role's position must be < caller's
+            //     highest.
+            //   - UpdateRole: both the existing role's position AND
+            //     the new position (if patch.position is set) must
+            //     be < caller's highest.
+            //   - AddMember (when role_ids is non-empty): every
+            //     role_id's position must be < caller's highest.
+            //   - UpdateMember (when patch.role_ids is set): every
+            //     role_id's position must be < caller's highest.
+            //   - RemoveMember: no hierarchy check (removing a
+            //     member doesn't reshape roles).
+            //   - RemoveRole: the existing role's position must be <
+            //     caller's highest.
+            match op {
+                SpacePatchOp::AddRole(role) if role.position >= caller_highest => {
+                    return Err(hierarchy_error(role.position, caller_highest, "AddRole"));
+                }
+                SpacePatchOp::RemoveRole(target_id) => {
+                    if let Some(pos) = role_position(space_val, target_id.as_ref()) {
+                        if pos >= caller_highest {
+                            return Err(hierarchy_error(pos, caller_highest, "RemoveRole"));
+                        }
+                    }
+                    // Nonexistent role id is a per-op NotFound, not
+                    // a permission failure — leave for the apply
+                    // pass.
+                }
+                SpacePatchOp::UpdateRole { id, patch } => {
+                    if let Some(pos) = role_position(space_val, id.as_ref()) {
+                        if pos >= caller_highest {
+                            return Err(hierarchy_error(pos, caller_highest, "UpdateRole"));
+                        }
+                    }
+                    if let Some(new_pos) = patch.position {
+                        if new_pos >= caller_highest {
+                            return Err(hierarchy_error(
+                                new_pos,
+                                caller_highest,
+                                "UpdateRole (new position)",
+                            ));
+                        }
+                    }
+                }
+                SpacePatchOp::AddMember { role_ids, .. } => {
+                    for rid in role_ids {
+                        if let Some(pos) = role_position(space_val, rid.as_ref()) {
+                            if pos >= caller_highest {
+                                return Err(hierarchy_error(pos, caller_highest, "AddMember"));
+                            }
+                        }
+                        // Nonexistent role id surfaces in apply pass
+                        // as InvalidProperties.
+                    }
+                }
+                SpacePatchOp::UpdateMember { patch, .. } => {
+                    if let Some(role_ids) = &patch.role_ids {
+                        for rid in role_ids {
+                            if let Some(pos) = role_position(space_val, rid.as_ref()) {
+                                if pos >= caller_highest {
+                                    return Err(hierarchy_error(
+                                        pos,
+                                        caller_highest,
+                                        "UpdateMember",
+                                    ));
+                                }
+                            }
+                        }
+                    }
+                }
+                SpacePatchOp::RemoveMember(_) => {
+                    // No hierarchy check on member removal.
+                }
+                _ => {}
+            }
+        }
+    }
+
+    // Identity-independent check: last-admin protection (criterion 3
+    // replacement). Fires regardless of caller_id when the config
+    // flag is on.
+    if protect_last_admin {
+        // Set of user_ids the patch will remove.
+        let mut to_remove: HashSet<String> = HashSet::new();
+        for op in ops {
+            if let SpacePatchOp::RemoveMember(id) = op {
+                to_remove.insert(id.as_ref().to_owned());
+            }
+        }
+        if !to_remove.is_empty() {
+            // Project the post-patch admin count. An admin is a
+            // member whose effective permissions include
+            // `manage_members` or `manage_space`.
+            //
+            // Limitation: this projection does NOT model UpdateMember
+            // ops that strip admin role_ids, nor RemoveRole ops that
+            // remove a role granting admin perms. Those are valid
+            // ways to demote admins. Modeling them would require a
+            // more elaborate simulation. For bd:JMAP-g7wu.2.4.3 the
+            // RemoveMember-only projection is the scoped behavior;
+            // production backends with stricter requirements can
+            // override [`ChatBackend::apply_space_patch`].
+            let members = space_val
+                .get("members")
+                .and_then(|v| v.as_array())
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let mut admin_remaining: usize = 0;
+            for m in members {
+                let Some(mid) = m.get("id").and_then(|v| v.as_str()) else {
+                    continue;
+                };
+                if to_remove.contains(mid) {
+                    continue;
+                }
+                // Resolve this member's effective permissions.
+                let perms = member_effective_permissions(space_val, mid).unwrap_or_default();
+                if perms.contains(MANAGE_MEMBERS) || perms.contains(MANAGE_SPACE) {
+                    admin_remaining += 1;
+                    break; // one is enough
+                }
+            }
+            if admin_remaining == 0 {
+                return Err(SetError::new(SetErrorType::Forbidden).with_description(
+                    "removing these members would leave the Space with no \
+                     `manage_members`/`manage_space` holder (last-admin protection)",
+                ));
+            }
+        }
+    }
+
+    Ok(())
+}
+
+/// Construct the standard "role position not strictly less than
+/// caller's highest" SetError. Used by [`validate_role_member_ops`].
+#[allow(clippy::result_large_err)]
+fn hierarchy_error(target_pos: u64, caller_highest: u64, op_label: &str) -> SetError {
+    SetError::new(SetErrorType::Forbidden).with_description(format!(
+        "{op_label}: target role position {target_pos} is not strictly less than \
+         caller's highest role position {caller_highest} (role-position hierarchy, \
+         draft §Space/set lines 1096, 1102)"
+    ))
+}
+
+/// Resolve the caller's effective permission set within `space_val`.
+///
+/// Returns the union of `permissions` across every `SpaceRole`
+/// referenced by the caller's `members[i].role_ids`. The reference
+/// impl treats `@everyone` as having an empty (implementation-
+/// defined) permission floor; production deployments override this
+/// behavior via their own backend.
+///
+/// Returns `None` if the caller is not a member of the Space.
+fn caller_effective_permissions(
+    space_val: &serde_json::Value,
+    caller_id: &Id,
+) -> Option<HashSet<String>> {
+    member_effective_permissions(space_val, caller_id.as_ref())
+}
+
+/// Resolve `member_id`'s effective permission set within `space_val`.
+/// Same semantics as [`caller_effective_permissions`] but keyed on a
+/// raw string id (used by the last-admin-protection scan).
+fn member_effective_permissions(
+    space_val: &serde_json::Value,
+    member_id: &str,
+) -> Option<HashSet<String>> {
+    let members = space_val.get("members").and_then(|v| v.as_array())?;
+    let member = members
+        .iter()
+        .find(|m| m.get("id").and_then(|v| v.as_str()) == Some(member_id))?;
+    let role_ids: HashSet<String> = member
+        .get("roleIds")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut perms: HashSet<String> = HashSet::new();
+    if let Some(roles) = space_val.get("roles").and_then(|v| v.as_array()) {
+        for role in roles {
+            let Some(rid) = role.get("id").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            if !role_ids.contains(rid) {
+                continue;
+            }
+            if let Some(role_perms) = role.get("permissions").and_then(|v| v.as_array()) {
+                for p in role_perms {
+                    if let Some(s) = p.as_str() {
+                        perms.insert(s.to_owned());
+                    }
+                }
+            }
+        }
+    }
+    Some(perms)
+}
+
+/// Resolve the caller's highest role `position` within `space_val`.
+///
+/// Returns `Some(max position)` if the caller is a member; the value
+/// is at least 0 (a member with no explicit roles implicitly holds
+/// `@everyone` at position 0). Returns `None` if the caller is not
+/// a member of the Space.
+fn caller_highest_position(space_val: &serde_json::Value, caller_id: &Id) -> Option<u64> {
+    let members = space_val.get("members").and_then(|v| v.as_array())?;
+    let member = members
+        .iter()
+        .find(|m| m.get("id").and_then(|v| v.as_str()) == Some(caller_id.as_ref()))?;
+    let role_ids: HashSet<String> = member
+        .get("roleIds")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut max: u64 = 0;
+    if let Some(roles) = space_val.get("roles").and_then(|v| v.as_array()) {
+        for role in roles {
+            let Some(rid) = role.get("id").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            if !role_ids.contains(rid) {
+                continue;
+            }
+            let Some(pos) = role.get("position").and_then(|v| v.as_u64()) else {
+                continue;
+            };
+            if pos > max {
+                max = pos;
+            }
+        }
+    }
+    Some(max)
+}
+
+/// Look up an existing role's `position` by id.
+fn role_position(space_val: &serde_json::Value, role_id: &str) -> Option<u64> {
+    let roles = space_val.get("roles").and_then(|v| v.as_array())?;
+    roles
+        .iter()
+        .find(|r| r.get("id").and_then(|v| v.as_str()) == Some(role_id))
+        .and_then(|r| r.get("position").and_then(|v| v.as_u64()))
+}
+
 /// Return every Message id whose `chatId` field equals `chat_id`.
 fn scan_messages_in_chat(inner: &Inner, account_id: &str, chat_id: &Id) -> Vec<Id> {
     let Some(msgs) = inner.objects_ref("Message", account_id) else {
@@ -1829,25 +2783,18 @@ fn set_channel_category(inner: &mut Inner, account_id: &str, chat_id: &Id, new_c
     }
 }
 
-/// Per-variant rejection text for the stubbed-out variants
-/// (Role/Member → `bd:JMAP-g7wu.2.4.3`). Channel variants are
-/// implemented (`bd:JMAP-g7wu.2.4.4`) and never reach this helper;
-/// Category variants are likewise implemented (`bd:JMAP-g7wu.2.4.5`).
+/// Per-variant rejection text for the `#[non_exhaustive]`
+/// future-variant catch-all in `apply_space_patch_impl`.
+///
+/// As of `bd:JMAP-g7wu.2.4.3` all twelve known `SpacePatchOp`
+/// variants (Role/Member/Channel/Category) are routed to dedicated
+/// `apply_*` helpers and never reach this stub. Only an
+/// `#[non_exhaustive]`-added future variant — visible after a
+/// `jmap-chat-types` upgrade but before the corresponding handler
+/// lands here — would fall through.
 fn stub_description(op: &SpacePatchOp) -> String {
-    let (variant, bead) = match op {
-        SpacePatchOp::AddRole(_)
-        | SpacePatchOp::RemoveRole(_)
-        | SpacePatchOp::UpdateRole { .. }
-        | SpacePatchOp::AddMember { .. }
-        | SpacePatchOp::RemoveMember(_)
-        | SpacePatchOp::UpdateMember { .. } => (variant_name(op), "JMAP-g7wu.2.4.3"),
-        // `SpacePatchOp` is `#[non_exhaustive]` upstream; fall back
-        // gracefully. Channel and Category variants are routed to
-        // dedicated apply_* helpers in apply_space_patch and never reach
-        // this stub.
-        _ => ("unknown", "JMAP-g7wu.2.4"),
-    };
-    format!("{variant} not yet implemented (tracked under bd:{bead})")
+    let _ = op;
+    "unknown SpacePatchOp variant (tracked under bd:JMAP-g7wu.2.4)".to_owned()
 }
 
 fn variant_name(op: &SpacePatchOp) -> &'static str {

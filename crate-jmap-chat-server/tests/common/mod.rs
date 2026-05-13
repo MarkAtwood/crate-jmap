@@ -449,3 +449,246 @@ impl ChatBackend for TrackingBackend {
             .await
     }
 }
+
+// ---------------------------------------------------------------------------
+// IdentityBackend — MemoryBackend wrapper exposing a resolvable caller id
+// ---------------------------------------------------------------------------
+
+/// A test backend with `CallerCtx = Id` that overrides
+/// [`JmapBackend::principal_id`] to return the caller verbatim.
+///
+/// The reference `MemoryBackend` uses `CallerCtx = ()` and inherits
+/// the default `principal_id` impl returning `None` — single-user
+/// mode. That posture is correct for the kit's "no identity wired"
+/// stance but it means identity-dependent enforcement in
+/// [`ChatBackend::apply_space_patch`] (permission gating, role-
+/// hierarchy enforcement, last-admin protection) cannot be exercised
+/// against `MemoryBackend` directly. `IdentityBackend` is the
+/// integration-test backend that closes that gap.
+///
+/// The wrapper forwards every other `ChatBackend` / `JmapBackend`
+/// method to the inner `MemoryBackend` with `&()` (the inner backend
+/// remains `CallerCtx = ()`). Only `apply_space_patch` is rerouted
+/// through [`MemoryBackend::apply_space_patch_with_caller_id`] so the
+/// resolved caller id flows into the enforcement helpers.
+///
+/// Per the workspace AGENTS.md "Caller identity (foundation seam)"
+/// section: "Backends that honor identity-dependent semantics MUST
+/// override this method." `IdentityBackend` is the chat-server's
+/// first such backend (test-only); production deployments will write
+/// their own. See `bd:JMAP-g7wu.2.4.3`.
+#[derive(Clone, Default)]
+pub struct IdentityBackend {
+    inner: MemoryBackend,
+}
+
+impl IdentityBackend {
+    /// Fresh `IdentityBackend` wrapping an empty `MemoryBackend`.
+    pub fn new() -> Self {
+        Self {
+            inner: MemoryBackend::new(),
+        }
+    }
+
+    /// Borrow the wrapped `MemoryBackend` for test seeding (e.g.
+    /// `register_account`, `insert_object_for_test`,
+    /// `set_protect_last_admin_for_test`).
+    pub fn inner(&self) -> &MemoryBackend {
+        &self.inner
+    }
+}
+
+impl JmapBackend for IdentityBackend {
+    type Error = MemoryError;
+    type CallerCtx = Id;
+
+    fn principal_id(caller: &Self::CallerCtx) -> Option<&Id> {
+        Some(caller)
+    }
+
+    async fn account_exists(&self, _caller: &Id, account_id: &Id) -> Result<bool, Self::Error> {
+        self.inner.account_exists(&(), account_id).await
+    }
+
+    async fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        properties: Option<&[String]>,
+    ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+        self.inner
+            .get_objects::<O>(&(), account_id, ids, properties)
+            .await
+    }
+
+    async fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+    ) -> Result<State, Self::Error> {
+        self.inner.get_state::<O>(&(), account_id).await
+    }
+
+    async fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        self.inner
+            .get_changes::<O>(&(), account_id, since_state, max_changes)
+            .await
+    }
+
+    async fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        limit: Option<u64>,
+        position: i64,
+    ) -> Result<QueryResult, Self::Error> {
+        self.inner
+            .query_objects::<O>(&(), account_id, filter, sort, limit, position)
+            .await
+    }
+
+    async fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        since_query_state: &State,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        max_changes: Option<u64>,
+        up_to_id: Option<&Id>,
+        collapse_threads: bool,
+    ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        self.inner
+            .query_changes::<O>(
+                &(),
+                account_id,
+                since_query_state,
+                filter,
+                sort,
+                max_changes,
+                up_to_id,
+                collapse_threads,
+            )
+            .await
+    }
+}
+
+impl ChatBackend for IdentityBackend {
+    async fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        create_id: &str,
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        self.inner
+            .create_object::<O>(&(), account_id, create_id, obj)
+            .await
+    }
+
+    async fn update_object<O: SetObject + Send + Sync>(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        self.inner
+            .update_object::<O>(&(), account_id, id, patch)
+            .await
+    }
+
+    async fn destroy_object<O: SetObject + Send + Sync>(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        self.inner.destroy_object::<O>(&(), account_id, id).await
+    }
+
+    fn supports_type<O: JmapObject>(&self) -> bool {
+        self.inner.supports_type::<O>()
+    }
+
+    fn generate_invite_code(&self) -> String {
+        self.inner.generate_invite_code()
+    }
+
+    fn limits(&self, _caller: &Id, account_id: &Id) -> ChatLimits {
+        self.inner.limits(&(), account_id)
+    }
+
+    fn protect_last_admin(&self, _caller: &Id, account_id: &Id) -> bool {
+        self.inner.protect_last_admin(&(), account_id)
+    }
+
+    async fn apply_space_patch(
+        &self,
+        caller: &Id,
+        account_id: &Id,
+        space_id: &Id,
+        ops: Vec<SpacePatchOp>,
+    ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
+        // Route through the test-only entry point that supplies the
+        // resolved caller id directly. The trait surface on
+        // `MemoryBackend` itself would re-resolve `principal_id(&())`
+        // and get `None` — losing our identity.
+        self.inner
+            .apply_space_patch_with_caller_id(Some(caller), account_id, space_id, ops)
+    }
+
+    async fn slow_mode_check(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        chat_id: &Id,
+    ) -> Result<(), SlowModeError> {
+        self.inner.slow_mode_check(&(), account_id, chat_id).await
+    }
+
+    async fn may_set_custom_emoji(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        target_space_id: Option<&Id>,
+        op: EmojiSetOp,
+    ) -> Result<bool, Self::Error> {
+        self.inner
+            .may_set_custom_emoji(&(), account_id, target_space_id, op)
+            .await
+    }
+
+    async fn is_contact_blocked(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        contact_id: &Id,
+    ) -> Result<bool, Self::Error> {
+        self.inner
+            .is_contact_blocked(&(), account_id, contact_id)
+            .await
+    }
+
+    fn retains_edit_history(&self) -> bool {
+        self.inner.retains_edit_history()
+    }
+
+    async fn expire_message(
+        &self,
+        _caller: &Id,
+        account_id: &Id,
+        message_id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        self.inner.expire_message(&(), account_id, message_id).await
+    }
+}

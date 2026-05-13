@@ -2574,23 +2574,23 @@ async fn space_set_update_readonly_fields_rejected() {
     }
 }
 
-/// Oracle: Space/set update accepts well-formed Role/Member/Channel
-/// structural mutation keys and dispatches to
-/// ChatBackend::apply_space_patch (bd:JMAP-g7wu.2.4.2).
+/// Oracle: Space/set update accepts well-formed Role/Member structural
+/// mutation keys and dispatches them through
+/// ChatBackend::apply_space_patch (bd:JMAP-g7wu.2.4.2 +
+/// bd:JMAP-g7wu.2.4.3 implementation).
 ///
-/// The reference MemoryBackend stub still rejects Role and Member
-/// variants with `forbidden` pending bd:JMAP-g7wu.2.4.3. Channel
-/// variants are implemented (bd:JMAP-g7wu.2.4.4) and have dedicated
-/// tests further down in this file (`space_set_channel_*`). Category
-/// variants are likewise implemented (bd:JMAP-g7wu.2.4.5) with their
-/// own tests (`space_set_category_*`).
+/// Each variant's per-op semantics are exercised in detail by the
+/// `space_set_role_*` / `space_set_member_*` tests further down. This
+/// test is the cross-variant smoke check: every Role/Member wire key
+/// reaches the backend successfully through the parsing layer.
 ///
-/// This test asserts both that the parsing layer succeeds (no
-/// `invalidProperties`) AND that the wire response surfaces the
-/// backend's `forbidden` error, proving the handler dispatches
-/// end-to-end.
+/// MemoryBackend's `CallerCtx = ()` puts the backend in single-user
+/// mode (criterion 7 of bd:JMAP-g7wu.2.4.3): identity-dependent
+/// gates are skipped, so AddRole / AddMember succeed unconditionally
+/// and Remove/Update against non-existent ids surface as per-op
+/// NotFound rather than Forbidden.
 #[tokio::test]
-async fn space_set_update_stub_variants_dispatch_to_backend() {
+async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let backend = MemoryBackend::new();
 
     let (create_resp, _) = handle_space_set(
@@ -2605,57 +2605,143 @@ async fn space_set_update_stub_variants_dispatch_to_backend() {
         .expect("id")
         .to_owned();
 
-    // One well-formed wire entry per still-stubbed structural key.
-    // Payload shapes match draft-atwood-jmap-chat-00 §Space/set and
-    // jmap_chat_types::space_set.
-    let cases: &[(&str, serde_json::Value)] = &[
-        (
-            "addRoles",
-            json!([{ "id": "placeholder", "name": "Mod", "permissions": ["chat:read"], "position": 1 }]),
-        ),
-        ("removeRoles", json!(["role-1"])),
-        (
-            "updateRoles",
-            json!([{ "id": "role-1", "name": "Renamed" }]),
-        ),
-        ("addMembers", json!([{ "id": "u1", "roleIds": ["role-1"] }])),
-        ("removeMembers", json!(["u1"])),
-        ("updateMembers", json!([{ "id": "u1", "nick": "Mark" }])),
-    ];
+    // AddRole then references the assigned id on the subsequent ops.
+    let (add_role_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "addRoles": [
+                { "id": "placeholder", "name": "Mod", "permissions": ["chat:read"], "position": 1 }
+            ]}}
+        }),
+    )
+    .await
+    .expect("handle_space_set (addRoles)");
+    assert!(
+        add_role_resp["updated"][&space_id].is_object()
+            || add_role_resp["updated"][&space_id].is_null(),
+        "addRoles should land in `updated`, got {add_role_resp:?}"
+    );
+    assert!(
+        add_role_resp["notUpdated"][&space_id].is_null(),
+        "addRoles should NOT produce notUpdated in single-user mode: {add_role_resp:?}"
+    );
 
-    for (key, payload) in cases {
-        let (resp, _) = handle_space_set(
-            &backend,
-            &(),
-            json!({
-                "accountId": "a1",
-                "update": { &space_id: { (*key): payload } }
-            }),
-        )
-        .await
-        .expect("handle_space_set");
+    // Discover the server-assigned RoleId via Space/get.
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&space_id] }),
+    )
+    .await
+    .expect("Space/get");
+    let role_id = get_resp["list"][0]["roles"][0]["id"]
+        .as_str()
+        .expect("server-assigned role id")
+        .to_owned();
 
-        assert!(
-            resp["notUpdated"][&space_id].is_object(),
-            "key {key} should produce notUpdated entry (got {:?})",
-            resp["notUpdated"][&space_id]
-        );
-        assert_eq!(
-            resp["notUpdated"][&space_id]["type"], "forbidden",
-            "key {key} should surface backend stub's forbidden, not parse error: {:?}",
-            resp["notUpdated"][&space_id]
-        );
-        // The backend stub embeds the bead id in its description so a
-        // downstream impl bead can later assert that real handling has
-        // replaced the stub.
-        let desc = resp["notUpdated"][&space_id]["description"]
-            .as_str()
-            .unwrap_or("");
-        assert!(
-            desc.contains("JMAP-g7wu.2.4"),
-            "key {key} description should reference tracking bead: {desc:?}"
-        );
-    }
+    // UpdateRole on the assigned id succeeds.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "updateRoles": [
+                { "id": role_id, "name": "Renamed" }
+            ]}}
+        }),
+    )
+    .await
+    .expect("handle_space_set (updateRoles)");
+    assert!(
+        resp["notUpdated"][&space_id].is_null(),
+        "updateRoles on existing id should succeed: {resp:?}"
+    );
+
+    // AddMember with a valid roleIds reference succeeds.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "addMembers": [
+                { "id": "u1", "roleIds": [role_id] }
+            ]}}
+        }),
+    )
+    .await
+    .expect("handle_space_set (addMembers)");
+    assert!(
+        resp["notUpdated"][&space_id].is_null(),
+        "addMembers should succeed in single-user mode: {resp:?}"
+    );
+
+    // UpdateMember nick: succeeds.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "updateMembers": [
+                { "id": "u1", "nick": "Mark" }
+            ]}}
+        }),
+    )
+    .await
+    .expect("handle_space_set (updateMembers)");
+    assert!(
+        resp["notUpdated"][&space_id].is_null(),
+        "updateMembers should succeed: {resp:?}"
+    );
+
+    // RemoveMember on the freshly-added user: succeeds.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "removeMembers": ["u1"] }}
+        }),
+    )
+    .await
+    .expect("handle_space_set (removeMembers)");
+    assert!(
+        resp["notUpdated"][&space_id].is_null(),
+        "removeMembers on existing member should succeed: {resp:?}"
+    );
+
+    // RemoveRole on the assigned id: succeeds.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "removeRoles": [role_id] }}
+        }),
+    )
+    .await
+    .expect("handle_space_set (removeRoles)");
+    assert!(
+        resp["notUpdated"][&space_id].is_null(),
+        "removeRoles on existing id should succeed: {resp:?}"
+    );
+
+    // Removing a non-existent role id surfaces as NotFound, not Forbidden.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &space_id: { "removeRoles": ["nonexistent"] }}
+        }),
+    )
+    .await
+    .expect("handle_space_set (removeRoles nonexistent)");
+    assert_eq!(
+        resp["notUpdated"][&space_id]["type"], "notFound",
+        "removeRoles on missing id should be NotFound: {resp:?}"
+    );
 }
 
 /// Oracle: Space/set update with an empty structural array is treated as
@@ -2968,7 +3054,12 @@ async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
 
 /// Oracle: Space/set update with structural ops AND metadata in the same
 /// patch dispatches structural to the backend; metadata is skipped when
-/// the structural call fails (per RFC 8620 §5.3 per-target atomicity).
+/// any structural op fails (per RFC 8620 §5.3 per-target atomicity).
+///
+/// Uses `updateRoles` against a non-existent role id to deterministically
+/// trigger a per-op NotFound from the backend without depending on any
+/// identity-gated rejection (MemoryBackend's single-user mode allows all
+/// identity-checked Role/Member ops).
 #[tokio::test]
 async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
     let backend = MemoryBackend::new();
@@ -2993,7 +3084,7 @@ async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
             "update": {
                 &space_id: {
                     "name": "Renamed",
-                    "addRoles": [{ "id": "placeholder", "name": "Mod", "permissions": [], "position": 1 }],
+                    "updateRoles": [{ "id": "nonexistent", "name": "Mod" }],
                 }
             }
         }),
@@ -3001,10 +3092,11 @@ async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
     .await
     .expect("handle_space_set");
 
-    // Backend stub rejects addRoles with `forbidden`; the mixed-patch
-    // target lands in `notUpdated` with that error, and the metadata
-    // rename is NOT applied.
-    assert_eq!(resp["notUpdated"][&space_id]["type"], "forbidden");
+    // The structural updateRoles op surfaces NotFound (no such role);
+    // per-target atomicity means the mixed-patch target lands in
+    // `notUpdated` with that error and the metadata rename is NOT
+    // applied.
+    assert_eq!(resp["notUpdated"][&space_id]["type"], "notFound");
 
     // Re-fetch and confirm the name was NOT changed.
     let (get_resp, _) = handle_space_get(
