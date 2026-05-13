@@ -56,7 +56,7 @@ use std::sync::{Arc, Mutex};
 use crate::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits,
     GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
-    SetError, SetErrorType, SetObject, SpacePatchOp,
+    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
 use jmap_server::{json_merge_patch, now_utc_string};
 use jmap_types::{Id, State};
@@ -826,6 +826,28 @@ impl ChatBackend for MemoryBackend {
         }
 
         Ok(results)
+    }
+
+    /// Reference implementation of [`ChatBackend::slow_mode_check`].
+    ///
+    /// Demonstration-only: this backend has no rate-tracker and always
+    /// returns `Ok(())`. The kit defines the hook; production
+    /// backends plug in their own per-(account, chat, caller) tracker
+    /// and the SHOULD-exempt permission logic per
+    /// draft-atwood-jmap-chat-00 §Chat `slowModeSeconds` + commit
+    /// `de60acb`.
+    ///
+    /// The override exists rather than relying on the trait's default
+    /// `Ok(())` so the posture is explicit in the reference impl — a
+    /// future contributor reading `MemoryBackend` cannot mistake the
+    /// absence of a rate-tracker for an oversight.
+    async fn slow_mode_check(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _chat_id: &Id,
+    ) -> Result<(), SlowModeError> {
+        Ok(())
     }
 
     /// Reference implementation of [`ChatBackend::expire_message`].

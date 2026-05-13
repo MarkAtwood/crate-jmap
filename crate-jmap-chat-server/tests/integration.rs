@@ -6,7 +6,7 @@
 
 mod common;
 
-use common::{FaultyBackend, MemoryBackend};
+use common::{FaultyBackend, MemoryBackend, TrackingBackend};
 use jmap_chat_server::{
     handle_ban_get, handle_ban_set, handle_chat_changes, handle_chat_get, handle_chat_query,
     handle_chat_query_changes, handle_chat_set, handle_contact_changes, handle_contact_get,
@@ -1320,6 +1320,169 @@ async fn memory_backend_expire_message_idempotent_on_missing() {
         state_after.as_ref(),
         "0",
         "expire_message on missing id must not bump the state counter"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Slow-mode rate-limit gate (draft-atwood-jmap-chat-00 §Chat slowModeSeconds
+// + spec commit de60acb)
+// ---------------------------------------------------------------------------
+
+/// Oracle: the reference `MemoryBackend` has no rate-tracker; every
+/// `Message/set` create succeeds regardless of `slowModeSeconds`. The kit
+/// defines the hook, the consumer enforces the throttle policy.
+#[tokio::test]
+async fn message_set_create_no_slow_mode_on_memory_backend() {
+    let backend = MemoryBackend::new();
+
+    let (resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "send fast, send often",
+                    "sentAt": "2024-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_message_set");
+
+    assert!(
+        resp["created"]["m0"].is_object(),
+        "MemoryBackend's default slow_mode_check is Ok(()); create must succeed"
+    );
+    assert_eq!(resp["notCreated"], json!(null));
+}
+
+/// Oracle: when `ChatBackend::slow_mode_check` returns
+/// `Err(SlowModeError)`, the `Message/set` create handler MUST reject the
+/// create with a `rateLimited` SetError carrying `serverRetryAfter` set to
+/// the backend-supplied UTCDate, per draft-atwood-jmap-chat-00 §Chat
+/// `slowModeSeconds` + commit `de60acb`. The wire field name
+/// `serverRetryAfter` is the workspace convention read by
+/// `jmap_chat_client::server_retry_after`.
+///
+/// The error type wire string is exactly `"rateLimited"` (past tense, with
+/// `d`) — NOT `"rateLimit"` from `jmap_server::SetErrorType::RateLimit`.
+#[tokio::test]
+async fn message_set_create_slow_mode_rejects_with_retry_after() {
+    // Backend-supplied retry-after — hardcoded to a far-future UTCDate
+    // so the test does not depend on wall-clock arithmetic.
+    let retry_after = jmap_types::UTCDate::from("2099-12-31T00:00:00Z");
+    let backend = TrackingBackend::with_slow_mode_blocking(retry_after.clone());
+
+    let (resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "throttled",
+                    "sentAt": "2024-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_message_set");
+
+    assert_eq!(
+        resp["created"],
+        json!(null),
+        "create map must be absent (or null) when no entry succeeded"
+    );
+
+    let not_created_m0 = &resp["notCreated"]["m0"];
+    assert!(
+        not_created_m0.is_object(),
+        "m0 must appear in notCreated (got {resp})"
+    );
+    assert_eq!(
+        not_created_m0["type"], "rateLimited",
+        "SetError.type must be exactly \"rateLimited\" (spec wire string, not the workspace \"rateLimit\" variant)"
+    );
+    assert_eq!(
+        not_created_m0["serverRetryAfter"],
+        retry_after.as_ref(),
+        "serverRetryAfter must equal the UTCDate returned by slow_mode_check"
+    );
+}
+
+/// Oracle: a `TrackingBackend` with no slow-mode block configured falls
+/// through to the wrapped `MemoryBackend`'s default no-op
+/// `slow_mode_check`. This is the control case for the rejection test
+/// above — it verifies the wrapper is not silently injecting a throttle.
+#[tokio::test]
+async fn message_set_create_tracking_backend_default_allows() {
+    let backend = TrackingBackend::new();
+
+    let (resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "no throttle configured",
+                    "sentAt": "2024-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_message_set");
+
+    assert!(
+        resp["created"]["m0"].is_object(),
+        "TrackingBackend without slow_mode_block must forward to MemoryBackend (Ok(()))"
+    );
+    assert_eq!(resp["notCreated"], json!(null));
+}
+
+/// Oracle: slow-mode check happens AFTER wire validation. A malformed
+/// create that fails validation (e.g., missing `chatId`) MUST surface
+/// `invalidProperties`, NOT `rateLimited` — even if the configured
+/// backend would have throttled. Validation rejections never consume a
+/// rate-tracker slot.
+#[tokio::test]
+async fn message_set_create_slow_mode_skipped_when_validation_fails() {
+    let retry_after = jmap_types::UTCDate::from("2099-12-31T00:00:00Z");
+    let backend = TrackingBackend::with_slow_mode_blocking(retry_after);
+
+    let (resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    // chatId deliberately missing
+                    "body": "throttled but also malformed",
+                    "sentAt": "2024-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_message_set");
+
+    let not_created_m0 = &resp["notCreated"]["m0"];
+    assert_eq!(
+        not_created_m0["type"], "invalidProperties",
+        "validation must short-circuit before slow_mode_check is consulted"
+    );
+    assert_eq!(
+        not_created_m0["serverRetryAfter"],
+        json!(null),
+        "serverRetryAfter must be absent on a validation failure"
     );
 }
 

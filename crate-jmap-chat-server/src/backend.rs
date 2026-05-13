@@ -179,6 +179,28 @@ impl ChatLimits {
 }
 
 // ---------------------------------------------------------------------------
+// Slow-mode rate-limit gate
+// ---------------------------------------------------------------------------
+
+/// Outcome of a [`ChatBackend::slow_mode_check`] rejection.
+///
+/// Per draft-atwood-jmap-chat-00 §Chat `slowModeSeconds` plus spec commit
+/// `de60acb` (2026-05-11) which softened the manage-channels exemption to
+/// SHOULD: a non-exempt member who sends faster than the configured rate
+/// MUST be rejected with a `rateLimited` SetError carrying a
+/// `serverRetryAfter` UTCDate that tells the client when it may retry.
+///
+/// `retry_after` is a fully-formed [`jmap_types::UTCDate`] — the backend
+/// has already done the arithmetic (typically "now + remaining slow-mode
+/// window"). The handler serialises it verbatim onto the wire as the
+/// `serverRetryAfter` SetError extra field.
+#[derive(Debug, Clone)]
+pub struct SlowModeError {
+    /// When the rate-limited sender may retry.
+    pub retry_after: jmap_types::UTCDate,
+}
+
+// ---------------------------------------------------------------------------
 // ChatBackend trait
 // ---------------------------------------------------------------------------
 
@@ -356,6 +378,56 @@ pub trait ChatBackend: JmapBackend {
         space_id: &jmap_types::Id,
         ops: Vec<SpacePatchOp>,
     ) -> impl std::future::Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
+
+    /// Throttle gate consulted before a `Message/set` create lands on
+    /// the rate-limited path.
+    ///
+    /// Per draft-atwood-jmap-chat-00 §Chat `slowModeSeconds` plus spec
+    /// commit `de60acb` (2026-05-11, "soften slow-mode exemption to
+    /// SHOULD with rationale"): a `Chat` with `slowModeSeconds > 0`
+    /// throttles the rate at which a member may post messages. The
+    /// spec SHOULD-exempts members holding the `manage_channels`
+    /// permission, and servers MAY define additional exempt
+    /// principals. The kit does not opine on the exemption set — the
+    /// backend implements the policy.
+    ///
+    /// When the caller is throttled, the backend returns
+    /// `Err(`[`SlowModeError`]`)` with `retry_after` set to a UTCDate
+    /// the rate-limited sender may use to schedule a retry. The
+    /// `Message/set` create handler maps the error onto a
+    /// `rateLimited` SetError (RFC 8620 §5.3 `SetError.type`) whose
+    /// `serverRetryAfter` extra field carries the UTCDate verbatim.
+    ///
+    /// # When the handler calls this
+    ///
+    /// `handle_message_set` invokes `slow_mode_check` once per create
+    /// entry, after wire-format validation has succeeded and before
+    /// `create_object`. A throttle rejection short-circuits to
+    /// `notCreated[create_id] = { type: "rateLimited",
+    /// serverRetryAfter: <UTCDate> }` and the create_object call is
+    /// never made.
+    ///
+    /// # Default implementation
+    ///
+    /// The default returns `Ok(())` — no throttle. This is appropriate
+    /// for backends that have not yet implemented rate-tracking and
+    /// for single-tenant dev servers where no abuse path exists.
+    /// Production backends SHOULD override this method with their own
+    /// per-(account, chat, caller) rate tracker.
+    ///
+    /// # No state on the kit
+    ///
+    /// The kit deliberately does not provide a reference rate-tracker
+    /// — that is deployment territory. The reference `MemoryBackend`
+    /// keeps the default no-op behaviour for the same reason.
+    fn slow_mode_check(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _chat_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<(), SlowModeError>> + Send {
+        async { Ok(()) }
+    }
 
     /// Hard-delete a message ("expire" it) due to a per-message expiry
     /// event.
