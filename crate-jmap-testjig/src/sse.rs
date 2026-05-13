@@ -6,22 +6,35 @@
 //! advanced since the previous emit; clients use the new tokens to
 //! decide whether to issue a `/changes` request.
 //!
-//! # Polling vs. signalling
+//! # Signal-driven push with safety-net polling (bd:JMAP-cf7p.9)
 //!
-//! Production JMAP servers wire push from the storage layer: a write
-//! that mutates `Space` (etc.) signals a state-change condvar, an SSE
-//! task wakes up, builds a `StateChange` object, pushes. The testjig's
-//! 8 reference [`MemoryBackend`]s do not currently expose such a
-//! subscribe API; this slice (bd:JMAP-cf7p.4) ships a tight polling
-//! loop instead. A follow-up bead can replace the polling task with
-//! a proper signal when one of the [`MemoryBackend`]s grows the
-//! plumbing (bd:JMAP-c4hr).
+//! Mutations in the testjig only happen through the dispatcher. The
+//! `POST /jmap` and WebSocket `Request`-envelope handlers both call
+//! `AppStateInner::notify_state_changed` after every successful
+//! dispatch (private to `crate::http`). That sends an increment on a
+//! [`tokio::sync::watch::Sender<u64>`] that each SSE / WS push loop
+//! subscribes to at spawn time.
 //!
-//! The polling tick is currently fixed at the module-private
-//! `POLL_INTERVAL` (200 ms). Smaller values reduce latency at the
-//! cost of more CPU; the testjig's
-//! single-account, single-user posture makes the steady-state cost
-//! negligible.
+//! The push loop `select!`s between:
+//!
+//! - The watch [`Receiver::changed`] future. Fires immediately after
+//!   every dispatched request, so a `Foo/set` round-trip → SSE
+//!   StateChange latency is bounded by the dispatcher round-trip plus
+//!   one task wake (typically <1 ms in-process).
+//! - A long-interval safety-net tick at `POLL_INTERVAL` (5 s). The
+//!   watch wake covers every in-band mutation path; the timer is a
+//!   belt-and-suspenders for the (currently nonexistent) case of an
+//!   out-of-band mutation that bypasses the dispatcher, and bounds
+//!   the worst-case latency if a wake is somehow lost.
+//! - The configured ping interval, when enabled.
+//!
+//! The watch carrier is `u64` (incrementing counter), not `()`,
+//! because [`Receiver::changed`] requires the carrier's seen-version
+//! to advance — `send_modify` increments it explicitly. This avoids
+//! the `Notify::notify_waiters` race where a wake fired between
+//! subscriber spawn and the first `.await` would be lost.
+//!
+//! [`Receiver::changed`]: tokio::sync::watch::Receiver::changed
 //!
 //! [RFC 8620 §7.1]: https://www.rfc-editor.org/rfc/rfc8620.html#section-7.1
 //! [`MemoryBackend`]: jmap_mail_server::memory::MemoryBackend
@@ -58,7 +71,7 @@
 //! the client missed. The testjig MVP does not implement replay —
 //! clients that reconnect after a missed change must issue a
 //! `Foo/changes` request to catch up. Tracked for a follow-up
-//! bead (bd:JMAP-c4hr).
+//! bead (bd:JMAP-cf7p.10).
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::convert::Infallible;
@@ -79,24 +92,25 @@ use tokio_stream::wrappers::ReceiverStream;
 use crate::http::{AppState, AppStateInner};
 use crate::session;
 
-/// How often the polling task wakes up to snapshot per-type state
-/// tokens from the [`MemoryBackend`]s and compare against the
-/// previous snapshot.
+/// Safety-net polling interval for the SSE / WS push loops.
 ///
-/// Trade-off: lower values reduce push latency at the cost of CPU.
-/// 200 ms is short enough that integration tests do not have to wait
-/// long for a Space/set update to surface, and long enough that the
-/// steady-state CPU cost (one mutex acquisition per backend per type
-/// per tick) is invisible.
+/// The push loops are primarily woken by the testjig's
+/// `AppStateInner::notify_state_changed` after every dispatcher
+/// invocation (bd:JMAP-cf7p.9). This timer is a belt-and-suspenders
+/// fallback: it bounds the worst-case wake latency if a
+/// watch-channel wake were ever lost, and would surface any
+/// (currently nonexistent) out-of-band mutation path that bypasses
+/// the dispatcher.
 ///
-/// Production push wiring would replace this with a condvar signal
-/// from the backends; see the module-level docs.
+/// 5 seconds is short enough that a missed wake produces a noticeable-
+/// but-not-broken latency floor and long enough that the steady-state
+/// CPU cost (one snapshot per loop per 5 s when idle) is negligible.
+/// In practice the watch channel almost always wins the `select!` and
+/// the timer rarely fires for an active subscriber.
 ///
-/// Visible to `crate::ws` so the WebSocket push poller uses the same
+/// Visible to `crate::ws` so the WebSocket push loop uses the same
 /// cadence as the SSE poller.
-///
-/// [`MemoryBackend`]: jmap_mail_server::memory::MemoryBackend
-pub(crate) const POLL_INTERVAL: Duration = Duration::from_millis(200);
+pub(crate) const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
 /// Bound on the mpsc channel between the polling task and the SSE
 /// response stream.
@@ -285,6 +299,13 @@ pub async fn get_events(
     let close_after = CloseAfter::from_query(query.closeafter.as_deref());
 
     let account = Id::from(session::ACCOUNT_ID);
+
+    // Subscribe to state-change wakes BEFORE snapshotting the baseline
+    // so any dispatch that races our setup is captured as a pending
+    // wake. The watch channel's seen-version semantics guarantee that
+    // a `send_modify` between `subscribe()` and the first `changed()`
+    // .await still fires (unlike `Notify::notify_waiters`).
+    let state_changes = state.inner.subscribe_state_changes();
     let baseline = snapshot_all_states(&state.inner, &account).await;
 
     let (tx, rx) = mpsc::channel::<Result<Event, Infallible>>(SSE_CHANNEL_BOUND);
@@ -293,6 +314,7 @@ pub async fn get_events(
         Arc::clone(&state.inner),
         account,
         baseline,
+        state_changes,
         types_filter,
         ping_mode,
         close_after,
@@ -307,9 +329,13 @@ pub async fn get_events(
 ///
 /// Loop body uses [`tokio::select!`] across:
 ///
-/// - A 200 ms poll tick that diffs the current snapshot against
-///   `previous` and emits a `state` event if any tracked type's
-///   token changed.
+/// - A state-change watch [`tokio::sync::watch::Receiver::changed`]
+///   future that fires immediately after every dispatcher invocation
+///   (bd:JMAP-cf7p.9). On wake the loop re-snapshots per-type state
+///   and emits a `state` event if any tracked type's token changed.
+/// - A safety-net poll tick at [`POLL_INTERVAL`] (5 s) that performs
+///   the same snapshot-and-diff in case a watch wake is somehow lost
+///   or an out-of-band mutation occurs.
 /// - The configured ping interval (when not [`PingMode::Disabled`])
 ///   that emits a `ping` event with the honored interval.
 ///
@@ -321,6 +347,7 @@ async fn poll_loop(
     state: Arc<AppStateInner>,
     account: Id,
     baseline: BTreeMap<&'static str, String>,
+    mut state_changes: tokio::sync::watch::Receiver<u64>,
     types_filter: TypesFilter,
     ping_mode: PingMode,
     close_after: CloseAfter,
@@ -328,6 +355,12 @@ async fn poll_loop(
 ) {
     let mut previous = baseline;
     let mut state_event_id: u64 = 0;
+
+    // Mark the baseline as the last-seen wake version so the first
+    // `changed()` waits for a genuine post-baseline mutation rather
+    // than firing immediately on the channel's initial value.
+    state_changes.mark_unchanged();
+
     let mut poll = tokio::time::interval(POLL_INTERVAL);
     // The first `interval` tick fires immediately; skip it so we don't
     // re-snapshot the same baseline we just captured.
@@ -347,22 +380,29 @@ async fn poll_loop(
     }
 
     loop {
+        // `wake` is true when the iteration should re-snapshot per-type
+        // state and consider emitting a `state` SSE event. It is set by
+        // either branch of the wake-or-tick `select!` arms.
+        let wake;
         tokio::select! {
-            _ = poll.tick() => {
-                let current = snapshot_all_states(&state, &account).await;
-                let changes = diff_snapshots(&previous, &current, &types_filter);
-                previous = current;
-                if !changes.is_empty() {
-                    state_event_id = state_event_id.wrapping_add(1);
-                    let event = build_state_event(&account, &changes, state_event_id);
-                    if tx.send(Ok(event)).await.is_err() {
-                        return; // receiver gone
-                    }
-                    if let CloseAfter::State = close_after {
-                        return;
-                    }
+            // State-change wake: dispatcher just completed a request.
+            // Re-snapshot immediately. An `Err` here means the watch
+            // sender was dropped — the AppState is being torn down, so
+            // exit cleanly.
+            changed = state_changes.changed() => {
+                if changed.is_err() {
+                    return;
                 }
+                wake = true;
             }
+            // Safety-net timer: ensures the loop re-snapshots even if
+            // a watch wake were somehow lost or an out-of-band mutation
+            // occurred. In steady state (active subscriber, watch
+            // working) this branch almost never wins the select.
+            _ = poll.tick() => {
+                wake = true;
+            }
+            // Ping branch: emits a `ping` event independent of state.
             _ = async {
                 match ping.as_mut() {
                     Some(p) => { p.tick().await; }
@@ -373,7 +413,27 @@ async fn poll_loop(
                 if tx.send(Ok(event)).await.is_err() {
                     return;
                 }
+                wake = false;
             }
+        }
+
+        if !wake {
+            continue;
+        }
+
+        let current = snapshot_all_states(&state, &account).await;
+        let changes = diff_snapshots(&previous, &current, &types_filter);
+        previous = current;
+        if changes.is_empty() {
+            continue;
+        }
+        state_event_id = state_event_id.wrapping_add(1);
+        let event = build_state_event(&account, &changes, state_event_id);
+        if tx.send(Ok(event)).await.is_err() {
+            return; // receiver gone
+        }
+        if let CloseAfter::State = close_after {
+            return;
         }
     }
 }
@@ -486,7 +546,7 @@ pub(crate) fn diff_snapshots(
 /// The event id is a monotonic counter rather than the
 /// "encodes the entire server state" guidance from RFC 8620 §7.3 —
 /// the testjig does not implement Last-Event-ID replay (tracked at
-/// bd:JMAP-c4hr), so the id is decorative. A future signal-driven
+/// bd:JMAP-cf7p.10), so the id is decorative. A future replay
 /// implementation can swap this for a real snapshot id.
 fn build_state_event(account: &Id, changes: &BTreeMap<String, String>, id: u64) -> Event {
     let body = json!({

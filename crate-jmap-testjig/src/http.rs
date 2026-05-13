@@ -99,6 +99,54 @@ pub(crate) struct AppStateInner {
     pub(crate) filenode: Arc<jmap_filenode_server::memory::MemoryBackend>,
     pub(crate) sharing: Arc<jmap_sharing_server::memory::MemoryBackend>,
     pub(crate) metadata: Arc<jmap_metadata_server::memory::MemoryBackend>,
+    /// Testjig-internal state-change signal for signal-driven SSE / WS
+    /// push (bd:JMAP-cf7p.9).
+    ///
+    /// Every successful `POST /jmap` dispatch and every WebSocket
+    /// `Request`-envelope dispatch increments the carrier counter via
+    /// [`tokio::sync::watch::Sender::send_modify`]. SSE and WS push
+    /// loops hold a [`tokio::sync::watch::Receiver`] and `await` on
+    /// [`Receiver::changed`] to wake immediately after the mutation
+    /// (rather than waiting up to 200 ms for the next polling tick).
+    ///
+    /// Choice of `watch` over `Notify`: `watch::Receiver::changed`
+    /// tracks a seen-version counter, so a `send_modify` that fires
+    /// between subscriber spawn and the first `.await` is still
+    /// observed. [`tokio::sync::Notify::notify_waiters`] only wakes
+    /// already-registered waiters and would lose the wake in that
+    /// race window. Choice of `watch` over `broadcast`: no per-event
+    /// payload — consumers re-snapshot per-type state on every wake,
+    /// so a queued history of wakes adds no information; the watch
+    /// channel's "latest value with seen-version tracking" matches
+    /// the access pattern exactly.
+    ///
+    /// The carrier type is `u64` (incrementing counter) rather than
+    /// `()` because `watch::Receiver::changed` requires the carrier's
+    /// version to actually change — sending the same `()` twice would
+    /// not register as "changed" without `send_modify`'s explicit
+    /// version bump.
+    pub(crate) state_change_tx: tokio::sync::watch::Sender<u64>,
+}
+
+impl AppStateInner {
+    /// Signal that a state mutation may have just occurred and any
+    /// SSE / WS push subscribers should re-snapshot. Called once per
+    /// dispatcher invocation from [`post_jmap`] and from the
+    /// WebSocket `Request`-frame handler.
+    ///
+    /// Spurious wakes (e.g. read-only `Foo/get`) are harmless — the
+    /// SSE / WS poller will re-snapshot, diff against the previous
+    /// snapshot, find no changes, and emit nothing.
+    pub(crate) fn notify_state_changed(&self) {
+        self.state_change_tx.send_modify(|n| {
+            *n = n.wrapping_add(1);
+        });
+    }
+
+    /// Subscribe a new SSE / WS push loop to state-change wakes.
+    pub(crate) fn subscribe_state_changes(&self) -> tokio::sync::watch::Receiver<u64> {
+        self.state_change_tx.subscribe()
+    }
 }
 
 impl AppState {
@@ -127,6 +175,7 @@ impl AppState {
         let mut dispatcher: Dispatcher<()> = Dispatcher::new();
         dispatcher.register("Core/echo", Arc::new(EchoHandler));
         let backends = register_all_extensions(&mut dispatcher);
+        let (state_change_tx, _) = tokio::sync::watch::channel::<u64>(0);
         Self {
             inner: Arc::new(AppStateInner {
                 dispatcher,
@@ -138,6 +187,7 @@ impl AppState {
                 filenode: backends.filenode,
                 sharing: backends.sharing,
                 metadata: backends.metadata,
+                state_change_tx,
             }),
             auth: AuthState::new(token),
         }
@@ -232,6 +282,14 @@ async fn post_jmap(
         .dispatcher
         .dispatch(request, (), State::from(session::STATE))
         .await;
+
+    // Signal-driven SSE / WS push (bd:JMAP-cf7p.9): wake any
+    // subscribed event loops so they re-snapshot per-type state and
+    // emit a `StateChange` immediately rather than waiting for the
+    // next 5 s safety-net poll tick. Spurious wakes from read-only
+    // `Foo/get` calls are harmless — the subscriber will re-snapshot,
+    // diff, find no changes, and emit nothing.
+    state.inner.notify_state_changed();
 
     let body = serde_json::to_string(&response)
         .expect("JmapResponse is built from JSON-safe primitives — Serialize is infallible");

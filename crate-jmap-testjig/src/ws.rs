@@ -32,18 +32,19 @@
 //!
 //! # Push notifications (RFC 8887 §4.3.5)
 //!
-//! Identical polling-based mechanism as [`crate::sse`]: a tokio
-//! interval task ticks at the same `POLL_INTERVAL` (200 ms) as the
-//! SSE poller, snapshots per-type state across the 8 reference
-//! MemoryBackends, diffs against the previous snapshot, and emits a
-//! `StateChange` frame when any tracked type's token advanced.
+//! Same signal-driven mechanism as [`crate::sse`] (bd:JMAP-cf7p.9):
+//! the push task `select!`s between a state-change watch wake and a
+//! safety-net poll tick. Each wake re-snapshots per-type state across
+//! the 8 reference MemoryBackends, diffs against the previous
+//! snapshot, and emits a `StateChange` frame when any tracked type's
+//! token advanced.
 //!
-//! `WebSocketPushEnable` starts the polling task. The handshake's
+//! `WebSocketPushEnable` starts the push task. The handshake's
 //! `dataTypes` array (or `null` for "all") feeds the same
 //! `TypesFilter` enum the SSE handler uses; subsequent `StateChange`
 //! frames are filtered by it. `WebSocketPushDisable` aborts the task.
-//! Re-enabling after a disable starts a fresh polling task with a
-//! fresh baseline snapshot.
+//! Re-enabling after a disable starts a fresh push task with a
+//! fresh baseline snapshot and a fresh watch subscription.
 //!
 //! The `pushState` token on `PushEnable` is parsed but not honored
 //! (filed as bd:JMAP-cf7p.12 — analogous to the SSE Last-Event-ID
@@ -260,6 +261,13 @@ async fn handle_request_frame(
         .dispatch(request, (), State::from(session::STATE))
         .await;
 
+    // Signal-driven SSE / WS push (bd:JMAP-cf7p.9): wake any
+    // subscribed event loops so they re-snapshot per-type state and
+    // emit a `StateChange` immediately rather than waiting for the
+    // next 5 s safety-net poll tick. Same rationale as `post_jmap`'s
+    // wake site — spurious wakes are harmless.
+    state.notify_state_changed();
+
     // RFC 8887 §4.3.3 adds two fields to the wire JmapResponse: a
     // fixed `@type: "Response"` discriminator and the echoed
     // `requestId` (if the request carried an `id`). Both ride on the
@@ -383,21 +391,31 @@ fn handle_push_disable(push_task: &mut Option<JoinHandle<()>>) {
     }
 }
 
-/// Polling task that pushes `StateChange` frames on diff. Mirrors
-/// the SSE [`crate::sse`] poller — same cadence, same snapshot diff
-/// algorithm, same filter-by-types semantics — but emits text WS
+/// Push task that emits `StateChange` frames on diff. Mirrors the SSE
+/// [`crate::sse`] poller — same signal-driven cadence, same snapshot
+/// diff algorithm, same filter-by-types semantics — but emits text WS
 /// frames instead of SSE events.
+///
+/// Wakes on either:
+/// - The state-change watch [`tokio::sync::watch::Receiver::changed`]
+///   future (signal-driven, bd:JMAP-cf7p.9), or
+/// - The [`POLL_INTERVAL`] safety-net timer (5 s belt-and-suspenders).
 ///
 /// Terminates when the `push_tx` send fails (the main WS task ended,
 /// either because the client disconnected or PushDisable aborted
-/// this task).
+/// this task) or when the watch sender is dropped.
 async fn push_loop(
     state: Arc<AppStateInner>,
     account: Id,
     filter: TypesFilter,
     push_tx: mpsc::Sender<Message>,
 ) {
+    // Subscribe before snapshotting so any racing dispatcher wake is
+    // captured. The watch channel's seen-version semantics make this
+    // race-free (cf. SSE poll_loop module docs).
+    let mut state_changes = state.subscribe_state_changes();
     let mut previous: BTreeMap<&'static str, String> = snapshot_all_states(&state, &account).await;
+    state_changes.mark_unchanged();
 
     let mut interval = tokio::time::interval(POLL_INTERVAL);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
@@ -406,7 +424,15 @@ async fn push_loop(
     interval.tick().await;
 
     loop {
-        interval.tick().await;
+        tokio::select! {
+            changed = state_changes.changed() => {
+                if changed.is_err() {
+                    return; // sender dropped — AppState tearing down
+                }
+            }
+            _ = interval.tick() => {}
+        }
+
         let current = snapshot_all_states(&state, &account).await;
         let changes = diff_snapshots(&previous, &current, &filter);
         previous = current;
