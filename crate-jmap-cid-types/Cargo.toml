@@ -1,0 +1,16 @@
+[package]
+name = "jmap-cid-types"
+version = "0.1.0"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "JMAP Blob Content Identifiers extension data types (draft-atwood-jmap-cid-00)"
+keywords = ["jmap", "cid", "sha256", "blob", "types"]
+categories = ["encoding", "network-programming"]
+
+[dependencies]
+jmap-types = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
