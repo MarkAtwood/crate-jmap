@@ -307,6 +307,37 @@ impl MemoryBackend {
         apply_space_patch_impl(&mut inner, caller_id, account_id, space_id, ops)
     }
 
+    /// Apply a top-level metadata patch with an explicitly supplied
+    /// caller id (test-only entry point — analog of
+    /// [`Self::apply_space_patch_with_caller_id`]).
+    ///
+    /// Mirrors the rationale on the structural sibling: `MemoryBackend`
+    /// uses `CallerCtx = ()` and so the trait method
+    /// [`ChatBackend::apply_space_metadata_patch`] resolves caller
+    /// identity to `None` (single-user mode), which skips the
+    /// `manage_space` gate. Identity-bearing integration-test
+    /// backends (`IdentityBackend`) route through this method instead
+    /// to drive the gate.
+    ///
+    /// `caller_id == None` reproduces single-user-mode behavior.
+    /// Production callers must not use this method; the API
+    /// stability disclaimer on the `memory` feature applies doubly
+    /// here.
+    ///
+    /// See `bd:JMAP-g7wu.2.4.13`.
+    #[doc(hidden)]
+    #[allow(clippy::result_large_err)]
+    pub fn apply_space_metadata_patch_with_caller_id(
+        &self,
+        caller_id: Option<&Id>,
+        account_id: &Id,
+        space_id: &Id,
+        patch_map: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<MemoryError>> {
+        let mut inner = self.inner.lock().unwrap();
+        apply_space_metadata_patch_impl(&mut inner, caller_id, account_id, space_id, patch_map)
+    }
+
     /// Test-only: override the [`ChatLimits`] returned by
     /// [`ChatBackend::limits`].
     ///
@@ -889,6 +920,36 @@ impl ChatBackend for MemoryBackend {
         )
     }
 
+    /// Reference implementation of
+    /// [`ChatBackend::apply_space_metadata_patch`].
+    ///
+    /// Applies the JSON Merge Patch to the target Space's top-level
+    /// metadata fields under a single mutex acquisition, with the
+    /// `manage_space` permission gate applied atomically. Caller
+    /// identity is resolved through [`JmapBackend::principal_id`];
+    /// with `CallerCtx = ()` the default returns `None` and the
+    /// gate is skipped (single-user mode), mirroring the
+    /// [`Self::apply_space_patch`] contract.
+    ///
+    /// See `bd:JMAP-g7wu.2.4.13`.
+    async fn apply_space_metadata_patch(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+        patch_map: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
+        let caller_id_owned = <Self as JmapBackend>::principal_id(caller).cloned();
+        let mut inner = self.inner.lock().unwrap();
+        apply_space_metadata_patch_impl(
+            &mut inner,
+            caller_id_owned.as_ref(),
+            account_id,
+            space_id,
+            patch_map,
+        )
+    }
+
     /// Reference implementation of [`ChatBackend::retains_edit_history`].
     ///
     /// Returns the test-only override set via
@@ -1199,6 +1260,106 @@ fn apply_space_patch_impl(
     }
 
     Ok(results)
+}
+
+/// Backend-canonical impl of
+/// [`ChatBackend::apply_space_metadata_patch`] for the reference
+/// in-memory store (bd:JMAP-g7wu.2.4.13).
+///
+/// Snapshots the target Space, enforces the `manage_space` gate
+/// when a caller identity is resolvable, and applies the JSON
+/// Merge Patch (RFC 7396) atomically under the inner mutex.
+///
+/// # Permission gate
+///
+/// Per draft-atwood-jmap-chat-00 §Space/set, every top-level
+/// metadata field (`name`, `description`, `iconBlobId`, `isPublic`,
+/// `isPubliclyPreviewable`) requires `manage_space`. The gate logic
+/// mirrors [`validate_space_patch_ops`]: with `caller_id == None`
+/// (single-user mode) the gate is skipped; with `caller_id ==
+/// Some(id)` the caller's effective permission set must contain
+/// `manage_space`, else the whole patch is rejected with
+/// [`SetErrorType::Forbidden`].
+///
+/// Empty patches (`patch_map.is_empty()`) are still rejected at the
+/// gate when the caller lacks `manage_space`. Letting them through
+/// would be a small information leak (the caller learns the Space
+/// exists) without practical value — RFC 8620 §5.3 tolerates no-op
+/// updates but does not REQUIRE them to bypass authorization.
+///
+/// # Atomicity
+///
+/// The lock is held across the read-check-write sequence so the
+/// gate decision and the write cannot race against a concurrent
+/// role-change that would invalidate the decision. This matches the
+/// canonical backend-side-enforcement pattern from
+/// `apply_space_patch_impl`.
+#[allow(clippy::result_large_err)]
+fn apply_space_metadata_patch_impl(
+    inner: &mut Inner,
+    caller_id: Option<&Id>,
+    account_id: &Id,
+    space_id: &Id,
+    patch_map: serde_json::Map<String, serde_json::Value>,
+) -> Result<Option<jmap_chat_types::Space>, BackendSetError<MemoryError>> {
+    use crate::permissions::MANAGE_SPACE;
+
+    // Confirm the target Space exists. Surface NotFound at the
+    // SetError level (per-target, NOT per-account) so the handler's
+    // `notUpdated` bucket can render it.
+    let space_val = inner
+        .objects_ref("Space", account_id.as_ref())
+        .and_then(|m| m.get(space_id))
+        .cloned()
+        .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
+
+    // Permission gate: identity-dependent. When the caller is
+    // resolvable, the caller's effective permissions in the Space
+    // must include `manage_space`. When the caller is anonymous
+    // (single-user mode), skip the gate.
+    if let Some(caller_id) = caller_id {
+        let caller_perms = caller_effective_permissions(&space_val, caller_id).unwrap_or_default();
+        if !caller_perms.contains(MANAGE_SPACE) {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::Forbidden).with_description(format!(
+                    "caller lacks required permission `{MANAGE_SPACE}` to mutate Space top-level metadata"
+                )),
+            ));
+        }
+    }
+
+    // Empty patch is a no-op. Treat as a successful update with no
+    // server-set field echo; the handler still emits an entry into
+    // the `updated` map (per RFC 8620 §5.3 tolerance for no-op
+    // updates). Skip the state bump and change-log entry so a no-op
+    // does not rotate the Space type's state token.
+    if patch_map.is_empty() {
+        return Ok(None);
+    }
+
+    // Apply the merge patch in place. The wire-shape JSON object is
+    // canonical for in-memory storage (extras-preservation policy);
+    // the patch keys have already been filtered to METADATA_FIELDS
+    // by the handler.
+    let mut current = space_val;
+    json_merge_patch(&mut current, serde_json::Value::Object(patch_map));
+
+    let new_state = inner.bump_state("Space", account_id.as_ref());
+    inner
+        .objects_mut("Space", account_id.as_ref())
+        .insert(space_id.clone(), current);
+    inner
+        .change_log_mut("Space", account_id.as_ref())
+        .push(ChangeEntry {
+            new_state,
+            created: vec![],
+            updated: vec![space_id.clone()],
+            destroyed: vec![],
+        });
+
+    // Return `None` to match the `update_object` contract: no
+    // server-set field echo beyond what the client requested.
+    Ok(None)
 }
 
 /// Apply one Category-family [`SpacePatchOp`] to the in-memory Space.

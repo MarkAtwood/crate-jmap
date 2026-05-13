@@ -169,6 +169,18 @@ impl ChatBackend for FaultyBackend {
             "storage unavailable".to_owned(),
         )))
     }
+
+    async fn apply_space_metadata_patch(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _space_id: &Id,
+        _patch_map: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
+        Err(BackendSetError::Other(MemoryError(
+            "storage unavailable".to_owned(),
+        )))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -385,6 +397,18 @@ impl ChatBackend for TrackingBackend {
     ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
         self.inner
             .apply_space_patch(caller, account_id, space_id, ops)
+            .await
+    }
+
+    async fn apply_space_metadata_patch(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+        patch_map: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
+        self.inner
+            .apply_space_metadata_patch(caller, account_id, space_id, patch_map)
             .await
     }
 
@@ -645,6 +669,24 @@ impl ChatBackend for IdentityBackend {
         // and get `None` — losing our identity.
         self.inner
             .apply_space_patch_with_caller_id(Some(caller), account_id, space_id, ops)
+    }
+
+    async fn apply_space_metadata_patch(
+        &self,
+        caller: &Id,
+        account_id: &Id,
+        space_id: &Id,
+        patch_map: serde_json::Map<String, serde_json::Value>,
+    ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
+        // Mirror the apply_space_patch routing: hand the resolved
+        // caller id to the test-only entry on `MemoryBackend` so the
+        // `manage_space` gate can actually see who's calling.
+        self.inner.apply_space_metadata_patch_with_caller_id(
+            Some(caller),
+            account_id,
+            space_id,
+            patch_map,
+        )
     }
 
     async fn slow_mode_check(
