@@ -76,6 +76,7 @@ creep on individual feature beads.
 | `crate-jmap-metadata-types/` | `jmap-metadata-types` | draft-ietf-jmap-metadata data types — `Metadata`, `Annotation`, `ImapMetadata`, `WebDavMetadata`, `MetadataFilterCondition`, `MetadataCapability`. No async |
 | `crate-jmap-metadata-server/` | `jmap-metadata-server` | draft-ietf-jmap-metadata method handlers — `Metadata/get/changes/set/query/queryChanges` + `MetadataBackend` trait |
 | `crate-jmap-metadata-client/` | `jmap-metadata-client` | draft-ietf-jmap-metadata client methods — `Metadata/get/changes/set/query/queryChanges` |
+| `crate-jmap-cid-types/` | `jmap-cid-types` | draft-atwood-jmap-cid-00 data types — `CidCapability` (`urn:ietf:params:jmap:cid`) and `Sha256` typed wire shape. Blob/FileNode integrity, no async |
 
 ## Dependency Tree
 
@@ -107,13 +108,21 @@ jmap-metadata-types    — draft-ietf-jmap-metadata data types: Metadata, Annota
                          MetadataCapability. No async. Depends on jmap-types only.
     ├── jmap-metadata-server   — Metadata/* method handlers, MetadataBackend trait.
     └── jmap-metadata-client   — Metadata/* client method bindings.
+
+jmap-cid-types         — draft-atwood-jmap-cid-00 data types: CidCapability
+                         (urn:ietf:params:jmap:cid) plus the Sha256 typed wire
+                         shape (lowercase hex, 64 chars). No async. Depends on
+                         jmap-types only. Independent of any single consumer
+                         extension — feeds Blob upload responses and FileNode
+                         objects in a future jmap-base-client / jmap-filenode-types
+                         revision.
 ```
 
 Type crates (`*-types`) have no async deps. Server crates may depend on tokio/http.
 
 ## Canonical Templates (cookie-cutter consistency)
 
-The 29 `jmap-*` crates are deliberately cookie-cutter siblings: every type
+The 30 `jmap-*` crates are deliberately cookie-cutter siblings: every type
 crate looks like every other type crate, every server crate looks like
 every other server crate, every client crate looks like every other client
 crate, **modulo only the differences mandated by the relevant RFC or

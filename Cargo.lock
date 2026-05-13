@@ -1005,6 +1005,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "jmap-cid-types"
+version = "0.1.0"
+dependencies = [
+ "jmap-types",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "jmap-contacts-client"
 version = "0.1.1"
 dependencies = [
