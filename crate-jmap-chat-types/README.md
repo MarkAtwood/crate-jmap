@@ -99,11 +99,11 @@ strings round-trip back to the same wire value.
 
 ## References
 
-| Draft | Covers |
-|-------|--------|
-| `draft-atwood-jmap-chat-00` | Core objects: Chat, Message, Space, ChatContact, ReadPosition |
-| `draft-atwood-jmap-chat-push-00` | Push notification payloads |
-| `draft-atwood-jmap-chat-wss-00` | WebSocket ephemeral events |
+| Document | Covers |
+|---|---|
+| [draft-atwood-jmap-chat-00] | Core objects: Chat, Message, Space, ChatContact, ReadPosition |
+| [draft-atwood-jmap-chat-push-00] | Push notification payloads |
+| [draft-atwood-jmap-chat-wss-00] | WebSocket ephemeral events |
 
 ## Crate family
 
@@ -113,3 +113,7 @@ jmap-types
             ├── jmap-chat-server
             └── jmap-chat-client
 ```
+
+[draft-atwood-jmap-chat-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-chat-push-00]: https://github.com/MarkAtwood/jmap-chat-spec
+[draft-atwood-jmap-chat-wss-00]: https://github.com/MarkAtwood/jmap-chat-spec

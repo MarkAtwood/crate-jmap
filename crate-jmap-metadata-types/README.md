@@ -152,5 +152,5 @@ and the workspace [AGENTS.md](../AGENTS.md) for the rationale.
 - **[RFC 8620]** — JMAP Core (Id, State, request/response shapes,
   `/get`, `/set`, `/query`)
 
-[draft-ietf-jmap-metadata-01]: https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt
+[draft-ietf-jmap-metadata-01]: https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

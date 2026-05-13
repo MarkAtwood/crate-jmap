@@ -3,7 +3,7 @@
 ## What it is
 
 JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-01](https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt))
+([draft-ietf-jmap-metadata-01](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
 method handlers and the `MetadataBackend` trait. Plugs into [`jmap-server`]'s
 `Dispatcher`. Implements all five `Metadata/*` method names. Storage-agnostic
 — consumers implement the `MetadataBackend` trait for their own data layer.
@@ -258,6 +258,6 @@ remain that way until the family is published to crates.io.
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference,
   `/set` response shape, `canCalculateChanges`)
 
-[draft-ietf-jmap-metadata-01]: https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt
+[draft-ietf-jmap-metadata-01]: https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server

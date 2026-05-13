@@ -245,6 +245,6 @@ until the family is published to crates.io.
 - **[draft-ietf-jmap-filenode-13]** — JMAP FileNode (normative for all method semantics)
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference, `/set` response shape)
 
-[draft-ietf-jmap-filenode-13]: https://www.ietf.org/archive/id/draft-ietf-jmap-filenode-13.txt
+[draft-ietf-jmap-filenode-13]: https://datatracker.ietf.org/doc/draft-ietf-jmap-filenode/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server

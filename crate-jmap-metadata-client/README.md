@@ -157,7 +157,7 @@ jmap-types
 - **[RFC 8620]** — JMAP Core (request format, response shapes, `/get`,
   `/set`, `/changes`, `/query`, `/queryChanges`).
 
-[draft-ietf-jmap-metadata-01]: https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt
+[draft-ietf-jmap-metadata-01]: https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client
 [`jmap-metadata-types`]: ../crate-jmap-metadata-types

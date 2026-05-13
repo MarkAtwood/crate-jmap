@@ -168,7 +168,7 @@ test. Cookie-cutter sibling crates (`jmap-chat-types`,
 ## JMAP Object Metadata `relatedType` declarations
 
 The JMAP Object Metadata extension
-([draft-ietf-jmap-metadata-01](https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt))
+([draft-ietf-jmap-metadata-01](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/))
 defines a companion `Metadata` object keyed by `(relatedType, relatedId)`
 that attaches vendor-defined `Annotation`s — and, for some types, IMAP
 `ImapMetadata` or WebDAV `WebDavMetadata` records — to objects defined

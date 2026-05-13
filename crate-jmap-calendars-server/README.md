@@ -311,6 +311,6 @@ remain that way until the family is published to crates.io.
 - **[RFC 8620]** — JMAP Core (request format, SetError, ResultReference,
   `/set` response shape, `/copy` semantics)
 
-[draft-ietf-jmap-calendars-26]: https://www.ietf.org/archive/id/draft-ietf-jmap-calendars-26.txt
+[draft-ietf-jmap-calendars-26]: https://datatracker.ietf.org/doc/draft-ietf-jmap-calendars/
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

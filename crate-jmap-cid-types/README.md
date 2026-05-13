@@ -111,5 +111,5 @@ map in `jmap-base-client`.
   for `Sha256` and the `urn:ietf:params:jmap:cid` capability)
 - [RFC 8620] — JMAP Core (Blob upload §6.1 is the binding point)
 
-[draft-atwood-jmap-cid-00]: https://datatracker.ietf.org/doc/draft-atwood-jmap-cid/
+[draft-atwood-jmap-cid-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620

@@ -1,5 +1,5 @@
 //! JMAP Object Metadata extension method handlers
-//! ([draft-ietf-jmap-metadata-01](https://www.ietf.org/archive/id/draft-ietf-jmap-metadata-01.txt)).
+//! ([draft-ietf-jmap-metadata-01](https://datatracker.ietf.org/doc/draft-ietf-jmap-metadata/)).
 //!
 //! # Usage
 //!

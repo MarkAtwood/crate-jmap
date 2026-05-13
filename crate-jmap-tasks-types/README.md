@@ -168,6 +168,6 @@ fallback variant so that unrecognised server values round-trip without data loss
 - **[RFC 8984]** — JSCalendar (Task property subset)
 - **[RFC 8620]** — JMAP Core (Id, State, SetError, request/response shape)
 
-[draft-ietf-jmap-tasks-06]: https://www.ietf.org/archive/id/draft-ietf-jmap-tasks-06.txt
+[draft-ietf-jmap-tasks-06]: https://datatracker.ietf.org/doc/draft-ietf-jmap-tasks/
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
