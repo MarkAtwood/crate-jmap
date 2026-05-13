@@ -546,15 +546,38 @@ pub async fn handle_chat_set<B: ChatBackend>(
 /// fan out a typing event to chat participants; this handler validates
 /// and returns. The sender identity is always derived server-side from
 /// `accountId` — clients MUST NOT supply a `senderId` field.
+///
+/// # Blocked-sender suppression
+///
+/// Per draft-atwood-jmap-chat-00 commit `d68b4e3` ("close blocked-sender
+/// suppression gaps for typing/presence"): when the requesting account
+/// corresponds to a [`ChatContact`] whose `blocked` is `true` on the
+/// recipient's contact list, the server MUST silently suppress the
+/// typing event for that recipient. The sender is NOT informed.
+///
+/// [`ChatContact`]: jmap_chat_types::ChatContact
+///
+/// The kit consults [`ChatBackend::is_contact_blocked`] on the
+/// direct-chat path for observability, but does NOT itself perform
+/// transport-layer fan-out — push delivery (SSE / WS) is the
+/// consumer's responsibility. The consumer's typing-event publisher
+/// MUST consult this predicate per recipient before fanning out the
+/// event. The kit's handler returns the same success response in
+/// either case (echo `accountId`); the wire shape does not depend on
+/// the predicate's result.
+///
+/// Group / channel chats (n recipients) are skipped on the kit side:
+/// the handler has no way to enumerate fan-out recipients. That work
+/// belongs entirely to the consumer's transport layer.
 pub async fn handle_chat_typing<B: ChatBackend>(
-    _backend: &B,
-    _caller: &B::CallerCtx,
+    backend: &B,
+    caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
-    let _chat_id: String = match args.get("chatId").and_then(|v| v.as_str()) {
-        Some(s) if !s.is_empty() => s.to_owned(),
+    let chat_id: Id = match args.get("chatId").and_then(|v| v.as_str()) {
+        Some(s) if !s.is_empty() => Id::from(s),
         _ => return Err(JmapError::invalid_arguments("chatId is required")),
     };
 
@@ -564,10 +587,45 @@ pub async fn handle_chat_typing<B: ChatBackend>(
         Some(_) => return Err(JmapError::invalid_arguments("typing must be a boolean")),
     };
 
-    // NOTE: In a production implementation, validate that the account is a
-    // participant of chatId and fan out a typing event to subscribers.
-    // The sender identity is always derived from accountId (server-side),
-    // never from a client-supplied field. See RISK-014.
+    // Blocked-sender suppression integration point (draft-atwood-
+    // jmap-chat-00 commit `d68b4e3`). For direct chats, consult the
+    // predicate so a production-grade backend override can observe /
+    // record the consultation. The kit does not gate fan-out on the
+    // result because the kit has no fan-out path; this site exists
+    // as the documented hook for consumer transport layers.
+    //
+    // Pre-fetch the chat; if the id is unknown (not found) or fetch
+    // fails, skip the predicate — handle_chat_typing's success
+    // response is the same in either case, and a non-existent target
+    // should not consume a blocked-check decision. Production
+    // backends that need stricter behaviour (e.g. reject typing for
+    // unknown chats) should validate participation inside their
+    // own logic; the kit deliberately keeps the typing path
+    // permissive.
+    if let Ok((found, _not_found)) = backend
+        .get_objects::<Chat>(
+            caller,
+            &account_id,
+            Some(std::slice::from_ref(&chat_id)),
+            None,
+        )
+        .await
+    {
+        if let Some(chat) = found.first() {
+            if let Some(contact_id) = chat.contact_id.as_ref() {
+                // Direct chat — there is exactly one recipient.
+                let _blocked = backend
+                    .is_contact_blocked(caller, &account_id, contact_id)
+                    .await
+                    .unwrap_or(false);
+                // Result intentionally observed but not gated on
+                // here — see the doc-comment on this function.
+                // A consumer transport layer reads
+                // `is_contact_blocked` itself and suppresses
+                // accordingly.
+            }
+        }
+    }
 
     Ok((
         json!({

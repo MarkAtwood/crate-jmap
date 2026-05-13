@@ -18,6 +18,9 @@
 #![allow(unused_imports)]
 #![allow(async_fn_in_trait)]
 
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
+
 // Re-exports — keep `use common::MemoryBackend;` working for tests.
 pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 
@@ -192,6 +195,13 @@ pub struct TrackingBackend {
     /// `Ok(false)` for every op (Create/Update/Destroy). When `false`,
     /// forwards to `inner` (which returns `Ok(true)`).
     emoji_set_deny: bool,
+    /// Counter incremented every time
+    /// [`ChatBackend::is_contact_blocked`] is invoked. Lets a test
+    /// verify the handler reached the consultation point without
+    /// relying on a side effect of the consultation itself (the
+    /// kit's wire response is unchanged regardless of the predicate
+    /// result, see `handle_chat_typing` doc-comment).
+    is_contact_blocked_calls: Arc<AtomicU64>,
 }
 
 impl TrackingBackend {
@@ -210,6 +220,7 @@ impl TrackingBackend {
             inner: MemoryBackend::new(),
             slow_mode_block: Some(retry_after),
             emoji_set_deny: false,
+            is_contact_blocked_calls: Arc::default(),
         }
     }
 
@@ -221,6 +232,7 @@ impl TrackingBackend {
             inner: MemoryBackend::new(),
             slow_mode_block: None,
             emoji_set_deny: true,
+            is_contact_blocked_calls: Arc::default(),
         }
     }
 
@@ -228,6 +240,13 @@ impl TrackingBackend {
     /// `register_account`).
     pub fn inner(&self) -> &MemoryBackend {
         &self.inner
+    }
+
+    /// Return the number of times the wrapped
+    /// [`ChatBackend::is_contact_blocked`] has been invoked. Used by
+    /// tests that verify the handler reaches the predicate-call site.
+    pub fn is_contact_blocked_call_count(&self) -> u64 {
+        self.is_contact_blocked_calls.load(Ordering::SeqCst)
     }
 }
 
@@ -401,6 +420,18 @@ impl ChatBackend for TrackingBackend {
                 .may_set_custom_emoji(caller, account_id, target_space_id, op)
                 .await
         }
+    }
+
+    async fn is_contact_blocked(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        contact_id: &Id,
+    ) -> Result<bool, Self::Error> {
+        self.is_contact_blocked_calls.fetch_add(1, Ordering::SeqCst);
+        self.inner
+            .is_contact_blocked(caller, account_id, contact_id)
+            .await
     }
 
     async fn expire_message(

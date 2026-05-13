@@ -828,6 +828,36 @@ impl ChatBackend for MemoryBackend {
         Ok(results)
     }
 
+    /// Reference implementation of [`ChatBackend::is_contact_blocked`].
+    ///
+    /// Reads `ChatContact.blocked` from the in-memory store keyed by
+    /// the supplied `contact_id`. If no such [`ChatContact`] record
+    /// exists, returns `Ok(false)` — an unknown contact is not
+    /// considered blocked.
+    ///
+    /// Spec: draft-atwood-jmap-chat-00 commit `d68b4e3` (typing /
+    /// presence blocked-sender suppression). The kit's handler
+    /// consults this predicate but does not enforce fan-out
+    /// suppression itself — the consumer's transport layer (SSE / WS
+    /// push) is the canonical enforcement point.
+    ///
+    /// [`ChatContact`]: jmap_chat_types::ChatContact
+    async fn is_contact_blocked(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        contact_id: &Id,
+    ) -> Result<bool, Self::Error> {
+        let inner = self.inner.lock().unwrap();
+        let blocked = inner
+            .objects_ref("ChatContact", account_id.as_ref())
+            .and_then(|map| map.get(contact_id))
+            .and_then(|val| val.get("blocked"))
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false);
+        Ok(blocked)
+    }
+
     /// Reference implementation of [`ChatBackend::may_set_custom_emoji`].
     ///
     /// Demonstration-only: returns `Ok(true)` unconditionally. The
