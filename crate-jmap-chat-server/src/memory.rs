@@ -1068,7 +1068,7 @@ fn apply_space_patch_impl(
         .cloned()
         .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
 
-    if let Err(e) = validate_role_member_ops(&space_snapshot, caller_id, &ops, protect_last_admin) {
+    if let Err(e) = validate_space_patch_ops(&space_snapshot, caller_id, &ops, protect_last_admin) {
         return Err(BackendSetError::SetError(e));
     }
 
@@ -2004,7 +2004,7 @@ fn apply_update_channel(
 
 /// Apply `SpacePatchOp::AddRole`: assign a fresh `RoleId`, push the role
 /// into `space.roles`. Permission and role-position hierarchy
-/// enforcement happens in [`validate_role_member_ops`] before this
+/// enforcement happens in [`validate_space_patch_ops`] before this
 /// helper runs.
 #[allow(clippy::result_large_err)]
 fn apply_add_role(
@@ -2055,7 +2055,7 @@ fn apply_add_role(
 /// Apply `SpacePatchOp::RemoveRole`: remove the named role and cascade-
 /// demote any members whose only remaining role would be the removed
 /// one (draft-atwood-jmap-chat-00 §Space/set line 1099). Permission
-/// and hierarchy checks happen in [`validate_role_member_ops`].
+/// and hierarchy checks happen in [`validate_space_patch_ops`].
 #[allow(clippy::result_large_err)]
 fn apply_remove_role(
     inner: &mut Inner,
@@ -2113,7 +2113,7 @@ fn apply_remove_role(
 
 /// Apply `SpacePatchOp::UpdateRole`: apply the [`RolePatch`] to the
 /// named role. Permission and hierarchy checks happen in
-/// [`validate_role_member_ops`].
+/// [`validate_space_patch_ops`].
 #[allow(clippy::result_large_err)]
 fn apply_update_role(
     inner: &mut Inner,
@@ -2187,7 +2187,7 @@ fn apply_update_role(
 /// Apply `SpacePatchOp::AddMember`: push a new `SpaceMember` into the
 /// Space's `members` array and bump `memberCount`. Permission and
 /// hierarchy checks (and existence checks on each role id) happen in
-/// [`validate_role_member_ops`].
+/// [`validate_space_patch_ops`].
 #[allow(clippy::result_large_err)]
 fn apply_add_member(
     inner: &mut Inner,
@@ -2299,7 +2299,7 @@ fn apply_add_member(
 
 /// Apply `SpacePatchOp::RemoveMember`: remove the named member and
 /// decrement `memberCount`. Permission and last-admin-protection
-/// checks happen in [`validate_role_member_ops`].
+/// checks happen in [`validate_space_patch_ops`].
 #[allow(clippy::result_large_err)]
 fn apply_remove_member(
     inner: &mut Inner,
@@ -2351,7 +2351,7 @@ fn apply_remove_member(
 
 /// Apply `SpacePatchOp::UpdateMember`: apply the [`MemberPatch`] to
 /// the named member. Permission and hierarchy checks happen in
-/// [`validate_role_member_ops`].
+/// [`validate_space_patch_ops`].
 #[allow(clippy::result_large_err)]
 fn apply_update_member(
     inner: &mut Inner,
@@ -2453,18 +2453,27 @@ fn apply_update_member(
 // (bd:JMAP-g7wu.2.4.3 criteria 1, 2, 3-replacement, 6, 7)
 // ---------------------------------------------------------------------------
 
-/// Pre-validate Role/Member ops in the patch.
+/// Pre-validate all ops in the patch.
 ///
-/// Walks the patch's Role/Member ops and applies:
+/// Walks every op (Role, Member, Channel, Category) and applies:
 ///
 /// - **Permission gating** (criterion 1): the caller's effective
 ///   permissions must be a superset of [`required_permissions_for_op`]'s
-///   return value for each op.
+///   return value for each op. Gated permissions per
+///   draft-atwood-jmap-chat-00 §Space/set:
+///   * Role ops (`AddRole`, `RemoveRole`, `UpdateRole`): `manage_roles`
+///   * Member ops (`AddMember`, `RemoveMember`, `UpdateMember`):
+///     `manage_members` (plus `manage_roles` for `UpdateMember`
+///     entries that modify `roleIds`)
+///   * Channel ops (`AddChannel`, `RemoveChannel`, `UpdateChannel`)
+///     and Category ops (`AddCategory`, `RemoveCategory`,
+///     `UpdateCategory`): `manage_channels`
 /// - **Role-position hierarchy** (criterion 2): the caller may only
 ///   add or modify roles whose `position` is strictly less than their
 ///   own highest-position role (draft §Space/set lines 1096, 1102).
 ///   Cross-cuts AddRole, UpdateRole, AddMember (when `role_ids` is
 ///   non-empty), and UpdateMember (when `patch.role_ids` is set).
+///   Channel and Category ops have no hierarchy check.
 /// - **Last-admin protection** (criterion 3 replacement): when
 ///   `protect_last_admin` is true, the patch's `RemoveMember` ops in
 ///   aggregate must not leave the Space with zero members holding
@@ -2478,8 +2487,13 @@ fn apply_update_member(
 /// identity-dependent checks (permission gating, hierarchy). The
 /// last-admin-protection check is identity-independent and still
 /// fires when its config flag is on.
+///
+/// History: prior to bd:JMAP-g7wu.2.4.14 this helper was named
+/// `validate_role_member_ops` and only gated Role/Member ops, leaving
+/// the Channel and Category ops at the backend without a permission
+/// pre-check. The rename + filter drop close that gap.
 #[allow(clippy::result_large_err)]
-fn validate_role_member_ops(
+fn validate_space_patch_ops(
     space_val: &serde_json::Value,
     caller_id: Option<&Id>,
     ops: &[SpacePatchOp],
@@ -2493,23 +2507,12 @@ fn validate_role_member_ops(
         let caller_highest = caller_highest_position(space_val, caller_id).unwrap_or(0);
 
         for op in ops {
-            // Only Role/Member ops are pre-validated here. Channel
-            // and Category permission gating is deferred to a future
-            // bead (out of scope for bd:JMAP-g7wu.2.4.3).
-            let is_role_member = matches!(
-                op,
-                SpacePatchOp::AddRole(_)
-                    | SpacePatchOp::RemoveRole(_)
-                    | SpacePatchOp::UpdateRole { .. }
-                    | SpacePatchOp::AddMember { .. }
-                    | SpacePatchOp::RemoveMember(_)
-                    | SpacePatchOp::UpdateMember { .. }
-            );
-            if !is_role_member {
-                continue;
-            }
-
-            // Permission gate (criterion 1).
+            // Permission gate (criterion 1). Applies to ALL op
+            // families. `required_permissions_for_op` returns the
+            // per-variant permission slice from
+            // draft-atwood-jmap-chat-00 §Space/set; a caller missing
+            // any required permission triggers a whole-patch reject
+            // (criterion 6).
             let required = required_permissions_for_op(op);
             for req in required {
                 if !caller_perms.contains(*req) {
@@ -2659,7 +2662,7 @@ fn validate_role_member_ops(
 }
 
 /// Construct the standard "role position not strictly less than
-/// caller's highest" SetError. Used by [`validate_role_member_ops`].
+/// caller's highest" SetError. Used by [`validate_space_patch_ops`].
 #[allow(clippy::result_large_err)]
 fn hierarchy_error(target_pos: u64, caller_highest: u64, op_label: &str) -> SetError {
     SetError::new(SetErrorType::Forbidden).with_description(format!(
