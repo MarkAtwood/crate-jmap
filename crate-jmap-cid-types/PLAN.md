@@ -62,22 +62,31 @@ If D.2 ships without referencing `jmap-types` and `cargo udeps`
 flags it, the cleanup is a one-line edit and the workspace can
 decide whether to drop the dep then.
 
-## Public API (skeleton state)
+## Public API (current state)
 
-`src/lib.rs` currently carries only the crate-level doc-comment and
-`#[forbid(unsafe_code)]`. No types are exported yet.
+After bd:JMAP-v9py.12:
 
-The follow-up beads will add:
+- `pub struct Sha256(String);` — `#[serde(try_from = "String", into
+  = "String")]` newtype with parse-time ABNF validation
+  (`64( %x30-39 / %x61-66 )`). Implements `Display`, `AsRef<str>`,
+  `From<Sha256> for String`, `TryFrom<String>`, `TryFrom<&str>`,
+  `FromStr`. Constructors: `from_hex(&str)` (validating) and
+  `from_bytes(&[u8; 32])` (infallible nibble-formatter).
+- `pub enum Sha256DigestErrorKind { WrongLength { got }, NonHexLowercase { at } }`
+  and `pub struct Sha256DigestError { kind: Sha256DigestErrorKind }`
+  — both `#[non_exhaustive]`, position-tracking diagnostic for
+  failed parses.
 
-- `pub struct CidCapability { /* empty, #[non_exhaustive] */ }`
-- `pub struct Sha256(String);` with `FromStr` / `TryFrom<String>`
-  parse-time ABNF validation plus `Display` / `Serialize` /
-  `Deserialize` impls. Wire format = the inner 64-char lowercase
-  hex string.
+Still to come in a follow-up bead (bd:JMAP-v9py post-.14):
 
-Module layout will mirror `jmap-metadata-types`:
-`capability.rs` for the capability marker, a per-type module for
-`Sha256`, and `lib.rs` re-exports.
+- `pub struct CidCapability { /* empty, #[non_exhaustive] */ }` —
+  the JMAP Session capability marker for
+  `urn:ietf:params:jmap:cid`. Will carry the workspace's standard
+  `extra` field per the extras-preservation policy.
+
+Module layout mirrors `jmap-metadata-types`: `digest.rs` for the
+`Sha256` type, a future `capability.rs` for the capability marker,
+and `lib.rs` re-exports.
 
 ## Spec reference
 
@@ -142,8 +151,10 @@ wrapping a single value").
 
 - bd:JMAP-v9py is the parent epic ("Compliance sweep …
   implement draft-atwood-jmap-cid-00").
-- bd:JMAP-v9py.11 (this bead) creates the crate scaffolding.
-- bd:JMAP-v9py.12 / .13 / .14 (follow-ups) define the `Sha256`
-  typed shape, wire it into the Blob upload response surface in
-  `jmap-base-client`, and add the `supports_cid()` Session
-  advertisement detection.
+- bd:JMAP-v9py.11 created the crate scaffolding.
+- bd:JMAP-v9py.12 added the `Sha256` typed shape with parse-time
+  ABNF validation.
+- bd:JMAP-v9py.13 (open) wires the `Sha256` field into the Blob
+  upload response surface in `jmap-base-client`.
+- bd:JMAP-v9py.14 (open) adds the `supports_cid()` Session
+  advertisement detection in `jmap-base-client`.
