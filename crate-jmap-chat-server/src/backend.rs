@@ -404,6 +404,49 @@ pub trait ChatBackend: JmapBackend {
         ops: Vec<SpacePatchOp>,
     ) -> impl std::future::Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
 
+    /// Whether the backend should reject `RemoveMember` ops that would
+    /// leave the target Space with zero members holding either
+    /// `manage_members` or `manage_space` permission.
+    ///
+    /// # Why this exists
+    ///
+    /// The 2026-05-12 design reversal dropped the `Space.ownerId` field
+    /// (bd:JMAP-g7wu.2.4.12): "who controls a Space" is now fully
+    /// implementation-defined / out-of-band per draft-atwood-jmap-chat-00.
+    /// Without a normative owner identity, the kit cannot enforce the
+    /// previous "owner cannot be removed" rule. Instead the kit exposes
+    /// this purely permission-graph-based knob: production backends that
+    /// want to prevent the "no admin left" failure mode return `true`
+    /// (the trait default); deployments with their own designated
+    /// controller principal or external admin-tracking system can opt
+    /// out by returning `false`.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `true` — production-safe by default. A third-party
+    /// backend that does not override this method gets last-admin
+    /// protection automatically.
+    ///
+    /// # Why the reference `MemoryBackend` overrides this to `false`
+    ///
+    /// The reference impl flips the default to keep existing
+    /// integration tests (which do not seed admin memberships) passing
+    /// unchanged. Tests that exercise the protection path opt in via
+    /// `MemoryBackend::set_protect_last_admin_for_test(true)`. See
+    /// `bd:JMAP-g7wu.2.4.3`.
+    ///
+    /// # Atomicity
+    ///
+    /// The check fires inside [`Self::apply_space_patch`] atomically
+    /// with the candidate `RemoveMember` mutation: the backend
+    /// snapshots the Space's member/role state, projects the post-
+    /// removal admin count, and rejects the whole update target with
+    /// a `forbidden` SetError if zero admins would remain.
+    fn protect_last_admin(&self, caller: &Self::CallerCtx, account_id: &jmap_types::Id) -> bool {
+        let _ = (caller, account_id);
+        true
+    }
+
     /// Whether the backend retains edit history for messages.
     ///
     /// Per draft-atwood-jmap-chat-00 commit `0783fc4` ("condition
