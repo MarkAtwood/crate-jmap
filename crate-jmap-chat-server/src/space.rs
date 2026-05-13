@@ -230,7 +230,7 @@ pub async fn handle_space_get<B: ChatBackend>(
     };
 
     let ids_slice = ids.as_deref();
-    let (list, not_found) = backend
+    let (list, mut not_found) = backend
         .get_objects::<Space>(caller, &account_id, ids_slice, properties.as_deref())
         .await
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
@@ -250,7 +250,23 @@ pub async fn handle_space_get<B: ChatBackend>(
     // single-user tests.
     let caller_principal: Option<&Id> = B::principal_id(caller);
 
-    let list_json: Vec<Value> = list
+    // First pass: classify each backend-returned Space against the
+    // non-member-vs-non-previewable rule (bd:JMAP-v9py.20). Spaces
+    // that fall in that bucket are lifted out of `list` into
+    // `not_found` so a non-member caller cannot distinguish "Space
+    // exists but is not publicly previewable" from "Space does not
+    // exist" — both produce an identical `notFound` entry per
+    // draft-atwood-jmap-chat-00 §Space/get.
+    let mut visible_list: Vec<&Space> = Vec::with_capacity(list.len());
+    for space in &list {
+        if non_member_non_previewable(space, caller_principal) {
+            not_found.push(space.id.clone());
+        } else {
+            visible_list.push(space);
+        }
+    }
+
+    let list_json: Vec<Value> = visible_list
         .iter()
         .map(|space| project_space_for_caller(space, caller_principal, properties.as_deref()))
         .collect::<Result<Vec<_>, _>>()?;
@@ -264,6 +280,32 @@ pub async fn handle_space_get<B: ChatBackend>(
         }),
         vec![],
     ))
+}
+
+/// Returns `true` when the caller is a non-member of `space` AND the
+/// Space is not publicly previewable.
+///
+/// Per draft-atwood-jmap-chat-00 §Space/get (bd:JMAP-v9py.20), such
+/// Spaces MUST be classified as `notFound` for the caller — the
+/// kit's `handle_space_get` lifts them out of `list` and into
+/// `not_found` before the response is shaped. The response is then
+/// indistinguishable from the "Space does not exist" outcome, so a
+/// non-member caller cannot probe for the existence of a private
+/// Space.
+///
+/// Anonymous callers (`caller_principal == None` — single-user
+/// mode) are treated as members and so cannot trip this rule. The
+/// rule fires only when caller identity is wired AND the caller is
+/// not in the Space's `members` AND `isPubliclyPreviewable: false`.
+fn non_member_non_previewable(space: &Space, caller_principal: Option<&Id>) -> bool {
+    let Some(principal) = caller_principal else {
+        return false;
+    };
+    let is_member = space
+        .members
+        .iter()
+        .any(|m| m.id.as_ref() == principal.as_ref());
+    !is_member && !space.is_publicly_previewable
 }
 
 /// Fields a non-member caller may see on a publicly-previewable Space,
@@ -304,18 +346,18 @@ const NON_MEMBER_PREVIEWABLE_FIELDS: &[&str] = &[
 ///    `properties` if specified. Fields outside
 ///    [`NON_MEMBER_PREVIEWABLE_FIELDS`] are omitted even when the
 ///    caller asked for them.
-/// 4. **Non-member caller AND `isPubliclyPreviewable: false`** →
-///    TODO bd:JMAP-v9py.20. Per draft-atwood-jmap-chat-00
-///    §Space/get the id MUST land in the `notFound` array and the
-///    Space MUST NOT appear in `list` at all. That requires
-///    cooperation between this handler and the prior
-///    `backend.get_objects` call (the kit currently returns the
-///    Space in `list`, not in `not_found`). bd:JMAP-v9py.4 is
-///    Layer A — field-trim-on-previewable only. The full
-///    notFound-classification work is tracked by .20. Until then
-///    the non-previewable non-member case falls through unchanged
-///    (full Space leaks through) — same behavior as before this
-///    bead. This is a known gap, NOT a silent change.
+/// 4. **Non-member caller AND `isPubliclyPreviewable: false`** —
+///    handled BEFORE this function: `handle_space_get` lifts the
+///    Space out of `list` and into `not_found` via
+///    [`non_member_non_previewable`] (bd:JMAP-v9py.20). By the time
+///    a Space reaches this projection function, it has already
+///    been confirmed visible to the caller. This match arm is
+///    therefore unreachable in normal flow; if it WERE reached
+///    (e.g. via a direct call from outside `handle_space_get`),
+///    the conservative fallback is "no field cap, no trim" — same
+///    as a member. Production callers SHOULD route through
+///    `handle_space_get` rather than calling this function
+///    directly so the notFound classification fires.
 fn project_space_for_caller(
     space: &Space,
     caller_principal: Option<&Id>,
@@ -339,15 +381,14 @@ fn project_space_for_caller(
                 // previewable. Apply the 8-field restricted view.
                 Some(NON_MEMBER_PREVIEWABLE_FIELDS.to_vec())
             } else {
-                // TODO bd:JMAP-v9py.20 — non-member callers of a
-                // non-previewable Space MUST receive `notFound`
-                // for the id and the Space MUST NOT appear in
-                // `list`. Implementing that requires lifting the
-                // id out of `list` and into `not_found` after the
-                // backend call, which is a separate change. Until
-                // .20 lands, this branch leaks the full Space to
-                // non-members — known gap, preserves pre-.4
-                // behavior.
+                // Non-member of a non-previewable Space — the
+                // outer handler has already lifted this Space
+                // into `not_found` before calling us; reaching
+                // here implies a non-handler call site. Fall back
+                // to full visibility to keep `project_space_for_caller`
+                // a pure projection function with no
+                // notFound side-effect; the caller is responsible
+                // for the visibility decision.
                 None
             }
         }
