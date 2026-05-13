@@ -264,6 +264,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "crc32fast"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9481c1c90cbf2ac953f07c8d4a58aa3945c425b7185c9154d67a65e4230da511"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "criterion"
 version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1388,15 +1397,17 @@ checksum = "6877bb514081ee2a7ff5ef9de3281f14a4dd4bceac4c09388074a6b5df8a139a"
 
 [[package]]
 name = "mime-tree"
-version = "0.1.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4da03349b045c03a829c4c72f56d431f7c0dcff3283a18caf7daca1fcd8fc077"
+checksum = "27e31db3f8793a0c268a1d5d9d06d5ca9abc10839e378b81baef8bb16cf08f9f"
 dependencies = [
  "base64",
  "encoding_rs",
  "mail-parser",
  "quoted_printable",
  "serde",
+ "uuencoding",
+ "yencoding",
 ]
 
 [[package]]
@@ -2248,6 +2259,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
 
 [[package]]
+name = "uuencoding"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5b867395f19d44cd5fd3ac1923a0c6e88b8b17a8c41cb53da1ba3d6791372aa0"
+
+[[package]]
 name = "uuid"
 version = "1.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2815,6 +2832,15 @@ name = "writeable"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1ffae5123b2d3fc086436f8834ae3ab053a283cfac8fe0a0b8eaae044768a4c4"
+
+[[package]]
+name = "yencoding"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ae69f9af519a8c959c651af17f489de965285c33f971e35d8b3db515c658c0b"
+dependencies = [
+ "crc32fast",
+]
 
 [[package]]
 name = "yoke"

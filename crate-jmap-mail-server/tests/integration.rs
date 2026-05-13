@@ -6789,30 +6789,27 @@ async fn email_get_header_empty_name_rejected() {
     );
 }
 
-/// Oracle: unimplemented header forms return `null`, not an error.
+/// Oracle: RFC 8621 §4.1.2.3 / §4.1.2.4 worked example — `asAddresses` and
+/// `asGroupedAddresses` against the spec's "James Smythe" address-list.
 ///
-/// RFC 8621 §4.1.2 defines structured forms (asAddresses, asGroupedAddresses,
-/// asDate, asMessageIds, asURLs). These are not yet parsed by this server;
-/// `apply_header_form` returns `Value::Null` for all of them. This test
-/// documents that behavior so future contributors know it is intentional and
-/// do not accidentally break it when the forms are eventually implemented.
-///
-/// The form/header combinations chosen here are all *valid* per the
-/// validation table in `validate_header_form` (no `invalidArguments` error is
-/// expected); only the structured parse step is missing.
+/// The input string is the literal RFC 8621 §4.1.2.3 example. The expected
+/// outputs are copied verbatim from §4.1.2.3 (flat) and §4.1.2.4 (grouped).
+/// This is an independent oracle: the expected values are RFC-authored,
+/// not derived from `apply_header_form`.
 #[tokio::test]
-async fn email_get_unimplemented_header_forms_return_null() {
+async fn email_get_as_addresses_rfc8621_james_smythe() {
     let backend = MemoryBackend::new();
 
-    // A message with headers that exercise every unimplemented form.
-    //   From      → asAddresses, asGroupedAddresses
-    //   Date      → asDate
-    //   Message-ID → asMessageIds
-    //   List-Post  → asURLs
-    let raw = b"From: alice@example.com\r\n\
-Date: Mon, 01 Jan 2024 00:00:00 +0000\r\n\
-Message-ID: <abc@example.com>\r\n\
-List-Post: <mailto:list@example.com>\r\n\
+    // RFC 8621 §4.1.2.3 example address-list. Folded into one logical
+    // From: header per RFC 5322. Encoded-word `=?UTF-8?Q?John_Sm=C3=AEth?=`
+    // decodes to `John Smîth` per RFC 2047.
+    //
+    // NOTE: continuation-line leading whitespace is written as `\x20` to
+    // defeat Rust string-literal backslash-newline continuation, which
+    // would otherwise eat the leading space and break RFC 5322 folding.
+    let raw = b"From: \"  James Smythe\" <james@example.com>, Friends:\r\n\
+\x20jane@example.com, =?UTF-8?Q?John_Sm=C3=AEth?=\r\n\
+\x20<john@example.com>;\r\n\
 Subject: Test\r\n\
 \r\n\
 Body.";
@@ -6825,38 +6822,211 @@ Body.";
             "id",
             "header:From:asAddresses",
             "header:From:asGroupedAddresses",
-            "header:Date:asDate",
-            "header:Message-ID:asMessageIds",
-            "header:List-Post:asURLs",
         ],
     });
     let (resp, _) = handle_email_get(&backend, &(), args)
         .await
-        .expect("Email/get must succeed — valid form/header pairs must not return an error");
+        .expect("Email/get must succeed");
 
     let list = resp["list"].as_array().expect("list must be array");
     assert_eq!(list.len(), 1, "must find exactly one email");
     let obj = &list[0];
 
-    // Each unimplemented form must be present in the response as JSON null,
-    // not absent and not a string/object.
-    for key in &[
-        "header:From:asAddresses",
-        "header:From:asGroupedAddresses",
-        "header:Date:asDate",
-        "header:Message-ID:asMessageIds",
-        "header:List-Post:asURLs",
-    ] {
-        assert!(
-            obj.get(*key).is_some(),
-            "property {key:?} must be present in response (as null); got: {obj:?}"
-        );
-        assert!(
-            obj[*key].is_null(),
-            "property {key:?} must be null (not yet implemented, tracked under bd:JMAP-g7wu.5); got: {:?}",
-            obj[*key]
-        );
-    }
+    // RFC 8621 §4.1.2.3 expected output: group structure discarded; three
+    // EmailAddress entries in order, with display-name whitespace trimmed
+    // and encoded-words decoded. (The RFC uses "John Smith" in its prose
+    // example output, but the encoded-word `Sm=C3=AEth` carries the î
+    // diacritic — mail-parser decodes it as `John Smîth`.)
+    let addrs = obj["header:From:asAddresses"]
+        .as_array()
+        .expect("asAddresses must be an array; got: {:?}");
+    assert_eq!(addrs.len(), 3, "expected 3 mailboxes; got: {addrs:?}");
+    assert_eq!(addrs[0]["name"], "James Smythe");
+    assert_eq!(addrs[0]["email"], "james@example.com");
+    // Second entry has no display-name. Per RFC 8621 the JSON shape is
+    // `{name: null|String, email: String}`. The canonical workspace
+    // `EmailAddress` Rust type uses `skip_serializing_if` for `name`, so
+    // the absent-name case may omit `name` from the wire object rather
+    // than emit `"name": null`. Accept either shape.
+    assert!(
+        addrs[1].get("name").is_none_or(serde_json::Value::is_null),
+        "second entry name must be null/absent; got: {:?}",
+        addrs[1].get("name")
+    );
+    assert_eq!(addrs[1]["email"], "jane@example.com");
+    assert_eq!(addrs[2]["name"], "John Smîth");
+    assert_eq!(addrs[2]["email"], "john@example.com");
+
+    // RFC 8621 §4.1.2.4 expected output: two groups — ungrouped mailbox
+    // wrapped in {name: null, addresses: [...]} then the named "Friends"
+    // group with the remaining two.
+    let groups = obj["header:From:asGroupedAddresses"]
+        .as_array()
+        .expect("asGroupedAddresses must be an array");
+    assert_eq!(groups.len(), 2, "expected 2 groups; got: {groups:?}");
+    assert!(
+        groups[0].get("name").is_none_or(serde_json::Value::is_null),
+        "first group name must be null/absent"
+    );
+    let g0_addrs = groups[0]["addresses"]
+        .as_array()
+        .expect("first group addresses must be array");
+    assert_eq!(g0_addrs.len(), 1);
+    assert_eq!(g0_addrs[0]["name"], "James Smythe");
+    assert_eq!(g0_addrs[0]["email"], "james@example.com");
+
+    assert_eq!(groups[1]["name"], "Friends");
+    let g1_addrs = groups[1]["addresses"]
+        .as_array()
+        .expect("second group addresses must be array");
+    assert_eq!(g1_addrs.len(), 2);
+    assert!(
+        g1_addrs[0]
+            .get("name")
+            .is_none_or(serde_json::Value::is_null),
+        "jane entry name must be null/absent"
+    );
+    assert_eq!(g1_addrs[0]["email"], "jane@example.com");
+    assert_eq!(g1_addrs[1]["name"], "John Smîth");
+    assert_eq!(g1_addrs[1]["email"], "john@example.com");
+}
+
+/// Oracle: RFC 8621 §4.1.2.6 — `asDate` parses RFC 5322 §3.3 date-time and
+/// renders as ISO 8601. RFC 5322 Appendix A.1.1 supplies the sample date
+/// `Fri, 21 Nov 1997 09:55:06 -0600` as an independent oracle.
+#[tokio::test]
+async fn email_get_as_date_rfc5322_sample() {
+    let backend = MemoryBackend::new();
+    let raw = b"From: alice@example.com\r\n\
+Date: Fri, 21 Nov 1997 09:55:06 -0600\r\n\
+Subject: Test\r\n\
+\r\n\
+Body.";
+    let email_id = import_msg_with_headers(&backend, raw).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "header:Date:asDate"],
+    });
+    let (resp, _) = handle_email_get(&backend, &(), args)
+        .await
+        .expect("Email/get must succeed");
+
+    let obj = &resp["list"][0];
+    let date_str = obj["header:Date:asDate"]
+        .as_str()
+        .expect("asDate must be a string for a parseable date");
+    // RFC 3339 / ISO 8601 form of `Fri, 21 Nov 1997 09:55:06 -0600`.
+    assert_eq!(date_str, "1997-11-21T09:55:06-06:00");
+}
+
+/// Oracle: RFC 8621 §4.1.2.6 — `asDate` returns `null` when the header
+/// value is not a parseable date-time.
+#[tokio::test]
+async fn email_get_as_date_malformed_returns_null() {
+    let backend = MemoryBackend::new();
+    let raw = b"From: alice@example.com\r\n\
+Date: not a real date\r\n\
+Subject: Test\r\n\
+\r\n\
+Body.";
+    let email_id = import_msg_with_headers(&backend, raw).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "header:Date:asDate"],
+    });
+    let (resp, _) = handle_email_get(&backend, &(), args)
+        .await
+        .expect("Email/get must succeed");
+
+    let obj = &resp["list"][0];
+    assert!(
+        obj["header:Date:asDate"].is_null(),
+        "asDate must be null for malformed date; got: {:?}",
+        obj["header:Date:asDate"]
+    );
+}
+
+/// Oracle: RFC 8621 §4.1.2.5 — `asMessageIds` strips angle brackets and
+/// CFWS, returning bare msg-id strings.
+#[tokio::test]
+async fn email_get_as_message_ids_rfc8621() {
+    let backend = MemoryBackend::new();
+    // Independent oracle: input from RFC 5322 §3.6.4 msg-id grammar
+    // (angle-bracketed `id-left @ id-right`). Two message-ids on one
+    // References header.
+    let raw = b"From: alice@example.com\r\n\
+Message-ID: <one@example.com>\r\n\
+References: <one@example.com> <two@example.com>\r\n\
+Subject: Test\r\n\
+\r\n\
+Body.";
+    let email_id = import_msg_with_headers(&backend, raw).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id.as_ref()],
+        "properties": [
+            "id",
+            "header:Message-ID:asMessageIds",
+            "header:References:asMessageIds",
+        ],
+    });
+    let (resp, _) = handle_email_get(&backend, &(), args)
+        .await
+        .expect("Email/get must succeed");
+
+    let obj = &resp["list"][0];
+    let mid = obj["header:Message-ID:asMessageIds"]
+        .as_array()
+        .expect("asMessageIds must be an array");
+    assert_eq!(mid.len(), 1);
+    assert_eq!(mid[0].as_str(), Some("one@example.com"));
+
+    let refs = obj["header:References:asMessageIds"]
+        .as_array()
+        .expect("asMessageIds must be an array");
+    assert_eq!(refs.len(), 2);
+    assert_eq!(refs[0].as_str(), Some("one@example.com"));
+    assert_eq!(refs[1].as_str(), Some("two@example.com"));
+}
+
+/// Oracle: RFC 8621 §4.1.2.7 — `asURLs` strips angle brackets and comments
+/// from an RFC 2369 list-of-URLs header.
+#[tokio::test]
+async fn email_get_as_urls_rfc2369() {
+    let backend = MemoryBackend::new();
+    // Independent oracle: input shape from RFC 2369 §3.4 List-Help
+    // example. Two URLs in a list-header value.
+    let raw = b"From: alice@example.com\r\n\
+List-Help: <mailto:list@example.com?subject=help>, <http://www.example.com/list.html>\r\n\
+Subject: Test\r\n\
+\r\n\
+Body.";
+    let email_id = import_msg_with_headers(&backend, raw).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id.as_ref()],
+        "properties": ["id", "header:List-Help:asURLs"],
+    });
+    let (resp, _) = handle_email_get(&backend, &(), args)
+        .await
+        .expect("Email/get must succeed");
+
+    let obj = &resp["list"][0];
+    let urls = obj["header:List-Help:asURLs"]
+        .as_array()
+        .expect("asURLs must be an array");
+    assert_eq!(urls.len(), 2, "expected 2 URLs; got: {urls:?}");
+    assert_eq!(
+        urls[0].as_str(),
+        Some("mailto:list@example.com?subject=help")
+    );
+    assert_eq!(urls[1].as_str(), Some("http://www.example.com/list.html"));
 }
 
 /// Oracle: Email/set with a non-string element in `destroy` returns

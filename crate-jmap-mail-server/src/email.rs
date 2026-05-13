@@ -3,7 +3,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use jmap_mail_types::{Email, Keyword};
+use jmap_mail_types::{Email, EmailAddress, EmailAddressGroup, Keyword};
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde::Deserialize;
 use serde_json::{json, Value};
@@ -279,6 +279,12 @@ fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Result<(), Strin
 }
 
 /// Apply `form` to a single raw header field value string.
+///
+/// RFC 8621 §4.1.2 defines the parsed-form selectors that may be requested
+/// via a `header:<name>:as<form>` property. `Raw` and `AsText` are
+/// implemented inline; the five `As*` parse forms delegate to
+/// `mime_tree::parse_header_typed`, which is the workspace's single
+/// gateway to RFC 5322 header parsing (see bd:JMAP-g7wu.11).
 fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
     use HeaderForm::*;
     match form {
@@ -297,53 +303,126 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
                 .replace("\n\t", " ");
             Value::String(unfolded.trim_start().to_owned())
         }
-        // Returns null silently — validate_header_form accepts AsAddresses for address headers,
-        // so clients receive null with no error. Implement RFC 5322 address-list parsing or
-        // change to return an error before production use.
-        AsAddresses => {
-            #[cfg(debug_assertions)]
-            eprintln!(
-                "[jmap-mail-server] header form AsAddresses not yet implemented (bd:JMAP-g7wu.5) — returning null"
-            );
-            Value::Null
-        }
-        // Returns null silently — validate_header_form accepts AsGroupedAddresses for address
-        // headers, so clients receive null with no error. Implement RFC 5322 group address
-        // parsing or change to return an error before production use.
-        AsGroupedAddresses => {
-            #[cfg(debug_assertions)]
-            eprintln!(
-                "[jmap-mail-server] header form AsGroupedAddresses not yet implemented (bd:JMAP-g7wu.5) — returning null"
-            );
-            Value::Null
-        }
-        // Returns null silently — validate_header_form accepts AsDate for date headers,
-        // so clients receive null with no error. Implement RFC 5322 date parsing or
-        // change to return an error before production use.
-        AsDate => {
-            #[cfg(debug_assertions)]
-            eprintln!("[jmap-mail-server] header form AsDate not yet implemented (bd:JMAP-g7wu.5) — returning null");
-            Value::Null
-        }
-        // Returns null silently — validate_header_form accepts AsMessageIds for message-id
-        // headers, so clients receive null with no error. Implement RFC 5322 message-id
-        // parsing or change to return an error before production use.
-        AsMessageIds => {
-            #[cfg(debug_assertions)]
-            eprintln!(
-                "[jmap-mail-server] header form AsMessageIds not yet implemented (bd:JMAP-g7wu.5) — returning null"
-            );
-            Value::Null
-        }
-        // Returns null silently — validate_header_form accepts AsURLs for URL-list headers,
-        // so clients receive null with no error. Implement URL-list parsing or change to
-        // return an error before production use.
-        AsURLs => {
-            #[cfg(debug_assertions)]
-            eprintln!("[jmap-mail-server] header form AsURLs not yet implemented (bd:JMAP-g7wu.5) — returning null");
-            Value::Null
-        }
+        // RFC 8621 §4.1.2.3 — list of mailboxes; group structure discarded.
+        AsAddresses => match mime_tree::parse_header_typed(
+            mime_tree::HeaderForm::Addresses,
+            &restore_crlf(raw_value),
+        ) {
+            mime_tree::HeaderValueTyped::Addresses(list) => {
+                Value::Array(list.into_iter().map(jmap_email_address_value).collect())
+            }
+            _ => Value::Array(Vec::new()),
+        },
+        // RFC 8621 §4.1.2.4 — list of EmailAddressGroup; preserves group structure.
+        AsGroupedAddresses => match mime_tree::parse_header_typed(
+            mime_tree::HeaderForm::GroupedAddresses,
+            &restore_crlf(raw_value),
+        ) {
+            mime_tree::HeaderValueTyped::GroupedAddresses(groups) => Value::Array(
+                groups
+                    .into_iter()
+                    .map(jmap_email_address_group_value)
+                    .collect(),
+            ),
+            _ => Value::Array(Vec::new()),
+        },
+        // RFC 8621 §4.1.2.6 — RFC 3339 / ISO 8601 string, or null if the
+        // header value did not parse as a `date-time`.
+        AsDate => match mime_tree::parse_header_typed(
+            mime_tree::HeaderForm::Date,
+            &restore_crlf(raw_value),
+        ) {
+            mime_tree::HeaderValueTyped::DateTime(Some(dt)) => Value::String(dt.to_rfc3339()),
+            _ => Value::Null,
+        },
+        // RFC 8621 §4.1.2.5 — list of bare msg-id strings (angle brackets stripped).
+        AsMessageIds => match mime_tree::parse_header_typed(
+            mime_tree::HeaderForm::MessageIds,
+            &restore_crlf(raw_value),
+        ) {
+            mime_tree::HeaderValueTyped::MessageIds(ids) if !ids.is_empty() => {
+                Value::Array(ids.into_iter().map(Value::String).collect())
+            }
+            // RFC 8621 §4.1.2.5: returns null when the header value does
+            // not parse as a list of msg-id values (per the spec's
+            // "List of MessageIds" form, which is nullable rather than an
+            // empty array on parse failure).
+            _ => Value::Null,
+        },
+        // RFC 8621 §4.1.2.7 — list of bare URL strings (angle brackets stripped).
+        AsURLs => match mime_tree::parse_header_typed(
+            mime_tree::HeaderForm::URLs,
+            &restore_crlf(raw_value),
+        ) {
+            mime_tree::HeaderValueTyped::URLs(urls) if !urls.is_empty() => {
+                Value::Array(urls.into_iter().map(Value::String).collect())
+            }
+            // RFC 8621 §4.1.2.7: returns null when the header value does
+            // not parse as a list of URLs (per the spec's "List of URLs"
+            // form, which is nullable rather than an empty array on parse
+            // failure).
+            _ => Value::Null,
+        },
     }
+}
+
+/// Restore RFC 5322 wire CRLFs in a header field value before handing it
+/// to `mime_tree::parse_header_typed`.
+///
+/// The JMAP "Raw" storage form has already collapsed `\r\n` to `\n` (RFC
+/// 8621 §4.1.3), and the memory backend's `parse_rfc5322_headers` also
+/// folds continuation lines using `\n` as the separator. mail-parser
+/// (mime-tree's underlying parser) expects RFC 5322 wire bytes with CRLF
+/// line endings, so we re-expand `\n` → `\r\n` to give the parser the
+/// folding it knows how to recognise. A standalone `\r` is left alone:
+/// real wire bytes never contain it, and treating it as a fold separator
+/// could corrupt the rare CR-in-display-name case.
+fn restore_crlf(raw_value: &str) -> Vec<u8> {
+    // Two-pass replace to avoid expanding existing "\r\n" to "\r\r\n".
+    // Step 1: collapse any stray "\r\n" already in the value back to "\n".
+    let lf_only = raw_value.replace("\r\n", "\n");
+    // Step 2: expand "\n" to "\r\n".
+    lf_only.replace('\n', "\r\n").into_bytes()
+}
+
+/// Convert a `mime_tree::EmailAddress` (parser shape: `{name, address}`)
+/// to the JMAP `EmailAddress` (`{name, email}`, RFC 8621 §4.1.2.3) and
+/// then to a `serde_json::Value`.
+///
+/// Routing the conversion through the canonical `jmap_mail_types`
+/// `EmailAddress` type guarantees the serialised wire format matches the
+/// `from`/`to`/`sender`/etc. properties produced elsewhere — same field
+/// names, same null-omission rules — instead of building the map by hand
+/// and risking drift.
+///
+/// Per RFC 8621 §4.1.2.3, `addr-spec` is required (`email: "String"`);
+/// `name` is `String|null`. mime-tree's parser may return
+/// `address: None` for malformed input; in that case we substitute the
+/// empty string so the JMAP wire-type invariant (non-nullable `email`)
+/// is preserved.
+fn jmap_email_address_value(addr: mime_tree::EmailAddress) -> Value {
+    let mut ea = EmailAddress::new(addr.address.unwrap_or_default());
+    ea.name = addr.name;
+    serde_json::to_value(ea).unwrap_or(Value::Null)
+}
+
+/// Convert a `mime_tree::AddressGroup` to the JMAP `EmailAddressGroup`
+/// JSON shape (RFC 8621 §4.1.2.4) via the canonical wire-type so the
+/// serialised shape stays aligned with the rest of the crate.
+fn jmap_email_address_group_value(group: mime_tree::AddressGroup) -> Value {
+    let mut eag = EmailAddressGroup::new(
+        group
+            .addresses
+            .into_iter()
+            .map(|a| {
+                let mut ea = EmailAddress::new(a.address.unwrap_or_default());
+                ea.name = a.name;
+                ea
+            })
+            .collect(),
+    );
+    eag.name = group.name;
+    serde_json::to_value(eag).unwrap_or(Value::Null)
 }
 
 /// Extract header value(s) from `email_json["headers"]` for the given request.
