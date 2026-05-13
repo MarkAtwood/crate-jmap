@@ -2582,6 +2582,220 @@ async fn space_set_update_malformed_structural_rejected() {
     );
 }
 
+/// Oracle: Space/set addRoles with `position: 0` is rejected as
+/// `invalidProperties` per draft-atwood-jmap-chat-00 §SpaceRole commit
+/// `c3ea5d9` — position 0 is reserved for the implicit @everyone role.
+#[tokio::test]
+async fn space_set_add_roles_position_zero_rejected() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "create": { "s0": { "name": "Test" } } }),
+    )
+    .await
+    .expect("create");
+    let space_id = create_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addRoles": [{
+                        "id": "placeholder",
+                        "name": "BadRole",
+                        "permissions": [],
+                        "position": 0
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    let nu = &resp["notUpdated"][&space_id];
+    assert!(nu.is_object(), "{} must appear in notUpdated", &space_id);
+    assert_eq!(
+        nu["type"], "invalidProperties",
+        "wire type must be invalidProperties (the only SetError that carries a `properties` array)"
+    );
+    let props = nu["properties"].as_array().expect("properties array");
+    assert!(
+        props.iter().any(|p| p == "position"),
+        "properties must include `position`, got {props:?}"
+    );
+    assert!(
+        nu["description"]
+            .as_str()
+            .is_some_and(|s| s.contains("@everyone")),
+        "description must mention the @everyone reservation, got {nu:?}"
+    );
+}
+
+/// Oracle: Space/set addRoles with `position: 1` (the smallest permitted
+/// value) passes the handler's position-zero check and reaches the
+/// backend. The reference `MemoryBackend` currently rejects every
+/// AddRole with `forbidden` (tracked under bd:JMAP-g7wu.2.4.3), so the
+/// wire response is `forbidden` — NOT `invalidProperties` with
+/// properties=["position"]. The wire-shape difference is the proof that
+/// the handler-level position check did not fire.
+#[tokio::test]
+async fn space_set_add_roles_position_one_passes_handler_check() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "create": { "s0": { "name": "Test" } } }),
+    )
+    .await
+    .expect("create");
+    let space_id = create_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addRoles": [{
+                        "id": "placeholder",
+                        "name": "Mod",
+                        "permissions": [],
+                        "position": 1
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    let nu = &resp["notUpdated"][&space_id];
+    // Either the response is the backend's forbidden (proving the
+    // handler accepted position=1 and dispatched), or it would be
+    // invalidProperties with properties=["position"] (proving the
+    // handler-level check rejected). The latter would be the bug.
+    assert_ne!(
+        nu["type"], "invalidProperties",
+        "position=1 must NOT be rejected by the handler-level position check"
+    );
+    let props = nu["properties"].as_array();
+    assert!(
+        !props.is_some_and(|arr| arr.iter().any(|p| p == "position")),
+        "the rejection must not list `position` as the offending field"
+    );
+}
+
+/// Oracle: Space/set updateRoles with a patch setting `position: 0` is
+/// rejected as `invalidProperties`. The validation applies to update
+/// patches just as it does to add entries (spec MUST).
+#[tokio::test]
+async fn space_set_update_roles_position_zero_rejected() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "create": { "s0": { "name": "Test" } } }),
+    )
+    .await
+    .expect("create");
+    let space_id = create_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "updateRoles": [{
+                        "id": "some-role-id",
+                        "position": 0
+                    }]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    let nu = &resp["notUpdated"][&space_id];
+    assert!(nu.is_object());
+    assert_eq!(nu["type"], "invalidProperties");
+    assert_eq!(nu["properties"][0], "position");
+}
+
+/// Oracle: a single position-0 violation rejects the whole update target
+/// per RFC 8620 §5.3 per-target atomicity. Even if other ops in the same
+/// `addRoles` entry are valid, the entire update target lands in
+/// `notUpdated`.
+#[tokio::test]
+async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "create": { "s0": { "name": "Atomic" } } }),
+    )
+    .await
+    .expect("create");
+    let space_id = create_resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "name": "RenamedAttempt",
+                    "addRoles": [
+                        { "id": "p1", "name": "Mod", "permissions": [], "position": 1 },
+                        { "id": "p2", "name": "Bad", "permissions": [], "position": 0 }
+                    ]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_space_set");
+
+    assert_eq!(
+        resp["notUpdated"][&space_id]["type"], "invalidProperties",
+        "whole-target atomicity: one position-0 violation rejects the entire update"
+    );
+
+    // The metadata rename must NOT have applied (per-target atomicity).
+    let (get_resp, _) = handle_space_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&space_id] }),
+    )
+    .await
+    .expect("handle_space_get");
+    assert_eq!(
+        get_resp["list"][0]["name"], "Atomic",
+        "structural failure must abort the metadata write"
+    );
+}
+
 /// Oracle: Space/set update with structural ops AND metadata in the same
 /// patch dispatches structural to the backend; metadata is skipped when
 /// the structural call fails (per RFC 8620 §5.3 per-target atomicity).

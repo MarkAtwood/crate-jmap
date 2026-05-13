@@ -832,6 +832,41 @@ pub async fn handle_space_set<B: ChatBackend>(
                 continue;
             }
 
+            // Reject SpaceRole.position == 0 per draft-atwood-jmap-chat-00
+            // §SpaceRole commit `c3ea5d9` ("harden position 0 / @everyone
+            // reservation"): position 0 is reserved for the implicit
+            // @everyone role, which every member of a Space holds and
+            // which serves as the permission floor. Defined SpaceRoles
+            // MUST have position > 0. The reference permissions resolver
+            // uses position: 0 internally for the synthetic @everyone
+            // role, so accepting it on the wire would create real
+            // conflicts.
+            //
+            // Per RFC 8620 §5.3 the rejection is per-target atomic, so a
+            // single position-0 violation in any addRoles or updateRoles
+            // entry rejects the whole update target. The wire shape is
+            // `invalidProperties` with `properties: ["position"]` to
+            // match the existing per-field-rejection convention in this
+            // crate; the bead's "invalidArguments" text was an internal
+            // slip (RFC 8620's `invalidArguments` SetError does not
+            // carry a `properties` field).
+            if ops.iter().any(|op| match op {
+                SpacePatchOp::AddRole(role) => role.position == 0,
+                SpacePatchOp::UpdateRole { patch, .. } => patch.position == Some(0),
+                _ => false,
+            }) {
+                not_updated.insert(
+                    id_str,
+                    json!({
+                        "type": "invalidProperties",
+                        "properties": ["position"],
+                        "description":
+                            "SpaceRole.position 0 is reserved for the implicit @everyone role; defined roles MUST have position > 0 (draft-atwood-jmap-chat-00 §SpaceRole)",
+                    }),
+                );
+                continue;
+            }
+
             // Enforce per-Space count limits before dispatching structural
             // ops to the backend (bd:JMAP-g7wu.2.4.8). If any aggregate
             // would exceed its cap, reject the whole update target with
