@@ -31,6 +31,25 @@ pub struct ChatCapability {
     pub max_attachments_per_message: u64,
     /// Whether the server supports the optional thread model.
     pub supports_threads: bool,
+    /// The set of Message `bodyType` values this server understands
+    /// (draft-atwood-jmap-chat-00 §3).
+    ///
+    /// Spec requirements for compliant servers:
+    ///
+    /// - MUST include `"text/plain"`.
+    /// - SHOULD include `"text/markdown"` (RFC 7763 CommonMark).
+    /// - SHOULD include `"application/jmap-chat-rich"`.
+    /// - SHOULD include `"application/mls-ciphertext"` for E2EE
+    ///   deployments.
+    /// - MAY include `"application/mimi-content"`.
+    ///
+    /// An empty `Vec` is non-compliant per spec (`"text/plain"` is
+    /// mandatory) but the client tolerates it via `Default` — the
+    /// consumer is responsible for enforcing the MUST and acting
+    /// accordingly (e.g. refusing to send rich messages to a server
+    /// that does not advertise the matching `bodyType`).
+    #[serde(default)]
+    pub supported_body_types: Vec<String>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -363,6 +382,57 @@ mod tests {
     // draft-atwood-jmap-chat-00 §3 or draft-atwood-jmap-chat-push-00, so
     // the tests are independent of the code under test (workspace
     // test-integrity rule).
+
+    /// Oracle: `supportedBodyTypes` on the wire deserializes into
+    /// `ChatCapability.supported_body_types: Vec<String>` preserving
+    /// order. The spec (draft-atwood-jmap-chat-00 §3) mandates
+    /// "text/plain" and recommends a defined set of additional values;
+    /// the client trusts the server's advertised list verbatim.
+    #[test]
+    fn chat_capability_supported_body_types_round_trips() {
+        let raw = json!({
+            "maxBodyBytes": 65536,
+            "maxAttachmentBytes": 10485760,
+            "maxAttachmentsPerMessage": 10,
+            "supportsThreads": true,
+            "supportedBodyTypes": [
+                "text/plain",
+                "text/markdown",
+                "application/jmap-chat-rich"
+            ]
+        });
+        let cap: ChatCapability =
+            serde_json::from_value(raw).expect("ChatCapability must deserialize");
+        assert_eq!(
+            cap.supported_body_types,
+            vec![
+                "text/plain".to_owned(),
+                "text/markdown".to_owned(),
+                "application/jmap-chat-rich".to_owned(),
+            ],
+            "supported_body_types must preserve wire order"
+        );
+    }
+
+    /// Oracle: a server that omits `supportedBodyTypes` deserializes
+    /// to an empty `Vec` via `#[serde(default)]`. This is technically
+    /// non-compliant per spec (`"text/plain"` is mandatory) but the
+    /// client tolerates it — enforcement is the consumer's job.
+    #[test]
+    fn chat_capability_supported_body_types_absent_defaults_empty() {
+        let raw = json!({
+            "maxBodyBytes": 65536,
+            "maxAttachmentBytes": 10485760,
+            "maxAttachmentsPerMessage": 10,
+            "supportsThreads": true
+        });
+        let cap: ChatCapability =
+            serde_json::from_value(raw).expect("ChatCapability must deserialize");
+        assert!(
+            cap.supported_body_types.is_empty(),
+            "missing supportedBodyTypes must default to an empty Vec"
+        );
+    }
 
     /// `ChatCapability.extra` captures unknown fields on deserialize.
     #[test]
