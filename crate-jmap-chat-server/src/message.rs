@@ -538,6 +538,186 @@ pub async fn handle_message_set<B: ChatBackend>(
                 }
             }
 
+            // Reaction patch processing
+            // (draft-atwood-jmap-chat-00 §Message/set, §Reaction).
+            //
+            // Reactions are added/removed by patching
+            // `reactions/{senderReactionId}` as RFC 8620 §5.3 JSON
+            // Pointer entries:
+            //
+            // - value is an object: add or modify the reaction
+            // - value is `null`: remove the reaction
+            //
+            // The backend's `json_merge_patch` is flat-key — it would
+            // store a literal top-level field named `"reactions/X"`
+            // rather than descending into the `reactions` map. So this
+            // handler must rewrite all `reactions/X` entries into a
+            // single nested `reactions` entry; RFC 7396 then merges
+            // that into the stored reactions map per spec.
+            //
+            // While rewriting, the handler:
+            //
+            // 1. Rejects `reactions/{id}` keys containing `/` or `~`
+            //    (RFC 6901 escape characters — the chat-client also
+            //    rejects them; this is defense-in-depth).
+            // 2. Rejects non-null non-object values as `invalidPatch`.
+            // 3. Pre-fetches the Message and rejects with `forbidden`
+            //    if the patched key targets an existing reaction whose
+            //    `senderId` is not `"self"` — per spec, only the
+            //    original sender may modify their own reactions.
+            // 4. Server-overrides `senderId` to `"self"` on every add
+            //    (spec MUST; defense-in-depth).
+            // 5. Server-injects `sentAt` to the current time on adds
+            //    that lack it, so the resulting `Reaction` round-trips
+            //    through the typed shape (which requires `sentAt`).
+            let reaction_pointer_keys: Vec<String> = augmented
+                .as_object()
+                .map(|obj| {
+                    obj.keys()
+                        .filter(|k| k.starts_with("reactions/"))
+                        .cloned()
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            if !reaction_pointer_keys.is_empty() {
+                // Reject mixing top-level `reactions` with
+                // `reactions/{id}` — the two have incompatible
+                // semantics (wholesale replace vs per-key merge) and
+                // a single patch should not attempt both.
+                if augmented
+                    .as_object()
+                    .is_some_and(|obj| obj.contains_key("reactions"))
+                {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "invalidPatch",
+                            "description":
+                                "patch must not combine top-level `reactions` with `reactions/{id}` entries",
+                        }),
+                    );
+                    continue;
+                }
+
+                // Validate each pointer key + value shape.
+                let mut decoded: Vec<(String, String)> =
+                    Vec::with_capacity(reaction_pointer_keys.len());
+                let mut bad_desc: Option<String> = None;
+                for raw_key in &reaction_pointer_keys {
+                    let suffix = &raw_key["reactions/".len()..];
+                    if suffix.is_empty() || suffix.contains('/') || suffix.contains('~') {
+                        bad_desc = Some(format!(
+                            "reactions/{{id}} pointer key {raw_key:?} has empty or forbidden suffix; '/' and '~' are reserved by RFC 6901",
+                        ));
+                        break;
+                    }
+                    let val = augmented.get(raw_key).cloned().unwrap_or(Value::Null);
+                    if !val.is_null() {
+                        let ok = val.as_object().is_some_and(|m| {
+                            m.get("emoji")
+                                .and_then(|v| v.as_str())
+                                .is_some_and(|s| !s.is_empty())
+                        });
+                        if !ok {
+                            bad_desc = Some(format!(
+                                "reaction value for {raw_key:?} must be null or an object with a non-empty `emoji` string",
+                            ));
+                            break;
+                        }
+                    }
+                    decoded.push((raw_key.clone(), suffix.to_owned()));
+                }
+                if let Some(desc) = bad_desc {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": desc }),
+                    );
+                    continue;
+                }
+
+                // Pre-fetch the Message to inspect existing
+                // reactions. An update target that doesn't exist on
+                // the backend will surface a normal `notFound` from
+                // the subsequent `update_object` call — we don't
+                // short-circuit here. A backend storage error becomes
+                // `serverFail`.
+                let forbidden = match backend
+                    .get_objects::<Message>(
+                        caller,
+                        &account_id,
+                        Some(std::slice::from_ref(&id)),
+                        None,
+                    )
+                    .await
+                {
+                    Ok((found, _not_found)) => {
+                        let mut bad: Vec<String> = Vec::new();
+                        if let Some(msg) = found.first() {
+                            for (_, suffix) in &decoded {
+                                if let Some(existing) = msg.reactions.get(suffix) {
+                                    if existing.sender_id != SenderId::Owner {
+                                        bad.push(suffix.clone());
+                                    }
+                                }
+                            }
+                        }
+                        bad
+                    }
+                    Err(e) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                        continue;
+                    }
+                };
+                if !forbidden.is_empty() {
+                    not_updated.insert(
+                        id_str,
+                        json!({
+                            "type": "forbidden",
+                            "description": format!(
+                                "cannot modify reactions authored by another sender: {}",
+                                forbidden.join(", "),
+                            ),
+                        }),
+                    );
+                    continue;
+                }
+
+                // Coalesce every `reactions/{key}` entry into a single
+                // nested `reactions` patch entry, server-overriding
+                // `senderId` and injecting `sentAt` where absent so
+                // the stored Reaction round-trips through the typed
+                // shape.
+                let now_str = now_utc_string();
+                if let Some(obj) = augmented.as_object_mut() {
+                    let mut sub = serde_json::Map::new();
+                    for (raw_key, suffix) in &decoded {
+                        let val = obj.remove(raw_key).unwrap_or(Value::Null);
+                        let final_val = match val {
+                            Value::Null => Value::Null,
+                            Value::Object(mut map) => {
+                                // Spec MUST: server overrides senderId
+                                // to "self" on every add, regardless
+                                // of what the client supplied.
+                                map.insert("senderId".to_owned(), json!("self"));
+                                if !map.contains_key("sentAt") {
+                                    map.insert("sentAt".to_owned(), json!(now_str));
+                                }
+                                Value::Object(map)
+                            }
+                            // Validation above rejects non-null
+                            // non-object; this arm is unreachable.
+                            other => other,
+                        };
+                        sub.insert(suffix.clone(), final_val);
+                    }
+                    obj.insert("reactions".to_owned(), Value::Object(sub));
+                }
+            }
+
             // Detect a non-null readAt assignment in the patch. A
             // `readAt: null` is a PatchObject clear (RFC 8620 §5.3), not a
             // "mark as read" event, so it does not trigger burn-on-read.

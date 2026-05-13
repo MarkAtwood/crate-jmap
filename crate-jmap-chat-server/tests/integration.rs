@@ -1881,6 +1881,417 @@ async fn message_set_create_with_past_expiry_rejected() {
 }
 
 // ---------------------------------------------------------------------------
+// Reaction patches on Message/set update
+// (draft-atwood-jmap-chat-00 §Message/set, §Reaction)
+// ---------------------------------------------------------------------------
+
+/// Oracle: a `reactions/{senderReactionId}` patch with an emoji-only
+/// object adds a new Reaction whose stored `senderId` is `"self"`
+/// (`SenderId::Owner`). The client supplies just `emoji`; the server
+/// injects `senderId` and `sentAt`.
+#[tokio::test]
+async fn message_set_update_reaction_add_overrides_sender_id_to_self() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "m0": { "chatId": "c1", "body": "react to me", "sentAt": "2024-01-01T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &msg_id: { "reactions/abc": { "emoji": "👍" } }
+            }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["updated"][&msg_id], json!(null));
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
+    let stored = &get_resp["list"][0]["reactions"]["abc"];
+    assert!(
+        stored.is_object(),
+        "reactions.abc must be stored as an object"
+    );
+    assert_eq!(stored["emoji"], "👍");
+    assert_eq!(
+        stored["senderId"], "self",
+        "server MUST set senderId=\"self\" on owner-authored reactions"
+    );
+    assert!(
+        stored["sentAt"].is_string(),
+        "server MUST inject sentAt when client omits it"
+    );
+}
+
+/// Oracle: when the client supplies an explicit `senderId` on a
+/// reaction patch value, the server MUST override it to `"self"` —
+/// defense in depth per draft-atwood-jmap-chat-00 §Reaction.
+#[tokio::test]
+async fn message_set_update_reaction_add_overrides_client_supplied_sender_id() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &msg_id: { "reactions/bar": { "emoji": "❤️", "senderId": "someone-else" } }
+            }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(
+        get_resp["list"][0]["reactions"]["bar"]["senderId"], "self",
+        "client-supplied senderId MUST be overridden to \"self\""
+    );
+}
+
+/// Oracle: removing a reaction authored by someone other than the
+/// caller MUST be rejected with a `forbidden` SetError. Spec MUST.
+#[tokio::test]
+async fn message_set_update_reaction_remove_others_rejected_forbidden() {
+    let backend = MemoryBackend::new();
+    // Seed a Message with a pre-existing reaction whose senderId is
+    // NOT "self" — simulates a reaction authored by a peer.
+    backend.insert_object_for_test(
+        "Message",
+        "a1",
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smsg1",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "Hello",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": [],
+            "actions": [],
+            "reactions": {
+                "foo": {
+                    "emoji": "👎",
+                    "senderId": "someone-else",
+                    "sentAt": "2024-01-01T00:00:00Z"
+                }
+            },
+            "sentAt": "2024-01-01T00:00:00Z",
+            "receivedAt": "2024-01-01T00:00:01Z",
+            "deliveryState": "delivered"
+        }),
+    );
+
+    let (resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                "m1": { "reactions/foo": serde_json::Value::Null }
+            }
+        }),
+    )
+    .await
+    .expect("handle_message_set");
+
+    assert_eq!(resp["updated"], json!(null));
+    let nu = &resp["notUpdated"]["m1"];
+    assert!(nu.is_object());
+    assert_eq!(nu["type"], "forbidden");
+    assert!(
+        nu["description"]
+            .as_str()
+            .is_some_and(|s| s.contains("foo")),
+        "description must name the rejected reaction key"
+    );
+
+    // The reaction must still be present after the forbidden rejection
+    // (the patch should not have been applied).
+    let (get_resp, _) =
+        handle_message_get(&backend, &(), json!({ "accountId": "a1", "ids": ["m1"] }))
+            .await
+            .expect("get");
+    assert_eq!(
+        get_resp["list"][0]["reactions"]["foo"]["emoji"], "👎",
+        "the foreign reaction must survive the forbidden rejection unchanged"
+    );
+}
+
+/// Oracle: modifying (rather than removing) a reaction authored by
+/// someone else is also rejected with `forbidden`. Only the original
+/// sender may modify their own reactions.
+#[tokio::test]
+async fn message_set_update_reaction_modify_others_rejected_forbidden() {
+    let backend = MemoryBackend::new();
+    backend.insert_object_for_test(
+        "Message",
+        "a1",
+        "m1",
+        json!({
+            "id": "m1",
+            "senderMsgId": "smsg1",
+            "senderId": "self",
+            "chatId": "c1",
+            "body": "Hello",
+            "bodyType": "text/plain",
+            "attachments": [],
+            "mentions": [],
+            "actions": [],
+            "reactions": {
+                "foo": {
+                    "emoji": "👎",
+                    "senderId": "someone-else",
+                    "sentAt": "2024-01-01T00:00:00Z"
+                }
+            },
+            "sentAt": "2024-01-01T00:00:00Z",
+            "receivedAt": "2024-01-01T00:00:01Z",
+            "deliveryState": "delivered"
+        }),
+    );
+
+    let (resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                "m1": { "reactions/foo": { "emoji": "🎉" } }
+            }
+        }),
+    )
+    .await
+    .expect("handle_message_set");
+
+    assert_eq!(resp["notUpdated"]["m1"]["type"], "forbidden");
+}
+
+/// Oracle: a `reactions/{id}` key containing `/` or `~` is rejected
+/// with `invalidPatch`. RFC 6901 reserves these as JSON Pointer
+/// escape characters; the chat-client also rejects them.
+#[tokio::test]
+async fn message_set_update_reaction_pointer_with_slash_rejected() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &msg_id: { "reactions/a/b": { "emoji": "👍" } }
+            }
+        }),
+    )
+    .await
+    .expect("update");
+
+    assert_eq!(update_resp["notUpdated"][&msg_id]["type"], "invalidPatch");
+}
+
+/// Oracle: a non-null non-object value at `reactions/{id}` is
+/// rejected with `invalidPatch`. The Reaction wire shape requires an
+/// object; a bare string / number / boolean is malformed.
+#[tokio::test]
+async fn message_set_update_reaction_non_object_value_rejected() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &msg_id: { "reactions/abc": "👍" }
+            }
+        }),
+    )
+    .await
+    .expect("update");
+
+    assert_eq!(update_resp["notUpdated"][&msg_id]["type"], "invalidPatch");
+}
+
+/// Oracle: removing one's own reaction (sender_id == "self")
+/// succeeds. The reaction is removed from the stored Message.
+#[tokio::test]
+async fn message_set_update_reaction_remove_self_succeeds() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    // Add a reaction.
+    let (add_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &msg_id: { "reactions/r1": { "emoji": "👍" } }
+            }
+        }),
+    )
+    .await
+    .expect("add");
+    assert_eq!(add_resp["notUpdated"], json!(null));
+
+    // Now remove it.
+    let (remove_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &msg_id: { "reactions/r1": serde_json::Value::Null }
+            }
+        }),
+    )
+    .await
+    .expect("remove");
+    assert_eq!(remove_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
+    assert!(
+        get_resp["list"][0]["reactions"].get("r1").is_none()
+            || get_resp["list"][0]["reactions"]["r1"].is_null(),
+        "removed reaction must not appear in stored reactions"
+    );
+}
+
+/// Oracle: a patch combining `reactions/{id}` entries with a
+/// top-level `reactions` entry is rejected with `invalidPatch`. The
+/// two have incompatible semantics (wholesale replace vs per-key
+/// merge) and a single patch must not attempt both.
+#[tokio::test]
+async fn message_set_update_reaction_mixed_top_level_and_pointer_rejected() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "m0": { "chatId": "c1", "body": "test", "sentAt": "2024-01-01T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &msg_id: {
+                    "reactions": {},
+                    "reactions/abc": { "emoji": "👍" }
+                }
+            }
+        }),
+    )
+    .await
+    .expect("update");
+
+    assert_eq!(update_resp["notUpdated"][&msg_id]["type"], "invalidPatch");
+}
+
+// ---------------------------------------------------------------------------
 // Space/get and Space/set
 // ---------------------------------------------------------------------------
 
