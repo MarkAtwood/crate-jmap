@@ -18,6 +18,15 @@ categories = ["network-programming", "web-programming::http-server"]
 # jmap-mail-server `memory` feature (JMAP-hwdv.1).
 memory = []
 
+# Switches `MemoryBackend::demo_next_id` from the default deterministic
+# `"<type><n:016x>"` pattern to a process-global timestamp+counter
+# pattern matching the canonical `jmap-mail-server` `next_id` at
+# `email.rs:1748`. Both modes are explicitly demonstration-quality;
+# production backends must mint real ULIDs (or equivalent
+# globally-unique, monotonic, persistent-across-restarts ids) and never
+# use this helper as a copy-paste source.
+realistic-demo-ids = []
+
 [dependencies]
 jmap-types = { workspace = true }
 jmap-contacts-types = { workspace = true }

@@ -172,18 +172,66 @@ impl MemoryBackend {
         b
     }
 
-    /// Allocate a server-assigned id for a new object.
+    /// Demo-grade id minter for the in-memory reference backend.
     ///
-    /// Format: `"<lowercased-type-name><n:016x>"` where `n` is `count + 1`
-    /// within the `(type_name, account_id)` namespace. Zero-padded hex
-    /// makes ids lex-orderable, matching the sibling chat-server pattern
-    /// required by draft-atwood-jmap-chat-00 `unreadCount` semantics.
-    /// Demo-grade; production backends mint real ULIDs.
-    fn next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {
-        let n = inner
-            .objects_ref(type_name, account_id)
-            .map_or(0, |m| m.len());
-        Id::from(format!("{}{:016x}", type_name.to_ascii_lowercase(), n + 1))
+    /// NOT A PRODUCTION PATTERN. Both modes below are explicitly
+    /// demonstration-quality; production backends must mint real ULIDs
+    /// (or equivalent globally-unique, monotonic, persistent-across-restarts
+    /// ids) and never use this helper as a copy-paste source.
+    ///
+    /// Behavior is controlled by the `realistic-demo-ids` cargo feature:
+    ///
+    /// - **Default (deterministic):** returns `"<type><n:016x>"` where `n`
+    ///   is the per-(type, account) object count + 1. Lex-orderable within
+    ///   a (type, account) namespace, repeatable across test runs, easy to
+    ///   read in test debug output.
+    /// - **`realistic-demo-ids` enabled:** returns `"{n:016x}"` matching
+    ///   the canonical `jmap-mail-server` pattern at `email.rs:1748` —
+    ///   process-start nanos as base, atomic counter, no type prefix,
+    ///   no per-account scoping. Lex-orderable globally within a process,
+    ///   not repeatable across runs.
+    fn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {
+        #[cfg(feature = "realistic-demo-ids")]
+        {
+            use std::sync::atomic::{AtomicU64, Ordering};
+            use std::sync::OnceLock;
+            use std::time::{SystemTime, UNIX_EPOCH};
+
+            let _ = (inner, type_name, account_id);
+            static COUNTER: AtomicU64 = AtomicU64::new(0);
+            static BASE: OnceLock<u64> = OnceLock::new();
+            let base = *BASE.get_or_init(|| {
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .map(|d| d.as_nanos() as u64)
+                    .unwrap_or(1_000_000_000)
+            });
+            let n = base.wrapping_add(COUNTER.fetch_add(1, Ordering::Relaxed));
+            Id::from(format!("{n:016x}"))
+        }
+
+        #[cfg(not(feature = "realistic-demo-ids"))]
+        {
+            // CARGO-CULT WARNING: do NOT copy this into a production backend.
+            // This deterministic mode uses an in-memory `len()` counter that:
+            //   - collides after deletes (count goes down, next id re-uses)
+            //   - resets to 0 on every process restart
+            //   - is not unique across (type, account) namespaces
+            // Production-grade id minting needs a real ULID or equivalent.
+            let n = inner
+                .objects_ref(type_name, account_id)
+                .map_or(0, |m| m.len());
+            let new_id = Id::from(format!("{}{:016x}", type_name.to_ascii_lowercase(), n + 1));
+            debug_assert!(
+                !inner
+                    .objects_ref(type_name, account_id)
+                    .is_some_and(|m| m.contains_key(&new_id)),
+                "MemoryBackend demo_next_id collision: deterministic mode uses a len()-based \
+                 counter that cannot survive deletes. This is the demo impl — production \
+                 backends must use ULIDs."
+            );
+            new_id
+        }
     }
 }
 
@@ -444,7 +492,7 @@ impl SharingBackend for MemoryBackend {
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
-        let server_id = Self::next_id(&mut inner, O::TYPE_NAME, account_id.as_ref());
+        let server_id = Self::demo_next_id(&mut inner, O::TYPE_NAME, account_id.as_ref());
 
         // Serialize, set "id" to the server-assigned id, then deserialize back.
         let mut val = serde_json::to_value(&obj)
