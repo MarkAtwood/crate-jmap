@@ -404,6 +404,50 @@ pub trait ChatBackend: JmapBackend {
         ops: Vec<SpacePatchOp>,
     ) -> impl std::future::Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
 
+    /// Predicate consulted by typing/presence fan-out paths: is the
+    /// requesting caller blocked by the given contact?
+    ///
+    /// Per draft-atwood-jmap-chat-00 commit `d68b4e3` (2026-05-11,
+    /// "close blocked-sender suppression gaps for typing/presence"):
+    /// when the requesting account corresponds to a [`ChatContact`]
+    /// whose `blocked` is `true` on the recipient's contact list, the
+    /// server MUST silently suppress the ephemeral event for that
+    /// recipient. The sender is NOT informed.
+    ///
+    /// [`ChatContact`]: jmap_chat_types::ChatContact
+    ///
+    /// # When the handler calls this
+    ///
+    /// `handle_chat_typing` consults this predicate when the target
+    /// `Chat` is direct (a single recipient identified by
+    /// `Chat.contact_id`). The kit does not implement transport-layer
+    /// fan-out (push events to subscribers) — that is the consumer's
+    /// responsibility — so the consultation result does not change
+    /// the handler's wire response. The call site is the documented
+    /// integration point: production transport that fans typing
+    /// events out to subscribers SHOULD consult this predicate
+    /// before each per-recipient event.
+    ///
+    /// Group / channel chats are skipped on the kit side. The kit
+    /// handler has no way to enumerate fan-out recipients; that work
+    /// belongs to the consumer's transport layer, which must call
+    /// this predicate per recipient.
+    ///
+    /// # Default implementation
+    ///
+    /// Returns `Ok(false)` — no one is blocked. This is appropriate
+    /// for backends that have not yet implemented contact lists, and
+    /// it matches the workspace's "kit defines the hook; consumer
+    /// enforces the policy" posture.
+    fn is_contact_blocked(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+        _contact_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
+        async { Ok(false) }
+    }
+
     /// Authorization gate consulted by `handle_emoji_set` before every
     /// `CustomEmoji/set` create, update, or destroy.
     ///

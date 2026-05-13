@@ -513,6 +513,275 @@ async fn chat_query_changes_after_create() {
 }
 
 // ---------------------------------------------------------------------------
+// Chat/typing — blocked-sender suppression hook
+// (draft-atwood-jmap-chat-00 commit d68b4e3)
+// ---------------------------------------------------------------------------
+
+/// Oracle: `Chat/typing` returns a successful response (echoing
+/// `accountId`) regardless of whether the requesting account is
+/// blocked. The kit's wire shape is identical in either case — the
+/// blocked-sender suppression contract is implemented by the
+/// consumer's transport layer, which consults
+/// `ChatBackend::is_contact_blocked` independently. The kit handler's
+/// only job at this site is to validate input and forward.
+#[tokio::test]
+async fn chat_typing_returns_success_when_contact_not_blocked() {
+    use jmap_chat_server::handle_chat_typing;
+
+    let backend = MemoryBackend::new();
+    // Seed a direct chat referencing a known contact id.
+    backend.insert_object_for_test(
+        "Chat",
+        "a1",
+        "c1",
+        json!({
+            "id": "c1",
+            "kind": "direct",
+            "contactId": "u1",
+            "createdAt": "2024-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "pinnedMessageIds": [],
+            "muted": false,
+            "receiveTypingIndicators": true
+        }),
+    );
+    // No ChatContact record — `is_contact_blocked` returns Ok(false).
+
+    let (resp, _) = handle_chat_typing(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "chatId": "c1", "typing": true }),
+    )
+    .await
+    .expect("handle_chat_typing");
+
+    assert_eq!(resp["accountId"], "a1");
+}
+
+/// Oracle: `Chat/typing` returns the same success response when the
+/// recipient has marked the sender as blocked. Per the bead and
+/// draft-atwood-jmap-chat-00 commit `d68b4e3`, the kit handler's wire
+/// response is unchanged; suppression is the consumer transport
+/// layer's job (which calls `is_contact_blocked` before each fan-out
+/// event).
+#[tokio::test]
+async fn chat_typing_returns_success_when_contact_blocked() {
+    use jmap_chat_server::handle_chat_typing;
+
+    let backend = MemoryBackend::new();
+    backend.insert_object_for_test(
+        "Chat",
+        "a1",
+        "c1",
+        json!({
+            "id": "c1",
+            "kind": "direct",
+            "contactId": "u1",
+            "createdAt": "2024-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "pinnedMessageIds": [],
+            "muted": false,
+            "receiveTypingIndicators": true
+        }),
+    );
+    backend.insert_object_for_test(
+        "ChatContact",
+        "a1",
+        "u1",
+        json!({
+            "id": "u1",
+            "login": "blocked-user@example.org",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": true
+        }),
+    );
+
+    let (resp, _) = handle_chat_typing(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "chatId": "c1", "typing": true }),
+    )
+    .await
+    .expect("handle_chat_typing");
+
+    assert_eq!(
+        resp["accountId"], "a1",
+        "wire response is unchanged when sender is blocked — suppression is consumer-side"
+    );
+}
+
+/// Oracle: `MemoryBackend::is_contact_blocked` reads
+/// `ChatContact.blocked` from the in-memory store. This is the kit's
+/// reference impl exercised directly, mirroring the way a consumer's
+/// transport layer would consult the predicate before a fan-out.
+#[tokio::test]
+async fn memory_backend_is_contact_blocked_reads_chat_contact_blocked_field() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("a1");
+    let blocked_id = Id::from("blocked-user");
+    let allowed_id = Id::from("allowed-user");
+
+    backend.insert_object_for_test(
+        "ChatContact",
+        "a1",
+        "blocked-user",
+        json!({
+            "id": "blocked-user",
+            "login": "b@example.org",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": true
+        }),
+    );
+    backend.insert_object_for_test(
+        "ChatContact",
+        "a1",
+        "allowed-user",
+        json!({
+            "id": "allowed-user",
+            "login": "a@example.org",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": false
+        }),
+    );
+
+    assert!(
+        backend
+            .is_contact_blocked(&(), &account_id, &blocked_id)
+            .await
+            .expect("is_contact_blocked"),
+        "blocked: true contact must report blocked"
+    );
+    assert!(
+        !backend
+            .is_contact_blocked(&(), &account_id, &allowed_id)
+            .await
+            .expect("is_contact_blocked"),
+        "blocked: false contact must report not-blocked"
+    );
+
+    // Unknown contact id → not blocked (open-by-default for an
+    // unrecognised principal).
+    let unknown = Id::from("never-seen");
+    assert!(
+        !backend
+            .is_contact_blocked(&(), &account_id, &unknown)
+            .await
+            .expect("is_contact_blocked"),
+        "unknown contact id must report not-blocked"
+    );
+}
+
+/// Oracle: `handle_chat_typing` reaches the `is_contact_blocked`
+/// consultation point on the direct-chat path. Counted via
+/// `TrackingBackend::is_contact_blocked_call_count`, since the kit's
+/// wire response is unchanged regardless of the predicate's result.
+#[tokio::test]
+async fn chat_typing_consults_is_contact_blocked_on_direct_chat() {
+    use jmap_chat_server::handle_chat_typing;
+
+    let backend = TrackingBackend::new();
+    backend.inner().insert_object_for_test(
+        "Chat",
+        "a1",
+        "c1",
+        json!({
+            "id": "c1",
+            "kind": "direct",
+            "contactId": "u1",
+            "createdAt": "2024-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "pinnedMessageIds": [],
+            "muted": false,
+            "receiveTypingIndicators": true
+        }),
+    );
+
+    let (_, _) = handle_chat_typing(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "chatId": "c1", "typing": true }),
+    )
+    .await
+    .expect("handle_chat_typing");
+
+    assert_eq!(
+        backend.is_contact_blocked_call_count(),
+        1,
+        "handle_chat_typing must consult is_contact_blocked exactly once on a direct chat"
+    );
+}
+
+/// Oracle: `handle_chat_typing` skips the `is_contact_blocked`
+/// consultation for non-direct chats. Group and channel fan-out is
+/// per-recipient and lives entirely in the consumer transport layer;
+/// the kit handler has no way to enumerate fan-out recipients.
+#[tokio::test]
+async fn chat_typing_skips_is_contact_blocked_on_group_chat() {
+    use jmap_chat_server::handle_chat_typing;
+
+    let backend = TrackingBackend::new();
+    backend.inner().insert_object_for_test(
+        "Chat",
+        "a1",
+        "c1",
+        json!({
+            "id": "c1",
+            "kind": "group",
+            "createdAt": "2024-01-01T00:00:00Z",
+            "unreadCount": 0,
+            "pinnedMessageIds": [],
+            "muted": false,
+            "receiveTypingIndicators": true
+        }),
+    );
+
+    let (_, _) = handle_chat_typing(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "chatId": "c1", "typing": true }),
+    )
+    .await
+    .expect("handle_chat_typing");
+
+    assert_eq!(
+        backend.is_contact_blocked_call_count(),
+        0,
+        "group/channel chats are skipped — fan-out is consumer-side"
+    );
+}
+
+/// Oracle: `handle_chat_typing` does not consult
+/// `is_contact_blocked` when the supplied `chatId` does not resolve
+/// to any stored Chat. A missing target is not a consultation
+/// opportunity — the kit returns its standard success response
+/// without invoking the predicate.
+#[tokio::test]
+async fn chat_typing_skips_is_contact_blocked_when_chat_not_found() {
+    use jmap_chat_server::handle_chat_typing;
+
+    let backend = TrackingBackend::new();
+    // No Chat seeded.
+
+    let (resp, _) = handle_chat_typing(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "chatId": "ghost", "typing": true }),
+    )
+    .await
+    .expect("handle_chat_typing");
+
+    assert_eq!(resp["accountId"], "a1");
+    assert_eq!(
+        backend.is_contact_blocked_call_count(),
+        0,
+        "is_contact_blocked must not be consulted for a non-existent chatId"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Message/get and Message/set
 // ---------------------------------------------------------------------------
 
