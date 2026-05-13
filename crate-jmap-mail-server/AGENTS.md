@@ -62,6 +62,33 @@ Study `~/PROJECT/crate-jmapchat-server/` for:
 
 Do NOT copy chat-specific types or logic.
 
+## Permission enforcement: backend canonical
+
+Per the workspace AGENTS.md "Caller identity (foundation seam)"
+section, **backends are canonical for permission enforcement**.
+Handlers in this crate do NO permission checking. Defense-in-depth
+handler-side pre-checks are allowed but the backend MUST re-verify
+atomically with the mutation. A handler that "trusts" a handler-side
+check and skips the backend re-check is a bug.
+
+Caller identity is read via the foundation seam
+`JmapBackend::principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id>`.
+Backends that have not wired identity (test fixtures, single-user
+dev servers) return `None`; such backends CANNOT correctly implement
+shared-mailbox ACLs or per-user keyword state. Multi-user
+production deployments MUST override the default impl.
+
+The mail-specific implications: per-user keyword state on Emails in
+shared Mailboxes (notably `$seen`, governed by
+`MailboxRights.maySetSeen` per RFC 8621 §2) and the
+`Mailbox.myRights` property itself (RFC 8621 §2) require the
+backend to scope reads against the caller principal. The ownership
+relationship between `Identity` records and `EmailSubmission/send`
+callers (RFC 8621 §6 and §7) requires the backend to verify the
+caller owns the Identity being used. The handler computes the
+candidate mutation; the backend's `/set` impl is the canonical
+point of enforcement.
+
 ## Non-Interactive Shell Commands
 
 ```bash
