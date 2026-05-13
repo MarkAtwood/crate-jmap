@@ -3,7 +3,7 @@
 Serde-annotated Rust types for JMAP Sharing ([RFC 9670]): `Principal` and
 `ShareNotification`. Types only — no method handlers, no async, no network I/O.
 
-## What
+## What it is
 
 | Type | Module | Source |
 |---|---|---|
@@ -19,6 +19,15 @@ Serde-annotated Rust types for JMAP Sharing ([RFC 9670]): `Principal` and
 | `PrincipalsOwnerCapability` | `capability` | RFC 9670 §1.5 — owner-principal capability object |
 | `JMAP_PRINCIPALS_URI` const (`"urn:ietf:params:jmap:principals"`) | `capability` | RFC 9670 §1.5 |
 | `JMAP_PRINCIPALS_OWNER_URI` const (`"urn:ietf:params:jmap:principals:owner"`) | `capability` | RFC 9670 §1.5 |
+
+## What it's for
+
+RFC 9670 / draft-ietf-jmap-sharing data types (`Principal` and
+`ShareNotification`), consumed by `jmap-sharing-server` (method handlers +
+the `SharingBackend` trait) and `jmap-sharing-client` (typed method
+bindings). Supports the cross-extension sharing model that
+`jmap-mail-types`, `jmap-calendars-types`, and `jmap-filenode-types` all
+reference for principal identity, ACLs, and share notifications.
 
 ## Filter extensibility
 
@@ -51,7 +60,7 @@ This policy is part of the workspace extras-preservation policy documented in
 the workspace [`AGENTS.md`](../AGENTS.md); the filter-algebra exclusion
 decision is bd JMAP-lbdy.
 
-## Usage
+## How to use
 
 ### Principal deserialization
 
@@ -132,7 +141,7 @@ Unknown future values round-trip unchanged. The RFC defines `"other"` as a
 known value meaning "some other undefined Principal"; it maps to
 `PrincipalType::Other("other".to_owned())`.
 
-## Known Limitations
+## Gotchas
 
 `Principal.accounts` is `Option<HashMap<Id, serde_json::Value>>`. The Account
 object schema within this map varies per JMAP extension (each capability defines
@@ -157,7 +166,3 @@ jmap-types (RFC 8620 wire primitives)
 
 [RFC 9670]: https://www.rfc-editor.org/rfc/rfc9670
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0

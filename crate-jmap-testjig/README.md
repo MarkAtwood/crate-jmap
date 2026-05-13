@@ -15,7 +15,7 @@ dispatcher + 8 extension method handlers + 8 reference
 process that the workspace's own integration tests and contributor
 smoke-testing can hit.
 
-## What is wired up
+## What it is
 
 | Endpoint | RFC | Purpose |
 |----------|-----|---------|
@@ -28,6 +28,18 @@ All routes are gated behind a single hardcoded bearer token (default
 `test-token`). Browsers cannot set arbitrary headers on EventSource
 or WebSocket handshakes, so the `?token=<token>` query-string
 fallback is also accepted on those transports.
+
+## What it's for
+
+The single workspace exception to the kit-is-not-a-server posture:
+this crate wires the dispatcher, the 8 extension handlers, and the
+reference `MemoryBackend`s into a runnable HTTP/SSE/WS process so
+the workspace's own integration tests and contributor smoke-testing
+have something to talk to. It is `publish = false` and explicitly
+NOT FOR PRODUCTION — every production deployment must be built on
+the library kit (`jmap-server` + the 8 `jmap-*-server` extensions)
+with a consumer-supplied transport, auth, persistence, and
+multi-tenancy story.
 
 ## Why "NOT FOR PRODUCTION"
 
@@ -55,7 +67,7 @@ right move is to build a real JMAP server on top of the library kit
 (see the workspace `AGENTS.md` posture) — **not** to extend the
 testjig.
 
-## Quick start
+## How to use
 
 ```sh
 # In one terminal:
@@ -143,6 +155,27 @@ The returned `TestjigHandle` aborts the server task on `Drop`. Call
 `shutdown().await` explicitly when the test needs to free the port
 synchronously (e.g. before spawning a second jig on the same port).
 
+## How it works
+
+- HTTP transport is `axum` on `tokio`; WebSocket transport is
+  `tokio-tungstenite`. This is the only workspace crate that takes
+  either dep.
+- Layering bottom-up: the 8 extension `MemoryBackend`s sit at the
+  bottom, each fronted by its `*-server` extension's method handlers,
+  all registered against a single `jmap_server::Dispatcher`. The
+  axum routes hand requests to `parse_request`, dispatch, and shape
+  the response.
+- SSE and WebSocket push are driven by `tokio::sync::watch` channels
+  on each MemoryBackend. The current loop polls the watchers on a
+  short interval — a follow-up bead (JMAP-cf7p.9) replaces it with a
+  signal-driven push once a MemoryBackend grows the plumbing.
+- Auth: every endpoint checks a single hardcoded bearer token
+  against the `Authorization` header (or `?token=...` query on
+  EventSource/WebSocket where header injection is impossible). No
+  identity scope beyond "the one test user".
+- State lives in `HashMap`s behind `std::sync::Mutex`. Process exit
+  → state gone. No persistence layer, no recovery path.
+
 ## Architectural posture
 
 The testjig is **the workspace's only crate** that wires axum +
@@ -159,6 +192,24 @@ is intentional and the consumer-brings-everything posture is
 intentional. See the workspace `AGENTS.md` "What this workspace
 builds" section.
 
+## Gotchas
+
+The testjig has hard NOT-FOR-PRODUCTION constraints by design — see
+the [Why "NOT FOR PRODUCTION"](#why-not-for-production) section above
+for the full rationale. The short list:
+
+- Single hardcoded user, single hardcoded account, single hardcoded
+  bearer token. No multi-tenancy, no per-request identity.
+- All state is in-memory behind `std::sync::Mutex`; restarting the
+  process loses every email, Space, blob, calendar event.
+- No TLS termination — binds plaintext HTTP on `127.0.0.1`.
+- No quotas, no rate limiting, no CORS, no CSRF mitigation, no audit
+  logging.
+- No persistence backend, no recovery path, no backup hook.
+
+If any of these constraints feel like a bug, the fix is to build a
+real JMAP server on the library kit — **not** to extend the testjig.
+
 ## Bead epic
 
 This crate's design is tracked at workspace bead `JMAP-cf7p`
@@ -173,9 +224,15 @@ future polish:
 - `JMAP-cf7p.12`: honor RFC 8887 §4.3.5.2 `pushState` on
   `WebSocketPushEnable`.
 
-## License
+## References
 
-MIT OR Apache-2.0 — workspace-wide inheritance, see the workspace
-`Cargo.toml`. The license metadata is sufficient for `cargo deny`
-and crates.io; no `LICENSE-*` files are committed to this repo per
-the workspace convention.
+- Workspace [`AGENTS.md`](../AGENTS.md) — "What this workspace builds"
+  section, kit-vs-jig posture
+- [RFC 8620] — JMAP base protocol (Session, request/response, SSE
+  event source)
+- [RFC 8887] — JMAP over WebSocket
+- Bead epic [`JMAP-cf7p`] — testjig design tracker
+
+[RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
+[RFC 8887]: https://www.rfc-editor.org/rfc/rfc8887
+[`JMAP-cf7p`]: ../AGENTS.md

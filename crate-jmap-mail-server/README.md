@@ -1,7 +1,9 @@
 # jmap-mail-server
 
-RFC 8621 (JMAP for Mail) method handlers for Rust. Plugs into
-[`jmap-server`]'s `Dispatcher`. Implements all 26 RFC 8621 method names.
+## What it is
+
+RFC 8621 (JMAP for Mail) method handlers and the `MailBackend` trait. Plugs
+into [`jmap-server`]'s `Dispatcher`. Implements all 26 RFC 8621 method names.
 Storage-agnostic — consumers implement the `MailBackend` trait for their
 own data layer.
 
@@ -14,7 +16,20 @@ Two optional extensions are available behind Cargo features:
 Each extension exposes its own `register_*_handlers` entry point and its own
 backend trait extension.
 
-## Usage
+## What it's for
+
+Implements RFC 8621 (Email, Mailbox, Thread, EmailSubmission, Identity,
+SearchSnippet, VacationResponse) plus optional MDN and Sieve extensions, so
+consumers can wire JMAP-for-Mail method dispatch into their own HTTP transport
+without re-deriving wire format or `/set` semantics. This crate is the
+**canonical template** for every extension `*-server` crate in the workspace
+(chat, calendars, tasks, contacts, filenode, sharing, metadata); siblings
+mirror its module layout and trait shape, and all of them inter-depend through
+the workspace `JmapHandler` trait in `jmap-server`. The consumer supplies a
+`MailBackend` impl (storage), a `CallerCtx` type (auth identity), and wires
+the dispatcher into HTTP/SSE/WebSocket transport themselves.
+
+## How to use
 
 ```rust
 use std::sync::Arc;
@@ -288,7 +303,7 @@ jmap-types
 Path dependencies between crates use `path = "../crate-jmap-*"` and will
 remain that way until the family is published to crates.io.
 
-## Known Limitations
+## Gotchas
 
 - **`search_snippets` has no default implementation.** `MailBackend::search_snippets` must be implemented; there is no default. The in-crate test `MemoryMailBackend` returns empty snippets for all calls, which means `SearchSnippet/get` returns empty results in test mode. A real implementation requires full-text indexing or delegation to a search service.
 - **`find_thread_by_message_ids` default is unsuitable for persistent backends.** The default implementation uses a thread-ID generator seeded from system-clock nanoseconds at process startup. Two processes starting within the same nanosecond (common in containers and CI) produce identical ID sequences. More critically, the thread graph is lost on restart — emails that share a `Message-ID` / `References` chain will be silently assigned new thread IDs after a restart. Persistent backends MUST override this method and store thread assignments durably.
@@ -308,7 +323,3 @@ remain that way until the family is published to crates.io.
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 5322]: https://www.rfc-editor.org/rfc/rfc5322
 [`jmap-server`]: ../crate-jmap-server
-
-## License
-
-MIT OR Apache-2.0

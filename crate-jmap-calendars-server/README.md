@@ -1,13 +1,27 @@
 # jmap-calendars-server
 
-JMAP Calendars ([draft-ietf-jmap-calendars-26]) method handlers for Rust.
-Backend-agnostic — plugs into `jmap-server::Dispatcher`. Implements all
-19 Calendars method names.
+## What it is
+
+JMAP Calendars ([draft-ietf-jmap-calendars-26]) method handlers and the
+`CalendarsBackend` trait. Backend-agnostic — plugs into
+`jmap-server::Dispatcher`. Implements all 19 Calendars method names.
 
 Storage-agnostic — consumers implement the `CalendarsBackend` trait for their
 own data layer.
 
-## Usage
+## What it's for
+
+Implements draft-ietf-jmap-calendars-26 — Calendar, CalendarEvent,
+CalendarEventNotification, ParticipantIdentity, and the
+`Principal/getAvailability` query — so consumers can wire JMAP Calendars
+method dispatch into their HTTP transport. Sibling to `jmap-mail-server` (the
+canonical extension-server template) and the other `jmap-*-server` crates;
+all of them inter-depend through the workspace `JmapHandler` trait in
+`jmap-server`. The consumer supplies a `CalendarsBackend` impl (storage), a
+`CallerCtx` type (auth identity), and wires the dispatcher into HTTP / SSE /
+WebSocket transport themselves.
+
+## How to use
 
 ```rust
 use std::sync::Arc;
@@ -240,7 +254,7 @@ is performed by the handler itself.
 delegates to `get_availability`. The handler maps `AvailabilityError`
 variants to the appropriate JMAP method-level errors.
 
-## Known Limitations
+## Gotchas
 
 - **`compute_utc_times` default returns `(None, None)`** — `utcStart` and
   `utcEnd` will be absent from all `CalendarEvent/get` responses unless the
@@ -300,7 +314,3 @@ remain that way until the family is published to crates.io.
 [draft-ietf-jmap-calendars-26]: https://www.ietf.org/archive/id/draft-ietf-jmap-calendars-26.txt
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0

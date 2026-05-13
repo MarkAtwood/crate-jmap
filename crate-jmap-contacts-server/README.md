@@ -1,11 +1,24 @@
 # jmap-contacts-server
 
-JMAP Contacts ([RFC 9610]) method handlers for Rust. Plugs
-into [`jmap-server`]'s `Dispatcher`. Implements all 9 contacts method names.
-Storage-agnostic — consumers implement the `ContactsBackend` trait for their
-own data layer.
+## What it is
 
-## Usage
+JMAP Contacts ([RFC 9610]) method handlers and the `ContactsBackend` trait.
+Plugs into [`jmap-server`]'s `Dispatcher`. Implements all 9 contacts method
+names. Storage-agnostic — consumers implement the `ContactsBackend` trait for
+their own data layer.
+
+## What it's for
+
+Implements draft-ietf-jmap-contacts (RFC 9610) — AddressBook and ContactCard
+objects with `ContactCard/copy` and `AddressBook/set` cascade semantics — so
+consumers can wire JMAP Contacts method dispatch into their HTTP transport.
+Sibling to `jmap-mail-server` (the canonical extension-server template) and
+the other `jmap-*-server` crates; all of them inter-depend through the
+workspace `JmapHandler` trait in `jmap-server`. The consumer supplies a
+`ContactsBackend` impl (storage), a `CallerCtx` type (auth identity), and
+wires the dispatcher into HTTP / SSE / WebSocket transport themselves.
+
+## How to use
 
 ```rust
 use std::sync::Arc;
@@ -208,7 +221,7 @@ To use this:
 Backends that don't need an auth identity use `type CallerCtx = ();` and a
 `Dispatcher<()>`. Both shapes register the same way.
 
-## Known Limitations
+## Gotchas
 
 - `address_book_has_contents` and `copy_contact_card` must be implemented by
   the backend; no default implementation ships with this crate.
@@ -243,7 +256,3 @@ remain that way until the family is published to crates.io.
 [RFC 9553]: https://www.rfc-editor.org/rfc/rfc9553
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server
-
-## License
-
-MIT OR Apache-2.0

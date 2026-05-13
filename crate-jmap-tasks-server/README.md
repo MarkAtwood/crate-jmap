@@ -1,10 +1,24 @@
 # jmap-tasks-server
 
-JMAP Tasks ([draft-ietf-jmap-tasks-06]) method handlers for Rust. Plugs into
-[`jmap-server`]'s `Dispatcher`. Implements all 14 method names from the Tasks extension.
-Storage-agnostic — consumers implement the `TasksBackend` trait for their own data layer.
+## What it is
 
-## Usage
+JMAP Tasks ([draft-ietf-jmap-tasks-06]) method handlers and the `TasksBackend`
+trait. Plugs into [`jmap-server`]'s `Dispatcher`. Implements all 14 method names
+from the Tasks extension. Storage-agnostic — consumers implement the
+`TasksBackend` trait for their own data layer.
+
+## What it's for
+
+Implements draft-ietf-jmap-tasks-06 — TaskList, Task, and TaskNotification
+objects with `Task/copy`, per-user property routing, and `isDraft`
+immutability — so consumers can wire JMAP Tasks method dispatch into their
+HTTP transport. Sibling to `jmap-mail-server` (the canonical extension-server
+template) and the other `jmap-*-server` crates; all of them inter-depend
+through the workspace `JmapHandler` trait in `jmap-server`. The consumer
+supplies a `TasksBackend` impl (storage), a `CallerCtx` type (auth identity),
+and wires the dispatcher into HTTP / SSE / WebSocket transport themselves.
+
+## How to use
 
 ```rust
 use std::sync::Arc;
@@ -207,7 +221,7 @@ jmap-types
 Path dependencies between crates use `path = "../crate-jmap-*"` and will remain that way
 until the family is published to crates.io.
 
-## Known Limitations
+## Gotchas
 
 - `compute_task_utc_times` default returns `(None, None)` — `utcStart`/`utcDue` will be
   absent from all `Task/get` responses unless the backend overrides this method.
@@ -226,7 +240,3 @@ until the family is published to crates.io.
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server
-
-## License
-
-MIT OR Apache-2.0

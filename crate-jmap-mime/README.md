@@ -8,7 +8,7 @@ All MIME parsing lives in `mime_tree`. This crate only maps field names and
 assembles the RFC 8621 §4.1.4 body structure lists. No parsing logic,
 content-type matching, or encoding/decoding logic belongs here.
 
-## What it does
+## What it is
 
 Three public functions cover the full conversion surface:
 
@@ -45,7 +45,17 @@ Builds the complete RFC 8621 §4.1.4 body structure from a
   resulting `EmailBodyValue`s into the `bodyValues` map of the JMAP `Email`
   response.
 
-## Usage
+## What it's for
+
+`jmap-mime` is the thin adapter between `mime-tree` (the RFC 5322 / 2045
+MIME parser) and `jmap-mail-types` (the RFC 8621 JMAP wire shape). Consumed
+by `jmap-mail-server` backends that parse raw `.eml` messages, and by any
+other consumer needing to convert a `mime_tree::ParsedMessage` or
+`ParsedPart` into JMAP `EmailBodyPart` / `EmailBodyValue` shapes. The crate
+exists so that parsing logic stays in `mime-tree` and JMAP wire shapes stay
+in `jmap-mail-types`; this crate is pure field-rename glue.
+
+## How to use
 
 A typical `MailBackend::parse_email` implementation:
 
@@ -96,7 +106,25 @@ It parses a hand-supplied multipart/alternative .eml fixture, maps it into
 `JmapBodyFields`, and prints the `textBody` / `htmlBody` / `attachments`
 shape plus a decoded `bodyValues` entry for the first text part.
 
-## Known Limitations
+## How it works
+
+- Adapter-only design — no parsing logic, no content-type matching, no
+  encoding/decoding logic lives here. Every function should be obvious
+  field mapping; if a future change wants to add a `match content_type`
+  or a parsing loop it belongs in `mime-tree` instead.
+- The three `*_to_jmap*` entry points cover the full conversion surface:
+  `part_to_jmap` for the recursive `ParsedPart` → `EmailBodyPart` walk,
+  `body_value_to_jmap` for `DecodedBodyValue` → `EmailBodyValue` field
+  renaming, and `message_to_jmap_body` for assembling the full RFC 8621
+  §4.1.4 `JmapBodyFields` (bodyStructure / textBody / htmlBody /
+  attachments / preview / body_value_part_ids).
+- Multipart vs leaf-part handling: leaves get a `blobId` from the
+  caller-supplied `blob_id_for` closure; multipart parts get `None` for
+  `part_id`, `blob_id`, and `size` per RFC 8621.
+- Pure conversion: no I/O, no async, no allocator opinions beyond what
+  `mime-tree` and `jmap-mail-types` already pull in.
+
+## Gotchas
 
 - **RFC 2047 encoded-word decoding is `mime_tree`'s responsibility.** Headers
   containing `=?UTF-8?B?...?=` or similar encoded-word sequences (e.g. encoded
@@ -138,7 +166,3 @@ jmap-types
 [RFC 5322]: https://www.rfc-editor.org/rfc/rfc5322
 [RFC 2045]: https://www.rfc-editor.org/rfc/rfc2045
 [RFC 2047]: https://www.rfc-editor.org/rfc/rfc2047
-
-## License
-
-MIT OR Apache-2.0

@@ -1,10 +1,20 @@
 # jmap-filenode-client
 
+## What it is
+
 Typed client methods for the JMAP FileNode extension ([draft-ietf-jmap-filenode-13]). Wraps
 [`jmap-base-client`] transport with strongly-typed request builders and response types for
 all 6 JMAP FileNode method names.
 
-## Usage
+## What it's for
+
+Implements draft-ietf-jmap-filenode method bindings on top of
+`jmap-base-client`: `FileNode/get|changes|set|copy|query|queryChanges`.
+Sibling of `jmap-mail-client` in the extension-client family — mirrors that
+crate's shape. Depends on `jmap-base-client` for transport and session, and
+on `jmap-filenode-types` for the wire types.
+
+## How to use
 
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
@@ -116,7 +126,26 @@ Controls what happens when a new node's name collides with an existing sibling:
 When `onExists` is absent, the server defaults to returning an `alreadyExists` SetError
 with `existingId` pointing to the conflicting node.
 
-## Known Limitations
+## How it works
+
+Each method on `SessionClient` runs the same pipeline:
+
+1. Validate arguments (typed `&Id` / `&[Id]` makes invalid Ids unrepresentable;
+   defence-in-depth empty-state guards return `InvalidArgument` before any I/O).
+2. Resolve `(api_url, account_id)` from the bound session for
+   `urn:ietf:params:jmap:filenode`.
+3. Build the method-arguments JSON.
+4. Wrap it into a `JmapRequest` via `JmapRequestBuilder` with
+   `using = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:filenode"]`.
+5. POST it via `jmap_base_client::JmapClient::call`.
+6. `extract_response::<T>` finds the typed result for call ID `"r1"`.
+
+The `Jmap*Ext` extension trait (`JmapFileNodeExt`) adds the
+`with_filenode_session(session)` accessor to `JmapClient`. The returned
+`SessionClient` carries the session and exposes every FileNode method as a
+typed `async fn`.
+
+## Gotchas
 
 - `file_node_query` with `depth > 0` sends exactly **one** HTTP request to the JMAP server with the `depth` integer as a JSON field. The O(depth) backend calls are made by the server handler internally as it calls `query_objects` per level against its storage backend — the client has no visibility into this and does not issue multiple HTTP round-trips. Backends can override `FileNodeBackend::query_subtree` to reduce server-side backend calls to a single recursive query.
 - No integration tests against a real JMAP server; tests use request-shape oracles and
@@ -130,7 +159,3 @@ with `existingId` pointing to the conflicting node.
 [draft-ietf-jmap-filenode-13]: https://www.ietf.org/archive/id/draft-ietf-jmap-filenode-13.txt
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client
-
-## License
-
-MIT OR Apache-2.0

@@ -1,12 +1,25 @@
 # jmap-calendars-client
 
+## What it is
+
 Typed JMAP client methods for JMAP Calendars
 ([draft-ietf-jmap-calendars-26]).
 
 Implements 19 typed `async fn` methods on a session-bound client. Depends on
 `jmap-base-client` for transport, authentication, and session management.
 
-## Usage
+## What it's for
+
+Implements draft-ietf-jmap-calendars-26 method bindings on top of
+`jmap-base-client`: `Calendar/*`, `CalendarEvent/*`,
+`CalendarEventNotification/*`, `ParticipantIdentity/*`, and
+`Principal/getAvailability`. Sibling of `jmap-mail-client` in the
+extension-client family — mirrors that crate's shape. Depends on
+`jmap-base-client` for transport and session, and on `jmap-calendars-types`
+for the wire types (including the RFC 8984 JSCalendar sub-types re-exported
+under the `jscalendar` module alias).
+
+## How to use
 
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
@@ -167,7 +180,26 @@ pub struct CalendarEventGetParams {
 
 Pass `None` for any field to omit it from the request.
 
-## Known Limitations
+## How it works
+
+Each method on `SessionClient` runs the same pipeline:
+
+1. Validate arguments (typed `&Id` / `&[Id]` makes invalid Ids unrepresentable;
+   defence-in-depth empty-state guards return `InvalidArgument` before any I/O).
+2. Resolve `(api_url, account_id)` from the bound session for
+   `urn:ietf:params:jmap:calendars`.
+3. Build the method-arguments JSON.
+4. Wrap it into a `JmapRequest` via `JmapRequestBuilder` with
+   `using = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:calendars"]`.
+5. POST it via `jmap_base_client::JmapClient::call`.
+6. `extract_response::<T>` finds the typed result for call ID `"r1"`.
+
+The `Jmap*Ext` extension trait (`JmapCalendarsExt`) adds the
+`with_calendars_session(session)` accessor to `JmapClient`. The returned
+`SessionClient` carries the session and exposes every Calendars method as a
+typed `async fn`.
+
+## Gotchas
 
 - **Tests are wiremock smoke tests only.** There are no integration tests
   against a real JMAP server. The tests verify request shape (method name,
@@ -217,7 +249,3 @@ remain that way until the family is published to crates.io.
 [draft-ietf-jmap-calendars-26]: https://www.ietf.org/archive/id/draft-ietf-jmap-calendars-26.txt
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0

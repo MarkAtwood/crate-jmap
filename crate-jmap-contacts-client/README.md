@@ -1,9 +1,21 @@
 # jmap-contacts-client
 
+## What it is
+
 Typed client methods for JMAP Contacts ([RFC 9610]). Depends
 on [`jmap-base-client`] for transport, authentication, and session management.
 
-## Usage
+## What it's for
+
+Implements draft-ietf-jmap-contacts (RFC 9610) method bindings on top of
+`jmap-base-client`: `AddressBook/get|changes|set` and
+`ContactCard/get|changes|set|copy|query|queryChanges`. Sibling of
+`jmap-mail-client` in the extension-client family — mirrors that crate's
+shape. Depends on `jmap-base-client` for transport and session, and on
+`jmap-contacts-types` for the wire types (including the RFC 9553 JSContact
+sub-types re-exported under the `jscontact` module alias).
+
+## How to use
 
 ```rust,no_run
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
@@ -149,7 +161,7 @@ Every method follows the same five-step pattern:
 The capability `using` array for all contacts requests is:
 `["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:contacts"]`.
 
-## Known Limitations
+## Gotchas
 
 - Creating or updating a `ContactCard` requires the caller to build
   `serde_json::Value` for all JSContact sub-objects (`name`, `phones`,
@@ -183,7 +195,3 @@ jmap-types
 [RFC 9553]: https://www.rfc-editor.org/rfc/rfc9553
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-base-client`]: ../crate-jmap-base-client
-
-## License
-
-MIT OR Apache-2.0

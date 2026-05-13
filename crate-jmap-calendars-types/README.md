@@ -7,7 +7,7 @@ JSCalendar ([RFC 8984]).
 `jmap-types` (RFC 8620 primitives) and `jmap-calendars-server` /
 `jmap-calendars-client`.
 
-## What
+## What it is
 
 | Type | Module | Spec |
 |---|---|---|
@@ -53,6 +53,16 @@ and as a module alias (`jmap_calendars_types::jscalendar::Location`). The same s
 are consumed by `jmap-tasks-types` (planned).
 
 [`jmap-jscalendar-types`]: https://crates.io/crates/jmap-jscalendar-types
+
+## What it's for
+
+draft-ietf-jmap-calendars-26 data types, consumed by
+`jmap-calendars-server` (method handlers + the `CalendarsBackend` trait)
+and `jmap-calendars-client` (typed method bindings). Re-exports
+`jmap-jscalendar-types` as the `jscalendar` module so callers can opt
+into typed RFC 8984 JSCalendar sub-objects without taking an extra
+direct dependency. Sibling to `jmap-mail-types`, `jmap-contacts-types`,
+and `jmap-tasks-types` in the workspace's extension-types family.
 
 Property enum types re-exported from the `backend` sub-module:
 `CalendarProperty`, `CalendarEventProperty`, `CalendarEventNotificationProperty`,
@@ -133,7 +143,7 @@ decision is bd JMAP-lbdy.
 | §4.7.2 | Custom time zone definitions (opaque `serde_json::Value` passthrough) |
 | §5.1 | Event-specific (`start`, `duration`, `status`) |
 
-## Usage
+## How to use
 
 ### Deserialize a `CalendarEvent`
 
@@ -264,7 +274,7 @@ name, so this field carries an explicit override:
 pub ical_component: Option<String>,
 ```
 
-## Known Limitations
+## Gotchas
 
 - **`timeZones`, `links`, `participants`, `alerts`, `locations`,
   `virtualLocations`** use `Option<serde_json::Value>` because JSCalendar
@@ -315,7 +325,3 @@ remain that way until the family is published to crates.io.
 [draft-ietf-jmap-calendars-26]: https://www.ietf.org/archive/id/draft-ietf-jmap-calendars-26.txt
 [RFC 8984]: https://www.rfc-editor.org/rfc/rfc8984
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0

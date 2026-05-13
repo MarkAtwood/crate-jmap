@@ -1,11 +1,25 @@
 # jmap-sharing-server
 
-JMAP Sharing ([RFC 9670]) method handlers for Rust. Plugs into
-[`jmap-server`]'s `Dispatcher`. Implements all 10 RFC 9670 method names.
-Storage-agnostic — consumers implement the `SharingBackend` trait for their
-own data layer.
+## What it is
 
-## Usage
+JMAP Sharing ([RFC 9670]) method handlers and the `SharingBackend` trait.
+Plugs into [`jmap-server`]'s `Dispatcher`. Implements all 10 RFC 9670 method
+names. Storage-agnostic — consumers implement the `SharingBackend` trait for
+their own data layer.
+
+## What it's for
+
+Implements RFC 9670 / draft-ietf-jmap-sharing — Principal and
+ShareNotification objects, plus the workspace-canonical `myRights` model that
+other extension-server crates propagate to their shareable objects — so
+consumers can wire JMAP Sharing method dispatch into their HTTP transport.
+Sibling to `jmap-mail-server` (the canonical extension-server template) and
+the other `jmap-*-server` crates; all of them inter-depend through the
+workspace `JmapHandler` trait in `jmap-server`. The consumer supplies a
+`SharingBackend` impl (storage), a `CallerCtx` type (auth identity), and
+wires the dispatcher into HTTP / SSE / WebSocket transport themselves.
+
+## How to use
 
 ```rust
 use std::sync::Arc;
@@ -190,7 +204,7 @@ To use this:
 Backends that don't need an auth identity use `type CallerCtx = ();` and a
 `Dispatcher<()>`. Both shapes register the same way.
 
-## Known Limitations
+## Gotchas
 
 - Permission enforcement is entirely the backend's responsibility. The handler
   only routes `forbidden` SetErrors back to the caller. A backend that does not
@@ -221,7 +235,3 @@ remain that way until the family is published to crates.io.
 [RFC 9670]: https://www.rfc-editor.org/rfc/rfc9670
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [`jmap-server`]: ../crate-jmap-server
-
-## License
-
-MIT OR Apache-2.0

@@ -615,6 +615,86 @@ boundaries, file a follow-up bead if the canary test cannot land in
 the same commit. Do not ship the type or the logging call without the
 matching canary.
 
+## README convention
+
+Every crate README in this workspace has the same six-section shape. The
+shape is content-defined, not just heading-defined: the section names
+should be the literal text below, and the content should match the
+purpose described.
+
+```markdown
+# crate-name
+
+One-paragraph elevator pitch — what this crate contains, in plain
+sentences. No badges, no logo, no buzzwords.
+
+## What it is
+
+Concrete description of the crate's contents. What types, traits,
+functions, and modules live here. RFC / draft citations next to the
+items they implement. Tables are fine when they map "thing → spec
+section".
+
+## What it's for
+
+The use case. Who depends on this crate and why. The crate's role in
+the workspace dependency graph (one or two sibling crates named, not
+the full graph).
+
+## How to use
+
+A minimal runnable example. `Cargo.toml` snippet if non-obvious. The
+shortest end-to-end "hello world" against the crate's primary API.
+For server crates: the minimum to wire a backend + dispatch a method.
+For type crates: parsing and serializing a representative wire value.
+
+## How it works
+
+A sketch of the internal model — key types, key traits, dispatch /
+parse / handler flow as relevant. Not a `cargo doc` replacement; just
+enough that a reader knows where to look. Include design constraints
+that affect public-API choices ("sealed trait set", "`#[non_exhaustive]`
+on every public struct", "no async", etc.).
+
+## Gotchas
+
+Known sharp edges. Feature gates with non-obvious activation rules.
+MSRV quirks. Behavior that surprises a casual reader. Current
+limitations the consumer needs to plan around (no automatic SSE
+reconnect, no field validation on `Id`, etc.). Be specific — a vague
+"there are caveats" line is worse than no section.
+
+## References
+
+Links/citations to the normative spec and any auxiliary specs.
+Plain markdown links, no inline summaries. Include section anchors
+where the crate implements a specific sub-protocol.
+
+- [RFC 8620] — JMAP Core
+- [RFC 8621] — JMAP for Mail
+
+[RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
+[RFC 8621]: https://www.rfc-editor.org/rfc/rfc8621
+```
+
+**Authorship and license go in `Cargo.toml`, NEVER in the README.**
+The workspace declares `authors`, `license`, and `repository` at the
+`[workspace.package]` block and every crate inherits via
+`authors.workspace = true` etc. A README with a `## License`, `##
+Authors`, `## Authorship`, or "Licensed under …" footer is a bug —
+delete the section, do not duplicate the metadata.
+
+Section names are not optional. A crate-specific extra section (e.g.
+"Extension trait pattern", "Filter extensibility") MAY appear, but it
+goes **between** the six required sections in a position that makes
+narrative sense — not in place of one of them. If a crate has nothing
+useful to say in a section, write one honest sentence ("This crate has
+no known gotchas at the current draft revision.") rather than skipping
+the heading.
+
+The convention sweep that brought all 32 crates onto this shape is
+tracked under `JMAP-76wm`.
+
 ## Key Rules
 
 - **`cargo test --workspace`** must pass before any commit.

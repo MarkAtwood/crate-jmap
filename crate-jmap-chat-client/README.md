@@ -1,12 +1,25 @@
 # jmap-chat-client
 
+## What it is
+
+JMAP Chat extension client methods (draft-atwood-jmap-chat-00) — typed bindings on top of `jmap-base-client`.
+
 Typed client methods for the JMAP Chat extension ([draft-atwood-jmap-chat]).
 
 Implements an extension trait on `jmap-base-client::JmapClient` that adds all
 JMAP Chat method calls as typed async methods, following the same session-bound
 `SessionClient` pattern used by `jmap-mail-client`.
 
-## Usage
+## What it's for
+
+Implements draft-atwood-jmap-chat-00 method bindings (`Chat/*`, `Message/*`,
+`Space/*`, `SpaceInvite/*`, `SpaceBan/*`, `ChatContact/*`, `CustomEmoji/*`,
+`ReadPosition/*`, `PresenceStatus/*`, and push-subscription methods) on top of
+`jmap-base-client`. Depends on `jmap-base-client` for transport and session,
+and on `jmap-chat-types` for the wire types. Sibling of `jmap-mail-client` in
+the extension-client family; mirrors that crate's shape.
+
+## How to use
 
 ```rust
 use jmap_base_client::{BearerAuth, ClientConfig, JmapClient};
@@ -204,7 +217,27 @@ demonstration of the public push API.
 NOT FOR PRODUCTION — single-shot, no retry, no auth, no TLS. Demonstrates
 the consume-side API only.
 
-## Known Limitations
+## How it works
+
+Each method on `SessionClient` runs the same pipeline:
+
+1. Validate arguments (typed `&Id` / `&[Id]` makes invalid Ids unrepresentable;
+   empty-state defence-in-depth guards return `InvalidArgument` before any I/O).
+2. Resolve `(api_url, account_id)` from the bound session for
+   `urn:ietf:params:jmap:chat`.
+3. Build the method-arguments JSON.
+4. Wrap it into a `JmapRequest` via `JmapRequestBuilder` with
+   `using = ["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:chat"]`.
+5. POST it via `jmap_base_client::JmapClient::call`.
+6. `extract_response::<T>` finds the typed result for call ID `"r1"`.
+
+The `Jmap*Ext` extension trait (`JmapChatExt`) adds the
+`with_chat_session(session)` accessor to `JmapClient`. The returned
+`SessionClient` carries the session and exposes every JMAP Chat method as a
+typed `async fn`. The push-transport modules (`ws`, `sse`, `session`) layer
+typed Chat-specific event types on top of the base-client transports.
+
+## Gotchas
 
 - **`space_join` is non-standard.** `Space/join` is a JMAP Chat extension method
   that does not follow the standard `/set` request shape. It takes a
@@ -226,7 +259,3 @@ the consume-side API only.
 
 [draft-atwood-jmap-chat]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0

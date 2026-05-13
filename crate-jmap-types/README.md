@@ -7,7 +7,7 @@ timestamps, state tokens, method-level errors, request/response envelopes, and
 result references. All types serialize to and from the exact JSON wire format the
 spec requires.
 
-## What
+## What it is
 
 | Type | RFC | Description |
 |------|-----|-------------|
@@ -56,14 +56,14 @@ This policy is part of the workspace extras-preservation policy documented in
 the workspace [`AGENTS.md`](../AGENTS.md); the filter-algebra exclusion
 decision is bd JMAP-lbdy.
 
-## Why
+## What it's for
 
 Client crates and server crates both need these types, but neither should pull in
 the other's dependencies. `jmap-types` has exactly three dependencies — `serde`,
 `serde_json`, and `thiserror` — and no async runtime, no HTTP framework, and no
 application logic. Any crate in the `jmap-*` family can depend on it without cost.
 
-## Usage
+## How to use
 
 Add to `Cargo.toml`:
 
@@ -210,7 +210,7 @@ jmap-types          ← this crate
     └── jmap-chat-types Chat extension data types
 ```
 
-## Known Limitations
+## Gotchas
 
 - **No field validation.** `Id::from("")` succeeds. `UTCDate::from("not-a-date")` succeeds. RFC 8620 field constraints (non-empty Ids, valid date formats) are enforced by consumers such as `jmap-server`, not here.
 - **`Argument<T>` sealed type set.** The `Argument<T>` type (which holds either a plain value or a `ResultReference`) is constrained to a sealed set of inner types (`String`, `Vec<String>`, `Id`, `Vec<Id>`, `u32`, `u64`, `bool`). `serde_json::Value` is intentionally excluded. To add a new type, a PR to this crate is required.
@@ -225,7 +225,3 @@ jmap-types          ← this crate
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
 [RFC 7807]: https://www.rfc-editor.org/rfc/rfc7807
 [RFC 6901]: https://www.rfc-editor.org/rfc/rfc6901
-
-## License
-
-Licensed under the MIT License. See [LICENSE](LICENSE) for details.

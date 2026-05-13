@@ -1,11 +1,27 @@
 # jmap-chat-server
 
-JMAP Chat extension method handlers for Rust ([draft-atwood-jmap-chat]). Backend-agnostic
-— plugs into `jmap-server::Dispatcher`. Consumers implement `ChatBackend` for their
-storage; the crate handles all wire protocol, RFC 8620 conformance, and non-trivial
-concurrency logic (Direct chat dedup, `Space/join` TOCTOU, invite-use accounting).
+## What it is
 
-## Usage
+JMAP Chat extension method handlers and the `ChatBackend` trait
+([draft-atwood-jmap-chat]). Backend-agnostic — plugs into
+`jmap-server::Dispatcher`. Consumers implement `ChatBackend` for their
+storage; the crate handles all wire protocol, RFC 8620 conformance, and
+non-trivial concurrency logic (Direct chat dedup, `Space/join` TOCTOU,
+invite-use accounting).
+
+## What it's for
+
+Implements the JMAP Chat extension (draft-atwood-jmap-chat-00) — Chat,
+Message, Space, ChatContact, ReadPosition, SpaceInvite, SpaceBan,
+CustomEmoji, and PresenceStatus objects — so consumers can wire chat method
+dispatch into their HTTP transport. Sibling to `jmap-mail-server` (the
+canonical extension-server template) and the other `jmap-*-server` crates;
+all of them inter-depend through the workspace `JmapHandler` trait in
+`jmap-server`. The consumer supplies a `ChatBackend` impl (storage), a
+`CallerCtx` type (auth identity), and wires the dispatcher into HTTP / SSE
+/ WebSocket transport themselves.
+
+## How to use
 
 ```rust
 use std::sync::Arc;
@@ -152,7 +168,7 @@ per-request auth context inside one of the standard `handle_*` functions
 implement `JmapHandler<C>` directly for that method instead of relying on
 the registered handler.
 
-## Known Limitations
+## Gotchas
 
 - **Direct chat deduplication is eventually consistent.** The `Chat/set` create handler uses optimistic create-then-validate to detect duplicate Direct chats. Under concurrent load two clients may both successfully create the same Direct chat; the loser's write is rolled back and it receives `alreadyExists`, but the duplicate briefly exists. Backends can eliminate this window by enforcing uniqueness atomically in `create_object`.
 - **`Space/join` TOCTOU window.** After a successful join write, the handler re-reads the member list to detect concurrent joins. There is a brief window between the write and the re-read during which a second concurrent join can succeed. Both joiners will detect the race, but the loser's join is rolled back, not the winner's — so the final state is consistent.
@@ -167,7 +183,7 @@ jmap-types
             └── jmap-chat-server   ← this crate
 ```
 
-## Spec references
+## References
 
 | Document | Covers |
 |---|---|
@@ -181,7 +197,3 @@ jmap-types
 [draft-atwood-jmap-chat-push-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [draft-atwood-jmap-chat-wss-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [RFC 8620]: https://www.rfc-editor.org/rfc/rfc8620
-
-## License
-
-MIT OR Apache-2.0
