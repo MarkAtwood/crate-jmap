@@ -76,7 +76,7 @@ use tokio::task::JoinHandle;
 
 use crate::http::{AppState, AppStateInner, MAX_CALLS_IN_REQUEST};
 use crate::session;
-use crate::sse::{diff_snapshots, snapshot_all_states, TypesFilter, POLL_INTERVAL};
+use crate::sse::{TypesFilter, POLL_INTERVAL};
 
 /// Subprotocol name negotiated on the WS upgrade handshake.
 ///
@@ -261,12 +261,11 @@ async fn handle_request_frame(
         .dispatch(request, (), State::from(session::STATE))
         .await;
 
-    // Signal-driven SSE / WS push (bd:JMAP-cf7p.9): wake any
-    // subscribed event loops so they re-snapshot per-type state and
-    // emit a `StateChange` immediately rather than waiting for the
-    // next 5 s safety-net poll tick. Same rationale as `post_jmap`'s
-    // wake site — spurious wakes are harmless.
-    state.notify_state_changed();
+    // Signal-driven SSE / WS push (bd:JMAP-cf7p.9 / .10 / .12):
+    // snapshot per-type state, record any changes into the
+    // producer-driven event log, and bump the watch counter so the
+    // SSE / WS push loops wake and pull the new entries.
+    state.notify_state_changed().await;
 
     // RFC 8887 §4.3.3 adds two fields to the wire JmapResponse: a
     // fixed `@type: "Response"` discriminator and the echoed
@@ -327,9 +326,6 @@ async fn send_request_error(
 }
 
 /// Parse RFC 8887 §4.3.5.2 `WebSocketPushEnable` arguments.
-///
-/// Fields not relevant to the testjig MVP (`pushState`) are parsed
-/// but not used — see bd:JMAP-cf7p.12.
 #[derive(Debug, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct PushEnable {
@@ -339,10 +335,13 @@ struct PushEnable {
     data_types: Option<Vec<String>>,
     /// RFC 8887 §4.3.5.2: an opaque server-issued token from a prior
     /// `StateChange` event the client wants to resume from. The
-    /// testjig MVP does not implement replay; the field is parsed
-    /// for forward-compat and ignored.
+    /// testjig (bd:JMAP-cf7p.12) honors this by parsing the token as
+    /// a u64 event id and replaying retained entries past that id
+    /// before entering the live push loop. Tokens that fail to parse
+    /// or predate the log's oldest retained entry fall through to
+    /// "start at current" — the client is expected to resync via
+    /// `Foo/changes`.
     #[serde(default)]
-    #[allow(dead_code)] // see bd:JMAP-cf7p.12 follow-up
     push_state: Option<String>,
 }
 
@@ -369,14 +368,34 @@ fn handle_push_enable(
     // non-Request frames.
     let args: PushEnable = serde_json::from_value(value).unwrap_or_default();
     let filter = TypesFilter::from_data_types(args.data_types);
+    let push_state = args.push_state.as_deref().and_then(parse_push_state);
 
     // Replace any existing push task before spawning a fresh one.
     if let Some(existing) = push_task.take() {
         existing.abort();
     }
 
-    let handle = tokio::spawn(push_loop(state, account, filter, push_tx));
+    let handle = tokio::spawn(push_loop(state, account, filter, push_state, push_tx));
     *push_task = Some(handle);
+}
+
+/// Parse a wire-format `pushState` token into a `u64` event id.
+///
+/// The testjig encodes pushState as the decimal `u64` event id
+/// assigned by [`crate::replay::StateChangeLog`]. Other server
+/// implementations may encode pushState differently; the testjig
+/// remains free to evolve this encoding as long as the same encoding
+/// is used by both the emit-side and the parse-side.
+///
+/// Returns `None` for an empty / non-numeric / out-of-range token,
+/// in which case `push_loop` treats the subscriber as "no prior
+/// state" and starts at the log's current id.
+fn parse_push_state(s: &str) -> Option<u64> {
+    let t = s.trim();
+    if t.is_empty() {
+        return None;
+    }
+    t.parse::<u64>().ok()
 }
 
 /// Stop an in-flight push polling task on `WebSocketPushDisable`.
@@ -391,10 +410,17 @@ fn handle_push_disable(push_task: &mut Option<JoinHandle<()>>) {
     }
 }
 
-/// Push task that emits `StateChange` frames on diff. Mirrors the SSE
-/// [`crate::sse`] poller — same signal-driven cadence, same snapshot
-/// diff algorithm, same filter-by-types semantics — but emits text WS
-/// frames instead of SSE events.
+/// Push task that emits `StateChange` frames from the producer-driven
+/// state change log. Mirrors the SSE [`crate::sse::poll_loop`] —
+/// same signal-driven cadence, same log-pull semantics — but emits
+/// text WS frames instead of SSE events.
+///
+/// On entry, if `push_state` was supplied on `WebSocketPushEnable`
+/// (bd:JMAP-cf7p.12), the loop replays retained entries past that id
+/// before entering the live loop. The replay window is capped by the
+/// log's ring buffer; if `push_state < oldest_event_id`, the
+/// subscriber starts at "current" and the client must resync via
+/// `Foo/changes`.
 ///
 /// Wakes on either:
 /// - The state-change watch [`tokio::sync::watch::Receiver::changed`]
@@ -408,19 +434,34 @@ async fn push_loop(
     state: Arc<AppStateInner>,
     account: Id,
     filter: TypesFilter,
+    push_state: Option<u64>,
     push_tx: mpsc::Sender<Message>,
 ) {
-    // Subscribe before snapshotting so any racing dispatcher wake is
-    // captured. The watch channel's seen-version semantics make this
-    // race-free (cf. SSE poll_loop module docs).
+    // Subscribe before reading the log so any racing dispatcher wake
+    // is captured. The watch channel's seen-version semantics make
+    // this race-free (cf. SSE poll_loop module docs).
     let mut state_changes = state.subscribe_state_changes();
-    let mut previous: BTreeMap<&'static str, String> = snapshot_all_states(&state, &account).await;
     state_changes.mark_unchanged();
+
+    // Determine the starting position. If pushState is supplied and
+    // within the log's retained window, replay from there; otherwise
+    // start at current.
+    let log_current = state.state_log.current_event_id();
+    let log_oldest = state.state_log.oldest_event_id();
+    let mut last_seen = match push_state {
+        Some(n) if log_oldest == 0 || n + 1 >= log_oldest => n,
+        Some(_) => log_current,
+        None => log_current,
+    };
+
+    // Replay any pending events at startup (bd:JMAP-cf7p.12).
+    let _ = emit_pending(&state, &account, &mut last_seen, &filter, &push_tx).await;
+    if push_tx.is_closed() {
+        return;
+    }
 
     let mut interval = tokio::time::interval(POLL_INTERVAL);
     interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
-    // Drop the first immediate tick — the baseline snapshot above is
-    // what we want, not a redundant snapshot now.
     interval.tick().await;
 
     loop {
@@ -433,41 +474,84 @@ async fn push_loop(
             _ = interval.tick() => {}
         }
 
-        let current = snapshot_all_states(&state, &account).await;
-        let changes = diff_snapshots(&previous, &current, &filter);
-        previous = current;
-        if changes.is_empty() {
-            continue;
-        }
-        let body = build_state_change_frame(&account, &changes);
-        let serialized = match serde_json::to_string(&body) {
-            Ok(s) => s,
-            Err(_) => return, // unreachable for JSON-safe primitives
-        };
-        if push_tx
-            .send(Message::Text(serialized.into()))
-            .await
-            .is_err()
-        {
-            return; // receiver gone — main WS task ended
+        let _ = emit_pending(&state, &account, &mut last_seen, &filter, &push_tx).await;
+        if push_tx.is_closed() {
+            return;
         }
     }
+}
+
+/// Pull entries past `last_seen` from the state log, emit them as a
+/// single `StateChange` WS frame, and advance `last_seen` to the
+/// largest emitted id.
+///
+/// The wire frame carries one state token per type (the latest one
+/// emitted in this batch) plus a `pushState` field encoding the
+/// largest event id — clients can echo that back on reconnect.
+///
+/// Returns `Some(())` iff a frame was emitted; `None` when the log
+/// had no new entries OR when `push_tx.send` failed (caller checks
+/// `push_tx.is_closed()` to distinguish).
+async fn emit_pending(
+    state: &Arc<AppStateInner>,
+    account: &Id,
+    last_seen: &mut u64,
+    filter: &TypesFilter,
+    push_tx: &mpsc::Sender<Message>,
+) -> Option<()> {
+    let replay_filter = filter.as_replay_filter();
+    let entries = state.state_log.events_since(*last_seen, &replay_filter);
+    if entries.is_empty() {
+        return None;
+    }
+
+    let mut latest_per_type: BTreeMap<&'static str, &str> = BTreeMap::new();
+    let mut max_id = *last_seen;
+    for entry in &entries {
+        latest_per_type.insert(entry.type_name, entry.state_token.as_str());
+        if entry.event_id > max_id {
+            max_id = entry.event_id;
+        }
+    }
+    let changes: BTreeMap<String, String> = latest_per_type
+        .into_iter()
+        .map(|(k, v)| (k.to_owned(), v.to_owned()))
+        .collect();
+
+    let body = build_state_change_frame(account, &changes, max_id);
+    let serialized = match serde_json::to_string(&body) {
+        Ok(s) => s,
+        Err(_) => return None, // unreachable for JSON-safe primitives
+    };
+    if push_tx
+        .send(Message::Text(serialized.into()))
+        .await
+        .is_err()
+    {
+        return None; // receiver gone — main WS task ended
+    }
+    *last_seen = max_id;
+    Some(())
 }
 
 /// Build the JSON body for a `StateChange` WS frame per RFC 8887
 /// §4.3.5.1 (which extends RFC 8620 §7.1).
 ///
-/// The `pushState` field is intentionally omitted — the testjig MVP
-/// does not implement state-resume support (bd:JMAP-cf7p.12). When
-/// present, clients can use it to recover state changes missed
-/// across reconnects; without it, clients fall back to issuing
-/// `Foo/changes` after reconnect.
-fn build_state_change_frame(account: &Id, changes: &BTreeMap<String, String>) -> Value {
+/// Carries a `pushState` field (bd:JMAP-cf7p.12) encoded as the
+/// decimal `u64` event id of the latest entry in the batch. Clients
+/// can echo this on `WebSocketPushEnable` reconnect to resume from
+/// that point.
+fn build_state_change_frame(
+    account: &Id,
+    changes: &BTreeMap<String, String>,
+    push_state: u64,
+) -> Value {
     json!({
         "@type": "StateChange",
         "changed": {
             account.as_ref(): changes,
-        }
+        },
+        "pushState": push_state.to_string(),
     })
 }
 
@@ -534,19 +618,35 @@ mod tests {
     }
 
     /// Oracle: RFC 8887 §4.3.5.1 + RFC 8620 §7.1 — StateChange frame
-    /// shape is `{"@type":"StateChange","changed":{"<acct>":{...}}}`.
-    /// `pushState` is optional per §4.3.5.1; the testjig MVP omits it.
+    /// shape is `{"@type":"StateChange","changed":{"<acct>":{...}},
+    /// "pushState":"<id>"}`. Per bd:JMAP-cf7p.12, the testjig encodes
+    /// pushState as the decimal `u64` event id of the latest entry
+    /// in the batch; clients echo it on reconnect via
+    /// `WebSocketPushEnable.pushState`.
     #[test]
     fn state_change_frame_shape_matches_rfc_8887_section_4_3_5_1() {
         let account = Id::from("acct-1");
         let mut changes = BTreeMap::new();
         changes.insert("Space".to_owned(), "7".to_owned());
-        let body = build_state_change_frame(&account, &changes);
+        let body = build_state_change_frame(&account, &changes, 42);
         assert_eq!(body["@type"], "StateChange");
         assert_eq!(body["changed"]["acct-1"]["Space"], "7");
-        assert!(
-            body.get("pushState").is_none(),
-            "testjig MVP omits pushState per bd:JMAP-cf7p.12; got {body}"
+        assert_eq!(
+            body["pushState"], "42",
+            "pushState must be the decimal u64 event id per bd:JMAP-cf7p.12; got {body}"
         );
+    }
+
+    /// Oracle: bd:JMAP-cf7p.12 — pushState parser handles missing,
+    /// empty, numeric, and non-numeric values per its docstring.
+    #[test]
+    fn parse_push_state_handles_missing_empty_and_numeric() {
+        assert_eq!(parse_push_state(""), None);
+        assert_eq!(parse_push_state("   "), None);
+        assert_eq!(parse_push_state("42"), Some(42));
+        assert_eq!(parse_push_state("0"), Some(0));
+        assert_eq!(parse_push_state("abc"), None);
+        // u64::MAX + 1 overflows and falls back to None.
+        assert_eq!(parse_push_state("99999999999999999999999"), None);
     }
 }
