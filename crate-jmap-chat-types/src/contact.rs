@@ -34,6 +34,23 @@ pub struct Endpoint {
 #[serde(rename_all = "camelCase")]
 pub struct ChatContact {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.8).
+    ///
+    /// # Wire form
+    ///
+    /// Per draft-atwood-jmap-chat-00 commits `48b6a31` (DID URIs
+    /// acknowledged) and `5bfb16d` (federated / DID-URI textual forms
+    /// for user mentions): this id is any opaque URI form, including
+    /// but not limited to:
+    ///
+    /// - `user@host` — federated identity, the historical default
+    /// - W3C DID-Core URIs — `did:web:alice.example`,
+    ///   `did:key:z6MkhaXgBZ...`, and other DID methods
+    /// - Local-account ids (single-tenant deployments)
+    /// - Any other future URI form
+    ///
+    /// Servers and clients MUST treat the value as opaque: do not
+    /// parse, validate, or normalize. Two `ChatContact.id` values are
+    /// "the same contact" iff their wire strings are byte-equal.
     pub id: Id,
     /// The `login` property (draft-atwood-jmap-chat-00 §4.8).
     pub login: String,
@@ -179,6 +196,54 @@ mod tests {
         );
         let back = serde_json::to_value(&c).unwrap();
         assert_eq!(back["acmeCorpFederationPeer"], "node-2");
+    }
+
+    // Oracle: per draft-atwood-jmap-chat-00 commits 48b6a31 + 5bfb16d,
+    // ChatContact.id may carry any opaque URI form, including W3C
+    // DID-Core URIs. A `did:web:...` value MUST round-trip the wire
+    // string verbatim — the serializer does not URL-encode, parse, or
+    // normalize.
+    #[test]
+    fn contact_did_uri_id_round_trips_verbatim() {
+        let original = ChatContact {
+            id: Id::from("did:web:alice.example"),
+            login: "alice@alice.example".to_owned(),
+            first_seen_at: UTCDate::from("2026-01-01T00:00:00Z"),
+            last_seen_at: UTCDate::from("2026-04-01T00:00:00Z"),
+            blocked: false,
+            display_name: None,
+            presence: None,
+            last_active_at: None,
+            status_text: None,
+            status_emoji: None,
+            endpoints: None,
+            extra: serde_json::Map::new(),
+        };
+
+        let serialized = serde_json::to_value(&original).expect("serialize");
+        assert_eq!(
+            serialized["id"], "did:web:alice.example",
+            "DID URI must serialize as the verbatim wire string"
+        );
+
+        let round: ChatContact = serde_json::from_value(serialized).expect("deserialize");
+        assert_eq!(
+            round.id.as_ref(),
+            "did:web:alice.example",
+            "DID URI must deserialize back to the same opaque string"
+        );
+
+        // A second non-DID form is also opaque — round-trip a federated
+        // user@host form for parity.
+        let federated = ChatContact {
+            id: Id::from("alice@matrix.example"),
+            login: "alice@matrix.example".to_owned(),
+            ..original
+        };
+        let serialized = serde_json::to_value(&federated).expect("serialize");
+        assert_eq!(serialized["id"], "alice@matrix.example");
+        let round: ChatContact = serde_json::from_value(serialized).expect("deserialize");
+        assert_eq!(round.id.as_ref(), "alice@matrix.example");
     }
 
     // Oracle: when blocked=true, the "blocked" key must appear in serialized output.

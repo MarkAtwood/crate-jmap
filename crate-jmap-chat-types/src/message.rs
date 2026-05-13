@@ -134,7 +134,22 @@ pub struct Attachment {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Mention {
-    /// The `id` property (draft-atwood-jmap-chat-00 §4.4).
+    /// The mentioned [`ChatContact`]'s `id` (draft-atwood-jmap-chat-00 §4.4).
+    ///
+    /// Any opaque URI form: `user@host` (federated), a W3C DID-Core
+    /// URI (`did:web:...`, `did:key:...`), a local-account id, or
+    /// any future form. The textual representation in the message
+    /// body (e.g. `@user@host`, `@did:web:...`, or `@display-name`)
+    /// is composer-defined and is NOT recoverable from this field
+    /// alone — the composer is responsible for both rendering the
+    /// in-body span (driven by `offset` + `length`) and resolving
+    /// the displayed text out of band. Servers and clients MUST
+    /// treat the value as opaque.
+    ///
+    /// See [`ChatContact`] (`id` field) for the full URI-latitude
+    /// note, including the list of accepted forms.
+    ///
+    /// [`ChatContact`]: crate::ChatContact
     pub id: Id,
     /// The `offset` property (draft-atwood-jmap-chat-00 §4.4).
     pub offset: u64,
