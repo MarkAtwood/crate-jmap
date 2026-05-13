@@ -973,6 +973,356 @@ async fn message_set_no_read_at_no_disposition_injected() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// Burn-on-read (draft-atwood-jmap-chat-00 §Message burnOnRead)
+// ---------------------------------------------------------------------------
+
+/// Oracle: draft-atwood-jmap-chat-00 §Message `burnOnRead` — a message created
+/// with `burnOnRead: true` MUST be hard-deleted as soon as a `Message/set`
+/// update sets `readAt`. The id MUST appear in `destroyed` of subsequent
+/// `Message/changes` results (row removal, not tombstone).
+#[tokio::test]
+async fn message_set_burn_on_read_fires_on_read_at() {
+    let backend = MemoryBackend::new();
+
+    // Create a burn-on-read message.
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "this will burn",
+                    "sentAt": "2024-01-01T00:00:00Z",
+                    "burnOnRead": true
+                }
+            }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+    assert_eq!(
+        create_resp["created"]["m0"]["burnOnRead"],
+        json!(true),
+        "burnOnRead must be stored verbatim on create"
+    );
+
+    // Mark the message as read. This should fire the burn.
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &msg_id: { "readAt": "2024-01-02T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(
+        update_resp["updated"][&msg_id],
+        json!(null),
+        "the readAt patch itself succeeds"
+    );
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    // Message/get for the id must report notFound — the row is gone.
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(
+        get_resp["list"].as_array().expect("list").len(),
+        0,
+        "the burnt message must not be returned by Message/get"
+    );
+    let not_found = get_resp["notFound"].as_array().expect("notFound");
+    assert_eq!(not_found.len(), 1);
+    assert_eq!(not_found[0], msg_id);
+
+    // Message/changes from "0" must report the id as destroyed.
+    let (changes_resp, _) = handle_message_changes(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "sinceState": "0" }),
+    )
+    .await
+    .expect("changes");
+    let destroyed = changes_resp["destroyed"]
+        .as_array()
+        .expect("destroyed array");
+    assert!(
+        destroyed.iter().any(|v| v == &json!(&msg_id)),
+        "destroyed must contain the burnt message id (got {destroyed:?})"
+    );
+}
+
+/// Oracle: an update that does NOT set `readAt` must not fire burn-on-read,
+/// even when the message has `burnOnRead: true`. Burn-on-read is tied to the
+/// `readAt` event specifically, not to any mutation of a burnable message.
+#[tokio::test]
+async fn message_set_burn_on_read_no_fire_without_read_at() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "burnable but unread",
+                    "sentAt": "2024-01-01T00:00:00Z",
+                    "burnOnRead": true
+                }
+            }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    // Update the body — readAt is NOT in the patch.
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &msg_id: { "body": "edited body" } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["updated"][&msg_id], json!(null));
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    // Message must still be there with burnOnRead intact.
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(get_resp["list"].as_array().expect("list").len(), 1);
+    assert_eq!(get_resp["list"][0]["body"], "edited body");
+    assert_eq!(get_resp["list"][0]["burnOnRead"], json!(true));
+    assert_eq!(get_resp["list"][0]["readAt"], json!(null));
+}
+
+/// Oracle: a message that is NOT burn-on-read survives `readAt` being set —
+/// only the `burnOnRead: true` precondition triggers the hard-delete.
+#[tokio::test]
+async fn message_set_no_burn_when_burn_on_read_absent() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "not burnable",
+                    "sentAt": "2024-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    // Set readAt. burnOnRead is absent, so no burn.
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &msg_id: { "readAt": "2024-01-02T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["updated"][&msg_id], json!(null));
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    // Message still present with readAt set.
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(get_resp["list"].as_array().expect("list").len(), 1);
+    assert_eq!(get_resp["list"][0]["readAt"], "2024-01-02T00:00:00Z");
+}
+
+/// Oracle: a patch that clears `readAt` via `readAt: null` is a PatchObject
+/// removal (RFC 8620 §5.3), not a "mark as read" event. Burn-on-read MUST
+/// NOT fire on a clear.
+#[tokio::test]
+async fn message_set_burn_on_read_no_fire_on_read_at_null() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "still here",
+                    "sentAt": "2024-01-01T00:00:00Z",
+                    "burnOnRead": true
+                }
+            }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    // PatchObject clear of readAt — readAt has never been set, so this is a
+    // no-op on the wire. burnOnRead semantics MUST treat it as not a burn
+    // trigger regardless.
+    let (update_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &msg_id: { "readAt": serde_json::Value::Null } }
+        }),
+    )
+    .await
+    .expect("update");
+    assert_eq!(update_resp["updated"][&msg_id], json!(null));
+    assert_eq!(update_resp["notUpdated"], json!(null));
+
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(get_resp["list"].as_array().expect("list").len(), 1);
+    assert_eq!(get_resp["list"][0]["burnOnRead"], json!(true));
+}
+
+/// Oracle: `ChatBackend::expire_message` on the reference `MemoryBackend`
+/// hard-deletes the message and records the id in `destroyed` of subsequent
+/// `Message/changes` results. This is the scheduler-side path for
+/// `senderExpiresAt` firing — drivers call this method directly when a
+/// timer elapses.
+#[tokio::test]
+async fn memory_backend_expire_message_direct_call() {
+    let backend = MemoryBackend::new();
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "scheduled expiry",
+                    "sentAt": "2024-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id_str = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+    let account_id = Id::from("a1");
+    let msg_id = Id::from(msg_id_str.as_str());
+
+    // Direct backend call — simulates a scheduler firing on senderExpiresAt.
+    backend
+        .expire_message(&(), &account_id, &msg_id)
+        .await
+        .expect("expire_message must succeed on the reference backend");
+
+    // Message/get for the id must report notFound.
+    let (get_resp, _) = handle_message_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&msg_id_str] }),
+    )
+    .await
+    .expect("get");
+    assert_eq!(get_resp["list"].as_array().expect("list").len(), 0);
+    let not_found = get_resp["notFound"].as_array().expect("notFound");
+    assert_eq!(not_found.len(), 1);
+    assert_eq!(not_found[0], msg_id_str);
+
+    // Message/changes must report the id as destroyed.
+    let (changes_resp, _) = handle_message_changes(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "sinceState": "0" }),
+    )
+    .await
+    .expect("changes");
+    let destroyed = changes_resp["destroyed"]
+        .as_array()
+        .expect("destroyed array");
+    assert!(
+        destroyed.iter().any(|v| v == &json!(&msg_id_str)),
+        "destroyed must contain the expired message id (got {destroyed:?})"
+    );
+}
+
+/// Oracle: `ChatBackend::expire_message` on a non-existent message id is a
+/// no-op success on the reference backend. The contract is idempotent so a
+/// scheduler that re-fires after a crash, or a handler whose atomic
+/// `update_object` already removed the row, does not produce a spurious
+/// SetError::NotFound.
+#[tokio::test]
+async fn memory_backend_expire_message_idempotent_on_missing() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("a1");
+    let missing_id = Id::from("never-existed");
+
+    backend
+        .expire_message(&(), &account_id, &missing_id)
+        .await
+        .expect("expire_message on missing id must be Ok(())");
+
+    // The state token must not advance for a no-op.
+    let state_after: jmap_types::State = backend
+        .get_state::<jmap_chat_types::Message>(&(), &account_id)
+        .await
+        .expect("get_state");
+    assert_eq!(
+        state_after.as_ref(),
+        "0",
+        "expire_message on missing id must not bump the state counter"
+    );
+}
+
 /// Oracle: Message/set create with replyTo set stores and returns the field.
 #[tokio::test]
 async fn message_set_create_with_reply_to() {
