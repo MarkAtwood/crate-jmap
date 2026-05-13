@@ -251,11 +251,17 @@ impl MemoryBackend {
     }
 
     /// Allocate a server-assigned id for a new object.
+    ///
+    /// Format: `"<lowercased-type-name><n:016x>"` where `n` is `count + 1`
+    /// within the `(type_name, account_id)` namespace. Zero-padded hex
+    /// makes ids lex-orderable, matching the sibling chat-server pattern
+    /// required by draft-atwood-jmap-chat-00 `unreadCount` semantics.
+    /// Demo-grade; production backends mint real ULIDs.
     fn next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {
         let n = inner
             .objects_ref(type_name, account_id)
             .map_or(0, |m| m.len());
-        Id::from(format!("{}{}", type_name.to_ascii_lowercase(), n + 1))
+        Id::from(format!("{}{:016x}", type_name.to_ascii_lowercase(), n + 1))
     }
 
     /// Scan an account's Metadata store for an existing object whose
