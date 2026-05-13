@@ -937,9 +937,19 @@ pub async fn handle_space_set<B: ChatBackend>(
                 }
             }
 
-            // Apply metadata (if any) via the existing JSON Merge Patch path.
-            // If there were no metadata fields, structural ops alone count
-            // as a successful update — emit a null sentinel into `updated`.
+            // Apply metadata (if any) via the dedicated chat-server
+            // entry point. Routing through
+            // `ChatBackend::apply_space_metadata_patch` (rather than
+            // the generic `update_object::<Space>`) gives the backend
+            // the type and identity context it needs to apply the
+            // `manage_space` permission gate atomically with the
+            // mutation. The gate is backend-canonical per workspace
+            // AGENTS.md "Caller identity (foundation seam)" — handler
+            // does no permission check here. See bd:JMAP-g7wu.2.4.13.
+            //
+            // If there were no metadata fields, structural ops alone
+            // count as a successful update — emit a null sentinel
+            // into `updated`.
             if clean_patch.is_empty() {
                 mutated = true;
                 updated.insert(id_str, Value::Null);
@@ -947,12 +957,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             }
 
             match backend
-                .update_object::<Space>(
-                    caller,
-                    &account_id,
-                    &id,
-                    PatchObject::from_map(clean_patch),
-                )
+                .apply_space_metadata_patch(caller, &account_id, &id, clean_patch)
                 .await
             {
                 Ok(Some(obj)) => {

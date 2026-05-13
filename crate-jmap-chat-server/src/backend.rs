@@ -404,6 +404,78 @@ pub trait ChatBackend: JmapBackend {
         ops: Vec<SpacePatchOp>,
     ) -> impl std::future::Future<Output = Result<Vec<OpResult>, BackendSetError<Self::Error>>> + Send;
 
+    /// Apply a JSON Merge Patch to a Space's top-level metadata fields
+    /// (draft-atwood-jmap-chat-00 §Space/set, `name`, `description`,
+    /// `iconBlobId`, `isPublic`, `isPubliclyPreviewable`).
+    ///
+    /// `Space/set` `update` operations carrying *only* top-level
+    /// metadata fields (and not the semantic-mutation keys
+    /// `addRoles` / `addMembers` / `addChannels` / `addCategories`
+    /// etc.) route through this method instead of the generic
+    /// [`Self::update_object`]. Mixed patches carrying both top-level
+    /// metadata AND semantic-mutation keys call
+    /// [`Self::apply_space_patch`] first (for the structural ops) and
+    /// this method second (for the metadata). The handler at
+    /// `space::handle_space_set` is responsible for the split and for
+    /// stripping non-metadata keys before calling this method.
+    ///
+    /// # Permission and atomicity
+    ///
+    /// Per draft-atwood-jmap-chat-00, every top-level metadata field
+    /// carries the marker "Mutable by members with `manage_space`
+    /// permission". Implementations MUST gate the mutation on the
+    /// caller's effective permissions in the target Space:
+    ///
+    /// - If [`JmapBackend::principal_id`] returns `Some(caller_id)`,
+    ///   verify the caller holds `manage_space` (resolved through the
+    ///   Space's role hierarchy). Reject the patch with
+    ///   [`SetErrorType::Forbidden`] if not.
+    /// - If [`JmapBackend::principal_id`] returns `None` (single-user
+    ///   mode — the backend has not wired identity), the gate is
+    ///   skipped. This is consistent with the workspace AGENTS.md
+    ///   "Caller identity (foundation seam)" section: a backend that
+    ///   does not honor identity-dependent semantics opts out.
+    ///
+    /// The check fires inside this method atomically with the
+    /// mutation: snapshot the Space's role/member state, evaluate
+    /// the permission gate, and apply the merge patch in one
+    /// critical section. Backend canonical per workspace AGENTS.md.
+    ///
+    /// # `patch_map` shape
+    ///
+    /// The handler builds `patch_map` by walking the wire patch and
+    /// keeping only the keys in `METADATA_FIELDS` (`name`,
+    /// `description`, `iconBlobId`, `isPublic`,
+    /// `isPubliclyPreviewable`). Backends MAY validate the values
+    /// further (e.g. reject `iconBlobId` referencing a non-existent
+    /// blob) and surface those as [`SetError`] returns.
+    ///
+    /// # Return value
+    ///
+    /// `Ok(Some(updated_space))` if the backend modified any
+    /// properties beyond what the client requested (RFC 8620 §5.3
+    /// server-set field echo, e.g. a normalised `name` or a derived
+    /// `iconBlobId`). `Ok(None)` if the patch was applied verbatim.
+    /// `Err(BackendSetError::SetError(SetError::new(Forbidden)))`
+    /// when the caller fails the `manage_space` gate.
+    ///
+    /// History: this method landed in bd:JMAP-g7wu.2.4.13 to close the
+    /// gate gap on the top-level metadata path. Before this method
+    /// existed, `Space/set` `update` routed top-level metadata
+    /// through the generic `update_object::<Space>`, which has no
+    /// permission gate. A caller without `manage_space` could
+    /// successfully mutate a Space's `name` / `description` /
+    /// `isPublic` / etc.
+    fn apply_space_metadata_patch(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+        space_id: &jmap_types::Id,
+        patch_map: serde_json::Map<String, serde_json::Value>,
+    ) -> impl std::future::Future<
+        Output = Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>>,
+    > + Send;
+
     /// Whether the backend should reject `RemoveMember` ops that would
     /// leave the target Space with zero members holding either
     /// `manage_members` or `manage_space` permission.
