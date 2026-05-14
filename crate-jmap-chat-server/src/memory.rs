@@ -58,7 +58,7 @@ use crate::{
     EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject,
     QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
-use jmap_server::{json_merge_patch, now_utc_string};
+use jmap_server::{json_merge_patch, now_utc_string, MergePatchError};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -737,9 +737,19 @@ impl ChatBackend for MemoryBackend {
         };
 
         // Apply JSON Merge Patch (RFC 7396): merge patch fields into current value.
+        // A `MergePatchError::DepthExceeded` return (bd:JMAP-wlip.1) surfaces
+        // as `SetErrorType::InvalidPatch` — the depth cap is a DoS guard,
+        // never fires on legitimate JMAP `/set update` shapes. `current` is a
+        // clone of the stored value, so a partially-applied patch on error is
+        // discarded with the local without touching storage.
         let patch_val = serde_json::to_value(&patch)
             .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize patch: {e}"))))?;
-        json_merge_patch(&mut current, patch_val);
+        if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidPatch)
+                    .with_description("patch nesting exceeds server limit"),
+            ));
+        }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -1341,8 +1351,21 @@ fn apply_space_metadata_patch_impl(
     // canonical for in-memory storage (extras-preservation policy);
     // the patch keys have already been filtered to METADATA_FIELDS
     // by the handler.
+    //
+    // A `MergePatchError::DepthExceeded` return (bd:JMAP-wlip.1) surfaces
+    // as `SetErrorType::InvalidPatch` — the depth cap is a DoS guard,
+    // never fires on legitimate JMAP `/set update` shapes. `current` is a
+    // local owned clone of `space_val`, so a partially-applied patch on
+    // error is discarded without touching the storage map.
     let mut current = space_val;
-    json_merge_patch(&mut current, serde_json::Value::Object(patch_map));
+    if let Err(MergePatchError::DepthExceeded) =
+        json_merge_patch(&mut current, serde_json::Value::Object(patch_map))
+    {
+        return Err(BackendSetError::SetError(
+            SetError::new(SetErrorType::InvalidPatch)
+                .with_description("patch nesting exceeds server limit"),
+        ));
+    }
 
     let new_state = inner.bump_state("Space", account_id.as_ref());
     inner
