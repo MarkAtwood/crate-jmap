@@ -468,6 +468,14 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             let has_target = node.target.as_ref().map(|v| !v.is_empty()).unwrap_or(false);
             let consistency_error: Option<(&str, &str)> = match node.node_type.as_ref() {
                 Some(NodeType::File) if !has_blob => Some(("blobId", "file node requires blobId")),
+                Some(NodeType::File) if has_target => {
+                    // draft-ietf-jmap-filenode-13: target is for symlinks
+                    // only ("The target is mutable [...] updating it
+                    // changes where the symlink points"). A File with a
+                    // non-empty target is internally inconsistent and
+                    // would otherwise be stored verbatim.
+                    Some(("target", "file node must not have target"))
+                }
                 Some(NodeType::Directory) if has_blob => {
                     Some(("blobId", "directory node must not have blobId"))
                 }
@@ -2014,6 +2022,49 @@ mod tests {
     }
 
     /// Oracle: create with nodeType="symlink" and target=null → invalidProperties
+    /// Oracle: file node with both blobId and target → invalidProperties on
+    /// "target". `target` is meaningful only for symlinks per the spec; a
+    /// file carrying `target` is internally inconsistent and would otherwise
+    /// be stored verbatim.
+    /// Source: draft-ietf-jmap-filenode-13 §3.1 (target field is symlink-only).
+    /// Regression for bd JMAP-510h.7.
+    #[tokio::test]
+    async fn set_create_file_with_blob_and_target_returns_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": {
+                    "name": "weird",
+                    "nodeType": "file",
+                    "blobId": "B-blob-1",
+                    "target": ["etc", "passwd"],
+                    "role": null
+                }
+            }
+        });
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+        let not_created = &resp["notCreated"];
+        assert!(
+            not_created.is_object(),
+            "notCreated must be present: {resp}"
+        );
+        assert_eq!(
+            not_created["c1"]["type"], "invalidProperties",
+            "file with target must produce invalidProperties: {resp}"
+        );
+        let props = &not_created["c1"]["properties"];
+        assert!(
+            props
+                .as_array()
+                .map(|a| a.contains(&json!("target")))
+                .unwrap_or(false),
+            "target must be listed in properties: {resp}"
+        );
+    }
+
     /// on "target" (symlink node requires target).
     /// Source: draft-ietf-jmap-filenode-13 §3.1.
     #[tokio::test]
