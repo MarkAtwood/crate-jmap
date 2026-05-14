@@ -9,7 +9,9 @@ mod common;
 
 use std::sync::Arc;
 
-use jmap_metadata_server::{register_metadata_handlers, MetadataBackend, JMAP_METADATA_URI};
+use jmap_metadata_server::{
+    register_metadata_handlers, JmapBackend, MetadataBackend, JMAP_METADATA_URI,
+};
 use jmap_metadata_types::Metadata;
 use jmap_server::{Dispatcher, JmapRequest, State};
 use jmap_types::Id;
@@ -234,6 +236,62 @@ async fn set_destroy_existing_succeeds() {
         .expect("destroyed must be array");
     assert_eq!(destroyed.len(), 1);
     assert_eq!(destroyed[0], json!(id.as_ref()));
+}
+
+/// Oracle: RFC 8620 §3.6.2 — a method call carrying an `accountId` the
+/// server does not recognise MUST return the method-level error
+/// `accountNotFound` and MUST NOT mutate backend state. Regression
+/// test for bd:JMAP-ayoz.1 (handler-level guard) and bd:JMAP-ayoz.2
+/// (backend-level guard): prior to the fix, `Metadata/set` against an
+/// unknown account silently auto-registered the account in
+/// `known_accounts` and proceeded with `create`.
+#[tokio::test]
+async fn set_unknown_account_returns_account_not_found_and_does_not_mutate() {
+    // Backend is seeded with "acc1" only; "acc-bogus" is unknown.
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    // Pre-condition: bogus account is not known.
+    assert!(
+        !backend
+            .account_exists(&(), &Id::from("acc-bogus"))
+            .await
+            .expect("account_exists must succeed"),
+        "pre-condition: acc-bogus must not be known",
+    );
+
+    let req = single_call(
+        "Metadata/set",
+        json!({
+            "accountId": "acc-bogus",
+            "create": {
+                "c1": {
+                    "@type": "Annotation",
+                    "relatedType": "Email",
+                    "relatedId": "EM1"
+                }
+            }
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+
+    assert_eq!(resp.method_responses.len(), 1);
+    let (_, args, _) = &resp.method_responses[0];
+    assert_eq!(
+        args["type"], "accountNotFound",
+        "unknown accountId must produce accountNotFound; got: {args}",
+    );
+
+    // Post-condition: the bogus account was NOT silently registered.
+    assert!(
+        !backend
+            .account_exists(&(), &Id::from("acc-bogus"))
+            .await
+            .expect("account_exists must succeed"),
+        "backend must not auto-register unknown accountId during /set",
+    );
 }
 
 // ---------------------------------------------------------------------------
