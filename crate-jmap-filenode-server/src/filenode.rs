@@ -724,6 +724,20 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             // descendants are also in this destroy request.
             // RFC §3.2.3: MUST NOT return nodeHasChildren if all descendants
             // are also being destroyed in the same request.
+            //
+            // Partial-tree subtlety (bd:JMAP-510h.12): get_descendant_ids
+            // returns the TRANSITIVE descendant set. When a destroy set
+            // includes {A, B} where A is an ancestor of B and B has its
+            // own descendants C that are NOT in the set, both A and B
+            // report nodeHasChildren — A because its subtree contains
+            // the uncovered C, B because B's subtree contains the
+            // uncovered C. The error attribution is at every uncovered
+            // ancestor, not at the deepest uncovered descendant, but
+            // the overall verdict (no destroys happen) is correct and
+            // never falsely succeeds. Backends that want to attribute
+            // the error closer to the actual uncovered descendant can
+            // override this loop with their own ordering logic; the
+            // reference handler is intentionally simple.
             if !on_destroy_remove_children {
                 match backend.get_descendant_ids(caller, &account_id, &id).await {
                     Ok(desc_ids) => {
