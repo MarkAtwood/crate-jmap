@@ -615,7 +615,7 @@ impl JmapBackend for MemoryBackend {
 
         Ok(QueryResult::new(
             ids,
-            start as i64,
+            start as u64,
             Some(total),
             query_state,
             true,

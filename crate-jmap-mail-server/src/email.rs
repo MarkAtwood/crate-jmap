@@ -767,7 +767,7 @@ pub async fn handle_email_query<B: MailBackend>(
                         "accountId": account_id.as_ref(),
                         "queryState": empty.query_state.as_ref(),
                         "canCalculateChanges": empty.can_calculate_changes,
-                        "position": 0i64,
+                        "position": 0u64,
                         "ids": [],
                     }),
                     vec![],
@@ -848,7 +848,7 @@ pub async fn handle_email_query<B: MailBackend>(
                 total,
                 query_state,
                 can_calculate_changes,
-                start as i64,
+                start as u64,
             )
         } else {
             let result = backend
