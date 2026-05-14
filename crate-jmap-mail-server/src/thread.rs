@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 
 use crate::backend::MailBackend;
 use crate::helpers::{extract_account_id, filter_properties, not_found_json, ser};
+use jmap_server::server_fail_from_backend;
 
 /// Handle a `Thread/get` method call (RFC 8621 §3.1).
 ///
@@ -21,7 +22,7 @@ pub async fn handle_thread_get<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -54,12 +55,12 @@ pub async fn handle_thread_get<B: MailBackend>(
             properties.as_deref(),
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let state = backend
         .get_state::<jmap_mail_types::Thread>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let list_json: Vec<Value> = if let Some(ref props) = properties {
         // Build the effective property set once; always include "id" per RFC 8620 §5.1.

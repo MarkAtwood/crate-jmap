@@ -9,6 +9,7 @@ use jmap_types::{Id, Invocation, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};
 
 use crate::backend::MetadataBackend;
+use jmap_server::server_fail_from_backend;
 
 pub(crate) use jmap_server::extract_account_id;
 
@@ -66,7 +67,7 @@ where
         backend
             .get_state::<O>(caller, account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+            .map_err(|e| server_fail_from_backend(&e))?
     } else {
         old_state.clone()
     };

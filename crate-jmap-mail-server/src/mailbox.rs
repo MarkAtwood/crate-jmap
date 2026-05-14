@@ -11,6 +11,7 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, not_found_json, ser,
     set_error_value, SetAccumulators,
 };
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)
@@ -26,7 +27,7 @@ pub async fn handle_mailbox_get<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -53,12 +54,12 @@ pub async fn handle_mailbox_get<B: MailBackend>(
     let (list, not_found) = backend
         .get_objects::<Mailbox>(caller, &account_id, ids_slice, properties.as_deref())
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let state = backend
         .get_state::<Mailbox>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let list_json: Vec<Value> = if let Some(ref props) = properties {
         // Build the effective property set once; always include "id" per RFC 8620 §5.1.
@@ -115,7 +116,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -273,7 +274,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         let full = backend
             .query_objects::<Mailbox>(caller, &account_id, filter.as_ref(), sort_slice, None, 0)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
         query_state_str = full.query_state.as_ref().to_owned();
         let all_ids = full.ids;
         let total = all_ids.len() as u64;
@@ -302,7 +303,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
                 position,
             )
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
         query_state_str = result.query_state.as_ref().to_owned();
         let total = result.total.unwrap_or(result.ids.len() as u64);
         let start = result.position as usize;
@@ -343,7 +344,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -438,7 +439,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -447,7 +448,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     let current_state = backend
         .get_state::<Mailbox>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(Value::String(if_in_state)) = args.get("ifInState") {
         if if_in_state.as_str() != current_state.as_ref() {
@@ -474,7 +475,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     let (all_mailboxes, _) = backend
         .get_objects::<Mailbox>(caller, &account_id, None, None)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // -----------------------------------------------------------------------
     // Pre-compute roles that will be vacated by updates in this request.
@@ -911,7 +912,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         let (mut mailboxes_after_mutations, _) = backend
             .get_objects::<Mailbox>(caller, &account_id, None, None)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
 
         for id_val in destroy_ids {
             let id_str = match id_val.as_str() {
@@ -950,11 +951,11 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                     0,
                 )
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
             let (fetched, _) = backend
                 .get_objects::<Email>(caller, &account_id, Some(&query_result.ids), None)
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
             let emails_in_mailbox: Vec<Email> = fetched
                 .into_iter()
                 .filter(|e| e.mailbox_ids.contains_key(&id))
@@ -991,9 +992,9 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             // proceed with mailbox destruction rather than aborting.
                             Some(BackendSetError::SetError(_)) => {}
                             Some(BackendSetError::Other(e)) => {
-                                return Err(JmapError::server_fail(format!(
-                                    "batch_destroy_emails {email_id}: {e}"
-                                )));
+                                // bd:JMAP-wlip.2 — strip backend Display
+                                // text from wire-bound description.
+                                return Err(server_fail_from_backend(&e));
                             }
                             Some(_) => {
                                 return Err(JmapError::server_fail(format!(

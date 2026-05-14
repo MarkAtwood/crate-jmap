@@ -10,6 +10,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, TasksBackend};
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // Task/get
@@ -103,7 +104,7 @@ pub async fn handle_task_set<B: TasksBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -111,7 +112,7 @@ pub async fn handle_task_set<B: TasksBackend>(
     let old_state = backend
         .get_state::<Task>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -412,7 +413,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
     if !backend
         .account_exists(caller, &to_account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -420,7 +421,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
     let old_state = backend
         .get_state::<Task>(caller, &to_account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
@@ -486,7 +487,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
         backend
             .get_state::<Task>(caller, &to_account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+            .map_err(|e| server_fail_from_backend(&e))?
     } else {
         old_state.clone()
     };

@@ -28,6 +28,7 @@ use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, set_error_value, SetAccumulators,
 };
+use jmap_server::server_fail_from_backend;
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
 /// and `SieveScript/validate` operations (RFC 9661).
@@ -195,7 +196,7 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -204,13 +205,13 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
     let (list, not_found) = backend
         .get_objects::<SieveScript>(caller, &account_id, ids.as_deref(), None)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Step 4: Get state.
     let state = backend
         .get_state::<SieveScript>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Step 5: Serialize list with optional property filtering.
     // RFC 8620 §5.1: when properties is specified, id MUST always be included.
@@ -219,16 +220,13 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
         prop_set.insert("id");
         list.iter()
             .map(|script| {
-                let obj = serde_json::to_value(script)
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                let obj = serde_json::to_value(script).map_err(|e| server_fail_from_backend(&e))?;
                 Ok(filter_properties(&obj, &prop_set))
             })
             .collect::<Result<Vec<_>, JmapError>>()?
     } else {
         list.iter()
-            .map(|script| {
-                serde_json::to_value(script).map_err(|e| JmapError::server_fail(e.to_string()))
-            })
+            .map(|script| serde_json::to_value(script).map_err(|e| server_fail_from_backend(&e)))
             .collect::<Result<Vec<_>, JmapError>>()?
     };
 
@@ -270,7 +268,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -280,20 +278,20 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     let vr_script_id: Option<Id> = backend
         .vacation_response_script_id(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Fetch maxSizeScript limit once for size enforcement (spec §2.4).
     // The default impl returns Ok(None) (no limit).
     let max_script_bytes: Option<u64> = backend
         .max_sieve_script_bytes(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Step 3: ifInState check — always read old_state first.
     let old_state = backend
         .get_state::<SieveScript>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -360,7 +358,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     None,
                 )
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
 
             if !not_found_ids.is_empty() || existing.is_empty() {
                 not_destroyed.insert(
@@ -430,7 +428,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     let (all_scripts_before_create, _) = backend
         .get_objects::<SieveScript>(caller, &account_id, None, None)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let mut successful_creates: usize = 0;
     // Track names successfully created within this call to detect intra-call duplicates.
@@ -538,7 +536,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             if let Some(err_desc) = backend
                 .validate_sieve_script(caller, &account_id, &blob_id)
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?
+                .map_err(|e| server_fail_from_backend(&e))?
             {
                 not_created.insert(
                     creation_id,
@@ -571,7 +569,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 
                     // R9: propagate serialization errors via ? instead of silently swallowing.
                     let obj_json = serde_json::to_value(&created_obj)
-                        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                        .map_err(|e| server_fail_from_backend(&e))?;
                     created.insert(creation_id, obj_json);
                     successful_creates += 1;
                 }
@@ -603,7 +601,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
         let (all_scripts_for_update, _) = backend
             .get_objects::<SieveScript>(caller, &account_id, None, None)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
 
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
@@ -716,7 +714,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 if let Some(err_desc) = backend
                     .validate_sieve_script(caller, &account_id, &new_blob_id)
                     .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?
+                    .map_err(|e| server_fail_from_backend(&e))?
                 {
                     not_updated.insert(
                         id_str,
@@ -735,8 +733,8 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             {
                 Ok(Some(obj)) => {
                     // R9: propagate serialization errors via ? instead of silently swallowing.
-                    let obj_json = serde_json::to_value(&obj)
-                        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    let obj_json =
+                        serde_json::to_value(&obj).map_err(|e| server_fail_from_backend(&e))?;
                     updated.insert(id_str, obj_json);
                 }
                 Ok(None) => {
@@ -776,7 +774,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             let (all_scripts, _) = backend
                 .get_objects::<SieveScript>(caller, &account_id, None, None)
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
             if let Some(active_script) = all_scripts.iter().find(|s| s.is_active) {
                 let active_id = active_script.id.clone();
                 let active_id_str = active_id.as_ref().to_owned();
@@ -829,7 +827,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                 let (all_scripts, _) = backend
                     .get_objects::<SieveScript>(caller, &account_id, None, None)
                     .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    .map_err(|e| server_fail_from_backend(&e))?;
 
                 // Track whether deactivation failed so we can abort the activate step
                 // (Fix R2_3: deactivate failure aborts activate to preserve one-active invariant).
@@ -995,7 +993,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -1050,7 +1048,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     let (all_scripts, _not_found) = backend
         .get_objects::<SieveScript>(caller, &account_id, None, None)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Step 5: apply filter.
     let filtered: Vec<&SieveScript> = all_scripts
@@ -1121,7 +1119,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     let query_state = backend
         .get_state::<SieveScript>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Step 10: build response.
     let mut resp = json!({
@@ -1166,7 +1164,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -1178,7 +1176,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     let max_script_bytes: Option<u64> = backend
         .max_sieve_script_bytes(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
     if let Some(max_bytes) = max_script_bytes {
         match backend.get_sieve_blob(caller, &account_id, &blob_id).await {
             Ok(Some(ref bytes)) if bytes.len() as u64 > max_bytes => {
@@ -1202,7 +1200,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     let validation_error = backend
         .validate_sieve_script(caller, &account_id, &blob_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Step 6: Build response — "error" field MUST be present as null when valid
     // (RFC 9661 §2.6).

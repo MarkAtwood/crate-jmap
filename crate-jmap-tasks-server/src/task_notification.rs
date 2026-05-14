@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, SetError, SetErrorType, TasksBackend};
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // TaskNotification/get
@@ -61,7 +62,7 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -69,7 +70,7 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
     let old_state = backend
         .get_state::<TaskNotification>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {

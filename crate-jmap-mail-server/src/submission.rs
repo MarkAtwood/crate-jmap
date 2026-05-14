@@ -23,6 +23,7 @@ use crate::helpers::{
     extract_account_id, find_immutable_patch_key, not_found_json, now_utc_string, ser,
     set_error_value,
 };
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // EmailSubmission/get
@@ -40,7 +41,7 @@ pub async fn handle_submission_get<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -57,12 +58,12 @@ pub async fn handle_submission_get<B: MailBackend>(
     let (list, not_found) = backend
         .get_objects::<EmailSubmission>(caller, &account_id, ids_slice, None)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let state = backend
         .get_state::<EmailSubmission>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
 
@@ -105,7 +106,7 @@ pub async fn handle_submission_query<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -173,7 +174,7 @@ pub async fn handle_submission_query<B: MailBackend>(
                     0,
                 )
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
             let anchor_idx = all
                 .ids
                 .iter()
@@ -207,7 +208,7 @@ pub async fn handle_submission_query<B: MailBackend>(
                     position,
                 )
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
             let pos = result.position;
             let total = result.total;
             (
@@ -252,7 +253,7 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -339,7 +340,7 @@ pub async fn handle_submission_set<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -347,7 +348,7 @@ pub async fn handle_submission_set<B: MailBackend>(
     let old_state = backend
         .get_state::<EmailSubmission>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -398,7 +399,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             let (subs, _) = backend
                 .get_objects::<EmailSubmission>(caller, &account_id, Some(&non_ref_ids), None)
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
             for sub in subs {
                 submission_email_id_map.insert(sub.id.as_ref().to_owned(), sub.email_id.clone());
             }
@@ -547,7 +548,7 @@ pub async fn handle_submission_set<B: MailBackend>(
         backend
             .get_state::<EmailSubmission>(caller, &account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+            .map_err(|e| server_fail_from_backend(&e))?
     } else {
         old_state.clone()
     };
@@ -578,7 +579,7 @@ pub async fn handle_submission_set<B: MailBackend>(
         let email_old_state = backend
             .get_state::<Email>(caller, &account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
 
         let mut email_updated = serde_json::Map::new();
         let mut email_not_updated = serde_json::Map::new();
@@ -712,7 +713,7 @@ pub async fn handle_submission_set<B: MailBackend>(
             let email_new_state = backend
                 .get_state::<Email>(caller, &account_id)
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
 
             // RFC 8621 §7.5: a single implicit Email/set response is appended
             // after the EmailSubmission/set response. Call-id is the same as

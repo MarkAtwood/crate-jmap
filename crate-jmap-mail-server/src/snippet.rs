@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 
 use crate::backend::MailBackend;
 use crate::helpers::extract_account_id;
+use jmap_server::server_fail_from_backend;
 
 /// Handle a `SearchSnippet/get` method call (RFC 8621 §5.9).
 ///
@@ -39,7 +40,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -68,7 +69,7 @@ pub async fn handle_search_snippet_get<B: MailBackend>(
     let snippets = backend
         .search_snippets(caller, &account_id, &email_ids, condition.as_ref())
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Build notFound: email_ids that the backend did not return a snippet for.
     let found_ids: std::collections::HashSet<&str> =
