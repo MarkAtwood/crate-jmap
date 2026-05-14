@@ -397,38 +397,32 @@ impl JmapBackend for MemoryBackend {
         let inner = self.inner.lock().unwrap();
         let map = inner.objects_ref(O::TYPE_NAME, account_id.as_ref());
 
+        // The deserialize error closure is shared by both branches.
+        let deser_err =
+            |e: serde_json::Error| MemoryError::new(format!("deserialize {}: {e}", O::TYPE_NAME));
+
         match ids {
             None => {
-                let mut list = Vec::new();
-                if let Some(m) = map {
-                    for val in m.values() {
-                        match O::deserialize(val) {
-                            Ok(obj) => list.push(obj),
-                            Err(e) => {
-                                return Err(MemoryError::new(format!(
-                                    "deserialize {}: {e}",
-                                    O::TYPE_NAME
-                                )))
-                            }
-                        }
-                    }
-                }
+                // Collect every stored object; bail on the first deserialize
+                // error via the standard `Result<Vec<_>, _>` collect idiom.
+                let list = map
+                    .map(|m| {
+                        m.values()
+                            .map(|val| O::deserialize(val).map_err(deser_err))
+                            .collect::<Result<Vec<_>, _>>()
+                    })
+                    .transpose()?
+                    .unwrap_or_default();
                 Ok((list, vec![]))
             }
             Some(id_slice) => {
+                // Two output vecs (found + not_found) — keep the explicit
+                // loop, but use `?` instead of a manual `match Err { return }`.
                 let mut found = Vec::new();
                 let mut not_found = Vec::new();
                 for id in id_slice {
                     match map.and_then(|m| m.get(id)) {
-                        Some(val) => match O::deserialize(val) {
-                            Ok(obj) => found.push(obj),
-                            Err(e) => {
-                                return Err(MemoryError::new(format!(
-                                    "deserialize {}: {e}",
-                                    O::TYPE_NAME
-                                )))
-                            }
-                        },
+                        Some(val) => found.push(O::deserialize(val).map_err(deser_err)?),
                         None => not_found.push(id.clone()),
                     }
                 }
@@ -703,13 +697,10 @@ impl TasksBackend for MemoryBackend {
             .get(id)
             .cloned();
 
-        let mut current = match existing {
-            Some(v) => v,
-            None => {
-                return Err(BackendSetError::SetError(SetError::new(
-                    SetErrorType::NotFound,
-                )))
-            }
+        let Some(mut current) = existing else {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )));
         };
 
         // Apply JSON Merge Patch (RFC 7396). A `MergePatchError::DepthExceeded`
