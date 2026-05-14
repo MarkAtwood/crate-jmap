@@ -557,8 +557,21 @@ impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapErro
             BackendChangesError::TooManyChanges { limit } => {
                 jmap_types::JmapError::too_many_changes_with_limit(limit)
             }
-            BackendChangesError::Other(inner) => {
-                jmap_types::JmapError::server_fail(inner.to_string())
+            // bd:JMAP-jfia.1 / bd:JMAP-wlip.2 — the `Other` arm wraps a
+            // backend `Error` whose `Display` impl is contractually
+            // forbidden from carrying credential/blob/PII text but which
+            // we still treat as untrusted at the wire boundary. Use the
+            // same static [`SERVER_FAIL_INTERNAL_DESC`] string that the
+            // [`server_fail_from_backend`] handler-layer helper uses so
+            // the defence-in-depth chain (backend Display contract →
+            // handler helper → this From impl) cannot be bypassed by
+            // handlers that take the ergonomic `.map_err(JmapError::from)?`
+            // path on `BackendChangesError`.
+            //
+            // [`SERVER_FAIL_INTERNAL_DESC`]: crate::handlers::SERVER_FAIL_INTERNAL_DESC
+            // [`server_fail_from_backend`]: crate::handlers::server_fail_from_backend
+            BackendChangesError::Other(_inner) => {
+                jmap_types::JmapError::server_fail(crate::handlers::SERVER_FAIL_INTERNAL_DESC)
             }
         }
     }
@@ -977,6 +990,60 @@ mod tests {
             "limit=50 must produce tooManyChanges; got: {:?}",
             err.error_type
         );
+    }
+
+    /// Oracle (bd:JMAP-jfia.1 / bd:JMAP-wlip.2): the
+    /// `From<BackendChangesError<E>> for JmapError` impl MUST NOT echo
+    /// the wrapped backend error's `Display` text into the resulting
+    /// `JmapError`'s description. The defence-in-depth contract is that
+    /// even if a backend implementor accidentally violates the
+    /// [`JmapBackend::Error`] Display MUST-NOT (credential / blob /
+    /// PII), the leaked text never reaches the wire — and the
+    /// ergonomic `.map_err(JmapError::from)?` path that
+    /// `handle_changes` / `handle_query_changes` take on
+    /// `BackendChangesError` must redact identically to the explicit
+    /// `server_fail_from_backend(&e)` helper used elsewhere.
+    ///
+    /// Test vector: an `Other` variant whose Display contains a canary
+    /// string resembling a credential leak. The canary literal is
+    /// hand-built and not derived from any production type's
+    /// behaviour. Mirrors
+    /// `server_fail_from_backend_drops_display_text` in
+    /// `handlers.rs`.
+    #[test]
+    fn backend_changes_error_other_drops_display_text() {
+        #[derive(Debug)]
+        struct LeakyError(&'static str);
+        impl std::fmt::Display for LeakyError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.0)
+            }
+        }
+        impl std::error::Error for LeakyError {}
+
+        const CANARY: &str = "TOKEN-DO-NOT-LEAK-c0ffee";
+        let err: BackendChangesError<LeakyError> = BackendChangesError::Other(LeakyError(CANARY));
+
+        let jmap_err = jmap_types::JmapError::from(err);
+
+        // Serialize to wire shape and assert the canary is absent from
+        // the resulting JSON. The error_invocation wraps a JmapError as
+        // { "type": "serverFail", "description": "..." } — both fields
+        // are wire-visible.
+        let wire = serde_json::to_value(&jmap_err).expect("JmapError must serialize");
+        let wire_str = wire.to_string();
+        assert!(
+            !wire_str.contains(CANARY),
+            "From<BackendChangesError<E>> for JmapError must not echo \
+             backend error Display onto the wire; got {wire_str}"
+        );
+        // The description MUST be exactly SERVER_FAIL_INTERNAL_DESC.
+        assert_eq!(
+            wire["description"],
+            crate::handlers::SERVER_FAIL_INTERNAL_DESC,
+            "description must be the static 'internal error' string"
+        );
+        assert_eq!(wire["type"], "serverFail");
     }
 
     /// Oracle (bd:JMAP-wlip.22): `SetErrorType::custom("forbidden")` MUST
