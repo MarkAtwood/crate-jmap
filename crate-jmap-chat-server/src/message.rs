@@ -354,8 +354,24 @@ pub async fn handle_message_set<B: ChatBackend>(
                 continue;
             }
 
+            // sentAt is a UTCDate per RFC 8620 §1.4 (20-char
+            // YYYY-MM-DDTHH:MM:SSZ). Validate the wire shape via
+            // UTCDate::new_validated; a malformed value produces
+            // invalidProperties rather than silently flowing through
+            // to storage where downstream lex-compares and slice ops
+            // (helpers::iso8601_before) assume a validated 20-byte
+            // ASCII shape.
             let sent_at: UTCDate = match obj_val.get("sentAt").and_then(|v| v.as_str()) {
-                Some(s) => UTCDate::from(s),
+                Some(s) => match UTCDate::new_validated(s) {
+                    Ok(d) => d,
+                    Err(_) => {
+                        not_created.insert(
+                            create_id.clone(),
+                            json!({ "type": "invalidProperties", "properties": ["sentAt"] }),
+                        );
+                        continue;
+                    }
+                },
                 None => {
                     not_created.insert(
                         create_id.clone(),

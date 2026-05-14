@@ -2130,6 +2130,81 @@ async fn message_set_create_with_past_expiry_rejected() {
     );
 }
 
+/// Oracle: Message/set create with a malformed `sentAt` wire shape
+/// (not the 20-char `YYYY-MM-DDTHH:MM:SSZ` UTCDate per RFC 8620 §1.4)
+/// is rejected with `invalidProperties: ["sentAt"]`. Regression
+/// bead bd:JMAP-x2gd.7. Before that bead, the handler wrapped the
+/// client string via `UTCDate::from` and let any value flow through
+/// to storage where lex-compares and 19-byte slices in
+/// `helpers::iso8601_before` assume a validated shape.
+#[tokio::test]
+async fn message_set_create_with_malformed_sent_at_rejected() {
+    let backend = MemoryBackend::new();
+    let (resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "ok",
+                    "sentAt": "yesterday"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_message_set");
+
+    assert_eq!(resp["created"], json!(null));
+    assert!(resp["notCreated"]["m0"].is_object());
+    assert_eq!(resp["notCreated"]["m0"]["type"], "invalidProperties");
+    let props = resp["notCreated"]["m0"]["properties"]
+        .as_array()
+        .expect("properties array");
+    assert!(
+        props.iter().any(|p| p == "sentAt"),
+        "sentAt must be listed in rejected properties: {props:?}"
+    );
+}
+
+/// Oracle: ReadPosition/set create with a malformed `lastReadAt`
+/// wire shape is rejected with `invalidProperties: ["lastReadAt"]`.
+/// Regression bead bd:JMAP-x2gd.7. Same exposure as the Message/set
+/// `sentAt` site — `UTCDate::from` accepted any string and the
+/// malformed value flowed through to storage.
+#[tokio::test]
+async fn position_set_create_with_malformed_last_read_at_rejected() {
+    let backend = MemoryBackend::new();
+    let (resp, _) = handle_position_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "rp0": {
+                    "chatId": "c1",
+                    "lastReadAt": "not-a-date"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("handle_position_set");
+
+    assert!(resp["created"].is_null());
+    assert!(resp["notCreated"]["rp0"].is_object());
+    assert_eq!(resp["notCreated"]["rp0"]["type"], "invalidProperties");
+    let props = resp["notCreated"]["rp0"]["properties"]
+        .as_array()
+        .expect("properties array");
+    assert!(
+        props.iter().any(|p| p == "lastReadAt"),
+        "lastReadAt must be listed in rejected properties: {props:?}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Reaction patches on Message/set update
 // (draft-atwood-jmap-chat-00 §Message/set, §Reaction)

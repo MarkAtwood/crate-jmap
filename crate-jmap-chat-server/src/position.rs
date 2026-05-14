@@ -163,8 +163,25 @@ pub async fn handle_position_set<B: ChatBackend>(
             if let Some(msg_id) = obj_val.get("lastReadMessageId").and_then(|v| v.as_str()) {
                 position.last_read_message_id = Some(Id::from(msg_id));
             }
+            // lastReadAt is a UTCDate per RFC 8620 §1.4 (20-char
+            // YYYY-MM-DDTHH:MM:SSZ). Validate the wire shape via
+            // UTCDate::new_validated; a malformed value produces
+            // invalidProperties rather than silently flowing through
+            // to storage with undefined comparison ordering.
             if let Some(at) = obj_val.get("lastReadAt").and_then(|v| v.as_str()) {
-                position.last_read_at = Some(jmap_types::UTCDate::from(at));
+                match jmap_types::UTCDate::new_validated(at) {
+                    Ok(d) => position.last_read_at = Some(d),
+                    Err(_) => {
+                        not_created.insert(
+                            create_id.clone(),
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["lastReadAt"],
+                            }),
+                        );
+                        continue;
+                    }
+                }
             }
 
             match backend
