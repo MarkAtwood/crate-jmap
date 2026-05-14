@@ -583,11 +583,30 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
         for (id_str, patch_val) in update_map {
             let id = Id::from(id_str.as_str());
 
+            // Convert wire-format Value into a typed PatchObject FIRST so
+            // the subsequent cycle check sees the same key view the backend
+            // will eventually receive. RFC 8620 §5.3 mandates a PatchObject
+            // is a JSON Object; non-object values produce an `invalidPatch`
+            // SetError. Doing the typed parse up front avoids a class of
+            // bug where the handler's introspection sees a different shape
+            // than the backend (bd:JMAP-510h.13).
+            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
+                Ok(p) => p,
+                Err(e) => {
+                    not_updated.insert(
+                        id_str,
+                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                    );
+                    continue;
+                }
+            };
+
             // Circular reference check: if the patch touches `parentId`,
-            // verify the move would not create a cycle. The introspection
-            // is on the wire-format Value because we have not yet bound
-            // the patch to PatchObject's stricter object-only contract.
-            if let Some(new_parent_val) = patch_val.get("parentId") {
+            // verify the move would not create a cycle. Introspection is
+            // on PatchObject's underlying typed map so what the cycle
+            // guard sees is byte-identical to what the backend will see
+            // via `update_object`.
+            if let Some(new_parent_val) = patch.as_map().get("parentId") {
                 if let Some(new_parent_str) = new_parent_val.as_str() {
                     let new_parent_id = Id::from(new_parent_str);
                     // A node is trivially an ancestor of itself
@@ -631,20 +650,6 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                     }
                 }
             }
-
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
-            };
 
             match backend
                 .update_object::<FileNode>(caller, &account_id, &id, patch)
