@@ -732,7 +732,7 @@ mod tests {
         }
     }
 
-    /// Oracle: draft-tasks-06 §4 (lines 739-772) — utcStart is NOT returned
+    /// Oracle: draft-tasks-06 §4 (utcStart/utcDue paragraphs) — utcStart is NOT returned
     /// when not in the properties list.
     #[tokio::test]
     async fn utcstart_not_in_default_properties() {

@@ -136,7 +136,7 @@ pub trait TasksBackend: JmapBackend {
     /// `useDefaultAlerts`, `alerts`).
     ///
     /// When only per-user properties are patched, the shared `updated`
-    /// timestamp MUST NOT change (§4.5.1 lines 978-981).  The default
+    /// timestamp MUST NOT change (§4.5.1 (per-user updated paragraph)).  The default
     /// implementation delegates to [`Self::update_object`], which is correct
     /// for single-user scenarios but backends serving multiple users SHOULD
     /// override this method to route to a user-scoped patch path.
@@ -179,7 +179,7 @@ pub trait TasksBackend: JmapBackend {
 
     /// Compute `utcStart` and `utcDue` for a [`Task`](jmap_tasks_types::Task) by converting the task's
     /// `start`/`due` local-time fields and time zone into UTC (draft-tasks-06 §4,
-    /// lines 739-772).
+    /// utcStart/utcDue paragraphs).
     ///
     /// Returns `(utc_start, utc_due)` as [`UTCDate`](jmap_types::UTCDate) values,
     /// or `None` for each if the corresponding field is absent or the time zone
