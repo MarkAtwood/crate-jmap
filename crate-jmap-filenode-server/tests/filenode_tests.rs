@@ -987,3 +987,109 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
         "existing child must have been cascade-destroyed: {get_resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// FileNode/copy — ifFromInState mismatch returns stateMismatch (RFC 8620 §5.4)
+// Oracle: RFC 8620 §5.4 — "If supplied, the string must match the current
+// state of the account referenced by the fromAccountId when reading the data
+// to be copied; otherwise, the method will be aborted and a 'stateMismatch'
+// error returned." Regression for bd JMAP-510h.57.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    // Seed a source node so the source account is in a non-trivial state.
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+
+    // ifFromInState that does not match the current source-account state must
+    // abort the method with stateMismatch — not silently proceed.
+    let err = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "ifFromInState": "definitely-not-the-current-state",
+            "create": {
+                "c": { "id": &src_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect_err("ifFromInState mismatch must produce a JmapError");
+
+    assert_eq!(
+        err.error_type.as_str(),
+        "stateMismatch",
+        "ifFromInState mismatch must surface as stateMismatch (RFC 8620 §5.4); got: {err:?}"
+    );
+
+    // And the destination account must not have received any copy.
+    let (get_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "dst",
+            "ids": null
+        }),
+    )
+    .await
+    .expect("get must succeed");
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert!(
+        list.is_empty(),
+        "no copy must have been performed on stateMismatch: {get_resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// FileNode/copy — ifFromInState matching the current source state allows the
+// copy to proceed (positive control for the test above).
+// Oracle: RFC 8620 §5.4 — when ifFromInState matches the current source
+// state, the method proceeds normally. Regression for bd JMAP-510h.57.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_copy_if_from_in_state_match_proceeds() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+
+    // Read the current source-account state via FileNode/get on src.
+    let (src_state_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "src",
+            "ids": []
+        }),
+    )
+    .await
+    .expect("get must succeed");
+    let src_state = src_state_resp["state"]
+        .as_str()
+        .expect("state must be present")
+        .to_owned();
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "ifFromInState": &src_state,
+            "create": {
+                "c": { "id": &src_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("matching ifFromInState must allow the copy to proceed");
+
+    assert!(
+        resp["created"].is_object() && resp["created"]["c"].is_object(),
+        "copy must succeed when ifFromInState matches: {resp}"
+    );
+}
