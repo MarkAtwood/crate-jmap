@@ -907,6 +907,24 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// Backends that honor identity-dependent semantics MUST override
     /// this method. Handlers and downstream backend traits MAY rely on
     /// it being correct when it returns `Some`.
+    ///
+    /// # Why an associated function and not a method (bd:JMAP-wlip.6)
+    ///
+    /// The signature deliberately takes `caller: &Self::CallerCtx`
+    /// without a `&self` receiver. Backends therefore have no access
+    /// to their own storage state from inside `principal_id`. The
+    /// auth-layer middleware MUST pre-resolve the principal (e.g. map
+    /// a JWT `sub` claim to a local `Id` via an internal lookup) and
+    /// stash the result inside `CallerCtx` *before* it calls
+    /// `dispatch`. The JMAP layer reads the pre-resolved value here;
+    /// no JIT lookup is possible.
+    ///
+    /// This is a structural enforcement of the "identity is not the
+    /// JMAP layer's job to mint" rule. A consumer that wants
+    /// JIT-resolved identity (e.g. database-backed JWT → principal
+    /// mapping) wires that mapping into the HTTP layer's `CallerCtx`
+    /// construction step instead of trying to fit it inside the
+    /// backend's `principal_id` impl.
     fn principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id> {
         let _ = caller;
         None
