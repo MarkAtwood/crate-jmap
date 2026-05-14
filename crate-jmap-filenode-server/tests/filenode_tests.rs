@@ -367,6 +367,51 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
 }
 
 // ---------------------------------------------------------------------------
+// Test 7b: fetchParents=true with multiple sibling ids that share a parent
+// must dedup the parent in the response list, per the FileNodeBackend::
+// get_ancestors union+dedup contract. Regression for bd JMAP-510h.32.
+// Oracle: the get_ancestors trait doc requires the union of all ancestor
+// chains, deduplicated by node id.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_get_fetch_parents_dedup_shared_ancestor() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Build a parent with two children sharing it.
+    let parent_id = create_node(&backend, "acc1", "parent", None, "p1").await;
+    let child_a = create_node(&backend, "acc1", "a", Some(&parent_id), "c1").await;
+    let child_b = create_node(&backend, "acc1", "b", Some(&parent_id), "c2").await;
+
+    let (get_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "ids": [&child_a, &child_b],
+            "fetchParents": true
+        }),
+    )
+    .await
+    .expect("get must succeed");
+
+    let list = get_resp["list"].as_array().expect("list must be array");
+    let ids: Vec<&str> = list.iter().filter_map(|v| v["id"].as_str()).collect();
+
+    // Both children present.
+    assert!(
+        ids.contains(&child_a.as_str()) && ids.contains(&child_b.as_str()),
+        "both children must be in list: {get_resp}"
+    );
+    // Shared parent present exactly once — proves dedup.
+    let parent_count = ids.iter().filter(|id| **id == parent_id.as_str()).count();
+    assert_eq!(
+        parent_count, 1,
+        "shared parent must appear exactly once after dedup; appeared {parent_count}x in: {get_resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Test 8: query with depth=1 returns directory and its direct children
 // Oracle: draft-ietf-jmap-filenode-13 §3.2.5 (depth parameter).
 // ---------------------------------------------------------------------------

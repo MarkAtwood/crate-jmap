@@ -71,10 +71,39 @@ pub trait FileNodeBackend: JmapBackend {
     /// Backends that support all types unconditionally can always return `true`.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
-    /// Returns the ancestor chain of the given nodes from immediate parent to root.
+    /// Returns the union of all ancestor nodes (immediate parent, grandparent,
+    /// ..., up to the root) for every input id in `ids`.
     ///
-    /// Used for cycle detection (if proposed new parent is in this list, a cycle
-    /// would be created) and for `fetchParents` expansion in `FileNode/get`.
+    /// # Contract
+    ///
+    /// - **Union semantics.** The result is a single flat `Vec<FileNode>`
+    ///   that is the union of every input id's ancestor chain. The input
+    ///   ids themselves are NOT included.
+    /// - **Deduplication.** When two input ids share an ancestor (e.g. a
+    ///   common parent), that ancestor MUST appear at most once in the
+    ///   result. Backends doing `SELECT ... WHERE id IN (parents)` must
+    ///   add a DISTINCT/dedup step.
+    /// - **Ordering is unspecified.** Callers MUST NOT depend on the order
+    ///   of results. The reference [`MemoryBackend`] returns BFS order
+    ///   (all immediate parents, then all grandparents, ...) but that is
+    ///   not a contract; production backends may use any order. If a
+    ///   caller needs the per-id chain (the path from a specific input id
+    ///   up to root), it must reconstruct that walk itself using each
+    ///   FileNode's `parentId` field.
+    /// - **Empty input.** An empty `ids` slice returns `Ok(vec![])`.
+    /// - **Unknown ids.** Ids in the input that do not exist in the account
+    ///   are silently skipped (no error, no entry in the result). Detection
+    ///   of unknown ids belongs to `get_objects` if needed.
+    ///
+    /// # Use cases
+    ///
+    /// - Cycle detection: if a proposed new `parentId` is in this set, the
+    ///   move would create a cycle.
+    /// - `fetchParents` expansion in `FileNode/get`: the result is dumped
+    ///   into the flat `list` alongside the requested ids; ordering does
+    ///   not matter to RFC 8620 §5.1.
+    ///
+    /// [`MemoryBackend`]: crate::memory::MemoryBackend
     fn get_ancestors(
         &self,
         caller: &Self::CallerCtx,

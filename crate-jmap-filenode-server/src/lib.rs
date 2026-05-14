@@ -530,21 +530,26 @@ pub(crate) mod test_support {
             _account_id: &Id,
             ids: &[Id],
         ) -> Result<Vec<FileNode>, Self::Error> {
-            if let Some(first_id) = ids.first() {
-                let guard = self.inner.lock().unwrap();
-                if let Some(msg) = guard.get_ancestors_err.as_ref() {
-                    let msg = msg.clone();
-                    drop(guard);
-                    return Err(MockError(msg));
-                }
-                Ok(guard
-                    .ancestors
-                    .get(first_id.as_ref())
-                    .cloned()
-                    .unwrap_or_default())
-            } else {
-                Ok(vec![])
+            let guard = self.inner.lock().unwrap();
+            if let Some(msg) = guard.get_ancestors_err.as_ref() {
+                let msg = msg.clone();
+                drop(guard);
+                return Err(MockError(msg));
             }
+            // Union all ancestor chains across the input ids; dedup by node id
+            // per the FileNodeBackend::get_ancestors contract.
+            let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
+            let mut out: Vec<FileNode> = Vec::new();
+            for id in ids {
+                if let Some(chain) = guard.ancestors.get(id.as_ref()) {
+                    for ancestor in chain {
+                        if seen.insert(ancestor.id.as_ref().to_owned()) {
+                            out.push(ancestor.clone());
+                        }
+                    }
+                }
+            }
+            Ok(out)
         }
 
         async fn get_descendant_ids(
