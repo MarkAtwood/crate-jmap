@@ -486,6 +486,66 @@ pub trait ChatBackend: JmapBackend {
     /// mutation and depends on the current Space state. See
     /// `bd:JMAP-g7wu.2.4.3`.
     ///
+    /// # Cross-type cascade contract
+    ///
+    /// Several `SpacePatchOp` variants have side effects on other JMAP
+    /// types in the chat extension (`Chat`, `Message`). The wire-format
+    /// `Space/set` response describes only the Space-side change, but
+    /// `/changes` subscribers on the cascaded types depend on the
+    /// backend bumping the relevant type state tokens. A backend that
+    /// performs the cross-type mutations but forgets the state bumps
+    /// silently desynchronises every multi-client subscriber — the
+    /// failure is invisible to single-tenant smoke tests.
+    ///
+    /// The required cascades are:
+    ///
+    /// * `RemoveChannel` — MUST destroy the channel-kind `Chat` record
+    ///   and every `Message` whose `chatId` matches the removed
+    ///   channel (draft §Space/set line 1117: "Cascades to all
+    ///   Messages in those channels."). The `Chat` and `Message` type
+    ///   state tokens MUST both bump so `Chat/changes` and
+    ///   `Message/changes` subscribers see the destruction.
+    ///
+    /// * `RemoveCategory` — MUST clear `Chat.categoryId` on every
+    ///   channel-kind `Chat` whose `categoryId` named the removed
+    ///   category (the channels fall back to uncategorized). The
+    ///   `Chat` type state token MUST bump and the affected channel
+    ///   ids MUST appear in the next `Chat/changes` entry's `updated`
+    ///   list.
+    ///
+    /// * `AddCategory` / `UpdateCategory` with a non-empty `channelIds`
+    ///   array — MUST set `Chat.categoryId` on each named channel
+    ///   (relocating it from its previous category or from
+    ///   uncategorized). The `Chat` type state token MUST bump and
+    ///   the relocated channel ids MUST appear in `Chat/changes`
+    ///   `updated`. This pins a regression that was historically
+    ///   present in the reference impl — see
+    ///   `bd:JMAP-g7wu.2.4.9` — where the channel-categoryId mutation
+    ///   silently bypassed the `Chat/changes` log.
+    ///
+    /// * `RemoveRole` — MUST strip the removed role id from
+    ///   `roleIds` on every `SpaceMember` of this Space (draft
+    ///   §Space/set line 1099). Members embed directly in `Space`,
+    ///   so the cascade is captured by the existing `Space` state
+    ///   bump; no separate `Member/changes` rotation is required.
+    ///
+    /// * `RemoveMember` — MUST remove the member entry and keep
+    ///   `Space.memberCount` consistent with `members.len()`. The
+    ///   spec does not mandate cascade to the member's `ReadPosition`
+    ///   records; the reference impl leaves them in place and treats
+    ///   ReadPosition cleanup as implementation-defined. A backend
+    ///   that destroys orphaned ReadPositions MUST bump the
+    ///   `ReadPosition` type state token; a backend that retains
+    ///   them MUST NOT.
+    ///
+    /// State-token bumps SHOULD be batched per call: one bump per
+    /// affected type per `apply_space_patch` invocation, not one bump
+    /// per op. The reference impl combines every channel created,
+    /// updated, and destroyed by a patch into a single `Chat/changes`
+    /// entry; doing the same in production keeps `/changes`
+    /// rotation rates proportional to client-visible mutations rather
+    /// than to internal op count.
+    ///
     /// # Return value
     ///
     /// On success, returns a `Vec<OpResult>` of the same length as `ops`,
