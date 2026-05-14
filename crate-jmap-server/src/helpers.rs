@@ -103,13 +103,45 @@ fn civil_from_days(z: i64) -> (i32, u8, u8) {
 
 /// Maximum recursion depth for [`json_merge_patch`] application.
 ///
-/// Beyond this depth the patch is silently ignored at the affected sub-tree:
-/// the target value at that level is left unchanged. Mitigates stack DoS
-/// from adversarial `PatchObject` values (bd:JMAP-sc1b.97). 32 levels
-/// comfortably exceeds any legitimate JMAP `/set update` shape — the
-/// deepest standard JMAP `/set update` shape (Email with nested
-/// `bodyStructure`) tops out around 6 levels.
+/// Beyond this depth [`json_merge_patch`] returns
+/// [`MergePatchError::DepthExceeded`] without applying any further levels.
+/// Mitigates stack DoS from adversarial `PatchObject` values
+/// (bd:JMAP-sc1b.97). 32 levels comfortably exceeds any legitimate JMAP
+/// `/set update` shape — the deepest standard JMAP `/set update` shape
+/// (Email with nested `bodyStructure`) tops out around 6 levels, so the
+/// cap fires only on adversarial input.
 pub const MAX_MERGE_PATCH_DEPTH: usize = 32;
+
+/// Error returned by [`json_merge_patch`] when a patch cannot be applied.
+///
+/// Marked `#[non_exhaustive]` so future RFC 7396 failure modes (e.g. a
+/// size cap in addition to the depth cap) can be added without an API
+/// break.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum MergePatchError {
+    /// The patch nests deeper than [`MAX_MERGE_PATCH_DEPTH`] levels.
+    ///
+    /// Callers SHOULD map this to
+    /// [`SetError`](crate::SetError) with
+    /// [`SetErrorType::InvalidPatch`](crate::SetErrorType::InvalidPatch)
+    /// and MUST discard any partially-mutated `target` rather than
+    /// persisting it — see the contract on [`json_merge_patch`].
+    DepthExceeded,
+}
+
+impl std::fmt::Display for MergePatchError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::DepthExceeded => write!(
+                f,
+                "merge patch nesting exceeds {MAX_MERGE_PATCH_DEPTH} levels"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for MergePatchError {}
 
 /// Apply a JSON Merge Patch (RFC 7396) to `target` in-place.
 ///
@@ -118,16 +150,35 @@ pub const MAX_MERGE_PATCH_DEPTH: usize = 32;
 /// object. Extracted from per-crate copies in bd:JMAP-sc1b.103 — keep
 /// edits here so all five reference backends stay byte-identical.
 ///
-/// Patches deeper than [`MAX_MERGE_PATCH_DEPTH`] are silently truncated
-/// to bound stack use on adversarial input (bd:JMAP-sc1b.97). Below the
-/// cap the behaviour is exactly RFC 7396.
-pub fn json_merge_patch(target: &mut Value, patch: Value) {
-    json_merge_patch_inner(target, patch, 0);
+/// # Errors
+///
+/// Returns [`MergePatchError::DepthExceeded`] when the patch nests
+/// deeper than [`MAX_MERGE_PATCH_DEPTH`] levels (DoS guard added in
+/// bd:JMAP-sc1b.97, made non-silent in bd:JMAP-wlip.1). Below the cap
+/// the behaviour is exactly RFC 7396 and the call always returns
+/// `Ok(())`.
+///
+/// # Partial-mutation contract
+///
+/// On `Err(DepthExceeded)`, `target` may have been mutated up to the
+/// level where the cap fired — RFC 7396 merging is applied recursively
+/// in place and the function does not roll back on error. Callers MUST
+/// discard `target` rather than persist it. The standard pattern in
+/// every `*-server` `update_object` impl is to operate on a `.clone()`
+/// of the stored value and only `insert(...)` it back on `Ok(())`; that
+/// pattern is naturally safe because the stored value is left untouched
+/// on error.
+pub fn json_merge_patch(target: &mut Value, patch: Value) -> Result<(), MergePatchError> {
+    json_merge_patch_inner(target, patch, 0)
 }
 
-fn json_merge_patch_inner(target: &mut Value, patch: Value, depth: usize) {
+fn json_merge_patch_inner(
+    target: &mut Value,
+    patch: Value,
+    depth: usize,
+) -> Result<(), MergePatchError> {
     if depth > MAX_MERGE_PATCH_DEPTH {
-        return;
+        return Err(MergePatchError::DepthExceeded);
     }
     match patch {
         Value::Object(patch_map) => {
@@ -148,17 +199,20 @@ fn json_merge_patch_inner(target: &mut Value, patch: Value, depth: usize) {
                     target_map.remove(&key);
                 } else {
                     let entry = target_map.entry(key).or_insert(Value::Null);
-                    json_merge_patch_inner(entry, patch_val, depth + 1);
+                    json_merge_patch_inner(entry, patch_val, depth + 1)?;
                 }
             }
         }
         other => *target = other,
     }
+    Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{civil_from_days, json_merge_patch, now_utc_string};
+    use super::{
+        civil_from_days, json_merge_patch, now_utc_string, MergePatchError, MAX_MERGE_PATCH_DEPTH,
+    };
 
     /// Test vectors derived independently with Python's `datetime.date` module.
     /// `days` is the count of days since 1970-01-01.
@@ -218,19 +272,19 @@ mod tests {
     // -----------------------------------------------------------------------
 
     /// Oracle: bd:JMAP-sc1b.97 — a 1000-deep merge patch must NOT crash
-    /// via stack overflow. The depth cap silently truncates beyond
-    /// [`MAX_MERGE_PATCH_DEPTH`], so the call returns; the topmost
-    /// levels are applied, and the deeper levels are ignored.
+    /// via stack overflow. The depth cap returns
+    /// [`MergePatchError::DepthExceeded`] beyond [`MAX_MERGE_PATCH_DEPTH`]
+    /// rather than recursing further.
     ///
     /// The test does not use the function as its own oracle: the input
     /// is hand-built (a 1000-deep `{ "a": { "a": ... { "a": {} } } }`
     /// chain where every level is Object, matching the structural
     /// shape of a real PatchObject — the documented latent panic from
     /// bd:JMAP-sc1b.87 only fires on non-Object leaves, which a typed
-    /// PatchObject cannot produce). The assertion only checks that the
-    /// call completes without panicking and without overflowing the
-    /// stack. A pre-fix recursion-unlimited implementation would
-    /// overflow before returning.
+    /// PatchObject cannot produce). The assertion checks that the
+    /// call completes without panicking AND that it surfaces the
+    /// depth-exceeded error rather than silently succeeding (the
+    /// pre-bd:JMAP-wlip.1 silent-truncation bug).
     #[test]
     fn json_merge_patch_does_not_stack_overflow() {
         const DEPTH: usize = 1000;
@@ -242,10 +296,44 @@ mod tests {
         for _ in 0..DEPTH {
             patch = serde_json::json!({ "a": patch });
         }
-        json_merge_patch(&mut target, patch);
-        assert!(
-            target.is_object(),
-            "after a deeply-nested merge patch, target must remain a JSON object; got {target:?}"
+        let err = json_merge_patch(&mut target, patch)
+            .expect_err("deep patch must surface DepthExceeded, not silently truncate");
+        assert_eq!(
+            err,
+            MergePatchError::DepthExceeded,
+            "deep patch must return MergePatchError::DepthExceeded"
+        );
+    }
+
+    /// Oracle: bd:JMAP-wlip.1 — a patch at exactly [`MAX_MERGE_PATCH_DEPTH`]
+    /// levels (the deepest legal patch) MUST apply successfully. The cap
+    /// fires only when the patch tries to recurse one level beyond. The
+    /// expected target shape is hand-built level-by-level from the same
+    /// counter the patch uses, so the oracle is independent of the
+    /// recursion under test.
+    #[test]
+    fn json_merge_patch_at_exact_cap_applies() {
+        // Build a patch nested exactly MAX_MERGE_PATCH_DEPTH levels deep.
+        // Outermost level is depth=1; innermost leaf-Object is at depth
+        // MAX_MERGE_PATCH_DEPTH. The first depth-cap check fires at
+        // depth == MAX_MERGE_PATCH_DEPTH + 1, so this is the deepest
+        // patch that still applies.
+        let mut patch = serde_json::json!({ "leaf": "value" });
+        for _ in 0..(MAX_MERGE_PATCH_DEPTH - 1) {
+            patch = serde_json::json!({ "a": patch });
+        }
+        let mut target = serde_json::json!({});
+        json_merge_patch(&mut target, patch).expect("patch at the cap must apply");
+        // Walk the resulting target down its 'a' chain to verify the
+        // leaf field landed.
+        let mut cursor = &target;
+        for _ in 0..(MAX_MERGE_PATCH_DEPTH - 1) {
+            cursor = cursor.get("a").expect("each level must have 'a'");
+        }
+        assert_eq!(
+            cursor.get("leaf"),
+            Some(&serde_json::Value::String("value".to_owned())),
+            "the leaf field at exactly MAX_MERGE_PATCH_DEPTH must be applied"
         );
     }
 
@@ -257,7 +345,7 @@ mod tests {
     fn json_merge_patch_shallow_applies_normally() {
         let mut target = serde_json::json!({ "a": 1, "b": { "c": 2 } });
         let patch = serde_json::json!({ "b": { "c": 99, "d": 7 }, "e": null });
-        json_merge_patch(&mut target, patch);
+        json_merge_patch(&mut target, patch).expect("shallow patch must succeed");
         assert_eq!(
             target,
             serde_json::json!({ "a": 1, "b": { "c": 99, "d": 7 } }),
@@ -280,11 +368,30 @@ mod tests {
     fn json_merge_patch_adds_nested_object_to_absent_field() {
         let mut target = serde_json::json!({ "a": 1 });
         let patch = serde_json::json!({ "b": { "c": 2 } });
-        json_merge_patch(&mut target, patch);
+        json_merge_patch(&mut target, patch).expect("nested-add patch must succeed");
         assert_eq!(
             target,
             serde_json::json!({ "a": 1, "b": { "c": 2 } }),
             "patch must add the nested object at the previously-absent field"
+        );
+    }
+
+    /// Oracle: [`MergePatchError`] implements [`std::error::Error`] and
+    /// has a stable Display form referencing the cap value. Pinning the
+    /// Display string keeps the error message stable across refactors;
+    /// the cap value is interpolated from the public constant so this
+    /// test does not need updating if the cap changes.
+    #[test]
+    fn merge_patch_error_display() {
+        let err = MergePatchError::DepthExceeded;
+        let s = err.to_string();
+        assert!(
+            s.contains(&MAX_MERGE_PATCH_DEPTH.to_string()),
+            "Display must mention the cap value; got {s:?}"
+        );
+        assert!(
+            s.contains("merge patch"),
+            "Display must identify the error source; got {s:?}"
         );
     }
 }

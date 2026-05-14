@@ -65,7 +65,7 @@ use crate::{
 // canonical RFC 7396 tests live with the function there (including the
 // bd:JMAP-sc1b.97 depth-cap and bd:JMAP-sc1b.87 absent-field regression
 // tests).
-use jmap_server::json_merge_patch;
+use jmap_server::{json_merge_patch, MergePatchError};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -666,9 +666,20 @@ impl ContactsBackend for MemoryBackend {
             }
         };
 
+        // Apply JSON Merge Patch (RFC 7396). A `MergePatchError::DepthExceeded`
+        // return (bd:JMAP-wlip.1) surfaces as `SetErrorType::InvalidPatch` —
+        // the depth cap is a DoS guard, never fires on legitimate JMAP `/set
+        // update` shapes. `current` is a clone of the stored value, so a
+        // partially-applied patch on error is discarded with the local
+        // without touching storage.
         let patch_val = serde_json::to_value(&patch)
             .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize patch: {e}"))))?;
-        json_merge_patch(&mut current, patch_val);
+        if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidPatch)
+                    .with_description("patch nesting exceeds server limit"),
+            ));
+        }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner

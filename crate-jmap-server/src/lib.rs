@@ -20,7 +20,7 @@ pub use backend::{
 };
 pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
 pub use helpers::{
-    extract_account_id, json_merge_patch, not_found_json, now_utc_string, ser,
+    extract_account_id, json_merge_patch, not_found_json, now_utc_string, ser, MergePatchError,
     MAX_MERGE_PATCH_DEPTH,
 };
 

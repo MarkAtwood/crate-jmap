@@ -277,6 +277,86 @@ async fn chat_set_create_missing_kind() {
     assert!(props.iter().any(|p| p == "kind"));
 }
 
+/// Oracle: bd:JMAP-wlip.1 — a Chat/set update with a patch nested deeper
+/// than `MAX_MERGE_PATCH_DEPTH` (32 levels) MUST be rejected with
+/// `invalidPatch` rather than silently truncated. The stored object MUST
+/// be unchanged.
+///
+/// Test vector: a 200-level-deep nested patch on a Chat created via the
+/// normal handler path. Pre-fix the call silently succeeded with the
+/// deeply-nested field neither stored nor reported as failed; post-fix it
+/// returns `invalidPatch` and the original name is preserved.
+///
+/// The oracle is hand-built — neither the depth (200) nor the assertion
+/// values come from the function under test.
+#[tokio::test]
+async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
+    let backend = MemoryBackend::new();
+
+    let (create_resp, _) = handle_chat_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "c0": { "kind": "group", "name": "Original" } }
+        }),
+    )
+    .await
+    .expect("create");
+    let chat_id = create_resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("id")
+        .to_owned();
+
+    // Build a 200-level-deep nested patch object. The patch field name
+    // is arbitrary — it does not matter for the depth-cap test whether
+    // the field exists on Chat; the merge-patch happens against the
+    // stored JSON Value before any typed validation.
+    const DEPTH: usize = 200;
+    let mut patch = json!({ "leaf": "ignored" });
+    for _ in 0..DEPTH {
+        patch = json!({ "a": patch });
+    }
+
+    let (resp, _) = handle_chat_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &chat_id: patch }
+        }),
+    )
+    .await
+    .expect("handle_chat_set");
+
+    // Must surface as invalidPatch, NOT silently succeed.
+    assert_eq!(
+        resp["notUpdated"][&chat_id]["type"], "invalidPatch",
+        "deeply-nested patch must surface as invalidPatch, \
+         not silently truncate (bd:JMAP-wlip.1): {:?}",
+        resp["notUpdated"][&chat_id]
+    );
+    assert!(
+        resp["updated"].get(&chat_id).is_none(),
+        "deeply-nested patch must NOT appear in updated: {:?}",
+        resp["updated"]
+    );
+
+    // Stored object MUST be unchanged — verify by reading back the name.
+    let (get_resp, _) = handle_chat_get(
+        &backend,
+        &(),
+        json!({ "accountId": "a1", "ids": [&chat_id] }),
+    )
+    .await
+    .expect("handle_chat_get");
+    assert_eq!(
+        get_resp["list"][0]["name"], "Original",
+        "stored Chat.name must be unchanged after a rejected too-deep patch: {:?}",
+        get_resp["list"][0]
+    );
+}
+
 /// Oracle: Chat/set update of a server-set field (createdAt) is rejected.
 #[tokio::test]
 async fn chat_set_update_readonly_field_rejected() {
