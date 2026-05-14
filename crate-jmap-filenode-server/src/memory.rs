@@ -291,7 +291,10 @@ impl JmapBackend for MemoryBackend {
         since_state: &State,
         max_changes: Option<u64>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-        let since: u64 = since_state.as_ref().parse().unwrap_or(0);
+        let since: u64 = since_state
+            .as_ref()
+            .parse()
+            .map_err(|_| BackendChangesError::CannotCalculate)?;
 
         let guard = self.inner.lock().unwrap();
         let store = match guard.get_or_err(account_id) {

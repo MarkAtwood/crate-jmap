@@ -504,6 +504,37 @@ async fn filenode_changes_after_create_shows_in_created_list() {
 }
 
 // ---------------------------------------------------------------------------
+// Test 9b: FileNode/changes with an unparseable sinceState must return
+// `cannotCalculateChanges`, not silently fall back to state=0.
+// Oracle: RFC 8620 §5.2 — when the server cannot calculate the changes
+// between the given state and the current state, it MUST return an error
+// of type `cannotCalculateChanges`. Regression for bd JMAP-510h.62.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_changes_unparseable_since_state_cannot_calculate() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    let err = handle_filenode_changes(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "sinceState": "bogus-non-numeric-state"
+        }),
+    )
+    .await
+    .expect_err("unparseable sinceState must produce a JmapError");
+
+    assert_eq!(
+        err.error_type.as_str(),
+        "cannotCalculateChanges",
+        "unparseable sinceState must surface as cannotCalculateChanges, not silently \
+         fall back to state=0 (see bd:JMAP-510h.62); got: {err:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // FileNode/set create — onExists='replace' + onDestroyRemoveChildren cascade
 // Oracle: draft-ietf-jmap-filenode-13 §3.2.3 lines 565-570 — "if the
 // replaced item is a directory which has children, then the server MUST
