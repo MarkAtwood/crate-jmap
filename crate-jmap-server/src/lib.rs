@@ -255,6 +255,25 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     ///
     /// `CallerCtx` must be `Clone + Send + 'static`; see the struct-level doc.
     ///
+    /// # Runtime requirement (bd:JMAP-jfia.24)
+    ///
+    /// `dispatch` invokes [`tokio::task::spawn`] internally and
+    /// therefore **requires a Tokio runtime in scope at the call
+    /// site**. The async-fn signature itself does not advertise this
+    /// requirement — there is no `?Send` async-trait bound and no
+    /// `Spawner` parameter — but calling `dispatch` without a Tokio
+    /// runtime will panic at the first method call with a
+    /// `there is no reactor running` error.
+    ///
+    /// This is a structural coupling to the Tokio ecosystem.
+    /// Production consumers running under `tokio::main` /
+    /// `Runtime::block_on` already satisfy this; consumers
+    /// experimenting with alternative runtimes (`async-std`,
+    /// `smol`, `embassy`, etc.) cannot use `Dispatcher` without
+    /// either a Tokio compat shim or a custom dispatcher
+    /// re-implementation. Decoupling the spawn mechanism is a
+    /// major-bump API change tracked separately.
+    ///
     /// # Cancellation
     ///
     /// **Per-request cancellation is not supported in the current API**

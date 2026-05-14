@@ -190,6 +190,23 @@ fn bench_resolve_args_no_ref(c: &mut Criterion) {
 // task::spawn with catch_unwind) can be measured for regression /
 // improvement. The handler is an unconditional Ok-returning no-op so
 // the bench measures the dispatcher overhead, not handler work.
+//
+// What this bench DOES catch (bd:JMAP-jfia.16):
+//   - task::spawn overhead per method call
+//   - JoinError handling cost
+//   - method_responses Vec push cost
+//   - createdIds extraction cost when /set responses are present
+//   - ResultReference resolution cost
+//
+// What this bench does NOT catch:
+//   - serialize_value cost (relevant to handle_get's per-object to_value
+//     pattern, bd:JMAP-jfia.10)
+//   - backend trait method dispatch cost
+//   - any per-handler allocation patterns
+//
+// A future bench with a realistic-shape handler (e.g. one that runs
+// serialize_value over a Vec<MockObject>) would surface the second
+// class of regressions. Out of scope for the current bench set.
 // -----------------------------------------------------------------------
 
 /// A handler that returns a fixed (empty-object, no-extras) success
