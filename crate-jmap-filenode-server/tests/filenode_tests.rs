@@ -1498,6 +1498,71 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
 }
 
 // ---------------------------------------------------------------------------
+// FileNode/copy — unknown fromAccountId returns fromAccountNotFound, distinct
+// from accountNotFound for an unknown destination accountId.
+// Oracle: RFC 8620 §5.4 — Foo/copy defines fromAccountNotFound for the
+// source and accountNotFound (inherited from §3.6.2) for the destination
+// so a client can tell which side of the copy is misconfigured.
+// Regression for bd:JMAP-510h.58.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_copy_unknown_from_account_returns_from_account_not_found() {
+    // Only 'dst' is registered; 'src' is unknown.
+    let backend = MemoryBackend::new().with_account("dst");
+
+    let err = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "create": {
+                "c": { "id": "any-id", "role": null }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect_err("unknown fromAccountId must produce a JmapError");
+
+    assert_eq!(
+        err.error_type.as_str(),
+        "fromAccountNotFound",
+        "unknown fromAccountId must surface as fromAccountNotFound, not \
+         the generic accountNotFound (RFC 8620 §5.4); got: {err:?}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_copy_unknown_destination_account_returns_account_not_found() {
+    // Only 'src' is registered; 'dst' is unknown.
+    let backend = MemoryBackend::new().with_account("src");
+
+    let err = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "create": {
+                "c": { "id": "any-id", "role": null }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect_err("unknown accountId must produce a JmapError");
+
+    assert_eq!(
+        err.error_type.as_str(),
+        "accountNotFound",
+        "unknown destination accountId must surface as accountNotFound \
+         (RFC 8620 §3.6.2 inherited); got: {err:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // FileNode/query — role filter actually filters by role on MemoryBackend.
 // Oracle: FileNodeFilterCondition.role is exact byte match. Regression
 // for bd:JMAP-510h.9 — before the fix, MemoryBackend silently passed
