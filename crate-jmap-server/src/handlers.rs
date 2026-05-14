@@ -120,10 +120,13 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    let list_json: Vec<Value> = list
-        .iter()
-        .map(serialize_value)
-        .collect::<Result<Vec<_>, _>>()?;
+    // bd:JMAP-jfia.10 — batch-serialize the entire Vec<O> rather than
+    // calling to_value per element. One serializer construction
+    // instead of N. For Mailbox/get / Email/get over large accounts
+    // (~100k+ objects) the saving is measurable. serde_json::to_value
+    // on a Vec<O> always produces Value::Array(Vec<Value>) so the
+    // wire shape is identical.
+    let list_json = serialize_value(&list)?;
 
     Ok((
         json!({
