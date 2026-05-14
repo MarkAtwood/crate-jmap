@@ -505,8 +505,7 @@ impl JmapBackend for MemoryBackend {
                         Some(target) => v
                             .get("taskListId")
                             .and_then(|s| s.as_str())
-                            .map(|s| s == target.as_str())
-                            .unwrap_or(false),
+                            .is_some_and(|s| s == target.as_str()),
                     })
                     .map(|(id, _)| id)
                     .collect()
@@ -747,7 +746,6 @@ impl TasksBackend for MemoryBackend {
         let inner = self.inner.lock().unwrap();
         inner
             .aux_ref(account_id.as_ref())
-            .map(|a| a.task_lists_with_tasks.contains(task_list_id))
-            .unwrap_or(false)
+            .is_some_and(|a| a.task_lists_with_tasks.contains(task_list_id))
     }
 }

@@ -486,8 +486,7 @@ pub(crate) mod test_support {
                 return acct.tasks.values().any(|t| {
                     t.task_list_id
                         .as_ref()
-                        .map(|lid| lid == task_list_id)
-                        .unwrap_or(false)
+                        .is_some_and(|lid| lid == task_list_id)
                 });
             }
             false
