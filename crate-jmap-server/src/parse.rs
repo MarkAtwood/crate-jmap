@@ -128,6 +128,30 @@ pub fn check_known_capabilities<S: AsRef<str>>(
 ///
 /// `prior_responses` entries are `(method_name, response_args, call_id)` — same
 /// layout as [`Invocation`].
+///
+/// # Why two-phase? (bd:JMAP-jfia.12 decision record)
+///
+/// A future contributor will reasonably suggest "this is one extra
+/// pass over the keys — just resolve-and-mutate inline, that's
+/// simpler". That suggestion is **WRONG**. The two-phase structure
+/// is load-bearing:
+///
+/// 1. RFC 8620 §3.7 semantics are atomic: if ANY `ResultReference`
+///    fails to resolve, the entire method call gets
+///    `invalidResultReference`. A partial-mutation would leave a
+///    malformed `args` object that handlers could observe.
+/// 2. `args` is taken by `&mut`, so it remains observable to the
+///    caller after the function returns `Err`. A test that checks
+///    `args` contents on the error path would see a partial state
+///    under inline-mutation.
+/// 3. The test `parse::tests::resolve_args_atomic_on_partial_failure`
+///    directly encodes this contract ("args must be completely
+///    unchanged on error"). Without two-phase, that test would
+///    fail.
+///
+/// The cost is one `Vec<(ref_key, plain_key, resolved_value)>`
+/// allocation per call; that cost is the price of the atomicity
+/// contract.
 pub fn resolve_args(args: &mut Value, prior_responses: &[Invocation]) -> Result<(), JmapError> {
     let Some(obj) = args.as_object_mut() else {
         return Ok(()); // non-object args cannot contain #-key references
