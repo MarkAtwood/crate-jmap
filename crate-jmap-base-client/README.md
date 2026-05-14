@@ -349,6 +349,7 @@ pub struct ClientConfig {
     pub max_download_body: u64,       // default: 64 MiB
     pub max_upload_response_body: u64, // default: 1 MiB (response only)
     pub max_sse_frame: usize,         // default: 1 MiB
+    pub max_ws_message: usize,        // default: 1 MiB (per WebSocket frame)
 }
 ```
 
@@ -495,7 +496,8 @@ requests are wrapped in a `WsRequestFrame` that injects `"@type": "Request"`
 (RFC 8887 §4.3.2) in a single serialization pass. Incoming text frames are
 dispatched on `"@type"`: `"StateChange"` and `"Response"` are deserialized into
 typed variants; malformed frames and unknown types degrade to `WsFrame::Unknown`
-rather than closing the connection. Incoming messages are capped at 1 MiB.
+rather than closing the connection. Incoming messages are capped at
+`ClientConfig.max_ws_message` (default: 1 MiB) per frame.
 
 ---
 
