@@ -172,8 +172,7 @@ pub trait FileNodeBackend: JmapBackend {
                     // permitted outside the defining crate). This is
                     // infallible — no silent-drop window for filter
                     // construction.
-                    let mut child_filter =
-                        jmap_filenode_types::FileNodeFilterCondition::default();
+                    let mut child_filter = jmap_filenode_types::FileNodeFilterCondition::default();
                     child_filter.parent_id = Some(parent_id.clone());
                     let result = self
                         .query_objects::<FileNode>(

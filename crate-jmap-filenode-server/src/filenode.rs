@@ -952,17 +952,15 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
         return Ok((response, tail));
     }
 
-    let descendant_ids = match backend
+    // draft-ietf-jmap-filenode-13 §3.2.5: when `depth > 0` the client is
+    // requesting an expanded subtree. A backend error here is not optional
+    // — silently downgrading to a flat result would surface as a
+    // successful depth=N query containing only the level-0 ids, with no
+    // way for the client to detect the partiality.
+    let descendant_ids = backend
         .query_subtree(caller, &account_id, &root_ids, depth)
         .await
-    {
-        Ok(ids) => ids,
-        Err(e) => {
-            // Non-fatal: return flat result if subtree query fails.
-            let _ = e;
-            return Ok((response, tail));
-        }
-    };
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Merge root_ids + descendant_ids, preserving root order then descendant order.
     let mut combined: Vec<Value> = root_ids
@@ -1233,6 +1231,43 @@ mod tests {
             .expect("must succeed");
         let ids = resp["ids"].as_array().expect("ids array");
         assert_eq!(ids.len(), 3, "dir1 + child1 + child2 = 3");
+    }
+
+    /// Oracle: handle_filenode_query with depth>0 must propagate a backend
+    /// failure FROM THE DEPTH-EXPANSION PATH as a JMAP serverFail, not
+    /// silently downgrade to a flat (level-0-only) result.
+    ///
+    /// Setup: seed level-0 (root) so the initial top-level query succeeds,
+    /// then arm `query_objects` to fail on its second call (the first
+    /// per-level call inside `query_subtree`). The handler must surface
+    /// that Err rather than swallowing it and returning the level-0
+    /// result.
+    ///
+    /// Regression for bd JMAP-510h.5 — the prior code used
+    /// `match backend.query_subtree(...) { Err(e) => { let _ = e;
+    /// return Ok((response, tail)); } }` which made a depth>0 failure
+    /// indistinguishable from a depth>0 success with zero descendants.
+    #[tokio::test]
+    async fn query_depth_gt_zero_propagates_query_subtree_err() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.set_children(None, &["root"]);
+        // Succeed on the initial top-level query_objects (call 0),
+        // fail on the per-level recursion inside query_subtree (call 1).
+        backend.set_query_objects_err_after("simulated DB timeout", 1);
+
+        let args = json!({
+            "accountId": "acc1",
+            "depth": 1,
+            "filter": {"isTopLevel": true},
+            "sort": null
+        });
+        let result = handle_filenode_query(&backend, &(), args).await;
+        assert!(
+            result.is_err(),
+            "depth>0 + backend failure during expansion must produce \
+             JMAP error, not a silently-downgraded flat result. got Ok: {:?}",
+            result.ok()
+        );
     }
 
     /// Oracle: when the backend's `query_objects` returns `Err` on a per-level
