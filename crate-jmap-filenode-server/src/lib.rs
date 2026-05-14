@@ -598,9 +598,10 @@ pub(crate) mod test_support {
             _account_id: &Id,
             parent_id: Option<&Id>,
             name: &str,
-            case_insensitive: bool,
+            folding: crate::backend::CaseFolding,
         ) -> Result<Option<Id>, Self::Error> {
             let guard = self.inner.lock().unwrap();
+            let case_insensitive = matches!(folding, crate::backend::CaseFolding::Insensitive);
             let key_name = if case_insensitive {
                 name.to_lowercase()
             } else {

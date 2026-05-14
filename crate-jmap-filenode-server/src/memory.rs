@@ -680,7 +680,7 @@ impl FileNodeBackend for MemoryBackend {
         account_id: &Id,
         parent_id: Option<&Id>,
         name: &str,
-        case_insensitive: bool,
+        folding: crate::backend::CaseFolding,
     ) -> Result<Option<Id>, Self::Error> {
         let guard = self.inner.lock().unwrap();
         let store = match guard.get_or_err(account_id) {
@@ -688,6 +688,7 @@ impl FileNodeBackend for MemoryBackend {
             None => return Ok(None),
         };
 
+        let case_insensitive = matches!(folding, crate::backend::CaseFolding::Insensitive);
         let search_name = if case_insensitive {
             name.to_lowercase()
         } else {

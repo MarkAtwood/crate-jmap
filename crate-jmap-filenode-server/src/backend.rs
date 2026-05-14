@@ -17,6 +17,44 @@ pub use jmap_server::{
 };
 
 // ---------------------------------------------------------------------------
+// CaseFolding
+// ---------------------------------------------------------------------------
+
+/// Case-folding mode for [`FileNodeBackend::find_sibling_by_name`].
+///
+/// JMAP FileNode (`draft-ietf-jmap-filenode-13` §3.2.3
+/// `compareCaseInsensitively`) is a Boolean on the wire, but the backend
+/// trait uses a typed enum so call sites are self-documenting and the
+/// algorithm space is open for future variants without a SemVer break.
+///
+/// The specific algorithm used by `Insensitive` is implementation-defined;
+/// see [`FileNodeBackend::find_sibling_by_name`] for the contract gap and
+/// the workspace policy on case-folding.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CaseFolding {
+    /// Byte-for-byte (case-sensitive) comparison.
+    Sensitive,
+    /// Implementation-defined case-insensitive comparison. The specific
+    /// algorithm is the backend's choice; see the trait method's doc for
+    /// the operational contract.
+    Insensitive,
+}
+
+impl CaseFolding {
+    /// Map the JMAP wire-format `compareCaseInsensitively` boolean to a
+    /// `CaseFolding` value. Convenience for handler call sites.
+    #[must_use]
+    pub fn from_wire_bool(case_insensitive: bool) -> Self {
+        if case_insensitive {
+            Self::Insensitive
+        } else {
+            Self::Sensitive
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // FileNodeBackend trait
 // ---------------------------------------------------------------------------
 
@@ -153,8 +191,8 @@ pub trait FileNodeBackend: JmapBackend {
     /// Returns the id of any sibling node that already has the given name, or
     /// `None` if the name is unique within that parent.
     ///
-    /// `parent_id` is `None` for the root level. `case_insensitive` controls
-    /// the comparison (many file systems treat names case-insensitively).
+    /// `parent_id` is `None` for the root level. `folding` controls the
+    /// comparison (many file systems treat names case-insensitively).
     ///
     /// Used by `FileNode/set` to enforce the `alreadyExists` constraint.
     ///
@@ -194,7 +232,7 @@ pub trait FileNodeBackend: JmapBackend {
         account_id: &jmap_types::Id,
         parent_id: Option<&jmap_types::Id>,
         name: &str,
-        case_insensitive: bool,
+        folding: CaseFolding,
     ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;
 
     /// Return all FileNode IDs in the subtree rooted at any node in `root_ids`,
@@ -270,5 +308,18 @@ pub trait FileNodeBackend: JmapBackend {
             }
             Ok(all_ids)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::CaseFolding;
+
+    #[test]
+    fn case_folding_from_wire_bool_maps_true_to_insensitive() {
+        // Oracle: bd:JMAP-510h.54 — the wire bool true must round-trip
+        // into CaseFolding::Insensitive at the handler boundary.
+        assert_eq!(CaseFolding::from_wire_bool(true), CaseFolding::Insensitive);
+        assert_eq!(CaseFolding::from_wire_bool(false), CaseFolding::Sensitive);
     }
 }
