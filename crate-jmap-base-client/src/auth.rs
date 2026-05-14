@@ -10,6 +10,7 @@ use std::sync::Arc;
 use base64::engine::general_purpose::STANDARD as BASE64_STANDARD;
 use base64::Engine as _;
 use reqwest::header::HeaderValue;
+use zeroize::Zeroizing;
 
 use crate::error::ClientError;
 
@@ -102,6 +103,18 @@ impl TransportConfig for CustomCaTransport {
 ///
 /// [`auth_header`]: AuthProvider::auth_header
 ///
+/// # Credential lifetime
+///
+/// Implementations that cache header bytes (e.g. [`BearerAuth`],
+/// [`BasicAuth`]) SHOULD wrap the cached buffer in [`zeroize::Zeroizing`]
+/// or equivalent so the credential is overwritten on drop rather than
+/// left in freed heap until the allocator re-uses the slab. Callers that
+/// build a credential string before passing it into a constructor (e.g.
+/// `BearerAuth::new(token)`) SHOULD likewise store that string in a
+/// `Zeroizing<String>` — the zeroization done by the auth-type is bounded
+/// by what the type owns and cannot reach back into the caller's buffer
+/// (bd:JMAP-6r7c.59).
+///
 /// **Maintainer note (bd:JMAP-6lsm.19):** if you add a new method to this
 /// trait, update BOTH manual blanket impls — `Box<dyn AuthProvider>` and
 /// `Arc<dyn AuthProvider>` — at the bottom of this file. The crate
@@ -149,13 +162,28 @@ impl AuthProvider for NoneAuth {
 }
 
 /// Bearer-token authentication (`Authorization: Bearer <token>`).
+///
+/// # Drop-path zeroization
+///
+/// The cached header string is wrapped in [`zeroize::Zeroizing`] so its
+/// buffer is overwritten with zeros before being returned to the allocator
+/// on drop. This defends against credential recovery from process core
+/// dumps, `/proc/PID/mem` inspection, and post-drop heap re-use across
+/// tenants in long-running multi-user JMAP clients (bd:JMAP-6r7c.59).
+/// Callers that hold the original token string SHOULD also store it in a
+/// `Zeroizing<String>` or equivalent — the zeroization here is bounded by
+/// what this type owns.
 #[derive(Clone)]
 pub struct BearerAuth {
     // Pre-validated at construction and stored as String: avoids per-request
     // allocation and ensures invalid credentials fail at construction, not at
     // the first request. Storing as String eliminates the need for a fallible
     // to_str() call in auth_header().
-    header_string: String,
+    //
+    // Wrapped in Zeroizing<String> so the buffer is overwritten on drop
+    // (see type-level doc). Zeroizing<String> Derefs to String, which Derefs
+    // to &str, so `&self.header_string` in auth_header() coerces cleanly.
+    header_string: Zeroizing<String>,
 }
 
 impl BearerAuth {
@@ -173,7 +201,7 @@ impl BearerAuth {
                 "BearerAuth token may not be empty or contain whitespace (RFC 6750 §2.1)".into(),
             ));
         }
-        let header_string = format!("Bearer {token}");
+        let header_string = Zeroizing::new(format!("Bearer {token}"));
         // Validate the header value is legal (no control characters, etc.).
         HeaderValue::from_str(&header_string).map_err(ClientError::from_invalid_header)?;
         Ok(Self { header_string })
@@ -197,13 +225,26 @@ impl AuthProvider for BearerAuth {
 /// HTTP Basic authentication (`Authorization: Basic <base64(username:password)>`).
 ///
 /// Credentials are encoded per RFC 7617: `base64(username ":" password)`.
+///
+/// # Drop-path zeroization
+///
+/// The cached header string is wrapped in [`zeroize::Zeroizing`] so its
+/// buffer is overwritten with zeros before being returned to the allocator
+/// on drop. The intermediate `username:password` plaintext built during
+/// base64 encoding is ALSO zeroized — that buffer is the most
+/// attack-relevant artifact because it carries the raw password rather
+/// than the base64-encoded form. See [`BearerAuth`] for the threat model.
+/// (bd:JMAP-6r7c.59)
 #[derive(Clone)]
 pub struct BasicAuth {
     // Pre-validated at construction and stored as String: avoids per-request
     // allocation and ensures invalid credentials fail at construction, not at
     // the first request. Storing as String eliminates the need for a fallible
     // to_str() call in auth_header().
-    header_string: String,
+    //
+    // Wrapped in Zeroizing<String> so the buffer is overwritten on drop
+    // (see type-level doc).
+    header_string: Zeroizing<String>,
 }
 
 impl BasicAuth {
@@ -221,8 +262,14 @@ impl BasicAuth {
                 "BasicAuth username may not contain ':'".into(),
             ));
         }
-        let encoded = BASE64_STANDARD.encode(format!("{username}:{password}").as_bytes());
-        let header_string = format!("Basic {encoded}");
+        // The intermediate plaintext buffer is the most sensitive artifact
+        // — it carries the raw password, whereas the base64-encoded form is
+        // one step further from a credential a replay attacker can use.
+        // Wrap it in Zeroizing so the buffer is overwritten when the local
+        // goes out of scope at the end of this function.
+        let plaintext = Zeroizing::new(format!("{username}:{password}"));
+        let encoded = BASE64_STANDARD.encode(plaintext.as_bytes());
+        let header_string = Zeroizing::new(format!("Basic {encoded}"));
         // Validate the header value is legal (base64 is always printable ASCII,
         // but keep the check for correctness).
         HeaderValue::from_str(&header_string).map_err(ClientError::from_invalid_header)?;

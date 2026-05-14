@@ -98,6 +98,13 @@ serde_json             = "1"
 # timing oracles. Pure-Rust, RustCrypto-stack — matches the workspace's
 # rustls/RustCrypto-first stance. See bd:JMAP-sc1b.89.
 subtle                 = "2.6"
+# Drop-path zeroization for credential-bearing String / Vec<u8> fields
+# (e.g. BearerAuth.header_string, BasicAuth.header_string + plaintext
+# intermediate). Defends against credential recovery from process core
+# dumps, /proc/PID/mem, and post-drop heap inspection by overwriting the
+# buffer before returning it to the allocator. RustCrypto-stack crate,
+# pure-Rust, no_std-compatible. See bd:JMAP-6r7c.59.
+zeroize                = "1.8"
 thiserror              = "2"
 tokio                  = { version = "1", features = ["rt"] }
 http                   = "1"
