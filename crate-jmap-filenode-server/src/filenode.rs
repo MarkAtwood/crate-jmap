@@ -52,39 +52,52 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     .await?;
 
     if fetch_parents {
-        if let Some(Value::Array(list)) = response.get("list") {
-            // Collect ids of nodes already in the response.
-            let existing_ids: std::collections::HashSet<String> = list
-                .iter()
-                .filter_map(|item| {
-                    item.get("id")
-                        .and_then(|v| v.as_str())
-                        .map(|s| s.to_owned())
-                })
-                .collect();
+        // Read phase: borrow the list immutably to collect ids of nodes
+        // already in the response. The immutable borrow ends with this
+        // block before the .await on get_ancestors, so the later
+        // mutable re-borrow does not need a runtime shape assertion.
+        let (existing_ids, node_ids) = match response.get("list").and_then(Value::as_array) {
+            Some(list) => {
+                let existing_ids: std::collections::HashSet<String> = list
+                    .iter()
+                    .filter_map(|item| {
+                        item.get("id")
+                            .and_then(|v| v.as_str())
+                            .map(|s| s.to_owned())
+                    })
+                    .collect();
+                let node_ids: Vec<Id> = existing_ids.iter().map(|s| Id::from(s.as_str())).collect();
+                (existing_ids, node_ids)
+            }
+            None => (std::collections::HashSet::new(), Vec::new()),
+        };
 
-            // Collect all returned node ids for the ancestor query.
-            let node_ids: Vec<Id> = existing_ids.iter().map(|s| Id::from(s.as_str())).collect();
+        if !node_ids.is_empty() {
+            // draft-ietf-jmap-filenode-13 §3.2.1 makes fetchParents
+            // part of the request contract: the response shape does
+            // not advertise that ancestors are missing, so silently
+            // dropping a backend error would let the client believe
+            // the requested nodes are root-level when they may have
+            // ancestors. Surface a serverFail instead.
+            let ancestors = backend
+                .get_ancestors(caller, &account_id, &node_ids)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
 
-            if !node_ids.is_empty() {
-                // draft-ietf-jmap-filenode-13 §3.2.1 makes fetchParents
-                // part of the request contract: the response shape does
-                // not advertise that ancestors are missing, so silently
-                // dropping a backend error would let the client believe
-                // the requested nodes are root-level when they may have
-                // ancestors. Surface a serverFail instead.
-                let ancestors = backend
-                    .get_ancestors(caller, &account_id, &node_ids)
-                    .await
-                    .map_err(|e| server_fail_from_backend(&e))?;
-                let list = response["list"].as_array_mut().expect("list must be array");
-                for ancestor in ancestors {
-                    // Deduplicate: only append if not already in the list.
-                    let ancestor_id = ancestor.id.as_ref().to_owned();
-                    if !existing_ids.contains(&ancestor_id) {
-                        if let Ok(v) = serde_json::to_value(&ancestor) {
-                            list.push(v);
-                        }
+            // Write phase: take a fresh mutable borrow. We do NOT
+            // require the previously-observed shape; a let-else
+            // bail-out preserves the spec's "ancestor expansion is
+            // best-effort if the list shape is unexpected" posture
+            // without introducing a refactor-fragile expect/panic.
+            let Some(list) = response.get_mut("list").and_then(Value::as_array_mut) else {
+                return Ok((response, tail));
+            };
+            for ancestor in ancestors {
+                // Deduplicate: only append if not already in the list.
+                let ancestor_id = ancestor.id.as_ref().to_owned();
+                if !existing_ids.contains(&ancestor_id) {
+                    if let Ok(v) = serde_json::to_value(&ancestor) {
+                        list.push(v);
                     }
                 }
             }
