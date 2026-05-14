@@ -1030,21 +1030,88 @@ mod tests {
         }
     }
 
-    /// Oracle: known SetErrorType variants (e.g. Singleton) must still
-    /// serialize as their camelCase wire strings and deserialize back correctly.
+    /// Oracle (bd:JMAP-wlip.29): the Display arm, the Deserialize visitor
+    /// match, and the round-trip behaviour MUST agree for every known
+    /// variant of [`SetErrorType`]. The mapping is duplicated across three
+    /// places (Display, Serialize via Display, Deserialize visitor); the
+    /// workspace dep allowlist forbids strum / serde_with that would
+    /// derive the round-trip from a single source. This table-driven
+    /// test iterates ALL 23 typed variants and asserts:
+    ///
+    ///   - Display produces the expected camelCase wire string
+    ///   - serde_json::to_string emits the same string
+    ///   - serde_json::from_str rebuilds the same variant (NOT a Custom)
+    ///
+    /// A drift between Display and Deserialize (e.g. adding "rateLimit"
+    /// to Display but forgetting the Deserialize arm) would fail step 3
+    /// at first test run because the wire string would round-trip into
+    /// `Custom("rateLimit")` instead of `RateLimit`. This is the silent
+    /// contract drift filed as bd:JMAP-wlip.22.
+    ///
+    /// The table is hand-built from the RFC 8620 / RFC 8621 spec text,
+    /// not derived from the code under test (the workspace test-integrity
+    /// rule requires an independent oracle). Adding a new typed variant
+    /// requires extending this table — that is the intent.
     #[test]
-    fn set_error_type_known_variant_round_trips() {
-        let original = SetErrorType::Singleton;
-        let serialized = serde_json::to_string(&original).expect("serialize");
-        assert_eq!(
-            serialized, r#""singleton""#,
-            "Singleton must serialize as \"singleton\""
-        );
-        let deserialized: SetErrorType = serde_json::from_str(&serialized).expect("deserialize");
-        assert_eq!(
-            deserialized, original,
-            "Singleton must deserialize back to Singleton"
-        );
+    fn set_error_type_all_known_variants_round_trip() {
+        // (variant constructor, expected wire string).
+        // Source of truth: RFC 8620 §5.3 + RFC 8621 §2.5, §5.5, §6.3, §7.5.
+        let cases: &[(SetErrorType, &str)] = &[
+            (SetErrorType::Forbidden, "forbidden"),
+            (SetErrorType::OverQuota, "overQuota"),
+            (SetErrorType::TooLarge, "tooLarge"),
+            (SetErrorType::RateLimit, "rateLimit"),
+            (SetErrorType::NotFound, "notFound"),
+            (SetErrorType::InvalidPatch, "invalidPatch"),
+            (SetErrorType::WillDestroy, "willDestroy"),
+            (SetErrorType::InvalidProperties, "invalidProperties"),
+            (SetErrorType::Singleton, "singleton"),
+            (SetErrorType::AlreadyExists, "alreadyExists"),
+            (SetErrorType::MailboxHasChild, "mailboxHasChild"),
+            (SetErrorType::MailboxHasEmail, "mailboxHasEmail"),
+            (SetErrorType::TooManyKeywords, "tooManyKeywords"),
+            (SetErrorType::TooManyMailboxes, "tooManyMailboxes"),
+            (SetErrorType::BlobNotFound, "blobNotFound"),
+            (SetErrorType::ForbiddenFrom, "forbiddenFrom"),
+            (SetErrorType::InvalidEmail, "invalidEmail"),
+            (SetErrorType::TooManyRecipients, "tooManyRecipients"),
+            (SetErrorType::NoRecipients, "noRecipients"),
+            (SetErrorType::InvalidRecipients, "invalidRecipients"),
+            (SetErrorType::ForbiddenMailFrom, "forbiddenMailFrom"),
+            (SetErrorType::ForbiddenToSend, "forbiddenToSend"),
+            (SetErrorType::CannotUnsend, "cannotUnsend"),
+        ];
+
+        for (variant, expected_wire) in cases {
+            // Display
+            assert_eq!(
+                variant.to_string(),
+                *expected_wire,
+                "Display arm for {variant:?} produced wrong wire string"
+            );
+            // Serialize (delegates to Display)
+            let serialized = serde_json::to_string(variant).expect("serialize");
+            assert_eq!(
+                serialized,
+                format!("\"{expected_wire}\""),
+                "Serialize for {variant:?} did not produce \"{expected_wire}\""
+            );
+            // Deserialize back — MUST rebuild the typed variant, NOT Custom.
+            let deserialized: SetErrorType =
+                serde_json::from_str(&serialized).expect("deserialize");
+            assert_eq!(
+                &deserialized, variant,
+                "Deserialize of {expected_wire:?} did not rebuild {variant:?} \
+                 (likely fell through to Custom — Display and Deserialize \
+                 match arms have drifted)"
+            );
+            // Belt-and-braces: explicitly assert NOT Custom.
+            assert!(
+                !matches!(deserialized, SetErrorType::Custom(_)),
+                "Deserialize of {expected_wire:?} fell through to Custom; \
+                 Display has an arm but Deserialize visitor doesn't"
+            );
+        }
     }
 
     /// Oracle (bd:JMAP-ga0q.1): `JmapBackend::principal_id` has a default impl
