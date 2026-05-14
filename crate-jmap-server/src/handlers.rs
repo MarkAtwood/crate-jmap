@@ -3,12 +3,72 @@
 //! Each function handles one RFC 8620 operation type for any object type `O`
 //! and any backend `B: JmapBackend`. Domain crates call these for types that
 //! have no domain-specific logic beyond the standard wire protocol.
+//!
+//! # Backend-error leak policy (bd:JMAP-wlip.2)
+//!
+//! Every handler in this module that maps a [`JmapBackend::Error`] to a
+//! wire-format [`JmapError::server_fail`] MUST use the static description
+//! [`SERVER_FAIL_INTERNAL_DESC`] rather than interpolating the backend
+//! error's [`Display`](std::fmt::Display) output. The backend-error
+//! contract on [`JmapBackend::Error`] (`crate::backend::JmapBackend`'s
+//! associated-type doc comment) forbids credential / blob / PII in
+//! `Display`, but a single accidental violation by a backend implementor
+//! would land the leaked text in `serverFail.description` on every
+//! affected response. Stripping the description at the handler layer
+//! changes that from a wire-format security incident into a server-side
+//! diagnostic gap that the operator can close with its own structured
+//! logger wrapping the backend call.
+//!
+//! Extension `*-server` crates with their own per-method handlers
+//! SHOULD follow the same pattern; the helper [`server_fail_from_backend`]
+//! exists so each call site is one line and reviewable at a glance.
 
 use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{GetObject, JmapBackend, JmapObject, QueryObject};
 use crate::helpers::{extract_account_id, not_found_json, ser};
+
+/// Static description used for every `serverFail` invocation that wraps a
+/// [`JmapBackend::Error`] (bd:JMAP-wlip.2).
+///
+/// RFC 8620 §3.6.2 explicitly permits omitting the description; a static
+/// "internal error" is RFC-compliant and forecloses the backend-error
+/// Display leak path documented on `JmapBackend::Error`.
+pub const SERVER_FAIL_INTERNAL_DESC: &str = "internal error";
+
+/// Construct a [`JmapError::server_fail`] for a backend-originated error
+/// without echoing the backend error's [`Display`](std::fmt::Display) output
+/// onto the wire (bd:JMAP-wlip.2).
+///
+/// The backend error parameter is accepted by reference (and discarded) so
+/// callers retain it for their own structured logging if they wire one. The
+/// returned `JmapError` always carries the static
+/// [`SERVER_FAIL_INTERNAL_DESC`] description; no caller-controlled text
+/// reaches the wire from this helper.
+///
+/// The function is generic over any `Display` (not just
+/// `JmapBackend::Error`) so the extension `*-server` crates' own per-method
+/// handlers — which mix [`JmapBackend::Error`], domain-specific error
+/// envelopes (`BackendSetError::Other`, `BackendChangesError::Other`), and
+/// trait-method errors — can call it uniformly.
+///
+/// # Use at every site that maps a backend error to `serverFail`
+///
+/// Replace:
+///
+/// ```ignore
+/// .map_err(|e| JmapError::server_fail(e.to_string()))
+/// ```
+///
+/// with:
+///
+/// ```ignore
+/// .map_err(|e| server_fail_from_backend(&e))
+/// ```
+pub fn server_fail_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -> JmapError {
+    JmapError::server_fail(SERVER_FAIL_INTERNAL_DESC)
+}
 
 // ---------------------------------------------------------------------------
 // handle_get
@@ -27,7 +87,7 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -52,12 +112,12 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
     let (list, not_found) = backend
         .get_objects::<O>(caller, &account_id, ids_slice, properties.as_deref())
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let state = backend
         .get_state::<O>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
 
@@ -96,7 +156,7 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -150,7 +210,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -202,7 +262,7 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
             position,
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),
@@ -239,7 +299,7 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -324,4 +384,68 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
     }
 
     Ok((resp, vec![]))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Oracle (bd:JMAP-wlip.2): [`server_fail_from_backend`] MUST NOT echo
+    /// the backend error's `Display` text into the resulting JmapError's
+    /// description. The defence-in-depth contract is that even if a
+    /// backend implementor accidentally violates the
+    /// [`JmapBackend::Error`](crate::JmapBackend) Display MUST-NOT
+    /// (credential / blob / PII), the leaked text never reaches the wire.
+    ///
+    /// Test vector: an error whose Display contains a canary string
+    /// resembling a credential leak. The canary literal is hand-built and
+    /// not derived from any production type's behaviour.
+    #[test]
+    fn server_fail_from_backend_drops_display_text() {
+        #[derive(Debug)]
+        struct LeakyError(&'static str);
+        impl std::fmt::Display for LeakyError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.0)
+            }
+        }
+        impl std::error::Error for LeakyError {}
+
+        const CANARY: &str = "TOKEN-DO-NOT-LEAK-c0ffee";
+        let err = LeakyError(CANARY);
+
+        let jmap_err = server_fail_from_backend(&err);
+
+        // Serialize to wire shape and assert the canary is absent from
+        // every value in the resulting JSON. The error_invocation wraps
+        // a JmapError as { "type": "serverFail", "description": "..." }
+        // — both fields are wire-visible.
+        let wire = serde_json::to_value(&jmap_err).expect("JmapError must serialize");
+        let wire_str = wire.to_string();
+        assert!(
+            !wire_str.contains(CANARY),
+            "server_fail_from_backend must not echo backend error Display \
+             onto the wire; got {wire_str}"
+        );
+        // The description MUST be exactly SERVER_FAIL_INTERNAL_DESC.
+        assert_eq!(
+            wire["description"], SERVER_FAIL_INTERNAL_DESC,
+            "description must be the static 'internal error' string"
+        );
+        assert_eq!(wire["type"], "serverFail");
+    }
+
+    /// Oracle: the helper accepts any `Display` — not just
+    /// [`JmapBackend::Error`](crate::JmapBackend) — so the extension
+    /// `*-server` crates' per-method handlers can use the same call
+    /// site for `BackendSetError`, `BackendChangesError`, and any
+    /// trait-method-specific error envelope.
+    #[test]
+    fn server_fail_from_backend_accepts_generic_display() {
+        // String, &str, and a custom Display all compile-check that the
+        // bound is `Display + ?Sized`.
+        let _ = server_fail_from_backend("a string");
+        let _ = server_fail_from_backend(&"&str".to_owned());
+        let _ = server_fail_from_backend(&42_u64);
+    }
 }
