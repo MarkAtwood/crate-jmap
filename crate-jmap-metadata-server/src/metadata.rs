@@ -7,8 +7,8 @@
 //! - [`handle_metadata_query`]
 //! - [`handle_metadata_query_changes`]
 
-use jmap_metadata_types::Metadata;
-use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
+use jmap_metadata_types::{Metadata, MetadataFilterCondition};
+use jmap_types::{Filter, Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MetadataBackend};
@@ -528,8 +528,69 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
 }
 
 // ---------------------------------------------------------------------------
-// Metadata/query
+// Metadata/query and Metadata/queryChanges
 // ---------------------------------------------------------------------------
+
+/// Validate the Metadata-specific cross-field constraint in a filter tree
+/// before delegating to the generic /query or /queryChanges handler.
+///
+/// draft-ietf-jmap-metadata-01 §3.4.1 mandates: *"relatedIds MUST only be
+/// specified when relatedType is also specified. If relatedIds is
+/// specified without relatedType, the server MUST reject the query with
+/// an invalidArguments error."*
+///
+/// The generic `jmap_server::handlers::handle_query` is unaware of this
+/// constraint — it only parses the filter into the typed shape. The
+/// validation must happen in the metadata-server handler shim, before
+/// the delegate runs.
+///
+/// Returns `Ok(())` when the filter is absent, deserializes into a tree
+/// with no constraint violation, or fails to deserialize at all (the
+/// generic will surface the deserialize failure as `unsupportedFilter`,
+/// which is the spec-correct error for malformed filter shape).
+fn validate_metadata_filter(args: &serde_json::Map<String, Value>) -> Result<(), JmapError> {
+    let Some(filter_val) = args.get("filter") else {
+        return Ok(());
+    };
+    if filter_val.is_null() {
+        return Ok(());
+    }
+    let filter: Filter<MetadataFilterCondition> = match serde_json::from_value(filter_val.clone()) {
+        Ok(f) => f,
+        Err(_) => return Ok(()),
+    };
+    walk_filter_for_related_ids_constraint(&filter)
+}
+
+/// Recursively walk a `Filter<MetadataFilterCondition>` tree and return
+/// `invalidArguments` if any leaf has `relatedIds` set while `relatedType`
+/// is `None`. AND/OR/NOT operator nodes recurse into their conditions.
+fn walk_filter_for_related_ids_constraint(
+    filter: &Filter<MetadataFilterCondition>,
+) -> Result<(), JmapError> {
+    match filter {
+        Filter::Operator(op) => {
+            for child in &op.conditions {
+                walk_filter_for_related_ids_constraint(child)?;
+            }
+            Ok(())
+        }
+        Filter::Condition(cond) => {
+            if cond.related_ids.is_some() && cond.related_type.is_none() {
+                Err(JmapError::invalid_arguments(
+                    "filter: relatedIds MUST only be specified when relatedType is also specified (draft-ietf-jmap-metadata-01 §3.4.1)",
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        // Filter<T> is #[non_exhaustive]; new variants in jmap-types are
+        // not yet known here. Be conservative: a variant we cannot inspect
+        // cannot be validated, but it is also not a violation of the
+        // §3.4.1 leaf constraint we are enforcing.
+        _ => Ok(()),
+    }
+}
 
 /// Handle a `Metadata/query` method call (draft-ietf-jmap-metadata-01 §3.4).
 ///
@@ -538,27 +599,35 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
 /// supports `@type`, `relatedType`, `relatedId`/`relatedIds`, `isPrivate`,
 /// and `textMatch` operators (§3.4.1). Per §3.4.2 the result is sortable on
 /// `id`, `@type`, `relatedType`, `relatedId`, and `isPrivate`.
+///
+/// Cross-field validation per §3.4.1 (`relatedIds` requires `relatedType`)
+/// happens here, before delegating to the generic handler. Other validation
+/// (account existence, sort comparator shape, etc.) is handled by the
+/// generic.
 pub async fn handle_metadata_query<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
+    if let Some(args_map) = args.as_object() {
+        validate_metadata_filter(args_map)?;
+    }
     jmap_server::handlers::handle_query::<Metadata, B>(backend, caller, args).await
 }
-
-// ---------------------------------------------------------------------------
-// Metadata/queryChanges
-// ---------------------------------------------------------------------------
 
 /// Handle a `Metadata/queryChanges` method call
 /// (draft-ietf-jmap-metadata-01 §3.5).
 ///
-/// Standard JMAP `/queryChanges` per RFC 8620 §5.6.
+/// Standard JMAP `/queryChanges` per RFC 8620 §5.6. Same Metadata-specific
+/// cross-field filter validation as [`handle_metadata_query`].
 pub async fn handle_metadata_query_changes<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
+    if let Some(args_map) = args.as_object() {
+        validate_metadata_filter(args_map)?;
+    }
     jmap_server::handlers::handle_query_changes::<Metadata, B>(backend, caller, args).await
 }
 
@@ -1078,5 +1147,101 @@ mod tests {
             created_ids.contains(&"md_gone"),
             "md_gone (disappeared mid-flight) MUST be kept, not silently dropped: {resp}",
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // Metadata/query cross-field filter validation (bd:JMAP-ayoz.6.1)
+    // -----------------------------------------------------------------------
+
+    /// Oracle: draft §3.4.1 — `relatedIds` MUST only be specified when
+    /// `relatedType` is also specified. A /query call carrying a leaf
+    /// `MetadataFilterCondition` with `relatedIds: [...]` and
+    /// `relatedType: null` MUST be rejected with `invalidArguments`.
+    #[tokio::test]
+    async fn query_related_ids_without_related_type_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "relatedIds": ["EM1", "EM2"]
+                // relatedType deliberately omitted
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject relatedIds-without-relatedType");
+        assert_eq!(
+            err.error_type, "invalidArguments",
+            "expected invalidArguments, got: {err:?}",
+        );
+    }
+
+    /// Oracle: draft §3.4.1 — the constraint applies inside nested
+    /// FilterOperator (AND/OR/NOT) trees. A relatedIds-without-
+    /// relatedType leaf inside an OR branch is still rejected.
+    #[tokio::test]
+    async fn query_nested_related_ids_without_related_type_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "operator": "OR",
+                "conditions": [
+                    { "relatedType": "Email" },
+                    { "relatedIds": ["EM1"] }
+                ]
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject relatedIds-without-relatedType nested in OR");
+        assert_eq!(err.error_type, "invalidArguments", "got: {err:?}");
+    }
+
+    /// Oracle: draft §3.4.1 — when `relatedType` is supplied alongside
+    /// `relatedIds`, the constraint is satisfied and the call proceeds
+    /// to the generic /query handler. Negative control for the
+    /// validation logic.
+    #[tokio::test]
+    async fn query_related_ids_with_related_type_passes_validation() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "relatedType": "Email",
+                "relatedIds": ["EM1", "EM2"]
+            }
+        });
+        // The MockBackend does not implement /query and returns an empty
+        // result. What matters here is that the call does NOT return an
+        // invalidArguments error — the validation must pass through.
+        let result = handle_metadata_query(&backend, &(), args).await;
+        match result {
+            Ok(_) => {} // validation passed, generic handler ran
+            Err(e) => {
+                assert_ne!(
+                    e.error_type, "invalidArguments",
+                    "filter with both relatedType and relatedIds must pass validation: {e:?}",
+                );
+            }
+        }
+    }
+
+    /// Oracle: same cross-field constraint applies to /queryChanges
+    /// per §3.5 (which references §3.4.1 for filter semantics).
+    #[tokio::test]
+    async fn query_changes_related_ids_without_related_type_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceQueryState": "0",
+            "filter": {
+                "relatedIds": ["EM1"]
+            }
+        });
+        let err = handle_metadata_query_changes(&backend, &(), args)
+            .await
+            .expect_err("must reject relatedIds-without-relatedType");
+        assert_eq!(err.error_type, "invalidArguments", "got: {err:?}");
     }
 }
