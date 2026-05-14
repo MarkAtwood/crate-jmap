@@ -181,6 +181,11 @@ pub(crate) mod test_support {
         /// Stored as the JSON shape so the generic round-trip in
         /// `get_objects` can decode it back into `O`.
         get_objects_nodes: Vec<serde_json::Value>,
+        /// When set, `create_object` overrides the `name` field on the
+        /// returned object with this string (regardless of the supplied
+        /// name). Used to test that the handler enforces the rename
+        /// MUST when a backend does not echo the supplied name.
+        create_object_override_name: Option<String>,
     }
 
     /// Configuration for the `query_objects` failure injection.
@@ -210,8 +215,18 @@ pub(crate) mod test_support {
                     query_objects_calls: 0,
                     get_ancestors_err: None,
                     get_objects_nodes: Vec::new(),
+                    create_object_override_name: None,
                 })),
             }
+        }
+
+        /// Cause `create_object` to override the `name` field of the
+        /// returned object with the supplied string, simulating a
+        /// backend that does not echo the supplied object verbatim.
+        /// Used to test the handler's enforcement of the rename MUST
+        /// (draft-ietf-jmap-filenode-13 §3.2.3 lines 572-575).
+        pub fn set_create_object_override_name(&self, name: &str) {
+            self.inner.lock().unwrap().create_object_override_name = Some(name.to_owned());
         }
 
         /// Cause `get_ancestors` to return `Err(MockError(msg))`. Used to
@@ -459,6 +474,26 @@ pub(crate) mod test_support {
             _create_id: &str,
             obj: O,
         ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            // If the test has armed a name override, round-trip the
+            // object through serde JSON, swap the `name` field, and
+            // round-trip back. Simulates a backend that normalises
+            // names rather than echoing the supplied value.
+            let override_name = self
+                .inner
+                .lock()
+                .unwrap()
+                .create_object_override_name
+                .clone();
+            if let Some(name) = override_name {
+                if let Ok(mut v) = serde_json::to_value(&obj) {
+                    if let serde_json::Value::Object(ref mut m) = v {
+                        m.insert("name".to_owned(), serde_json::Value::String(name));
+                    }
+                    if let Ok(reshaped) = serde_json::from_value::<O>(v) {
+                        return Ok((Id::from("mock-id-1"), reshaped));
+                    }
+                }
+            }
             Ok((Id::from("mock-id-1"), obj))
         }
 
