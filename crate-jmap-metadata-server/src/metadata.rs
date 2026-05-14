@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MetadataBackend};
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, SetError, SetErrorType};
 
 // ---------------------------------------------------------------------------
 // Metadata/get
@@ -313,12 +313,24 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
             // Deserialize the client-supplied wire object into a Metadata
             // variant. The `@type` tag is the discriminator; missing or
             // unknown values produce an invalidProperties SetError.
+            //
+            // RFC 8620 §5.3: invalidProperties SHOULD carry a `properties`
+            // String[] listing the invalid property names. A whole-struct
+            // serde deserialize failure cannot reliably name the offending
+            // property (the error message embeds Rust type names and is
+            // not stable wire output), so we construct the SetError without
+            // `with_properties` rather than fabricate an inaccurate list.
+            // The description preserves the serde error text for debugging
+            // but is non-localised and not intended for end-user display.
             let metadata: Metadata = match serde_json::from_value(obj_val) {
                 Ok(m) => m,
                 Err(e) => {
                     not_created.insert(
                         create_id,
-                        json!({ "type": "invalidProperties", "description": e.to_string() }),
+                        set_error_value(
+                            &SetError::new(SetErrorType::InvalidProperties)
+                                .with_description(e.to_string()),
+                        ),
                     );
                     continue;
                 }
@@ -367,13 +379,18 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
+            // values produce an `invalidPatch` SetError. Use the typed
+            // SetError builder so the wire shape matches every other
+            // /set per-entry error in this handler.
             let patch = match serde_json::from_value::<PatchObject>(patch_val) {
                 Ok(p) => p,
                 Err(e) => {
                     not_updated.insert(
                         id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
+                        set_error_value(
+                            &SetError::new(SetErrorType::InvalidPatch)
+                                .with_description(e.to_string()),
+                        ),
                     );
                     continue;
                 }
@@ -636,7 +653,11 @@ mod tests {
 
     /// Oracle: RFC 8620 §5.3 — malformed Annotation create (missing
     /// required `relatedType`) → `invalidProperties` in notCreated. No
-    /// backend call is made.
+    /// backend call is made. The SetError carries a non-empty
+    /// `description`; the `properties` array is intentionally absent
+    /// because a whole-struct serde deserialize failure cannot reliably
+    /// name the offending property without fabricating a list.
+    /// Regression test for bd:JMAP-ayoz.3.
     #[tokio::test]
     async fn set_create_missing_required_field_returns_invalid_properties() {
         let backend = MockBackend::new_with_account("acc1");
@@ -652,9 +673,23 @@ mod tests {
         });
         let (resp, _) = handle_metadata_set(&backend, &(), args).await.unwrap();
 
+        let err = &resp["notCreated"]["c1"];
         assert_eq!(
-            resp["notCreated"]["c1"]["type"], "invalidProperties",
-            "missing relatedType must produce invalidProperties: {resp}"
+            err["type"], "invalidProperties",
+            "missing relatedType must produce invalidProperties: {resp}",
+        );
+        // Description is present and non-empty (RFC 8620 §5.3 description
+        // field — non-localised, includes the underlying serde error).
+        let desc = err["description"]
+            .as_str()
+            .expect("description must be a string");
+        assert!(!desc.is_empty(), "description must be non-empty: {resp}",);
+        // `properties` MUST be absent or null. Asserting absence guards
+        // against a future change that fabricates an inaccurate property
+        // list from the serde error text.
+        assert!(
+            err.get("properties").map_or(true, Value::is_null),
+            "properties must be absent or null for whole-struct deserialize failure: {resp}",
         );
     }
 
@@ -716,7 +751,11 @@ mod tests {
         assert_eq!(err.error_type.as_str(), "invalidArguments");
     }
 
-    /// Oracle: RFC 8620 §5.3 — update with a non-object patch → `invalidPatch`.
+    /// Oracle: RFC 8620 §5.3 — update with a non-object patch →
+    /// `invalidPatch`. The SetError carries a non-empty `description`
+    /// produced via the typed builder; the wire shape matches every
+    /// other /set per-entry error in this handler. Regression test
+    /// for bd:JMAP-ayoz.3.
     #[tokio::test]
     async fn set_update_non_object_patch_returns_invalid_patch() {
         let backend = MockBackend::new_with_account("acc1");
@@ -727,7 +766,12 @@ mod tests {
             }
         });
         let (resp, _) = handle_metadata_set(&backend, &(), args).await.unwrap();
-        assert_eq!(resp["notUpdated"]["md1"]["type"], "invalidPatch");
+        let err = &resp["notUpdated"]["md1"];
+        assert_eq!(err["type"], "invalidPatch");
+        let desc = err["description"]
+            .as_str()
+            .expect("description must be a string");
+        assert!(!desc.is_empty(), "description must be non-empty: {resp}",);
     }
 
     // -----------------------------------------------------------------------
