@@ -32,10 +32,22 @@ pub fn not_found_json(ids: &[Id]) -> Value {
 /// repeat the `let Value::Object(mut args) = args else { ... }` pattern after
 /// every call.
 ///
-/// Returns `invalidArguments` with the message "arguments must be an object
-/// containing accountId" when `args` is not a JSON object, and the same error
-/// type with the message "accountId is required" when the field is missing or
-/// not a string.
+/// # Errors
+///
+/// Returns `invalidArguments` with:
+///
+/// - `"arguments must be an object containing accountId"` when `args` is
+///   not a JSON object.
+/// - `"accountId is required"` when the field is missing or not a string.
+/// - `"accountId is not a valid Id: <reason>"` when the field is a string
+///   but does not satisfy the RFC 8620 §1.2 Id grammar
+///   (`Id::new_validated`). Catches empty strings, strings longer than
+///   255 bytes, and strings containing characters outside the SAFE-CHAR
+///   set (`%x21 / %x23-7E` — visible ASCII excluding `"`).
+///   bd:JMAP-wlip.5 closed the previous silent-pass-through behaviour
+///   where a malformed accountId reached the backend's `account_exists`
+///   call and surfaced as either `notFound` or a storage-layer parse
+///   error, depending on the backend.
 pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapError> {
     let Value::Object(args) = args else {
         return Err(JmapError::invalid_arguments(
@@ -44,7 +56,9 @@ pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapE
     };
     match args.get("accountId").and_then(|v| v.as_str()) {
         Some(s) => {
-            let id = Id::from(s);
+            let id = Id::new_validated(s).map_err(|e| {
+                JmapError::invalid_arguments(format!("accountId is not a valid Id: {e}"))
+            })?;
             Ok((id, args))
         }
         None => Err(JmapError::invalid_arguments("accountId is required")),
@@ -150,7 +164,14 @@ fn civil_from_days(z: i64) -> (i32, u8, u8) {
 /// `/set update` shape — the deepest standard JMAP `/set update` shape
 /// (Email with nested `bodyStructure`) tops out around 6 levels, so the
 /// cap fires only on adversarial input.
-pub const MAX_MERGE_PATCH_DEPTH: usize = 32;
+///
+/// Crate-private (bd:JMAP-wlip.4): consumers see the cap-exceeded
+/// behaviour via [`MergePatchError::DepthExceeded`], not by reading the
+/// constant directly. The crate reserves the right to tighten the
+/// value (e.g. 32 → 16) without a major-version bump because the
+/// contract is "the function may return DepthExceeded", not "the cap
+/// is exactly N".
+pub(crate) const MAX_MERGE_PATCH_DEPTH: usize = 32;
 
 /// Error returned by [`json_merge_patch`] when a patch cannot be applied.
 ///
@@ -160,7 +181,8 @@ pub const MAX_MERGE_PATCH_DEPTH: usize = 32;
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MergePatchError {
-    /// The patch nests deeper than [`MAX_MERGE_PATCH_DEPTH`] levels.
+    /// The patch nests deeper than the crate's `MAX_MERGE_PATCH_DEPTH`
+    /// DoS-guard cap.
     ///
     /// Callers SHOULD map this to
     /// [`SetError`](crate::SetError) with
@@ -193,10 +215,12 @@ impl std::error::Error for MergePatchError {}
 /// # Errors
 ///
 /// Returns [`MergePatchError::DepthExceeded`] when the patch nests
-/// deeper than [`MAX_MERGE_PATCH_DEPTH`] levels (DoS guard added in
-/// bd:JMAP-sc1b.97, made non-silent in bd:JMAP-wlip.1). Below the cap
-/// the behaviour is exactly RFC 7396 and the call always returns
-/// `Ok(())`.
+/// deeper than the crate's internal `MAX_MERGE_PATCH_DEPTH` DoS-guard
+/// cap (added in bd:JMAP-sc1b.97, made non-silent in bd:JMAP-wlip.1).
+/// The exact value is intentionally not exposed; consumers see the
+/// behaviour via the typed error rather than reading the constant.
+/// Below the cap the behaviour is exactly RFC 7396 and the call always
+/// returns `Ok(())`.
 ///
 /// # Partial-mutation contract
 ///
@@ -251,8 +275,56 @@ fn json_merge_patch_inner(
 #[cfg(test)]
 mod tests {
     use super::{
-        civil_from_days, json_merge_patch, now_utc_string, MergePatchError, MAX_MERGE_PATCH_DEPTH,
+        civil_from_days, extract_account_id, json_merge_patch, now_utc_string, MergePatchError,
+        MAX_MERGE_PATCH_DEPTH,
     };
+    use serde_json::json;
+
+    /// Oracle (bd:JMAP-wlip.5): a malformed accountId — empty string,
+    /// containing forbidden ASCII characters, or exceeding 255 bytes —
+    /// MUST surface as `invalidArguments`, not silently pass through to
+    /// the backend's `account_exists` call.
+    ///
+    /// Test vectors hand-built from RFC 8620 §1.2's Id grammar
+    /// (SAFE-CHAR = `%x21 / %x23-7E`).
+    #[test]
+    fn extract_account_id_rejects_malformed_id() {
+        // Empty string.
+        let err = extract_account_id(json!({ "accountId": "" }))
+            .expect_err("empty accountId must fail validation");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
+
+        // Contains a space (0x20 — outside SAFE-CHAR's 0x21+ lower bound).
+        let err = extract_account_id(json!({ "accountId": "my account" }))
+            .expect_err("space in accountId must fail validation");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
+
+        // Contains a DQUOTE (0x22 — explicitly excluded by SAFE-CHAR).
+        let err = extract_account_id(json!({ "accountId": "a\"b" }))
+            .expect_err("DQUOTE in accountId must fail validation");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
+
+        // 256 bytes — exceeds the 255 cap.
+        let long: String = "a".repeat(256);
+        let err = extract_account_id(json!({ "accountId": long }))
+            .expect_err("over-long accountId must fail validation");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
+    }
+
+    /// Oracle (bd:JMAP-wlip.5): a well-formed accountId passes
+    /// validation and is returned intact. Positive control paired with
+    /// the rejection test above.
+    #[test]
+    fn extract_account_id_accepts_well_formed_id() {
+        let (id, rest) = extract_account_id(json!({
+            "accountId": "u123-abc_DEF",
+            "ids": ["e1", "e2"]
+        }))
+        .expect("well-formed accountId must pass validation");
+        assert_eq!(id.as_ref(), "u123-abc_DEF");
+        // Remaining args still contain the unrelated keys.
+        assert!(rest.contains_key("ids"));
+    }
 
     /// Test vectors derived independently with Python's `datetime.date` module.
     /// `days` is the count of days since 1970-01-01.

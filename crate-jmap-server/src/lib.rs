@@ -25,7 +25,6 @@ pub use handlers::{
 };
 pub use helpers::{
     extract_account_id, json_merge_patch, not_found_json, now_utc_string, ser, MergePatchError,
-    MAX_MERGE_PATCH_DEPTH,
 };
 
 mod parse;
@@ -225,6 +224,21 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                     // Accumulate createdIds from /set responses (RFC 8620 §3.4).
                     // Only when the client sent createdIds; otherwise the field
                     // is omitted from the response.
+                    //
+                    // Duplicate-creationId behaviour (bd:JMAP-wlip.7):
+                    // HashMap::insert silently overwrites on duplicate key.
+                    // If a client reuses the same creationId across two /set
+                    // calls in the same batch (e.g. "c1" in both Mailbox/set
+                    // and Email/set), the second mapping wins and the first
+                    // is lost. The RFC does not explicitly require either
+                    // last-write-wins or rejection; the convention here is
+                    // last-write-wins because (a) the response order is
+                    // deterministic so the behaviour is at least
+                    // reproducible, and (b) detecting the duplicate would
+                    // require either a per-batch creationId pre-check
+                    // (adds a HashSet allocation per request) or a second
+                    // pass over method_responses after dispatch. Clients
+                    // SHOULD generate unique creationIds across a batch.
                     if client_sent_created_ids {
                         if let Some(map) = primary_value.get("created").and_then(|v| v.as_object())
                         {
