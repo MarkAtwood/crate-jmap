@@ -1,10 +1,10 @@
-# jmap-base-client — Implementation Plan
+# jmap-base-client — Design Plan
 
 RFC 8620 base JMAP client. Auth-agnostic. Session fetch, JMAP request/response,
 blob upload/download, SSE event stream, WebSocket session.
 
-Extension-specific clients (`jmap-chat-client`, `jmap-mail-client`) depend on this crate
-and add only their method implementations.
+Extension-specific clients (`jmap-chat-client`, `jmap-mail-client`) depend on
+this crate and add only their method implementations.
 
 ## Crate Family Position
 
@@ -18,14 +18,18 @@ jmap-types
 ## What This Crate Is
 
 The base HTTP client for any JMAP server:
-- Pluggable auth (`AuthProvider` trait: Bearer, Basic, None, custom CA)
+
+- Pluggable auth (`AuthProvider` trait: `BearerAuth`, `BasicAuth`, `NoneAuth`,
+  plus a `TransportConfig` trait — `DefaultTransport`, `CustomCaTransport` —
+  to swap TLS trust roots)
 - Session document fetch and parse (RFC 8620 §2)
 - JMAP method call dispatch: `JmapClient::call(JmapRequest) -> JmapResponse`
-- `JmapRequestBuilder` for constructing batched requests
 - Blob upload/download (RFC 8620 §6)
 - SSE event stream subscription (RFC 8620 §7.3 / JMAP push)
 - WebSocket session (RFC 8887)
-- `ClientError` covering HTTP, auth, and deserialization failures
+- `extract_response::<T>` helper for typed result extraction
+- `ClientError` covering HTTP, auth, deserialization, size-cap, and
+  blob-integrity failures
 
 ## What This Crate Is Not
 
@@ -33,67 +37,38 @@ The base HTTP client for any JMAP server:
 - Not opinionated about connection pooling beyond `reqwest`
 - Not a server-side crate
 
-## Source Material
-
-The reference implementation is `~/PROJECT/crate-jmapchat-client/`. Extract and
-generalize — replace Chat-specific type references with `jmap-types` equivalents.
-
-| Item | Source file | Notes |
-|---|---|---|
-| `AuthProvider` trait + impls | `src/auth.rs` | `BearerAuth`, `BasicAuth`, `NoneAuth`, `CustomCaTransport`, `DefaultTransport`, `TransportConfig` — copy verbatim, no Chat types involved |
-| `ClientError` | `src/error.rs` | Copy verbatim |
-| `JmapClient` struct + `new()` | `src/client.rs` | Rename `JmapChatClient` → `JmapClient`; remove Chat-specific methods (those move to `jmap-chat-client`); keep `fetch_session`, `call`, `subscribe_events`, `upload_blob`, `download_blob` |
-| SSE parser | `src/sse.rs` | `SseEvent`, `SseFrame`, `parse_sse_block` — copy verbatim |
-| WebSocket session | `src/ws/mod.rs` | `WsSession`, `WsFrame` — copy verbatim, update type imports to `jmap-types` |
-| Blob types | `src/blob.rs` | `BlobUploadResponse` — copy verbatim |
-| `JmapRequestBuilder` | `src/jmap.rs` | Extract builder; replace locally-defined `Id`, `UTCDate`, `JmapRequest`, `JmapResponse`, `Invocation` with re-exports from `jmap-types`; keep `AccountInfo`, capability structs |
-
-**Key simplification**: `src/jmap.rs` in `jmapchat-client` redefines `Id`, `UTCDate`,
-`JmapRequest`, `JmapResponse`, `Invocation`, `ResultReference`, and `Session` from
-scratch. All of these now come from `jmap-types`. Delete the redundant definitions;
-keep only `JmapRequestBuilder`, `AccountInfo`, and the capability structs that are not
-in `jmap-types`.
-
 ## Dependencies
 
-```toml
-jmap-types        = { path = "../crate-jmap-types" }
-futures           = "0.3"
-reqwest           = { version = "0.12", features = ["json", "stream", "rustls-tls-webpki-roots"] }
-serde             = { version = "1", features = ["derive"] }
-serde_json        = "1"
-thiserror         = "2"
-tokio             = { version = "1", features = ["rt"] }
-tokio-tungstenite = { version = "0.29", features = ["rustls-tls-webpki-roots"] }
-url               = "2"
-```
+See `Cargo.toml` for the authoritative list (versions inherited via
+`workspace = true`). The notable design constraints are:
 
-Note: `jmapchat-client` also pulls in `chrono`, `base64`, `sha2`, `ulid`. Audit these
-after extraction — several likely exist only because the client redefined types that are
-now in `jmap-types` or `jmap-chat-types`.
-
-## Impact on jmap-chat-client
-
-Once `jmap-base-client` exists, `jmap-chat-client` should:
-1. Add `jmap-base-client = { path = "../crate-jmap-base-client" }` dependency
-2. Remove `auth.rs`, `blob.rs`, `client.rs`, `error.rs`, `sse.rs`, `ws/`, `utils.rs`
-   (or keep only chat-specific utils)
-3. Re-export `JmapClient`, auth providers, `ClientError` etc. from `jmap-base-client`
-4. Retain only `methods/` and Chat-specific type re-exports
+- `reqwest` and `tokio-tungstenite` are pinned with
+  `default-features = false` and only `rustls-tls-*` features so the
+  workspace's "no openssl" TLS-stack policy (workspace `AGENTS.md`) is
+  preserved. They are private dependencies after the SemVer-isolation work
+  in JMAP-6lsm.22 — `HttpError`, `WebSocketError`, and
+  `InvalidHeaderValueError` wrap them so the transport is replaceable
+  without breaking downstream consumers.
+- `jmap-cid-types` is a typed-Sha256 dependency, used only by
+  `BlobUploadResponse.sha256`.
 
 ## Module Layout
 
 ```
 src/
   lib.rs        re-exports
-  auth.rs       AuthProvider, BearerAuth, BasicAuth, NoneAuth, CustomCaTransport,
-                DefaultTransport, TransportConfig
-  blob.rs       BlobUploadResponse
-  client.rs     JmapClient — new(), fetch_session(), call(), upload_blob(),
-                download_blob(), subscribe_events()
-  error.rs      ClientError
-  request.rs    JmapRequestBuilder, AccountInfo, capability structs
-  sse.rs        SseEvent, SseFrame, parse_sse_block
+  auth.rs       AuthProvider, BearerAuth, BasicAuth, NoneAuth,
+                CustomCaTransport, DefaultTransport, TransportConfig
+  blob.rs       BlobUploadResponse, DownloadBlobParams, upload_blob,
+                download_blob, SHA-256 verification helpers
+  client.rs     JmapClient, ClientConfig, fetch_session, call,
+                subscribe_events, connect_ws_session, extract_response,
+                read_capped_body (streaming size-cap helper)
+  error.rs      ClientError, HttpError, WebSocketError,
+                InvalidHeaderValueError
+  push.rs       StateChange — RFC 8620 §7.1 push notification body
+  request.rs    Session, AccountInfo, WebSocketCapability
+  sse.rs        SseEvent, SseFrame, parse_sse_block, SSE block parser
   ws/
     mod.rs      WsSession, WsFrame
 ```
@@ -158,12 +133,22 @@ day one with the documented serde attributes and at least one round-trip
 preservation test. Any new manual `impl std::fmt::Debug` block for an
 in-scope struct MUST include the `extra` field in its debug output.
 
-## Test Strategy
+## Streaming size-cap policy (JMAP-6r7c.1)
 
-- `JmapClient::new()` validation: empty URL, wrong scheme, URL with path/query/fragment
-- `fetch_session`: mock server returns valid session JSON → `AccountInfo` parses correctly
-- `call`: mock server returns valid `JmapResponse` → deserialized correctly
-- `JmapRequestBuilder`: unit tests for request construction (no network)
-- SSE: parse known SSE block formats (from `src/sse.rs` existing tests)
-- Auth: `BearerAuth` adds correct `Authorization` header
-- All tests use `wiremock` for HTTP mocking — no live network
+All HTTP body reads in this crate (`fetch_session`, `call`, `upload_blob`,
+`download_blob`) route through the `read_capped_body(resp, limit)` helper
+in `src/client.rs`. The helper does a Content-Length fast-path rejection
+and then streams chunks while enforcing the cap before each accumulation.
+This prevents a hostile or compromised server using chunked
+Transfer-Encoding (RFC 7230 §3.3.1) without Content-Length, or
+under-reporting Content-Length, from forcing the client to allocate the
+full server-controlled body before the size cap can fire.
+
+Any new HTTP body read added to this crate (a new method on `JmapClient`,
+a new extension hook, etc.) MUST use `read_capped_body` — never call
+`resp.bytes().await` directly. The integration test in
+`tests/streaming_cap_tests.rs` uses a raw `tokio::net::TcpListener` to
+fabricate a chunked-no-Content-Length response that hangs without an
+end-of-stream frame; the post-fix client returns `ResponseTooLarge`
+immediately, while a regression to `.bytes().await` would block in the
+test and the 2-second timeout would fail it.
