@@ -823,7 +823,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                 .unwrap_or(false);
 
             let now_str = now_utc_string();
-            let now: UTCDate = UTCDate::from(now_str.as_str());
+            let now: UTCDate = UTCDate::from(now_str.as_ref());
 
             let mut space = Space::new(
                 Id::from("placeholder"),
@@ -1342,7 +1342,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                 // fractional-second timestamps ('.' < 'Z' in ASCII).
                 if let Some(expires_at) = &invite.expires_at {
                     let now = now_utc_string();
-                    if !iso8601_before(now.as_str(), expires_at.as_ref()) {
+                    if !iso8601_before(now.as_ref(), expires_at.as_ref()) {
                         return Err(JmapError::invalid_arguments("invite has expired"));
                     }
                 }
@@ -1502,7 +1502,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                 .filter(|m| {
                     if !removed_ours
                         && m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref())
-                        && m.get("joinedAt").and_then(|v| v.as_str()) == Some(now_str.as_str())
+                        && m.get("joinedAt").and_then(|v| v.as_str()) == Some(now_str.as_ref())
                     {
                         removed_ours = true;
                         false

@@ -408,7 +408,7 @@ pub async fn handle_message_set<B: ChatBackend>(
 
             if let Some(ref expires_at) = sender_expires_at {
                 let now = now_utc_string();
-                if !iso8601_before(now.as_str(), expires_at.as_ref()) {
+                if !iso8601_before(now.as_ref(), expires_at.as_ref()) {
                     not_created.insert(
                         create_id.clone(),
                         json!({ "type": "invalidProperties", "properties": ["senderExpiresAt"] }),
@@ -444,7 +444,7 @@ pub async fn handle_message_set<B: ChatBackend>(
             }
 
             let now_str = now_utc_string();
-            let received_at: UTCDate = UTCDate::from(now_str.as_str());
+            let received_at: UTCDate = UTCDate::from(now_str.as_ref());
 
             let mut msg = Message::new(
                 Id::from("placeholder"),

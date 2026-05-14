@@ -889,7 +889,7 @@ async fn process_create<B: MailBackend>(
 
     // --- sendAt is server-set (RFC 8621 §7.2: sendAt is set by the server) ---
     // Any client-supplied sendAt is ignored.
-    let send_at: UTCDate = UTCDate::from(now_utc_string().as_str());
+    let send_at: UTCDate = now_utc_string();
 
     // --- Build delivery status for each rcptTo ---
     // Delivery has not yet occurred; reflect queued state.

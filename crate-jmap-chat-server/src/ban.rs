@@ -155,7 +155,7 @@ pub async fn handle_ban_set<B: ChatBackend>(
             let banned_by = caller_identity.clone();
 
             let now_str = now_utc_string();
-            let created_at = UTCDate::from(now_str.as_str());
+            let created_at = UTCDate::from(now_str.as_ref());
 
             let mut ban = SpaceBan::new(
                 Id::from("placeholder"),

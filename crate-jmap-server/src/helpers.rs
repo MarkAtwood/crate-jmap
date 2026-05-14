@@ -1,6 +1,6 @@
 //! Shared helper utilities for JMAP method handlers.
 
-use jmap_types::{Id, JmapError};
+use jmap_types::{Id, JmapError, UTCDate};
 use serde_json::{Map, Value};
 
 /// Serialize any [`serde::Serialize`] type to a [`serde_json::Value`],
@@ -118,10 +118,23 @@ pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapE
     }
 }
 
-/// Return the current UTC instant formatted as an RFC 3339 string with
-/// millisecond precision (`YYYY-MM-DDTHH:MM:SS.mmmZ`).
+/// Return the current UTC instant as an [`UTCDate`] (RFC 3339,
+/// millisecond precision, format `YYYY-MM-DDTHH:MM:SS.mmmZ`).
 ///
 /// Uses `std::time::SystemTime` so no external dependency is needed.
+///
+/// Returns a typed [`UTCDate`] rather than a `String` (bd:JMAP-wlip.20)
+/// so callers do not need to wrap the result in
+/// `UTCDate::from(now_utc_string().as_str())`. The function name is
+/// retained for back-compat across the workspace's many call sites.
+///
+/// The string the [`UTCDate`] wraps does not pass
+/// [`UTCDate::new_validated`] because that validator requires exactly
+/// the 20-char `YYYY-MM-DDTHH:MM:SSZ` form (no millis) and this helper
+/// emits the 24-char form with millis. The workspace convention is to
+/// use the 24-char form on the wire — consumers wanting strict
+/// validation should construct their own `UTCDate::new_validated` value
+/// from a `chrono`-formatted source.
 ///
 /// Pre-epoch handling: `SystemTime::now().duration_since(UNIX_EPOCH)`
 /// fails on clocks drifted before the epoch. The function uses
@@ -143,7 +156,7 @@ pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapE
 /// truncating-cast that this branch replaces (bd:JMAP-wlip.27) would have
 /// silently wrapped to a negative second count and produced a bizarre
 /// in-range date string instead.
-pub fn now_utc_string() -> String {
+pub fn now_utc_string() -> UTCDate {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     let now = SystemTime::now();
@@ -151,7 +164,7 @@ pub fn now_utc_string() -> String {
         Ok(d) => match i64::try_from(d.as_secs()) {
             Ok(s) => (s, d.subsec_millis()),
             // u64 seconds exceeds i64::MAX — corrupted clock sentinel.
-            Err(_) => return "clock-out-of-range".to_owned(),
+            Err(_) => return UTCDate::from("clock-out-of-range"),
         },
         Err(e) => {
             // Clock is before the Unix epoch — negate so we get a real (negative)
@@ -166,9 +179,9 @@ pub fn now_utc_string() -> String {
                 // to the sentinel for defence in depth.
                 Ok(s) => match s.checked_neg() {
                     Some(neg) => (neg, d.subsec_millis()),
-                    None => return "clock-out-of-range".to_owned(),
+                    None => return UTCDate::from("clock-out-of-range"),
                 },
-                Err(_) => return "clock-out-of-range".to_owned(),
+                Err(_) => return UTCDate::from("clock-out-of-range"),
             }
         }
     };
@@ -179,7 +192,9 @@ pub fn now_utc_string() -> String {
     let days = secs.div_euclid(86400);
     let (year, month, day) = civil_from_days(days);
 
-    format!("{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}.{millis:03}Z")
+    UTCDate::from(format!(
+        "{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}.{millis:03}Z"
+    ))
 }
 
 /// Convert a count of days since the Unix epoch (1970-01-01) to a proleptic
@@ -412,7 +427,10 @@ mod tests {
 
     #[test]
     fn now_utc_string_format() {
-        let s = now_utc_string();
+        // bd:JMAP-wlip.20 — return type is UTCDate; AsRef<str> gives
+        // the underlying wire-format string for shape assertions.
+        let dt = now_utc_string();
+        let s: &str = dt.as_ref();
         // Must match YYYY-MM-DDTHH:MM:SS.mmmZ (24 chars)
         assert_eq!(s.len(), 24, "unexpected length: {s}");
         assert!(s.ends_with('Z'), "must end with Z: {s}");

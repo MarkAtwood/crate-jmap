@@ -205,7 +205,7 @@ pub async fn handle_invite_set<B: ChatBackend>(
             }
 
             let now_str = now_utc_string();
-            let now: UTCDate = UTCDate::from(now_str.as_str());
+            let now: UTCDate = UTCDate::from(now_str.as_ref());
 
             // Delegate code generation to the backend so production
             // implementations can use a CSPRNG.  The default implementation
