@@ -119,16 +119,22 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
         // Reject the whole request if any element is non-string rather than
         // silently skipping it, which would produce a misleading response.
-        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {bad}"
-            )));
-        }
-        for id_val in destroy_arr {
-            let id_str = match id_val.as_str() {
-                Some(s) => s.to_owned(),
-                None => continue, // unreachable: validated above
-            };
+        //
+        // Single-pass collect: `as_str().ok_or(v)` yields `Ok(&str)` for valid
+        // ids and `Err(&Value)` for the first bad element. The resulting
+        // `Vec<&str>` lets the consume loop work in `&str` without a
+        // never-triggered fallback arm.
+        let ids: Vec<&str> = destroy_arr
+            .iter()
+            .map(|v| v.as_str().ok_or(v))
+            .collect::<Result<_, _>>()
+            .map_err(|bad| {
+                JmapError::invalid_arguments(format!(
+                    "destroy: every element must be a string Id; got {bad}"
+                ))
+            })?;
+        for id_str_ref in ids {
+            let id_str = id_str_ref.to_owned();
             let id = Id::from(id_str.as_str());
 
             match backend
@@ -288,7 +294,7 @@ mod tests {
     /// also present (they get forbidden but destroy is forwarded to backend).
     #[tokio::test]
     async fn set_mixed_create_and_destroy_enforces_destroy_only() {
-        let mut backend = MockBackend::new_with_account("acc1");
+        let backend = MockBackend::new_with_account("acc1");
         // Pre-populate the mock with a notification to destroy.
         backend.add_notification("acc1", "notif1");
 

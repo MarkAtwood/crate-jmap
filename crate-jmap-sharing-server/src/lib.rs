@@ -25,6 +25,37 @@
 //! that do not want to stand up a real database. **Not production.**
 //! API stability is opt-in via this feature and may break across minor
 //! versions while the crate is pre-1.0.
+//!
+//! # Pre-1.0 stability policy
+//!
+//! While the crate is pre-1.0 (`0.x`), the public surface is
+//! best-effort SemVer with the following carve-outs:
+//!
+//! - **[`SharingBackend`] trait** (`crate::backend`): methods MAY be added
+//!   in a minor release. Adding a required method is a breaking change for
+//!   downstream impls; the workspace will signal such changes via
+//!   CHANGELOG entries and (where practical) `#[deprecated]` warnings or
+//!   default-method bodies during a transition release.
+//! - **`handle_*` functions** ([`handle_principal_set`] etc.): the
+//!   signatures are stable within a minor version; argument shapes match
+//!   the dispatcher's `JmapHandler` contract. Direct callers (consumers
+//!   bypassing [`register_sharing_handlers`]) can rely on the
+//!   `(backend, caller, args) -> Result<(Value, Vec<Invocation>),
+//!   JmapError>` shape across `0.1.x`.
+//! - **[`register_sharing_handlers`]**: the dispatcher-mutation contract
+//!   (registers the 10 RFC 9670 methods, takes `Arc<B>`) is stable within
+//!   a minor version.
+//! - **URI re-exports** ([`JMAP_PRINCIPALS_URI`],
+//!   [`JMAP_PRINCIPALS_OWNER_URI`]) are stable, normative values from
+//!   RFC 9670 and follow IANA registry semantics.
+//! - **Re-exports from [`jmap_server`]** (`crate::backend::*` block) pin
+//!   the upstream type's major-version contract into this crate's surface.
+//!   A breaking change in [`jmap_server`] is a breaking change here.
+//! - **`memory` module**: opt-in, may break in any minor release. See
+//!   above.
+//!
+//! Outside the `memory` feature, the crate aims for the same "no breaks in
+//! minor releases" discipline as the rest of the `jmap-*` workspace.
 
 #![forbid(unsafe_code)]
 
@@ -64,6 +95,19 @@ pub use jmap_sharing_types::JMAP_PRINCIPALS_URI;
 /// Capability URI for `urn:ietf:params:jmap:principals:owner`.
 pub use jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI;
 
+/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`].
+///
+/// Re-exported so the [`register_sharing_handlers`] macro body can name
+/// `ClosureHandler` without a fully-qualified path. **Stability**: this
+/// re-export pins the major-version contract of [`jmap_server::ClosureHandler`]
+/// into this crate's public surface — a breaking change to that type
+/// upstream is a breaking change here. Consumers needing a closure handler
+/// adapter SHOULD prefer importing from [`jmap_server`] directly; the
+/// re-export is retained primarily for the in-crate macro and for
+/// backward-compatible spelling of the existing handler-registration
+/// pattern.
+pub use jmap_server::ClosureHandler;
+
 // ---------------------------------------------------------------------------
 // register_sharing_handlers — the main entry point for consumers
 // ---------------------------------------------------------------------------
@@ -84,6 +128,38 @@ pub use jmap_sharing_types::JMAP_PRINCIPALS_OWNER_URI;
 /// The dispatcher's `CallerCtx` is taken from `B::CallerCtx`; every registered
 /// closure forwards it as `&ctx` into the wrapped `handle_*` function. Backends
 /// that use `type CallerCtx = ()` therefore see `&()` inside every handler.
+///
+/// # Re-registration semantics
+///
+/// This function calls [`Dispatcher::register`] for each of the 10 RFC 9670
+/// method names. `Dispatcher::register` is a **silent overwrite** on
+/// conflict — if a method name is already registered, the previous handler
+/// is replaced without error. Consequences:
+///
+/// - **Custom overrides**: to wire a custom `Principal/get` plus the
+///   default everything else, call this function FIRST, then call
+///   `dispatcher.register("Principal/get", my_custom)` AFTER. The custom
+///   handler wins.
+/// - **Conflict-detecting wiring**: if you want a panic on accidental
+///   double-registration, use [`Dispatcher::try_register`] for the
+///   individual override AFTER this call. Calling this function itself
+///   twice on the same dispatcher silently overwrites all 10 handlers
+///   with the second `Arc<B>`.
+/// - **Idempotency**: calling this function twice with the same `Arc<B>`
+///   is harmless (the second call rebinds to the same shared backend);
+///   calling with two different backends switches all 10 handlers to the
+///   second backend.
+///
+/// # Not advertised — capabilities are the consumer's responsibility
+///
+/// This function only wires method-name → handler dispatch. It does NOT
+/// advertise `urn:ietf:params:jmap:principals` in any JMAP Session
+/// capability response. Session-capability assembly is the consumer's
+/// responsibility per the workspace's transport-less posture (see
+/// workspace AGENTS.md: "HTTP, SSE, WebSocket, auth integration, and
+/// session-capability advertisement are all consumer-bring-everything").
+/// A consumer that wires these handlers MUST also add the URI from
+/// [`JMAP_PRINCIPALS_URI`] to its advertised capability map.
 pub fn register_sharing_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: SharingBackend + 'static,
@@ -149,8 +225,6 @@ where
     );
 }
 
-pub use jmap_server::ClosureHandler;
-
 // ---------------------------------------------------------------------------
 // test_support — in-memory mock backend used by inline tests
 // ---------------------------------------------------------------------------
@@ -197,7 +271,7 @@ pub(crate) mod test_support {
     }
 
     /// In-memory mock backend for testing.
-    #[derive(Clone)]
+    #[derive(Clone, Default)]
     pub struct MockBackend {
         /// Known accounts and their state. The outer `Arc<Mutex<…>>` allows
         /// the mock to be shared across threads (required by `JmapBackend: Sync`).
@@ -205,11 +279,10 @@ pub(crate) mod test_support {
     }
 
     impl MockBackend {
-        /// Create a backend with no accounts registered.
+        /// Create a backend with no accounts registered. Equivalent to
+        /// [`Self::default`].
         pub fn new() -> Self {
-            Self {
-                state: Arc::new(Mutex::new(HashMap::new())),
-            }
+            Self::default()
         }
 
         /// Create a backend with the given account already registered.
@@ -223,7 +296,13 @@ pub(crate) mod test_support {
         }
 
         /// Pre-populate a `ShareNotification` in the given account.
-        pub fn add_notification(&mut self, account_id: &str, notif_id: &str) {
+        ///
+        /// Takes `&self`: state lives behind `Arc<Mutex<_>>` so mutation
+        /// happens through `lock()`. This shape lets a test register the
+        /// mock as `Arc<MockBackend>` with handlers and add fixtures
+        /// through another `Arc::clone()` of the same backend without
+        /// reshaping the test.
+        pub fn add_notification(&self, account_id: &str, notif_id: &str) {
             use jmap_sharing_types::ShareNotification;
             // Use serde_json deserialization — types are #[non_exhaustive] and
             // cannot be constructed with struct literals outside the defining crate.
@@ -381,21 +460,45 @@ pub(crate) mod test_support {
             account_id: &Id,
             id: &Id,
         ) -> Result<(), BackendSetError<Self::Error>> {
-            // For ShareNotification, check the in-memory map.
             let mut guard = self.state.lock().unwrap();
-            if let Some(acct) = guard.get_mut(account_id.as_ref()) {
-                if acct.notifications.remove(id).is_some() {
-                    acct.notification_state += 1;
-                    return Ok(());
+            let acct = match guard.get_mut(account_id.as_ref()) {
+                Some(a) => a,
+                None => {
+                    return Err(BackendSetError::SetError(SetError::new(
+                        SetErrorType::NotFound,
+                    )))
                 }
-                if acct.principals.remove(id).is_some() {
-                    acct.principal_state += 1;
-                    return Ok(());
+            };
+
+            // Dispatch on the compile-time-known type name rather than
+            // probing both maps. Makes the per-type behavior obvious to
+            // a reader and surfaces unsupported O types loudly instead
+            // of falling through to a generic NotFound.
+            match O::TYPE_NAME {
+                "Principal" => {
+                    if acct.principals.remove(id).is_some() {
+                        acct.principal_state += 1;
+                        Ok(())
+                    } else {
+                        Err(BackendSetError::SetError(SetError::new(
+                            SetErrorType::NotFound,
+                        )))
+                    }
                 }
+                "ShareNotification" => {
+                    if acct.notifications.remove(id).is_some() {
+                        acct.notification_state += 1;
+                        Ok(())
+                    } else {
+                        Err(BackendSetError::SetError(SetError::new(
+                            SetErrorType::NotFound,
+                        )))
+                    }
+                }
+                other => Err(BackendSetError::Other(MockError(format!(
+                    "MockBackend::destroy_object unsupported type: {other}"
+                )))),
             }
-            Err(BackendSetError::SetError(SetError::new(
-                SetErrorType::NotFound,
-            )))
         }
 
         fn supports_type<O: JmapObject>(&self) -> bool {
