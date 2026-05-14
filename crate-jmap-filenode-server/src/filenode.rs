@@ -850,6 +850,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::from(s),
@@ -925,8 +926,24 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
+    // RFC 8620 §5.4: if onSuccessDestroyOriginal is true, after emitting the
+    // Foo/copy response the server MUST make a single call to Foo/set to
+    // destroy the original of each successfully copied record.
+    //
+    // Scope note (bd:JMAP-510h.56): the canonical mail-server sibling does
+    // not yet read `destroyFromIfInState`; honoring that argument here would
+    // diverge from the canonical template. The cross-sibling fix is filed
+    // separately as a workspace-canonical bead.
+    let on_success_destroy_original: bool = args
+        .get("onSuccessDestroyOriginal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let mut copied = serde_json::Map::new();
     let mut not_copied = serde_json::Map::new();
+    // Tracks (copy_id, source_id) pairs for successfully copied entries so
+    // the implicit `onSuccessDestroyOriginal` Foo/set can destroy them.
+    let mut copied_source_ids: Vec<(String, Id)> = Vec::new();
     // The onExists=replace cascade destroys 0..N nodes per entry. RFC
     // 8620 §5.4 does not define a `destroyed` field on Foo/copy
     // responses, so a client has no in-response wire signal for which
@@ -1213,6 +1230,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                             m.insert("name".to_owned(), Value::String(name.to_owned()));
                         }
                     }
+                    copied_source_ids.push((create_id.clone(), source_id));
                     copied.insert(create_id, value);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
@@ -1246,17 +1264,131 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         old_state.clone()
     };
 
-    Ok((
-        json!({
-            "fromAccountId": from_account_id.as_ref(),
-            "accountId": account_id.as_ref(),
-            "oldState": old_state.as_ref(),
-            "newState": new_state.as_ref(),
-            "created":   if copied.is_empty()     { Value::Null } else { Value::Object(copied) },
-            "notCreated": if not_copied.is_empty() { Value::Null } else { Value::Object(not_copied) },
-        }),
-        vec![],
-    ))
+    let resp = json!({
+        "fromAccountId": from_account_id.as_ref(),
+        "accountId": account_id.as_ref(),
+        "oldState": old_state.as_ref(),
+        "newState": new_state.as_ref(),
+        "created":   if copied.is_empty()     { Value::Null } else { Value::Object(copied) },
+        "notCreated": if not_copied.is_empty() { Value::Null } else { Value::Object(not_copied) },
+    });
+
+    // RFC 8620 §5.4 onSuccessDestroyOriginal: after the Foo/copy response,
+    // emit a single implicit Foo/set call to destroy each successfully copied
+    // source record. The dispatcher appends the returned `Invocation` to
+    // methodResponses verbatim (RFC 8620 §6.3), so we build the full Foo/set
+    // RESPONSE object here, not request args.
+    //
+    // Honors the top-level `onDestroyRemoveChildren` flag for the implicit
+    // destroys, matching draft-ietf-jmap-filenode-13 §3.2.4's "with the same
+    // behaviour" reference to FileNode/set (§3.2.3 nodeHasChildren semantics).
+    let mut extra: Vec<Invocation> = Vec::new();
+    if on_success_destroy_original && !copied_source_ids.is_empty() {
+        let from_old_state = backend
+            .get_state::<FileNode>(caller, &from_account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+
+        let mut destroyed_ids: Vec<Value> = Vec::new();
+        let mut not_destroyed = serde_json::Map::new();
+
+        for (_, source_id) in &copied_source_ids {
+            // Honor onDestroyRemoveChildren for the implicit destroy: if the
+            // source has descendants and the flag is false, the destroy fails
+            // with nodeHasChildren. If true, cascade-destroy descendants first.
+            let desc_ids: Vec<Id> = backend
+                .get_descendant_ids(caller, &from_account_id, source_id)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+
+            if !desc_ids.is_empty() && !on_destroy_remove_children {
+                not_destroyed.insert(
+                    source_id.as_ref().to_owned(),
+                    json!({ "type": "nodeHasChildren" }),
+                );
+                continue;
+            }
+
+            // Cascade-destroy descendants from deepest first to maintain
+            // tree invariants — matches the FileNode/set §3.2.3 behaviour.
+            let mut cascade_failed = false;
+            if on_destroy_remove_children {
+                for desc_id in desc_ids.iter().rev() {
+                    if let Err(e) = backend
+                        .destroy_object::<FileNode>(caller, &from_account_id, desc_id)
+                        .await
+                    {
+                        not_destroyed.insert(
+                            source_id.as_ref().to_owned(),
+                            match e {
+                                BackendSetError::SetError(set_err) => set_error_value(&set_err),
+                                BackendSetError::Other(inner) => json!({
+                                    "type": "serverFail",
+                                    "description": inner.to_string(),
+                                }),
+                                _ => json!({
+                                    "type": "serverFail",
+                                    "description": "unhandled backend error variant",
+                                }),
+                            },
+                        );
+                        cascade_failed = true;
+                        break;
+                    }
+                }
+            }
+            if cascade_failed {
+                continue;
+            }
+
+            match backend
+                .destroy_object::<FileNode>(caller, &from_account_id, source_id)
+                .await
+            {
+                Ok(()) => {
+                    destroyed_ids.push(Value::String(source_id.as_ref().to_owned()));
+                }
+                Err(BackendSetError::SetError(set_err)) => {
+                    not_destroyed.insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
+                }
+                Err(BackendSetError::Other(inner)) => {
+                    not_destroyed.insert(
+                        source_id.as_ref().to_owned(),
+                        json!({ "type": "serverFail", "description": inner.to_string() }),
+                    );
+                }
+                Err(_) => {
+                    not_destroyed.insert(
+                        source_id.as_ref().to_owned(),
+                        json!({
+                            "type": "serverFail",
+                            "description": "unhandled backend error variant",
+                        }),
+                    );
+                }
+            }
+        }
+
+        let from_new_state = backend
+            .get_state::<FileNode>(caller, &from_account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+
+        let set_resp = json!({
+            "accountId": from_account_id.as_ref(),
+            "oldState": from_old_state.as_ref(),
+            "newState": from_new_state.as_ref(),
+            "created": Value::Null,
+            "updated": Value::Null,
+            "destroyed": if destroyed_ids.is_empty() { Value::Null } else { Value::Array(destroyed_ids) },
+            "notCreated": Value::Null,
+            "notUpdated": Value::Null,
+            "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
+        });
+        extra.push(("FileNode/set".to_owned(), set_resp, call_id.to_owned()));
+    }
+
+    Ok((resp, extra))
 }
 
 // ---------------------------------------------------------------------------

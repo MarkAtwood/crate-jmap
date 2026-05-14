@@ -104,8 +104,8 @@ where
     reg!("FileNode/set", backend, |b, _ci, a, ctx| {
         handle_filenode_set(&*b, &ctx, a).await
     });
-    reg!("FileNode/copy", backend, |b, _ci, a, ctx| {
-        handle_filenode_copy(&*b, &ctx, a).await
+    reg!("FileNode/copy", backend, |b, ci, a, ctx| {
+        handle_filenode_copy(&*b, &ctx, a, &ci).await
     });
     reg!("FileNode/query", backend, |b, _ci, a, ctx| {
         handle_filenode_query(&*b, &ctx, a).await
