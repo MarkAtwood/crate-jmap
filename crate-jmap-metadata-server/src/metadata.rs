@@ -462,19 +462,21 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string
-        // Id. Reject the whole request if any element is non-string rather
-        // than silently skipping it, which would produce a misleading
-        // response.
-        if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
-            return Err(JmapError::invalid_arguments(format!(
-                "destroy: every element must be a string Id; got {bad}"
-            )));
+        // Id. Validate-and-collect in one pass. Reject the whole request
+        // on a non-string element rather than silently skipping it, which
+        // would produce a misleading response.
+        let mut id_strs: Vec<String> = Vec::with_capacity(destroy_arr.len());
+        for id_val in &destroy_arr {
+            match id_val.as_str() {
+                Some(s) => id_strs.push(s.to_owned()),
+                None => {
+                    return Err(JmapError::invalid_arguments(format!(
+                        "destroy: every element must be a string Id; got {id_val}"
+                    )));
+                }
+            }
         }
-        for id_val in destroy_arr {
-            let id_str = match id_val.as_str() {
-                Some(s) => s.to_owned(),
-                None => continue, // unreachable: validated above
-            };
+        for id_str in id_strs {
             let id = Id::from(id_str.as_str());
 
             match backend
