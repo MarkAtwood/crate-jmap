@@ -153,8 +153,11 @@ async fn filenode_set_destroy_leaf_node_succeeds() {
         "leaf-1 must appear in destroyed: {resp}"
     );
     assert!(
-        resp["notDestroyed"].is_null(),
-        "notDestroyed must be null for a leaf: {resp}"
+        resp["notDestroyed"].is_null()
+            || resp["notDestroyed"]
+                .as_object()
+                .is_none_or(serde_json::Map::is_empty),
+        "notDestroyed must be empty when full-coverage destroy succeeds: {resp}"
     );
 }
 
@@ -235,6 +238,123 @@ async fn filenode_set_destroy_with_remove_children_cascades() {
     assert!(
         resp["notDestroyed"].is_null(),
         "notDestroyed must be null when cascade succeeds: {resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test 5b: multi-level destroy WITHOUT onDestroyRemoveChildren: destroy set
+// {A, B} where A is grandparent, B is A's child, and B has its own child C
+// not in the destroy set. Both A and B MUST report nodeHasChildren because
+// the transitive descendant C is uncovered. Verdict (no destroys happen)
+// is correct; error attribution is at every uncovered ancestor.
+// Regression for bd:JMAP-510h.12 — documents the current partial-tree
+// behaviour so a future refactor that reorders destroys cannot silently
+// regress it.
+// Oracle: draft-ietf-jmap-filenode-13 §3.2.3 nodeHasChildren — MUST when
+// any descendant is not in the destroy set.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_set_destroy_partial_multilevel_reports_node_has_children() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Build a three-level tree: A -> B -> C.
+    backend.seed_node("acc1", make_dir("A", "A", None));
+    backend.seed_node("acc1", make_dir("B", "B", Some("A")));
+    backend.seed_node("acc1", make_dir("C", "C", Some("B")));
+
+    // Destroy {A, B} but NOT C. C is uncovered, so both A and B must
+    // appear in notDestroyed with nodeHasChildren.
+    let args = json!({
+        "accountId": "acc1",
+        "destroy": ["A", "B"]
+    });
+
+    let (resp, _) = handle_filenode_set(&backend, &(), args)
+        .await
+        .expect("set must not return top-level error");
+
+    let not_destroyed = resp["notDestroyed"]
+        .as_object()
+        .expect("notDestroyed must be an object when entries fail");
+    assert!(
+        not_destroyed.contains_key("A"),
+        "A must be in notDestroyed (uncovered descendant C): {resp}"
+    );
+    assert_eq!(
+        not_destroyed["A"]["type"], "nodeHasChildren",
+        "A must report nodeHasChildren: {resp}"
+    );
+    assert!(
+        not_destroyed.contains_key("B"),
+        "B must be in notDestroyed (uncovered descendant C): {resp}"
+    );
+    assert_eq!(
+        not_destroyed["B"]["type"], "nodeHasChildren",
+        "B must report nodeHasChildren: {resp}"
+    );
+
+    // None of A, B, C should be destroyed.
+    assert!(
+        resp["destroyed"].is_null() || resp["destroyed"].as_array().is_none_or(Vec::is_empty),
+        "destroyed must be empty/null: {resp}"
+    );
+
+    // C must still exist.
+    let (get_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "ids": ["A", "B", "C"]
+        }),
+    )
+    .await
+    .expect("get must succeed");
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 3, "all three nodes must survive: {get_resp}");
+}
+
+// ---------------------------------------------------------------------------
+// Test 5c: full-coverage destroy set: A, B, C all in destroy set. RFC
+// §3.2.3 MUST NOT return nodeHasChildren since every descendant is also
+// being destroyed in the same request. All three must end up in destroyed.
+// Regression for bd:JMAP-510h.12 — full-coverage case.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_set_destroy_full_coverage_multilevel_succeeds() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    backend.seed_node("acc1", make_dir("FA", "FA", None));
+    backend.seed_node("acc1", make_dir("FB", "FB", Some("FA")));
+    backend.seed_node("acc1", make_dir("FC", "FC", Some("FB")));
+
+    let args = json!({
+        "accountId": "acc1",
+        "destroy": ["FA", "FB", "FC"]
+    });
+
+    let (resp, _) = handle_filenode_set(&backend, &(), args)
+        .await
+        .expect("set must not return top-level error");
+
+    let destroyed = resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array when entries succeed");
+    let destroyed_strs: Vec<&str> = destroyed.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        destroyed_strs.contains(&"FA")
+            && destroyed_strs.contains(&"FB")
+            && destroyed_strs.contains(&"FC"),
+        "all three must be in destroyed when fully covered: {resp}"
+    );
+    assert!(
+        resp["notDestroyed"].is_null()
+            || resp["notDestroyed"]
+                .as_object()
+                .is_none_or(|o| o.is_empty()),
+        "notDestroyed must be empty when full-coverage destroy succeeds: {resp}"
     );
 }
 
