@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use crate::backend::{BackendSetError, MailBackend};
 use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, find_immutable_patch_key,
-    not_found_json, ser, set_error_value, SetAccumulators,
+    not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::server_fail_from_backend;
 
@@ -610,7 +610,7 @@ pub async fn handle_email_get<B: MailBackend>(
     let list_json: Vec<Value> = list
         .iter()
         .map(|email| {
-            let mut val = ser(email)?;
+            let mut val = serialize_value(email)?;
             // Apply body-value filtering and truncation before property filtering.
             apply_body_value_args(&mut val, &body_fetch_args, &body_prop_set);
             let mut obj = filter_properties(&val, &effective_props);

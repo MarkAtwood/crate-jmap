@@ -27,7 +27,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{GetObject, JmapBackend, JmapObject, QueryObject};
-use crate::helpers::{extract_account_id, not_found_json, optional_arg, ser};
+use crate::helpers::{extract_account_id, not_found_json, optional_arg, serialize_value};
 
 /// Static description used for every `serverFail` invocation that wraps a
 /// [`JmapBackend::Error`] (bd:JMAP-wlip.2).
@@ -111,7 +111,10 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
+    let list_json: Vec<Value> = list
+        .iter()
+        .map(serialize_value)
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok((
         json!({

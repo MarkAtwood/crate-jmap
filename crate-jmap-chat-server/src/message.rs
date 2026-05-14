@@ -9,7 +9,7 @@ use std::collections::HashSet;
 
 use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, iso8601_before, not_found_json,
-    now_utc_string, ser, set_error_value, SetAccumulators,
+    now_utc_string, serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::server_fail_from_backend;
 
@@ -75,12 +75,14 @@ pub async fn handle_message_get<B: ChatBackend>(
         prop_set.insert("id");
         list.iter()
             .map(|obj| {
-                let val = ser(obj)?;
+                let val = serialize_value(obj)?;
                 Ok(filter_properties(&val, &prop_set))
             })
             .collect::<Result<Vec<_>, JmapError>>()?
     } else {
-        list.iter().map(ser).collect::<Result<Vec<_>, _>>()?
+        list.iter()
+            .map(serialize_value)
+            .collect::<Result<Vec<_>, _>>()?
     };
 
     Ok((

@@ -12,8 +12,8 @@ use crate::backend::{
     BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType, SpacePatchOp,
 };
 use crate::helpers::{
-    extract_account_id, finalize_set_response, iso8601_before, not_found_json, now_utc_string, ser,
-    set_error_value, SetAccumulators,
+    extract_account_id, finalize_set_response, iso8601_before, not_found_json, now_utc_string,
+    serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::server_fail_from_backend;
 
@@ -364,7 +364,7 @@ fn project_space_for_caller(
     caller_principal: Option<&Id>,
     properties: Option<&[String]>,
 ) -> Result<Value, JmapError> {
-    let full = ser(space)?;
+    let full = serialize_value(space)?;
 
     // Compute the field set the caller is allowed to see.
     let allowed_fields: Option<Vec<&str>> = match caller_principal {

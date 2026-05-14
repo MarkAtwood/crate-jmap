@@ -6,7 +6,7 @@ use jmap_types::{Id, Invocation, JmapError};
 use serde_json::{json, Value};
 
 use crate::backend::MailBackend;
-use crate::helpers::{extract_account_id, filter_properties, not_found_json, ser};
+use crate::helpers::{extract_account_id, filter_properties, not_found_json, serialize_value};
 use jmap_server::server_fail_from_backend;
 
 /// Handle a `Thread/get` method call (RFC 8621 §3.1).
@@ -68,12 +68,14 @@ pub async fn handle_thread_get<B: MailBackend>(
         prop_set.insert("id");
         list.iter()
             .map(|obj| {
-                let val = ser(obj)?;
+                let val = serialize_value(obj)?;
                 Ok(filter_properties(&val, &prop_set))
             })
             .collect::<Result<Vec<_>, JmapError>>()?
     } else {
-        list.iter().map(ser).collect::<Result<Vec<_>, _>>()?
+        list.iter()
+            .map(serialize_value)
+            .collect::<Result<Vec<_>, _>>()?
     };
 
     let resp = json!({
