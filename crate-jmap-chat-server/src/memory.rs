@@ -607,9 +607,13 @@ impl JmapBackend for MemoryBackend {
             ids.len().saturating_sub(neg)
         };
 
+        // `n.min(usize::MAX as u64) as usize` saturates rather than
+        // truncates on 32-bit targets. Mirrors the canonical
+        // mail-server pattern at crate-jmap-mail-server/src/memory.rs
+        // (per workspace AGENTS.md "Canonical Templates").
         ids = ids[start..]
             .iter()
-            .take(limit.map_or(usize::MAX, |n| n as usize))
+            .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
             .cloned()
             .collect();
 
