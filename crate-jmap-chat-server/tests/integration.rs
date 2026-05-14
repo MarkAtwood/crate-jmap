@@ -4785,6 +4785,162 @@ async fn contact_set_destroy_forbidden() {
     assert_eq!(resp["notDestroyed"]["some-id"]["type"], "forbidden");
 }
 
+/// Oracle: draft-atwood-jmap-chat-00 §ChatContact/set (line 878):
+/// "update supports: blocked, displayName."
+///
+/// A patch carrying spec-allowed fields lands them on the object.
+/// This is the positive control for the allowlist projection added
+/// in bd:JMAP-x2gd.8.
+#[tokio::test]
+async fn contact_set_update_allowed_fields_apply() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&jmap_types::Id::from("a1"));
+    backend.insert_object_for_test(
+        "ChatContact",
+        "a1",
+        "ct1",
+        json!({
+            "id": "ct1",
+            "login": "alice@example.com",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": false
+        }),
+    );
+
+    let (resp, _) = handle_contact_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { "ct1": { "blocked": true, "displayName": "Alice" } }
+        }),
+    )
+    .await
+    .expect("handle_contact_set");
+
+    assert!(
+        resp["notUpdated"].is_null(),
+        "spec-allowed patch must update: {:?}",
+        resp["notUpdated"]
+    );
+    let (get_resp, _) =
+        handle_contact_get(&backend, &(), json!({ "accountId": "a1", "ids": ["ct1"] }))
+            .await
+            .expect("handle_contact_get");
+    assert_eq!(get_resp["list"][0]["blocked"], json!(true));
+    assert_eq!(get_resp["list"][0]["displayName"], json!("Alice"));
+}
+
+/// Oracle: draft-atwood-jmap-chat-00 §ChatContact/set says
+/// "update supports: blocked, displayName." A patch carrying ONLY
+/// non-allowed fields must not reach the backend. The handler
+/// surfaces `invalidPatch` so a client cannot silently overwrite
+/// server-derived state such as `presence`. Regression bead
+/// bd:JMAP-x2gd.8.
+#[tokio::test]
+async fn contact_set_update_drops_non_allowed_fields() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&jmap_types::Id::from("a1"));
+    backend.insert_object_for_test(
+        "ChatContact",
+        "a1",
+        "ct1",
+        json!({
+            "id": "ct1",
+            "login": "alice@example.com",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": false
+        }),
+    );
+
+    let (resp, _) = handle_contact_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { "ct1": { "presence": "online", "lastActiveAt": "2030-01-01T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("handle_contact_set");
+
+    assert!(
+        resp["updated"].is_null(),
+        "non-allowed patch must not update"
+    );
+    let not_updated = resp["notUpdated"]
+        .as_object()
+        .expect("notUpdated must be populated");
+    let entry = &not_updated["ct1"];
+    assert_eq!(
+        entry["type"], "invalidPatch",
+        "patch with no spec-allowed fields must be invalidPatch: {entry:?}"
+    );
+
+    // The backend record must be unchanged.
+    let (get_resp, _) =
+        handle_contact_get(&backend, &(), json!({ "accountId": "a1", "ids": ["ct1"] }))
+            .await
+            .expect("handle_contact_get");
+    assert!(
+        get_resp["list"][0].get("presence").is_none(),
+        "presence must not have leaked into the stored object"
+    );
+    assert!(
+        get_resp["list"][0].get("lastActiveAt").is_none(),
+        "lastActiveAt must not have leaked into the stored object"
+    );
+}
+
+/// Oracle: a mixed patch carrying one spec-allowed field and one
+/// non-allowed field applies only the allowed field. The non-allowed
+/// field is silently dropped before reaching the backend, matching
+/// the existing SpaceBan/set allowlist convention (ban.rs:250-263).
+#[tokio::test]
+async fn contact_set_update_mixed_patch_applies_only_allowed() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&jmap_types::Id::from("a1"));
+    backend.insert_object_for_test(
+        "ChatContact",
+        "a1",
+        "ct1",
+        json!({
+            "id": "ct1",
+            "login": "alice@example.com",
+            "firstSeenAt": "2024-01-01T00:00:00Z",
+            "lastSeenAt": "2024-01-02T00:00:00Z",
+            "blocked": false
+        }),
+    );
+
+    let (resp, _) = handle_contact_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { "ct1": { "blocked": true, "presence": "online" } }
+        }),
+    )
+    .await
+    .expect("handle_contact_set");
+
+    assert!(
+        resp["notUpdated"].is_null(),
+        "patch with at least one allowed field must update"
+    );
+    let (get_resp, _) =
+        handle_contact_get(&backend, &(), json!({ "accountId": "a1", "ids": ["ct1"] }))
+            .await
+            .expect("handle_contact_get");
+    assert_eq!(get_resp["list"][0]["blocked"], json!(true));
+    assert!(
+        get_resp["list"][0].get("presence").is_none(),
+        "non-allowed `presence` field must not have leaked into the stored object"
+    );
+}
+
 /// Oracle: ChatContact/get on an empty backend returns an empty list.
 #[tokio::test]
 async fn contact_get_empty() {

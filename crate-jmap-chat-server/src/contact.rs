@@ -157,6 +157,10 @@ pub async fn handle_contact_set<B: ChatBackend>(
             let id = Id::from(id_str.as_str());
 
             // Reject patches that include server-set fields.
+            // MAINTENANCE: when adding a server-set field to ChatContact in
+            // jmap-chat-types, add its wire name here too. Drift between
+            // this list and the struct fields is a silent client-overwrite
+            // bug. Tracked workspace-wide as bd:JMAP-x2gd.87.
             const CONTACT_READONLY: &[&str] = &["id", "firstSeenAt", "lastSeenAt"];
             let bad_props: Vec<&str> = CONTACT_READONLY
                 .iter()
@@ -171,21 +175,47 @@ pub async fn handle_contact_set<B: ChatBackend>(
                 continue;
             }
 
-            // Convert wire-format Value into a typed PatchObject. RFC 8620
-            // §5.3 mandates a PatchObject is a JSON Object; non-object
-            // values produce an `invalidPatch` SetError.
-            let patch = match serde_json::from_value::<PatchObject>(patch_val) {
-                Ok(p) => p,
-                Err(e) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": e.to_string() }),
-                    );
-                    continue;
-                }
+            // draft-atwood-jmap-chat-00 §ChatContact/set:
+            // "update supports: blocked, displayName."
+            //
+            // Project the patch onto the allowed-field set so that
+            // unknown / not-allowed wire fields (e.g. client-forged
+            // `presence`, `lastActiveAt`) are silently dropped rather
+            // than reaching `backend.update_object`. Without this
+            // projection a client could overwrite server-derived state
+            // such as presence, corrupting it for other observers.
+            const CONTACT_UPDATE_ALLOWED: &[&str] = &["blocked", "displayName"];
+            let Value::Object(mut patch_map) = patch_val else {
+                not_updated.insert(
+                    id_str,
+                    json!({ "type": "invalidPatch", "description": "patch must be a JSON object" }),
+                );
+                continue;
             };
+            let mut clean_patch = serde_json::Map::new();
+            for &field in CONTACT_UPDATE_ALLOWED {
+                if let Some(v) = patch_map.remove(field) {
+                    clean_patch.insert(field.to_owned(), v);
+                }
+            }
+            if clean_patch.is_empty() {
+                not_updated.insert(
+                    id_str,
+                    json!({
+                        "type": "invalidPatch",
+                        "description": "no updatable fields in patch",
+                    }),
+                );
+                continue;
+            }
+
             match backend
-                .update_object::<ChatContact>(caller, &account_id, &id, patch)
+                .update_object::<ChatContact>(
+                    caller,
+                    &account_id,
+                    &id,
+                    PatchObject::from_map(clean_patch),
+                )
                 .await
             {
                 Ok(Some(obj)) => {
