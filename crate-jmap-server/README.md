@@ -195,6 +195,7 @@ and the typed access paths a real server would consume.
 
 ## Gotchas
 
+- **`CallerCtx` is cloned per method call.** `Dispatcher::dispatch` performs one `Clone` of the `CallerCtx` value per method in the batch, plus two `String` clones for the method name and call_id (bd:JMAP-jfia.8). Heavy `CallerCtx` values — auth profiles, permission vectors, session tokens, anything embedding more than a pointer or a small POD — should be wrapped in `Arc<T>` so the per-call clone is a pointer bump rather than a deep copy. A 16-call batch over a non-`Arc`-wrapped `CallerCtx` pays 16 deep clones.
 - **`sortAsTree` and `filterAsTree` not implemented.** The generic `handle_query` handler rejects these arguments with `unsupportedSort`/`unsupportedFilter` rather than silently ignoring them. Tree-mode traversal is not implemented.
 - **In-process filtering only.** `handle_query` fetches all objects and filters them in-process. For large accounts this is O(N) in the number of objects. Backends that can push filtering to storage should implement `query_objects` with real filter logic rather than relying on the generic handler.
 - **Single-process only.** The dispatcher holds no shared state between requests and is safe to use concurrently; however, there is no built-in clustering support. State consistency across multiple processes is the backend's responsibility.
