@@ -778,6 +778,26 @@ fn parse_base_url(base_url: &str) -> Result<url::Url, ClientError> {
     }
     let parsed = url::Url::parse(base_url)
         .map_err(|e| ClientError::InvalidArgument(format!("base_url is not a valid URL: {e}")))?;
+    // Reject RFC 3986 user-info (`user:password@host`) before any further
+    // validation. The url crate's Display impl echoes user-info verbatim
+    // (lossless-round-trip, NOT safe-display — RFC 3986 §7.5 warns
+    // against the latter), so an unrejected user-info value would surface
+    // through every subsequent error message, every reqwest::Error's
+    // url() field, and any tracing instrumentation that captures the
+    // base URL or a derived ClientError. JMAP authenticates via the
+    // Authorization header (AuthProvider trait), not URL user-info; the
+    // user-info component has no legitimate use here (bd:JMAP-6r7c.58).
+    //
+    // The error message DOES NOT echo `base_url` back — doing so would
+    // route the password into the error chain we are trying to keep it
+    // out of.
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        return Err(ClientError::InvalidArgument(
+            "base_url must not contain user-info (`user:password@host`); pass credentials via \
+             AuthProvider instead"
+                .into(),
+        ));
+    }
     let scheme = parsed.scheme();
     if scheme != "http" && scheme != "https" {
         return Err(ClientError::InvalidArgument(format!(
