@@ -44,7 +44,8 @@ pub use handlers::{
     SERVER_FAIL_INTERNAL_DESC,
 };
 pub use helpers::{
-    extract_account_id, json_merge_patch, not_found_json, now_utc_string, ser, MergePatchError,
+    extract_account_id, json_merge_patch, not_found_json, now_utc_string, optional_arg, ser,
+    MergePatchError,
 };
 
 mod parse;

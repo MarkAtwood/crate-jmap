@@ -24,6 +24,42 @@ pub fn not_found_json(ids: &[Id]) -> Value {
     )
 }
 
+/// Extract an optional, deserializable argument from a method-arguments
+/// envelope (bd:JMAP-wlip.32).
+///
+/// Looks up `name` in `args`, removing it. The result is:
+///
+/// - `Ok(None)` if the key is absent OR is present with `Value::Null`
+///   (RFC 8620 §3.3 treats absent and explicit-null the same for
+///   optional fields).
+/// - `Ok(Some(value))` if the key is present and the value
+///   deserializes successfully into `T`.
+/// - `Err(invalid_arguments_with(name))` if the value is present but
+///   fails to deserialize. The error message is built by the caller-
+///   supplied `invalid_arguments_with` so the resulting `JmapError`
+///   carries a domain-specific description ("ids must be an Id
+///   array", "filter must be a Filter object", etc.).
+///
+/// Collapses six near-identical
+/// `match args.remove(...).unwrap_or(Value::Null) { Value::Null => None,
+/// v => Some(serde_json::from_value(v)...) }` blocks in `handlers.rs`
+/// into one-liners.
+pub fn optional_arg<T>(
+    args: &mut Map<String, Value>,
+    name: &str,
+    invalid_arguments_with: impl FnOnce() -> JmapError,
+) -> Result<Option<T>, JmapError>
+where
+    T: serde::de::DeserializeOwned,
+{
+    match args.remove(name).unwrap_or(Value::Null) {
+        Value::Null => Ok(None),
+        v => Ok(Some(
+            serde_json::from_value(v).map_err(|_| invalid_arguments_with())?,
+        )),
+    }
+}
+
 /// Extract `accountId` from a JMAP method arguments envelope and return both
 /// the extracted [`Id`] and the remaining argument map.
 ///
