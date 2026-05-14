@@ -211,16 +211,22 @@ impl SetError {
     /// (bd:JMAP-wlip.3). Release builds preserve the current
     /// no-validation behaviour to avoid silent runtime cost on a
     /// correctly-written caller.
-    pub fn with_extra(mut self, key: &str, value: serde_json::Value) -> Self {
+    pub fn with_extra(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+        // bd:JMAP-jfia.32 — accept impl Into<String> to match the
+        // sibling builders on the same type (with_description,
+        // with_properties, with_invalid_recipients). Existing
+        // &str-passing call sites compile unchanged via
+        // impl From<&str> for String.
+        let key: String = key.into();
         debug_assert!(
-            !RESERVED_SET_ERROR_WIRE_NAMES.contains(&key),
+            !RESERVED_SET_ERROR_WIRE_NAMES.contains(&key.as_str()),
             "SetError::with_extra called with reserved wire-name key {key:?} \
              — would produce a malformed JSON SetError on the wire. \
              Choose an extension-namespace key that does not collide \
              with the typed-field wire names \
              ({RESERVED_SET_ERROR_WIRE_NAMES:?})."
         );
-        self.extra.insert(key.to_owned(), value);
+        self.extra.insert(key, value);
         self
     }
 
@@ -494,7 +500,14 @@ impl std::fmt::Display for SetErrorType {
 
 impl serde::Serialize for SetErrorType {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(&self.to_string())
+        // bd:JMAP-jfia.33 — collect_str avoids the per-call String
+        // allocation that `s.serialize_str(&self.to_string())` does.
+        // serde_json's collect_str uses a stack buffer for short
+        // strings; every SetErrorType variant's Display is short
+        // enough to fit. The round-trip oracle
+        // set_error_type_all_known_variants_round_trip pins
+        // wire-format identity.
+        s.collect_str(self)
     }
 }
 
