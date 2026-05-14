@@ -58,10 +58,124 @@ pub use jmap_sharing_types::backend::{PrincipalProperty, ShareNotificationProper
 ///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl SharingBackend>` when sharing across tasks.
+///
+/// # Caller identity (foundation seam)
+///
+/// Per the workspace AGENTS.md "Caller identity (foundation seam)" rule,
+/// this trait reads caller identity exclusively via
+/// [`JmapBackend::principal_id`] on the supertrait. The returned
+/// `Option<&jmap_types::Id>` is the canonical input to every per-object
+/// permission decision made inside `create_object`, `update_object`, and
+/// `destroy_object` — there is no alternate path, no
+/// `caller_identity_blob()` escape hatch, and no generic claims map.
+///
+/// **Production deployments MUST override `principal_id`.** The default
+/// supertrait impl returns `None`, which signals "this deployment does
+/// not honor identity-dependent JMAP semantics". A backend that leaves
+/// the default in place CANNOT correctly implement RFC 9670 `myRights`
+/// semantics: every Principal / ShareNotification read SHOULD be
+/// authorized against the caller's effective rights on the target
+/// principal, and a `None` caller removes the authorization input.
+///
+/// **Single-user dev backends and test fixtures** may leave the default
+/// `None` impl in place. The reference [`memory::MemoryBackend`] does
+/// this and is correct for its single-user, in-memory, demonstration-
+/// only use case.
+///
+/// This crate is the canonical source of truth for the `myRights`
+/// field that other extension-server crates (mail, calendars, tasks,
+/// contacts, filenode) propagate to their own shareable objects.
+/// The contract above is therefore workspace-load-bearing, not a
+/// sharing-server-internal concern.
+///
+/// # Permission enforcement (backend canonical)
+///
+/// Per the workspace AGENTS.md "Permission enforcement: backend
+/// canonical" rule, handlers do NO permission checking. Defense-in-
+/// depth handler-side pre-checks are allowed but the backend MUST
+/// re-verify atomically with the mutation. A handler that "trusts" a
+/// handler-side check and skips the backend re-check is a bug. The
+/// per-method docs on `create_object`, `update_object`, and
+/// `destroy_object` restate this contract; the foundation rule lives
+/// here.
+///
+/// [`memory::MemoryBackend`]: crate::memory::MemoryBackend
 pub trait SharingBackend: JmapBackend {
     /// Create a new object.
     ///
     /// Returns `(assigned_id, created_object)` on success.
+    ///
+    /// # Error contract (RFC 8620 §5.3)
+    ///
+    /// - **Caller lacks permission to create on `account_id`**: return
+    ///   `BackendSetError::SetError(SetError::new(SetErrorType::Forbidden))`.
+    ///   Per the workspace AGENTS.md "Permission enforcement: backend
+    ///   canonical" rule, this trait method is the canonical point of
+    ///   enforcement for create-time permission checks. Handlers do NOT
+    ///   re-verify permission; a backend that omits the check ships a
+    ///   security bug.
+    /// - **`account_id` unknown**: the handler at
+    ///   `principal.rs::handle_principal_set` /
+    ///   `notification.rs::handle_share_notification_set` calls
+    ///   [`JmapBackend::account_exists`] before reaching this method
+    ///   and returns `accountNotFound` at the top level on a `false`
+    ///   result. Backend implementors MAY treat `account_id` as
+    ///   "verified to exist" when invoked through the standard
+    ///   handler path, but defense-in-depth (returning `Forbidden`
+    ///   or surfacing a typed storage error for an unknown account)
+    ///   is RECOMMENDED.
+    /// - **Submitted property values violate the object's schema**:
+    ///   return `BackendSetError::SetError(SetError::new(
+    ///   SetErrorType::InvalidProperties))`, optionally populated
+    ///   with the offending property names via
+    ///   [`SetError::with_properties`](jmap_server::SetError).
+    ///   The handler's deserialize-into-`O` pre-check at
+    ///   `principal.rs::handle_principal_set` (`invalidProperties`
+    ///   wire mapping) catches malformed JSON shapes; the backend is
+    ///   responsible for the semantic-validation tier (uniqueness,
+    ///   cross-field consistency, FK references).
+    /// - **Per-account or per-system quota exceeded**: return
+    ///   `BackendSetError::SetError(SetError::new(SetErrorType::OverQuota))`.
+    /// - **Singleton-class object already exists** (RFC 8620 §5.3
+    ///   `singleton`): return
+    ///   `BackendSetError::SetError(SetError::new(SetErrorType::Singleton))`.
+    ///   None of the present RFC 9670 object types are singletons,
+    ///   but the contract admits the variant for future-spec
+    ///   compatibility.
+    /// - **Other storage failure**: return
+    ///   `BackendSetError::Other(your_error_type)`; the handler maps
+    ///   this to a `serverFail` SetError on the wire.
+    ///
+    /// # State-mutation contract
+    ///
+    /// - The state counter (`get_state::<O>`) MUST advance only if the
+    ///   create commits. A failure path (Forbidden, InvalidProperties,
+    ///   OverQuota, storage error) MUST leave the state unchanged.
+    /// - The change log (`get_changes::<O>`) MUST record a `created`
+    ///   entry for the assigned id atomically with the state advance.
+    ///   A reader calling `/changes` after a successful create MUST
+    ///   see the id in the `created` array.
+    /// - On the round-trip-deserialize failure path (see below), the
+    ///   backend MUST NOT have committed any of the above.
+    ///
+    /// # Atomicity ordering — deserialize before commit
+    ///
+    /// Backends that use the recommended serialize-mutate-deserialize
+    /// round-trip to enforce the id invariant (see "Invariant" below)
+    /// MUST perform the deserialize step BEFORE committing any
+    /// storage mutation, state-counter advance, or change-log entry.
+    /// A backend that commits storage first and deserializes after
+    /// leaks a silent state advance whenever the deserialize fails:
+    /// the on-wire state counter moves but no observable object
+    /// appears, and `/changes` reports a `created` id that
+    /// `/get` cannot resolve.
+    ///
+    /// The reference [`memory::MemoryBackend::create_object`]
+    /// (`src/memory.rs`) demonstrates the correct ordering: serialize,
+    /// patch `val["id"]`, deserialize into `O`, THEN advance state,
+    /// THEN insert into the objects map, THEN push the change-log
+    /// entry. Any earlier failure surfaces as
+    /// `BackendSetError::Other(...)` without side effects.
     ///
     /// # `create_id` parameter — passthrough only
     ///
@@ -129,11 +243,97 @@ pub trait SharingBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<(jmap_types::Id, O), BackendSetError<Self::Error>>>
            + Send;
 
-    /// Apply a partial update (patch) to an existing Principal.
+    /// Apply a partial update (patch) to an existing object of type `O`.
     ///
-    /// Returns `Some(updated_object)` if the backend modified any properties
-    /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
-    /// or `None` if the patch was applied verbatim.
+    /// `O` is generic over [`SetObject`]; for this crate that is
+    /// [`Principal`](jmap_sharing_types::Principal) or
+    /// [`ShareNotification`](jmap_sharing_types::ShareNotification).
+    /// The current handler at `notification.rs::handle_share_notification_set`
+    /// short-circuits `ShareNotification` updates with `forbidden` per
+    /// RFC 9670 §3.3 before reaching the backend, but the trait shape
+    /// remains generic.
+    ///
+    /// # Return value
+    ///
+    /// - `Ok(Some(updated_object))`: the backend modified properties
+    ///   beyond what the client requested (RFC 8620 §5.3 server-set
+    ///   field echo). The handler serializes the returned `O` into
+    ///   the `updated` map.
+    /// - `Ok(None)`: the patch applied verbatim. The handler stores
+    ///   `null` for the id in the `updated` map per RFC 8620 §5.3.
+    ///
+    /// # Error contract (RFC 8620 §5.3)
+    ///
+    /// - **`id` not found in `account_id`**: return
+    ///   `BackendSetError::SetError(SetError::new(SetErrorType::NotFound))`.
+    ///   The handler maps this verbatim into `notUpdated[id].type`.
+    /// - **Caller lacks permission to update `id`**: return
+    ///   `BackendSetError::SetError(SetError::new(SetErrorType::Forbidden))`.
+    ///   Per the workspace AGENTS.md "Permission enforcement: backend
+    ///   canonical" rule, this trait method is the canonical point of
+    ///   enforcement for per-object update permission. Handlers do NOT
+    ///   re-verify permission; a backend that omits the check ships a
+    ///   security bug.
+    /// - **`account_id` unknown**: the handler at
+    ///   `principal.rs::handle_principal_set` /
+    ///   `notification.rs::handle_share_notification_set` calls
+    ///   [`JmapBackend::account_exists`] before reaching this method
+    ///   and returns `accountNotFound` at the top level on a `false`
+    ///   result. Backend implementors MAY treat `account_id` as
+    ///   "verified to exist" when invoked through the standard
+    ///   handler path, but defense-in-depth (returning `NotFound`
+    ///   for an unknown account, as the reference
+    ///   [`memory::MemoryBackend`] does) is RECOMMENDED.
+    /// - **Patch shape is malformed** (e.g. JSON Pointer references
+    ///   a non-existent path, or a leaf assignment violates the
+    ///   target field's type): return
+    ///   `BackendSetError::SetError(SetError::new(
+    ///   SetErrorType::InvalidPatch))`. The handler's
+    ///   `PatchObject` deserialize pre-check catches structurally
+    ///   invalid JSON; the backend is responsible for the semantic
+    ///   tier (referenced paths exist, value types match).
+    /// - **Patched values violate the object's schema**: return
+    ///   `BackendSetError::SetError(SetError::new(
+    ///   SetErrorType::InvalidProperties))`, optionally populated
+    ///   with the offending property names via
+    ///   [`SetError::with_properties`](jmap_server::SetError).
+    /// - **Per-account or per-system quota exceeded by the patch**:
+    ///   return
+    ///   `BackendSetError::SetError(SetError::new(SetErrorType::OverQuota))`.
+    /// - **`id` is scheduled for destroy in the same `/set` call**
+    ///   (RFC 8620 §5.3 `willDestroy`): return
+    ///   `BackendSetError::SetError(SetError::new(SetErrorType::WillDestroy))`.
+    ///   The handler does NOT reorder operations; backends that
+    ///   detect this race may surface it here.
+    /// - **Other storage failure**: return
+    ///   `BackendSetError::Other(your_error_type)`; the handler maps
+    ///   this to a `serverFail` SetError on the wire.
+    ///
+    /// # State-mutation contract
+    ///
+    /// - The state counter (`get_state::<O>`) MUST advance only if
+    ///   the update commits. A failure path (NotFound, Forbidden,
+    ///   InvalidPatch, InvalidProperties, OverQuota, storage error)
+    ///   MUST leave the state unchanged.
+    /// - The change log (`get_changes::<O>`) MUST record an
+    ///   `updated` entry for the id atomically with the state
+    ///   advance. A reader calling `/changes` after a successful
+    ///   update MUST see the id in the `updated` array.
+    /// - When the return value is `Ok(None)` (patch applied
+    ///   verbatim, no server-side property echo), the state counter
+    ///   and change log MUST still advance — `Ok(None)` is a
+    ///   wire-shape signal to the handler, NOT a "nothing
+    ///   happened" signal.
+    ///
+    /// # Idempotency
+    ///
+    /// Repeated identical patches against the same id produce a new
+    /// state advance and a new change-log `updated` entry each
+    /// time. RFC 8620 §5.3 does not require idempotency; this
+    /// matches the workspace convention shared with the canonical
+    /// `jmap-mail-server`.
+    ///
+    /// [`memory::MemoryBackend`]: crate::memory::MemoryBackend
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,

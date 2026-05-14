@@ -661,19 +661,20 @@ impl SharingBackend for MemoryBackend {
             )));
         }
 
-        let existing = inner
+        // `.cloned()` is deliberate: it preserves atomic-on-failure
+        // semantics. The patch is applied to the local clone first,
+        // and only the successful result is written back to storage.
+        // A failed `json_merge_patch` discards the partially-mutated
+        // local without touching the stored value. The canonical
+        // `jmap-mail-server::MemoryBackend` uses `.get_mut` and
+        // documents that it does NOT preserve this property
+        // (memory.rs:1053-1057). The sharing-server sweep (4 sibling
+        // backends carry the same shape) should preserve the clone.
+        let mut current = inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .get(id)
-            .cloned();
-
-        let mut current = match existing {
-            Some(v) => v,
-            None => {
-                return Err(BackendSetError::SetError(SetError::new(
-                    SetErrorType::NotFound,
-                )))
-            }
-        };
+            .cloned()
+            .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?;
 
         // Apply JSON Merge Patch (RFC 7396). A `MergePatchError::DepthExceeded`
         // return (bd:JMAP-wlip.1) surfaces as `SetErrorType::InvalidPatch` —

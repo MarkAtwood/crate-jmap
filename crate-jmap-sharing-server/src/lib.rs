@@ -35,7 +35,14 @@
 //!   in a minor release. Adding a required method is a breaking change for
 //!   downstream impls; the workspace will signal such changes via
 //!   CHANGELOG entries and (where practical) `#[deprecated]` warnings or
-//!   default-method bodies during a transition release.
+//!   default-method bodies during a transition release. Note: the trait
+//!   currently has no default-method bodies — every method materially
+//!   affects wire-protocol correctness and cannot be no-op-defaulted
+//!   without silently breaking the response shape, so this carve-out
+//!   applies only to future additions that can be given a sensible
+//!   default (e.g. capability probes, audit hooks). For methods that
+//!   cannot, a clean SemVer-breaking minor-release bump is the
+//!   transition path.
 //! - **`handle_*` functions** ([`handle_principal_set`] etc.): the
 //!   signatures are stable within a minor version; argument shapes match
 //!   the dispatcher's `JmapHandler` contract. Direct callers (consumers
@@ -303,7 +310,6 @@ pub(crate) mod test_support {
         /// through another `Arc::clone()` of the same backend without
         /// reshaping the test.
         pub fn add_notification(&self, account_id: &str, notif_id: &str) {
-            use jmap_sharing_types::ShareNotification;
             // Use serde_json deserialization — types are #[non_exhaustive] and
             // cannot be constructed with struct literals outside the defining crate.
             let notif: ShareNotification = serde_json::from_value(serde_json::json!({
@@ -429,12 +435,16 @@ pub(crate) mod test_support {
             let server_id = Id::from("mock-id-1");
             let mut val = serde_json::to_value(&obj)
                 .map_err(|e| BackendSetError::Other(MockError(format!("serialize: {e}"))))?;
-            if let serde_json::Value::Object(ref mut m) = val {
-                m.insert(
-                    "id".to_owned(),
-                    serde_json::Value::String(server_id.as_ref().to_owned()),
-                );
-            }
+            // Direct IndexMut form matches the canonical MemoryBackend
+            // shape (memory.rs::create_object). The previous defensive
+            // `if let Value::Object` shape silently skipped the id
+            // insertion when `val` was not an Object, which would
+            // violate the SharingBackend::create_object id-on-O
+            // invariant (bd:JMAP-3t94.17) without surfacing the
+            // contract break. The IndexMut form panics loudly on a
+            // non-object — the right failure mode for a fixture that
+            // exists to teach the contract.
+            val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
             let stored_obj: O = O::deserialize(&val).map_err(|e| {
                 BackendSetError::Other(MockError(format!("deserialize after create: {e}")))
             })?;
@@ -461,13 +471,10 @@ pub(crate) mod test_support {
             id: &Id,
         ) -> Result<(), BackendSetError<Self::Error>> {
             let mut guard = self.state.lock().unwrap();
-            let acct = match guard.get_mut(account_id.as_ref()) {
-                Some(a) => a,
-                None => {
-                    return Err(BackendSetError::SetError(SetError::new(
-                        SetErrorType::NotFound,
-                    )))
-                }
+            let Some(acct) = guard.get_mut(account_id.as_ref()) else {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::NotFound,
+                )));
             };
 
             // Dispatch on the compile-time-known type name rather than
