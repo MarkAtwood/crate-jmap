@@ -94,7 +94,7 @@ pub trait TasksBackend: JmapBackend {
     /// Returns true if the given task list contains at least one task.
     ///
     /// Called by TaskList/set destroy when onDestroyRemoveTasks is false.
-    /// If this returns true, the destroy is rejected with taskListHasTasks.
+    /// If this returns true, the destroy is rejected with taskListHasTask.
     fn task_list_has_tasks(
         &self, account_id: &Id, task_list_id: &Id,
     ) -> impl Future<Output = bool> + Send;
@@ -140,7 +140,7 @@ pub trait TasksBackend: JmapBackend {
 `BackendSetError<E>` is an enum over two variants:
 
 - `BackendSetError::SetError(SetError)` — a semantic RFC 8620 SetError
-  (`notFound`, `invalidProperties`, `forbidden`, `taskListHasTasks`, etc.)
+  (`notFound`, `invalidProperties`, `forbidden`, `taskListHasTask`, etc.)
 - `BackendSetError::Other(E)` — a storage-layer error that becomes a `serverFail` response
 
 ## How it works
@@ -181,7 +181,7 @@ backend overrides this method.
 
 When `onDestroyRemoveTasks: false` (the default) and the task list being destroyed contains
 tasks, `task_list_has_tasks` is called. If it returns `true`, the destroy is rejected with
-`taskListHasTasks`. When `onDestroyRemoveTasks: true`, the handler cascades the destroy to
+`taskListHasTask`. When `onDestroyRemoveTasks: true`, the handler cascades the destroy to
 all tasks in the list before destroying the list itself.
 
 ## CallerCtx

@@ -627,12 +627,13 @@ mod tests {
         );
     }
 
-    /// Oracle: TaskList/set destroy with tasks returns taskListHasTasks error.
+    /// Oracle: TaskList/set destroy with tasks returns taskListHasTask error
+    /// (draft-ietf-jmap-tasks-06 §3.4).
     ///
     /// When `onDestroyRemoveTasks` is false (default) and the task list has tasks,
-    /// the destroy should fail with a custom `taskListHasTasks` error.
+    /// the destroy should fail with a custom `taskListHasTask` error.
     #[tokio::test]
-    async fn task_list_set_destroy_with_tasks_returns_task_list_has_tasks() {
+    async fn task_list_set_destroy_with_tasks_returns_task_list_has_task() {
         let mut backend = MockBackend::new_with_account("acc1");
         backend.add_task_list_with_task("acc1", "list1");
         let backend = Arc::new(backend);
@@ -656,8 +657,8 @@ mod tests {
             "must not be a top-level error: {args}"
         );
         assert_eq!(
-            args["notDestroyed"]["list1"]["type"], "taskListHasTasks",
-            "must return taskListHasTasks when list has tasks: {args}"
+            args["notDestroyed"]["list1"]["type"], "taskListHasTask",
+            "must return taskListHasTask when list has tasks: {args}"
         );
     }
 

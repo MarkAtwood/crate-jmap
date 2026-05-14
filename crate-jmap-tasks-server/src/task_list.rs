@@ -2,7 +2,7 @@
 //!
 //! TaskList/set has a special `onDestroyRemoveTasks` argument: if false
 //! (default) and the list contains tasks, the destroy is rejected with
-//! `taskListHasTasks`. If true, the backend destroys the tasks along with
+//! `taskListHasTask`. If true, the backend destroys the tasks along with
 //! the list.
 
 use jmap_tasks_types::TaskList;
@@ -48,7 +48,7 @@ pub async fn handle_task_list_changes<B: TasksBackend>(
 /// The `onDestroyRemoveTasks` argument (default: `false`) controls whether
 /// tasks in a task list are cascade-destroyed when the list is destroyed.
 /// If `false` and the list has tasks, the destroy is rejected with a
-/// `taskListHasTasks` SetError.
+/// `taskListHasTask` SetError.
 pub async fn handle_task_list_set<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -244,7 +244,7 @@ pub async fn handle_task_list_set<B: TasksBackend>(
             if !on_destroy_remove_tasks
                 && backend.task_list_has_tasks(caller, &account_id, &id).await
             {
-                not_destroyed.insert(id_str, json!({ "type": "taskListHasTasks" }));
+                not_destroyed.insert(id_str, json!({ "type": "taskListHasTask" }));
                 continue;
             }
 
@@ -318,9 +318,9 @@ mod tests {
     }
 
     /// Oracle: TaskList/set destroy with onDestroyRemoveTasks=false and tasks
-    /// in the list → taskListHasTasks error.
+    /// in the list → taskListHasTask error (draft-ietf-jmap-tasks-06 §3.4).
     #[tokio::test]
-    async fn set_destroy_with_tasks_returns_task_list_has_tasks() {
+    async fn set_destroy_with_tasks_returns_task_list_has_task() {
         let mut backend = MockBackend::new_with_account("acc1");
         backend.add_task_list_with_task("acc1", "list1");
 
@@ -334,8 +334,8 @@ mod tests {
             .expect("must not return top-level error");
 
         assert_eq!(
-            resp["notDestroyed"]["list1"]["type"], "taskListHasTasks",
-            "must return taskListHasTasks: {resp}"
+            resp["notDestroyed"]["list1"]["type"], "taskListHasTask",
+            "must return taskListHasTask: {resp}"
         );
         assert!(
             resp["destroyed"].is_null(),

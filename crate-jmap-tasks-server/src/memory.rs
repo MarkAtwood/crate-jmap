@@ -112,7 +112,7 @@ struct ChangeEntry {
 #[derive(Default, Clone)]
 struct AccountAux {
     /// Set of TaskList ids that have at least one Task attached
-    /// (drives `TaskList/set` destroy rejection with `taskListHasTasks`
+    /// (drives `TaskList/set` destroy rejection with `taskListHasTask`
     /// per draft-ietf-jmap-tasks-06 §3.4 when `onDestroyRemoveTasks` is
     /// `false`). Maintained as a derived index over the Task store;
     /// kept in sync by `create_object` / `update_object` / `destroy_object`
