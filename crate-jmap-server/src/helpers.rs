@@ -190,7 +190,17 @@ pub fn now_utc_string() -> UTCDate {
     let m = (secs / 60).rem_euclid(60);
     let h = (secs / 3600).rem_euclid(24);
     let days = secs.div_euclid(86400);
-    let (year, month, day) = civil_from_days(days);
+    // civil_from_days returns None when the algorithm's year value
+    // overflows i32 (bd:JMAP-jfia.2). The outer i64::MAX-secs sentinel
+    // above only catches u64-overflow into i64; corrupted clocks whose
+    // secs land between the i32-year boundary (~5.7e6 years from epoch)
+    // and i64::MAX still reach civil_from_days. Fall through to the same
+    // sentinel string as the other clock-out-of-range arms above so the
+    // function's documented "returns a string rather than panics"
+    // contract holds across the entire i64 input range.
+    let Some((year, month, day)) = civil_from_days(days) else {
+        return UTCDate::from("clock-out-of-range");
+    };
 
     UTCDate::from(format!(
         "{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}.{millis:03}Z"
@@ -198,20 +208,27 @@ pub fn now_utc_string() -> UTCDate {
 }
 
 /// Convert a count of days since the Unix epoch (1970-01-01) to a proleptic
-/// Gregorian (year, month, day) triple.
+/// Gregorian (year, month, day) triple, or `None` if the resulting year
+/// does not fit in `i32`.
 ///
 /// Algorithm by Howard Hinnant (public domain):
 /// <https://howardhinnant.github.io/date_algorithms.html>
 ///
-/// The output narrowing casts use `try_from(...).expect(...)` to document
-/// the algorithm-guaranteed ranges (bd:JMAP-wlip.27): year fits in i32 for
-/// any input within i64's full range (z is added to 719_468 and divided by
-/// 146_097 in `era`, so y is bounded by i64::MAX / 146_097 ≈ ±6.3e13 which
-/// fits in i32 only for inputs already constrained to ±2.1e9 years —
-/// callers driven by SystemTime cannot exceed that, so the expect documents
-/// an invariant rather than a real failure mode); month is in [1, 12] and
-/// day is in [1, 31] by the algorithm's modular structure.
-fn civil_from_days(z: i64) -> (i32, u8, u8) {
+/// The year-narrowing cast is fallible because the algorithm's intermediate
+/// `y` value is bounded by `i64::MAX / 146_097 ≈ ±6.3e13`, only a subset
+/// of which fits in `i32` (~±2.1e9 years). For a sane `SystemTime`-derived
+/// input we stay well inside `i32::MIN..=i32::MAX`, but the outer
+/// `now_utc_string` only rejects `u64` seconds exceeding `i64::MAX`
+/// (bd:JMAP-wlip.27 sentinel) — inputs between the i32-year boundary
+/// (~5.7e6 years from epoch) and that sentinel reach this function and
+/// previously panicked the dispatcher worker (bd:JMAP-jfia.2). Returning
+/// `None` lets the caller fall through to its own sentinel rather than
+/// taking down the task.
+///
+/// Month and day cannot fail: the algorithm's modular structure pins them
+/// to `[1, 12]` and `[1, 31]` respectively, narrow casts handled with
+/// `try_from(...).expect(...)` documenting the invariant.
+fn civil_from_days(z: i64) -> Option<(i32, u8, u8)> {
     let z = z + 719_468;
     let era: i64 = if z >= 0 { z } else { z - 146_096 } / 146_097;
     let doe = z - era * 146_097; // [0, 146096]
@@ -222,11 +239,11 @@ fn civil_from_days(z: i64) -> (i32, u8, u8) {
     let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
     let mo = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
     let yr = if mo <= 2 { y + 1 } else { y };
-    (
-        i32::try_from(yr).expect("year bounded by SystemTime-driven input to i32"),
+    Some((
+        i32::try_from(yr).ok()?,
         u8::try_from(mo).expect("month bounded by algorithm to [1, 12]"),
         u8::try_from(d).expect("day bounded by algorithm to [1, 31]"),
-    )
+    ))
 }
 
 /// Maximum recursion depth for [`json_merge_patch`] application.
@@ -419,10 +436,77 @@ mod tests {
         for &(days, expected) in cases {
             assert_eq!(
                 civil_from_days(days),
-                expected,
+                Some(expected),
                 "civil_from_days({days}) mismatch"
             );
         }
+    }
+
+    /// Oracle (bd:JMAP-jfia.2): civil_from_days MUST return None rather
+    /// than panic on inputs whose computed year overflows i32. The
+    /// Hinnant algorithm's intermediate `y = yoe + era * 400` value is
+    /// bounded by `i64::MAX / 146_097 ≈ ±6.3e13`, only a thin slice of
+    /// which fits in i32. The outer `now_utc_string` sentinel only
+    /// catches u64 seconds exceeding `i64::MAX`, so corrupted-clock
+    /// inputs between the i32-year boundary and i64::MAX reach this
+    /// function. A panic here surfaces as serverFail under
+    /// dispatcher task::spawn isolation — degraded, but a contract
+    /// violation versus the function's documented "returns a sentinel
+    /// string" behaviour.
+    ///
+    /// Test vectors: the maximum days-from-epoch derived from
+    /// i64::MAX seconds (the regime that reaches civil_from_days
+    /// after passing the outer u64→i64 sentinel), and the symmetric
+    /// negative case. These years are deep enough into the i64
+    /// algorithm range to definitely overflow i32. Plus a
+    /// non-overflowing positive control just below the threshold to
+    /// prove the boundary check fires only when warranted.
+    #[test]
+    fn civil_from_days_returns_none_on_year_overflow() {
+        // i64::MAX / 86400 ≈ 1.07e14 days → year ≈ 2.92e11, well past i32::MAX (~2.15e9).
+        let max_days = i64::MAX / 86400;
+        assert_eq!(
+            civil_from_days(max_days),
+            None,
+            "i64::MAX / 86400 days must overflow i32 year"
+        );
+
+        // i64::MIN / 86400 ≈ -1.07e14 days — symmetric negative case.
+        let min_days = i64::MIN / 86400;
+        assert_eq!(
+            civil_from_days(min_days),
+            None,
+            "i64::MIN / 86400 days must overflow i32 year"
+        );
+
+        // Positive control: a far-future but i32-fitting year should
+        // still succeed. Year ~58_798_075 (from 10 * i32::MAX days)
+        // fits in i32 with room to spare, so this MUST return Some.
+        let year_58m_days = 10_i64 * i64::from(i32::MAX);
+        let result = civil_from_days(year_58m_days);
+        assert!(
+            result.is_some(),
+            "i32-fitting year must return Some; got {result:?}"
+        );
+    }
+
+    /// Oracle (bd:JMAP-jfia.2): now_utc_string MUST return the
+    /// "clock-out-of-range" sentinel string rather than panic when
+    /// civil_from_days reports a year overflow. We cannot easily mock
+    /// SystemTime, so this test asserts the contract indirectly by
+    /// confirming the function never panics on a real clock and that
+    /// the returned wire shape is either the 24-char timestamp form or
+    /// the sentinel — never an empty string, never a partial format,
+    /// never a panic message. The civil_from_days_returns_none_on_year_overflow
+    /// test above pins the underlying behaviour.
+    #[test]
+    fn now_utc_string_never_panics() {
+        let dt = now_utc_string();
+        let s: &str = dt.as_ref();
+        assert!(
+            s.len() == 24 || s == "clock-out-of-range",
+            "now_utc_string returned unexpected shape: {s:?}"
+        );
     }
 
     #[test]
