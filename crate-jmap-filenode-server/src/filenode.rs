@@ -35,23 +35,27 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
         .get("fetchParents")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let (account_id, args_map) = extract_account_id(args)?;
 
-    // Reconstitute the args object for the generic handler. The generic helper
-    // re-parses accountId itself, which is fine — the duplicate parse is cheap.
-    let mut reconstituted = args_map;
-    reconstituted.insert(
-        "accountId".to_owned(),
-        Value::String(account_id.as_ref().to_owned()),
-    );
-    let (mut response, tail) = jmap_server::handlers::handle_get::<FileNode, B>(
-        backend,
-        caller,
-        Value::Object(reconstituted),
-    )
-    .await?;
+    // Delegate to the generic /get handler. We let it own account_id
+    // parsing — the response carries accountId back, so the
+    // post-processing below extracts it from there rather than
+    // duplicating the parse upfront. Matches the canonical
+    // jmap-mail-server pass-through pattern.
+    let (mut response, tail) =
+        jmap_server::handlers::handle_get::<FileNode, B>(backend, caller, args).await?;
 
     if fetch_parents {
+        // Recover account_id from the response shape the generic
+        // handler emitted. Bail out cleanly if missing (the generic
+        // handler always emits it on success; this is for refactor
+        // safety, not a real runtime case).
+        let Some(account_id) = response
+            .get("accountId")
+            .and_then(|v| v.as_str())
+            .map(Id::from)
+        else {
+            return Ok((response, tail));
+        };
         // Read phase: borrow the list immutably to collect ids of nodes
         // already in the response. The immutable borrow ends with this
         // block before the .await on get_ancestors, so the later
@@ -1263,27 +1267,24 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
     // Extract depth before delegating — the generic handler strips unrecognised args.
     let depth: u64 = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(0);
 
-    let (account_id, args_map) = crate::helpers::extract_account_id(args)?;
-
-    // Reconstitute the args object for the generic handler. The generic helper
-    // re-parses accountId itself, which is fine — the duplicate parse is cheap.
-    let mut reconstituted = args_map;
-    reconstituted.insert(
-        "accountId".to_owned(),
-        Value::String(account_id.as_ref().to_owned()),
-    );
-
     // Delegate to the generic query handler for the first (level-0) result.
-    let (mut response, tail) = jmap_server::handlers::handle_query::<FileNode, B>(
-        backend,
-        caller,
-        Value::Object(reconstituted),
-    )
-    .await?;
+    // The generic handler owns account_id parsing; we recover it from
+    // the response shape if depth > 0 needs it for the recursion call.
+    // Matches the canonical jmap-mail-server pass-through pattern.
+    let (mut response, tail) =
+        jmap_server::handlers::handle_query::<FileNode, B>(backend, caller, args).await?;
 
     if depth == 0 {
         return Ok((response, tail));
     }
+
+    let Some(account_id) = response
+        .get("accountId")
+        .and_then(|v| v.as_str())
+        .map(Id::from)
+    else {
+        return Ok((response, tail));
+    };
 
     // depth > 0: use backend.query_subtree for recursive expansion.
     // query_subtree returns all descendant IDs up to `depth` levels deep.
