@@ -446,10 +446,42 @@ pub async fn handle_task_copy<B: TasksBackend>(
         ));
     }
 
+    // RFC 8620 §5.4: validate fromAccountId resolves to a real account;
+    // emit the spec-canonical `fromAccountNotFound` (not the generic
+    // `accountNotFound`) when it does not.
+    if !backend
+        .account_exists(caller, &from_account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::from_account_not_found());
+    }
+
+    // RFC 8620 §5.4 `ifFromInState`: if supplied, the source-account Task
+    // state MUST match; otherwise abort with stateMismatch. Probed before
+    // the destination state so a stale source guard fails fast.
+    if let Some(if_from_in_state) = args.get("ifFromInState").and_then(|v| v.as_str()) {
+        let from_state = backend
+            .get_state::<Task>(caller, &from_account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+        if if_from_in_state != from_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
+
     let old_state = backend
         .get_state::<Task>(caller, &to_account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
+
+    // RFC 8620 §5.4 `ifInState`: if supplied, the destination-account Task
+    // state MUST match; otherwise abort with stateMismatch.
+    if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
+        if if_in_state != old_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
@@ -608,6 +640,56 @@ mod tests {
         let result = handle_task_copy(&backend, &(), args).await;
         let err = result.expect_err("must reject same-account Task/copy per RFC 8620 §5.4");
         assert_eq!(err.error_type.as_str(), "invalidArguments");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — `fromAccountId` that does not resolve to a
+    /// real account returns the spec-canonical `fromAccountNotFound` error,
+    /// not the generic `accountNotFound`.
+    #[tokio::test]
+    async fn copy_unknown_from_account_returns_from_account_not_found() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "no-such-account",
+            "create": {}
+        });
+        let result = handle_task_copy(&backend, &(), args).await;
+        let err = result.expect_err("must reject unknown fromAccountId");
+        assert_eq!(err.error_type.as_str(), "fromAccountNotFound");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — `ifFromInState` mismatch on the source
+    /// account returns `stateMismatch`.
+    #[tokio::test]
+    async fn copy_if_from_in_state_mismatch_returns_state_mismatch() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc2",
+            "ifFromInState": "stale-source-state",
+            "create": {}
+        });
+        let result = handle_task_copy(&backend, &(), args).await;
+        let err = result.expect_err("must reject stale ifFromInState");
+        assert_eq!(err.error_type.as_str(), "stateMismatch");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — `ifInState` mismatch on the destination
+    /// account returns `stateMismatch`.
+    #[tokio::test]
+    async fn copy_if_in_state_mismatch_returns_state_mismatch() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc2",
+            "ifInState": "stale-destination-state",
+            "create": {}
+        });
+        let result = handle_task_copy(&backend, &(), args).await;
+        let err = result.expect_err("must reject stale ifInState");
+        assert_eq!(err.error_type.as_str(), "stateMismatch");
     }
 
     /// Oracle: Task/set empty destroy returns valid response.
