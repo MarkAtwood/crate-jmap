@@ -579,9 +579,10 @@ impl FileNodeBackend for MemoryBackend {
         };
 
         // Walk parent_id links upward from each id, collecting ancestors.
-        // Deduplicate by id string to avoid cycles or double-insertion.
-        let mut visited: std::collections::HashSet<String> =
-            ids.iter().map(|id| id.as_ref().to_owned()).collect();
+        // Deduplicate by Id (Hash + Eq) to avoid cycles or double-insertion.
+        // Consistent with the FileNodeBackend::query_subtree default impl in
+        // src/backend.rs, which also keys visited-sets by Id directly.
+        let mut visited: std::collections::HashSet<Id> = ids.iter().cloned().collect();
         let mut ancestors: Vec<FileNode> = Vec::new();
 
         // Start from the immediate parents of the requested ids.
@@ -596,11 +597,9 @@ impl FileNodeBackend for MemoryBackend {
             }
             let mut next_frontier: Vec<Id> = Vec::new();
             for parent_id in frontier.drain(..) {
-                let key = parent_id.as_ref().to_owned();
-                if visited.contains(&key) {
+                if !visited.insert(parent_id.clone()) {
                     continue;
                 }
-                visited.insert(key);
                 if let Some(node) = store.nodes.get(&parent_id) {
                     ancestors.push(node.clone());
                     if let Some(ref grandparent_id) = node.parent_id {
@@ -627,10 +626,11 @@ impl FileNodeBackend for MemoryBackend {
         };
 
         // BFS over all nodes, following nodes where parent_id == current frontier.
+        // Visited-set keys by Id (Hash + Eq) — consistent with the
+        // FileNodeBackend::query_subtree default impl in src/backend.rs.
         let mut result: Vec<Id> = Vec::new();
         let mut frontier: Vec<Id> = vec![id.clone()];
-        let mut visited: std::collections::HashSet<String> =
-            std::iter::once(id.as_ref().to_owned()).collect();
+        let mut visited: std::collections::HashSet<Id> = std::iter::once(id.clone()).collect();
 
         loop {
             if frontier.is_empty() {
@@ -639,12 +639,11 @@ impl FileNodeBackend for MemoryBackend {
             let mut next_frontier: Vec<Id> = Vec::new();
             for current_id in &frontier {
                 for node in store.nodes.values() {
-                    if node.parent_id.as_ref() == Some(current_id) {
-                        let child_key = node.id.as_ref().to_owned();
-                        if visited.insert(child_key) {
-                            result.push(node.id.clone());
-                            next_frontier.push(node.id.clone());
-                        }
+                    if node.parent_id.as_ref() == Some(current_id)
+                        && visited.insert(node.id.clone())
+                    {
+                        result.push(node.id.clone());
+                        next_frontier.push(node.id.clone());
                     }
                 }
             }
