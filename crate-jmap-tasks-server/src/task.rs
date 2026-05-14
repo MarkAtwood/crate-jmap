@@ -249,14 +249,32 @@ pub async fn handle_task_set<B: TasksBackend>(
 
             let id = Id::from(id_str.as_str());
 
-            // Route to the per-user update path if every non-null patch key is
-            // a per-user Task property (draft-tasks-06 §4.5.1).  Mixed patches
-            // (containing both per-user and shared keys) go to update_object.
+            // Route to the per-user update path when every patch key targets
+            // a per-user Task property (draft-tasks-06 §4.5.1).
+            //
+            // PatchObject keys are RFC 6901 JSON Pointers (RFC 8620 §5.3), so a
+            // per-user keyword toggle is sent as `keywords/done`, not bare
+            // `keywords`. Classify on the FIRST pointer segment (the substring
+            // before the first '/'), not the whole key.
+            //
+            // The null short-circuit that was here previously (`v.is_null() ||
+            // ...`) misclassified a delete-shared-property patch like
+            // `{"title": null}` as per-user-only, and an empty patch object as
+            // per-user-only via vacuous-truth on `iter().all`. Both go to
+            // `update_object` now: deletions are shared mutations, and an
+            // empty patch is a no-op that should not bump per-user state.
+            //
+            // Per-user property names (`keywords`, `color`, `freeBusyStatus`,
+            // `useDefaultAlerts`, `alerts`) contain no `/` or `~`, so a plain
+            // `split('/').next()` is correct without RFC 6901 unescaping.
             let is_per_user_only = patch_val
                 .as_object()
                 .map(|m| {
-                    m.iter()
-                        .all(|(k, v)| v.is_null() || B::is_per_user_property(k))
+                    !m.is_empty()
+                        && m.keys().all(|k| {
+                            let head = k.split('/').next().unwrap_or(k);
+                            B::is_per_user_property(head)
+                        })
                 })
                 .unwrap_or(false);
 
@@ -725,77 +743,143 @@ mod tests {
     }
 
     // ── per-user property routing (draft-tasks-06 §4.5.1) ──────────────────
+    //
+    // Routing is observable via MockBackend::per_user_calls — a counter that
+    // increments inside `update_task_per_user` and stays at 0 for paths that
+    // go to `update_object`. The earlier shape of these tests only asserted
+    // that no `invalidProperties` error came back, which would pass even if
+    // routing were inverted; tightened here to inspect the counter directly.
 
-    /// Oracle: draft-tasks-06 §4.5.1 — a patch containing only per-user
-    /// properties must be routed to update_task_per_user. The mock backend's
-    /// update_task_per_user delegates to update_object (which returns Forbidden),
-    /// so the response is the same as a regular update — the test verifies the
-    /// handler path is reached and does not short-circuit with invalidProperties.
+    /// Oracle: draft-tasks-06 §4.5.1 — a patch with only per-user properties
+    /// (bare keys, no JSON Pointer sub-paths) must route to update_task_per_user.
     #[tokio::test]
     async fn set_per_user_only_patch_routes_to_per_user_update() {
+        use std::sync::atomic::Ordering;
         let backend = MockBackend::new_with_account("acc1");
         // color is a per-user property (§4.5.1).
         let args = json!({
             "accountId": "acc1",
             "update": { "t1": { "color": "#ff0000" } }
         });
-        let (resp, _) = handle_task_set(&backend, &(), args)
+        let _ = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
-        // update_task_per_user → update_object → Forbidden from MockBackend.
-        // Verify: NOT in notUpdated with "invalidProperties" (the handler reached
-        // the backend path, not a pre-rejection).
-        if let Some(nu) = resp["notUpdated"].as_object() {
-            if let Some(err) = nu.get("t1") {
-                assert_ne!(
-                    err["type"].as_str(),
-                    Some("invalidProperties"),
-                    "per-user-only patch must not produce invalidProperties"
-                );
-            }
-        }
+        assert_eq!(
+            backend.per_user_calls.load(Ordering::Relaxed),
+            1,
+            "per-user-only patch must route to update_task_per_user"
+        );
     }
 
-    /// Oracle: draft-tasks-06 §4.5.1 — a patch containing a shared property
-    /// (title) must route to update_object, not update_task_per_user.
-    /// Same observable behaviour as above (both call update_object in mock),
-    /// but verifies the routing decision doesn't crash or misclassify.
+    /// Oracle: draft-tasks-06 §4.5.1 + RFC 8620 §5.3 — JSON-pointer patches on
+    /// per-user properties (e.g. `keywords/done: true` to toggle a single
+    /// keyword, `alerts/0/offset: null` to clear an alert sub-field) must still
+    /// route to update_task_per_user. The first pointer segment is the
+    /// property name; the implementation MUST classify on that segment, not
+    /// on the whole key.
+    #[tokio::test]
+    async fn set_per_user_json_pointer_patch_routes_to_per_user_update() {
+        use std::sync::atomic::Ordering;
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "update": {
+                "t1": {
+                    "keywords/done": true,
+                    "alerts/0/offset": null
+                }
+            }
+        });
+        let _ = handle_task_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+        assert_eq!(
+            backend.per_user_calls.load(Ordering::Relaxed),
+            1,
+            "JSON-pointer patch on per-user properties must route to update_task_per_user"
+        );
+    }
+
+    /// Oracle: draft-tasks-06 §4.5.1 — a patch on a shared property (title)
+    /// must route to update_object.
     #[tokio::test]
     async fn set_shared_property_patch_routes_to_update_object() {
+        use std::sync::atomic::Ordering;
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({
             "accountId": "acc1",
             "update": { "t1": { "title": "New title" } }
         });
-        let (resp, _) = handle_task_set(&backend, &(), args)
+        let _ = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
-        if let Some(nu) = resp["notUpdated"].as_object() {
-            if let Some(err) = nu.get("t1") {
-                assert_ne!(
-                    err["type"].as_str(),
-                    Some("invalidProperties"),
-                    "shared-property patch must not produce invalidProperties"
-                );
-            }
-        }
+        assert_eq!(
+            backend.per_user_calls.load(Ordering::Relaxed),
+            0,
+            "shared-property patch must NOT route to update_task_per_user"
+        );
+    }
+
+    /// Oracle: RFC 7396 / RFC 8620 §5.3 — `{"title": null}` is a delete-shared-
+    /// property mutation, NOT a per-user mutation. The previous routing
+    /// short-circuited on null values, misclassifying this as per-user-only.
+    #[tokio::test]
+    async fn set_shared_property_null_patch_routes_to_update_object() {
+        use std::sync::atomic::Ordering;
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "update": { "t1": { "title": null } }
+        });
+        let _ = handle_task_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+        assert_eq!(
+            backend.per_user_calls.load(Ordering::Relaxed),
+            0,
+            "delete-shared-property patch must NOT route to update_task_per_user"
+        );
     }
 
     /// Oracle: draft-tasks-06 §4.5.1 — a mixed patch (per-user + shared)
-    /// routes to update_object (not update_task_per_user).
+    /// routes to update_object, never update_task_per_user.
     #[tokio::test]
     async fn set_mixed_patch_routes_to_update_object() {
+        use std::sync::atomic::Ordering;
         let backend = MockBackend::new_with_account("acc1");
-        // color = per-user; title = shared → mixed patch must go to update_object.
         let args = json!({
             "accountId": "acc1",
             "update": { "t1": { "color": "#ff0000", "title": "New" } }
         });
-        let (resp, _) = handle_task_set(&backend, &(), args)
+        let _ = handle_task_set(&backend, &(), args)
             .await
             .expect("must not return top-level error");
-        // Verify no crash and handler reached backend normally.
-        assert_eq!(resp["accountId"], "acc1");
+        assert_eq!(
+            backend.per_user_calls.load(Ordering::Relaxed),
+            0,
+            "mixed patch must route to update_object"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.3 — an empty PatchObject is a no-op, not a per-user
+    /// mutation. The previous routing classified it as per-user-only via
+    /// vacuous-truth on `iter().all`.
+    #[tokio::test]
+    async fn set_empty_patch_routes_to_update_object() {
+        use std::sync::atomic::Ordering;
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "update": { "t1": {} }
+        });
+        let _ = handle_task_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+        assert_eq!(
+            backend.per_user_calls.load(Ordering::Relaxed),
+            0,
+            "empty patch must NOT route to update_task_per_user"
+        );
     }
 
     // ── isDraft fast-path (enforce_is_draft_atomically) ──────────────────────
