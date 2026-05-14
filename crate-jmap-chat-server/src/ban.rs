@@ -89,6 +89,16 @@ pub async fn handle_ban_set<B: ChatBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
+    // Resolve the caller's identity via the foundation seam so newly
+    // created bans carry `bannedBy = ChatContact.id` as required by
+    // draft-atwood-jmap-chat-00 §SpaceBan.bannedBy ("ChatContact.id of
+    // the Space member who issued this ban"). Falls back to `account_id`
+    // in single-user / no-identity-wired posture per workspace
+    // AGENTS.md "Caller identity (foundation seam)".
+    let caller_identity: Id = B::principal_id(caller)
+        .cloned()
+        .unwrap_or_else(|| account_id.clone());
+
     let old_state = backend
         .get_state::<SpaceBan>(caller, &account_id)
         .await
@@ -135,8 +145,10 @@ pub async fn handle_ban_set<B: ChatBackend>(
                 }
             };
 
-            // bannedBy is always the acting account — never from the client body.
-            let banned_by = account_id.clone();
+            // bannedBy is always the acting caller's resolved identity
+            // (foundation seam) — never from the client body. See
+            // draft-atwood-jmap-chat-00 §SpaceBan.bannedBy.
+            let banned_by = caller_identity.clone();
 
             let now_str = now_utc_string();
             let created_at = UTCDate::from(now_str.as_str());

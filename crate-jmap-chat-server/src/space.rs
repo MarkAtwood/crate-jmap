@@ -1261,6 +1261,29 @@ pub async fn handle_space_join<B: ChatBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, args) = extract_account_id(args)?;
 
+    // Resolve the caller's identity via the foundation seam
+    // (`JmapBackend::principal_id`) and use it for the
+    // `SpaceMember.id` we write. draft-atwood-jmap-chat-00
+    // §SpaceMember.id requires that field to carry the participant's
+    // `ChatContact.id` — i.e. the caller's authenticated userId, not
+    // the JMAP `accountId`. The reader-side membership checks in
+    // `non_member_non_previewable` and `project_space_for_caller`
+    // already compare against `principal_id`; writing `account_id`
+    // here desynchronizes the writer from the reader and is invisible
+    // only in single-user deployments where `account_id ==
+    // principal_id` collapses both into the same value.
+    //
+    // Single-user posture per workspace AGENTS.md "Caller identity
+    // (foundation seam)": a `None` return from `principal_id` means
+    // the backend has not wired identity; fall back to `account_id`
+    // so the kit's no-identity test fixtures and the testjig keep
+    // their existing behavior (the user IS the account in that
+    // posture). Multi-user production backends override `principal_id`
+    // and get spec-correct semantics.
+    let caller_identity: Id = B::principal_id(caller)
+        .cloned()
+        .unwrap_or_else(|| account_id.clone());
+
     let invite_code = args
         .get("inviteCode")
         .and_then(|v| v.as_str())
@@ -1392,7 +1415,7 @@ pub async fn handle_space_join<B: ChatBackend>(
             }
         };
 
-    // Add the calling account as a Space member.
+    // Add the calling user as a Space member.
     // This bypasses the SPACE_READONLY guard in handle_space_set — Space/join calling
     // update_object directly is correct: it is an atomic server operation, not a client patch.
     let now_str = now_utc_string();
@@ -1402,17 +1425,22 @@ pub async fn handle_space_join<B: ChatBackend>(
     // write below — two concurrent requests can both pass and create duplicate
     // member entries. The post-write duplicate detection below catches this in
     // the common case. Storage-layer unique constraints are the authoritative guard.
+    //
+    // Identity: compare against the caller's resolved identity (see top of
+    // function). Writer and reader must agree on which value identifies the
+    // member, or two distinct join paths can both succeed and the
+    // duplicate-detection logic below will misclassify.
     let already_member = new_members
         .iter()
-        .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()));
+        .any(|m| m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref()));
     if already_member {
         return Err(JmapError::invalid_arguments(
-            "account is already a member of this space",
+            "caller is already a member of this space",
         ));
     }
 
     new_members.push(json!({
-        "id": account_id.as_ref(),
+        "id": caller_identity.as_ref(),
         "roleIds": [],
         "joinedAt": now_str,
     }));
@@ -1461,7 +1489,7 @@ pub async fn handle_space_join<B: ChatBackend>(
         .map_err(|e| JmapError::server_fail(e.to_string()))?;
     let duplicate_count = post_members
         .iter()
-        .filter(|m| m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref()))
+        .filter(|m| m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref()))
         .count();
     if duplicate_count > 1 {
         // We lost the race — undo our write by removing the specific entry we added.
@@ -1472,7 +1500,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                 .into_iter()
                 .filter(|m| {
                     if !removed_ours
-                        && m.get("id").and_then(|v| v.as_str()) == Some(account_id.as_ref())
+                        && m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref())
                         && m.get("joinedAt").and_then(|v| v.as_str()) == Some(now_str.as_str())
                     {
                         removed_ours = true;
