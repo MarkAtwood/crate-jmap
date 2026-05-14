@@ -873,11 +873,23 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         return Err(JmapError::account_not_found());
     }
 
+    // ifFromInState: check source account state (RFC 8620 §5.4).
+    if let Some(if_from_in_state) = args.get("ifFromInState").and_then(|v| v.as_str()) {
+        let from_state = backend
+            .get_state::<FileNode>(caller, &from_account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+        if if_from_in_state != from_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
+
     let old_state = backend
         .get_state::<FileNode>(caller, &account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
+    // ifInState: check destination account state (RFC 8620 §5.4).
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
             return Err(JmapError::state_mismatch());
