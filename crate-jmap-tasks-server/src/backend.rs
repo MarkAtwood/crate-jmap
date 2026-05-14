@@ -31,6 +31,23 @@ pub use jmap_types::PatchObject;
 /// `Arc<impl TasksBackend>` when sharing across tasks.
 pub trait TasksBackend: JmapBackend {
     /// Create a new object (TaskList or Task).
+    ///
+    /// # Authorisation contract
+    ///
+    /// This method is the canonical enforcement point for caller authorisation
+    /// per workspace AGENTS.md "Caller identity (foundation seam)" and per-crate
+    /// AGENTS.md "Permission enforcement: backend canonical". Implementors MUST
+    /// verify that the principal identified by
+    /// [`JmapBackend::principal_id(caller)`](JmapBackend::principal_id) has write
+    /// access to the target account / TaskList / Task before performing the
+    /// mutation, and MUST return
+    /// [`BackendSetError::SetError`] carrying
+    /// [`SetErrorType::Forbidden`] otherwise. Handlers in this crate do NO
+    /// permission checking; any handler-layer pre-check is defense-in-depth
+    /// only and the backend MUST re-verify atomically with the mutation. A
+    /// backend that trusts the handler is a bug; a backend that returns `None`
+    /// from `principal_id` is signalling "single-user posture" and CANNOT
+    /// correctly implement TaskList ACLs or per-user scoping.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -45,6 +62,13 @@ pub trait TasksBackend: JmapBackend {
     /// Returns `Some(updated_object)` if the backend modified any properties
     /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
     /// or `None` if the patch was applied verbatim.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// applying the patch and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`] otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -54,6 +78,13 @@ pub trait TasksBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy an object by id.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller write-access to the target object before
+    /// destroying it and MUST return [`BackendSetError::SetError`] with
+    /// [`SetErrorType::Forbidden`] otherwise. See [`Self::create_object`] for
+    /// the workspace-canonical rationale; the same rule applies here.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -69,6 +100,16 @@ pub trait TasksBackend: JmapBackend {
     /// Called by `TaskList/set` destroy handler when `onDestroyRemoveTasks`
     /// is false: if this returns true, the destroy is rejected with
     /// `taskListHasTask` (draft-ietf-jmap-tasks-06 §3.4).
+    ///
+    /// # Authorisation contract
+    ///
+    /// This is a read-side probe that informs a destroy decision the caller is
+    /// already authorised to attempt; implementors MAY assume the caller has at
+    /// least read access to the target TaskList (the surrounding `/set` flow
+    /// re-validates write access in [`Self::destroy_object`]). Backends that
+    /// scope task visibility per-principal MUST filter by the caller's effective
+    /// access — a counter that includes tasks the caller cannot see leaks
+    /// existence information.
     fn task_list_has_tasks(
         &self,
         caller: &Self::CallerCtx,
@@ -99,6 +140,17 @@ pub trait TasksBackend: JmapBackend {
     /// implementation delegates to [`Self::update_object`], which is correct
     /// for single-user scenarios but backends serving multiple users SHOULD
     /// override this method to route to a user-scoped patch path.
+    ///
+    /// # Authorisation contract
+    ///
+    /// Implementors MUST verify caller read access to the target Task (per-user
+    /// properties are still scoped to the user, but only users who can see the
+    /// Task can have per-user state on it) and MUST return
+    /// [`BackendSetError::SetError`] with [`SetErrorType::Forbidden`] otherwise.
+    /// The shared-property write-access rule from [`Self::update_object`] does
+    /// NOT apply here — a user with only read access to the shared Task may
+    /// still mutate their own per-user state. See [`Self::create_object`] for
+    /// the workspace-canonical rationale on backend-as-enforcement-point.
     fn update_task_per_user(
         &self,
         caller: &Self::CallerCtx,
