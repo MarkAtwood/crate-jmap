@@ -231,12 +231,13 @@ fn json_pointer_ext_inner(value: &Value, path: &str, depth: usize) -> Option<Val
     if path.is_empty() {
         return Some(value.clone());
     }
-    if !path.starts_with('/') {
-        return None;
-    }
+    // bd:JMAP-jfia.34 — strip_prefix communicates the prefix check at
+    // the type level (Option<&str>) and avoids the byte-index slicing
+    // that would silently break if the prefix character ever changed
+    // to a multi-byte char.
+    let after_slash = path.strip_prefix('/')?;
 
     // Split off the first token.
-    let after_slash = &path[1..];
     let (token, remaining) = match after_slash.find('/') {
         Some(pos) => (&after_slash[..pos], &after_slash[pos..]),
         None => (after_slash, ""),
