@@ -242,7 +242,52 @@ impl JmapClient {
             Ok(())
         }
     }
+}
 
+/// Read a response body into memory, capped at `limit` bytes.
+///
+/// Performs the Content-Length pre-check as a fast-path rejection for honest
+/// oversized responses, then streams the body chunk-by-chunk and enforces the
+/// cap before each accumulation. This prevents buffering a response that
+/// exceeds the limit when Content-Length is absent (chunked Transfer-Encoding)
+/// or under-reported by a hostile server — without per-chunk streaming, a
+/// `.bytes().await` call would buffer the entire response before the
+/// post-buffer length check could fire (bd:JMAP-6r7c.1).
+///
+/// Threat model: matters when connecting to untrusted servers (federation
+/// peers, third-party JMAP services, DNS-hijacked endpoints, MITM scenarios).
+/// On low-memory devices the peak allocation from naive buffering can OOM-kill
+/// the client even if the post-buffer check would otherwise reject.
+///
+/// Returns `ClientError::ResponseTooLarge` when either the advertised
+/// Content-Length or the accumulated chunk total exceeds `limit`.
+pub(crate) async fn read_capped_body(
+    resp: reqwest::Response,
+    limit: u64,
+) -> Result<Vec<u8>, ClientError> {
+    if let Some(len) = resp.content_length() {
+        if len > limit {
+            return Err(ClientError::ResponseTooLarge { actual: len, limit });
+        }
+    }
+
+    let mut stream = resp.bytes_stream();
+    let mut body: Vec<u8> = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(ClientError::from_reqwest)?;
+        let new_len = body.len() as u64 + chunk.len() as u64;
+        if new_len > limit {
+            return Err(ClientError::ResponseTooLarge {
+                actual: new_len,
+                limit,
+            });
+        }
+        body.extend_from_slice(&chunk);
+    }
+    Ok(body)
+}
+
+impl JmapClient {
     /// Fetch the JMAP Session object from `{base_url}/.well-known/jmap` (RFC 8620 §2).
     ///
     /// The response body is capped at 1 MiB. Returns `ClientError::ResponseTooLarge`
@@ -269,22 +314,15 @@ impl JmapClient {
                 .map_err(ClientError::from_reqwest)?
         };
 
-        // Enforce size cap before reading. Content-Length can lie, so we check
-        // both the header and the actual read size.
-        if let Some(len) = resp.content_length() {
-            if len > limit {
-                return Err(ClientError::ResponseTooLarge { actual: len, limit });
-            }
-        }
-        let bytes = resp.bytes().await.map_err(ClientError::from_reqwest)?;
-        if bytes.len() as u64 > limit {
-            return Err(ClientError::ResponseTooLarge {
-                actual: bytes.len() as u64,
-                limit,
-            });
-        }
+        // Stream the body chunk-by-chunk with the cap enforced before each
+        // accumulation. The Content-Length pre-check inside read_capped_body
+        // is a fast-path rejection for honest oversized responses; the
+        // streaming cap is the actual DOS guard against a hostile server
+        // that under-reports Content-Length or omits it entirely under
+        // chunked Transfer-Encoding (bd:JMAP-6r7c.1).
+        let body = read_capped_body(resp, limit).await?;
 
-        let session: Session = serde_json::from_slice(&bytes).map_err(ClientError::Parse)?;
+        let session: Session = serde_json::from_slice(&body).map_err(ClientError::Parse)?;
 
         validate_session_url_schemes(&session)?;
 
@@ -324,22 +362,14 @@ impl JmapClient {
                 .map_err(ClientError::from_reqwest)?
         };
 
-        // Enforce size cap before reading.
-        if let Some(len) = resp.content_length() {
-            if len > limit {
-                return Err(ClientError::ResponseTooLarge { actual: len, limit });
-            }
-        }
-        let bytes = resp.bytes().await.map_err(ClientError::from_reqwest)?;
-        if bytes.len() as u64 > limit {
-            return Err(ClientError::ResponseTooLarge {
-                actual: bytes.len() as u64,
-                limit,
-            });
-        }
+        // Stream the body chunk-by-chunk with the cap enforced before each
+        // accumulation (bd:JMAP-6r7c.1). See `read_capped_body` for the DOS
+        // rationale; without per-chunk streaming, a server that under-reports
+        // or omits Content-Length can force unbounded allocation here.
+        let body = read_capped_body(resp, limit).await?;
 
         let jmap_resp: jmap_types::JmapResponse =
-            serde_json::from_slice(&bytes).map_err(ClientError::Parse)?;
+            serde_json::from_slice(&body).map_err(ClientError::Parse)?;
 
         Ok(jmap_resp)
     }
