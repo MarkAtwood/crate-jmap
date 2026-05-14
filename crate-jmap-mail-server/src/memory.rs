@@ -872,7 +872,7 @@ impl JmapBackend for MemoryBackend {
         let _since: u64 = since_query_state
             .as_ref()
             .parse()
-            .map_err(|_| BackendChangesError::TooManyChanges { limit: 0 })?;
+            .map_err(|_| BackendChangesError::CannotCalculate)?;
 
         // Step 2: Get the raw delta (created/updated/destroyed) since the given state.
         let changes = self
@@ -929,7 +929,7 @@ impl JmapBackend for MemoryBackend {
         if let Some(max) = max_changes {
             let total_changes = removed.len() as u64 + added.len() as u64;
             if total_changes > max {
-                return Err(BackendChangesError::TooManyChanges { limit: 0 });
+                return Err(BackendChangesError::CannotCalculate);
             }
         }
 

@@ -270,8 +270,8 @@ impl SharingBackend for FilteringBackend {
 ///
 /// MemoryBackend's `get_changes` parses `sinceQueryState` as a u64 counter;
 /// a non-numeric value fails the parse and returns
-/// `BackendChangesError::TooManyChanges { limit: 0 }`, which the dispatcher
-/// maps to `cannotCalculateChanges`.
+/// `BackendChangesError::CannotCalculate` (bd:JMAP-jfia.31), which the
+/// dispatcher maps to `cannotCalculateChanges`.
 #[tokio::test]
 async fn principal_query_changes_cannot_calculate() {
     let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
@@ -300,7 +300,7 @@ async fn principal_query_changes_cannot_calculate() {
 /// `ShareNotification/queryChanges`.
 ///
 /// Identical trigger: non-numeric `sinceQueryState` fails the u64 parse in
-/// MemoryBackend and produces `BackendChangesError::TooManyChanges { limit: 0 }`.
+/// MemoryBackend and produces `BackendChangesError::CannotCalculate`.
 #[tokio::test]
 async fn notification_query_changes_cannot_calculate() {
     let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
