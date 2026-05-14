@@ -304,12 +304,63 @@ pub enum SetErrorType {
 }
 
 impl SetErrorType {
-    /// Construct a [`SetErrorType::Custom`] from any string.
+    /// Construct a [`SetErrorType`] from any string, canonicalising
+    /// known wire-names back to their typed variant.
     ///
-    /// Use this in extension crates to emit domain-specific error types
-    /// without adding variants to this enum.
+    /// `custom("forbidden")` returns [`SetErrorType::Forbidden`], NOT
+    /// `Custom("forbidden")`. Only strings that do not match any known
+    /// JMAP wire-name produce [`SetErrorType::Custom`]. This makes
+    /// round-trip symmetric — `custom(s)` equals the result of
+    /// deserialising `"s"` for every `s`, eliminating the silent
+    /// contract drift filed as bd:JMAP-wlip.22.
+    ///
+    /// Use this in extension crates to emit domain-specific error
+    /// types without adding variants to this enum; if your extension's
+    /// chosen name later becomes a typed variant in this crate, the
+    /// call site keeps working — `custom("mdnAlreadySent")` returns
+    /// `Custom("mdnAlreadySent")` today and would return the typed
+    /// variant when that variant is added.
     pub fn custom(s: impl Into<String>) -> Self {
-        Self::Custom(s.into())
+        let s: String = s.into();
+        Self::from_wire_str(&s).unwrap_or(Self::Custom(s))
+    }
+
+    /// Map a JMAP wire-name string to its typed variant, returning
+    /// `None` for any string not in the known-name set.
+    ///
+    /// Single source of truth used by both [`Self::custom`] and the
+    /// [`serde::Deserialize`] visitor (bd:JMAP-wlip.22). Adding a new
+    /// typed variant requires extending this match arm AND the
+    /// `Display` impl; the table-driven round-trip test
+    /// `set_error_type_all_known_variants_round_trip` (bd:JMAP-wlip.29)
+    /// catches any drift between them.
+    fn from_wire_str(s: &str) -> Option<Self> {
+        Some(match s {
+            "forbidden" => Self::Forbidden,
+            "overQuota" => Self::OverQuota,
+            "tooLarge" => Self::TooLarge,
+            "rateLimit" => Self::RateLimit,
+            "notFound" => Self::NotFound,
+            "invalidPatch" => Self::InvalidPatch,
+            "willDestroy" => Self::WillDestroy,
+            "invalidProperties" => Self::InvalidProperties,
+            "singleton" => Self::Singleton,
+            "alreadyExists" => Self::AlreadyExists,
+            "mailboxHasChild" => Self::MailboxHasChild,
+            "mailboxHasEmail" => Self::MailboxHasEmail,
+            "tooManyKeywords" => Self::TooManyKeywords,
+            "tooManyMailboxes" => Self::TooManyMailboxes,
+            "blobNotFound" => Self::BlobNotFound,
+            "forbiddenFrom" => Self::ForbiddenFrom,
+            "invalidEmail" => Self::InvalidEmail,
+            "tooManyRecipients" => Self::TooManyRecipients,
+            "noRecipients" => Self::NoRecipients,
+            "invalidRecipients" => Self::InvalidRecipients,
+            "forbiddenMailFrom" => Self::ForbiddenMailFrom,
+            "forbiddenToSend" => Self::ForbiddenToSend,
+            "cannotUnsend" => Self::CannotUnsend,
+            _ => return None,
+        })
     }
 }
 
@@ -360,32 +411,12 @@ impl<'de> serde::Deserialize<'de> for SetErrorType {
                 f.write_str("a JMAP SetError type string")
             }
             fn visit_str<E: serde::de::Error>(self, v: &str) -> Result<Self::Value, E> {
-                Ok(match v {
-                    "forbidden" => SetErrorType::Forbidden,
-                    "overQuota" => SetErrorType::OverQuota,
-                    "tooLarge" => SetErrorType::TooLarge,
-                    "rateLimit" => SetErrorType::RateLimit,
-                    "notFound" => SetErrorType::NotFound,
-                    "invalidPatch" => SetErrorType::InvalidPatch,
-                    "willDestroy" => SetErrorType::WillDestroy,
-                    "invalidProperties" => SetErrorType::InvalidProperties,
-                    "singleton" => SetErrorType::Singleton,
-                    "alreadyExists" => SetErrorType::AlreadyExists,
-                    "mailboxHasChild" => SetErrorType::MailboxHasChild,
-                    "mailboxHasEmail" => SetErrorType::MailboxHasEmail,
-                    "tooManyKeywords" => SetErrorType::TooManyKeywords,
-                    "tooManyMailboxes" => SetErrorType::TooManyMailboxes,
-                    "blobNotFound" => SetErrorType::BlobNotFound,
-                    "forbiddenFrom" => SetErrorType::ForbiddenFrom,
-                    "invalidEmail" => SetErrorType::InvalidEmail,
-                    "tooManyRecipients" => SetErrorType::TooManyRecipients,
-                    "noRecipients" => SetErrorType::NoRecipients,
-                    "invalidRecipients" => SetErrorType::InvalidRecipients,
-                    "forbiddenMailFrom" => SetErrorType::ForbiddenMailFrom,
-                    "forbiddenToSend" => SetErrorType::ForbiddenToSend,
-                    "cannotUnsend" => SetErrorType::CannotUnsend,
-                    other => SetErrorType::Custom(other.to_owned()),
-                })
+                // Single source of truth shared with [`SetErrorType::custom`]
+                // (bd:JMAP-wlip.22). An unknown wire-name falls through to
+                // Custom; a known wire-name canonicalises to its typed
+                // variant so that round-trip is symmetric.
+                Ok(SetErrorType::from_wire_str(v)
+                    .unwrap_or_else(|| SetErrorType::Custom(v.to_owned())))
             }
         }
         d.deserialize_str(Visitor)
@@ -889,6 +920,52 @@ mod tests {
             "tooManyChanges",
             "limit=50 must produce tooManyChanges; got: {:?}",
             err.error_type
+        );
+    }
+
+    /// Oracle (bd:JMAP-wlip.22): `SetErrorType::custom("forbidden")` MUST
+    /// return `SetErrorType::Forbidden`, not `Custom("forbidden")`. The
+    /// asymmetry where `custom("forbidden") != Forbidden` was a real
+    /// foot-gun: handler code intending to emit the typed variant via
+    /// the `custom` builder produced a Custom that was wire-identical
+    /// but PartialEq-distinct, breaking test assertions that compared
+    /// the deserialised round-trip against the typed expected value.
+    ///
+    /// Test vector: every known typed variant name canonicalises to its
+    /// typed variant; an unknown name stays Custom. The wire-name list
+    /// is hand-built from the same RFC source as the round-trip test
+    /// `set_error_type_all_known_variants_round_trip`.
+    #[test]
+    fn custom_canonicalises_known_wire_names_to_typed_variants() {
+        // Spot-check a representative subset across the 23 known names.
+        // The exhaustive round-trip from from_wire_str is exercised by
+        // set_error_type_all_known_variants_round_trip; this test focuses
+        // on the custom() → typed-variant direction the bead was about.
+        let cases: &[(&str, SetErrorType)] = &[
+            ("forbidden", SetErrorType::Forbidden),
+            ("overQuota", SetErrorType::OverQuota),
+            ("invalidPatch", SetErrorType::InvalidPatch),
+            ("mailboxHasChild", SetErrorType::MailboxHasChild),
+            ("tooManyRecipients", SetErrorType::TooManyRecipients),
+            ("cannotUnsend", SetErrorType::CannotUnsend),
+        ];
+        for (name, expected) in cases {
+            let from_custom = SetErrorType::custom(*name);
+            assert_eq!(
+                &from_custom, expected,
+                "custom({name:?}) must canonicalise to the typed variant, not Custom"
+            );
+            assert!(
+                !matches!(from_custom, SetErrorType::Custom(_)),
+                "custom({name:?}) must NOT remain Custom — known wire-name asymmetry"
+            );
+        }
+
+        // Unknown names stay Custom — extension crates depend on this.
+        let unknown = SetErrorType::custom("mdnAlreadySent");
+        assert!(
+            matches!(unknown, SetErrorType::Custom(ref s) if s == "mdnAlreadySent"),
+            "custom('mdnAlreadySent') must remain Custom (not a known wire-name)"
         );
     }
 
