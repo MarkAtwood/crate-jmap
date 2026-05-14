@@ -660,3 +660,256 @@ async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
          return nodeHasChildren: {resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// FileNode/copy — onExists / compareCaseInsensitively / onDestroyRemoveChildren
+// Oracle: draft-ietf-jmap-filenode-13 §3.2.4 — "This is a standard
+// Foo/copy function with the same additional top-level arguments as
+// FileNode/set, onDestroyRemoveChildren and onExists, with the same
+// behaviour." Regression for bd JMAP-510h.1.
+// ---------------------------------------------------------------------------
+
+use jmap_filenode_server::filenode::handle_filenode_copy;
+
+/// Helper: create a node and return its id.
+async fn create_node(
+    backend: &MemoryBackend,
+    account: &str,
+    name: &str,
+    parent_id: Option<&str>,
+    create_id: &str,
+) -> String {
+    let (resp, _) = handle_filenode_set(
+        backend,
+        &(),
+        json!({
+            "accountId": account,
+            "create": {
+                create_id: { "name": name, "parentId": parent_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("seed node must succeed");
+    resp["created"][create_id]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("seed node {create_id} must have id: {resp}"))
+        .to_owned()
+}
+
+#[tokio::test]
+async fn filenode_copy_default_collision_returns_already_exists() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+    // Pre-seed a collision in the destination.
+    let _existing = create_node(&backend, "dst", "doc", None, "e").await;
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "create": {
+                "c": { "id": &src_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // onExists absent → Reject (alreadyExists in notCreated).
+    let not_created = &resp["notCreated"];
+    assert!(
+        not_created.is_object() && not_created["c"].is_object(),
+        "must be in notCreated: {resp}"
+    );
+    assert_eq!(
+        not_created["c"]["type"], "alreadyExists",
+        "default onExists is reject → alreadyExists: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+    // Pre-seed a collision in the destination.
+    let _existing = create_node(&backend, "dst", "doc", None, "e").await;
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "rename",
+            "create": {
+                "c": { "id": &src_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // Must succeed: onExists=rename → a non-colliding name is used.
+    assert!(
+        resp["created"].is_object() && resp["created"]["c"].is_object(),
+        "rename must produce a created entry: {resp}"
+    );
+    let created_name = resp["created"]["c"]["name"]
+        .as_str()
+        .expect("created.c.name must be present");
+    // Name must have a suffix (the renamer appends -N).
+    assert_ne!(
+        created_name, "doc",
+        "rename must produce a non-colliding name, got '{created_name}': {resp}"
+    );
+    assert!(
+        created_name.starts_with("doc-"),
+        "rename should produce 'doc-N', got '{created_name}': {resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+    let existing_id = create_node(&backend, "dst", "doc", None, "e").await;
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "replace",
+            "create": {
+                "c": { "id": &src_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // The new copy must be in `created`.
+    assert!(
+        resp["created"].is_object() && resp["created"]["c"].is_object(),
+        "replace must produce a created entry: {resp}"
+    );
+
+    // And the existing node must actually be gone from the destination.
+    let (get_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "dst",
+            "ids": [&existing_id]
+        }),
+    )
+    .await
+    .expect("get must succeed");
+    let not_found = get_resp["notFound"]
+        .as_array()
+        .expect("notFound must be array");
+    let not_found_strs: Vec<&str> = not_found.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        not_found_strs.contains(&existing_id.as_str()),
+        "the existing node must have been destroyed by replace: {get_resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+    // Pre-seed a colliding directory WITH a child in the destination.
+    let existing_parent = create_node(&backend, "dst", "doc", None, "ep").await;
+    let _existing_child = create_node(&backend, "dst", "child", Some(&existing_parent), "ec").await;
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "replace",
+            // onDestroyRemoveChildren absent (defaults to false)
+            "create": {
+                "c": { "id": &src_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    let not_created = &resp["notCreated"];
+    assert!(
+        not_created.is_object() && not_created["c"].is_object(),
+        "replace without flag against directory-with-children must \
+         go to notCreated: {resp}"
+    );
+    assert_eq!(
+        not_created["c"]["type"], "nodeHasChildren",
+        "must return nodeHasChildren: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_copy_on_exists_replace_with_flag_cascades() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+    let existing_parent = create_node(&backend, "dst", "doc", None, "ep").await;
+    let existing_child = create_node(&backend, "dst", "child", Some(&existing_parent), "ec").await;
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onExists": "replace",
+            "onDestroyRemoveChildren": true,
+            "create": {
+                "c": { "id": &src_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // Copy must succeed.
+    assert!(
+        resp["created"].is_object() && resp["created"]["c"].is_object(),
+        "replace+cascade must produce a created entry: {resp}"
+    );
+
+    // Both the existing parent and its child must be gone in the destination.
+    let (get_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "dst",
+            "ids": [&existing_parent, &existing_child]
+        }),
+    )
+    .await
+    .expect("get must succeed");
+    let not_found = get_resp["notFound"]
+        .as_array()
+        .expect("notFound must be array");
+    let not_found_strs: Vec<&str> = not_found.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        not_found_strs.contains(&existing_parent.as_str()),
+        "existing parent must have been destroyed: {get_resp}"
+    );
+    assert!(
+        not_found_strs.contains(&existing_child.as_str()),
+        "existing child must have been cascade-destroyed: {get_resp}"
+    );
+}
