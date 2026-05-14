@@ -36,8 +36,8 @@ mod helpers;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
-    RESERVED_SET_ERROR_WIRE_NAMES,
+    JmapObject, QueryChangesResult, QueryObject, QueryResult, ReservedExtrasKey, SetError,
+    SetErrorType, SetObject, RESERVED_SET_ERROR_WIRE_NAMES,
 };
 pub use handlers::{
     handle_changes, handle_get, handle_query, handle_query_changes, server_fail_from_backend,

@@ -66,6 +66,21 @@ pub struct SetError {
     /// Per workspace AGENTS.md "Extras-preservation policy" — wire
     /// format is byte-identical to a pre-extras SetError when the
     /// map is empty (the `skip_serializing_if` collapses it).
+    ///
+    /// # Reserved-name invariant (bd:JMAP-jfia.17)
+    ///
+    /// Keys in [`RESERVED_SET_ERROR_WIRE_NAMES`] MUST NOT appear in
+    /// this map. The typed fields above serialize to those names, so
+    /// a colliding extras key produces a JSON object with two keys at
+    /// the same level — RFC 8259 §4 permits duplicate keys but the
+    /// behaviour is implementation-defined and the resulting SetError
+    /// is malformed in practice.
+    ///
+    /// [`SetError::with_extra`] enforces this in debug builds via
+    /// `debug_assert!`; direct field mutation (this field is `pub` per
+    /// the workspace extras-preservation policy) bypasses that guard.
+    /// Test and audit code SHOULD call [`SetError::validate_extras`]
+    /// to detect collisions deterministically across build profiles.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -208,7 +223,58 @@ impl SetError {
         self.extra.insert(key.to_owned(), value);
         self
     }
+
+    /// Validate that [`Self::extra`] does not contain any key in
+    /// [`RESERVED_SET_ERROR_WIRE_NAMES`] (bd:JMAP-jfia.17).
+    ///
+    /// [`Self::with_extra`] enforces the same invariant in debug builds
+    /// via `debug_assert!`, but direct field mutation (e.g.
+    /// `err.extra.insert("type", json!("evil"))`) bypasses that guard.
+    /// This method is the deterministic, build-profile-independent
+    /// gate: callers and tests that construct SetError values
+    /// programmatically should run it before serializing, to catch
+    /// the collision case that would produce a malformed wire shape
+    /// with two keys at the same name.
+    ///
+    /// Returns the first colliding key on `Err`; check `validate_extras`
+    /// in a loop if you need to surface all collisions.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ReservedExtrasKey`] with the first reserved key
+    /// encountered in [`Self::extra`].
+    pub fn validate_extras(&self) -> Result<(), ReservedExtrasKey> {
+        for key in self.extra.keys() {
+            if RESERVED_SET_ERROR_WIRE_NAMES.contains(&key.as_str()) {
+                return Err(ReservedExtrasKey { key: key.clone() });
+            }
+        }
+        Ok(())
+    }
 }
+
+/// Returned by [`SetError::validate_extras`] when [`SetError::extra`]
+/// contains a key that collides with a typed-field wire-name in
+/// [`RESERVED_SET_ERROR_WIRE_NAMES`] (bd:JMAP-jfia.17).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReservedExtrasKey {
+    /// The first reserved wire-name found in `SetError.extra`.
+    pub key: String,
+}
+
+impl std::fmt::Display for ReservedExtrasKey {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "SetError.extra contains reserved wire-name key {:?} — would \
+             produce a malformed JSON SetError on the wire",
+            self.key
+        )
+    }
+}
+
+impl std::error::Error for ReservedExtrasKey {}
 
 /// Reserved wire-name keys that [`SetError::with_extra`] MUST NOT receive.
 ///
@@ -1210,6 +1276,50 @@ mod tests {
                  produce a malformed SetError on the wire"
             );
         }
+    }
+
+    /// Oracle (bd:JMAP-jfia.17): direct mutation of `SetError.extra`
+    /// bypasses the `with_extra` debug_assert and can plant a
+    /// reserved wire-name. [`SetError::validate_extras`] is the
+    /// deterministic, build-profile-independent gate for the same
+    /// invariant.
+    ///
+    /// Test vector: iterate every reserved wire-name, plant it
+    /// directly into `extra`, and assert `validate_extras` returns
+    /// `Err(ReservedExtrasKey { key: <name> })`.
+    #[test]
+    fn validate_extras_detects_reserved_key_planted_via_direct_mutation() {
+        for &reserved in RESERVED_SET_ERROR_WIRE_NAMES {
+            let mut err = SetError::new(SetErrorType::Forbidden);
+            // Bypass with_extra entirely — this is the pattern the
+            // `pub` field surface invites that the debug_assert cannot
+            // see (bd:JMAP-jfia.17).
+            err.extra
+                .insert(reserved.to_owned(), serde_json::Value::Null);
+            let collision = err
+                .validate_extras()
+                .expect_err("reserved-name extras key must be detected");
+            assert_eq!(
+                collision.key, reserved,
+                "validate_extras must report the colliding key verbatim"
+            );
+        }
+    }
+
+    /// Oracle (bd:JMAP-jfia.17): `validate_extras` returns `Ok(())` for
+    /// a SetError whose `extra` map contains only extension-namespace
+    /// keys. Positive control paired with the rejection test above.
+    #[test]
+    fn validate_extras_accepts_extension_namespace_keys() {
+        let mut err = SetError::new(SetErrorType::custom("rateLimited"));
+        err.extra.insert(
+            "serverRetryAfter".to_owned(),
+            serde_json::Value::String("2025-12-31T23:59:59Z".to_owned()),
+        );
+        err.extra
+            .insert("retryAttempt".to_owned(), serde_json::Value::from(3));
+        err.validate_extras()
+            .expect("extension-namespace keys must pass validation");
     }
 
     /// Oracle (bd:JMAP-wlip.3): a non-reserved key passes the
