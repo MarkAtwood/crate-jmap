@@ -63,21 +63,23 @@ pub trait TasksBackend: JmapBackend {
     // --- Write operations ---
 
     /// Create a new object (TaskList or Task).
-    /// Returns (assigned_id, created_object).
+    /// Returns (assigned_id, created_object). The implementor MUST
+    /// authorise against `caller` before the mutation; see the rustdoc
+    /// on the trait itself for the workspace-canonical contract.
     fn create_object<O: SetObject + Send + Sync>(
-        &self, account_id: &Id, create_id: &str, obj: O,
+        &self, caller: &Self::CallerCtx, account_id: &Id, create_id: &str, obj: O,
     ) -> impl Future<Output = Result<(Id, O), BackendSetError<Self::Error>>> + Send;
 
     /// Apply a partial update (patch) to an existing object.
     /// Returns Some(updated_object) if the backend modified server-set fields beyond
     /// the patch (RFC 8620 §5.3 echo); None if the patch was applied verbatim.
     fn update_object<O: SetObject + Send + Sync>(
-        &self, account_id: &Id, id: &Id, patch: O::Patch,
+        &self, caller: &Self::CallerCtx, account_id: &Id, id: &Id, patch: O::Patch,
     ) -> impl Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy an object by id.
     fn destroy_object<O: SetObject + Send + Sync>(
-        &self, account_id: &Id, id: &Id,
+        &self, caller: &Self::CallerCtx, account_id: &Id, id: &Id,
     ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
     /// Returns true if this account supports the given JMAP object type.
@@ -88,7 +90,7 @@ pub trait TasksBackend: JmapBackend {
     /// Called by TaskList/set destroy when onDestroyRemoveTasks is false.
     /// If this returns true, the destroy is rejected with taskListHasTask.
     fn task_list_has_tasks(
-        &self, account_id: &Id, task_list_id: &Id,
+        &self, caller: &Self::CallerCtx, account_id: &Id, task_list_id: &Id,
     ) -> impl Future<Output = bool> + Send;
 
     // --- Optional overrides (have default implementations) ---
@@ -108,13 +110,20 @@ pub trait TasksBackend: JmapBackend {
     /// serving multiple users SHOULD override this to route to a user-scoped
     /// patch path.
     fn update_task_per_user(
-        &self, account_id: &Id, id: &Id, patch: serde_json::Value,
+        &self, caller: &Self::CallerCtx, account_id: &Id, id: &Id, patch: PatchObject,
     ) -> impl Future<Output = Result<Option<Task>, BackendSetError<Self::Error>>> + Send {
-        self.update_object::<Task>(account_id, id, patch)
+        self.update_object::<Task>(caller, account_id, id, patch)
     }
 
+    /// Returns `true` if the backend enforces the `isDraft` immutability
+    /// invariant atomically inside `update_object`. When `true`, the
+    /// `Task/set` handler skips its pre-fetch fast-path. See the
+    /// "isDraft immutability" subsection under "How it works" below.
+    /// Default: `false`.
+    fn enforce_is_draft_atomically(&self) -> bool { false }
+
     /// Compute utcStart and utcDue for a Task by converting local-time fields
-    /// and time zone into UTC (draft-tasks-06 §4, lines 739-772).
+    /// and time zone into UTC (draft-tasks-06 §4, utcStart/utcDue paragraphs).
     ///
     /// Returns (utc_start, utc_due) as `UTCDate` values, or None for each
     /// if the field is absent or the time zone is unknown.
@@ -128,6 +137,11 @@ pub trait TasksBackend: JmapBackend {
     }
 }
 ```
+
+Every mutating method takes `caller: &Self::CallerCtx`. The workspace
+"Caller identity (foundation seam)" contract — `JmapBackend::principal_id`
+identifies the principal; the backend MUST authorise against it before
+mutating — is documented per-method on the trait itself (`backend.rs`).
 
 `BackendSetError<E>` is an enum over two variants:
 
@@ -149,11 +163,17 @@ pub trait TasksBackend: JmapBackend {
 ### Task/set — isDraft immutability
 
 Once a Task's `isDraft` is set to `false`, it cannot be reverted to `true`. The
-`Task/set` handler enforces this: when the patch contains `isDraft: true`, it first
-fetches the current task via `get_objects` and rejects the patch with
+`Task/set` handler enforces this defensively: when the patch contains `isDraft: true`,
+it first fetches the current task via `get_objects` and rejects the patch with
 `invalidProperties: ["isDraft"]` if the current value is already `false`. This costs
 one extra `get_objects` call per updated task that includes `isDraft: true` in the patch.
 Transitions from `isDraft: true` to `isDraft: false` (publishing a draft) are always allowed.
+
+Backends that enforce this invariant atomically inside `update_object` (the
+workspace-canonical posture — see AGENTS.md "Permission enforcement:
+backend canonical") can override `enforce_is_draft_atomically()` to return
+`true`. The handler then skips the pre-fetch and trusts the backend to emit
+the `invalidProperties` SetError. The reference `MemoryBackend` does this.
 
 ### Task/set — per-user property routing
 
@@ -213,14 +233,27 @@ jmap-types
 Path dependencies between crates use `path = "../crate-jmap-*"` and will remain that way
 until the family is published to crates.io.
 
+## Cargo features
+
+- `memory` — enables the reference in-memory `MemoryBackend` (gated behind
+  `#[cfg(feature = "memory")]` in `src/memory.rs`). Off by default; enable
+  only for tests and demonstrations. Not production-grade — see the
+  cargo-cult warning on `MemoryBackend::demo_next_id`.
+- `realistic-demo-ids` — when combined with `memory`, switches
+  `demo_next_id` from the deterministic `<type><n:016x>` form to a
+  process-start-nanos + atomic-counter form matching the canonical
+  `jmap-mail-server` shape at `email.rs:1748`. Still not production.
+
 ## Gotchas
 
 - `compute_task_utc_times` default returns `(None, None)` — `utcStart`/`utcDue` will be
   absent from all `Task/get` responses unless the backend overrides this method.
 - `isDraft` immutability check requires one extra `get_objects` call per updated task where
-  the patch includes `isDraft: true`. Backends that enforce this invariant atomically in
-  `update_object` should return an `invalidProperties` SetError there instead.
-- No storage backend ships with this crate.
+  the patch includes `isDraft: true`, unless the backend overrides
+  `enforce_is_draft_atomically()` to return `true` and emits the
+  `invalidProperties` SetError from `update_object` itself.
+- No storage backend ships with this crate. The `memory` feature is for
+  tests/demos only.
 
 ## References
 
