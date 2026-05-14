@@ -483,14 +483,23 @@ pub type BackendCallFn<B, C> =
 /// let mut dispatcher: Dispatcher<AuthCtx> = Dispatcher::new();
 /// dispatcher.register("MyMethod/get", handler);
 /// ```
+/// A [`JmapHandler`] handle wrapping a shared backend + an async
+/// closure. Construct via [`ClosureHandler::new`] — the fields are
+/// crate-private (bd:JMAP-jfia.5) to keep the handle opaque, prevent
+/// post-construction hot-swap of the closure or backend, and let the
+/// constructor remain the sole site that enforces invariants when
+/// future fields (per-handler tracing context, metrics handle, etc.)
+/// are added.
 #[non_exhaustive]
 pub struct ClosureHandler<B: Send + Sync + 'static, C: Clone + Send + 'static> {
-    /// Shared reference to the backend implementation, passed to the closure
-    /// on every method call.
-    pub backend: Arc<B>,
+    /// Shared reference to the backend implementation, passed to the
+    /// closure on every method call. Crate-private to keep
+    /// `ClosureHandler` an opaque handle (bd:JMAP-jfia.5).
+    pub(crate) backend: Arc<B>,
     /// The async closure invoked for each JMAP method call this handler
-    /// receives from the dispatcher.
-    pub call_fn: Box<BackendCallFn<B, C>>,
+    /// receives from the dispatcher. Crate-private to keep
+    /// `ClosureHandler` an opaque handle (bd:JMAP-jfia.5).
+    pub(crate) call_fn: Box<BackendCallFn<B, C>>,
 }
 
 impl<B: Send + Sync + 'static, C: Clone + Send + 'static> ClosureHandler<B, C> {
