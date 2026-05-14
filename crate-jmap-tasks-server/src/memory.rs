@@ -131,13 +131,15 @@ struct ChangeEntry {
 /// Per-account auxiliary state that is not keyed by object type.
 #[derive(Default, Clone)]
 struct AccountAux {
-    /// Set of TaskList ids that have at least one Task attached
+    /// Refcount of TaskList ids by the number of Tasks attached to each
     /// (drives `TaskList/set` destroy rejection with `taskListHasTask`
     /// per draft-ietf-jmap-tasks-06 §3.4 when `onDestroyRemoveTasks` is
-    /// `false`). Maintained as a derived index over the Task store;
-    /// kept in sync by `create_object` / `update_object` / `destroy_object`
-    /// for the Task type.
-    task_lists_with_tasks: HashSet<Id>,
+    /// `false`). Maintained incrementally: `inc_task_ref` on Task create,
+    /// `dec_task_ref` on Task destroy, both on a taskListId change. O(1)
+    /// per Task mutation — the previous full-scan recompute was O(N).
+    /// Entries are removed when the count drops to 0 so `task_list_has_tasks`
+    /// can read presence-as-truthy instead of value-as-truthy.
+    task_list_refcount: HashMap<Id, u64>,
 }
 
 /// Shared inner state, behind Arc<Mutex>.
@@ -210,23 +212,41 @@ impl Inner {
         self.aux.get(account_id)
     }
 
-    /// Recompute `task_lists_with_tasks` for the given account by scanning
-    /// the Task store. Each Task lives in exactly one TaskList via the
-    /// `taskListId` field (draft-tasks-06 §4.1).
-    fn recompute_task_lists_with_tasks(&mut self, account_id: &str) {
-        let tasks = self
-            .objects
-            .get(&("Task", account_id.to_owned()))
-            .cloned()
-            .unwrap_or_default();
+    /// Read `taskListId` out of a serialized Task value, if present.
+    fn task_list_id_of(task: &serde_json::Value) -> Option<Id> {
+        task.get("taskListId")
+            .and_then(|v| v.as_str())
+            .map(Id::from)
+    }
 
-        let mut set: HashSet<Id> = HashSet::new();
-        for value in tasks.values() {
-            if let Some(s) = value.get("taskListId").and_then(|v| v.as_str()) {
-                set.insert(Id::from(s));
+    /// Increment the refcount for `list_id` in the given account by one.
+    /// Called when a Task is created or its `taskListId` changes to
+    /// `list_id`. No-op when `list_id` is `None` (well-formed Tasks
+    /// always have a taskListId but the helper is defensive against
+    /// partial mid-write state).
+    fn inc_task_ref(&mut self, account_id: &str, list_id: Option<Id>) {
+        if let Some(id) = list_id {
+            *self
+                .aux_mut(account_id)
+                .task_list_refcount
+                .entry(id)
+                .or_insert(0) += 1;
+        }
+    }
+
+    /// Decrement the refcount for `list_id` in the given account by one.
+    /// Removes the entry when the count drops to zero so `task_list_has_tasks`
+    /// can read presence-as-truthy. Safe to call with `None` or an unknown
+    /// id (no-op).
+    fn dec_task_ref(&mut self, account_id: &str, list_id: Option<Id>) {
+        let Some(id) = list_id else { return };
+        let aux = self.aux_mut(account_id);
+        if let Some(count) = aux.task_list_refcount.get_mut(&id) {
+            *count = count.saturating_sub(1);
+            if *count == 0 {
+                aux.task_list_refcount.remove(&id);
             }
         }
-        self.aux_mut(account_id).task_lists_with_tasks = set;
     }
 }
 
@@ -303,11 +323,21 @@ impl MemoryBackend {
     ) {
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.to_owned());
-        inner
+        let list_id = if type_name == "Task" {
+            Inner::task_list_id_of(&value)
+        } else {
+            None
+        };
+        let prev = inner
             .objects_mut(type_name, account_id)
             .insert(Id::from(id), value);
         if type_name == "Task" {
-            inner.recompute_task_lists_with_tasks(account_id);
+            // If this id was already seeded, decrement its prior taskListId
+            // refcount first to keep the index correct on re-seed.
+            if let Some(old) = prev.as_ref() {
+                inner.dec_task_ref(account_id, Inner::task_list_id_of(old));
+            }
+            inner.inc_task_ref(account_id, list_id);
         }
     }
 
@@ -663,6 +693,12 @@ impl TasksBackend for MemoryBackend {
             BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
         })?;
 
+        let task_list_id = if O::TYPE_NAME == "Task" {
+            Inner::task_list_id_of(&val)
+        } else {
+            None
+        };
+
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
@@ -677,7 +713,7 @@ impl TasksBackend for MemoryBackend {
             });
 
         if O::TYPE_NAME == "Task" {
-            inner.recompute_task_lists_with_tasks(account_id.as_ref());
+            inner.inc_task_ref(account_id.as_ref(), task_list_id);
         }
 
         Ok((server_id, stored_obj))
@@ -731,12 +767,27 @@ impl TasksBackend for MemoryBackend {
             ));
         }
 
+        // Snapshot the pre-patch taskListId so the refcount update below
+        // can compute the (old → new) transition without re-fetching after
+        // the patch applies.
+        let old_task_list_id = if O::TYPE_NAME == "Task" {
+            Inner::task_list_id_of(&current)
+        } else {
+            None
+        };
+
         if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
             return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::InvalidPatch)
                     .with_description("patch nesting exceeds server limit"),
             ));
         }
+
+        let new_task_list_id = if O::TYPE_NAME == "Task" {
+            Inner::task_list_id_of(&current)
+        } else {
+            None
+        };
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         inner
@@ -751,8 +802,9 @@ impl TasksBackend for MemoryBackend {
                 destroyed: vec![],
             });
 
-        if O::TYPE_NAME == "Task" {
-            inner.recompute_task_lists_with_tasks(account_id.as_ref());
+        if O::TYPE_NAME == "Task" && old_task_list_id != new_task_list_id {
+            inner.dec_task_ref(account_id.as_ref(), old_task_list_id);
+            inner.inc_task_ref(account_id.as_ref(), new_task_list_id);
         }
 
         Ok(None)
@@ -771,7 +823,7 @@ impl TasksBackend for MemoryBackend {
             .remove(id);
 
         match removed {
-            Some(_) => {
+            Some(val) => {
                 let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
                 inner
                     .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -782,7 +834,7 @@ impl TasksBackend for MemoryBackend {
                         destroyed: vec![id.clone()],
                     });
                 if O::TYPE_NAME == "Task" {
-                    inner.recompute_task_lists_with_tasks(account_id.as_ref());
+                    inner.dec_task_ref(account_id.as_ref(), Inner::task_list_id_of(&val));
                 }
                 Ok(())
             }
@@ -800,7 +852,7 @@ impl TasksBackend for MemoryBackend {
         let inner = self.inner.lock().unwrap();
         inner
             .aux_ref(account_id.as_ref())
-            .is_some_and(|a| a.task_lists_with_tasks.contains(task_list_id))
+            .is_some_and(|a| a.task_list_refcount.contains_key(task_list_id))
     }
 
     /// MemoryBackend self-enforces the isDraft invariant atomically in
