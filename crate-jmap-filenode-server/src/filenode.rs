@@ -215,6 +215,12 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 other => other,
             };
 
+            // Tracks the rename applied by OnExists::Rename so the
+            // post-create response can enforce the spec's MUST that the
+            // renamed name appears in the response (§3.2.3 lines 572-575)
+            // even if the backend echoes a different name.
+            let mut renamed_to: Option<String> = None;
+
             // -------------------------------------------------------------------
             // Collision detection (onExists — §3.2.3).
             // -------------------------------------------------------------------
@@ -379,9 +385,10 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                             if let Value::Object(ref mut m) = obj_with_id {
                                                 m.insert(
                                                     "name".to_owned(),
-                                                    Value::String(candidate),
+                                                    Value::String(candidate.clone()),
                                                 );
                                             }
+                                            renamed_to = Some(candidate);
                                             renamed = true;
                                             break;
                                         }
@@ -502,11 +509,19 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    created.insert(
-                        create_id,
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    let mut value = serde_json::to_value(&created_obj)
+                        .expect("derive(Serialize) on plain data is infallible");
+                    // draft-ietf-jmap-filenode-13 §3.2.3 lines 572-575:
+                    // "If the server changes the name, it MUST include
+                    // the new 'name' value in the created or updated
+                    // response field for this id." Enforce regardless
+                    // of whether the backend echoed the supplied name.
+                    if let Some(name) = renamed_to.as_deref() {
+                        if let Value::Object(ref mut m) = value {
+                            m.insert("name".to_owned(), Value::String(name.to_owned()));
+                        }
+                    }
+                    created.insert(create_id, value);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_created.insert(create_id, set_error_value(&set_err));
@@ -946,6 +961,12 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                 source_node.name = new_name.to_owned();
             }
 
+            // Tracks the rename applied by OnExists::Rename so the
+            // post-create response can enforce the spec's MUST that the
+            // renamed name appears in the response (§3.2.3 lines 572-575)
+            // even if the backend echoes a different name.
+            let mut renamed_to: Option<String> = None;
+
             // -------------------------------------------------------------------
             // Collision detection in the DESTINATION account (§3.2.4 →
             // §3.2.3 onExists semantics). Mirrors handle_filenode_set's
@@ -1104,7 +1125,8 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                     .await
                                 {
                                     Ok(None) => {
-                                        source_node.name = candidate;
+                                        source_node.name = candidate.clone();
+                                        renamed_to = Some(candidate);
                                         renamed = true;
                                         break;
                                     }
@@ -1144,11 +1166,17 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    copied.insert(
-                        create_id,
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    let mut value = serde_json::to_value(&created_obj)
+                        .expect("derive(Serialize) on plain data is infallible");
+                    // §3.2.3 lines 572-575 MUST: enforce the renamed
+                    // name in the response regardless of whether the
+                    // backend echoed it.
+                    if let Some(name) = renamed_to.as_deref() {
+                        if let Value::Object(ref mut m) = value {
+                            m.insert("name".to_owned(), Value::String(name.to_owned()));
+                        }
+                    }
+                    copied.insert(create_id, value);
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_copied.insert(create_id, set_error_value(&set_err));
@@ -2083,6 +2111,51 @@ mod tests {
         assert!(
             resp["created"].is_object(),
             "created must be present: {resp}"
+        );
+    }
+
+    /// Oracle: draft-ietf-jmap-filenode-13 §3.2.3 lines 572-575 — "If
+    /// the server changes the name, it MUST include the new 'name'
+    /// value in the created or updated response field for this id."
+    ///
+    /// The handler must enforce this MUST regardless of what the
+    /// backend echoes back: a backend that normalises names (strips
+    /// trailing whitespace, applies NFC, etc.) and returns a value
+    /// different from the supplied one would otherwise hide the rename
+    /// from the client. Regression for bd JMAP-510h.8.
+    #[tokio::test]
+    async fn set_create_rename_response_name_overrides_backend_echo() {
+        let backend = MockBackend::new_with_account("acc1");
+        // Pre-seed collision on "foo".
+        backend.set_sibling(None, "foo", "existing-id-1");
+        // Simulate a backend that returns a different name from what
+        // the handler asked it to store. Without the post-create
+        // enforcement, the response would carry "backend-normalised"
+        // instead of the renamed "foo-1".
+        backend.set_create_object_override_name("backend-normalised");
+
+        let args = json!({
+            "accountId": "acc1",
+            "onExists": "rename",
+            "create": {
+                "c1": { "name": "foo", "parentId": null, "role": null }
+            }
+        });
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+
+        assert!(
+            resp["created"].is_object() && resp["created"]["c1"].is_object(),
+            "created must be present: {resp}"
+        );
+        let name = resp["created"]["c1"]["name"]
+            .as_str()
+            .expect("created.c1.name must be present");
+        assert_eq!(
+            name, "foo-1",
+            "the renamed name MUST appear in the response (§3.2.3 MUST), \
+             not the backend's echoed name: {resp}"
         );
     }
 }
