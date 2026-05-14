@@ -6,7 +6,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, EmojiSetOp};
 use crate::helpers::{
-    extract_account_id, finalize_set_response, not_found_json, now_utc_string, ser,
+    extract_account_id, finalize_set_response, not_found_json, now_utc_string, serialize_value,
     set_error_value, SetAccumulators,
 };
 use jmap_server::server_fail_from_backend;
@@ -42,7 +42,10 @@ pub async fn handle_emoji_get<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
+    let list_json: Vec<Value> = list
+        .iter()
+        .map(serialize_value)
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok((
         json!({

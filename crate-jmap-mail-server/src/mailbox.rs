@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
-    extract_account_id, filter_properties, finalize_set_response, not_found_json, ser,
+    extract_account_id, filter_properties, finalize_set_response, not_found_json, serialize_value,
     set_error_value, SetAccumulators,
 };
 use jmap_server::server_fail_from_backend;
@@ -67,12 +67,14 @@ pub async fn handle_mailbox_get<B: MailBackend>(
         prop_set.insert("id");
         list.iter()
             .map(|obj| {
-                let val = ser(obj)?;
+                let val = serialize_value(obj)?;
                 Ok(filter_properties(&val, &prop_set))
             })
             .collect::<Result<Vec<_>, JmapError>>()?
     } else {
-        list.iter().map(ser).collect::<Result<Vec<_>, _>>()?
+        list.iter()
+            .map(serialize_value)
+            .collect::<Result<Vec<_>, _>>()?
     };
 
     Ok((

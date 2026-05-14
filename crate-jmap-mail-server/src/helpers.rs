@@ -7,7 +7,7 @@ use serde_json::{json, Map, Value};
 use crate::backend::MailBackend;
 use jmap_server::server_fail_from_backend;
 
-pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string, ser};
+pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string, serialize_value};
 
 /// Sentinel blob ID set by the `Email/set` create and import handlers.
 ///

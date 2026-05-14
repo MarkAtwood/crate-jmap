@@ -43,9 +43,11 @@ pub use handlers::{
     handle_changes, handle_get, handle_query, handle_query_changes, server_fail_from_backend,
     SERVER_FAIL_INTERNAL_DESC,
 };
+#[allow(deprecated)]
+pub use helpers::ser;
 pub use helpers::{
-    extract_account_id, json_merge_patch, not_found_json, now_utc_string, optional_arg, ser,
-    MergePatchError,
+    extract_account_id, json_merge_patch, not_found_json, now_utc_string, optional_arg,
+    serialize_value, MergePatchError,
 };
 
 mod parse;

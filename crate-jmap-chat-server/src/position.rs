@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend};
 use crate::helpers::{
-    extract_account_id, finalize_set_response, not_found_json, ser, set_error_value,
+    extract_account_id, finalize_set_response, not_found_json, serialize_value, set_error_value,
     SetAccumulators,
 };
 use jmap_server::server_fail_from_backend;
@@ -47,7 +47,10 @@ pub async fn handle_position_get<B: ChatBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
-    let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
+    let list_json: Vec<Value> = list
+        .iter()
+        .map(serialize_value)
+        .collect::<Result<Vec<_>, _>>()?;
 
     Ok((
         json!({

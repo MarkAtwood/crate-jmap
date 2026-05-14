@@ -5,8 +5,25 @@ use serde_json::{Map, Value};
 
 /// Serialize any [`serde::Serialize`] type to a [`serde_json::Value`],
 /// mapping serialization errors to [`JmapError::server_fail`].
-pub fn ser<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> {
+///
+/// Used by every `*-server` handler to project a typed domain object
+/// (e.g. `Email`, `Mailbox`, `Chat`) into the wire-format `list` /
+/// `created` payload.
+pub fn serialize_value<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> {
     serde_json::to_value(val).map_err(|e| JmapError::server_fail(e.to_string()))
+}
+
+/// Deprecated alias for [`serialize_value`] (bd:JMAP-wlip.21).
+///
+/// The opaque 3-letter name was hard to read in consumer code
+/// (`let v = ser(x)?;` left readers grepping three crates to learn
+/// what `ser` did) and collided with the common local-variable name
+/// `ser`. Use [`serialize_value`] instead. This alias is preserved
+/// for one release as a deprecation runway; it will be removed in
+/// the next major.
+#[deprecated(since = "0.1.3", note = "renamed to serialize_value (bd:JMAP-wlip.21)")]
+pub fn ser<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> {
+    serialize_value(val)
 }
 
 /// Convert a slice of [`Id`]s to a JSON `notFound` value.
