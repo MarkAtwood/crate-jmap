@@ -883,13 +883,17 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     };
     let (account_id, mut args) = extract_account_id(args)?;
 
-    // Verify both accounts exist.
+    // Verify both accounts exist. RFC 8620 §5.4 distinguishes
+    // fromAccountNotFound (the source) from accountNotFound (the
+    // destination) so a client can tell which side of the copy is
+    // misconfigured. Mirrors the canonical jmap-mail-server::handle_email_copy
+    // pattern.
     if !backend
         .account_exists(caller, &from_account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?
     {
-        return Err(JmapError::account_not_found());
+        return Err(JmapError::from_account_not_found());
     }
     if !backend
         .account_exists(caller, &account_id)
