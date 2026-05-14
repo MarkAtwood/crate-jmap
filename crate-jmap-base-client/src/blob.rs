@@ -2,13 +2,12 @@
 
 use std::borrow::Cow;
 
-use futures::StreamExt as _;
 use jmap_types::Id;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
-use crate::client::JmapClient;
+use crate::client::{read_capped_body, JmapClient};
 use crate::error::ClientError;
 
 /// Parameters for [`JmapClient::download_blob`].
@@ -251,21 +250,11 @@ impl JmapClient {
 
         let upload_limit = self.config.max_upload_response_body;
 
-        if let Some(len) = resp.content_length() {
-            if len > upload_limit {
-                return Err(ClientError::ResponseTooLarge {
-                    actual: len,
-                    limit: upload_limit,
-                });
-            }
-        }
-        let bytes = resp.bytes().await.map_err(ClientError::from_reqwest)?;
-        if bytes.len() as u64 > upload_limit {
-            return Err(ClientError::ResponseTooLarge {
-                actual: bytes.len() as u64,
-                limit: upload_limit,
-            });
-        }
+        // Stream the body chunk-by-chunk with the cap enforced before each
+        // accumulation (bd:JMAP-6r7c.1). See `read_capped_body` for the DOS
+        // rationale; without per-chunk streaming, a server that under-reports
+        // or omits Content-Length can force unbounded allocation here.
+        let bytes = read_capped_body(resp, upload_limit).await?;
         let upload_resp: BlobUploadResponse =
             serde_json::from_slice(&bytes).map_err(ClientError::Parse)?;
 
@@ -354,35 +343,11 @@ impl JmapClient {
 
         let download_limit = self.config.max_download_body;
 
-        // Early rejection on Content-Length header. Does not replace the streaming
-        // check below: Content-Length can lie or be absent.
-        if let Some(len) = resp.content_length() {
-            if len > download_limit {
-                return Err(ClientError::ResponseTooLarge {
-                    actual: len,
-                    limit: download_limit,
-                });
-            }
-        }
-
-        // Stream body chunk-by-chunk and enforce the cap before each accumulation.
-        // This prevents buffering a response that exceeds the limit when Content-Length
-        // is absent or lying — without this, resp.bytes().await would buffer the full
-        // response before the check could fire.
-        let mut stream = resp.bytes_stream();
-        let mut body: Vec<u8> = Vec::new();
-        while let Some(chunk) = stream.next().await {
-            let chunk = chunk.map_err(ClientError::from_reqwest)?;
-            let new_len = body.len() as u64 + chunk.len() as u64;
-            if new_len > download_limit {
-                return Err(ClientError::ResponseTooLarge {
-                    actual: new_len,
-                    limit: download_limit,
-                });
-            }
-            body.extend_from_slice(&chunk);
-        }
-        let bytes = bytes::Bytes::from(body);
+        // Stream the body chunk-by-chunk with the cap enforced before each
+        // accumulation (bd:JMAP-6r7c.1). See `read_capped_body` for the DOS
+        // rationale; without per-chunk streaming, a server that under-reports
+        // or omits Content-Length can force unbounded allocation here.
+        let bytes = bytes::Bytes::from(read_capped_body(resp, download_limit).await?);
 
         if let Some(expected) = expected_sha256 {
             if !is_valid_sha256_hex(expected) {
