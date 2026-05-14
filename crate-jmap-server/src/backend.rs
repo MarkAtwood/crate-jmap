@@ -766,6 +766,36 @@ impl QueryResult {
             can_calculate_changes,
         }
     }
+
+    /// Construct a [`QueryResult`] from a signed request-side position,
+    /// clamping negatives to `0` and normalizing to `u64`
+    /// (bd:JMAP-jfia.25).
+    ///
+    /// RFC 8620 §5.5 specifies the response `position` as `UnsignedInt`,
+    /// but the request-side `position` parameter accepts negative
+    /// values as end-relative offsets. Backends typically receive the
+    /// signed value, walk the offset into the result list, and need
+    /// to surface the resulting 0-based index. This constructor takes
+    /// the resolved-offset value and clamps to `u64`, matching the
+    /// spec contract.
+    ///
+    /// Negative inputs clamp to `0` (representing "the start of the
+    /// result list"). Backends that have already done the
+    /// offset-to-index resolution and have a `u64` already SHOULD use
+    /// the plain [`Self::new`] constructor instead.
+    pub fn new_clamped(
+        ids: Vec<jmap_types::Id>,
+        position_signed: i64,
+        total: Option<u64>,
+        query_state: jmap_types::State,
+        can_calculate_changes: bool,
+    ) -> Self {
+        // i64::max(_, 0) then cast to u64 — both fit in u64 because
+        // i64 >= 0 has range [0, i64::MAX], which is a strict subset
+        // of u64's range.
+        let position = u64::try_from(position_signed.max(0)).unwrap_or(0);
+        Self::new(ids, position, total, query_state, can_calculate_changes)
+    }
 }
 
 /// One entry in the `added` list of a `/queryChanges` response (RFC 8620 §5.6).
@@ -932,6 +962,29 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// Handlers call this at the start of each method to return
     /// `accountNotFound` (RFC 8620 §3.6.2) rather than surfacing
     /// the wrong error when `accountId` is unknown.
+    ///
+    /// # Performance contract (bd:JMAP-jfia.27)
+    ///
+    /// Implementations SHOULD return in sub-millisecond time. The
+    /// JMAP standard handlers (`handle_get`, `handle_changes`,
+    /// `handle_query`, `handle_query_changes`) each call
+    /// `account_exists` at the START of the method, BEFORE delegating
+    /// to the per-domain backend. A typical JMAP request batch is
+    /// 4–16 method calls; a naive remote round-trip per call would
+    /// add 4–16× the network latency to every batch.
+    ///
+    /// Acceptable backing strategies: in-memory cache (the
+    /// reference `MemoryBackend` impls all use this); an indexed
+    /// primary-key lookup against a local database; a bloom filter
+    /// for negative lookups paired with a cache for positives. A
+    /// naive `SELECT 1 FROM accounts WHERE id = ?` against a remote
+    /// database is INCORRECT for this method even though it would
+    /// return the right value — the round-trip cost is the bug.
+    ///
+    /// The dispatcher does not cache this call across the method
+    /// calls in a single batch (workspace-architectural decision —
+    /// the dispatcher is intentionally stateless across the batch
+    /// loop). Caching is the backend implementor's responsibility.
     fn account_exists(
         &self,
         caller: &Self::CallerCtx,

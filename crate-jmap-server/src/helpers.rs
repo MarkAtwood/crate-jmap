@@ -226,30 +226,9 @@ pub fn now_utc_string() -> UTCDate {
 ///   (bd:JMAP-jfia.2 — between the i32-year boundary and the
 ///   i64::MAX-secs cap).
 pub fn now_utc_string_checked() -> Option<UTCDate> {
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::time::SystemTime;
 
-    let now = SystemTime::now();
-    let (secs, millis): (i64, u32) = match now.duration_since(UNIX_EPOCH) {
-        Ok(d) => {
-            let s = i64::try_from(d.as_secs()).ok()?;
-            (s, d.subsec_millis())
-        }
-        Err(e) => {
-            // Clock is before the Unix epoch — negate so we get a real
-            // (negative) epoch offset rather than silently returning
-            // 1970-01-01T00:00:00Z. Negate after the fallible widen so
-            // we don't underflow at i64::MIN. .checked_neg() returns
-            // None only for i64::MIN, which try_from cannot produce
-            // (its output range is [0, i64::MAX]); the branch is
-            // therefore unreachable on valid u64 → i64 widening, but
-            // returning None for defence in depth keeps the failure
-            // path total.
-            let d = e.duration();
-            let s = i64::try_from(d.as_secs()).ok()?;
-            let neg = s.checked_neg()?;
-            (neg, d.subsec_millis())
-        }
-    };
+    let (secs, millis) = signed_seconds_since_epoch(SystemTime::now())?;
 
     let s = secs.rem_euclid(60);
     let m = (secs / 60).rem_euclid(60);
@@ -260,6 +239,36 @@ pub fn now_utc_string_checked() -> Option<UTCDate> {
     Some(UTCDate::from(format!(
         "{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}.{millis:03}Z"
     )))
+}
+
+/// Convert a [`SystemTime`] into `(signed_seconds_since_epoch, millis)`,
+/// returning `None` when the system clock cannot be expressed as an
+/// `i64` second count.
+///
+/// Extracted from [`now_utc_string_checked`] in bd:JMAP-jfia.11 to
+/// flatten the previous three-level nested match
+/// (`duration_since` → `try_from` → `checked_neg`) into one
+/// linear function the reader can scan top-to-bottom. The
+/// `.checked_neg()` branch is unreachable on a `try_from`-validated
+/// input (its output is `[0, i64::MAX]` so negation cannot underflow)
+/// but is kept for defence in depth — the failure path stays total.
+fn signed_seconds_since_epoch(now: std::time::SystemTime) -> Option<(i64, u32)> {
+    use std::time::UNIX_EPOCH;
+    match now.duration_since(UNIX_EPOCH) {
+        Ok(d) => {
+            let s = i64::try_from(d.as_secs()).ok()?;
+            Some((s, d.subsec_millis()))
+        }
+        Err(e) => {
+            // Pre-epoch clock — negate after the fallible widen so we
+            // can return a real (negative) epoch offset rather than
+            // silently snapping to 1970-01-01T00:00:00Z.
+            let d = e.duration();
+            let s = i64::try_from(d.as_secs()).ok()?;
+            let neg = s.checked_neg()?;
+            Some((neg, d.subsec_millis()))
+        }
+    }
 }
 
 /// Convert a count of days since the Unix epoch (1970-01-01) to a proleptic
