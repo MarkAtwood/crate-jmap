@@ -1062,6 +1062,57 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             // the backend will overwrite during create_object.
             source_node.id = Id::from("");
 
+            // Same-account cycle check (bd:JMAP-510h.59): when
+            // fromAccountId == accountId and the copy descriptor moves
+            // the new node under one of the source node's own
+            // descendants, the user's intent ("a copy that mirrors the
+            // source as a subtree") is silently violated. RFC 8620 §5.4
+            // does not prohibit same-account copies, but filenode draft
+            // §3.2.3 nodeHasChildren / cycle semantics apply to the
+            // resulting tree. Mirror the FileNode/set update cycle
+            // guard. Skipped for cross-account copies because the
+            // destination tree is unrelated to the source.
+            if from_account_id == account_id {
+                if let Some(ref new_parent) = source_node.parent_id {
+                    if new_parent == &source_id {
+                        not_copied.insert(
+                            create_id,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["parentId"],
+                                "description": "a node cannot be its own parent"
+                            }),
+                        );
+                        continue;
+                    }
+                    match backend
+                        .get_descendant_ids(caller, &from_account_id, &source_id)
+                        .await
+                    {
+                        Ok(descendants) => {
+                            if descendants.iter().any(|d| d == new_parent) {
+                                not_copied.insert(
+                                    create_id,
+                                    json!({
+                                        "type": "invalidProperties",
+                                        "properties": ["parentId"],
+                                        "description": "copying this node under its own descendant would create a cycle"
+                                    }),
+                                );
+                                continue;
+                            }
+                        }
+                        Err(e) => {
+                            not_copied.insert(
+                                create_id,
+                                json!({ "type": "serverFail", "description": e.to_string() }),
+                            );
+                            continue;
+                        }
+                    }
+                }
+            }
+
             // Tracks the rename applied by OnExists::Rename so the
             // post-create response can enforce the spec's MUST that the
             // renamed name appears in the response (§3.2.3 lines 572-575)

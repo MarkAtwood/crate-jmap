@@ -1498,6 +1498,79 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
 }
 
 // ---------------------------------------------------------------------------
+// FileNode/copy — same-account copy under the source node's own descendant
+// is rejected with invalidProperties (cycle guard).
+// Oracle: bd:JMAP-510h.59 — same-account copy is allowed (RFC 8620 §5.4
+// does not prohibit it), but the resulting tree must not have a node copied
+// under its own descendant.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_copy_same_account_under_own_descendant_returns_invalid_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Build A -> B in acc1.
+    let a_id = create_node(&backend, "acc1", "A", None, "a").await;
+    let b_id = create_node(&backend, "acc1", "B", Some(&a_id), "b").await;
+
+    // Try to copy A under B (which is A's descendant) within the same account.
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "acc1",
+            "accountId": "acc1",
+            "create": {
+                "c": { "id": &a_id, "parentId": &b_id }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    let not_copied = &resp["notCreated"]["c"];
+    assert_eq!(
+        not_copied["type"], "invalidProperties",
+        "copy under own descendant must surface as invalidProperties: {resp}"
+    );
+    let props = not_copied["properties"]
+        .as_array()
+        .expect("properties must be array");
+    assert!(
+        props.contains(&json!("parentId")),
+        "parentId must be listed in properties: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_copy_same_account_to_own_id_returns_invalid_properties() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let a_id = create_node(&backend, "acc1", "A", None, "a").await;
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "acc1",
+            "accountId": "acc1",
+            "create": {
+                "c": { "id": &a_id, "parentId": &a_id }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    let not_copied = &resp["notCreated"]["c"];
+    assert_eq!(
+        not_copied["type"], "invalidProperties",
+        "copy under self must surface as invalidProperties: {resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // FileNode/copy — unknown fromAccountId returns fromAccountNotFound, distinct
 // from accountNotFound for an unknown destination accountId.
 // Oracle: RFC 8620 §5.4 — Foo/copy defines fromAccountNotFound for the
