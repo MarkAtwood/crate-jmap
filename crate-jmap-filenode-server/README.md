@@ -236,9 +236,12 @@ until the family is published to crates.io.
 - The `FileNode/query` depth expansion calls `FileNodeBackend::query_subtree` once. The **default** `query_subtree` implementation calls `query_objects` with a `parentId` filter once per depth level (O(depth) backend calls). Backends with a nested-sets model, closure table, or recursive CTE should override `query_subtree` with a single bulk query.
 - The `onExists: "rename"` suffix loop is capped at 100 attempts; beyond that,
   `serverFail` is returned.
-- No storage backend ships with this crate. A tree-backed `MockBackend` exists in the
-  `test_support` module inside `src/lib.rs` for unit testing only; it is not suitable for
-  production use.
+- No production storage backend ships with this crate. A tree-backed reference
+  implementation `MemoryBackend` lives in `src/memory.rs` and is gated behind
+  `feature = "memory"` — it is intended for tests, examples, and contributor
+  smoke-testing only, and is explicitly not suitable for production use. An
+  internal `MockBackend` (`#[cfg(test)]`) in `src/lib.rs` is used by this
+  crate's own unit tests and is not part of the public surface.
 
 ## References
 
