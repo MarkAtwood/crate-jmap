@@ -997,20 +997,14 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                 continue;
             }
 
-            let mut source_node = nodes.remove(0);
+            let source_node = nodes.remove(0);
 
-            // Apply any overrides from the copy descriptor (e.g. new name
-            // or parentId in the destination). parentId must be a string
-            // or null; non-string non-null values are
-            // invalidProperties — silently coercing to None would
-            // surface as a 'moved to root' side effect with no error
-            // signal.
+            // Validate parentId override shape before the generic merge:
+            // parentId must be a string or null. Silently coercing a
+            // non-string non-null value to None would surface as a
+            // 'moved to root' side effect with no error signal.
             if let Some(new_parent) = obj_val.get("parentId") {
-                if new_parent.is_null() {
-                    source_node.parent_id = None;
-                } else if let Some(s) = new_parent.as_str() {
-                    source_node.parent_id = Some(Id::from(s));
-                } else {
+                if !new_parent.is_null() && new_parent.as_str().is_none() {
                     not_copied.insert(
                         create_id,
                         json!({
@@ -1022,9 +1016,33 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                     continue;
                 }
             }
-            if let Some(new_name) = obj_val.get("name").and_then(|v| v.as_str()) {
-                source_node.name = new_name.to_owned();
-            }
+
+            // RFC 8620 §5.4: "a copy of the source object with the given
+            // properties overridden". draft-ietf-jmap-filenode-13 §3.2.4
+            // references this verbatim. Apply ALL override fields from
+            // obj_val on top of the source, not just (parentId, name).
+            // The 'id' key is the source reference, not a write target —
+            // skip it. Excluded fields that the server must own:
+            //   - id: the destination assigns the new id
+            //   - created/modified/accessed/changed: server timestamps
+            //   - size: derived from blobId on the destination
+            //   - myRights: derived from caller's permissions on the dst
+            //
+            // Round-trip: serialize source_node, apply override map, then
+            // deserialize back to FileNode. A bad override surfaces as an
+            // invalidProperties SetError instead of corrupting state.
+            let mut source_node = match merge_filenode_overrides(source_node, &obj_val) {
+                Ok(n) => n,
+                Err(err_obj) => {
+                    not_copied.insert(create_id, err_obj);
+                    continue;
+                }
+            };
+            // The destination assigns a new id; clear the source id so
+            // create_object cannot accidentally reuse it. The id field
+            // is non-Optional on FileNode, so use the default placeholder
+            // the backend will overwrite during create_object.
+            source_node.id = Id::from("");
 
             // Tracks the rename applied by OnExists::Rename so the
             // post-create response can enforce the spec's MUST that the
@@ -1400,6 +1418,59 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     }
 
     Ok((resp, extra))
+}
+
+/// Merge override fields from a FileNode/copy create entry over a source node.
+///
+/// RFC 8620 §5.4 ("a copy of the source object with the given properties
+/// overridden") and draft-ietf-jmap-filenode-13 §3.2.4 ("the same behaviour"
+/// as FileNode/set). The caller-supplied `override_val` is applied on top
+/// of the serialized source. Fields the server owns are excluded:
+///
+/// - `id`: the destination assigns a new id; the entry's `id` is the
+///   source reference, not a write target.
+/// - `created` / `modified` / `accessed` / `changed`: server timestamps;
+///   the copy gets fresh values from the destination backend.
+/// - `size`: derived from `blobId` on the destination, not client-set.
+/// - `myRights`: derived from caller's permissions on the destination.
+///
+/// Returns the merged FileNode on success. On a malformed override
+/// (e.g. wrong-shape `role`, malformed `nodeType`), returns an
+/// `invalidProperties`-shaped error Value suitable for `notCreated`.
+fn merge_filenode_overrides(source: FileNode, override_val: &Value) -> Result<FileNode, Value> {
+    // Serialize the source into a mutable Value map.
+    let mut merged =
+        serde_json::to_value(&source).expect("derive(Serialize) on FileNode is infallible");
+
+    let map = merged
+        .as_object_mut()
+        .expect("FileNode serializes to a JSON object");
+
+    if let Some(over_obj) = override_val.as_object() {
+        // Fields the server owns; never overridable from the client.
+        const SERVER_OWNED: &[&str] = &[
+            "id", "created", "modified", "accessed", "changed", "size", "myRights",
+        ];
+        for (k, v) in over_obj {
+            if k == "id" {
+                // Skip: caller's "id" is the source reference per the wire shape.
+                continue;
+            }
+            if SERVER_OWNED.contains(&k.as_str()) {
+                // Silently ignore — RFC 8620 §5.4 does not let clients
+                // override server-owned fields via /copy.
+                continue;
+            }
+            map.insert(k.clone(), v.clone());
+        }
+    }
+
+    serde_json::from_value::<FileNode>(merged).map_err(|e| {
+        json!({
+            "type": "invalidProperties",
+            "description": format!("override produced invalid FileNode: {e}"),
+        })
+    })
 }
 
 // ---------------------------------------------------------------------------

@@ -1020,6 +1020,50 @@ async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// FileNode/copy — arbitrary property overrides from the create entry apply
+// to the copied node (not just parentId and name).
+// Oracle: RFC 8620 §5.4 — "A map of creation id to a Foo object. [...]
+// a copy of the source object with the given properties overridden."
+// draft-ietf-jmap-filenode-13 §3.2.4 incorporates by reference. Regression
+// for bd JMAP-510h.11.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_copy_applies_arbitrary_property_overrides() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    // Source has role=null. The copy supplies role="documents" override.
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "create": {
+                "c": {
+                    "id": &src_id,
+                    "name": "doc",
+                    "role": "documents"
+                }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect("must not return top-level error");
+
+    let created = &resp["created"]["c"];
+    assert!(created.is_object(), "copy must succeed: {resp}");
+    assert_eq!(
+        created["role"], "documents",
+        "the role override from the create entry must be applied to the copy; \
+         got: {resp}"
+    );
+}
+
 #[tokio::test]
 async fn filenode_copy_on_exists_replace_with_flag_cascades() {
     let backend = MemoryBackend::new().with_account("src").with_account("dst");
