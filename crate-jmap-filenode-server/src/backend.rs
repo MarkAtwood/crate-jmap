@@ -109,10 +109,41 @@ pub trait FileNodeBackend: JmapBackend {
     /// Returns the id of any sibling node that already has the given name, or
     /// `None` if the name is unique within that parent.
     ///
-    /// `parent_id` is `None` for the root level.  `case_insensitive` controls
+    /// `parent_id` is `None` for the root level. `case_insensitive` controls
     /// the comparison (many file systems treat names case-insensitively).
     ///
     /// Used by `FileNode/set` to enforce the `alreadyExists` constraint.
+    ///
+    /// # Case-folding policy
+    ///
+    /// **The case-folding algorithm used for `case_insensitive = true` is
+    /// implementation-defined and the workspace does not standardise it.**
+    /// Implementations vary widely:
+    ///
+    /// - ASCII fold only (a..z ↔ A..Z).
+    /// - Unicode simple case fold (e.g. `str::to_lowercase` in Rust).
+    /// - Unicode full case fold ("ß" → "ss"; Unicode Standard Annex §3.13).
+    /// - Turkish/Azerbaijani locale folding ("I" ↔ "ı", "İ" ↔ "i").
+    /// - HFS+ decomposition + fold (macOS native).
+    /// - ICU locale-aware collation.
+    /// - Filesystem-native (NTFS upcase table, APFS normalisation-insensitive).
+    ///
+    /// Each choice can disagree with another on the same input pair. A backend
+    /// that uses Unicode simple lowercase will not collide on "I" / "ı"; an
+    /// NTFS-backed CIFS share on a Turkish-locale Windows host will. JMAP
+    /// FileNode (`draft-ietf-jmap-filenode-13` §3.2.3 `compareCaseInsensitively`)
+    /// is silent on the algorithm and so is the workspace.
+    ///
+    /// This is by design: the workspace ships a kit, not a server. The choice
+    /// of folding algorithm is properly the consumer's, scoped to the storage
+    /// backend they wire up. The reference `memory::MemoryBackend` (gated
+    /// behind the `memory` feature) uses `str::to_lowercase` (Unicode simple
+    /// lowercase, locale-independent), which is suitable for tests and demos
+    /// but is NOT a recommendation for production.
+    ///
+    /// Implementers SHOULD document the algorithm their backend uses in
+    /// public-facing docs, and SHOULD NOT mix folding algorithms within a
+    /// single account namespace.
     fn find_sibling_by_name(
         &self,
         caller: &Self::CallerCtx,
