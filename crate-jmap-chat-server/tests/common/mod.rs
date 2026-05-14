@@ -200,8 +200,8 @@ impl ChatBackend for FaultyBackend {
 pub struct TrackingBackend {
     inner: MemoryBackend,
     /// When `Some`, [`ChatBackend::slow_mode_check`] returns
-    /// `Err(SlowModeError { retry_after: <this> })`. When `None`,
-    /// forwards to `inner` (which is a no-op).
+    /// `Err(SlowModeError::new(<this>))`. When `None`, forwards to
+    /// `inner` (which is a no-op).
     slow_mode_block: Option<UTCDate>,
     /// When `true`, [`ChatBackend::may_set_custom_emoji`] returns
     /// `Ok(false)` for every op (Create/Update/Destroy). When `false`,
@@ -419,9 +419,7 @@ impl ChatBackend for TrackingBackend {
         chat_id: &Id,
     ) -> Result<(), SlowModeError> {
         match &self.slow_mode_block {
-            Some(d) => Err(SlowModeError {
-                retry_after: d.clone(),
-            }),
+            Some(d) => Err(SlowModeError::new(d.clone())),
             None => {
                 self.inner
                     .slow_mode_check(caller, account_id, chat_id)

@@ -50,12 +50,46 @@ pub use jmap_server::{
 /// [`SetError`] is defined in `jmap-server` and `jmap-chat-types` cannot
 /// depend on it (per the workspace dependency rule: types crates depend
 /// only on `jmap-types`, `serde`, `serde_json`).
+///
+/// `#[non_exhaustive]` preserves the ability to add fields without a
+/// SemVer break (e.g. an audit-log handle, commit ordering hint,
+/// permission-diagnostic annotation). External consumers MUST construct
+/// instances via [`OpResult::ok`] or [`OpResult::err`] rather than
+/// field-init syntax.
+#[non_exhaustive]
 #[derive(Debug)]
 pub struct OpResult {
     /// Zero-based index of the originating op in the input `Vec<SpacePatchOp>`.
     pub op_index: usize,
     /// The outcome of applying that op.
     pub outcome: Result<Option<jmap_types::Id>, SetError>,
+}
+
+impl OpResult {
+    /// Construct an `Ok` result for a successfully applied op.
+    ///
+    /// The contained `Id` is the server-assigned id when the op was a
+    /// create (the kit's response includes it under `created[create_id].id`);
+    /// pass `None` for updates and destroys, which have no id to surface.
+    #[must_use]
+    pub fn ok(op_index: usize, id: Option<jmap_types::Id>) -> Self {
+        Self {
+            op_index,
+            outcome: Ok(id),
+        }
+    }
+
+    /// Construct an `Err` result for a rejected op.
+    ///
+    /// The kit's `handle_space_set` surfaces this error to the JMAP
+    /// `notUpdated` map for the containing update target.
+    #[must_use]
+    pub fn err(op_index: usize, error: SetError) -> Self {
+        Self {
+            op_index,
+            outcome: Err(error),
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -219,10 +253,28 @@ pub enum EmojiSetOp {
 /// has already done the arithmetic (typically "now + remaining slow-mode
 /// window"). The handler serialises it verbatim onto the wire as the
 /// `serverRetryAfter` SetError extra field.
+///
+/// `#[non_exhaustive]` preserves the ability to add fields without a
+/// SemVer break (e.g. an error code, sender-facing retry hint string,
+/// "this is your N-th throttle in M minutes" diagnostic counter).
+/// External consumers MUST construct instances via [`SlowModeError::new`]
+/// rather than field-init syntax.
+#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SlowModeError {
     /// When the rate-limited sender may retry.
     pub retry_after: jmap_types::UTCDate,
+}
+
+impl SlowModeError {
+    /// Construct a [`SlowModeError`] from a precomputed retry-after
+    /// [`UTCDate`].
+    ///
+    /// [`UTCDate`]: jmap_types::UTCDate
+    #[must_use]
+    pub fn new(retry_after: jmap_types::UTCDate) -> Self {
+        Self { retry_after }
+    }
 }
 
 // ---------------------------------------------------------------------------
