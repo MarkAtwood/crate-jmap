@@ -319,19 +319,20 @@ pub type BackendCallFn<B, C> =
 /// struct AuthCtx { user_id: String }
 ///
 /// let handler: Arc<ClosureHandler<MyBackend, AuthCtx>> =
-///     Arc::new(ClosureHandler {
-///         backend: Arc::new(my_backend),
-///         call_fn: Box::new(|b, call_id, args, ctx| {
+///     Arc::new(ClosureHandler::new(
+///         Arc::new(my_backend),
+///         Box::new(|b, call_id, args, ctx| {
 ///             Box::pin(async move {
 ///                 // ctx.user_id is available here
 ///                 handle_something(&*b, args, &ctx.user_id).await
 ///             })
 ///         }),
-///     });
+///     ));
 ///
 /// let mut dispatcher: Dispatcher<AuthCtx> = Dispatcher::new();
 /// dispatcher.register("MyMethod/get", handler);
 /// ```
+#[non_exhaustive]
 pub struct ClosureHandler<B: Send + Sync + 'static, C: Clone + Send + 'static> {
     /// Shared reference to the backend implementation, passed to the closure
     /// on every method call.
@@ -339,6 +340,20 @@ pub struct ClosureHandler<B: Send + Sync + 'static, C: Clone + Send + 'static> {
     /// The async closure invoked for each JMAP method call this handler
     /// receives from the dispatcher.
     pub call_fn: Box<BackendCallFn<B, C>>,
+}
+
+impl<B: Send + Sync + 'static, C: Clone + Send + 'static> ClosureHandler<B, C> {
+    /// Construct a [`ClosureHandler`] wrapping a shared backend and an
+    /// async closure (bd:JMAP-wlip.17).
+    ///
+    /// This is the supported construction path. The struct is
+    /// `#[non_exhaustive]` so future fields (per-handler tracing
+    /// context, metrics handle, timeout, etc.) can be added without a
+    /// major-version bump — external callers MUST go through `new`
+    /// rather than struct-literal syntax.
+    pub fn new(backend: Arc<B>, call_fn: Box<BackendCallFn<B, C>>) -> Self {
+        Self { backend, call_fn }
+    }
 }
 
 impl<B: Send + Sync + 'static, C: Clone + Send + 'static> JmapHandler<C> for ClosureHandler<B, C> {
@@ -921,16 +936,16 @@ mod tests {
         let received: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
         let received_clone = Arc::clone(&received);
 
-        let handler: Arc<ClosureHandler<DummyBackend, Ctx>> = Arc::new(ClosureHandler {
-            backend: Arc::new(DummyBackend),
-            call_fn: Box::new(move |_b, _call_id, _args, ctx| {
+        let handler: Arc<ClosureHandler<DummyBackend, Ctx>> = Arc::new(ClosureHandler::new(
+            Arc::new(DummyBackend),
+            Box::new(move |_b, _call_id, _args, ctx| {
                 let cap = Arc::clone(&received_clone);
                 Box::pin(async move {
                     *cap.lock().unwrap() = Some(ctx.0.clone());
                     Ok((serde_json::json!({}), vec![]))
                 })
             }),
-        });
+        ));
 
         let ctx = Ctx("alice".to_owned());
         handler
@@ -956,12 +971,10 @@ mod tests {
         #[derive(Clone)]
         struct Ctx;
 
-        let h = ClosureHandler {
-            backend: Arc::new(DummyBackend),
-            call_fn: Box::new(|_b, _ci, _a, _ctx| {
-                Box::pin(async { Ok((serde_json::json!({}), vec![])) })
-            }),
-        };
+        let h = ClosureHandler::new(
+            Arc::new(DummyBackend),
+            Box::new(|_b, _ci, _a, _ctx| Box::pin(async { Ok((serde_json::json!({}), vec![])) })),
+        );
         assert_handler::<Ctx, _>(&h);
     }
 }
