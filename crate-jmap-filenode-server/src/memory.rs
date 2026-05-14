@@ -57,7 +57,7 @@ use crate::{
     BackendChangesError, BackendSetError, ChangesResult, FileNodeBackend, GetObject, JmapBackend,
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
-use jmap_filenode_types::FileNode;
+use jmap_filenode_types::{FileNode, NodeRole, NodeType};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -386,12 +386,12 @@ impl JmapBackend for MemoryBackend {
             None
         };
 
-        let mut ids: Vec<Id> = store
-            .nodes
-            .values()
-            .filter(|node| node_matches_filter(node, fc.as_ref()))
-            .map(|node| node.id.clone())
-            .collect();
+        let mut ids: Vec<Id> = Vec::new();
+        for node in store.nodes.values() {
+            if node_matches_filter(node, fc.as_ref(), &store.nodes)? {
+                ids.push(node.id.clone());
+            }
+        }
 
         // Sort by id string for determinism in tests.
         ids.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
@@ -723,34 +723,280 @@ impl FileNodeBackend for MemoryBackend {
 // Filter matching helper
 // ---------------------------------------------------------------------------
 
-/// Returns true if `node` satisfies the filter condition `fc`.
+/// Returns `Ok(true)` if `node` satisfies the filter condition `fc`,
+/// `Ok(false)` if it does not match, and `Err(MemoryError(...))` if the
+/// filter condition references a field that the reference implementation
+/// does not support.
 ///
-/// Only the filters used by integration tests are implemented:
-/// - `parentId` — exact match
-/// - `isTopLevel` — parentId is null
+/// Implemented fields (all simple equality / inequality semantics):
+/// - `parentId` — exact match on parent_id
+/// - `isTopLevel` — parent_id is null
+/// - `ancestorId` — `node` has the given id somewhere on its parent chain
+/// - `descendantId` — `node` is an ancestor of the node with the given id
+/// - `nodeType` — exact match on the node_type string
+/// - `role` — exact match on the role string
+/// - `hasAnyRole` — node has a non-null role (or null role if false)
+/// - `blobId` — exact match on blob_id
+/// - `type` (media type) — exact match on media_type
+/// - `name` — exact byte match on name
+/// - `nameMatch` / `typeMatch` — case-insensitive glob match (`*`, `?`)
+/// - `isExecutable` — exact match on the executable flag
+/// - `minSize` / `maxSize` — size bounds (`size >= minSize` / `size < maxSize`)
+/// - `createdBefore` / `createdAfter`
+/// - `modifiedBefore` / `modifiedAfter`
+/// - `accessedBefore` / `accessedAfter`
 ///
-/// All other fields are ignored (pass-through — node still matches).
+/// Explicitly NOT supported (returns Err so a test that uses one of these
+/// gets a clear backend error rather than a silent match-all that would
+/// look like a passing query):
+/// - `body` (full-text search in blob content)
+/// - `text` (full-text search OR name OR type)
+///
+/// Reasoning: bd:JMAP-510h.9 documented the silent match-all default as a
+/// double bug — wrong test oracle and footgun reference for downstream
+/// backends to copy. Explicit Err on the genuinely-unsupported conditions
+/// closes the footgun while implementing the cheap equality fields
+/// keeps the reference impl useful for the common cases.
 fn node_matches_filter(
     node: &FileNode,
     fc: Option<&jmap_filenode_types::FileNodeFilterCondition>,
-) -> bool {
+    nodes: &HashMap<Id, FileNode>,
+) -> Result<bool, MemoryError> {
     let fc = match fc {
         Some(f) => f,
-        None => return true, // No filter — all nodes match.
+        None => return Ok(true), // No filter — all nodes match.
     };
 
     if let Some(ref pid) = fc.parent_id {
         if node.parent_id.as_ref() != Some(pid) {
-            return false;
+            return Ok(false);
         }
     }
 
     if let Some(is_top) = fc.is_top_level {
         let top = node.parent_id.is_none();
         if top != is_top {
-            return false;
+            return Ok(false);
         }
     }
 
-    true
+    if let Some(ref aid) = fc.ancestor_id {
+        // Walk parent chain from `node` upward looking for aid.
+        let mut cur = node.parent_id.as_ref();
+        let mut found = false;
+        let mut depth = 0u32;
+        while let Some(pid) = cur {
+            if pid == aid {
+                found = true;
+                break;
+            }
+            // Cycle safeguard: a malformed tree must not loop forever.
+            depth += 1;
+            if depth > 10_000 {
+                return Err(MemoryError(
+                    "node_matches_filter: ancestor chain exceeds 10_000 depth, suspected cycle"
+                        .to_owned(),
+                ));
+            }
+            cur = nodes.get(pid).and_then(|n| n.parent_id.as_ref());
+        }
+        if !found {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref did) = fc.descendant_id {
+        // Node matches if its id appears on the parent chain of the
+        // node identified by `did`.
+        let target = match nodes.get(did) {
+            Some(t) => t,
+            None => return Ok(false),
+        };
+        let mut cur = target.parent_id.as_ref();
+        let mut found = false;
+        let mut depth = 0u32;
+        while let Some(pid) = cur {
+            if pid == &node.id {
+                found = true;
+                break;
+            }
+            depth += 1;
+            if depth > 10_000 {
+                return Err(MemoryError(
+                    "node_matches_filter: descendant chain exceeds 10_000 depth, suspected cycle"
+                        .to_owned(),
+                ));
+            }
+            cur = nodes.get(pid).and_then(|n| n.parent_id.as_ref());
+        }
+        if !found {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref nt) = fc.node_type {
+        let node_nt_str = node.node_type.as_ref().map(NodeType::to_wire_str);
+        if node_nt_str != Some(nt.as_str()) {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref r) = fc.role {
+        let node_role_str = node.role.as_ref().map(NodeRole::to_wire_str);
+        if node_role_str != Some(r.as_str()) {
+            return Ok(false);
+        }
+    }
+
+    if let Some(has_role) = fc.has_any_role {
+        let has = node.role.is_some();
+        if has != has_role {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref bid) = fc.blob_id {
+        if node.blob_id.as_ref() != Some(bid) {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref mt) = fc.media_type {
+        if node.media_type.as_deref() != Some(mt.as_str()) {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref name) = fc.name {
+        if node.name != *name {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref pattern) = fc.name_match {
+        if !glob_match_case_insensitive(pattern, &node.name) {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref pattern) = fc.type_match {
+        let mt = node.media_type.as_deref().unwrap_or("");
+        if !glob_match_case_insensitive(pattern, mt) {
+            return Ok(false);
+        }
+    }
+
+    if let Some(is_exec) = fc.is_executable {
+        if node.executable.unwrap_or(false) != is_exec {
+            return Ok(false);
+        }
+    }
+
+    if let Some(min) = fc.min_size {
+        if node.size.unwrap_or(0) < min {
+            return Ok(false);
+        }
+    }
+
+    if let Some(max) = fc.max_size {
+        if node.size.unwrap_or(0) >= max {
+            return Ok(false);
+        }
+    }
+
+    if let Some(ref before) = fc.created_before {
+        if !date_strictly_before(node.created.as_ref(), before) {
+            return Ok(false);
+        }
+    }
+    if let Some(ref after) = fc.created_after {
+        if !date_on_or_after(node.created.as_ref(), after) {
+            return Ok(false);
+        }
+    }
+    if let Some(ref before) = fc.modified_before {
+        if !date_strictly_before(node.modified.as_ref(), before) {
+            return Ok(false);
+        }
+    }
+    if let Some(ref after) = fc.modified_after {
+        if !date_on_or_after(node.modified.as_ref(), after) {
+            return Ok(false);
+        }
+    }
+    if let Some(ref before) = fc.accessed_before {
+        if !date_strictly_before(node.accessed.as_ref(), before) {
+            return Ok(false);
+        }
+    }
+    if let Some(ref after) = fc.accessed_after {
+        if !date_on_or_after(node.accessed.as_ref(), after) {
+            return Ok(false);
+        }
+    }
+
+    if fc.body.is_some() {
+        return Err(MemoryError(
+            "node_matches_filter: 'body' (full-text search) is not supported by the reference \
+             MemoryBackend"
+                .to_owned(),
+        ));
+    }
+    if fc.text.is_some() {
+        return Err(MemoryError(
+            "node_matches_filter: 'text' (full-text search) is not supported by the reference \
+             MemoryBackend"
+                .to_owned(),
+        ));
+    }
+
+    Ok(true)
+}
+
+/// Case-insensitive glob matcher.
+///
+/// Supports `*` (matches any sequence including empty) and `?` (matches
+/// any single character). Iterative algorithm with O(len(pattern) *
+/// len(text)) worst-case; sufficient for reference-impl correctness.
+/// `[...]` character classes are not supported.
+fn glob_match_case_insensitive(pattern: &str, text: &str) -> bool {
+    let p: Vec<char> = pattern.chars().flat_map(char::to_lowercase).collect();
+    let t: Vec<char> = text.chars().flat_map(char::to_lowercase).collect();
+    glob_match_inner(&p, 0, &t, 0)
+}
+
+fn glob_match_inner(p: &[char], pi: usize, t: &[char], ti: usize) -> bool {
+    if pi == p.len() {
+        return ti == t.len();
+    }
+    match p[pi] {
+        '*' => {
+            // Try matching zero, one, two, ... chars against the rest.
+            for skip in ti..=t.len() {
+                if glob_match_inner(p, pi + 1, t, skip) {
+                    return true;
+                }
+            }
+            false
+        }
+        '?' => ti < t.len() && glob_match_inner(p, pi + 1, t, ti + 1),
+        c => ti < t.len() && t[ti] == c && glob_match_inner(p, pi + 1, t, ti + 1),
+    }
+}
+
+fn date_strictly_before(
+    node_date: Option<&jmap_types::UTCDate>,
+    bound: &jmap_types::UTCDate,
+) -> bool {
+    match node_date {
+        Some(d) => d.as_ref() < bound.as_ref(),
+        None => false,
+    }
+}
+
+fn date_on_or_after(node_date: Option<&jmap_types::UTCDate>, bound: &jmap_types::UTCDate) -> bool {
+    match node_date {
+        Some(d) => d.as_ref() >= bound.as_ref(),
+        None => false,
+    }
 }

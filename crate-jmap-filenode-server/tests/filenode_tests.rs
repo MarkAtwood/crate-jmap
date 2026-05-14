@@ -1496,3 +1496,84 @@ async fn filenode_copy_on_success_destroy_original_node_has_children() {
         "src parent must survive a failed implicit destroy: {get_resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// FileNode/query — role filter actually filters by role on MemoryBackend.
+// Oracle: FileNodeFilterCondition.role is exact byte match. Regression
+// for bd:JMAP-510h.9 — before the fix, MemoryBackend silently passed
+// through any filter condition other than parentId/isTopLevel and the
+// query returned every node regardless of role.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_query_role_filter_excludes_non_matching() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "d1": { "name": "documents", "parentId": null, "role": "documents" },
+                "d2": { "name": "downloads", "parentId": null, "role": "downloads" },
+                "d3": { "name": "no-role",    "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("create must succeed");
+
+    let (q_resp, _) = handle_filenode_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "filter": { "role": "documents" },
+            "sort": null
+        }),
+    )
+    .await
+    .expect("query must succeed");
+
+    let ids = q_resp["ids"].as_array().expect("ids must be array");
+    assert_eq!(
+        ids.len(),
+        1,
+        "role=documents must match exactly one node, not all three; got: {q_resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// FileNode/query — body (full-text) filter is explicitly unsupported.
+// Oracle: bd:JMAP-510h.9 — unsupported conditions MUST surface as a
+// backend Err (mapped to serverFail by the handler), not be silently
+// passed through. Closes the reference-impl footgun where a downstream
+// contributor would copy the silent match-all pattern.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_query_body_filter_returns_server_fail() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let _ = create_node(&backend, "acc1", "doc", None, "s").await;
+
+    let result = handle_filenode_query(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "filter": { "body": "search-term" },
+            "sort": null
+        }),
+    )
+    .await;
+
+    let err = result.expect_err("body filter must surface as a JmapError, not silently match all");
+    assert_eq!(
+        err.error_type.as_str(),
+        "serverFail",
+        "unsupported filter condition must surface as serverFail (the \
+         MemoryBackend explicitly returns Err so downstream backends do not \
+         silently match-all); got: {err:?}"
+    );
+}
