@@ -166,10 +166,21 @@ pub(crate) mod test_support {
         /// parent_id → direct child IDs (for depth-query tests).
         /// Key is `Option<String>` where None means "children of root".
         children: HashMap<Option<String>, Vec<String>>,
-        /// When `Some(msg)`, `query_objects` returns `Err(MockError(msg))`
-        /// instead of consulting `children`.  Used to verify silent-error
-        /// regressions in `query_subtree` and `handle_filenode_query`.
-        query_objects_err: Option<String>,
+        /// When set, `query_objects` returns `Err(MockError(msg))` once
+        /// the call counter has reached `after_calls`.  Used to verify
+        /// silent-error regressions in `query_subtree` and
+        /// `handle_filenode_query`.
+        query_objects_err: Option<QueryObjectsErrConfig>,
+        /// Running count of `query_objects` invocations on this backend.
+        query_objects_calls: u64,
+    }
+
+    /// Configuration for the `query_objects` failure injection.
+    struct QueryObjectsErrConfig {
+        msg: String,
+        /// Number of calls to allow through before failing. `0` means the
+        /// very next call fails.
+        after_calls: u64,
     }
 
     /// In-memory mock backend for testing.
@@ -188,15 +199,30 @@ pub(crate) mod test_support {
                     siblings: HashMap::new(),
                     children: HashMap::new(),
                     query_objects_err: None,
+                    query_objects_calls: 0,
                 })),
             }
         }
 
-        /// Cause `query_objects` to return `Err(MockError(msg))` instead of
-        /// consulting registered children. Used to exercise error
-        /// propagation through `query_subtree` and `handle_filenode_query`.
+        /// Cause `query_objects` to return `Err(MockError(msg))` immediately
+        /// on the next call. Used to exercise error propagation through
+        /// `query_subtree` and `handle_filenode_query`.
         pub fn set_query_objects_err(&self, msg: &str) {
-            self.inner.lock().unwrap().query_objects_err = Some(msg.to_owned());
+            self.inner.lock().unwrap().query_objects_err = Some(QueryObjectsErrConfig {
+                msg: msg.to_owned(),
+                after_calls: 0,
+            });
+        }
+
+        /// Cause `query_objects` to succeed on the first `after_calls`
+        /// invocations and return `Err(MockError(msg))` on the next.
+        /// Used to test the depth-expansion path of `handle_filenode_query`
+        /// (level-0 succeeds, the first per-level recursion fails).
+        pub fn set_query_objects_err_after(&self, msg: &str, after_calls: u64) {
+            self.inner.lock().unwrap().query_objects_err = Some(QueryObjectsErrConfig {
+                msg: msg.to_owned(),
+                after_calls,
+            });
         }
 
         pub fn new_with_account(account_id: &str) -> Self {
@@ -320,8 +346,17 @@ pub(crate) mod test_support {
         ) -> Result<QueryResult, Self::Error> {
             // Optional failure injection for tests covering silent-error
             // regressions through callers of `query_objects`.
-            if let Some(msg) = self.inner.lock().unwrap().query_objects_err.clone() {
-                return Err(MockError(msg));
+            {
+                let mut guard = self.inner.lock().unwrap();
+                let call_index = guard.query_objects_calls;
+                guard.query_objects_calls = guard.query_objects_calls.saturating_add(1);
+                if let Some(cfg) = guard.query_objects_err.as_ref() {
+                    if call_index >= cfg.after_calls {
+                        let msg = cfg.msg.clone();
+                        drop(guard);
+                        return Err(MockError(msg));
+                    }
+                }
             }
             // Support parentId filter for depth-query tests.  Try to interpret the
             // filter as a FileNodeFilterCondition via serde round-trip.  If the cast
