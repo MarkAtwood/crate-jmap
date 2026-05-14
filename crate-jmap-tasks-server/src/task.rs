@@ -30,11 +30,9 @@ pub async fn handle_task_get<B: TasksBackend>(
     // Determine whether utcStart / utcDue are requested.
     let want_utc = match args.get("properties") {
         None | Some(Value::Null) => true, // all properties requested
-        Some(Value::Array(props)) => props.iter().any(|p| {
-            p.as_str()
-                .map(|s| s == "utcStart" || s == "utcDue")
-                .unwrap_or(false)
-        }),
+        Some(Value::Array(props)) => props
+            .iter()
+            .any(|p| p.as_str().is_some_and(|s| s == "utcStart" || s == "utcDue")),
         _ => false,
     };
 
@@ -264,16 +262,13 @@ pub async fn handle_task_set<B: TasksBackend>(
             // Per-user property names (`keywords`, `color`, `freeBusyStatus`,
             // `useDefaultAlerts`, `alerts`) contain no `/` or `~`, so a plain
             // `split('/').next()` is correct without RFC 6901 unescaping.
-            let is_per_user_only = patch_val
-                .as_object()
-                .map(|m| {
-                    !m.is_empty()
-                        && m.keys().all(|k| {
-                            let head = k.split('/').next().unwrap_or(k);
-                            B::is_per_user_property(head)
-                        })
-                })
-                .unwrap_or(false);
+            let is_per_user_only = patch_val.as_object().is_some_and(|m| {
+                !m.is_empty()
+                    && m.keys().all(|k| {
+                        let head = k.split('/').next().unwrap_or(k);
+                        B::is_per_user_property(head)
+                    })
+            });
 
             // Convert wire-format Value into a typed PatchObject. RFC 8620
             // §5.3 mandates a PatchObject is a JSON Object; non-object
