@@ -419,6 +419,7 @@ pub async fn handle_task_copy<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
+    call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (to_account_id, mut args) = extract_account_id(args)?;
 
@@ -483,9 +484,24 @@ pub async fn handle_task_copy<B: TasksBackend>(
         }
     }
 
+    // RFC 8620 §5.4 `onSuccessDestroyOriginal` / `destroyFromIfInState`:
+    // parsed here so the request payload is consumed in handler-local order
+    // and so a clearly-shaped per-feature value is available below.
+    let on_success_destroy_original: bool = args
+        .get("onSuccessDestroyOriginal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    let destroy_from_if_in_state: Option<String> = args
+        .get("destroyFromIfInState")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_owned());
+
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
     let mut mutated = false;
+    // (create_id, source_id) pairs for entries that succeeded — fed to the
+    // implicit Task/set destroy below when onSuccessDestroyOriginal is true.
+    let mut copied_source_ids: Vec<(String, Id)> = Vec::new();
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, client_val) in create_map {
@@ -579,10 +595,11 @@ pub async fn handle_task_copy<B: TasksBackend>(
                 Ok((_new_id, created_task)) => {
                     mutated = true;
                     created.insert(
-                        create_id,
+                        create_id.clone(),
                         serde_json::to_value(&created_task)
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
+                    copied_source_ids.push((create_id, source_id));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_created.insert(create_id, set_error_value(&set_err));
@@ -615,17 +632,106 @@ pub async fn handle_task_copy<B: TasksBackend>(
         old_state.clone()
     };
 
-    Ok((
-        json!({
-            "fromAccountId": from_account_id.as_ref(),
-            "accountId": to_account_id.as_ref(),
-            "oldState": old_state.as_ref(),
-            "newState": new_state.as_ref(),
-            "created":    if created.is_empty()     { Value::Null } else { Value::Object(created) },
-            "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
-        }),
-        vec![],
-    ))
+    let resp = json!({
+        "fromAccountId": from_account_id.as_ref(),
+        "accountId": to_account_id.as_ref(),
+        "oldState": old_state.as_ref(),
+        "newState": new_state.as_ref(),
+        "created":    if created.is_empty()     { Value::Null } else { Value::Object(created) },
+        "notCreated": if not_created.is_empty() { Value::Null } else { Value::Object(not_created) },
+    });
+
+    // RFC 8620 §5.4 `onSuccessDestroyOriginal`: after emitting the Task/copy
+    // response, the server MUST make a single implicit Task/set call against
+    // fromAccountId destroying each successfully copied source record.
+    // `destroyFromIfInState`, if supplied, is passed through as the ifInState
+    // argument on that implicit call. The dispatcher returns the extra
+    // Invocation vec to the caller (RFC 8620 §6.3 chained responses).
+    // Pattern mirrors jmap-mail-server email.rs:2432-2575.
+    let mut extra: Vec<Invocation> = Vec::new();
+    if on_success_destroy_original && !copied_source_ids.is_empty() {
+        let from_old_state = backend
+            .get_state::<Task>(caller, &from_account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+
+        // Honour destroyFromIfInState on the implicit Task/set call. A
+        // mismatch yields a stateMismatch top-level error on the synthesized
+        // response (§5.4 inheriting §5.3 semantics on the chained call).
+        let mut destroy_state_mismatch = false;
+        if let Some(if_state) = destroy_from_if_in_state.as_deref() {
+            if if_state != from_old_state.as_ref() {
+                destroy_state_mismatch = true;
+            }
+        }
+
+        let mut destroyed_arr: Vec<Value> = Vec::new();
+        let mut not_destroyed = serde_json::Map::new();
+
+        if !destroy_state_mismatch {
+            for (_, source_id) in &copied_source_ids {
+                match backend
+                    .destroy_object::<Task>(caller, &from_account_id, source_id)
+                    .await
+                {
+                    Ok(()) => {
+                        destroyed_arr.push(Value::String(source_id.as_ref().to_owned()));
+                    }
+                    Err(BackendSetError::SetError(set_err)) => {
+                        not_destroyed
+                            .insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
+                    }
+                    Err(BackendSetError::Other(e)) => {
+                        not_destroyed.insert(
+                            source_id.as_ref().to_owned(),
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                    }
+                    Err(_) => {
+                        not_destroyed.insert(
+                            source_id.as_ref().to_owned(),
+                            json!({
+                                "type": "serverFail",
+                                "description": "unhandled backend error variant",
+                            }),
+                        );
+                    }
+                }
+            }
+        }
+
+        let from_new_state = backend
+            .get_state::<Task>(caller, &from_account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+
+        let set_resp = if destroy_state_mismatch {
+            json!({
+                "type": "stateMismatch",
+            })
+        } else {
+            json!({
+                "accountId": from_account_id.as_ref(),
+                "oldState": from_old_state.as_ref(),
+                "newState": from_new_state.as_ref(),
+                "created": Value::Null,
+                "updated": Value::Null,
+                "destroyed": if destroyed_arr.is_empty() { Value::Null } else { Value::Array(destroyed_arr) },
+                "notCreated": Value::Null,
+                "notUpdated": Value::Null,
+                "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
+            })
+        };
+
+        let method_name = if destroy_state_mismatch {
+            "error".to_owned()
+        } else {
+            "Task/set".to_owned()
+        };
+        extra.push((method_name, set_resp, call_id.to_owned()));
+    }
+
+    Ok((resp, extra))
 }
 
 // ---------------------------------------------------------------------------
@@ -683,7 +789,7 @@ mod tests {
             "accountId": "acc1",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args).await;
+        let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must return error when fromAccountId missing");
         assert_eq!(err.error_type.as_str(), "invalidArguments");
     }
@@ -700,7 +806,7 @@ mod tests {
             "fromAccountId": "acc1",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args).await;
+        let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must reject same-account Task/copy per RFC 8620 §5.4");
         assert_eq!(err.error_type.as_str(), "invalidArguments");
     }
@@ -716,7 +822,7 @@ mod tests {
             "fromAccountId": "no-such-account",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args).await;
+        let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must reject unknown fromAccountId");
         assert_eq!(err.error_type.as_str(), "fromAccountNotFound");
     }
@@ -733,7 +839,7 @@ mod tests {
             "ifFromInState": "stale-source-state",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args).await;
+        let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must reject stale ifFromInState");
         assert_eq!(err.error_type.as_str(), "stateMismatch");
     }
@@ -750,7 +856,7 @@ mod tests {
             "ifInState": "stale-destination-state",
             "create": {}
         });
-        let result = handle_task_copy(&backend, &(), args).await;
+        let result = handle_task_copy(&backend, &(), args, "c0").await;
         let err = result.expect_err("must reject stale ifInState");
         assert_eq!(err.error_type.as_str(), "stateMismatch");
     }
@@ -768,7 +874,7 @@ mod tests {
             "fromAccountId": "acc2",
             "create": { "c1": {} }
         });
-        let (resp, _) = handle_task_copy(&backend, &(), args)
+        let (resp, _) = handle_task_copy(&backend, &(), args, "c0")
             .await
             .expect("top-level call must succeed");
         let nc = resp["notCreated"].as_object().expect("notCreated present");
@@ -788,7 +894,7 @@ mod tests {
             "fromAccountId": "acc2",
             "create": { "c1": { "id": "no-such-task" } }
         });
-        let (resp, _) = handle_task_copy(&backend, &(), args)
+        let (resp, _) = handle_task_copy(&backend, &(), args, "c0")
             .await
             .expect("top-level call must succeed");
         let nc = resp["notCreated"].as_object().expect("notCreated present");
@@ -813,7 +919,7 @@ mod tests {
                 "c1": { "id": "src1", "title": "Overridden title" }
             }
         });
-        let (resp, _) = handle_task_copy(&backend, &(), args)
+        let (resp, _) = handle_task_copy(&backend, &(), args, "c0")
             .await
             .expect("top-level call must succeed");
 
@@ -824,6 +930,100 @@ mod tests {
         assert_eq!(
             c1["title"], "Overridden title",
             "client-supplied title must override source value: {resp}"
+        );
+    }
+
+    /// Oracle: RFC 8620 §5.4 — when `onSuccessDestroyOriginal` is true, the
+    /// server emits a single implicit Task/set call against fromAccountId
+    /// destroying each successfully copied source. The synthesized response
+    /// appears in the extra Vec<Invocation> with the same callId as the
+    /// triggering Task/copy. Mirrors canonical jmap-mail-server
+    /// email.rs:2432-2575.
+    #[tokio::test]
+    async fn copy_on_success_destroy_original_emits_implicit_task_set() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.seed_task("acc2", "src1", true);
+
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc2",
+            "onSuccessDestroyOriginal": true,
+            "create": {
+                "c1": { "id": "src1" }
+            }
+        });
+        let (_, extra) = handle_task_copy(&backend, &(), args, "c0")
+            .await
+            .expect("top-level call must succeed");
+
+        // Exactly one synthesized invocation: ("Task/set", response, "c0").
+        assert_eq!(extra.len(), 1, "must emit one implicit Task/set: {extra:?}");
+        let (method, val, ci) = &extra[0];
+        assert_eq!(method, "Task/set");
+        assert_eq!(ci, "c0");
+        assert_eq!(val["accountId"], "acc2", "implicit set targets fromAccount");
+        let destroyed = val["destroyed"]
+            .as_array()
+            .expect("destroyed must be array");
+        assert_eq!(destroyed.len(), 1);
+        assert_eq!(destroyed[0], "src1");
+        // Both state fields are present on the synthesized response. Their
+        // bump semantics depend on the underlying backend's get_state — the
+        // MockBackend here always returns "0" so we only assert presence;
+        // state-advance semantics are covered by stateful integration tests.
+        assert!(val.get("oldState").is_some(), "oldState must be present");
+        assert!(val.get("newState").is_some(), "newState must be present");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — `destroyFromIfInState` mismatch on the implicit
+    /// Task/set call yields a `stateMismatch` error response in place of the
+    /// normal Task/set body. The destroy MUST NOT proceed.
+    #[tokio::test]
+    async fn copy_destroy_from_if_in_state_mismatch_aborts_destroy() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.seed_task("acc2", "src1", true);
+
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc2",
+            "onSuccessDestroyOriginal": true,
+            "destroyFromIfInState": "stale-source-state",
+            "create": {
+                "c1": { "id": "src1" }
+            }
+        });
+        let (_, extra) = handle_task_copy(&backend, &(), args, "c0")
+            .await
+            .expect("top-level call must succeed");
+
+        assert_eq!(extra.len(), 1);
+        let (_, val, _) = &extra[0];
+        assert_eq!(val["type"], "stateMismatch");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — when `onSuccessDestroyOriginal` is false (or
+    /// absent), no implicit Task/set call is synthesized.
+    #[tokio::test]
+    async fn copy_without_on_success_emits_no_extra_invocations() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.seed_task("acc2", "src1", true);
+
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc2",
+            "create": {
+                "c1": { "id": "src1" }
+            }
+        });
+        let (_, extra) = handle_task_copy(&backend, &(), args, "c0")
+            .await
+            .expect("top-level call must succeed");
+        assert!(
+            extra.is_empty(),
+            "no extra invocations without onSuccessDestroyOriginal: {extra:?}"
         );
     }
 

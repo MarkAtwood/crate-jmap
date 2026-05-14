@@ -122,8 +122,8 @@ where
     reg!("Task/set", backend, |b, _ci, a, ctx| {
         handle_task_set(&*b, &ctx, a).await
     });
-    reg!("Task/copy", backend, |b, _ci, a, ctx| {
-        handle_task_copy(&*b, &ctx, a).await
+    reg!("Task/copy", backend, |b, ci, a, ctx| {
+        handle_task_copy(&*b, &ctx, a, &ci).await
     });
     reg!("Task/query", backend, |b, _ci, a, ctx| {
         handle_task_query(&*b, &ctx, a).await
