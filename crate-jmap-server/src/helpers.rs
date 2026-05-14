@@ -102,20 +102,25 @@ where
 ///   call and surfaced as either `notFound` or a storage-layer parse
 ///   error, depending on the backend.
 pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapError> {
-    let Value::Object(args) = args else {
+    let Value::Object(mut args) = args else {
         return Err(JmapError::invalid_arguments(
             "arguments must be an object containing accountId",
         ));
     };
-    match args.get("accountId").and_then(|v| v.as_str()) {
-        Some(s) => {
-            let id = Id::new_validated(s).map_err(|e| {
-                JmapError::invalid_arguments(format!("accountId is not a valid Id: {e}"))
-            })?;
-            Ok((id, args))
-        }
-        None => Err(JmapError::invalid_arguments("accountId is required")),
-    }
+    // Remove (not get) the accountId entry so the returned args map no
+    // longer carries it (bd:JMAP-jfia.9). This matches optional_arg's
+    // remove-and-consume semantics and prevents downstream handlers
+    // from re-parsing the validated id or seeing it as an unexpected
+    // residual key.
+    let raw = args
+        .remove("accountId")
+        .ok_or_else(|| JmapError::invalid_arguments("accountId is required"))?;
+    let s = raw
+        .as_str()
+        .ok_or_else(|| JmapError::invalid_arguments("accountId is required"))?;
+    let id = Id::new_validated(s)
+        .map_err(|e| JmapError::invalid_arguments(format!("accountId is not a valid Id: {e}")))?;
+    Ok((id, args))
 }
 
 /// Return the current UTC instant as an [`UTCDate`] (RFC 3339,
@@ -405,6 +410,11 @@ mod tests {
     /// Oracle (bd:JMAP-wlip.5): a well-formed accountId passes
     /// validation and is returned intact. Positive control paired with
     /// the rejection test above.
+    ///
+    /// Also pins (bd:JMAP-jfia.9): the returned args map MUST NOT
+    /// contain accountId. The helper consumes the field rather than
+    /// leaving it as a residual key for downstream handlers to
+    /// re-parse or surface as "unexpected key".
     #[test]
     fn extract_account_id_accepts_well_formed_id() {
         let (id, rest) = extract_account_id(json!({
@@ -415,6 +425,12 @@ mod tests {
         assert_eq!(id.as_ref(), "u123-abc_DEF");
         // Remaining args still contain the unrelated keys.
         assert!(rest.contains_key("ids"));
+        // accountId MUST have been removed from the args map
+        // (bd:JMAP-jfia.9). matches optional_arg's consume semantics.
+        assert!(
+            !rest.contains_key("accountId"),
+            "accountId must be removed from args after extraction"
+        );
     }
 
     /// Test vectors derived independently with Python's `datetime.date` module.
