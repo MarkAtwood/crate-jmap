@@ -23,7 +23,7 @@
 
 use std::hint::black_box;
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use jmap_server::{parse_request, resolve_args};
 use jmap_types::Invocation;
 use serde_json::{json, Value};
@@ -132,14 +132,18 @@ fn sample_args_no_ref() -> Value {
 fn bench_parse_request(c: &mut Criterion) {
     let body = sample_three_call_body();
     c.bench_function("parse_request_three_calls", |b| {
-        b.iter(|| {
-            // Clone per iteration: parse_request takes Value by value
-            // and consumes it. The clone cost is unavoidable but
-            // stable across runs, so the bench remains a fair
-            // regression baseline.
-            let req = parse_request(black_box(body.clone()), 16).expect("sample body must parse");
-            black_box(req);
-        })
+        // bd:JMAP-wlip.9 — parse_request consumes its Value argument,
+        // so each iteration needs a fresh clone. Use iter_batched so
+        // the clone runs in the setup closure (outside the timed
+        // region); only the parse_request call itself is measured.
+        b.iter_batched(
+            || body.clone(),
+            |body| {
+                let req = parse_request(black_box(body), 16).expect("sample body must parse");
+                black_box(req);
+            },
+            BatchSize::SmallInput,
+        )
     });
 }
 
@@ -147,11 +151,15 @@ fn bench_resolve_args_with_ref(c: &mut Criterion) {
     let priors = sample_prior_responses();
     let args = sample_args_with_ref();
     c.bench_function("resolve_args_ids_star", |b| {
-        b.iter(|| {
-            let mut a = black_box(args.clone());
-            resolve_args(&mut a, &priors).expect("resolve must succeed");
-            black_box(a);
-        })
+        // bd:JMAP-wlip.9 — see bench_parse_request above for rationale.
+        b.iter_batched(
+            || args.clone(),
+            |mut a| {
+                resolve_args(&mut a, &priors).expect("resolve must succeed");
+                black_box(a);
+            },
+            BatchSize::SmallInput,
+        )
     });
 }
 
@@ -159,11 +167,15 @@ fn bench_resolve_args_no_ref(c: &mut Criterion) {
     let priors = sample_prior_responses();
     let args = sample_args_no_ref();
     c.bench_function("resolve_args_no_refs_fast_path", |b| {
-        b.iter(|| {
-            let mut a = black_box(args.clone());
-            resolve_args(&mut a, &priors).expect("no-op resolve must succeed");
-            black_box(a);
-        })
+        // bd:JMAP-wlip.9 — see bench_parse_request above for rationale.
+        b.iter_batched(
+            || args.clone(),
+            |mut a| {
+                resolve_args(&mut a, &priors).expect("no-op resolve must succeed");
+                black_box(a);
+            },
+            BatchSize::SmallInput,
+        )
     });
 }
 
