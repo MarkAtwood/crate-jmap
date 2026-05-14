@@ -195,7 +195,7 @@ pub async fn handle_submission_query<B: MailBackend>(
                 total,
                 all.query_state,
                 all.can_calculate_changes,
-                start as i64,
+                start as u64,
             )
         } else {
             let result = backend

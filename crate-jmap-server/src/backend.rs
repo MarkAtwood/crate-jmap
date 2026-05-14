@@ -610,7 +610,15 @@ pub struct QueryResult {
     /// The ordered list of matching object ids.
     pub ids: Vec<jmap_types::Id>,
     /// The 0-based index of the first returned id in the complete result list.
-    pub position: i64,
+    ///
+    /// RFC 8620 §5.5 specifies this as `UnsignedInt` in the response —
+    /// a non-negative integer (bd:JMAP-wlip.25). The request-side
+    /// position parameter accepts negative values as end-relative
+    /// offsets, but the response position cannot validly be negative.
+    /// Backends that derive `position` from a request-side `i64`
+    /// offset MUST clamp / normalize to `u64` before constructing this
+    /// struct.
+    pub position: u64,
     /// Total number of results, if the backend can calculate it.
     pub total: Option<u64>,
     /// Opaque query state token for subsequent `/queryChanges` calls.
@@ -623,7 +631,7 @@ impl QueryResult {
     /// Construct a [`QueryResult`].
     pub fn new(
         ids: Vec<jmap_types::Id>,
-        position: i64,
+        position: u64,
         total: Option<u64>,
         query_state: jmap_types::State,
         can_calculate_changes: bool,

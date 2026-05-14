@@ -359,7 +359,7 @@ impl MemoryBackend {
 
         Ok(QueryResult::new(
             ids,
-            start as i64,
+            start as u64,
             Some(total as u64),
             State::from(state_n.to_string()),
             true,
@@ -844,7 +844,7 @@ impl JmapBackend for MemoryBackend {
 
         Ok(QueryResult::new(
             ids,
-            start as i64,
+            start as u64,
             Some(total as u64),
             State::from(state_n.to_string()),
             true,
