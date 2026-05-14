@@ -165,9 +165,9 @@ async fn task_list_set_destroy_empty_list_succeeds() {
 }
 
 // ---------------------------------------------------------------------------
-// Test 5: TaskList/set destroy non-empty list → taskListHasTasks error
+// Test 5: TaskList/set destroy non-empty list → taskListHasTask error
 // Oracle: draft-tasks-06 §3.4 — when onDestroyRemoveTasks is false and
-// the list has tasks, destroy MUST fail with `taskListHasTasks`.
+// the list has tasks, destroy MUST fail with `taskListHasTask`.
 // ---------------------------------------------------------------------------
 
 #[tokio::test]
@@ -190,8 +190,8 @@ async fn task_list_set_destroy_with_tasks_returns_error() {
         "notDestroyed must be present: {resp}"
     );
     assert_eq!(
-        resp["notDestroyed"]["tl1"]["type"], "taskListHasTasks",
-        "draft §3.4 requires taskListHasTasks: {resp}"
+        resp["notDestroyed"]["tl1"]["type"], "taskListHasTask",
+        "draft §3.4 requires taskListHasTask: {resp}"
     );
 }
 

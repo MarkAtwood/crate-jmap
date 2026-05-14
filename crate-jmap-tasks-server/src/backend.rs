@@ -81,7 +81,7 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// Called by `TaskList/set` destroy handler when `onDestroyRemoveTasks`
     /// is false: if this returns true, the destroy is rejected with
-    /// `taskListHasTasks`.
+    /// `taskListHasTask` (draft-ietf-jmap-tasks-06 §3.4).
     fn task_list_has_tasks(
         &self,
         caller: &Self::CallerCtx,
