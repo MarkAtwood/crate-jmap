@@ -227,6 +227,17 @@ pub(crate) mod test_support {
             b
         }
 
+        /// Register an additional account on an existing backend. Used by
+        /// Task/copy tests that need two valid accounts (`fromAccountId`
+        /// and `accountId` must differ per RFC 8620 §5.4).
+        pub fn add_account(&mut self, account_id: &str) {
+            self.state
+                .lock()
+                .unwrap()
+                .entry(account_id.to_owned())
+                .or_default();
+        }
+
         /// Pre-populate a TaskNotification in the given account.
         pub fn add_notification(&mut self, account_id: &str, notif_id: &str) {
             let notif: TaskNotification = serde_json::from_value(serde_json::json!({
