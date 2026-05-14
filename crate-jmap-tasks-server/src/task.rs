@@ -21,7 +21,7 @@ use jmap_server::server_fail_from_backend;
 /// If `"utcStart"` or `"utcDue"` appear in the requested `properties` (or if
 /// `properties` is `null` — meaning all fields), [`TasksBackend::compute_task_utc_times`]
 /// is called for each returned task and the computed values are merged in
-/// (draft-tasks-06 §4, lines 739-772).
+/// (draft-tasks-06 §4, utcStart/utcDue paragraphs).
 pub async fn handle_task_get<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -200,7 +200,7 @@ pub async fn handle_task_set<B: TasksBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Object(update_map)) = args.remove("update") {
         for (id_str, patch_val) in update_map {
-            // isDraft immutability check (draft-tasks-06 §4, lines 733-737):
+            // isDraft immutability check (draft-tasks-06 §4 (isDraft paragraph)):
             // once set to false, isDraft MUST NOT be updated back to true.
             // We enforce this at the handler layer by fetching the current task.
             //
@@ -1018,7 +1018,7 @@ mod tests {
         assert_eq!(resp["accountId"], "acc1");
     }
 
-    // ── isDraft immutability enforcement (draft-tasks-06 §4, lines 733-737) ─
+    // ── isDraft immutability enforcement (draft-tasks-06 §4 (isDraft paragraph)) ─
 
     /// Oracle: draft-tasks-06 §4 — "Once set to false, the value [isDraft]
     /// cannot be updated to true."
@@ -1120,7 +1120,7 @@ mod tests {
         }
     }
 
-    // ── compute_task_utc_times / utcStart wiring (draft-tasks-06 §4 lines 739-772) ─
+    // ── compute_task_utc_times / utcStart wiring (draft-tasks-06 §4 (utcStart/utcDue paragraphs)) ─
 
     /// Oracle: draft-tasks-06 §4 — utcStart is not returned unless explicitly
     /// requested in `properties`.  The default impl returns None so it must be
