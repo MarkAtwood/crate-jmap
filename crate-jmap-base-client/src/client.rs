@@ -646,32 +646,34 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
     call_id: &str,
 ) -> Result<T, ClientError> {
     // Invocation is a type alias (String, Value, String) = (method, args, call_id).
-    // Two-pass scan: first look for any error invocation with this call_id
-    // (errors take precedence per §3.6.1 — see the doc-comment); then fall
-    // through to the first non-error invocation.
-    let mut first_success: Option<&jmap_types::Invocation> = None;
-    for inv in resp.method_responses.iter().filter(|inv| inv.2 == call_id) {
-        if inv.0 == "error" {
-            let args = &inv.1;
-            let err_type = args
-                .get("type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("serverError") // safe: fallback literal, not user input
-                .to_owned();
-            let description = args
-                .get("description")
-                .and_then(|v| v.as_str())
-                .map(str::to_owned);
-            return Err(ClientError::MethodError {
-                error_type: err_type,
-                description,
-            });
-        }
-        if first_success.is_none() {
-            first_success = Some(inv);
-        }
+    // Two-pass scan: errors take precedence per §3.6.1, so look for an error
+    // invocation first; otherwise return the first non-error invocation.
+    // The underlying iterator is slice::Iter, so .clone() is a cheap pointer
+    // copy — no allocation.
+    let mut candidates = resp.method_responses.iter().filter(|inv| inv.2 == call_id);
+
+    if let Some(err_inv) = candidates.clone().find(|inv| inv.0 == "error") {
+        let args = &err_inv.1;
+        let err_type = args
+            .get("type")
+            .and_then(|v| v.as_str())
+            .unwrap_or("serverError") // safe: fallback literal, not user input
+            .to_owned();
+        let description = args
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(str::to_owned);
+        return Err(ClientError::MethodError {
+            error_type: err_type,
+            description,
+        });
     }
-    let inv = first_success.ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
+
+    // The early return above already handled the error case; every remaining
+    // candidate is a success invocation, so we just take the first one.
+    let inv = candidates
+        .next()
+        .ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
     <T as serde::Deserialize>::deserialize(&inv.1).map_err(ClientError::Parse)
 }
 
