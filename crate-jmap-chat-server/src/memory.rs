@@ -1773,7 +1773,10 @@ fn apply_add_channel(
         "kind".to_owned(),
         serde_json::Value::String("channel".to_owned()),
     );
-    chat_obj.insert("createdAt".to_owned(), serde_json::Value::String(now));
+    chat_obj.insert(
+        "createdAt".to_owned(),
+        serde_json::Value::String(now.into_inner()),
+    );
     chat_obj.insert("unreadCount".to_owned(), serde_json::Value::from(0u64));
     chat_obj.insert(
         "pinnedMessageIds".to_owned(),
@@ -2454,7 +2457,7 @@ fn apply_add_member(
     );
     member_obj.insert(
         "joinedAt".to_owned(),
-        serde_json::Value::String(now_utc_string()),
+        serde_json::Value::String(now_utc_string().into_inner()),
     );
 
     let members = space_val

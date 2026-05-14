@@ -1672,7 +1672,7 @@ async fn build_email_from_create<B: MailBackend>(
         .get("receivedAt")
         .and_then(|v| v.as_str())
         .map(UTCDate::from)
-        .unwrap_or_else(|| UTCDate::from(crate::helpers::now_utc_string().as_str()));
+        .unwrap_or_else(|| UTCDate::from(crate::helpers::now_utc_string().as_ref()));
 
     // blobId: always use a placeholder. Per RFC 8621 §5.5, blobId is server-set
     // and must not be accepted from the client on Email/set create (accepting it

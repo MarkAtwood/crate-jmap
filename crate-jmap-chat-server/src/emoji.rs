@@ -365,7 +365,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 .map(Id::from);
 
             let now_str = now_utc_string();
-            let now: UTCDate = UTCDate::from(now_str.as_str());
+            let now: UTCDate = UTCDate::from(now_str.as_ref());
 
             // Authorization gate (draft-atwood-jmap-chat-00 commit
             // `9344aec`). Runs AFTER wire-format validation so
