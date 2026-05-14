@@ -1235,6 +1235,41 @@ mod tests {
         assert_eq!(ids.len(), 3, "dir1 + child1 + child2 = 3");
     }
 
+    /// Oracle: when the backend's `query_objects` returns `Err` on a per-level
+    /// recursion call from the default `query_subtree` impl, the error MUST
+    /// propagate to the caller. Workspace policy treats silent-drop in a
+    /// query result as a server-side correctness bug (workspace AGENTS.md,
+    /// Filter algebra exclusion §1).
+    ///
+    /// Regression for bd JMAP-510h.4 — the prior impl had
+    /// `if let Ok(result) = ...` which swallowed transient backend errors
+    /// and returned a truncated subtree.
+    #[tokio::test]
+    async fn query_subtree_default_impl_propagates_query_objects_err() {
+        use crate::backend::FileNodeBackend;
+
+        let backend = MockBackend::new_with_account("acc1");
+        // Seed level 0 so the loop has work to do, then arm the failure
+        // injection for the per-level query_objects call.
+        backend.set_children(None, &["root"]);
+        backend.set_query_objects_err("simulated DB timeout");
+
+        let root_ids = [Id::from("root")];
+        let result = backend
+            .query_subtree(&(), &Id::from("acc1"), &root_ids, 2)
+            .await;
+        assert!(
+            result.is_err(),
+            "query_subtree must propagate query_objects Err, got Ok({:?})",
+            result.ok()
+        );
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("simulated DB timeout"),
+            "propagated error must carry the backend error message, got: {err_msg}"
+        );
+    }
+
     // -----------------------------------------------------------------------
     // FileNode/set — nodeHasChildren guard
     // -----------------------------------------------------------------------
