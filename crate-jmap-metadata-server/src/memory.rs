@@ -383,6 +383,49 @@ impl MemoryBackend {
         }
         None
     }
+
+    /// Walk the change log for `(type_name, account_id)`, collect entries
+    /// whose `new_state > since_state`, enforce the `max_changes` cap, and
+    /// return the relevant entries together with the current state counter.
+    ///
+    /// Shared between [`get_changes`](Self::get_changes) and the
+    /// Metadata-specific [`get_metadata_changes`](MetadataBackend::get_metadata_changes)
+    /// override. Lock must already be held by the caller; the helper does
+    /// not acquire `self.inner`.
+    fn collect_relevant_changes<'a>(
+        inner: &'a Inner,
+        type_name: &'static str,
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<(Vec<&'a ChangeEntry>, u64), BackendChangesError<MemoryError>> {
+        // Note: parsing a malformed since_state into the MemoryBackend state
+        // counter (u64) is reported via TooManyChanges{limit:0}. That choice
+        // is a separate idiomatic concern tracked elsewhere; it is preserved
+        // here to avoid a behaviour change inside a DRY-only refactor.
+        let since_n: u64 = since_state
+            .as_ref()
+            .parse()
+            .map_err(|_| BackendChangesError::TooManyChanges { limit: 0 })?;
+
+        let log = inner
+            .change_log
+            .get(&(type_name, account_id.as_ref().to_owned()))
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+
+        let relevant: Vec<&ChangeEntry> = log.iter().filter(|e| e.new_state > since_n).collect();
+
+        let current_state = inner.current_state(type_name, account_id.as_ref());
+
+        if let Some(max) = max_changes {
+            if relevant.len() as u64 > max {
+                return Err(BackendChangesError::TooManyChanges { limit: max });
+            }
+        }
+
+        Ok((relevant, current_state))
+    }
 }
 
 /// A simple string error for `MemoryBackend` failures.
@@ -475,26 +518,13 @@ impl JmapBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let inner = self.inner.lock().unwrap();
 
-        let since_n: u64 = since_state
-            .as_ref()
-            .parse()
-            .map_err(|_| BackendChangesError::TooManyChanges { limit: 0 })?;
-
-        let log = inner
-            .change_log
-            .get(&(O::TYPE_NAME, account_id.as_ref().to_owned()))
-            .map(Vec::as_slice)
-            .unwrap_or(&[]);
-
-        let relevant: Vec<&ChangeEntry> = log.iter().filter(|e| e.new_state > since_n).collect();
-
-        let current_state = inner.current_state(O::TYPE_NAME, account_id.as_ref());
-
-        if let Some(max) = max_changes {
-            if relevant.len() as u64 > max {
-                return Err(BackendChangesError::TooManyChanges { limit: max });
-            }
-        }
+        let (relevant, current_state) = Self::collect_relevant_changes(
+            &inner,
+            O::TYPE_NAME,
+            account_id,
+            since_state,
+            max_changes,
+        )?;
 
         let mut created: Vec<Id> = Vec::new();
         let mut updated: Vec<Id> = Vec::new();
@@ -907,26 +937,13 @@ impl MetadataBackend for MemoryBackend {
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let inner = self.inner.lock().unwrap();
 
-        let since_n: u64 = since_state
-            .as_ref()
-            .parse()
-            .map_err(|_| BackendChangesError::TooManyChanges { limit: 0 })?;
-
-        let log = inner
-            .change_log
-            .get(&(Metadata::TYPE_NAME, account_id.as_ref().to_owned()))
-            .map(Vec::as_slice)
-            .unwrap_or(&[]);
-
-        let relevant: Vec<&ChangeEntry> = log.iter().filter(|e| e.new_state > since_n).collect();
-
-        let current_state = inner.current_state(Metadata::TYPE_NAME, account_id.as_ref());
-
-        if let Some(max) = max_changes {
-            if relevant.len() as u64 > max {
-                return Err(BackendChangesError::TooManyChanges { limit: max });
-            }
-        }
+        let (relevant, current_state) = Self::collect_relevant_changes(
+            &inner,
+            Metadata::TYPE_NAME,
+            account_id,
+            since_state,
+            max_changes,
+        )?;
 
         let record_matches = |rec: &ChangeRecord| -> bool {
             if let Some(rt) = filter_related_type {
