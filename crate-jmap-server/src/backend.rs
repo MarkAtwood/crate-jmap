@@ -155,11 +155,49 @@ impl SetError {
     /// wire-name will produce a malformed SetError on the wire —
     /// callers are responsible for choosing extension-namespace keys
     /// that do not collide with the typed-field wire names.
+    ///
+    /// In debug builds, a `with_extra(key, ...)` call where `key` is in
+    /// the reserved set [`RESERVED_SET_ERROR_WIRE_NAMES`] panics via
+    /// `debug_assert!` to catch the bug at first test run
+    /// (bd:JMAP-wlip.3). Release builds preserve the current
+    /// no-validation behaviour to avoid silent runtime cost on a
+    /// correctly-written caller.
     pub fn with_extra(mut self, key: &str, value: serde_json::Value) -> Self {
+        debug_assert!(
+            !RESERVED_SET_ERROR_WIRE_NAMES.contains(&key),
+            "SetError::with_extra called with reserved wire-name key {key:?} \
+             — would produce a malformed JSON SetError on the wire. \
+             Choose an extension-namespace key that does not collide \
+             with the typed-field wire names \
+             ({RESERVED_SET_ERROR_WIRE_NAMES:?})."
+        );
         self.extra.insert(key.to_owned(), value);
         self
     }
 }
+
+/// Reserved wire-name keys that [`SetError::with_extra`] MUST NOT receive.
+///
+/// These are the JSON keys emitted by the typed `#[serde(rename)]` /
+/// `#[serde(rename_all = "camelCase")]` fields on [`SetError`]. Passing
+/// any of these as the `key` argument to `with_extra` would produce a
+/// JSON object with two keys at the same name — technically RFC 8259
+/// §4 permits duplicate keys but the behaviour is implementation-defined
+/// and the resulting SetError on the wire is malformed in practice.
+///
+/// Kept here as a `pub const` rather than inline in the assert message
+/// so consumers can reference the same list — e.g. a future contract
+/// test, or a wire-format conformance check.
+pub const RESERVED_SET_ERROR_WIRE_NAMES: &[&str] = &[
+    "type",
+    "description",
+    "properties",
+    "existingId",
+    "maxRecipients",
+    "invalidRecipients",
+    "notFound",
+    "maxSize",
+];
 
 impl std::fmt::Display for SetError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -911,6 +949,85 @@ mod tests {
             err.extra.get("anotherOne").and_then(|v| v.as_u64()),
             Some(42)
         );
+    }
+
+    /// Oracle (bd:JMAP-wlip.3): [`SetError::with_extra`] panics in debug
+    /// builds when called with a reserved wire-name key. Catches the bug
+    /// at first test run rather than letting a malformed-on-the-wire
+    /// SetError ship through review. The assert is debug-only so release
+    /// builds pay no runtime cost on correctly-written callers.
+    ///
+    /// Iterates every wire-name in [`RESERVED_SET_ERROR_WIRE_NAMES`] so
+    /// adding a new typed field to SetError plus its rename to the
+    /// constant list keeps the negative tests in sync automatically.
+    #[test]
+    #[cfg(debug_assertions)]
+    fn with_extra_panics_on_reserved_wire_name() {
+        for &reserved in RESERVED_SET_ERROR_WIRE_NAMES {
+            let reserved_owned = reserved.to_owned();
+            let result = std::panic::catch_unwind(move || {
+                SetError::new(SetErrorType::Forbidden)
+                    .with_extra(&reserved_owned, serde_json::Value::Null);
+            });
+            assert!(
+                result.is_err(),
+                "with_extra({reserved:?}, ...) must panic in debug builds; \
+                 reserved wire-names collide with typed fields and would \
+                 produce a malformed SetError on the wire"
+            );
+        }
+    }
+
+    /// Oracle (bd:JMAP-wlip.3): a non-reserved key passes the
+    /// [`SetError::with_extra`] debug_assert and lands in the `extra`
+    /// map as before. Positive control paired with the panic test
+    /// above.
+    #[test]
+    fn with_extra_accepts_extension_namespace_key() {
+        // 'serverRetryAfter' is the JMAP Chat extension's rateLimited
+        // SetError field; not in RESERVED_SET_ERROR_WIRE_NAMES.
+        let err = SetError::new(SetErrorType::custom("rateLimited")).with_extra(
+            "serverRetryAfter",
+            serde_json::Value::String("2025-12-31T23:59:59Z".to_owned()),
+        );
+        assert_eq!(
+            err.extra.get("serverRetryAfter").and_then(|v| v.as_str()),
+            Some("2025-12-31T23:59:59Z"),
+            "extension-namespace key must land in the extra map"
+        );
+    }
+
+    /// Oracle (bd:JMAP-wlip.3): the reserved-name constant covers every
+    /// `#[serde(rename = ...)]` and camelCase-derived field name on the
+    /// public [`SetError`] surface. A future contributor that adds a
+    /// typed wire field without extending the constant is the failure
+    /// mode this test guards against. The oracle is hand-derived from
+    /// the SetError struct definition by reading off the wire-name of
+    /// each field.
+    #[test]
+    fn reserved_set_error_wire_names_matches_serialized_surface() {
+        // Build a SetError with every typed field populated, serialize,
+        // and check that every JSON key (other than the extension extras)
+        // appears in RESERVED_SET_ERROR_WIRE_NAMES.
+        let err = SetError::new(SetErrorType::Forbidden)
+            .with_description("desc")
+            .with_properties(["p1"])
+            .with_existing_id(jmap_types::Id::from("eid"))
+            .with_max_recipients(10)
+            .with_invalid_recipients(["bad@example"])
+            .with_not_found(vec![jmap_types::Id::from("nfid")])
+            .with_max_size(1024);
+
+        let wire = serde_json::to_value(&err).expect("serialize");
+        let obj = wire.as_object().expect("SetError must serialize as object");
+        for key in obj.keys() {
+            assert!(
+                RESERVED_SET_ERROR_WIRE_NAMES.contains(&key.as_str()),
+                "wire-name {key:?} appears on the SetError surface but is \
+                 not in RESERVED_SET_ERROR_WIRE_NAMES — adding a typed \
+                 field to SetError requires extending the constant"
+            );
+        }
     }
 
     /// Oracle: known SetErrorType variants (e.g. Singleton) must still
