@@ -860,6 +860,49 @@ async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
 }
 
 #[tokio::test]
+async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+
+    // Sending parentId as a number is wire-protocol garbage. The
+    // handler must surface this as invalidProperties rather than
+    // silently coercing to None (which would copy the source to the
+    // destination root, undocumented and with no error signal).
+    let (resp, _) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "create": {
+                "c": { "id": &src_id, "parentId": 42, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    let not_copied = &resp["notCreated"];
+    assert!(
+        not_copied.is_object() && not_copied["c"].is_object(),
+        "non-string parentId must go to notCreated: {resp}"
+    );
+    assert_eq!(
+        not_copied["c"]["type"], "invalidProperties",
+        "must surface as invalidProperties: {resp}"
+    );
+    let props = &not_copied["c"]["properties"];
+    assert!(
+        props
+            .as_array()
+            .map(|a| a.contains(&json!("parentId")))
+            .unwrap_or(false),
+        "parentId must be listed in properties: {resp}"
+    );
+}
+
+#[tokio::test]
 async fn filenode_copy_on_exists_replace_with_flag_cascades() {
     let backend = MemoryBackend::new().with_account("src").with_account("dst");
 

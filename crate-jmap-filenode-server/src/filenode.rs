@@ -919,14 +919,28 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
 
             let mut source_node = nodes.remove(0);
 
-            // Apply any overrides from the copy descriptor (e.g. new name or
-            // parentId in the destination).
+            // Apply any overrides from the copy descriptor (e.g. new name
+            // or parentId in the destination). parentId must be a string
+            // or null; non-string non-null values are
+            // invalidProperties — silently coercing to None would
+            // surface as a 'moved to root' side effect with no error
+            // signal.
             if let Some(new_parent) = obj_val.get("parentId") {
-                source_node.parent_id = if new_parent.is_null() {
-                    None
+                if new_parent.is_null() {
+                    source_node.parent_id = None;
+                } else if let Some(s) = new_parent.as_str() {
+                    source_node.parent_id = Some(Id::from(s));
                 } else {
-                    new_parent.as_str().map(Id::from)
-                };
+                    not_copied.insert(
+                        create_id,
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["parentId"],
+                            "description": "parentId must be a string Id or null",
+                        }),
+                    );
+                    continue;
+                }
             }
             if let Some(new_name) = obj_val.get("name").and_then(|v| v.as_str()) {
                 source_node.name = new_name.to_owned();
