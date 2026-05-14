@@ -121,6 +121,15 @@ pub trait JmapHandler<CallerCtx>: Send + Sync {
 ///
 /// Non-`/set` primary responses (no `"created"` key at the top level,
 /// or `"created"` of a non-Object type) leave `sink` unchanged.
+///
+/// Collision semantics (bd:JMAP-jfia.3): when a creationId in the
+/// `/set` response collides with an entry already in `sink` — whether
+/// from an earlier `/set` call in the same batch OR from the client's
+/// pre-populated `createdIds` map — `HashMap::insert` silently
+/// overwrites: last write wins. The pre-populated collision case is
+/// exercised by
+/// [`tests::created_ids_pre_populated_collision_last_write_wins`].
+/// See the dispatcher call site for the full rationale.
 fn extract_created_ids_into(primary: &Value, sink: &mut HashMap<Id, Id>) {
     let Some(map) = primary.get("created").and_then(|v| v.as_object()) else {
         return;
@@ -273,20 +282,50 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                     // Only when the client sent createdIds; otherwise the field
                     // is omitted from the response.
                     //
-                    // Duplicate-creationId behaviour (bd:JMAP-wlip.7):
-                    // HashMap::insert silently overwrites on duplicate key.
-                    // If a client reuses the same creationId across two /set
-                    // calls in the same batch (e.g. "c1" in both Mailbox/set
-                    // and Email/set), the second mapping wins and the first
-                    // is lost. The RFC does not explicitly require either
-                    // last-write-wins or rejection; the convention here is
-                    // last-write-wins because (a) the response order is
-                    // deterministic so the behaviour is at least
-                    // reproducible, and (b) detecting the duplicate would
-                    // require either a per-batch creationId pre-check
-                    // (adds a HashSet allocation per request) or a second
-                    // pass over method_responses after dispatch. Clients
-                    // SHOULD generate unique creationIds across a batch.
+                    // Duplicate-creationId behaviour (bd:JMAP-wlip.7,
+                    // bd:JMAP-jfia.3): HashMap::insert silently overwrites
+                    // on duplicate key. Two flavours of duplicate:
+                    //
+                    //   (a) Intra-batch: a client reuses the same
+                    //   creationId across two /set calls in the same
+                    //   batch (e.g. "c1" in both Mailbox/set and
+                    //   Email/set). The second mapping wins and the
+                    //   first is lost.
+                    //
+                    //   (b) Pre-populated collision: a client
+                    //   pre-populates createdIds with X->A and a /set
+                    //   call in the same batch returns X->B (B != A).
+                    //   The /set value wins and the pre-populated A is
+                    //   lost. This is reachable via long-lived
+                    //   background tasks replaying a queued request
+                    //   whose creationIds overlap with the current
+                    //   session's batch.
+                    //
+                    // RFC 8620 §3.4 does not explicitly require either
+                    // last-write-wins or rejection; the convention here
+                    // is last-write-wins because (a) the response order
+                    // is deterministic so the behaviour is at least
+                    // reproducible, (b) detecting either flavour of
+                    // duplicate would require either a per-batch
+                    // creationId pre-check (adds a HashSet allocation
+                    // per request) or a second pass over
+                    // method_responses after dispatch, and (c) this
+                    // crate is the canonical foundation for every
+                    // *-server extension — a wire-behaviour change
+                    // (e.g. reject-on-collision) would ripple to every
+                    // downstream consumer and is out of scope for a
+                    // foundation crate without an RFC mandate.
+                    //
+                    // Clients SHOULD generate unique creationIds across
+                    // a batch and SHOULD NOT pre-populate creationIds
+                    // that any /set call in the same batch will
+                    // produce. Both collision flavours are exercised
+                    // explicitly by
+                    // [`tests::created_ids_intra_batch_collision_last_write_wins`]
+                    // and
+                    // [`tests::created_ids_pre_populated_collision_last_write_wins`]
+                    // so a future refactor that flips the order is
+                    // caught.
                     if client_sent_created_ids {
                         extract_created_ids_into(&primary_value, &mut created_ids);
                     }
@@ -892,6 +931,92 @@ mod tests {
             ids.get(&Id::from("client-new")),
             Some(&Id::from("server-new")),
             "new /set entry must be merged in"
+        );
+    }
+
+    /// Oracle (bd:JMAP-jfia.3): when the client pre-populates
+    /// `createdIds` with `X -> A` and a `/set` call in the same batch
+    /// returns `X -> B` (`B != A`), the dispatcher applies last-write-
+    /// wins semantics: the response carries `X -> B`, and the
+    /// pre-populated `A` is dropped. This is surprising and the spec is
+    /// ambiguous on which semantics is correct (RFC 8620 §3.4), but
+    /// matches the intra-batch duplicate convention documented at the
+    /// dispatch call site and avoids a wire-behaviour change in the
+    /// canonical foundation crate. The test exists to catch a future
+    /// refactor that silently flips the order to first-write-wins.
+    #[tokio::test]
+    async fn created_ids_pre_populated_collision_last_write_wins() {
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register(
+            "Foo/set",
+            Arc::new(EchoHandler(
+                json!({"created": {"client-X": {"id": "server-B"}}}),
+            )),
+        );
+        // Client pre-populates client-X -> server-A.
+        let mut initial = std::collections::HashMap::new();
+        initial.insert(Id::from("client-X"), Id::from("server-A"));
+        let req = JmapRequest::new(
+            vec!["urn:ietf:params:jmap:core".into()],
+            vec![("Foo/set".into(), json!({}), "c0".into())],
+            Some(initial),
+        );
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+        let ids = resp
+            .created_ids
+            .as_ref()
+            .expect("created_ids must be Some when client sent createdIds");
+        assert_eq!(
+            ids.get(&Id::from("client-X")),
+            Some(&Id::from("server-B")),
+            "last-write-wins: /set response overrides pre-populated entry"
+        );
+        assert_eq!(
+            ids.len(),
+            1,
+            "no extra entries should appear from the collision"
+        );
+    }
+
+    /// Oracle (bd:JMAP-jfia.3): when two `/set` calls in the same batch
+    /// report the same creationId with different values, the
+    /// dispatcher applies last-write-wins: the second `/set` response's
+    /// mapping is the one preserved in the final `createdIds` map. The
+    /// existing dispatch call-site comment documents this convention
+    /// (bd:JMAP-wlip.7); the test pins it.
+    #[tokio::test]
+    async fn created_ids_intra_batch_collision_last_write_wins() {
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register(
+            "A/set",
+            Arc::new(EchoHandler(json!({"created": {"cX": {"id": "sA"}}}))),
+        );
+        d.register(
+            "B/set",
+            Arc::new(EchoHandler(json!({"created": {"cX": {"id": "sB"}}}))),
+        );
+        let req = JmapRequest::new(
+            vec!["urn:ietf:params:jmap:core".into()],
+            vec![
+                ("A/set".into(), json!({}), "c0".into()),
+                ("B/set".into(), json!({}), "c1".into()),
+            ],
+            Some(std::collections::HashMap::new()),
+        );
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+        let ids = resp
+            .created_ids
+            .as_ref()
+            .expect("created_ids must be Some when client sent createdIds");
+        assert_eq!(
+            ids.get(&Id::from("cX")),
+            Some(&Id::from("sB")),
+            "last-write-wins: second /set call's mapping for cX preserved"
+        );
+        assert_eq!(
+            ids.len(),
+            1,
+            "no extra entries should appear from the collision"
         );
     }
 
