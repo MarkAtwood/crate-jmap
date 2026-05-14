@@ -489,6 +489,23 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
             if let Some(new_parent_val) = patch_val.get("parentId") {
                 if let Some(new_parent_str) = new_parent_val.as_str() {
                     let new_parent_id = Id::from(new_parent_str);
+                    // A node is trivially an ancestor of itself
+                    // (draft-ietf-jmap-filenode-13 §3.2.3), and
+                    // `get_descendant_ids` documents that the
+                    // returned set excludes the node itself — so
+                    // the descendant check below cannot catch
+                    // `parentId == id`. Reject it explicitly.
+                    if new_parent_id == id {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["parentId"],
+                                "description": "a node cannot be its own parent"
+                            }),
+                        );
+                        continue;
+                    }
                     match backend.get_descendant_ids(caller, &account_id, &id).await {
                         Ok(descendant_ids) => {
                             if descendant_ids.iter().any(|did| did == &new_parent_id) {
@@ -1363,6 +1380,49 @@ mod tests {
         assert_eq!(
             not_updated["node1"]["type"], "invalidProperties",
             "cycle must produce invalidProperties: {resp}"
+        );
+        let props = &not_updated["node1"]["properties"];
+        assert!(
+            props
+                .as_array()
+                .map(|a| a.contains(&json!("parentId")))
+                .unwrap_or(false),
+            "parentId must be listed in properties: {resp}"
+        );
+    }
+
+    /// Oracle: update that sets parentId equal to the node's own id is the
+    /// trivial cycle (a node cannot be its own parent). It must produce
+    /// notUpdated with invalidProperties on parentId.
+    ///
+    /// Source: draft-ietf-jmap-filenode-13 §3.2.3 — "an attempt to move a
+    /// node to a parent for which this node is also an ancestor is an
+    /// error". A node is trivially an ancestor of itself. The standard
+    /// descendant-set check cannot catch this because `get_descendant_ids`
+    /// excludes the node itself by contract (backend.rs §76).
+    #[tokio::test]
+    async fn set_update_self_parent_returns_invalid_properties() {
+        let backend = MockBackend::new_with_account("acc1");
+        // No descendants seeded: the only thing the check has to fall
+        // back on is the explicit self-parent guard.
+        let args = json!({
+            "accountId": "acc1",
+            "update": {
+                "node1": { "parentId": "node1" }
+            }
+        });
+        let (resp, _) = handle_filenode_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+
+        let not_updated = &resp["notUpdated"];
+        assert!(
+            not_updated.is_object(),
+            "notUpdated must be present: {resp}"
+        );
+        assert_eq!(
+            not_updated["node1"]["type"], "invalidProperties",
+            "self-parent must produce invalidProperties: {resp}"
         );
         let props = &not_updated["node1"]["properties"];
         assert!(
