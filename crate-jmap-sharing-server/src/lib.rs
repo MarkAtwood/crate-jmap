@@ -337,13 +337,29 @@ pub(crate) mod test_support {
             _create_id: &str,
             obj: O,
         ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-            // This mock returns the object as-is with a generated id string.
-            // INVARIANT GAP: the returned `obj` retains whatever placeholder id
-            // was passed in by the caller — it is NOT patched to `"mock-id-1"`.
-            // This violates the SharingBackend::create_object invariant (the
-            // returned O must have its `id` field set to the server-assigned Id).
-            // Use MemoryBackend for tests that require a correct create response.
-            Ok((Id::from("mock-id-1"), obj))
+            // Mint a fixed test id ("mock-id-1") AND patch it into the
+            // returned object, per the SharingBackend::create_object
+            // invariant. Done via JSON round-trip because `SetObject` does
+            // not expose a typed `set_id` API — every concrete impl is
+            // `Deserialize`/`Serialize` so this is well-defined.
+            // Previously this fixture intentionally retained the caller's
+            // placeholder id and admitted the violation in a comment; the
+            // gap is closed per bd:JMAP-3t94.17 so the in-tree fixture
+            // matches the contract every downstream backend is expected
+            // to honor.
+            let server_id = Id::from("mock-id-1");
+            let mut val = serde_json::to_value(&obj)
+                .map_err(|e| BackendSetError::Other(MockError(format!("serialize: {e}"))))?;
+            if let serde_json::Value::Object(ref mut m) = val {
+                m.insert(
+                    "id".to_owned(),
+                    serde_json::Value::String(server_id.as_ref().to_owned()),
+                );
+            }
+            let stored_obj: O = O::deserialize(&val).map_err(|e| {
+                BackendSetError::Other(MockError(format!("deserialize after create: {e}")))
+            })?;
+            Ok((server_id, stored_obj))
         }
 
         async fn update_object<O: SetObject + Send + Sync>(
@@ -494,6 +510,56 @@ mod tests {
             "must not be an error response: {args}"
         );
         assert_eq!(args["accountId"], "acc1");
+    }
+
+    /// Oracle: `SharingBackend::create_object` invariant — MockBackend
+    /// returns an `O` whose `id` field equals the tuple's server-assigned
+    /// Id. Regression guard for bd:JMAP-3t94.17 (the MockBackend's previous
+    /// "INVARIANT GAP" admission).
+    #[tokio::test]
+    async fn mock_backend_create_object_returned_o_carries_server_id() {
+        use crate::test_support::MockBackend;
+        use jmap_sharing_types::Principal;
+
+        let backend = MockBackend::new_with_account("acc1");
+        let principal: Principal = serde_json::from_value(json!({
+            "type": "individual",
+            "name": "Probe",
+            "id": "client-placeholder",
+            "description": null,
+            "email": null,
+            "timeZone": null,
+            "capabilities": {},
+            "accounts": null
+        }))
+        .expect("must deserialize");
+
+        let (new_id, stored_obj) =
+            <MockBackend as crate::SharingBackend>::create_object::<Principal>(
+                &backend,
+                &(),
+                &jmap_types::Id::from("acc1"),
+                "c1",
+                principal,
+            )
+            .await
+            .expect("create must succeed");
+
+        // Serialize stored_obj to JSON and read the id field — Principal's
+        // id field is the source of truth the handler ships to the client.
+        let val = serde_json::to_value(&stored_obj).expect("serialize");
+        let id_field = val
+            .get("id")
+            .and_then(|v| v.as_str())
+            .expect("id field must be present");
+        assert_eq!(
+            id_field,
+            new_id.as_ref(),
+            "returned O.id MUST equal the server-assigned tuple Id \
+             (SharingBackend::create_object invariant). Got id={id_field:?}, \
+             tuple Id={:?}",
+            new_id.as_ref()
+        );
     }
 
     /// Oracle: RFC 9670 §3.3 — ShareNotification/set with create entries → notCreated

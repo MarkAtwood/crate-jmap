@@ -37,13 +37,37 @@ pub trait SharingBackend: JmapBackend {
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
     ///
-    /// # Invariant
+    /// # Invariant — MUST hold; not enforced at the type level
     ///
-    /// The returned `O` MUST have its `id` field set to the server-assigned
-    /// [`Id`](jmap_types::Id) returned as the first element of the tuple.  The handler relies
-    /// on this to populate the `created` response map per RFC 8620 §5.3:
-    /// the `id` is visible to the client only through the returned object's
-    /// fields, not through the tuple's `Id` element.
+    /// The returned `O` MUST have its `id` field set to the **same**
+    /// server-assigned [`Id`](jmap_types::Id) returned as the first element
+    /// of the tuple. The handler serializes `O` into the `created` response
+    /// map per RFC 8620 §5.3 and DOES NOT cross-check the `id` against the
+    /// tuple's `Id` — the client sees the value as serialized from `O`.
+    ///
+    /// Failing this invariant ships a silent wire-protocol bug: every
+    /// `Principal/set create` response carries the wrong `id` (typically a
+    /// `"placeholder"` literal injected by the handler — see
+    /// `principal.rs` create branch), and no `cargo test` of the backend
+    /// alone will catch it. End-to-end JMAP integration is the only signal.
+    ///
+    /// Reference implementations: see [`memory::MemoryBackend::create_object`]
+    /// (`src/memory.rs`) for the recommended shape — serialize to JSON, set
+    /// `val["id"]`, deserialize back to `O`. The canonical sibling
+    /// `jmap-mail-server`'s `MemoryBackend::create_object` uses the same
+    /// pattern.
+    ///
+    /// Backends that mint the `id` BEFORE constructing `O` (e.g. on a
+    /// stored-procedure RETURNING clause, or a column-default trigger) can
+    /// build `O` with the canonical id directly and skip the
+    /// serialize-mutate-deserialize round-trip.
+    ///
+    /// Tracking: `bd:JMAP-3t94.17` (this gap was identified during the
+    /// `9c0d34f` review pass and may motivate a future workspace-wide
+    /// handler-side defensive id-patch — file a workspace-architectural
+    /// decision bead before reshaping this trait).
+    ///
+    /// [`memory::MemoryBackend::create_object`]: crate::memory::MemoryBackend
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,

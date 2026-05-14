@@ -115,7 +115,15 @@ impl Inner {
         type_name: &'static str,
         account_id: &str,
     ) -> &mut HashMap<Id, serde_json::Value> {
-        self.known_accounts.insert(account_id.to_owned());
+        // Note: deliberately no `known_accounts.insert(...)` side-effect.
+        // Account registration is the responsibility of the caller (the
+        // matching `SharingBackend` write op) — `create_object` registers
+        // explicitly after the create commits, while `update_object` and
+        // `destroy_object` MUST gate on `known_accounts.contains(...)`
+        // before invoking this helper. Coupling registration to lookup
+        // would let an unknown accountId pass the handler-layer
+        // `account_exists` check on its second visit (RFC 8620 §3.6.2
+        // requires consistent `accountNotFound`).
         self.objects
             .entry((type_name, account_id.to_owned()))
             .or_default()
@@ -346,27 +354,70 @@ impl JmapBackend for MemoryBackend {
             }
         }
 
-        let mut created: Vec<Id> = Vec::new();
-        let mut updated: Vec<Id> = Vec::new();
-        let mut destroyed: Vec<Id> = Vec::new();
+        // Compute each id's NET outcome across the change interval.
+        //
+        // RFC 8620 §5.2: every id reported in /changes appears in exactly
+        // one of `created`/`updated`/`destroyed`, reflecting the net
+        // transition from `sinceState` to the current state. Transitions
+        // within the interval (create → destroy → create on a recycled
+        // id, update → destroy, etc.) collapse to the final bucket.
+        //
+        // The previous implementation used three `Vec<Id>`s and
+        // `Vec::contains` for dedup. That had two defects: (a) the create
+        // branch suppressed ids already in `destroyed`, so a recycled id
+        // sequence `create K / destroy K+1 / create K+2` left the id out
+        // of `created` despite it being present in the current state
+        // (bd:JMAP-3t94.3); (b) `Vec::contains` on each push made the
+        // loop O(n*m) (bd:JMAP-3t94.7).
+        //
+        // The replacement walks each entry once and stores each id's
+        // most-recent outcome in a `HashMap`, preserving first-seen order
+        // in a parallel `Vec`. Later transitions overwrite earlier ones;
+        // a destroy followed by a create overrides the destroy and vice
+        // versa. Time complexity is O(total ids in interval); space is
+        // O(distinct ids).
+        #[derive(Copy, Clone)]
+        enum Outcome {
+            Created,
+            Updated,
+            Destroyed,
+        }
+
+        let mut outcome: HashMap<Id, Outcome> = HashMap::new();
+        let mut order: Vec<Id> = Vec::new();
 
         for entry in &relevant {
             for id in &entry.created {
-                if !destroyed.contains(id) && !created.contains(id) {
-                    created.push(id.clone());
+                if outcome.insert(id.clone(), Outcome::Created).is_none() {
+                    order.push(id.clone());
                 }
             }
             for id in &entry.updated {
-                if !destroyed.contains(id) && !created.contains(id) && !updated.contains(id) {
-                    updated.push(id.clone());
+                // An id already classified as `Created` in this interval
+                // stays `Created` (a later update does not demote a fresh
+                // creation); otherwise mark `Updated`.
+                if matches!(outcome.get(id), Some(Outcome::Created)) {
+                    continue;
+                }
+                if outcome.insert(id.clone(), Outcome::Updated).is_none() {
+                    order.push(id.clone());
                 }
             }
             for id in &entry.destroyed {
-                created.retain(|c| c != id);
-                updated.retain(|u| u != id);
-                if !destroyed.contains(id) {
-                    destroyed.push(id.clone());
+                if outcome.insert(id.clone(), Outcome::Destroyed).is_none() {
+                    order.push(id.clone());
                 }
+            }
+        }
+
+        let mut created: Vec<Id> = Vec::new();
+        let mut updated: Vec<Id> = Vec::new();
+        let mut destroyed: Vec<Id> = Vec::new();
+        for id in order {
+            match outcome[&id] {
+                Outcome::Created => created.push(id),
+                Outcome::Updated => updated.push(id),
+                Outcome::Destroyed => destroyed.push(id),
             }
         }
 
@@ -379,6 +430,27 @@ impl JmapBackend for MemoryBackend {
         ))
     }
 
+    /// **Reference-only** implementation of [`JmapBackend::query_objects`].
+    ///
+    /// This implementation **ignores `filter` and `sort`**: it returns every
+    /// stored object for the type/account in lexicographic id order,
+    /// independent of any filter expression or comparator list passed by the
+    /// caller. Pagination (`position`, `limit`) is honored.
+    ///
+    /// Production backends MUST evaluate the filter expression and apply the
+    /// comparators per RFC 8620 §5.5 / RFC 9670 §2.4 (Principal/query) and
+    /// §3.4 (ShareNotification/query). Failing to do so causes clients to
+    /// receive ALL objects when they asked for a filtered subset, with no
+    /// loud error signal.
+    ///
+    /// The crate's integration tests wrap this backend in a
+    /// `FilteringBackend` (see `tests/query_changes_tests.rs`) when filter
+    /// evaluation is required. Downstream implementors building a real
+    /// backend should treat that wrapper as the contract, not this method.
+    ///
+    /// Sibling-scope: six other `MemoryBackend` reference impls
+    /// (chat, calendars, contacts, metadata, tasks, filenode) carry the
+    /// same gap.
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
         _caller: &(),
@@ -429,6 +501,14 @@ impl JmapBackend for MemoryBackend {
         ))
     }
 
+    /// **Reference-only** implementation of [`JmapBackend::query_changes`].
+    ///
+    /// Delegates to [`Self::get_changes`] for the change interval and
+    /// inherits the same filter/sort gap as [`Self::query_objects`]: the
+    /// `filter`, `sort`, `up_to_id`, and `collapse_threads` parameters are
+    /// ignored. Production backends MUST honor them per RFC 8620 §5.6 to
+    /// produce a coherent `added`/`removed` diff against the filtered,
+    /// sorted view.
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         _caller: &(),
@@ -528,6 +608,18 @@ impl SharingBackend for MemoryBackend {
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
 
+        // Backend-canonical re-check (AGENTS.md "Caller identity" /
+        // "Permission enforcement: backend canonical"). The handler-layer
+        // `account_exists` check is the optional pre-check; the backend
+        // MUST re-verify atomically with the mutation. `NotFound` is
+        // returned per RFC 8620 §5.3: an unknown account has no objects,
+        // so any update target is `notFound`.
+        if !inner.known_accounts.contains(account_id.as_ref()) {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )));
+        }
+
         let existing = inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .get(id)
@@ -580,6 +672,16 @@ impl SharingBackend for MemoryBackend {
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
+
+        // Backend-canonical re-check (AGENTS.md "Caller identity" /
+        // "Permission enforcement: backend canonical"). See `update_object`
+        // for the rationale; `NotFound` is the correct SetErrorType for
+        // an unknown account because no object can exist there.
+        if !inner.known_accounts.contains(account_id.as_ref()) {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )));
+        }
 
         let removed = inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
@@ -658,5 +760,151 @@ mod tests {
         );
         assert_eq!(found.len(), 1);
         assert_eq!(found[0].id.as_ref(), new_id.as_ref());
+    }
+
+    /// Oracle: a synthetic create → destroy → create sequence on the SAME id
+    /// (the recycled-id case from bd:JMAP-3t94.3) MUST land in `created` in
+    /// the /changes response, not silently disappear.
+    ///
+    /// Drives change_log_mut directly because the public surface mints fresh
+    /// ids and would not naturally produce the recycle. RFC 8620 §5.2: net
+    /// effect across the interval determines the bucket; here the id IS
+    /// present in the final state so it MUST appear in `created`.
+    #[tokio::test]
+    async fn get_changes_recycled_id_lands_in_created() {
+        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let recycled = Id::from("recycled");
+
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            let log = inner.change_log_mut(Principal::TYPE_NAME, "acc1");
+            log.push(ChangeEntry {
+                new_state: 1,
+                created: vec![recycled.clone()],
+                updated: vec![],
+                destroyed: vec![],
+            });
+            log.push(ChangeEntry {
+                new_state: 2,
+                created: vec![],
+                updated: vec![],
+                destroyed: vec![recycled.clone()],
+            });
+            log.push(ChangeEntry {
+                new_state: 3,
+                created: vec![recycled.clone()],
+                updated: vec![],
+                destroyed: vec![],
+            });
+            inner
+                .states
+                .insert((Principal::TYPE_NAME, "acc1".to_owned()), 3);
+        }
+
+        let changes = backend
+            .get_changes::<Principal>(&(), &Id::from("acc1"), &State::from("0"), None)
+            .await
+            .expect("get_changes must succeed");
+
+        assert!(
+            changes.created.contains(&recycled),
+            "recycled id must appear in created; got created={:?} destroyed={:?}",
+            changes.created,
+            changes.destroyed
+        );
+        assert!(
+            !changes.destroyed.contains(&recycled),
+            "recycled id must NOT appear in destroyed (final state has it); \
+             got destroyed={:?}",
+            changes.destroyed
+        );
+    }
+
+    /// Oracle: `SharingBackend::create_object` invariant — the returned `O`
+    /// MUST carry the server-assigned `id` as its own `id` field, not the
+    /// caller's placeholder. Regression guard for bd:JMAP-3t94.17.
+    #[tokio::test]
+    async fn create_object_returned_o_carries_server_assigned_id() {
+        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let principal: Principal = serde_json::from_value(serde_json::json!({
+            "type": "individual",
+            "name": "Invariant Probe",
+            "id": "placeholder",
+            "description": null,
+            "email": null,
+            "timeZone": null,
+            "capabilities": {},
+            "accounts": null
+        }))
+        .expect("must deserialize");
+
+        let (new_id, stored_obj) = backend
+            .create_object::<Principal>(&(), &Id::from("acc1"), "c1", principal)
+            .await
+            .expect("create must succeed");
+
+        assert_ne!(
+            new_id.as_ref(),
+            "placeholder",
+            "server-assigned id must differ from placeholder"
+        );
+        assert_eq!(
+            stored_obj.id.as_ref(),
+            new_id.as_ref(),
+            "returned O.id MUST equal the server-assigned tuple Id \
+             (SharingBackend::create_object invariant); got O.id={:?}, \
+             tuple Id={:?}",
+            stored_obj.id.as_ref(),
+            new_id.as_ref()
+        );
+    }
+
+    /// Oracle: a create → destroy sequence on the same id within an interval
+    /// SHOULD per RFC 8620 §5.2 either omit the id or report it as destroyed
+    /// only; either way it MUST NOT appear in `created` (the final state
+    /// does not have it). The MemoryBackend chooses the MAY-allowed
+    /// destroyed-only variant.
+    #[tokio::test]
+    async fn get_changes_create_then_destroy_lands_in_destroyed_only() {
+        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let ephemeral = Id::from("ephemeral");
+
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            let log = inner.change_log_mut(Principal::TYPE_NAME, "acc1");
+            log.push(ChangeEntry {
+                new_state: 1,
+                created: vec![ephemeral.clone()],
+                updated: vec![],
+                destroyed: vec![],
+            });
+            log.push(ChangeEntry {
+                new_state: 2,
+                created: vec![],
+                updated: vec![],
+                destroyed: vec![ephemeral.clone()],
+            });
+            inner
+                .states
+                .insert((Principal::TYPE_NAME, "acc1".to_owned()), 2);
+        }
+
+        let changes = backend
+            .get_changes::<Principal>(&(), &Id::from("acc1"), &State::from("0"), None)
+            .await
+            .expect("get_changes must succeed");
+
+        assert!(
+            !changes.created.contains(&ephemeral),
+            "ephemeral id MUST NOT appear in created (final state lacks it); \
+             got created={:?}",
+            changes.created
+        );
+        assert!(
+            changes.destroyed.contains(&ephemeral),
+            "MemoryBackend reports create→destroy in destroyed-only; \
+             got destroyed={:?}",
+            changes.destroyed
+        );
     }
 }
