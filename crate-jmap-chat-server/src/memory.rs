@@ -521,7 +521,7 @@ impl JmapBackend for MemoryBackend {
         let since_n: u64 = since_state
             .as_ref()
             .parse()
-            .map_err(|_| BackendChangesError::TooManyChanges { limit: 0 })?;
+            .map_err(|_| BackendChangesError::CannotCalculate)?;
 
         let log = inner
             .change_log

@@ -400,13 +400,14 @@ impl MemoryBackend {
         max_changes: Option<u64>,
     ) -> Result<(Vec<&'a ChangeEntry>, u64), BackendChangesError<MemoryError>> {
         // Note: parsing a malformed since_state into the MemoryBackend state
-        // counter (u64) is reported via TooManyChanges{limit:0}. That choice
-        // is a separate idiomatic concern tracked elsewhere; it is preserved
-        // here to avoid a behaviour change inside a DRY-only refactor.
+        // counter (u64) is reported via BackendChangesError::CannotCalculate
+        // (bd:JMAP-jfia.31). Previously this used the magic-zero
+        // `TooManyChanges { limit: 0 }` alias, which still maps to the
+        // same wire error via the deprecation path.
         let since_n: u64 = since_state
             .as_ref()
             .parse()
-            .map_err(|_| BackendChangesError::TooManyChanges { limit: 0 })?;
+            .map_err(|_| BackendChangesError::CannotCalculate)?;
 
         let log = inner
             .change_log

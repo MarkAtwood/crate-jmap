@@ -560,29 +560,50 @@ impl<E> From<SetError> for BackendSetError<E> {
 
 /// Error type returned by [`JmapBackend::get_changes`] and
 /// [`JmapBackend::query_changes`].
+///
+/// # `CannotCalculate` vs `TooManyChanges`
+///
+/// The two non-`Other` variants map to two distinct JMAP wire errors
+/// (RFC 8620 §5.6). Previously a single `TooManyChanges { limit: 0 }`
+/// variant overloaded both meanings via a magic-zero sentinel; the
+/// `CannotCalculate` variant was added in bd:JMAP-jfia.31 to surface
+/// the distinction at the type level. `TooManyChanges { limit: 0 }`
+/// is preserved as a deprecated alias — it still maps to
+/// `cannotCalculateChanges` via the `From` and `Display` impls — but
+/// new backends SHOULD construct `CannotCalculate` directly.
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum BackendChangesError<E> {
-    /// The server cannot supply incremental changes for the given `sinceState`.
+    /// The server has no usable change log for the given `sinceState`
+    /// and cannot supply incremental changes — the client MUST
+    /// discard ALL locally cached objects for the affected type,
+    /// reset its local state token to the empty string, and perform a
+    /// full resync (`/get` with `ids: null`). Partial recovery is not
+    /// permitted. Maps to `cannotCalculateChanges` (RFC 8620 §5.6;
+    /// authoritative behavior documented in jmapio/jmap-js
+    /// `mail-model.js`).
     ///
-    /// Two sub-cases share this variant:
+    /// Added in bd:JMAP-jfia.31 to replace the
+    /// `TooManyChanges { limit: 0 }` magic-zero overload. New backends
+    /// SHOULD construct `CannotCalculate` directly; legacy backends
+    /// that emit `TooManyChanges { limit: 0 }` still map to the same
+    /// wire error via the deprecation path.
+    CannotCalculate,
+    /// The change window exceeds what the server can supply in a
+    /// single `/changes` response. Maps to `tooManyChanges` with the
+    /// `limit` as the suggested maximum — the client may retry with
+    /// a smaller window.
     ///
-    /// - **`limit > 0`** — maps to `tooManyChanges` in the JMAP response, with
-    ///   `limit` as the suggested maximum. The client may retry with a smaller
-    ///   window.
-    ///
-    /// - **`limit: 0`** — maps to `cannotCalculateChanges`. This signals a
-    ///   **full state reset**: the client MUST discard ALL locally cached
-    ///   objects for the affected type, reset its local state token to the
-    ///   empty string, and perform a full resync (`/get` with `ids: null`).
-    ///   Partial recovery is not permitted — the server has no usable
-    ///   change log for this state window. (Source: RFC 8620 §5.6; authoritative
-    ///   behavior documented in jmapio/jmap-js `mail-model.js`.)
+    /// **Deprecated sub-case (bd:JMAP-jfia.31)**: a `limit` of `0`
+    /// historically meant "full state reset required" and is
+    /// preserved as an alias for the new [`Self::CannotCalculate`]
+    /// variant. New code SHOULD use `CannotCalculate` directly; the
+    /// alias may be removed at the next major-version bump.
     TooManyChanges {
         /// Maximum window size the server can supply in a single
-        /// `/changes` response. A value of `0` signals a full state
-        /// reset is required per RFC 8620 §5.6; any non-zero value is
-        /// the suggested maximum the client may retry with.
+        /// `/changes` response. A value of `0` is the deprecated
+        /// alias for [`Self::CannotCalculate`]; any non-zero value
+        /// is the suggested maximum the client may retry with.
         limit: u64,
     },
     /// An unexpected storage-layer error.
@@ -592,6 +613,8 @@ pub enum BackendChangesError<E> {
 impl<E: std::fmt::Display> std::fmt::Display for BackendChangesError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::CannotCalculate => write!(f, "cannot calculate changes"),
+            // Deprecated magic-zero alias (bd:JMAP-jfia.31).
             Self::TooManyChanges { limit: 0 } => write!(f, "cannot calculate changes"),
             Self::TooManyChanges { limit } => write!(f, "too many changes (limit: {limit})"),
             Self::Other(e) => write!(f, "{e}"),
@@ -617,6 +640,13 @@ impl<E> From<E> for BackendChangesError<E> {
 impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapError {
     fn from(e: BackendChangesError<E>) -> Self {
         match e {
+            BackendChangesError::CannotCalculate => {
+                jmap_types::JmapError::cannot_calculate_changes()
+            }
+            // Deprecated magic-zero alias for CannotCalculate
+            // (bd:JMAP-jfia.31). Preserved so legacy backends that
+            // emit TooManyChanges { limit: 0 } continue to produce
+            // the correct wire error.
             BackendChangesError::TooManyChanges { limit: 0 } => {
                 jmap_types::JmapError::cannot_calculate_changes()
             }
@@ -1040,6 +1070,30 @@ mod tests {
             "cannotCalculateChanges",
             "limit=0 must produce cannotCalculateChanges; got: {:?}",
             err.error_type
+        );
+    }
+
+    /// Oracle (bd:JMAP-jfia.31): the new `CannotCalculate` variant
+    /// maps to `cannotCalculateChanges` on the wire, matching the
+    /// deprecated `TooManyChanges { limit: 0 }` alias. New backends
+    /// SHOULD emit `CannotCalculate` directly.
+    #[test]
+    fn backend_changes_error_cannot_calculate_maps_to_cannot_calculate_changes() {
+        let err = jmap_types::JmapError::from(
+            BackendChangesError::<std::convert::Infallible>::CannotCalculate,
+        );
+        assert_eq!(
+            err.error_type.as_str(),
+            "cannotCalculateChanges",
+            "CannotCalculate must produce cannotCalculateChanges; got: {:?}",
+            err.error_type
+        );
+
+        // Display agrees with the deprecated-alias Display arm.
+        let s = BackendChangesError::<std::convert::Infallible>::CannotCalculate.to_string();
+        assert_eq!(
+            s, "cannot calculate changes",
+            "Display must produce the same string as TooManyChanges {{ limit: 0 }}"
         );
     }
 
