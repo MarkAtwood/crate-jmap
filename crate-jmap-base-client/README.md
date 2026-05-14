@@ -549,7 +549,7 @@ let emails = client.email_get(&session, account_id, &[]).await?;
 
 | Variant | Meaning |
 |---------|---------|
-| `Http(reqwest::Error)` | Network or TLS error; may be retriable |
+| `Http(HttpError)` | Network or TLS error from the HTTP layer; may be retriable. The payload is an opaque wrapper — use `HttpError::is_timeout`, `HttpError::status`, etc. to diagnose. |
 | `AuthFailed(u16)` | HTTP 401 or 403; fix credentials before retrying |
 | `Parse(serde_json::Error)` | Malformed server response |
 | `InvalidArgument(String)` | Caller bug (empty token, bad URL, duplicate call ID, etc.) |
@@ -559,10 +559,18 @@ let emails = client.email_get(&session, account_id, &[]).await?;
 | `BlobIntegrityMismatch { expected, actual }` | SHA-256 mismatch on upload or download |
 | `ResponseTooLarge { actual, limit }` | Server response exceeded configured size cap |
 | `SseFrameTooLarge { limit }` | Single SSE frame exceeded `max_sse_frame`; stream terminated |
-| `WebSocket(tungstenite::Error)` | WebSocket transport error; may be retriable |
+| `WebSocket(WebSocketError)` | WebSocket transport error; may be retriable. The payload is an opaque wrapper — use `WebSocketError::is_io`, `WebSocketError::is_protocol`, etc. to diagnose. |
 | `UnexpectedResponse(String)` | Server violated the JMAP protocol (wrong Content-Type, etc.) |
 | `Serialize(serde_json::Error)` | Serialization failure in `WsSession::send_request` |
-| `InvalidHeaderValue` | Non-printable-ASCII bytes in a credential string |
+| `InvalidHeaderValue(InvalidHeaderValueError)` | A header value contained characters that are not valid HTTP header-value bytes (typically a credential string with non-printable or non-ASCII characters). |
+
+`HttpError`, `WebSocketError`, and `InvalidHeaderValueError` are opaque
+wrapper types around the underlying transport-crate errors. They keep
+`reqwest` and `tokio-tungstenite` as private dependencies of this crate
+so the transport can be swapped or its major version bumped without
+breaking downstream callers (SemVer-isolation, bd:JMAP-6lsm.22). Use the
+wrappers' accessor methods rather than trying to extract the inner
+transport error type.
 
 ---
 
