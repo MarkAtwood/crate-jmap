@@ -367,6 +367,43 @@ async fn filenode_get_fetch_parents_returns_ancestor() {
 }
 
 // ---------------------------------------------------------------------------
+// Test 7a: non-object update value yields invalidPatch BEFORE the cycle
+// check inspects parentId. Before the fix for bd:JMAP-510h.13 the cycle
+// check ran on the raw wire Value (which silently no-op'd on a non-object)
+// and the handler then re-parsed the same value as PatchObject, surfacing
+// invalidPatch second. The ordering matters for forward-compat: any future
+// PatchObject deserializer change that normalises keys must not reshape
+// what the cycle guard sees.
+// Oracle: RFC 8620 §5.3 — a PatchObject MUST be a JSON Object;
+// non-object values produce invalidPatch.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_set_update_non_object_patch_returns_invalid_patch() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    let node_id = create_node(&backend, "acc1", "doc", None, "s").await;
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "update": {
+                &node_id: ["this is not a JSON object"]
+            }
+        }),
+    )
+    .await
+    .expect("set must succeed at the method level");
+
+    let not_updated = &resp["notUpdated"][&node_id];
+    assert_eq!(
+        not_updated["type"], "invalidPatch",
+        "non-object patch must produce invalidPatch (RFC 8620 §5.3); got: {resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Test 7b: fetchParents=true with multiple sibling ids that share a parent
 // must dedup the parent in the response list, per the FileNodeBackend::
 // get_ancestors union+dedup contract. Regression for bd JMAP-510h.32.
