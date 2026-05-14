@@ -422,18 +422,28 @@ pub async fn handle_task_copy<B: TasksBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (to_account_id, mut args) = extract_account_id(args)?;
 
-    let from_account_id_str = args
-        .remove("fromAccountId")
-        .and_then(|v| v.as_str().map(|s| s.to_owned()))
-        .ok_or_else(|| JmapError::invalid_arguments("fromAccountId is required"))?;
-    let from_account_id = Id::from(from_account_id_str.as_str());
-
     if !backend
         .account_exists(caller, &to_account_id)
         .await
         .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
+    }
+
+    let from_account_id_str = args
+        .remove("fromAccountId")
+        .and_then(|v| v.as_str().map(|s| s.to_owned()))
+        .ok_or_else(|| JmapError::invalid_arguments("fromAccountId is required"))?;
+    let from_account_id = Id::from(from_account_id_str.as_str());
+
+    // RFC 8620 §5.4: fromAccountId MUST differ from accountId. The canonical
+    // sibling jmap-mail-server enforces this in handle_email_copy; without it
+    // a same-account "copy" silently produces a duplicate within the source
+    // account, contradicting the meaning of /copy.
+    if from_account_id == to_account_id {
+        return Err(JmapError::invalid_arguments(
+            "fromAccountId must be different from accountId",
+        ));
     }
 
     let old_state = backend
@@ -580,6 +590,23 @@ mod tests {
         });
         let result = handle_task_copy(&backend, &(), args).await;
         let err = result.expect_err("must return error when fromAccountId missing");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — fromAccountId MUST be different from accountId.
+    /// A same-account request must be rejected with invalidArguments before
+    /// any per-create work. Matches the canonical sibling jmap-mail-server
+    /// at email.rs:2263-2268.
+    #[tokio::test]
+    async fn copy_same_account_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc1",
+            "create": {}
+        });
+        let result = handle_task_copy(&backend, &(), args).await;
+        let err = result.expect_err("must reject same-account Task/copy per RFC 8620 §5.4");
         assert_eq!(err.error_type.as_str(), "invalidArguments");
     }
 
