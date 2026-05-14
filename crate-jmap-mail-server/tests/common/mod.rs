@@ -236,7 +236,15 @@ impl MailBackend for FaultyBackend {
             .await
     }
 
-    async fn blob_exists(&self, _caller: &(), account_id: &Id, blob_id: &Id) -> bool {
+    async fn blob_exists(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<bool, Self::Error> {
+        if self.take_fault("", "blob_exists") {
+            return Err(MemoryError("injected blob_exists failure".to_owned()));
+        }
         self.inner.blob_exists(&(), account_id, blob_id).await
     }
 
