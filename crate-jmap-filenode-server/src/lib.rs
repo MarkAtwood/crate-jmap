@@ -173,6 +173,14 @@ pub(crate) mod test_support {
         query_objects_err: Option<QueryObjectsErrConfig>,
         /// Running count of `query_objects` invocations on this backend.
         query_objects_calls: u64,
+        /// When `Some(msg)`, `get_ancestors` returns `Err(MockError(msg))`.
+        /// Used to verify error propagation through
+        /// `handle_filenode_get`'s fetchParents path.
+        get_ancestors_err: Option<String>,
+        /// Pre-seeded FileNode list returned by `get_objects::<FileNode>`.
+        /// Stored as the JSON shape so the generic round-trip in
+        /// `get_objects` can decode it back into `O`.
+        get_objects_nodes: Vec<serde_json::Value>,
     }
 
     /// Configuration for the `query_objects` failure injection.
@@ -200,8 +208,29 @@ pub(crate) mod test_support {
                     children: HashMap::new(),
                     query_objects_err: None,
                     query_objects_calls: 0,
+                    get_ancestors_err: None,
+                    get_objects_nodes: Vec::new(),
                 })),
             }
+        }
+
+        /// Cause `get_ancestors` to return `Err(MockError(msg))`. Used to
+        /// exercise error propagation through `handle_filenode_get`'s
+        /// fetchParents path.
+        pub fn set_get_ancestors_err(&self, msg: &str) {
+            self.inner.lock().unwrap().get_ancestors_err = Some(msg.to_owned());
+        }
+
+        /// Add a pre-seeded FileNode (as a JSON value) to the list returned
+        /// by `get_objects::<FileNode>`. The value is round-tripped through
+        /// serde into the generic `O`, so the caller is responsible for
+        /// shape correctness.
+        ///
+        /// Used to exercise paths in handlers (such as
+        /// `handle_filenode_get`'s fetchParents branch) that depend on
+        /// the response list being non-empty.
+        pub fn add_get_objects_node(&self, node: serde_json::Value) {
+            self.inner.lock().unwrap().get_objects_nodes.push(node);
         }
 
         /// Cause `query_objects` to return `Err(MockError(msg))` immediately
@@ -302,13 +331,21 @@ pub(crate) mod test_support {
         async fn get_objects<O: GetObject + Send + Sync>(
             &self,
             _caller: &(),
-            account_id: &Id,
-            ids: Option<&[Id]>,
+            _account_id: &Id,
+            _ids: Option<&[Id]>,
             _properties: Option<&[String]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-            // Only FileNode is stored; for other types return empty.
-            let _ = (account_id, ids);
-            Ok((vec![], vec![]))
+            // Pre-seeded nodes are returned for any type whose JSON
+            // shape decodes (the test adds them shaped as FileNodes).
+            // Tests that don't seed get the empty response.
+            let snapshot = self.inner.lock().unwrap().get_objects_nodes.clone();
+            let mut out: Vec<O> = Vec::with_capacity(snapshot.len());
+            for v in snapshot {
+                if let Ok(obj) = serde_json::from_value::<O>(v) {
+                    out.push(obj);
+                }
+            }
+            Ok((out, vec![]))
         }
 
         async fn get_state<O: JmapObject + Send + Sync>(
@@ -460,6 +497,11 @@ pub(crate) mod test_support {
         ) -> Result<Vec<FileNode>, Self::Error> {
             if let Some(first_id) = ids.first() {
                 let guard = self.inner.lock().unwrap();
+                if let Some(msg) = guard.get_ancestors_err.as_ref() {
+                    let msg = msg.clone();
+                    drop(guard);
+                    return Err(MockError(msg));
+                }
                 Ok(guard
                     .ancestors
                     .get(first_id.as_ref())
