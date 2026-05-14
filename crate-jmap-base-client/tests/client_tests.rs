@@ -93,6 +93,65 @@ fn test_new_rejects_url_with_path() {
     );
 }
 
+/// Oracle: bd:JMAP-6r7c.58 — base_url with RFC 3986 user-info
+/// (`https://user:password@host/`) must be rejected. url::Url::Display
+/// echoes user-info verbatim (RFC 3986 §7.5 explicitly warns against
+/// this), so an unrejected user-info value would leak through every
+/// downstream error message that carries the URL. JMAP authenticates via
+/// the Authorization header (AuthProvider) — the user-info component has
+/// no legitimate use here.
+#[test]
+fn test_new_rejects_url_with_userinfo_password() {
+    let canary_password = "redaction-canary-pw-PSt8SiPS";
+    let url = format!("https://alice:{canary_password}@example.com");
+    let result = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &url,
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .map(|_| ());
+    let err = result.expect_err("user-info in base_url must be rejected");
+    let rendered = format!("{err}");
+    assert!(
+        matches!(err, ClientError::InvalidArgument(_)),
+        "expected InvalidArgument, got {err:?}"
+    );
+    assert!(
+        !rendered.contains(canary_password),
+        "rejection error message must not echo the password back into the \
+         error chain; rendered: {rendered}"
+    );
+    assert!(
+        !rendered.contains("alice"),
+        "rejection error message must not echo the username back either; \
+         rendered: {rendered}"
+    );
+    assert!(
+        rendered.contains("user-info"),
+        "rejection error message must surface the actual reason for diagnostics; \
+         rendered: {rendered}"
+    );
+}
+
+/// Oracle: bd:JMAP-6r7c.58 — base_url with username only (no password)
+/// must also be rejected. url::Url::Display includes the username even
+/// when no password is present, so the same leak class applies.
+#[test]
+fn test_new_rejects_url_with_userinfo_username_only() {
+    let result = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        "https://alice@example.com",
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .map(|_| ());
+    assert!(
+        matches!(result, Err(ClientError::InvalidArgument(_))),
+        "username-only user-info must be rejected, got {result:?}"
+    );
+}
+
 /// Oracle: base_url validation — a bare https origin must be accepted.
 #[test]
 fn test_new_accepts_https_origin() {
