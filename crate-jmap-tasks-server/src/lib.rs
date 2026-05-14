@@ -755,7 +755,7 @@ mod tests {
         let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
         let (_, args, _) = &resp.method_responses[0];
         assert!(args.get("type").is_none(), "must not be error: {args}");
-        for item in args["list"].as_array().unwrap_or(&vec![]) {
+        for item in args["list"].as_array().into_iter().flatten() {
             assert!(
                 item.get("utcStart").is_none(),
                 "utcStart must not appear when not requested: {item}"

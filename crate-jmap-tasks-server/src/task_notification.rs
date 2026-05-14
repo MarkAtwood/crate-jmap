@@ -115,8 +115,13 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
     // -----------------------------------------------------------------------
     if let Some(Value::Array(destroy_arr)) = args.remove("destroy") {
         // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
-        // Reject the whole request if any element is non-string rather than
-        // silently skipping it, which would produce a misleading response.
+        // Two-pass validation is intentional: this up-front loop fails the whole
+        // request loudly; the `None => continue` arm in the inner match below
+        // is unreachable BECAUSE this pre-check ran. Future contributor: do NOT
+        // delete this pre-check on the reasoning that the inner match handles
+        // non-string elements — silent-skip is the wrong behaviour per the
+        // workspace "silent-drop is a data-integrity bug class" rule
+        // (JMAP-wlip.1).
         if let Some(bad) = destroy_arr.iter().find(|v| !v.is_string()) {
             return Err(JmapError::invalid_arguments(format!(
                 "destroy: every element must be a string Id; got {bad}"
