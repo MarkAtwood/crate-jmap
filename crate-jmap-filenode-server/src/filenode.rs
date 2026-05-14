@@ -249,61 +249,110 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                 continue;
                             }
                             OnExists::Replace => {
-                                // Guard: check the existing node has no descendants.
-                                match backend
+                                // draft-ietf-jmap-filenode-13 §3.2.3 lines
+                                // 565-570: "If 'replace', the existing item
+                                // will be destroyed. [...] if the replaced
+                                // item is a directory which has children,
+                                // then the server MUST respond with a
+                                // nodeHasChildren error to this action
+                                // UNLESS onDestroyRemoveChildren is true."
+                                let desc_ids = match backend
                                     .get_descendant_ids(caller, &account_id, &existing_id)
                                     .await
                                 {
-                                    Ok(desc) if !desc.is_empty() => {
-                                        not_created.insert(
-                                            create_id,
-                                            json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }),
-                                        );
-                                        continue;
-                                    }
-                                    Ok(_) => {
-                                        match backend
-                                            .destroy_object::<FileNode>(
-                                                caller,
-                                                &account_id,
-                                                &existing_id,
-                                            )
-                                            .await
-                                        {
-                                            Ok(()) => {
-                                                mutated = true;
-                                                destroyed_list.push(Value::String(
-                                                    existing_id.as_ref().to_owned(),
-                                                ));
-                                            }
-                                            Err(BackendSetError::SetError(set_err)) => {
-                                                not_created
-                                                    .insert(create_id, set_error_value(&set_err));
-                                                continue;
-                                            }
-                                            Err(BackendSetError::Other(e)) => {
-                                                not_created.insert(
-                                                    create_id,
-                                                    json!({ "type": "serverFail", "description": e.to_string() }),
-                                                );
-                                                continue;
-                                            }
-                                            Err(_) => {
-                                                not_created.insert(
-                                                    create_id,
-                                                    json!({
-                                                        "type": "serverFail",
-                                                        "description": "unhandled backend error variant",
-                                                    }),
-                                                );
-                                                continue;
-                                            }
-                                        }
-                                    }
+                                    Ok(ids) => ids,
                                     Err(e) => {
                                         not_created.insert(
                                             create_id,
                                             json!({ "type": "serverFail", "description": e.to_string() }),
+                                        );
+                                        continue;
+                                    }
+                                };
+                                if !desc_ids.is_empty() && !on_destroy_remove_children {
+                                    not_created.insert(
+                                        create_id,
+                                        json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }),
+                                    );
+                                    continue;
+                                }
+                                // When descendants exist AND
+                                // onDestroyRemoveChildren=true, cascade the
+                                // destroy of descendants first. Same
+                                // ordering as the regular destroy path
+                                // (filenode.rs around §destroy: descendants
+                                // first, then the targeted node).
+                                let mut cascade_failed = false;
+                                for desc_id in &desc_ids {
+                                    match backend
+                                        .destroy_object::<FileNode>(caller, &account_id, desc_id)
+                                        .await
+                                    {
+                                        Ok(()) => {
+                                            mutated = true;
+                                            destroyed_list
+                                                .push(Value::String(desc_id.as_ref().to_owned()));
+                                        }
+                                        Err(BackendSetError::SetError(set_err)) => {
+                                            not_created.insert(
+                                                create_id.clone(),
+                                                set_error_value(&set_err),
+                                            );
+                                            cascade_failed = true;
+                                            break;
+                                        }
+                                        Err(BackendSetError::Other(e)) => {
+                                            not_created.insert(
+                                                create_id.clone(),
+                                                json!({ "type": "serverFail", "description": e.to_string() }),
+                                            );
+                                            cascade_failed = true;
+                                            break;
+                                        }
+                                        Err(_) => {
+                                            not_created.insert(
+                                                create_id.clone(),
+                                                json!({
+                                                    "type": "serverFail",
+                                                    "description": "unhandled backend error variant",
+                                                }),
+                                            );
+                                            cascade_failed = true;
+                                            break;
+                                        }
+                                    }
+                                }
+                                if cascade_failed {
+                                    continue;
+                                }
+                                // Now destroy the existing colliding node.
+                                match backend
+                                    .destroy_object::<FileNode>(caller, &account_id, &existing_id)
+                                    .await
+                                {
+                                    Ok(()) => {
+                                        mutated = true;
+                                        destroyed_list
+                                            .push(Value::String(existing_id.as_ref().to_owned()));
+                                    }
+                                    Err(BackendSetError::SetError(set_err)) => {
+                                        not_created.insert(create_id, set_error_value(&set_err));
+                                        continue;
+                                    }
+                                    Err(BackendSetError::Other(e)) => {
+                                        not_created.insert(
+                                            create_id,
+                                            json!({ "type": "serverFail", "description": e.to_string() }),
+                                        );
+                                        continue;
+                                    }
+                                    Err(_) => {
+                                        not_created.insert(
+                                            create_id,
+                                            json!({
+                                                "type": "serverFail",
+                                                "description": "unhandled backend error variant",
+                                            }),
                                         );
                                         continue;
                                     }
