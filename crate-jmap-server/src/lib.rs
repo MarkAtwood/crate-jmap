@@ -160,6 +160,27 @@ pub struct Dispatcher<CallerCtx> {
     handlers: HashMap<String, Arc<dyn JmapHandler<CallerCtx>>>,
 }
 
+/// Returned by [`Dispatcher::try_register`] when a handler is already
+/// registered under the requested method name.
+///
+/// Added in bd:JMAP-jfia.4 alongside `try_register` to make the
+/// duplicate-registration foot-gun explicit at the call site rather
+/// than silently dropping a binding.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DuplicateMethodError {
+    /// The method name that was already registered.
+    pub method: String,
+}
+
+impl std::fmt::Display for DuplicateMethodError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "handler already registered for method {:?}", self.method)
+    }
+}
+
+impl std::error::Error for DuplicateMethodError {}
+
 impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
     /// Create an empty dispatcher with no registered handlers.
     pub fn new() -> Self {
@@ -170,7 +191,16 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
 
     /// Register a handler for the given method name.
     ///
-    /// Registering the same name twice replaces the earlier handler.
+    /// **Registering the same name twice silently replaces the earlier
+    /// handler.** This is a real foot-gun in the workspace pattern where
+    /// each extension crate ships a `register_*_handlers` macro that
+    /// registers ~10 method names against a single `Dispatcher`: a typo
+    /// or accidental double-registration drops one binding with no
+    /// diagnostic, and the handler that "never fires" is hard to debug
+    /// (bd:JMAP-jfia.4). Prefer [`Dispatcher::try_register`] in new
+    /// code; `register` is kept for ergonomic call sites where the
+    /// silent-overwrite is the deliberate choice (e.g. a test fixture
+    /// that overrides a handler for a specific scenario).
     ///
     /// Using `Arc` rather than `Box` allows the same handler instance to be
     /// shared across multiple method name registrations (via `Arc::clone`).
@@ -180,6 +210,40 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
         handler: Arc<dyn JmapHandler<CallerCtx>>,
     ) {
         self.handlers.insert(method.into(), handler);
+    }
+
+    /// Register a handler for the given method name, returning an error
+    /// if the method name is already registered.
+    ///
+    /// This is the recommended registration entry point for production
+    /// code paths (bd:JMAP-jfia.4). Unlike [`Dispatcher::register`], a
+    /// duplicate method name produces
+    /// [`DuplicateMethodError`] rather than silently replacing the
+    /// existing handler, surfacing the collision at the call site that
+    /// caused it.
+    ///
+    /// On `Err(DuplicateMethodError)` the dispatcher's handler map is
+    /// left unchanged — the existing handler is preserved and the
+    /// would-be registration is dropped.
+    ///
+    /// Using `Arc` rather than `Box` allows the same handler instance to be
+    /// shared across multiple method name registrations (via `Arc::clone`).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DuplicateMethodError`] when `method` is already
+    /// registered.
+    pub fn try_register(
+        &mut self,
+        method: impl Into<String>,
+        handler: Arc<dyn JmapHandler<CallerCtx>>,
+    ) -> Result<(), DuplicateMethodError> {
+        let method = method.into();
+        if self.handlers.contains_key(&method) {
+            return Err(DuplicateMethodError { method });
+        }
+        self.handlers.insert(method, handler);
+        Ok(())
     }
 
     /// Process a validated [`JmapRequest`] and return a [`JmapResponse`].
@@ -612,6 +676,57 @@ mod tests {
         assert_eq!(resp.method_responses.len(), 1);
         let (_, args, _) = &resp.method_responses[0];
         assert_eq!(args["type"], "notFound");
+    }
+
+    /// Oracle (bd:JMAP-jfia.4): try_register MUST return Ok for the
+    /// first registration of a method name, and Err(DuplicateMethodError)
+    /// for any subsequent registration of the same name. On Err the
+    /// dispatcher's handler map MUST be left unchanged — the
+    /// already-registered handler stays in place.
+    #[tokio::test]
+    async fn try_register_succeeds_then_errors_on_duplicate() {
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        let first = Arc::new(EchoHandler(json!({"v": "first"})));
+        let second = Arc::new(EchoHandler(json!({"v": "second"})));
+
+        d.try_register("Foo/get", first)
+            .expect("first registration must succeed");
+
+        let err = d
+            .try_register("Foo/get", second)
+            .expect_err("second registration must error");
+        assert_eq!(err.method, "Foo/get");
+        assert_eq!(
+            err.to_string(),
+            "handler already registered for method \"Foo/get\""
+        );
+
+        // The first handler MUST still be the one that fires — try_register
+        // must NOT have replaced it as a side-effect of the error path.
+        let req = single_call("Foo/get", json!({}), "c0");
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert_eq!(
+            args["v"], "first",
+            "try_register error path must not replace the existing handler"
+        );
+    }
+
+    /// Oracle (bd:JMAP-jfia.4): register (the silent-overwrite variant)
+    /// MUST continue to replace on duplicate, since established consumers
+    /// depend on that ergonomic for test fixtures. Pins the contract so
+    /// a future refactor that "fixes" register's silent overwrite is
+    /// caught.
+    #[tokio::test]
+    async fn register_silently_overwrites_on_duplicate() {
+        let mut d: Dispatcher<String> = Dispatcher::new();
+        d.register("Foo/get", Arc::new(EchoHandler(json!({"v": "first"}))));
+        d.register("Foo/get", Arc::new(EchoHandler(json!({"v": "second"}))));
+
+        let req = single_call("Foo/get", json!({}), "c0");
+        let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert_eq!(args["v"], "second", "register must replace on duplicate");
     }
 
     /// Oracle: RFC 8620 §3.4 — sessionState in response matches what dispatcher was given.
