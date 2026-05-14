@@ -70,12 +70,18 @@ pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapE
 ///
 /// Uses `std::time::SystemTime` so no external dependency is needed.
 ///
-/// Pre-epoch handling: if `duration_since(UNIX_EPOCH)` fails (system clock
-/// drifted before the epoch), this function uses the absolute duration from
-/// `UNIX_EPOCH.duration_since(now)` but negates the seconds — producing a
-/// timestamp in the range 1969-12-31T… through 1970-01-01T00:00:00Z. This
-/// is still monotonically increasing for subsequent calls and never silently
-/// produces 1970-01-01T00:00:00.000Z for a clock that is merely slightly behind.
+/// Pre-epoch handling: `SystemTime::now().duration_since(UNIX_EPOCH)`
+/// fails on clocks drifted before the epoch. The function uses
+/// `Err::duration()` to recover the magnitude and negates the seconds
+/// before formatting; the result is a correct RFC 3339 timestamp
+/// anywhere from the BCE proleptic Gregorian range up to
+/// `1970-01-01T00:00:00.000Z`. The rem_euclid / div_euclid math at
+/// the format step handles arbitrarily-large negative offsets, not
+/// only sub-day drifts. Pre-epoch correctness is best-effort —
+/// `SystemTime` is non-monotonic and the JMAP spec does not require
+/// pre-epoch timestamps. (bd:JMAP-wlip.11 corrected the previous
+/// docstring's incorrect "1969-12-31T… through 1970-01-01T00:00:00Z"
+/// range claim.)
 ///
 /// Clock-overflow handling: if `SystemTime::now()` reports a Duration whose
 /// `as_secs()` value exceeds `i64::MAX` (~9.2e18 seconds, ~292 billion years

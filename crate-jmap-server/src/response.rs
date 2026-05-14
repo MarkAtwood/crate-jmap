@@ -82,6 +82,13 @@ pub fn error_status(err: &JmapError) -> StatusCode {
 /// with the RFC 7807 Problem Details body.  Any HTTP framework that works with
 /// the `http` crate (axum, hyper, warp, etc.) accepts this directly.
 #[derive(Debug)]
+// bd:JMAP-wlip.31 — both fields are private today, so #[non_exhaustive]
+// is functionally a no-op for outside-crate construction / matching.
+// Kept deliberately as a forward-compat signal: a future field that
+// becomes `pub` (e.g. an `extras` map paralleling SetError.extra) does
+// NOT then need to add the attribute as a separate change. The
+// attribute also documents intent at the type-definition site without
+// requiring readers to chase down the field visibility.
 #[non_exhaustive]
 pub struct RequestError {
     status: StatusCode,
