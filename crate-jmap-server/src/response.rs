@@ -28,15 +28,24 @@ struct ProblemDetails<'a> {
 /// Method-level errors are returned inside `methodResponses` with HTTP 200 —
 /// they are NOT returned as top-level HTTP errors.
 pub fn error_invocation(call_id: &str, err: JmapError) -> Invocation {
-    // JmapError uses #[derive(Serialize)] with only String, Option<String>, and
-    // Option<Id> fields — all JSON-serializable primitives with string keys.
-    // serde_json::to_value only fails when a Serialize impl produces a non-string
-    // map key; the derived impl for JmapError cannot do this.  The fallback is a
-    // defensive measure against a future jmap-types change that breaks the invariant;
-    // it prevents a panic at the cost of slightly less specific error information.
-    let err_value = serde_json::to_value(&err).unwrap_or_else(
-        |_| serde_json::json!({"type": "serverFail", "description": "internal error"}),
-    );
+    // JmapError uses #[derive(Serialize)] with only String, Option<String>,
+    // and Option<Id> fields — all JSON-serializable primitives with string
+    // keys. serde_json::to_value only fails when a Serialize impl produces a
+    // non-string map key; the derived impl for JmapError cannot do this. The
+    // exhaustive contract test `jmap_error_all_constructors_serialize` in
+    // this module exercises every public JmapError constructor and proves
+    // the invariant.
+    //
+    // bd:JMAP-jfia.35 — previously this was an `unwrap_or_else` fallback to
+    // a generic serverFail. That fallback was actively harmful: a future
+    // jmap-types change that broke the Serialize invariant would silently
+    // rewrite the original error to "internal error" with no log signal.
+    // `.expect()` instead lets a panic surface, get caught by the
+    // dispatcher's `task::spawn` isolation, and produce a serverFail
+    // invocation with the failing-variant identity visible in the panic
+    // payload. Louder is safer than silent corruption.
+    let err_value = serde_json::to_value(&err)
+        .expect("JmapError Serialize invariant — see jmap_error_all_constructors_serialize");
     ("error".to_owned(), err_value, call_id.to_owned())
 }
 

@@ -41,6 +41,15 @@ pub const SERVER_FAIL_INTERNAL_DESC: &str = "internal error";
 /// without echoing the backend error's [`Display`](std::fmt::Display) output
 /// onto the wire (bd:JMAP-wlip.2).
 ///
+/// **The `err` parameter is intentionally discarded** (bd:JMAP-jfia.22).
+/// It exists only to keep the call site ergonomic
+/// (`.map_err(|e| server_fail_from_backend(&e))`) — the function never
+/// reads it, logs it, or stashes it. Callers that want their backend
+/// error visible in operator logs MUST log it explicitly at the call
+/// site before invoking this helper; no logging happens here. The
+/// crate's sealed dep set (workspace AGENTS.md) excludes `tracing`,
+/// so a built-in log line is not on the table.
+///
 /// The backend error parameter is accepted by reference (and discarded) so
 /// callers retain it for their own structured logging if they wire one. The
 /// returned `JmapError` always carries the static
