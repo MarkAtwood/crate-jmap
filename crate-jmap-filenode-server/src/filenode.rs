@@ -196,10 +196,11 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
         }
     };
 
-    let compare_case_insensitively: bool = args
-        .get("compareCaseInsensitively")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let case_folding = crate::backend::CaseFolding::from_wire_bool(
+        args.get("compareCaseInsensitively")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+    );
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
@@ -258,7 +259,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                         &account_id,
                         parent_id_for_collision.as_ref(),
                         &node_name,
-                        compare_case_insensitively,
+                        case_folding,
                     )
                     .await
                 {
@@ -394,7 +395,7 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                                             &account_id,
                                             parent_id_for_collision.as_ref(),
                                             &candidate,
-                                            compare_case_insensitively,
+                                            case_folding,
                                         )
                                         .await
                                     {
@@ -950,10 +951,11 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         }
     };
 
-    let compare_case_insensitively: bool = args
-        .get("compareCaseInsensitively")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let case_folding = crate::backend::CaseFolding::from_wire_bool(
+        args.get("compareCaseInsensitively")
+            .and_then(|v| v.as_bool())
+            .unwrap_or(false),
+    );
 
     // RFC 8620 §5.4: if onSuccessDestroyOriginal is true, after emitting the
     // Foo/copy response the server MUST make a single call to Foo/set to
@@ -1135,7 +1137,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                         &account_id,
                         parent_id_for_collision.as_ref(),
                         &node_name,
-                        compare_case_insensitively,
+                        case_folding,
                     )
                     .await
                 {
@@ -1272,7 +1274,7 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                                         &account_id,
                                         parent_id_for_collision.as_ref(),
                                         &candidate,
-                                        compare_case_insensitively,
+                                        case_folding,
                                     )
                                     .await
                                 {
