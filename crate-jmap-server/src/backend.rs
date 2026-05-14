@@ -245,9 +245,39 @@ impl std::fmt::Display for SetError {
 
 /// The machine-readable type for a [`SetError`] (RFC 8620 §5.3 and RFC 8621).
 ///
-/// Extension crates define their own error strings via [`SetErrorType::custom`]
-/// rather than adding variants here. This keeps the base crate stable as new
-/// JMAP extension crates (calendar, contacts, etc.) are added.
+/// # Variant policy
+///
+/// The variant set below carries:
+///
+/// - The 10 RFC 8620 §5.3 base error types
+///   (`Forbidden`, `OverQuota`, `TooLarge`, `RateLimit`, `NotFound`,
+///   `InvalidPatch`, `WillDestroy`, `InvalidProperties`, `Singleton`,
+///   `AlreadyExists`).
+/// - 13 RFC 8621 mail-specific error types
+///   (`MailboxHasChild`, `MailboxHasEmail`, `TooManyKeywords`,
+///   `TooManyMailboxes`, `BlobNotFound`, `ForbiddenFrom`,
+///   `InvalidEmail`, `TooManyRecipients`, `NoRecipients`,
+///   `InvalidRecipients`, `ForbiddenMailFrom`, `ForbiddenToSend`,
+///   `CannotUnsend`). These predate the canonical-template extraction
+///   and ship in the foundation for back-compat with existing
+///   `jmap-mail-server` callers (bd:JMAP-wlip.19).
+/// - [`Self::Custom`] for everything else.
+///
+/// **New extension errors MUST use [`Self::custom`].** Other JMAP
+/// extensions (chat, calendars, tasks, contacts, filenode, sharing,
+/// metadata) ship their error strings via `custom("rateLimited")`,
+/// `custom("addressBookHasContents")`, `custom("invalidSieve")`, etc.
+/// The known wire-name table inside the private `from_wire_str` helper
+/// is the authoritative list of typed variants — any wire-name outside
+/// that list round-trips as `Custom(s)`.
+///
+/// The mail-variants asymmetry is documented but not yet reshaped.
+/// Moving the 13 mail variants to `jmap-mail-types` is a breaking
+/// change that requires a workspace-wide major version bump and
+/// propagation across every `*-server` extension crate; it is tracked
+/// separately rather than performed silently. Until that bump, do not
+/// add further extension-specific variants here — even mail-style
+/// extensions like Calendars / Tasks / Contacts use [`Self::custom`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum SetErrorType {
