@@ -74,30 +74,32 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
     // Extract the Metadata-specific filter args before parsing the rest.
     // We remove them from the arg map even though we no longer delegate to
     // the generic /changes handler — keeping the wire validation strict
-    // (unknown args remaining after this point would still be ignored
-    // silently, matching RFC 8620 §1.6 forgiveness for unknown fields).
-    let filter_related_type: Option<String> = args
-        .as_object_mut()
-        .and_then(|m| m.remove("filterRelatedType"))
-        .and_then(|v| match v {
-            Value::String(s) => Some(s),
-            _ => None,
-        });
-
-    let filter_metadata_type: Option<Vec<String>> = args
-        .as_object_mut()
-        .and_then(|m| m.remove("filterMetadataType"))
-        .and_then(|v| match v {
-            Value::Array(arr) => Some(
-                arr.into_iter()
-                    .filter_map(|v| match v {
-                        Value::String(s) => Some(s),
-                        _ => None,
-                    })
-                    .collect::<Vec<String>>(),
-            ),
-            _ => None,
-        });
+    // (unknown args remaining after this point are still ignored silently,
+    // matching RFC 8620 §1.6 forgiveness for unknown fields).
+    //
+    // Recognized fields with the wrong shape (e.g. `filterRelatedType: 42`,
+    // `filterMetadataType: "Email"` instead of an array) MUST surface as
+    // `invalidArguments` — silently coercing to `None` would return a
+    // result set that does not match the client's filter with no error
+    // signal. We use typed serde deserialize per arg to propagate shape
+    // errors with the standard JMAP error type. Wire-level Null deserialises
+    // to `Option::None`, matching the spec's "filter absent" semantics.
+    let (filter_related_type, filter_metadata_type) = {
+        let map = args
+            .as_object_mut()
+            .ok_or_else(|| JmapError::invalid_arguments("args must be an object"))?;
+        let filter_related_type: Option<String> = match map.remove("filterRelatedType") {
+            None => None,
+            Some(v) => serde_json::from_value(v)
+                .map_err(|e| JmapError::invalid_arguments(format!("filterRelatedType: {e}")))?,
+        };
+        let filter_metadata_type: Option<Vec<String>> = match map.remove("filterMetadataType") {
+            None => None,
+            Some(v) => serde_json::from_value(v)
+                .map_err(|e| JmapError::invalid_arguments(format!("filterMetadataType: {e}")))?,
+        };
+        (filter_related_type, filter_metadata_type)
+    };
 
     let (account_id, args) = extract_account_id(args)?;
     if !backend
@@ -1089,6 +1091,58 @@ mod tests {
             .filter_map(|v| v.as_str())
             .collect();
         assert_eq!(created_ids, vec!["md1"]);
+    }
+
+    /// Oracle: bd:JMAP-ayoz.8 — recognized filter args with the wrong
+    /// wire shape must surface as `invalidArguments`, not silently coerce
+    /// to None. A client sending `filterRelatedType: 42` previously got a
+    /// result set ignoring the filter; now the request is rejected.
+    #[tokio::test]
+    async fn changes_filter_related_type_non_string_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": 42
+        });
+        let err = handle_metadata_changes(&backend, &(), args)
+            .await
+            .expect_err("non-string filterRelatedType must return Err");
+        assert_eq!(err.error_type, "invalidArguments", "got: {err:?}");
+    }
+
+    /// Oracle: bd:JMAP-ayoz.8 — same shape enforcement applies to
+    /// `filterMetadataType`. A non-array value (here a bare string)
+    /// must surface as invalidArguments, not silently become None.
+    #[tokio::test]
+    async fn changes_filter_metadata_type_non_array_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterMetadataType": "Annotation"
+        });
+        let err = handle_metadata_changes(&backend, &(), args)
+            .await
+            .expect_err("non-array filterMetadataType must return Err");
+        assert_eq!(err.error_type, "invalidArguments", "got: {err:?}");
+    }
+
+    /// Oracle: bd:JMAP-ayoz.8 — within filterMetadataType, every element
+    /// must be a string. A non-string element (here an integer) surfaces
+    /// as invalidArguments rather than being silently filter_map-dropped.
+    #[tokio::test]
+    async fn changes_filter_metadata_type_non_string_element_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterMetadataType": ["Annotation", 42]
+        });
+        let err = handle_metadata_changes(&backend, &(), args)
+            .await
+            .expect_err("non-string element in filterMetadataType must return Err");
+        assert_eq!(err.error_type, "invalidArguments", "got: {err:?}");
     }
 
     /// Oracle: bd:JMAP-ayoz.4 — filter_changes_array's post-fetch path
