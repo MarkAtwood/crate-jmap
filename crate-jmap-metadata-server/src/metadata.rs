@@ -278,6 +278,13 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
 
     let old_state = backend
         .get_state::<Metadata>(caller, &account_id)
