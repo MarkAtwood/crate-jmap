@@ -147,18 +147,13 @@ pub trait TasksBackend: JmapBackend {
     ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
     // ── Tasks-specific ──────────────────────────────────────────────────────
-
-    /// Task/copy (RFC 8620 §5.4): duplicate a Task into another account.
-    ///
-    /// Returns (new_id, created_Task) in to_account_id. The backend is
-    /// responsible for generating a new uid and resetting recurrence state.
-    fn copy_task(
-        &self,
-        from_account_id: &Id,
-        task_id: &Id,
-        to_account_id: &Id,
-        task_list_id: &Id,
-    ) -> impl Future<Output = Result<(Id, Task), BackendSetError<Self::Error>>> + Send;
+    //
+    // Task/copy (RFC 8620 §5.4) is implemented in the handler using the
+    // generic `get_objects::<Task>` (fetch source) + `create_object::<Task>`
+    // (create in destination) pattern from the canonical extension-server
+    // template. There is intentionally no `copy_task` trait method —
+    // backends provide source-read and destination-write via the standard
+    // JmapBackend methods, and the handler does the merge.
 
     /// Whether this backend supports operations on the given object type.
     ///
