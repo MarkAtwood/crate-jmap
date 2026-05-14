@@ -66,6 +66,22 @@ pub fn not_found_json(ids: &[Id]) -> Value {
 /// `match args.remove(...).unwrap_or(Value::Null) { Value::Null => None,
 /// v => Some(serde_json::from_value(v)...) }` blocks in `handlers.rs`
 /// into one-liners.
+///
+/// # Interaction with `ResultReference` resolution (bd:JMAP-jfia.15)
+///
+/// [`crate::parse::resolve_args`] replaces a `#key` with the value
+/// produced by walking the JSON Pointer path against a prior
+/// response. RFC 6901 §4 makes no distinction between "key absent"
+/// and "key present with `null`", so the resolved value CAN be
+/// `Value::Null`. This function then treats that resolved-null
+/// identically to "key was not sent". The behaviour is
+/// RFC-compliant — both are "optional argument not provided" — but
+/// the asymmetry between an explicit `null` argument and a
+/// `#key`-resolved `null` argument may surprise a handler author
+/// who expects "I asked for the value via a ResultReference, so it
+/// must have been there". If a handler needs to distinguish
+/// resolved-null from unsent, it has to read the raw `args` map
+/// before calling this helper.
 pub fn optional_arg<T>(
     args: &mut Map<String, Value>,
     name: &str,
