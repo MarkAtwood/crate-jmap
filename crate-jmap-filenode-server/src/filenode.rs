@@ -844,8 +844,44 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
         }
     }
 
+    // draft-ietf-jmap-filenode-13 §3.2.4: "This is a standard Foo/copy
+    // function with the same additional top-level arguments as
+    // FileNode/set, onDestroyRemoveChildren and onExists, with the
+    // same behaviour." Parse and apply them to the destination account
+    // (find_sibling_by_name uses account_id, NOT from_account_id).
+    let on_destroy_remove_children: bool = args
+        .get("onDestroyRemoveChildren")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let on_exists: OnExists = {
+        let v = args.remove("onExists");
+        match v.as_ref() {
+            None | Some(Value::Null) => OnExists::Reject,
+            Some(Value::String(s)) if s == "replace" => OnExists::Replace,
+            Some(Value::String(s)) if s == "rename" => OnExists::Rename,
+            Some(other) => {
+                return Err(JmapError::invalid_arguments(format!(
+                    "invalid onExists value: {other}"
+                )));
+            }
+        }
+    };
+
+    let compare_case_insensitively: bool = args
+        .get("compareCaseInsensitively")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
     let mut copied = serde_json::Map::new();
     let mut not_copied = serde_json::Map::new();
+    // The onExists=replace cascade destroys 0..N nodes per entry. RFC
+    // 8620 §5.4 does not define a `destroyed` field on Foo/copy
+    // responses, so a client has no in-response wire signal for which
+    // nodes the copy destroyed. The handler still performs the
+    // destroys (the FileNode draft §3.2.4 mandates the behaviour via
+    // §3.2.3); clients learn about them via Foo/changes. Surfacing
+    // them in the response shape is a separate workspace bead.
     let mut mutated = false;
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
@@ -894,6 +930,197 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             }
             if let Some(new_name) = obj_val.get("name").and_then(|v| v.as_str()) {
                 source_node.name = new_name.to_owned();
+            }
+
+            // -------------------------------------------------------------------
+            // Collision detection in the DESTINATION account (§3.2.4 →
+            // §3.2.3 onExists semantics). Mirrors handle_filenode_set's
+            // collision block; the key difference is that account_id is
+            // the destination, NOT from_account_id.
+            // -------------------------------------------------------------------
+            let node_name = source_node.name.clone();
+            let parent_id_for_collision: Option<Id> = source_node.parent_id.clone();
+
+            if !node_name.is_empty() {
+                let collision = match backend
+                    .find_sibling_by_name(
+                        caller,
+                        &account_id,
+                        parent_id_for_collision.as_ref(),
+                        &node_name,
+                        compare_case_insensitively,
+                    )
+                    .await
+                {
+                    Ok(c) => c,
+                    Err(e) => {
+                        not_copied.insert(
+                            create_id,
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                        continue;
+                    }
+                };
+
+                if let Some(existing_id) = collision {
+                    match on_exists {
+                        OnExists::Reject => {
+                            not_copied.insert(
+                                create_id,
+                                json!({ "type": "alreadyExists", "existingId": existing_id.as_ref() }),
+                            );
+                            continue;
+                        }
+                        OnExists::Replace => {
+                            // §3.2.3 lines 565-570: nodeHasChildren UNLESS
+                            // onDestroyRemoveChildren=true; in which case
+                            // cascade-destroy descendants first.
+                            let desc_ids = match backend
+                                .get_descendant_ids(caller, &account_id, &existing_id)
+                                .await
+                            {
+                                Ok(ids) => ids,
+                                Err(e) => {
+                                    not_copied.insert(
+                                        create_id,
+                                        json!({ "type": "serverFail", "description": e.to_string() }),
+                                    );
+                                    continue;
+                                }
+                            };
+                            if !desc_ids.is_empty() && !on_destroy_remove_children {
+                                not_copied.insert(
+                                    create_id,
+                                    json!({ "type": "nodeHasChildren", "existingId": existing_id.as_ref() }),
+                                );
+                                continue;
+                            }
+                            let mut cascade_failed = false;
+                            for desc_id in &desc_ids {
+                                match backend
+                                    .destroy_object::<FileNode>(caller, &account_id, desc_id)
+                                    .await
+                                {
+                                    Ok(()) => {
+                                        mutated = true;
+                                        // No wire signal — see note on
+                                        // destroyed_list omission above.
+                                        let _ = desc_id;
+                                    }
+                                    Err(BackendSetError::SetError(set_err)) => {
+                                        not_copied
+                                            .insert(create_id.clone(), set_error_value(&set_err));
+                                        cascade_failed = true;
+                                        break;
+                                    }
+                                    Err(BackendSetError::Other(e)) => {
+                                        not_copied.insert(
+                                            create_id.clone(),
+                                            json!({ "type": "serverFail", "description": e.to_string() }),
+                                        );
+                                        cascade_failed = true;
+                                        break;
+                                    }
+                                    Err(_) => {
+                                        not_copied.insert(
+                                            create_id.clone(),
+                                            json!({
+                                                "type": "serverFail",
+                                                "description": "unhandled backend error variant",
+                                            }),
+                                        );
+                                        cascade_failed = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if cascade_failed {
+                                continue;
+                            }
+                            // Now destroy the colliding node itself.
+                            match backend
+                                .destroy_object::<FileNode>(caller, &account_id, &existing_id)
+                                .await
+                            {
+                                Ok(()) => {
+                                    mutated = true;
+                                    // No wire signal — see note above.
+                                    let _ = &existing_id;
+                                }
+                                Err(BackendSetError::SetError(set_err)) => {
+                                    not_copied.insert(create_id, set_error_value(&set_err));
+                                    continue;
+                                }
+                                Err(BackendSetError::Other(e)) => {
+                                    not_copied.insert(
+                                        create_id,
+                                        json!({ "type": "serverFail", "description": e.to_string() }),
+                                    );
+                                    continue;
+                                }
+                                Err(_) => {
+                                    not_copied.insert(
+                                        create_id,
+                                        json!({
+                                            "type": "serverFail",
+                                            "description": "unhandled backend error variant",
+                                        }),
+                                    );
+                                    continue;
+                                }
+                            }
+                            // Fall through to create the new node.
+                        }
+                        OnExists::Rename => {
+                            // Find a non-colliding name by appending a
+                            // counter suffix; matches handle_filenode_set's
+                            // 100-attempt bound.
+                            let mut renamed = false;
+                            let mut rename_error = false;
+                            for suffix in 1_u32..=100 {
+                                let candidate = format!("{node_name}-{suffix}");
+                                match backend
+                                    .find_sibling_by_name(
+                                        caller,
+                                        &account_id,
+                                        parent_id_for_collision.as_ref(),
+                                        &candidate,
+                                        compare_case_insensitively,
+                                    )
+                                    .await
+                                {
+                                    Ok(None) => {
+                                        source_node.name = candidate;
+                                        renamed = true;
+                                        break;
+                                    }
+                                    Ok(Some(_)) => continue,
+                                    Err(e) => {
+                                        not_copied.insert(
+                                            create_id.clone(),
+                                            json!({ "type": "serverFail", "description": e.to_string() }),
+                                        );
+                                        rename_error = true;
+                                        break;
+                                    }
+                                }
+                            }
+                            if rename_error {
+                                continue;
+                            }
+                            if !renamed {
+                                not_copied.insert(
+                                    create_id,
+                                    json!({
+                                        "type": "alreadyExists",
+                                        "description": "no available name within 100 rename attempts",
+                                    }),
+                                );
+                                continue;
+                            }
+                        }
+                    }
+                }
             }
 
             // Create in the destination account.
