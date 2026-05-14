@@ -614,41 +614,49 @@ pub async fn handle_message_set<B: ChatBackend>(
                     continue;
                 }
 
-                // Validate each pointer key + value shape.
-                let mut decoded: Vec<(String, String)> =
-                    Vec::with_capacity(reaction_pointer_keys.len());
-                let mut bad_desc: Option<String> = None;
-                for raw_key in &reaction_pointer_keys {
-                    let suffix = &raw_key["reactions/".len()..];
-                    if suffix.is_empty() || suffix.contains('/') || suffix.contains('~') {
-                        bad_desc = Some(format!(
-                            "reactions/{{id}} pointer key {raw_key:?} has empty or forbidden suffix; '/' and '~' are reserved by RFC 6901",
-                        ));
-                        break;
-                    }
-                    let val = augmented.get(raw_key).cloned().unwrap_or(Value::Null);
-                    if !val.is_null() {
-                        let ok = val.as_object().is_some_and(|m| {
-                            m.get("emoji")
-                                .and_then(|v| v.as_str())
-                                .is_some_and(|s| !s.is_empty())
-                        });
-                        if !ok {
-                            bad_desc = Some(format!(
-                                "reaction value for {raw_key:?} must be null or an object with a non-empty `emoji` string",
+                // Validate each pointer key + value shape. The
+                // `.collect::<Result<Vec<_>, _>>()` form short-circuits
+                // on the first Err and is the idiomatic Rust expression
+                // of "validate-or-fail" over an iterator. A future
+                // contributor adding a new validation rule appends an
+                // `if ... { return Err(...) }` inside the closure; the
+                // short-circuit behavior is structural, not a hand-coded
+                // flag invariant.
+                let decoded: Result<Vec<(String, String)>, String> = reaction_pointer_keys
+                    .iter()
+                    .map(|raw_key| {
+                        let suffix = &raw_key["reactions/".len()..];
+                        if suffix.is_empty() || suffix.contains('/') || suffix.contains('~') {
+                            return Err(format!(
+                                "reactions/{{id}} pointer key {raw_key:?} has empty or forbidden suffix; '/' and '~' are reserved by RFC 6901",
                             ));
-                            break;
                         }
+                        let val = augmented.get(raw_key).unwrap_or(&Value::Null);
+                        if !val.is_null() {
+                            let ok = val.as_object().is_some_and(|m| {
+                                m.get("emoji")
+                                    .and_then(|v| v.as_str())
+                                    .is_some_and(|s| !s.is_empty())
+                            });
+                            if !ok {
+                                return Err(format!(
+                                    "reaction value for {raw_key:?} must be null or an object with a non-empty `emoji` string",
+                                ));
+                            }
+                        }
+                        Ok((raw_key.clone(), suffix.to_owned()))
+                    })
+                    .collect();
+                let decoded = match decoded {
+                    Ok(d) => d,
+                    Err(desc) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({ "type": "invalidPatch", "description": desc }),
+                        );
+                        continue;
                     }
-                    decoded.push((raw_key.clone(), suffix.to_owned()));
-                }
-                if let Some(desc) = bad_desc {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "invalidPatch", "description": desc }),
-                    );
-                    continue;
-                }
+                };
 
                 // Pre-fetch the Message to inspect existing
                 // reactions. An update target that doesn't exist on
