@@ -27,7 +27,7 @@ use jmap_types::{Id, Invocation, JmapError, State};
 use serde_json::{json, Value};
 
 use crate::backend::{GetObject, JmapBackend, JmapObject, QueryObject};
-use crate::helpers::{extract_account_id, not_found_json, ser};
+use crate::helpers::{extract_account_id, not_found_json, optional_arg, ser};
 
 /// Static description used for every `serverFail` invocation that wraps a
 /// [`JmapBackend::Error`] (bd:JMAP-wlip.2).
@@ -92,21 +92,13 @@ pub async fn handle_get<O: GetObject, B: JmapBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
-            serde_json::from_value(v)
-                .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
-        ),
-    };
+    let ids: Option<Vec<Id>> = optional_arg(&mut args, "ids", || {
+        JmapError::invalid_arguments("ids must be an Id array")
+    })?;
 
-    let properties: Option<Vec<String>> = match args.remove("properties").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
-            serde_json::from_value(v)
-                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
-        ),
-    };
+    let properties: Option<Vec<String>> = optional_arg(&mut args, "properties", || {
+        JmapError::invalid_arguments("properties must be a string array")
+    })?;
 
     let ids_slice = ids.as_deref();
     let (list, not_found) = backend
@@ -241,18 +233,12 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
         })?,
     };
 
-    let filter: Option<O::Filter> = match args.remove("filter").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(serde_json::from_value(v).map_err(|_| JmapError::unsupported_filter())?),
-    };
+    let filter: Option<O::Filter> =
+        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 
-    let sort: Option<Vec<O::Comparator>> = match args.remove("sort").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
-            serde_json::from_value(v)
-                .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
-        ),
-    };
+    let sort: Option<Vec<O::Comparator>> = optional_arg(&mut args, "sort", || {
+        JmapError::invalid_arguments("sort must be an array")
+    })?;
 
     let result = backend
         .query_objects::<O>(
@@ -335,18 +321,12 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let filter: Option<O::Filter> = match args.remove("filter").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(serde_json::from_value(v).map_err(|_| JmapError::unsupported_filter())?),
-    };
+    let filter: Option<O::Filter> =
+        optional_arg(&mut args, "filter", JmapError::unsupported_filter)?;
 
-    let sort: Option<Vec<O::Comparator>> = match args.remove("sort").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
-            serde_json::from_value(v)
-                .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
-        ),
-    };
+    let sort: Option<Vec<O::Comparator>> = optional_arg(&mut args, "sort", || {
+        JmapError::invalid_arguments("sort must be an array")
+    })?;
 
     let result = backend
         .query_changes::<O>(
