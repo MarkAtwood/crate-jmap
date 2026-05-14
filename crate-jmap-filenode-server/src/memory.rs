@@ -661,6 +661,14 @@ impl FileNodeBackend for MemoryBackend {
         true
     }
 
+    /// Case-folding algorithm: `str::to_lowercase` (Unicode simple lowercase,
+    /// locale-independent). This is the reference test-and-demo behaviour; per
+    /// the [`FileNodeBackend::find_sibling_by_name`] trait doc, the algorithm
+    /// is implementation-defined and the workspace does not standardise it.
+    /// Production backends will typically need to match the underlying
+    /// storage layer's folding rules.
+    ///
+    /// [`FileNodeBackend::find_sibling_by_name`]: crate::backend::FileNodeBackend::find_sibling_by_name
     async fn find_sibling_by_name(
         &self,
         _caller: &(),
