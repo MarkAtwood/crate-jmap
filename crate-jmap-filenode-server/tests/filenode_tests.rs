@@ -502,3 +502,161 @@ async fn filenode_changes_after_create_shows_in_created_list() {
         "newly created id must appear in changes.created: {ch_resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// FileNode/set create — onExists='replace' + onDestroyRemoveChildren cascade
+// Oracle: draft-ietf-jmap-filenode-13 §3.2.3 lines 565-570 — "if the
+// replaced item is a directory which has children, then the server MUST
+// respond with a nodeHasChildren error to this action UNLESS
+// onDestroyRemoveChildren is true". Regression for bd JMAP-510h.2.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_set_create_replace_with_remove_children_cascades() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Seed: parent "old_dir" at root, with one child "old_child".
+    let (resp_parent, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "p": { "name": "shared_name", "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("seed parent must succeed");
+    let parent_id = resp_parent["created"]["p"]["id"]
+        .as_str()
+        .expect("parent id")
+        .to_owned();
+
+    let (_resp_child, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "c": { "name": "child", "parentId": &parent_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("seed child must succeed");
+    let child_id = _resp_child["created"]["c"]["id"]
+        .as_str()
+        .expect("child id")
+        .to_owned();
+
+    // Attempt to create a new node at the SAME parent (root) with the
+    // SAME name ("shared_name"). With onExists="replace" AND
+    // onDestroyRemoveChildren=true, the existing "shared_name" directory
+    // (which has children) MUST be destroyed along with its descendants,
+    // and the new node MUST be created.
+    let (replace_resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "onDestroyRemoveChildren": true,
+            "onExists": "replace",
+            "create": {
+                "new": { "name": "shared_name", "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("replace+cascade must succeed");
+
+    // The new node must be in `created`, not `notCreated`.
+    assert!(
+        replace_resp["created"].is_object() && replace_resp["created"]["new"].is_object(),
+        "new node must be created: {replace_resp}"
+    );
+    assert!(
+        replace_resp["notCreated"].is_null()
+            || !replace_resp["notCreated"]
+                .as_object()
+                .is_some_and(|m| m.contains_key("new")),
+        "must NOT be in notCreated: {replace_resp}"
+    );
+
+    // The destroyed list MUST include the old parent and its child.
+    let destroyed = replace_resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array: {replace_resp}");
+    let destroyed_strs: Vec<&str> = destroyed.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        destroyed_strs.contains(&parent_id.as_str()),
+        "destroyed must include the replaced parent id {parent_id}: {replace_resp}"
+    );
+    assert!(
+        destroyed_strs.contains(&child_id.as_str()),
+        "destroyed must include the cascaded child id {child_id}: {replace_resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_set_create_replace_without_flag_returns_node_has_children() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Seed: parent + child.
+    let (resp_parent, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "p": { "name": "shared_name", "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("seed parent must succeed");
+    let parent_id = resp_parent["created"]["p"]["id"]
+        .as_str()
+        .expect("parent id")
+        .to_owned();
+
+    let _ = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "c": { "name": "child", "parentId": &parent_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("seed child must succeed");
+
+    // Attempt replace without onDestroyRemoveChildren=true: MUST return
+    // nodeHasChildren (the no-cascade guard is preserved).
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "onExists": "replace",
+            "create": {
+                "new": { "name": "shared_name", "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    let not_created = &resp["notCreated"];
+    assert!(
+        not_created.is_object() && not_created["new"].is_object(),
+        "new node must be in notCreated when replace would orphan children: {resp}"
+    );
+    assert_eq!(
+        not_created["new"]["type"], "nodeHasChildren",
+        "without onDestroyRemoveChildren, replace of non-empty dir must \
+         return nodeHasChildren: {resp}"
+    );
+}
