@@ -40,6 +40,47 @@
 //!   `relatedId` are accepted as-is. Real backends should verify that the
 //!   referenced object exists.
 //!
+//! # Single-user limitation (per-caller scoping is NOT implemented)
+//!
+//! This reference impl uses `CallerCtx = ()` and treats every caller as
+//! a single anonymous user. Several draft-ietf-jmap-metadata-01
+//! semantics that the spec defines per-user are implemented here at
+//! account scope, which is silently wrong for any multi-user
+//! deployment.
+//!
+//! - **Per-user uniqueness for private metadata (§3.1)**: the spec
+//!   requires that two different users may each hold their own private
+//!   `Annotation` for the same `(relatedType, relatedId, @type)` tuple.
+//!   The internal `find_uniqueness_conflict` helper scans the account's
+//!   Metadata store WITHOUT consulting caller identity, so a multi-user
+//!   adaptation of this impl would reject the second user's create
+//!   with `alreadyExists` — silently denying private metadata that the
+//!   spec promises is permitted.
+//! - **`isPrivate` visibility scoping**: the workspace AGENTS.md
+//!   "Caller identity (foundation seam)" rule requires backends to
+//!   filter `Metadata/get` / `Metadata/changes` / `Metadata/query` /
+//!   `Metadata/queryChanges` responses by the caller's identity when
+//!   `isPrivate: true`. This impl does not — every caller sees every
+//!   private record in the account.
+//!
+//! **What a real backend MUST do.** Read the caller principal via
+//! [`JmapBackend::principal_id(caller)`](crate::JmapBackend::principal_id)
+//! and:
+//!
+//! 1. Scope `find_uniqueness_conflict` by `(principal_id, related_type,
+//!    related_id, @type, isPrivate)` when `is_private` is true.
+//! 2. Filter `Metadata/get` reads so private records authored by a
+//!    different principal are invisible.
+//! 3. Reject `Metadata/set` updates/destroys against a private record
+//!    not authored by the caller with `forbidden`.
+//!
+//! This reference impl's `JmapBackend::principal_id` returns `None`
+//! (the foundation default), so a contributor cargo-grepping for
+//! `principal_id` will find no wired call site here. That is
+//! intentional — wiring `principal_id` into the scan would not change
+//! the behaviour of the single-user demo path. Contributors copying
+//! this impl into a multi-user backend MUST add those calls.
+//!
 //! # Example
 //!
 //! ```rust,ignore
@@ -315,6 +356,16 @@ impl MemoryBackend {
     /// Scan an account's Metadata store for an existing object whose
     /// uniqueness key matches `key`. Returns `Some(id)` if a conflict
     /// exists. Lock must already be held by the caller.
+    ///
+    /// **Single-user limitation** (bd:JMAP-ayoz.5): the scan is
+    /// account-wide, NOT per-caller. draft-ietf-jmap-metadata-01 §3.1
+    /// requires per-user uniqueness for private metadata — two
+    /// different users may each hold their own private record on the
+    /// same `(relatedType, relatedId, @type)` tuple. A multi-user
+    /// backend MUST scope this scan by the caller's principal id
+    /// (read via [`JmapBackend::principal_id`](crate::JmapBackend::principal_id))
+    /// when `key.is_private` is true. See the module-level rustdoc
+    /// "Single-user limitation" section.
     fn find_uniqueness_conflict(
         inner: &Inner,
         account_id: &str,
