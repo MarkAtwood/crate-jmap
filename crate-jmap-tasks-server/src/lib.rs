@@ -152,6 +152,13 @@ where
     );
 }
 
+/// Handler-wrapper type for registering custom JMAP method handlers on a
+/// [`jmap_server::Dispatcher`] without writing a full `JmapHandler` impl
+/// from scratch. Most consumers should NOT need this — the
+/// [`register_tasks_handlers`] function above registers all 14 method
+/// names automatically. Reach for `ClosureHandler` only when extending
+/// the dispatcher with site-specific JMAP methods that are not part of
+/// the standard Tasks surface.
 pub use jmap_server::ClosureHandler;
 
 // ---------------------------------------------------------------------------
