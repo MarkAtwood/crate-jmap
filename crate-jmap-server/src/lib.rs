@@ -19,7 +19,10 @@ pub use backend::{
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
     RESERVED_SET_ERROR_WIRE_NAMES,
 };
-pub use handlers::{handle_changes, handle_get, handle_query, handle_query_changes};
+pub use handlers::{
+    handle_changes, handle_get, handle_query, handle_query_changes, server_fail_from_backend,
+    SERVER_FAIL_INTERNAL_DESC,
+};
 pub use helpers::{
     extract_account_id, json_merge_patch, not_found_json, now_utc_string, ser, MergePatchError,
     MAX_MERGE_PATCH_DEPTH,
