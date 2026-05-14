@@ -13,6 +13,7 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, find_immutable_patch_key,
     not_found_json, ser, set_error_value, SetAccumulators,
 };
+use jmap_server::server_fail_from_backend;
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
 const DEFAULT_EMAIL_GET_PROPERTIES: &[&str] = &[
@@ -487,7 +488,7 @@ pub async fn handle_email_get<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -599,12 +600,12 @@ pub async fn handle_email_get<B: MailBackend>(
     let (list, not_found) = backend
         .get_objects::<Email>(caller, &account_id, ids_slice, None)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let state = backend
         .get_state::<Email>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let list_json: Vec<Value> = list
         .iter()
@@ -672,7 +673,7 @@ pub async fn handle_email_query<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -760,7 +761,7 @@ pub async fn handle_email_query<B: MailBackend>(
                         0,
                     )
                     .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    .map_err(|e| server_fail_from_backend(&e))?;
                 return Ok((
                     serde_json::json!({
                         "accountId": account_id.as_ref(),
@@ -787,7 +788,7 @@ pub async fn handle_email_query<B: MailBackend>(
                     0,
                 )
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
             let fetched_count = all.ids.len();
             let query_state = all.query_state.clone();
             let can_calculate_changes = all.can_calculate_changes;
@@ -805,7 +806,7 @@ pub async fn handle_email_query<B: MailBackend>(
             let all_ids = if collapse_threads {
                 collapse_by_thread(backend, caller, &account_id, ids_for_collapse)
                     .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?
+                    .map_err(|e| server_fail_from_backend(&e))?
             } else {
                 ids_for_collapse
             };
@@ -860,7 +861,7 @@ pub async fn handle_email_query<B: MailBackend>(
                     position,
                 )
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
             let pos = result.position;
             let total = result.total;
             (
@@ -909,7 +910,7 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -1030,7 +1031,7 @@ pub async fn handle_email_set<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -1038,7 +1039,7 @@ pub async fn handle_email_set<B: MailBackend>(
     let old_state = backend
         .get_state::<Email>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -1901,7 +1902,7 @@ pub async fn handle_email_import<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -1914,7 +1915,7 @@ pub async fn handle_email_import<B: MailBackend>(
     let old_state = backend
         .get_state::<Email>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -2025,7 +2026,7 @@ pub async fn handle_email_import<B: MailBackend>(
         backend
             .get_state::<Email>(caller, &account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+            .map_err(|e| server_fail_from_backend(&e))?
     };
 
     let resp = json!({
@@ -2061,7 +2062,7 @@ pub async fn handle_email_parse<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -2250,7 +2251,7 @@ pub async fn handle_email_copy<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -2268,7 +2269,7 @@ pub async fn handle_email_copy<B: MailBackend>(
     if !backend
         .account_exists(caller, &from_account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::from_account_not_found());
     }
@@ -2288,7 +2289,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         let from_state = backend
             .get_state::<Email>(caller, &from_account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
         if if_from_in_state != from_state.as_ref() {
             return Err(JmapError::state_mismatch());
         }
@@ -2297,7 +2298,7 @@ pub async fn handle_email_copy<B: MailBackend>(
     let old_state = backend
         .get_state::<Email>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // ifInState: check destination account state (RFC 8620 §5.4).
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
@@ -2411,7 +2412,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         backend
             .get_state::<Email>(caller, &account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+            .map_err(|e| server_fail_from_backend(&e))?
     };
 
     let resp = json!({
@@ -2443,7 +2444,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         let email_old_state = backend
             .get_state::<Email>(caller, &from_account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
 
         let mut email_destroyed: Vec<Value> = Vec::new();
         let mut email_not_destroyed = serde_json::Map::new();
@@ -2556,7 +2557,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         let email_new_state = backend
             .get_state::<Email>(caller, &from_account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
 
         // RFC 8620 §6.3: a single implicit Email/set response appended after
         // the Email/copy response.

@@ -11,6 +11,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, SetError, SetErrorType, SharingBackend};
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // ShareNotification/get
@@ -58,7 +59,7 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
     let old_state = backend
         .get_state::<ShareNotification>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {

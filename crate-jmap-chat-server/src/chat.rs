@@ -10,6 +10,7 @@ use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     extract_account_id, finalize_set_response, now_utc_string, set_error_value, SetAccumulators,
 };
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // Chat/get
@@ -86,7 +87,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
     let old_state = backend
         .get_state::<Chat>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -123,7 +124,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
             let (chats, _) = backend
                 .get_objects::<Chat>(caller, &account_id, None, None)
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
             known_direct_contact_ids = chats
                 .iter()
                 .filter(|c| c.kind == ChatKind::Direct)
@@ -300,7 +301,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                         let (current_chats, _) = backend
                             .get_objects::<Chat>(caller, &account_id, None, None)
                             .await
-                            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                            .map_err(|e| server_fail_from_backend(&e))?;
                         let duplicates: Vec<&Chat> = current_chats
                             .iter()
                             .filter(|c| {

@@ -14,6 +14,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ContactsBackend};
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // ContactCard/get
@@ -59,7 +60,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -67,7 +68,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
     let old_state = backend
         .get_state::<ContactCard>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -359,7 +360,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
     let to_exists = backend
         .account_exists(caller, &to_account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
     if !to_exists {
         return Err(JmapError::account_not_found());
     }
@@ -367,7 +368,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
     let from_exists = backend
         .account_exists(caller, &from_account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
     if !from_exists {
         return Err(JmapError::from_account_not_found());
     }
@@ -375,7 +376,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
     let old_state = backend
         .get_state::<ContactCard>(caller, &to_account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -411,7 +412,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                     None,
                 )
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
 
             if !not_found.is_empty() || cards.is_empty() {
                 not_copied.insert(create_id, json!({ "type": "notFound" }));
@@ -474,7 +475,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         backend
             .get_state::<ContactCard>(caller, &to_account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+            .map_err(|e| server_fail_from_backend(&e))?
     } else {
         old_state.clone()
     };

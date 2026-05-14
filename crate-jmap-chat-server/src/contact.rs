@@ -9,6 +9,7 @@ use crate::helpers::{
     extract_account_id, finalize_set_response, not_found_json, ser, set_error_value,
     SetAccumulators,
 };
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // ChatContact/get
@@ -34,12 +35,12 @@ pub async fn handle_contact_get<B: ChatBackend>(
     let (list, not_found) = backend
         .get_objects::<ChatContact>(caller, &account_id, ids_slice, None)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let state = backend
         .get_state::<ChatContact>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let list_json: Vec<Value> = list.iter().map(ser).collect::<Result<Vec<_>, _>>()?;
 
@@ -117,7 +118,7 @@ pub async fn handle_contact_set<B: ChatBackend>(
     let old_state = backend
         .get_state::<ChatContact>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -321,7 +322,7 @@ pub async fn handle_contact_query<B: ChatBackend>(
             position,
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),

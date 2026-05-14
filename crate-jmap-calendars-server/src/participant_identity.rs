@@ -9,6 +9,7 @@ use crate::helpers::{
     apply_default_change_to_response, extract_account_id, finalize_set_response,
     resolve_on_success_set_is_default, set_error_value, SetAccumulators,
 };
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // ParticipantIdentity/get
@@ -55,7 +56,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -68,7 +69,7 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     let old_state = backend
         .get_state::<ParticipantIdentity>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {

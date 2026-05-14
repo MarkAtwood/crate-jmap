@@ -9,6 +9,7 @@ use crate::backend::{
     CalendarsBackend, QueryCalendarEventsError,
 };
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // CalendarEvent/get
@@ -41,7 +42,7 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -101,20 +102,19 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
             &get_args,
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let state = backend
         .get_state::<CalendarEvent>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Serialize each event, then inject utcStart/utcEnd if requested.
     // §5.7: the timeZone arg is used to compute these values; a None
     // tz_hint defers to the event's own time_zone or the server default.
     let mut list_json: Vec<Value> = Vec::with_capacity(events.len());
     for event in &events {
-        let mut item = serde_json::to_value(event)
-            .map_err(|e| JmapError::server_fail(format!("event serialize failed: {e}")))?;
+        let mut item = serde_json::to_value(event).map_err(|e| server_fail_from_backend(&e))?;
         if want_utc {
             let (utc_start, utc_end) = backend
                 .compute_utc_times(caller, &account_id, event, get_args.time_zone.as_deref())
@@ -169,7 +169,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -177,7 +177,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     let old_state = backend
         .get_state::<CalendarEvent>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -515,7 +515,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -529,7 +529,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     if !backend
         .account_exists(caller, &from_account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::from_account_not_found());
     }
@@ -539,7 +539,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         let from_state = backend
             .get_state::<CalendarEvent>(caller, &from_account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
         if if_from_in_state != from_state.as_ref() {
             return Err(JmapError::state_mismatch());
         }
@@ -548,7 +548,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     let old_state = backend
         .get_state::<CalendarEvent>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // ifInState: verify destination account state matches (RFC 8620 §5.4).
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
@@ -681,7 +681,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         backend
             .get_state::<CalendarEvent>(caller, &account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+            .map_err(|e| server_fail_from_backend(&e))?
     };
 
     let resp = json!({
@@ -700,7 +700,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         let destroy_old_state = backend
             .get_state::<CalendarEvent>(caller, &from_account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
 
         let mut destroyed_ids: Vec<Value> = Vec::new();
         let mut not_destroyed = serde_json::Map::new();
@@ -737,7 +737,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         let destroy_new_state = backend
             .get_state::<CalendarEvent>(caller, &from_account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
 
         let set_resp = json!({
             "accountId": from_account_id.as_ref(),
@@ -787,7 +787,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -940,7 +940,7 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }

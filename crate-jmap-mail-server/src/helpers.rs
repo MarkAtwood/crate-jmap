@@ -5,6 +5,7 @@ use jmap_types::{Id, Invocation, JmapError, JmapObject, PatchObject, State};
 use serde_json::{json, Map, Value};
 
 use crate::backend::MailBackend;
+use jmap_server::server_fail_from_backend;
 
 pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string, ser};
 
@@ -186,7 +187,7 @@ where
         backend
             .get_state::<O>(caller, account_id)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+            .map_err(|e| server_fail_from_backend(&e))?
     } else {
         old_state.clone()
     };

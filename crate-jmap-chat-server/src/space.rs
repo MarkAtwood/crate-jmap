@@ -15,6 +15,7 @@ use crate::helpers::{
     extract_account_id, finalize_set_response, iso8601_before, not_found_json, now_utc_string, ser,
     set_error_value, SetAccumulators,
 };
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // Space/set structural-mutation parsing
@@ -233,12 +234,12 @@ pub async fn handle_space_get<B: ChatBackend>(
     let (list, mut not_found) = backend
         .get_objects::<Space>(caller, &account_id, ids_slice, properties.as_deref())
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let state = backend
         .get_state::<Space>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Resolve the caller's identity once for the whole request. The
     // membership check fires per Space; the per-Space cost is a
@@ -499,7 +500,7 @@ pub async fn handle_space_query<B: ChatBackend>(
             position,
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),
@@ -682,7 +683,7 @@ async fn check_space_count_limits<B: ChatBackend>(
             None,
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // If the Space is missing, let apply_space_patch surface notFound
     // through its existing path. The cap check has nothing to do.
@@ -773,7 +774,7 @@ pub async fn handle_space_set<B: ChatBackend>(
     let old_state = backend
         .get_state::<Space>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {
@@ -1314,7 +1315,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                 let (invites, _) = backend
                     .get_objects::<SpaceInvite>(caller, &account_id, None, None)
                     .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    .map_err(|e| server_fail_from_backend(&e))?;
 
                 // Constant-time invite-code compare (bd:JMAP-sc1b.89).
                 //
@@ -1371,7 +1372,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                         None,
                     )
                     .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    .map_err(|e| server_fail_from_backend(&e))?;
                 let members: Vec<Value> = spaces
                     .into_iter()
                     .next()
@@ -1382,7 +1383,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                             .collect::<Result<Vec<_>, _>>()
                     })
                     .unwrap_or(Ok(vec![]))
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    .map_err(|e| server_fail_from_backend(&e))?;
 
                 (space_id, members, Some((invite_id, new_uses)))
             }
@@ -1395,7 +1396,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                 let (spaces, _) = backend
                     .get_objects::<Space>(caller, &account_id, Some(&[space_id_typed]), None)
                     .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    .map_err(|e| server_fail_from_backend(&e))?;
 
                 let space = spaces
                     .into_iter()
@@ -1409,7 +1410,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                     .into_iter()
                     .map(serde_json::to_value)
                     .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    .map_err(|e| server_fail_from_backend(&e))?;
 
                 (space_id, members, None)
             }
@@ -1475,7 +1476,7 @@ pub async fn handle_space_join<B: ChatBackend>(
             None,
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
     let post_members: Vec<Value> = post_spaces
         .into_iter()
         .next()
@@ -1486,7 +1487,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                 .collect::<Result<Vec<_>, _>>()
         })
         .unwrap_or(Ok(vec![]))
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
     let duplicate_count = post_members
         .iter()
         .filter(|m| m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref()))

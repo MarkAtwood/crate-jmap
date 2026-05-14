@@ -11,6 +11,7 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, iso8601_before, not_found_json,
     now_utc_string, ser, set_error_value, SetAccumulators,
 };
+use jmap_server::server_fail_from_backend;
 
 // ---------------------------------------------------------------------------
 // Message/get
@@ -46,7 +47,7 @@ pub async fn handle_message_get<B: ChatBackend>(
     let (mut list, not_found) = backend
         .get_objects::<Message>(caller, &account_id, ids_slice, properties.as_deref())
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Edit-history retention gate (draft-atwood-jmap-chat-00 commit
     // `0783fc4` + §Message editHistory). When the backend does not
@@ -67,7 +68,7 @@ pub async fn handle_message_get<B: ChatBackend>(
     let state = backend
         .get_state::<Message>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let list_json: Vec<Value> = if let Some(ref props) = properties {
         let mut prop_set: HashSet<&str> = props.iter().map(|s| s.as_str()).collect();
@@ -182,7 +183,7 @@ pub async fn handle_message_query<B: ChatBackend>(
             position,
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let mut resp = json!({
         "accountId": account_id.as_ref(),
@@ -301,7 +302,7 @@ pub async fn handle_message_set<B: ChatBackend>(
     let old_state = backend
         .get_state::<Message>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
         if if_in_state != old_state.as_ref() {

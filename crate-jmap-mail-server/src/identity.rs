@@ -10,6 +10,7 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, not_found_json, ser,
     set_error_value, SetAccumulators,
 };
+use jmap_server::server_fail_from_backend;
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
 ///
@@ -24,7 +25,7 @@ pub async fn handle_identity_get<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -57,12 +58,12 @@ pub async fn handle_identity_get<B: MailBackend>(
             properties.as_deref(),
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let state = backend
         .get_state::<jmap_mail_types::Identity>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     let list_json: Vec<Value> = if let Some(ref props) = properties {
         // Build the effective property set once; always include "id" per RFC 8620 §5.1.
@@ -101,7 +102,7 @@ pub async fn handle_identity_changes<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -150,7 +151,7 @@ pub async fn handle_identity_set<B: MailBackend>(
     if !backend
         .account_exists(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -159,7 +160,7 @@ pub async fn handle_identity_set<B: MailBackend>(
     let old_state = backend
         .get_state::<jmap_mail_types::Identity>(caller, &account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // ifInState: if provided and does not match, return stateMismatch.
     if let Some(if_in_state) = args.get("ifInState").and_then(|v| v.as_str()) {
@@ -403,7 +404,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                     None,
                 )
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
 
             let (found, not_found_ids) = fetch_result;
 

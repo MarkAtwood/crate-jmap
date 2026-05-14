@@ -15,6 +15,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{find_immutable_patch_key, set_error_value};
+use jmap_server::server_fail_from_backend;
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].
 #[non_exhaustive]
@@ -203,7 +204,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     if !backend
         .account_exists(caller, &req.account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -217,7 +218,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             None,
         )
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     if identities.is_empty() {
         return Err(JmapError::invalid_arguments("identityId not found"));
@@ -331,7 +332,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
         let (fetched, _) = backend
             .get_objects::<Email>(caller, &req.account_id, Some(&email_ids), None)
             .await
-            .map_err(|e| JmapError::server_fail(e.to_string()))?;
+            .map_err(|e| server_fail_from_backend(&e))?;
         fetched.into_iter().map(|e| (e.id.clone(), e)).collect()
     };
 
@@ -408,7 +409,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             let email_old_state = backend
                 .get_state::<Email>(caller, &req.account_id)
                 .await
-                .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                .map_err(|e| server_fail_from_backend(&e))?;
 
             let mut email_updated: serde_json::Map<String, Value> = serde_json::Map::new();
             let mut email_not_updated: serde_json::Map<String, Value> = serde_json::Map::new();
@@ -481,7 +482,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 let email_new_state = backend
                     .get_state::<Email>(caller, &req.account_id)
                     .await
-                    .map_err(|e| JmapError::server_fail(e.to_string()))?;
+                    .map_err(|e| server_fail_from_backend(&e))?;
 
                 let email_set_resp = json!({
                     "accountId": req.account_id.as_ref(),
@@ -507,7 +508,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
     let sent_value: Value = if sent_mdns.is_empty() {
         Value::Null
     } else {
-        serde_json::to_value(&sent_mdns).map_err(|e| JmapError::server_fail(e.to_string()))?
+        serde_json::to_value(&sent_mdns).map_err(|e| server_fail_from_backend(&e))?
     };
     let not_sent_value: Value = if not_sent.is_empty() {
         Value::Null
@@ -558,7 +559,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     if !backend
         .account_exists(caller, &req.account_id)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?
+        .map_err(|e| server_fail_from_backend(&e))?
     {
         return Err(JmapError::account_not_found());
     }
@@ -572,7 +573,7 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     let result = backend
         .parse_mdns(caller, &req.account_id, req.blob_ids)
         .await
-        .map_err(|e| JmapError::server_fail(e.to_string()))?;
+        .map_err(|e| server_fail_from_backend(&e))?;
 
     // Step 5: build the response — omit each collection key when empty per spec §3.3.
     // We build JSON directly rather than constructing MdnParseResponse (which is
@@ -580,19 +581,17 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     let parsed_value: Value = if result.parsed.is_empty() {
         Value::Null
     } else {
-        serde_json::to_value(&result.parsed).map_err(|e| JmapError::server_fail(e.to_string()))?
+        serde_json::to_value(&result.parsed).map_err(|e| server_fail_from_backend(&e))?
     };
     let not_parsable_value: Value = if result.not_parsable.is_empty() {
         Value::Null
     } else {
-        serde_json::to_value(&result.not_parsable)
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+        serde_json::to_value(&result.not_parsable).map_err(|e| server_fail_from_backend(&e))?
     };
     let not_found_value: Value = if result.not_found.is_empty() {
         Value::Null
     } else {
-        serde_json::to_value(&result.not_found)
-            .map_err(|e| JmapError::server_fail(e.to_string()))?
+        serde_json::to_value(&result.not_found).map_err(|e| server_fail_from_backend(&e))?
     };
 
     let response_json = json!({
