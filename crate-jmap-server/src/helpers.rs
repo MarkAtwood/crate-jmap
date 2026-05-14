@@ -21,7 +21,12 @@ pub fn serialize_value<T: serde::Serialize>(val: T) -> Result<serde_json::Value,
 /// `ser`. Use [`serialize_value`] instead. This alias is preserved
 /// for one release as a deprecation runway; it will be removed in
 /// the next major.
-#[deprecated(since = "0.1.3", note = "renamed to serialize_value (bd:JMAP-wlip.21)")]
+// bd:JMAP-jfia.6 — the `since` field was previously set to "0.1.3"
+// while the crate version was still 0.1.2, which rendered as
+// "deprecated in the FUTURE" in cargo doc / docs.rs. Drop `since`
+// until the release that ships the renaming actually goes out; the
+// version-pinned form will be reintroduced when 0.1.3 is published.
+#[deprecated(note = "renamed to serialize_value (bd:JMAP-wlip.21)")]
 pub fn ser<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> {
     serialize_value(val)
 }
