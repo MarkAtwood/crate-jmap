@@ -64,19 +64,6 @@ pub trait TasksBackend: JmapBackend {
     /// Returns true if this account supports the given JMAP object type.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
-    /// Copy a Task from another account into the given account.
-    ///
-    /// Called by the `Task/copy` handler for each entry in the `create` map.
-    fn copy_task(
-        &self,
-        caller: &Self::CallerCtx,
-        from_account_id: &jmap_types::Id,
-        to_account_id: &jmap_types::Id,
-        task: jmap_tasks_types::Task,
-    ) -> impl std::future::Future<
-        Output = Result<(jmap_types::Id, jmap_tasks_types::Task), BackendSetError<Self::Error>>,
-    > + Send;
-
     /// Returns true if the given task list contains at least one task.
     ///
     /// Called by `TaskList/set` destroy handler when `onDestroyRemoveTasks`

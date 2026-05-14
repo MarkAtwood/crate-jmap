@@ -461,16 +461,6 @@ pub(crate) mod test_support {
             true
         }
 
-        async fn copy_task(
-            &self,
-            _caller: &(),
-            _from_account_id: &Id,
-            _to_account_id: &Id,
-            task: Task,
-        ) -> Result<(Id, Task), BackendSetError<Self::Error>> {
-            Ok((Id::from("copied-task-1"), task))
-        }
-
         async fn update_task_per_user(
             &self,
             caller: &(),

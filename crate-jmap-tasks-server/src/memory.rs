@@ -743,58 +743,6 @@ impl TasksBackend for MemoryBackend {
         matches!(O::TYPE_NAME, "TaskList" | "Task" | "TaskNotification")
     }
 
-    async fn copy_task(
-        &self,
-        _caller: &(),
-        from_account_id: &Id,
-        to_account_id: &Id,
-        task: jmap_tasks_types::Task,
-    ) -> Result<(Id, jmap_tasks_types::Task), BackendSetError<Self::Error>> {
-        let mut inner = self.inner.lock().unwrap();
-
-        // Source account must exist.
-        if !inner.known_accounts.contains(from_account_id.as_ref()) {
-            return Err(BackendSetError::SetError(SetError::new(
-                SetErrorType::NotFound,
-            )));
-        }
-
-        inner
-            .known_accounts
-            .insert(to_account_id.as_ref().to_owned());
-
-        let new_id = Self::demo_next_id(&mut inner, "Task", to_account_id.as_ref());
-
-        let mut val = serde_json::to_value(&task).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("serialize copied task: {e}")))
-        })?;
-        if let Some(map) = val.as_object_mut() {
-            map.insert(
-                "id".to_owned(),
-                serde_json::Value::String(new_id.as_ref().to_owned()),
-            );
-        }
-        let stored: jmap_tasks_types::Task = serde_json::from_value(val.clone()).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("deserialize copied task: {e}")))
-        })?;
-
-        let new_state = inner.bump_state("Task", to_account_id.as_ref());
-        inner
-            .objects_mut("Task", to_account_id.as_ref())
-            .insert(new_id.clone(), val);
-        inner
-            .change_log_mut("Task", to_account_id.as_ref())
-            .push(ChangeEntry {
-                new_state,
-                created: vec![new_id.clone()],
-                updated: vec![],
-                destroyed: vec![],
-            });
-        inner.recompute_task_lists_with_tasks(to_account_id.as_ref());
-
-        Ok((new_id, stored))
-    }
-
     async fn task_list_has_tasks(&self, _caller: &(), account_id: &Id, task_list_id: &Id) -> bool {
         let inner = self.inner.lock().unwrap();
         inner

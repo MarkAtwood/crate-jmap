@@ -488,17 +488,80 @@ pub async fn handle_task_copy<B: TasksBackend>(
     let mut mutated = false;
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
-        for (create_id, obj_val) in create_map {
-            let obj_with_id = match obj_val {
-                Value::Object(mut m) => {
-                    m.entry("id")
-                        .or_insert_with(|| Value::String("placeholder".to_owned()));
-                    Value::Object(m)
+        for (create_id, client_val) in create_map {
+            // RFC 8620 §5.4: the Foo object MUST contain an `id` property,
+            // which is the id (in the fromAccount) of the record to be copied.
+            // The earlier handler silently invented a "placeholder" id when
+            // the client omitted one, masking the missing-id case the spec
+            // treats as a hard requirement.
+            let source_id: Id = match client_val.get("id").and_then(|v| v.as_str()) {
+                Some(s) => Id::from(s),
+                None => {
+                    not_created.insert(
+                        create_id,
+                        json!({"type": "invalidProperties", "properties": ["id"]}),
+                    );
+                    continue;
                 }
-                other => other,
             };
 
-            let task: Task = match serde_json::from_value(obj_with_id) {
+            // Fetch the source Task from `fromAccountId`. RFC 8620 §5.4 frames
+            // /copy as a read-from-source-then-create-in-destination operation;
+            // unknown source ids surface as `notFound` per-entry SetErrors.
+            let source_tasks: Vec<Task> = match backend
+                .get_objects::<Task>(
+                    caller,
+                    &from_account_id,
+                    Some(std::slice::from_ref(&source_id)),
+                    None,
+                )
+                .await
+            {
+                Ok((objs, not_found)) => {
+                    if !not_found.is_empty() || objs.is_empty() {
+                        not_created.insert(create_id, json!({"type": "notFound"}));
+                        continue;
+                    }
+                    objs
+                }
+                Err(e) => {
+                    not_created.insert(
+                        create_id,
+                        json!({"type": "serverFail", "description": e.to_string()}),
+                    );
+                    continue;
+                }
+            };
+
+            // RFC 8620 §5.4: "any other properties included [in the create
+            // entry] are used instead of the current value for that property
+            // on the original." Serialize the source, overlay client-supplied
+            // properties, strip the source id so the backend assigns a fresh
+            // server id. Pattern mirrors jmap-calendars-server event.rs:610-642.
+            let mut merged: serde_json::Map<String, Value> =
+                match serde_json::to_value(&source_tasks[0]) {
+                    Ok(Value::Object(m)) => m,
+                    _ => {
+                        not_created.insert(
+                            create_id,
+                            json!({
+                                "type": "serverFail",
+                                "description": "failed to serialize source Task",
+                            }),
+                        );
+                        continue;
+                    }
+                };
+            if let Value::Object(client_props) = client_val {
+                for (k, v) in client_props {
+                    if k != "id" {
+                        merged.insert(k, v);
+                    }
+                }
+            }
+            merged.remove("id");
+
+            let task: Task = match serde_json::from_value(Value::Object(merged)) {
                 Ok(t) => t,
                 Err(e) => {
                     not_created.insert(
@@ -510,14 +573,14 @@ pub async fn handle_task_copy<B: TasksBackend>(
             };
 
             match backend
-                .copy_task(caller, &from_account_id, &to_account_id, task)
+                .create_object::<Task>(caller, &to_account_id, &create_id, task)
                 .await
             {
-                Ok((_new_id, copied_task)) => {
+                Ok((_new_id, created_task)) => {
                     mutated = true;
                     created.insert(
                         create_id,
-                        serde_json::to_value(&copied_task)
+                        serde_json::to_value(&created_task)
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
                 }
@@ -690,6 +753,78 @@ mod tests {
         let result = handle_task_copy(&backend, &(), args).await;
         let err = result.expect_err("must reject stale ifInState");
         assert_eq!(err.error_type.as_str(), "stateMismatch");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — a create entry without an `id` property must
+    /// produce a per-entry `invalidProperties` SetError naming `id`. The
+    /// previous handler silently substituted a "placeholder" id, masking
+    /// this hard requirement.
+    #[tokio::test]
+    async fn copy_create_entry_without_id_returns_invalid_properties() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc2",
+            "create": { "c1": {} }
+        });
+        let (resp, _) = handle_task_copy(&backend, &(), args)
+            .await
+            .expect("top-level call must succeed");
+        let nc = resp["notCreated"].as_object().expect("notCreated present");
+        let err = nc.get("c1").expect("c1 in notCreated");
+        assert_eq!(err["type"], "invalidProperties");
+        assert_eq!(err["properties"][0], "id");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — when the source id does not resolve to a
+    /// Task in `fromAccountId`, the per-entry result is `notFound`.
+    #[tokio::test]
+    async fn copy_unknown_source_id_returns_not_found() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc2",
+            "create": { "c1": { "id": "no-such-task" } }
+        });
+        let (resp, _) = handle_task_copy(&backend, &(), args)
+            .await
+            .expect("top-level call must succeed");
+        let nc = resp["notCreated"].as_object().expect("notCreated present");
+        assert_eq!(nc["c1"]["type"], "notFound");
+    }
+
+    /// Oracle: RFC 8620 §5.4 — the create entry's `id` selects WHAT to copy;
+    /// client-supplied properties OTHER than `id` overlay the source values.
+    /// Verify the handler actually round-trips through the source: seed a
+    /// Task into `from_account`, request a copy that overrides `title`, and
+    /// confirm the response carries the override.
+    #[tokio::test]
+    async fn copy_fetches_source_and_overlays_client_overrides() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.seed_task("acc2", "src1", true); // source task in acc2
+
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc2",
+            "create": {
+                "c1": { "id": "src1", "title": "Overridden title" }
+            }
+        });
+        let (resp, _) = handle_task_copy(&backend, &(), args)
+            .await
+            .expect("top-level call must succeed");
+
+        // Source was fetched and the override applied: the created entry
+        // carries the new title, not the source value (which had none).
+        let created = resp["created"].as_object().expect("created present");
+        let c1 = created.get("c1").expect("c1 in created");
+        assert_eq!(
+            c1["title"], "Overridden title",
+            "client-supplied title must override source value: {resp}"
+        );
     }
 
     /// Oracle: Task/set empty destroy returns valid response.
