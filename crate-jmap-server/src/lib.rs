@@ -635,20 +635,39 @@ mod tests {
         );
     }
 
-    /// Oracle: security invariant — panic payloads may contain secrets, must not be leaked.
+    /// Oracle (bd:JMAP-wlip.12): security invariant — panic payloads
+    /// may contain secrets and MUST NOT leak through ANY field of the
+    /// error invocation, not just `description`. A future refactor that
+    /// surfaces panic-payload text through a typed `context`, an
+    /// `innerError` nested object, or any other field would slip past a
+    /// single-field check.
+    ///
+    /// The assertion walks the entire methodResponse args Value
+    /// recursively and asserts that no string anywhere in the tree
+    /// contains the canary `"deliberate test panic"` from
+    /// [`PanicHandler`].
     #[tokio::test]
     async fn panic_message_not_in_response() {
+        /// Returns `true` iff any `Value::String` in the tree
+        /// contains `needle`.
+        fn value_contains_recursive(v: &Value, needle: &str) -> bool {
+            match v {
+                Value::String(s) => s.contains(needle),
+                Value::Array(arr) => arr.iter().any(|x| value_contains_recursive(x, needle)),
+                Value::Object(o) => o.values().any(|x| value_contains_recursive(x, needle)),
+                Value::Null | Value::Bool(_) | Value::Number(_) => false,
+            }
+        }
+
         let mut d: Dispatcher<String> = Dispatcher::new();
         d.register("Panic/now", Arc::new(PanicHandler));
         let req = single_call("Panic/now", json!({}), "c0");
         let resp = d.dispatch(req, "alice".into(), "s0".into()).await;
         let (_, args, _) = &resp.method_responses[0];
-        if let Some(desc) = args["description"].as_str() {
-            assert!(
-                !desc.contains("deliberate test panic"),
-                "panic message must not leak into response description"
-            );
-        }
+        assert!(
+            !value_contains_recursive(args, "deliberate test panic"),
+            "panic message must not leak into ANY field of the response: {args}"
+        );
     }
 
     // -----------------------------------------------------------------------
