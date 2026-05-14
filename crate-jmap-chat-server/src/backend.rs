@@ -546,6 +546,49 @@ pub trait ChatBackend: JmapBackend {
     /// rotation rates proportional to client-visible mutations rather
     /// than to internal op count.
     ///
+    /// # Per-op error semantics
+    ///
+    /// Backend rejections that originate from a single op carry both
+    /// a typed [`SetErrorType`] and a human-readable `description`
+    /// string. The kit's integration tests pin specific
+    /// (`SetErrorType`, `description`-substring) pairs for the
+    /// common failure modes; a backend that returns a different
+    /// variant or an empty description will fail those tests when
+    /// plugged in.
+    ///
+    /// The following table records the contract for the
+    /// failure modes the kit exercises today:
+    ///
+    /// | Op + failure mode | `SetErrorType` | `description` MUST contain |
+    /// |---|---|---|
+    /// | Any op, caller lacks the spec-mandated permission | `Forbidden` | the permission identifier as a substring (`"manage_space"`, `"manage_channels"`, `"manage_members"`, `"manage_roles"`, or a deployment-specific permission name) |
+    /// | `AddRole` / `UpdateRole` at or above caller's highest role `position` | `Forbidden` | `"hierarchy"` or `"position"` |
+    /// | `RemoveMember` that would leave the Space with zero `manage_members`-holding members (when [`Self::protect_last_admin`] returns `true`) | `Forbidden` | `"last-admin"` or `"manage_members"` |
+    /// | `AddMember` with `userId` already a member | `InvalidProperties` (`properties: ["userId"]`) | implementation-defined; the reference impl names the duplicate userId |
+    /// | `AddMember` with a `roleId` that does not name a role on this Space | `InvalidProperties` (`properties: ["roleIds"]`) | implementation-defined; the reference impl names the unknown roleId |
+    /// | `RemoveRole` / `RemoveChannel` / `RemoveCategory` with an id that does not exist on this Space | `NotFound` | implementation-defined; the reference impl names the missing id |
+    ///
+    /// The "MUST contain ... as a substring" rule on permission-denied
+    /// failures lets downstream UI / CLI consumers route
+    /// permission-request flows by parsing the description, and lets
+    /// users see "Permission denied: missing manage_space" rather
+    /// than a bare "Permission denied". Deployments that need a
+    /// programmatic alternative SHOULD additionally surface the
+    /// missing permission via [`SetError::with_extra`] under a
+    /// deployment-specific key — substring matching is the floor,
+    /// not the ceiling.
+    ///
+    /// Note on routing: per-op rejections normally surface inside the
+    /// returned [`OpResult`] vector, NOT as a top-level
+    /// [`BackendSetError`] return. The handler at
+    /// [`crate::space::handle_space_set`] applies the kit's per-
+    /// update-target atomicity: any failing op in the patch fails the
+    /// whole `update` target, so the test fixtures see the first-failing
+    /// op's `(SetErrorType, description)` surface on
+    /// `notUpdated[<spaceId>]`. The table above describes the
+    /// per-op outcome content; the handler does not synthesise new
+    /// variants or rewrite descriptions.
+    ///
     /// # Return value
     ///
     /// On success, returns a `Vec<OpResult>` of the same length as `ops`,
@@ -620,8 +663,29 @@ pub trait ChatBackend: JmapBackend {
     /// properties beyond what the client requested (RFC 8620 §5.3
     /// server-set field echo, e.g. a normalised `name` or a derived
     /// `iconBlobId`). `Ok(None)` if the patch was applied verbatim.
-    /// `Err(BackendSetError::SetError(SetError::new(Forbidden)))`
-    /// when the caller fails the `manage_space` gate.
+    /// `Err(BackendSetError::SetError(e))` with `e.kind ==
+    /// SetErrorType::Forbidden` when the caller fails the
+    /// `manage_space` gate.
+    ///
+    /// # Diagnostic content convention
+    ///
+    /// The `SetError.description` on a `manage_space`-gate rejection
+    /// MUST contain `"manage_space"` as a substring. The kit's
+    /// integration tests assert this (e.g.
+    /// `tests/space_metadata_apply.rs`); a backend that returns a
+    /// bare `SetError::new(SetErrorType::Forbidden)` with no
+    /// `description` will fail those tests. Build the error via
+    /// `SetError::new(SetErrorType::Forbidden).with_description(
+    /// "manage_space permission required")` (or any other string
+    /// that contains the literal `"manage_space"`).
+    ///
+    /// Future blob-validation rejections (e.g. `iconBlobId`
+    /// referencing a non-existent blob, see the `patch_map` shape
+    /// section above) SHOULD surface as
+    /// `SetErrorType::InvalidProperties` with
+    /// `properties: ["iconBlobId"]` and a description that names
+    /// the offending blob id. The reference impl does not validate
+    /// blobs today; production backends with a blob store SHOULD.
     ///
     /// History: this method landed in bd:JMAP-g7wu.2.4.13 to close the
     /// gate gap on the top-level metadata path. Before this method
