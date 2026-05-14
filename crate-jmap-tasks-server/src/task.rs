@@ -187,13 +187,10 @@ pub async fn handle_task_set<B: TasksBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                Err(other) => {
                     not_created.insert(
                         create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
+                        json!({ "type": "serverFail", "description": other.to_string() }),
                     );
                 }
             }
@@ -326,13 +323,10 @@ pub async fn handle_task_set<B: TasksBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                Err(other) => {
                     not_updated.insert(
                         id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
+                        json!({ "type": "serverFail", "description": other.to_string() }),
                     );
                 }
             }
@@ -375,13 +369,10 @@ pub async fn handle_task_set<B: TasksBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                Err(other) => {
                     not_destroyed.insert(
                         id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
+                        json!({ "type": "serverFail", "description": other.to_string() }),
                     );
                 }
             }
@@ -610,13 +601,10 @@ pub async fn handle_task_copy<B: TasksBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                Err(other) => {
                     not_created.insert(
                         create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
+                        json!({ "type": "serverFail", "description": other.to_string() }),
                     );
                 }
             }
@@ -687,13 +675,10 @@ pub async fn handle_task_copy<B: TasksBackend>(
                             json!({ "type": "serverFail", "description": e.to_string() }),
                         );
                     }
-                    Err(_) => {
+                    Err(other) => {
                         not_destroyed.insert(
                             source_id.as_ref().to_owned(),
-                            json!({
-                                "type": "serverFail",
-                                "description": "unhandled backend error variant",
-                            }),
+                            json!({ "type": "serverFail", "description": other.to_string() }),
                         );
                     }
                 }

@@ -146,13 +146,10 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                Err(other) => {
                     not_destroyed.insert(
                         id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
+                        json!({ "type": "serverFail", "description": other.to_string() }),
                     );
                 }
             }
