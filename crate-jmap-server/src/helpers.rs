@@ -59,17 +59,41 @@ pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapE
 /// timestamp in the range 1969-12-31T… through 1970-01-01T00:00:00Z. This
 /// is still monotonically increasing for subsequent calls and never silently
 /// produces 1970-01-01T00:00:00.000Z for a clock that is merely slightly behind.
+///
+/// Clock-overflow handling: if `SystemTime::now()` reports a Duration whose
+/// `as_secs()` value exceeds `i64::MAX` (~9.2e18 seconds, ~292 billion years
+/// past or before epoch — only reachable on a corrupted clock), this
+/// function returns the sentinel string `"clock-out-of-range"`. The `as`
+/// truncating-cast that this branch replaces (bd:JMAP-wlip.27) would have
+/// silently wrapped to a negative second count and produced a bizarre
+/// in-range date string instead.
 pub fn now_utc_string() -> String {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     let now = SystemTime::now();
     let (secs, millis): (i64, u32) = match now.duration_since(UNIX_EPOCH) {
-        Ok(d) => (d.as_secs() as i64, d.subsec_millis()),
+        Ok(d) => match i64::try_from(d.as_secs()) {
+            Ok(s) => (s, d.subsec_millis()),
+            // u64 seconds exceeds i64::MAX — corrupted clock sentinel.
+            Err(_) => return "clock-out-of-range".to_owned(),
+        },
         Err(e) => {
             // Clock is before the Unix epoch — negate so we get a real (negative)
             // epoch offset rather than silently returning 1970-01-01T00:00:00Z.
             let d = e.duration();
-            (-(d.as_secs() as i64), d.subsec_millis())
+            match i64::try_from(d.as_secs()) {
+                // Negate after the fallible widen so we don't underflow at
+                // i64::MIN. .checked_neg() returns None only for i64::MIN,
+                // which try_from cannot produce (its output range is
+                // [0, i64::MAX]). The branch is therefore unreachable on
+                // valid u64 → i64 widening; the .unwrap_or path falls through
+                // to the sentinel for defence in depth.
+                Ok(s) => match s.checked_neg() {
+                    Some(neg) => (neg, d.subsec_millis()),
+                    None => return "clock-out-of-range".to_owned(),
+                },
+                Err(_) => return "clock-out-of-range".to_owned(),
+            }
         }
     };
 
@@ -87,6 +111,15 @@ pub fn now_utc_string() -> String {
 ///
 /// Algorithm by Howard Hinnant (public domain):
 /// <https://howardhinnant.github.io/date_algorithms.html>
+///
+/// The output narrowing casts use `try_from(...).expect(...)` to document
+/// the algorithm-guaranteed ranges (bd:JMAP-wlip.27): year fits in i32 for
+/// any input within i64's full range (z is added to 719_468 and divided by
+/// 146_097 in `era`, so y is bounded by i64::MAX / 146_097 ≈ ±6.3e13 which
+/// fits in i32 only for inputs already constrained to ±2.1e9 years —
+/// callers driven by SystemTime cannot exceed that, so the expect documents
+/// an invariant rather than a real failure mode); month is in [1, 12] and
+/// day is in [1, 31] by the algorithm's modular structure.
 fn civil_from_days(z: i64) -> (i32, u8, u8) {
     let z = z + 719_468;
     let era: i64 = if z >= 0 { z } else { z - 146_096 } / 146_097;
@@ -98,7 +131,11 @@ fn civil_from_days(z: i64) -> (i32, u8, u8) {
     let d = doy - (153 * mp + 2) / 5 + 1; // [1, 31]
     let mo = if mp < 10 { mp + 3 } else { mp - 9 }; // [1, 12]
     let yr = if mo <= 2 { y + 1 } else { y };
-    (yr as i32, mo as u8, d as u8)
+    (
+        i32::try_from(yr).expect("year bounded by SystemTime-driven input to i32"),
+        u8::try_from(mo).expect("month bounded by algorithm to [1, 12]"),
+        u8::try_from(d).expect("day bounded by algorithm to [1, 31]"),
+    )
 }
 
 /// Maximum recursion depth for [`json_merge_patch`] application.
