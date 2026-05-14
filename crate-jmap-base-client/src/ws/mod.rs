@@ -49,8 +49,17 @@ pub const DEFAULT_WS_MAX_MESSAGE_BYTES: usize = 1 << 20;
 ///
 /// Marked `#[non_exhaustive]` because the spec may define additional
 /// `@type` values in future revisions.
+///
+/// # `Debug` redaction
+///
+/// `WsFrame` has a hand-written [`std::fmt::Debug`] impl rather than
+/// `#[derive(Debug)]` so the [`Unknown::raw`](WsFrame::Unknown) field is
+/// printed as `[REDACTED]` instead of being serialised verbatim. See the
+/// field doc on `Unknown.raw` for the credential-leak class this guards
+/// against (bd:JMAP-6r7c.5). Use the structured accessors on the frame
+/// itself, not `{:?}`, when you need the raw value.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub enum WsFrame {
     /// RFC 8620 §7.1 StateChange — one or more object types have changed
     /// state; client must re-fetch the affected data types.
@@ -77,15 +86,33 @@ pub enum WsFrame {
         /// push verification codes (RFC 8887 §7.2), federation handshake
         /// tokens, session-rotation challenges, etc. — and a malformed
         /// `Response` to a method like `PushSubscription/get` can echo a
-        /// `verificationCode` back into this field. The enum derives
-        /// `Debug`, so a `{:?}`-format of any `WsFrame::Unknown` writes
-        /// this Value to the output stream.
+        /// `verificationCode` back into this field.
         ///
-        /// For operator logs, prefer logging `type_name` only, or apply a
+        /// The enclosing `WsFrame` uses a hand-written `Debug` impl that
+        /// renders this field as `[REDACTED]` to neutralise the natural
+        /// `{:?}`-leaks-the-field failure mode (bd:JMAP-6r7c.5). For
+        /// operator logs, prefer logging `type_name` only, or apply a
         /// project-specific redaction filter before passing `raw` to a
         /// logging sink. See bd:JMAP-sc1b.98.
         raw: serde_json::Value,
     },
+}
+
+impl std::fmt::Debug for WsFrame {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WsFrame::StateChange(sc) => f.debug_tuple("StateChange").field(sc).finish(),
+            WsFrame::Response(r) => f.debug_tuple("Response").field(r).finish(),
+            // `raw` may carry credential-grade material in failure modes
+            // (see the field doc); render as a literal string so neither
+            // `{:?}` nor `tracing::*` with `?frame` reveals the payload.
+            WsFrame::Unknown { type_name, raw: _ } => f
+                .debug_struct("Unknown")
+                .field("type_name", type_name)
+                .field("raw", &"[REDACTED]")
+                .finish(),
+        }
+    }
 }
 
 type Inner =
@@ -648,5 +675,66 @@ mod tests {
     #[test]
     fn consecutive_skip_cap_matches_documented_value() {
         assert_eq!(MAX_CONSECUTIVE_NON_TEXT_FRAMES, 64);
+    }
+
+    /// Oracle: bd:JMAP-6r7c.5 / workspace AGENTS.md "Security testing"
+    /// pattern 1 — per-type Debug redaction canary.
+    ///
+    /// A future contributor restoring `#[derive(Debug)]` on `WsFrame` would
+    /// re-expose the credential-grade material that can land in
+    /// `Unknown.raw` (push verification codes, federation handshake tokens,
+    /// session-rotation challenges). This test constructs a canary literal
+    /// inside the `raw` field and asserts the literal does not appear in
+    /// the `{:?}`-formatted output of the frame.
+    #[test]
+    fn ws_frame_unknown_raw_is_redacted_in_debug_output() {
+        let canary = "redaction-canary-cred-WFTMr8FoYpfP-do-not-leak";
+        let frame = WsFrame::Unknown {
+            type_name: "PushVerification".to_owned(),
+            raw: serde_json::json!({
+                "verificationCode": canary,
+            }),
+        };
+        let rendered = format!("{frame:?}");
+        assert!(
+            !rendered.contains(canary),
+            "WsFrame::Unknown Debug must redact `raw`; the canary literal \
+             appeared in the rendered output, indicating either \
+             #[derive(Debug)] was restored or the manual Debug impl \
+             forgot to redact the raw field. Rendered output: {rendered}"
+        );
+        assert!(
+            rendered.contains("[REDACTED]"),
+            "WsFrame::Unknown Debug must render the redaction placeholder; \
+             rendered output: {rendered}"
+        );
+        assert!(
+            rendered.contains("PushVerification"),
+            "WsFrame::Unknown Debug must still surface type_name for \
+             diagnostics; rendered output: {rendered}"
+        );
+    }
+
+    /// Oracle: bd:JMAP-6r7c.5 — the Debug impl must still render the
+    /// other two variants usefully. A naive impl that redacted everything
+    /// would also be wrong; the security goal is narrowly scoped to the
+    /// `Unknown.raw` field.
+    #[test]
+    fn ws_frame_other_variants_remain_useful_in_debug_output() {
+        let response_frame = WsFrame::Response(jmap_types::JmapResponse::new(
+            vec![],
+            "test-session".into(),
+            None,
+        ));
+        let rendered = format!("{response_frame:?}");
+        assert!(
+            rendered.starts_with("Response"),
+            "Response variant Debug must surface variant tag; got: {rendered}"
+        );
+        assert!(
+            rendered.contains("test-session"),
+            "Response variant Debug must surface session_state for \
+             diagnostics; got: {rendered}"
+        );
     }
 }
