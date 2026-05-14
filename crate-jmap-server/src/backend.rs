@@ -87,6 +87,40 @@ impl SetError {
     }
 
     /// Set the human-readable description.
+    ///
+    /// # Security
+    ///
+    /// `SetError.description` is serialized verbatim into the JMAP wire
+    /// response (RFC 8620 §5.3 `notCreated` / `notUpdated` /
+    /// `notDestroyed` maps) and is visible to any client that can
+    /// dispatch the failing `/set` call. The MUST-NOT rules that apply
+    /// to [`JmapBackend::Error`]'s [`Display`](std::fmt::Display) output
+    /// also apply to this string:
+    ///
+    /// - **Credential material** — auth tokens, passwords, push
+    ///   verification codes, invite codes, session cookies, or anything
+    ///   derived byte-for-byte from an `Authorization`-header value.
+    /// - **Blob content** — email bodies, sieve scripts, file
+    ///   contents, or any user-supplied opaque payload.
+    /// - **PII shaped like an email address** in any code path that
+    ///   an unauthenticated caller can trigger.
+    ///
+    /// Wrap downstream errors with [`crate::server_fail_from_backend`]
+    /// (which always emits the static "internal error" description)
+    /// rather than interpolating them into a SetError description.
+    ///
+    /// `SetError` paths are MORE leak-prone than `serverFail` because
+    /// adversarial clients can probe for descriptions by sending
+    /// crafted `/set` arguments — the typed-error contract guarantees
+    /// the response includes a `SetError` for every failing target.
+    /// Static, caller-meaningful descriptions ("rate limit exceeded —
+    /// retry in N seconds", "patch nesting exceeds server limit") are
+    /// fine; backend-error interpolations are not.
+    ///
+    /// Precedent: the parallel contract on
+    /// [`JmapBackend::Error`] (bd:JMAP-sc1b.100) and the matching
+    /// handler-side leak path closed in bd:JMAP-wlip.2. This warning
+    /// added in bd:JMAP-wlip.26.
     pub fn with_description(mut self, desc: impl Into<String>) -> Self {
         self.description = Some(desc.into());
         self
