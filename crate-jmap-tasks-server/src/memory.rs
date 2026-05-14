@@ -79,12 +79,32 @@ use jmap_types::{Id, State};
 // ---------------------------------------------------------------------------
 
 /// A simple string error for `MemoryBackend` failures.
+///
+/// The message field is private to leave room for adding structured `kind` /
+/// `source` fields without breaking callers. Construct via [`Self::new`];
+/// read the message via [`Self::message`] or the [`Display`] impl.
+///
+/// [`Display`]: std::fmt::Display
 #[derive(Debug)]
-pub struct MemoryError(pub String);
+pub struct MemoryError {
+    msg: String,
+}
+
+impl MemoryError {
+    /// Construct a new `MemoryError` from any string-convertible value.
+    pub fn new(msg: impl Into<String>) -> Self {
+        Self { msg: msg.into() }
+    }
+
+    /// Borrow the underlying error message.
+    pub fn message(&self) -> &str {
+        &self.msg
+    }
+}
 
 impl std::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.msg)
     }
 }
 
@@ -220,10 +240,33 @@ impl Inner {
 /// counter and records a change log entry. Used as both the integration-test
 /// harness and the canonical example for backend implementors.
 ///
-/// Cloning is cheap: every clone shares the same underlying `Arc<Mutex<…>>`.
-#[derive(Clone, Default)]
+/// Cloning is cheap and **shared-state**: every clone retains an
+/// `Arc<Mutex<…>>` handle to the *same* underlying object store and change
+/// log. See the [`Clone`] impl below for the contract; a casual reader who
+/// reaches for `#[derive(Clone)]` semantics will be wrong. To get a snapshot
+/// with independent state, construct a fresh `MemoryBackend::new()` and seed
+/// it via `register_account` / the typed test helpers.
+#[derive(Default)]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
+}
+
+/// Manual `Clone` impl, NOT `#[derive(Clone)]`.
+///
+/// Cloning a [`MemoryBackend`] does **not** copy any state — both the
+/// original and the clone hold `Arc::clone`s of the same `Mutex<Inner>` and
+/// observe each other's mutations. This is intentional: handler registration
+/// in [`crate::register_tasks_handlers`] takes `Arc<B>` and each method
+/// handler closure clones it; without shared mutation semantics, every
+/// handler would see a snapshot stale by the time it runs. The manual impl
+/// exists (instead of `#[derive(Clone)]`) so the contract is visible at the
+/// type, not buried in the module docs.
+impl Clone for MemoryBackend {
+    fn clone(&self) -> Self {
+        Self {
+            inner: Arc::clone(&self.inner),
+        }
+    }
 }
 
 impl MemoryBackend {
@@ -362,7 +405,7 @@ impl JmapBackend for MemoryBackend {
                         match O::deserialize(val) {
                             Ok(obj) => list.push(obj),
                             Err(e) => {
-                                return Err(MemoryError(format!(
+                                return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
                                 )))
@@ -380,7 +423,7 @@ impl JmapBackend for MemoryBackend {
                         Some(val) => match O::deserialize(val) {
                             Ok(obj) => found.push(obj),
                             Err(e) => {
-                                return Err(MemoryError(format!(
+                                return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
                                 )))
@@ -615,7 +658,7 @@ impl TasksBackend for MemoryBackend {
         let server_id = Self::demo_next_id(&mut inner, O::TYPE_NAME, account_id.as_ref());
 
         let mut val = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize: {e}"))))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
         if let Some(map) = val.as_object_mut() {
             map.insert(
                 "id".to_owned(),
@@ -623,7 +666,7 @@ impl TasksBackend for MemoryBackend {
             );
         }
         let stored_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
+            BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
         })?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
@@ -675,8 +718,9 @@ impl TasksBackend for MemoryBackend {
         // update` shapes. `current` is a clone of the stored value, so a
         // partially-applied patch on error is discarded with the local
         // without touching storage.
-        let patch_val = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize patch: {e}"))))?;
+        let patch_val = serde_json::to_value(&patch).map_err(|e| {
+            BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
+        })?;
         if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
             return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::InvalidPatch)
