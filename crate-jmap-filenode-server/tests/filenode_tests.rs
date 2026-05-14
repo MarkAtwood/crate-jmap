@@ -746,6 +746,7 @@ async fn filenode_copy_default_collision_returns_already_exists() {
                 "c": { "id": &src_id, "role": null }
             }
         }),
+        "c0",
     )
     .await
     .expect("must not return top-level error");
@@ -781,6 +782,7 @@ async fn filenode_copy_on_exists_rename_succeeds_with_suffixed_name() {
                 "c": { "id": &src_id, "role": null }
             }
         }),
+        "c0",
     )
     .await
     .expect("must not return top-level error");
@@ -822,6 +824,7 @@ async fn filenode_copy_on_exists_replace_destroys_existing_then_creates() {
                 "c": { "id": &src_id, "role": null }
             }
         }),
+        "c0",
     )
     .await
     .expect("must not return top-level error");
@@ -874,6 +877,7 @@ async fn filenode_copy_on_exists_replace_without_flag_node_has_children() {
                 "c": { "id": &src_id, "role": null }
             }
         }),
+        "c0",
     )
     .await
     .expect("must not return top-level error");
@@ -910,6 +914,7 @@ async fn filenode_copy_non_string_parent_id_returns_invalid_properties() {
                 "c": { "id": &src_id, "parentId": 42, "role": null }
             }
         }),
+        "c0",
     )
     .await
     .expect("must not return top-level error");
@@ -953,6 +958,7 @@ async fn filenode_copy_on_exists_replace_with_flag_cascades() {
                 "c": { "id": &src_id, "role": null }
             }
         }),
+        "c0",
     )
     .await
     .expect("must not return top-level error");
@@ -1016,6 +1022,7 @@ async fn filenode_copy_if_from_in_state_mismatch_returns_state_mismatch() {
                 "c": { "id": &src_id, "role": null }
             }
         }),
+        "c0",
     )
     .await
     .expect_err("ifFromInState mismatch must produce a JmapError");
@@ -1084,6 +1091,7 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
                 "c": { "id": &src_id, "role": null }
             }
         }),
+        "c0",
     )
     .await
     .expect("matching ifFromInState must allow the copy to proceed");
@@ -1091,5 +1099,154 @@ async fn filenode_copy_if_from_in_state_match_proceeds() {
     assert!(
         resp["created"].is_object() && resp["created"]["c"].is_object(),
         "copy must succeed when ifFromInState matches: {resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// FileNode/copy — onSuccessDestroyOriginal destroys each successfully copied
+// source record and emits an implicit FileNode/set response.
+// Oracle: RFC 8620 §5.4 — "If true, an attempt will be made to destroy the
+// original records that were successfully copied: after emitting the
+// Foo/copy response, but before processing the next method, the server MUST
+// make a single call to Foo/set to destroy the original of each
+// successfully copied record." Regression for bd JMAP-510h.56.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_copy_on_success_destroy_original_destroys_source() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    // A single leaf node in src that we will move to dst.
+    let src_id = create_node(&backend, "src", "doc", None, "s").await;
+
+    let (resp, extra) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onSuccessDestroyOriginal": true,
+            "create": {
+                "c": { "id": &src_id, "role": null }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect("copy must succeed");
+
+    // The copy itself succeeded.
+    assert!(
+        resp["created"]["c"].is_object(),
+        "copy must produce a created entry: {resp}"
+    );
+
+    // Exactly one implicit FileNode/set response was appended.
+    assert_eq!(
+        extra.len(),
+        1,
+        "onSuccessDestroyOriginal must emit one implicit FileNode/set: extra={extra:?}"
+    );
+    let (method_name, set_resp, call_id) = &extra[0];
+    assert_eq!(method_name, "FileNode/set");
+    assert_eq!(
+        call_id, "c0",
+        "implicit FileNode/set must carry the original call_id"
+    );
+    assert_eq!(
+        set_resp["accountId"], "src",
+        "implicit destroy targets the source account"
+    );
+    let destroyed = set_resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array");
+    let destroyed_strs: Vec<&str> = destroyed.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        destroyed_strs.contains(&src_id.as_str()),
+        "the source node must appear in implicit destroyed list: {set_resp}"
+    );
+
+    // The source node must actually be gone from src.
+    let (get_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "src",
+            "ids": [&src_id]
+        }),
+    )
+    .await
+    .expect("get must succeed");
+    let not_found = get_resp["notFound"]
+        .as_array()
+        .expect("notFound must be array");
+    let not_found_strs: Vec<&str> = not_found.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        not_found_strs.contains(&src_id.as_str()),
+        "source must be destroyed: {get_resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// FileNode/copy — onSuccessDestroyOriginal without onDestroyRemoveChildren
+// MUST report `nodeHasChildren` for a source directory that has children,
+// honoring the FileNode-specific top-level flag on the implicit destroy.
+// Oracle: draft-ietf-jmap-filenode-13 §3.2.4 ("with the same behaviour" as
+// FileNode/set) + §3.2.3 nodeHasChildren semantics. Regression for bd
+// JMAP-510h.56.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_copy_on_success_destroy_original_node_has_children() {
+    let backend = MemoryBackend::new().with_account("src").with_account("dst");
+
+    // src has a parent directory with a child; we copy the parent only.
+    let src_parent = create_node(&backend, "src", "parent", None, "p").await;
+    let _src_child = create_node(&backend, "src", "child", Some(&src_parent), "c1").await;
+
+    let (_resp, extra) = handle_filenode_copy(
+        &backend,
+        &(),
+        json!({
+            "fromAccountId": "src",
+            "accountId": "dst",
+            "onSuccessDestroyOriginal": true,
+            // onDestroyRemoveChildren absent → defaults to false.
+            "create": {
+                "c": { "id": &src_parent, "role": null }
+            }
+        }),
+        "c0",
+    )
+    .await
+    .expect("copy itself must succeed");
+
+    assert_eq!(extra.len(), 1, "implicit FileNode/set must be emitted");
+    let (_, set_resp, _) = &extra[0];
+    let not_destroyed = &set_resp["notDestroyed"];
+    assert!(
+        not_destroyed.is_object() && not_destroyed[&src_parent].is_object(),
+        "src parent must be in notDestroyed: {set_resp}"
+    );
+    assert_eq!(
+        not_destroyed[&src_parent]["type"], "nodeHasChildren",
+        "without onDestroyRemoveChildren, the implicit destroy must report nodeHasChildren: {set_resp}"
+    );
+
+    // And the source parent must still exist.
+    let (get_resp, _) = handle_filenode_get(
+        &backend,
+        &(),
+        json!({
+            "accountId": "src",
+            "ids": [&src_parent]
+        }),
+    )
+    .await
+    .expect("get must succeed");
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert!(
+        !list.is_empty(),
+        "src parent must survive a failed implicit destroy: {get_resp}"
     );
 }
