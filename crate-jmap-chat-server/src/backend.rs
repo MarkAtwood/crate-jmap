@@ -294,6 +294,46 @@ pub trait ChatBackend: JmapBackend {
     /// The returned string must be unguessable — do NOT use timestamps,
     /// sequential counters, or non-CSPRNG sources.
     ///
+    /// # Output shape contract
+    ///
+    /// Implementations MUST satisfy ALL of the following for the kit's
+    /// constant-time-compare guarantee (see below) to hold:
+    ///
+    /// 1. **Fixed length across calls.** Every invocation of
+    ///    `generate_invite_code` on a single backend MUST return a
+    ///    string of the same byte length. A backend that returns
+    ///    variable-length codes leaks a length oracle through the
+    ///    constant-time-compare timing channel: `ct_eq` returns
+    ///    `Choice(0)` cheaply on length mismatch, so an attacker can
+    ///    learn whether their candidate code matches the stored
+    ///    length even when the content compare is constant-time.
+    /// 2. **Minimum 128 bits of CSPRNG entropy.** The default
+    ///    implementation here emits 32 lowercase-hex characters
+    ///    (16 bytes = 128 bits) which is the workspace floor.
+    ///    Production backends MAY use more; less is forbidden.
+    /// 3. **ASCII-safe encoding.** The returned bytes MUST be 7-bit
+    ///    ASCII printable, byte-length-equal-to-char-length, and
+    ///    safe to use as-is in JMAP wire format and HTTP-style
+    ///    URL paths (no `/`, `+`, `=`, or whitespace). Recommended
+    ///    encodings: lowercase hex (the default), base32 unpadded,
+    ///    base64url unpadded. Plain base64 with `/` is forbidden
+    ///    because downstream URL-encoded redemption flows misroute
+    ///    the slash. Non-ASCII output is forbidden because
+    ///    helpers that take byte-prefix slices (e.g. the
+    ///    `iso8601_before` partial-comparison family) panic on
+    ///    multi-byte UTF-8 boundaries.
+    /// 4. **Sufficient lifespan.** Codes MUST remain
+    ///    discriminable from each other across the backend's
+    ///    retention window. With 128 bits of entropy and
+    ///    well-mixed CSPRNG output, collision probability is
+    ///    cryptographically negligible up to 2^64 active codes.
+    ///
+    /// A backend that cannot meet any of points 1–3 MUST NOT
+    /// expose `Space/join`'s invite-code redemption path, or MUST
+    /// build its own redemption with a different constant-time
+    /// argument. The kit's `handle_space_join` assumes the contract
+    /// without re-validating each code's shape.
+    ///
     /// # Constant-time comparison contract
     ///
     /// Consumers of the returned code (notably `Space/join` invite-code
@@ -304,6 +344,18 @@ pub trait ChatBackend: JmapBackend {
     /// preserve the invariant. A plain `String == String` short-circuits
     /// at the first mismatched byte and exposes a byte-by-byte timing
     /// oracle for credential recovery. See bd:JMAP-sc1b.89.
+    ///
+    /// # Fallibility and async — known limitations
+    ///
+    /// This method is sync and infallible. Backends that mint codes
+    /// via a remote source (HSM, KMS, hardened sandbox where
+    /// `getrandom` is gated, etc.) cannot surface failure from this
+    /// signature and cannot `.await` a network call. Such backends
+    /// must pre-fetch a buffer of codes at startup and serve from it,
+    /// or panic on entropy starvation. A future revision MAY change
+    /// the signature to `async fn generate_invite_code(&self) ->
+    /// Result<String, Self::Error>`; see bd:JMAP-x2gd.36 follow-ups
+    /// for the workspace decision tracking.
     ///
     /// [`rand::rngs::OsRng`]: https://docs.rs/rand/latest/rand/rngs/struct.OsRng.html
     /// [`getrandom`]: https://docs.rs/getrandom
