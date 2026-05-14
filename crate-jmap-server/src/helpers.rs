@@ -154,40 +154,79 @@ pub fn extract_account_id(args: Value) -> Result<(Id, Map<String, Value>), JmapE
 /// docstring's incorrect "1969-12-31T… through 1970-01-01T00:00:00Z"
 /// range claim.)
 ///
-/// Clock-overflow handling: if `SystemTime::now()` reports a Duration whose
-/// `as_secs()` value exceeds `i64::MAX` (~9.2e18 seconds, ~292 billion years
-/// past or before epoch — only reachable on a corrupted clock), this
-/// function returns the sentinel string `"clock-out-of-range"`. The `as`
-/// truncating-cast that this branch replaces (bd:JMAP-wlip.27) would have
-/// silently wrapped to a negative second count and produced a bizarre
-/// in-range date string instead.
+/// Clock-overflow handling: on a corrupted clock (system clock
+/// reporting a Duration whose `as_secs()` exceeds `i64::MAX`,
+/// `civil_from_days` reporting a year outside `i32`, or any other
+/// `SystemTime` failure mode), this function **panics**. The
+/// previous sentinel-string behaviour (`UTCDate::from("clock-out-of-range")`)
+/// was an idiom-grade defect (bd:JMAP-jfia.30): the sentinel was not a
+/// valid wire-format timestamp, had no in-band signal to distinguish
+/// it from a real value, and could silently propagate into JSON
+/// responses, audit logs, and database rows.
+///
+/// Callers that need to handle clock failure without panicking MUST
+/// use [`now_utc_string_checked`], which returns `Option<UTCDate>`.
+/// Long-running daemons, schedulers, and persistence layers SHOULD
+/// prefer the checked variant; one-shot tools and request handlers
+/// MAY accept the panic since clock corruption is unrecoverable and
+/// the dispatcher's `task::spawn` isolation already converts the
+/// panic into a `serverFail` invocation rather than crashing the
+/// process.
+///
+/// # Panics
+///
+/// Panics if `SystemTime::now()` cannot be expressed as an RFC 3339
+/// timestamp — the same conditions under which
+/// [`now_utc_string_checked`] returns `None`.
 pub fn now_utc_string() -> UTCDate {
+    now_utc_string_checked().expect("system clock returned an out-of-range value (bd:JMAP-jfia.30)")
+}
+
+/// Return the current UTC instant as an [`UTCDate`] (RFC 3339,
+/// millisecond precision, format `YYYY-MM-DDTHH:MM:SS.mmmZ`), or
+/// `None` if the system clock cannot be expressed as an RFC 3339
+/// timestamp.
+///
+/// Added in bd:JMAP-jfia.30 to replace the previous sentinel-string
+/// failure mode of [`now_utc_string`] with a typed `Option` shape.
+/// Callers that want to react to a clock fault (audit-log
+/// timestamps, last-seen markers, retention sweeps) SHOULD use this
+/// variant; callers for whom a panic at the first sign of clock
+/// corruption is acceptable MAY use [`now_utc_string`] directly.
+///
+/// Returns `None` when:
+/// - `SystemTime::now().duration_since(UNIX_EPOCH).as_secs()`
+///   exceeds `i64::MAX` (only reachable on a corrupted clock —
+///   approx ±292 billion years from epoch).
+/// - The negation of a pre-epoch duration overflows `i64`
+///   (unreachable on a `try_from`-validated input but checked
+///   defensively).
+/// - `civil_from_days` reports a year outside `i32`
+///   (bd:JMAP-jfia.2 — between the i32-year boundary and the
+///   i64::MAX-secs cap).
+pub fn now_utc_string_checked() -> Option<UTCDate> {
     use std::time::{SystemTime, UNIX_EPOCH};
 
     let now = SystemTime::now();
     let (secs, millis): (i64, u32) = match now.duration_since(UNIX_EPOCH) {
-        Ok(d) => match i64::try_from(d.as_secs()) {
-            Ok(s) => (s, d.subsec_millis()),
-            // u64 seconds exceeds i64::MAX — corrupted clock sentinel.
-            Err(_) => return UTCDate::from("clock-out-of-range"),
-        },
+        Ok(d) => {
+            let s = i64::try_from(d.as_secs()).ok()?;
+            (s, d.subsec_millis())
+        }
         Err(e) => {
-            // Clock is before the Unix epoch — negate so we get a real (negative)
-            // epoch offset rather than silently returning 1970-01-01T00:00:00Z.
+            // Clock is before the Unix epoch — negate so we get a real
+            // (negative) epoch offset rather than silently returning
+            // 1970-01-01T00:00:00Z. Negate after the fallible widen so
+            // we don't underflow at i64::MIN. .checked_neg() returns
+            // None only for i64::MIN, which try_from cannot produce
+            // (its output range is [0, i64::MAX]); the branch is
+            // therefore unreachable on valid u64 → i64 widening, but
+            // returning None for defence in depth keeps the failure
+            // path total.
             let d = e.duration();
-            match i64::try_from(d.as_secs()) {
-                // Negate after the fallible widen so we don't underflow at
-                // i64::MIN. .checked_neg() returns None only for i64::MIN,
-                // which try_from cannot produce (its output range is
-                // [0, i64::MAX]). The branch is therefore unreachable on
-                // valid u64 → i64 widening; the .unwrap_or path falls through
-                // to the sentinel for defence in depth.
-                Ok(s) => match s.checked_neg() {
-                    Some(neg) => (neg, d.subsec_millis()),
-                    None => return UTCDate::from("clock-out-of-range"),
-                },
-                Err(_) => return UTCDate::from("clock-out-of-range"),
-            }
+            let s = i64::try_from(d.as_secs()).ok()?;
+            let neg = s.checked_neg()?;
+            (neg, d.subsec_millis())
         }
     };
 
@@ -195,21 +234,11 @@ pub fn now_utc_string() -> UTCDate {
     let m = (secs / 60).rem_euclid(60);
     let h = (secs / 3600).rem_euclid(24);
     let days = secs.div_euclid(86400);
-    // civil_from_days returns None when the algorithm's year value
-    // overflows i32 (bd:JMAP-jfia.2). The outer i64::MAX-secs sentinel
-    // above only catches u64-overflow into i64; corrupted clocks whose
-    // secs land between the i32-year boundary (~5.7e6 years from epoch)
-    // and i64::MAX still reach civil_from_days. Fall through to the same
-    // sentinel string as the other clock-out-of-range arms above so the
-    // function's documented "returns a string rather than panics"
-    // contract holds across the entire i64 input range.
-    let Some((year, month, day)) = civil_from_days(days) else {
-        return UTCDate::from("clock-out-of-range");
-    };
+    let (year, month, day) = civil_from_days(days)?;
 
-    UTCDate::from(format!(
+    Some(UTCDate::from(format!(
         "{year:04}-{month:02}-{day:02}T{h:02}:{m:02}:{s:02}.{millis:03}Z"
-    ))
+    )))
 }
 
 /// Convert a count of days since the Unix epoch (1970-01-01) to a proleptic
@@ -462,13 +491,13 @@ mod tests {
     /// than panic on inputs whose computed year overflows i32. The
     /// Hinnant algorithm's intermediate `y = yoe + era * 400` value is
     /// bounded by `i64::MAX / 146_097 ≈ ±6.3e13`, only a thin slice of
-    /// which fits in i32. The outer `now_utc_string` sentinel only
-    /// catches u64 seconds exceeding `i64::MAX`, so corrupted-clock
-    /// inputs between the i32-year boundary and i64::MAX reach this
-    /// function. A panic here surfaces as serverFail under
-    /// dispatcher task::spawn isolation — degraded, but a contract
-    /// violation versus the function's documented "returns a sentinel
-    /// string" behaviour.
+    /// which fits in i32. The outer `now_utc_string_checked`
+    /// u64→i64 sentinel only catches u64 seconds exceeding `i64::MAX`,
+    /// so corrupted-clock inputs between the i32-year boundary and
+    /// i64::MAX reach this function. A panic here would surface as
+    /// serverFail under dispatcher task::spawn isolation — degraded,
+    /// but a contract violation versus the function's "fallible
+    /// without panicking" contract.
     ///
     /// Test vectors: the maximum days-from-epoch derived from
     /// i64::MAX seconds (the regime that reaches civil_from_days
@@ -506,22 +535,49 @@ mod tests {
         );
     }
 
-    /// Oracle (bd:JMAP-jfia.2): now_utc_string MUST return the
-    /// "clock-out-of-range" sentinel string rather than panic when
-    /// civil_from_days reports a year overflow. We cannot easily mock
-    /// SystemTime, so this test asserts the contract indirectly by
-    /// confirming the function never panics on a real clock and that
-    /// the returned wire shape is either the 24-char timestamp form or
-    /// the sentinel — never an empty string, never a partial format,
-    /// never a panic message. The civil_from_days_returns_none_on_year_overflow
-    /// test above pins the underlying behaviour.
+    /// Oracle (bd:JMAP-jfia.30): now_utc_string_checked MUST return
+    /// `Some(UTCDate)` on a sane clock (every host the test runs on
+    /// in practice). The civil_from_days_returns_none_on_year_overflow
+    /// test above pins the underlying None-on-corrupted-clock
+    /// behaviour at the algorithm level; this test pins the
+    /// happy-path contract: a sane clock yields the typed wire format,
+    /// not a sentinel string.
     #[test]
-    fn now_utc_string_never_panics() {
-        let dt = now_utc_string();
+    fn now_utc_string_checked_returns_some_on_sane_clock() {
+        use super::now_utc_string_checked;
+        let dt = now_utc_string_checked().expect(
+            "test host clock must be reasonable enough for now_utc_string_checked to succeed",
+        );
         let s: &str = dt.as_ref();
-        assert!(
-            s.len() == 24 || s == "clock-out-of-range",
-            "now_utc_string returned unexpected shape: {s:?}"
+        assert_eq!(s.len(), 24, "wire shape must be 24 chars: {s:?}");
+        assert!(s.ends_with('Z'), "must end with Z: {s:?}");
+    }
+
+    /// Oracle (bd:JMAP-jfia.30): now_utc_string (the panicking variant)
+    /// MUST agree with now_utc_string_checked on a sane clock — i.e.
+    /// the .expect() in now_utc_string does not introduce a wire-format
+    /// discrepancy versus the Option-returning variant.
+    #[test]
+    fn now_utc_string_matches_checked_variant_on_sane_clock() {
+        use super::now_utc_string_checked;
+        let panicky = now_utc_string();
+        let checked = now_utc_string_checked().expect("test host clock must be reasonable");
+        // Both calls observe SystemTime::now() at slightly different
+        // instants; the seconds part can differ if the test runs across
+        // a second boundary. Compare the prefix up to the seconds
+        // resolution.
+        let panicky_s: &str = panicky.as_ref();
+        let checked_s: &str = checked.as_ref();
+        assert_eq!(
+            panicky_s.len(),
+            checked_s.len(),
+            "wire-format lengths must match: panicky={panicky_s:?} checked={checked_s:?}"
+        );
+        // Compare the date portion only (YYYY-MM-DD, 10 chars).
+        assert_eq!(
+            &panicky_s[..10],
+            &checked_s[..10],
+            "date portions must match: panicky={panicky_s:?} checked={checked_s:?}"
         );
     }
 
