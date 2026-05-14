@@ -3,6 +3,26 @@
 //! Provides request parsing, ResultReference resolution, HTTP response helpers,
 //! the [`Dispatcher`] machinery, shared backend infrastructure, and generic
 //! JMAP method handlers.
+//!
+//! # Version coupling with `jmap-types` (bd:JMAP-wlip.18)
+//!
+//! This crate re-exports the wire-format types from `jmap-types`
+//! (`Id`, `JmapError`, `JmapRequest`, `JmapResponse`, `Invocation`,
+//! `ResultReference`, `Argument`, `State`, `UTCDate`) plus the marker
+//! traits (`GetObject`, `JmapObject`, `QueryObject`, `SetObject`).
+//! The public API of this crate is therefore *coupled* to
+//! `jmap-types`' public API: any breaking change to a re-exported
+//! type in `jmap-types` is a breaking change here, even when this
+//! crate's own surface is otherwise additive.
+//!
+//! **SemVer pin discipline**: consumers that depend on both
+//! `jmap-server` and `jmap-types` directly MUST pin the `jmap-types`
+//! version to the exact version `jmap-server` resolves to. The
+//! simplest path is to NOT depend on `jmap-types` directly and use
+//! `jmap_server::{Id, JmapError, ...}` instead — re-exports
+//! guarantee consistency. Depending on both with mismatched versions
+//! produces cargo's "expected `jmap_types::Id`, found `jmap_types::Id`"
+//! error (same type name, two different version hashes).
 
 #![forbid(unsafe_code)]
 
@@ -82,6 +102,31 @@ pub trait JmapHandler<CallerCtx>: Send + Sync {
         args: Value,
         caller: CallerCtx,
     ) -> HandlerFuture;
+}
+
+/// Walk a `/set` handler's primary response and accumulate every
+/// `created[client_id].id` pair into `sink` (RFC 8620 §3.4
+/// `createdIds`) (bd:JMAP-wlip.10).
+///
+/// Lives next to the [`JmapHandler`] doc contract that requires
+/// every entry of `created` to contain a string `"id"` field. Entries
+/// that violate the contract — no `"id"` key, or an `"id"` of a
+/// non-string type — are silently skipped, because the dispatcher
+/// cannot produce a method-level error for a method call that already
+/// succeeded. The shared helper makes the silent-skip behaviour
+/// auditable in one place rather than inlined in the dispatcher loop.
+///
+/// Non-`/set` primary responses (no `"created"` key at the top level,
+/// or `"created"` of a non-Object type) leave `sink` unchanged.
+fn extract_created_ids_into(primary: &Value, sink: &mut HashMap<Id, Id>) {
+    let Some(map) = primary.get("created").and_then(|v| v.as_object()) else {
+        return;
+    };
+    for (client_id, created_obj) in map {
+        if let Some(id_val) = created_obj.get("id").and_then(|v| v.as_str()) {
+            sink.insert(Id::from(client_id.as_str()), Id::from(id_val));
+        }
+    }
 }
 
 /// Dispatches a [`JmapRequest`] to registered method handlers.
@@ -240,21 +285,7 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
                     // pass over method_responses after dispatch. Clients
                     // SHOULD generate unique creationIds across a batch.
                     if client_sent_created_ids {
-                        if let Some(map) = primary_value.get("created").and_then(|v| v.as_object())
-                        {
-                            for (client_id, created_obj) in map {
-                                // RFC 8620 §5.3 requires each created object to contain
-                                // an "id" field.  If the handler violates this contract
-                                // (no "id" key or non-string value), the entry is silently
-                                // skipped — the dispatcher cannot produce an error for a
-                                // method call that already succeeded.
-                                if let Some(id_val) = created_obj.get("id").and_then(|v| v.as_str())
-                                {
-                                    created_ids
-                                        .insert(Id::from(client_id.as_str()), Id::from(id_val));
-                                }
-                            }
-                        }
+                        extract_created_ids_into(&primary_value, &mut created_ids);
                     }
                     // Push the primary response first, then any extra invocations
                     // appended by the handler (e.g. onSuccessUpdateEmail from
