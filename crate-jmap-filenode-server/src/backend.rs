@@ -131,6 +131,14 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// Returned IDs are deduplicated; ordering is unspecified.
     /// The `root_ids` themselves are NOT included in the result.
+    ///
+    /// Errors from the per-level `query_objects` calls are propagated. The
+    /// default impl does NOT silently truncate the subtree on a transient
+    /// backend error — workspace policy treats silent-drop in a query
+    /// result as a server-side correctness bug (see workspace AGENTS.md,
+    /// Filter algebra exclusion §1). Callers that want best-effort
+    /// behaviour must override this method and document the partiality
+    /// in the consumer's response shape.
     fn query_subtree(
         &self,
         caller: &Self::CallerCtx,
@@ -159,15 +167,15 @@ pub trait FileNodeBackend: JmapBackend {
                 depth_remaining = depth_remaining.saturating_sub(1);
                 let mut next_frontier: Vec<jmap_types::Id> = Vec::new();
                 for parent_id in frontier.drain(..) {
-                    // Build parentId filter via serde (FileNodeFilterCondition is
-                    // #[non_exhaustive], cannot use struct literal outside defining crate).
-                    let filter_json = serde_json::json!({"parentId": parent_id.as_ref()});
-                    let child_filter: jmap_filenode_types::FileNodeFilterCondition =
-                        match serde_json::from_value(filter_json) {
-                            Ok(f) => f,
-                            Err(_) => continue,
-                        };
-                    if let Ok(result) = self
+                    // FileNodeFilterCondition is #[non_exhaustive], so build
+                    // via Default and field mutation (struct literal is not
+                    // permitted outside the defining crate). This is
+                    // infallible — no silent-drop window for filter
+                    // construction.
+                    let mut child_filter =
+                        jmap_filenode_types::FileNodeFilterCondition::default();
+                    child_filter.parent_id = Some(parent_id.clone());
+                    let result = self
                         .query_objects::<FileNode>(
                             caller,
                             &account_id,
@@ -176,16 +184,13 @@ pub trait FileNodeBackend: JmapBackend {
                             None,
                             0,
                         )
-                        .await
-                    {
-                        for id in result.ids {
-                            if seen.insert(id.clone()) {
-                                all_ids.push(id.clone());
-                                next_frontier.push(id);
-                            }
+                        .await?;
+                    for id in result.ids {
+                        if seen.insert(id.clone()) {
+                            all_ids.push(id.clone());
+                            next_frontier.push(id);
                         }
                     }
-                    // non-fatal on Err: skip this node's children
                 }
                 frontier = next_frontier;
             }

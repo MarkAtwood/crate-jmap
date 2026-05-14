@@ -166,6 +166,10 @@ pub(crate) mod test_support {
         /// parent_id → direct child IDs (for depth-query tests).
         /// Key is `Option<String>` where None means "children of root".
         children: HashMap<Option<String>, Vec<String>>,
+        /// When `Some(msg)`, `query_objects` returns `Err(MockError(msg))`
+        /// instead of consulting `children`.  Used to verify silent-error
+        /// regressions in `query_subtree` and `handle_filenode_query`.
+        query_objects_err: Option<String>,
     }
 
     /// In-memory mock backend for testing.
@@ -183,8 +187,16 @@ pub(crate) mod test_support {
                     descendants: HashMap::new(),
                     siblings: HashMap::new(),
                     children: HashMap::new(),
+                    query_objects_err: None,
                 })),
             }
+        }
+
+        /// Cause `query_objects` to return `Err(MockError(msg))` instead of
+        /// consulting registered children. Used to exercise error
+        /// propagation through `query_subtree` and `handle_filenode_query`.
+        pub fn set_query_objects_err(&self, msg: &str) {
+            self.inner.lock().unwrap().query_objects_err = Some(msg.to_owned());
         }
 
         pub fn new_with_account(account_id: &str) -> Self {
@@ -306,6 +318,11 @@ pub(crate) mod test_support {
             _limit: Option<u64>,
             _position: i64,
         ) -> Result<QueryResult, Self::Error> {
+            // Optional failure injection for tests covering silent-error
+            // regressions through callers of `query_objects`.
+            if let Some(msg) = self.inner.lock().unwrap().query_objects_err.clone() {
+                return Err(MockError(msg));
+            }
             // Support parentId filter for depth-query tests.  Try to interpret the
             // filter as a FileNodeFilterCondition via serde round-trip.  If the cast
             // fails or the filter has no parentId, return empty (default).
