@@ -409,3 +409,51 @@ async fn task_notification_set_unknown_account_returns_account_not_found() {
         "must be accountNotFound: {err_str}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Test 15: MemoryBackend enforces isDraft immutability at the backend layer
+// Oracle: draft-ietf-jmap-tasks-06 §4 (isDraft paragraph) — once isDraft is
+// set to false, it MUST NOT be updated back to true. Workspace AGENTS.md
+// "Permission enforcement: backend canonical" requires the backend to
+// re-verify atomically; the reference MemoryBackend models that.
+//
+// This test exercises Task/set end-to-end. MemoryBackend now returns
+// enforce_is_draft_atomically() = true, so the handler skips its pre-fetch
+// path and the rejection comes from the backend (not the handler).
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn task_set_isdraft_revert_rejected_by_memory_backend() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "Task",
+        "t1",
+        json!({
+            "id": "t1",
+            "@type": "Task",
+            "uid": "t1-uid",
+            "title": "Published task",
+            "isDraft": false
+        }),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "update": { "t1": { "isDraft": true } }
+    });
+    let (resp, _) = handle_task_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed at the top level");
+
+    let not_updated = resp["notUpdated"].as_object().expect("notUpdated present");
+    let err = not_updated.get("t1").expect("t1 in notUpdated");
+    assert_eq!(
+        err["type"], "invalidProperties",
+        "isDraft revert must be invalidProperties: {resp}"
+    );
+    assert_eq!(
+        err["properties"][0], "isDraft",
+        "isDraft must be listed in properties: {resp}"
+    );
+}

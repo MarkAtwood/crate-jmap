@@ -721,6 +721,25 @@ impl TasksBackend for MemoryBackend {
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
         })?;
+
+        // Backend-side isDraft re-check (draft-ietf-jmap-tasks-06 §4 isDraft
+        // paragraph): once isDraft transitions to false, the value MUST NOT
+        // be updated back to true. The handler at task.rs pre-fetches and
+        // rejects this same transition when `enforce_is_draft_atomically()`
+        // returns false, but workspace AGENTS.md "Permission enforcement:
+        // backend canonical" requires the backend to also re-verify
+        // atomically with the mutation. A reference impl that relied on
+        // the handler-only check would teach consumers a foot-gun.
+        if O::TYPE_NAME == "Task"
+            && patch_val.get("isDraft").and_then(|v| v.as_bool()) == Some(true)
+            && current.get("isDraft").and_then(|v| v.as_bool()) == Some(false)
+        {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(vec!["isDraft".to_owned()]),
+            ));
+        }
+
         if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
             return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::InvalidPatch)
@@ -791,5 +810,11 @@ impl TasksBackend for MemoryBackend {
         inner
             .aux_ref(account_id.as_ref())
             .is_some_and(|a| a.task_lists_with_tasks.contains(task_list_id))
+    }
+
+    /// MemoryBackend self-enforces the isDraft invariant atomically in
+    /// `update_object`, so the handler's pre-fetch fast-path is unnecessary.
+    fn enforce_is_draft_atomically(&self) -> bool {
+        true
     }
 }
