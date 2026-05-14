@@ -23,10 +23,13 @@
 
 use std::hint::black_box;
 
+use std::sync::Arc;
+
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
-use jmap_server::{parse_request, resolve_args};
-use jmap_types::Invocation;
+use jmap_server::{parse_request, resolve_args, Dispatcher, HandlerFuture, JmapHandler};
+use jmap_types::{Invocation, JmapRequest};
 use serde_json::{json, Value};
+use tokio::runtime::Runtime;
 
 /// A representative 3-call JMAP request body matching the canonical
 /// "list recent messages then fetch their threads" pattern from
@@ -179,10 +182,101 @@ fn bench_resolve_args_no_ref(c: &mut Criterion) {
     });
 }
 
+// -----------------------------------------------------------------------
+// Dispatcher::dispatch benches (bd:JMAP-wlip.8)
+//
+// Surface the per-call spawn overhead documented in bd:JMAP-wlip.8 so
+// any future change to the panic-isolation strategy (e.g. replacing
+// task::spawn with catch_unwind) can be measured for regression /
+// improvement. The handler is an unconditional Ok-returning no-op so
+// the bench measures the dispatcher overhead, not handler work.
+// -----------------------------------------------------------------------
+
+/// A handler that returns a fixed (empty-object, no-extras) success
+/// response. Used to isolate dispatcher overhead.
+struct NoopHandler;
+
+impl JmapHandler<()> for NoopHandler {
+    fn call(&self, _method: String, _call_id: String, _args: Value, _caller: ()) -> HandlerFuture {
+        Box::pin(async move { Ok((json!({}), vec![])) })
+    }
+}
+
+fn make_dispatcher() -> Dispatcher<()> {
+    let mut d: Dispatcher<()> = Dispatcher::new();
+    let handler: Arc<dyn JmapHandler<()>> = Arc::new(NoopHandler);
+    // Register the same handler under every method name the benches use.
+    for method in ["M/one", "M/a", "M/b"] {
+        d.register(method, Arc::clone(&handler));
+    }
+    d
+}
+
+/// Single-call request — minimum-overhead dispatch (one method, one
+/// spawn, one await).
+fn sample_single_call_request() -> JmapRequest {
+    JmapRequest::new(
+        vec!["urn:ietf:params:jmap:core".into()],
+        vec![("M/one".into(), json!({}), "c0".into())],
+        None,
+    )
+}
+
+/// 16-call request — the RFC 8620 §3 default `max_calls` cap. Captures
+/// the worst-case spawn overhead inside one parsed request.
+fn sample_sixteen_call_request() -> JmapRequest {
+    let mut calls: Vec<(String, Value, String)> = Vec::with_capacity(16);
+    for i in 0..16 {
+        let method = if i % 2 == 0 { "M/a" } else { "M/b" };
+        calls.push((method.into(), json!({}), format!("c{i}")));
+    }
+    JmapRequest::new(vec!["urn:ietf:params:jmap:core".into()], calls, None)
+}
+
+fn bench_dispatch_single_call(c: &mut Criterion) {
+    let rt = Runtime::new().expect("tokio runtime");
+    let dispatcher = make_dispatcher();
+    let request = sample_single_call_request();
+
+    c.bench_function("dispatch_single_call", |b| {
+        b.iter_batched(
+            || request.clone(),
+            |req| {
+                rt.block_on(async {
+                    let resp = dispatcher.dispatch(req, (), "s0".into()).await;
+                    black_box(resp);
+                });
+            },
+            BatchSize::SmallInput,
+        )
+    });
+}
+
+fn bench_dispatch_batch_of_sixteen(c: &mut Criterion) {
+    let rt = Runtime::new().expect("tokio runtime");
+    let dispatcher = make_dispatcher();
+    let request = sample_sixteen_call_request();
+
+    c.bench_function("dispatch_batch_of_sixteen", |b| {
+        b.iter_batched(
+            || request.clone(),
+            |req| {
+                rt.block_on(async {
+                    let resp = dispatcher.dispatch(req, (), "s0".into()).await;
+                    black_box(resp);
+                });
+            },
+            BatchSize::SmallInput,
+        )
+    });
+}
+
 criterion_group!(
     benches,
     bench_parse_request,
     bench_resolve_args_with_ref,
-    bench_resolve_args_no_ref
+    bench_resolve_args_no_ref,
+    bench_dispatch_single_call,
+    bench_dispatch_batch_of_sixteen,
 );
 criterion_main!(benches);
