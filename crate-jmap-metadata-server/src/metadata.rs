@@ -81,7 +81,6 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
         .and_then(|m| m.remove("filterRelatedType"))
         .and_then(|v| match v {
             Value::String(s) => Some(s),
-            Value::Null => None,
             _ => None,
         });
 
@@ -97,7 +96,6 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
                     })
                     .collect::<Vec<String>>(),
             ),
-            Value::Null => None,
             _ => None,
         });
 
