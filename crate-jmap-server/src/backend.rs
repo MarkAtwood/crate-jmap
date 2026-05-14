@@ -1038,7 +1038,7 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// this method. Handlers and downstream backend traits MAY rely on
     /// it being correct when it returns `Some`.
     ///
-    /// # Why an associated function and not a method (bd:JMAP-wlip.6)
+    /// # Why an associated function and not a method (bd:JMAP-wlip.6 / bd:JMAP-jfia.13)
     ///
     /// The signature deliberately takes `caller: &Self::CallerCtx`
     /// without a `&self` receiver. Backends therefore have no access
@@ -1055,6 +1055,16 @@ pub trait JmapBackend: Send + Sync + 'static {
     /// mapping) wires that mapping into the HTTP layer's `CallerCtx`
     /// construction step instead of trying to fit it inside the
     /// backend's `principal_id` impl.
+    ///
+    /// **Decision record (bd:JMAP-jfia.13)**: a future reviewer or AI
+    /// tool will reasonably suggest "this is an oversight, surely the
+    /// backend wants `&self` access to its identity store" and propose
+    /// `fn principal_id(&self, caller: ...) -> ...`. That suggestion
+    /// is **WRONG** and must be rejected: the function-vs-method
+    /// distinction is the structural enforcement of the no-JIT-lookup
+    /// policy. Comments alone could be ignored; the type system makes
+    /// the wrong thing impossible. Defending this shape protects the
+    /// workspace identity-seam policy from drift.
     fn principal_id(caller: &Self::CallerCtx) -> Option<&jmap_types::Id> {
         let _ = caller;
         None

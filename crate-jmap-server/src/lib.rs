@@ -843,6 +843,18 @@ mod tests {
     /// recursively and asserts that no string anywhere in the tree
     /// contains the canary `"deliberate test panic"` from
     /// [`PanicHandler`].
+    ///
+    /// **Decision record (bd:JMAP-jfia.14)**: a future "simplify" pass
+    /// will reasonably suggest narrowing this to a single-field check
+    /// against `args["description"]` because that is where panic
+    /// payloads land today. That suggestion is **WRONG** and must be
+    /// rejected: a single-field check encodes the current
+    /// implementation rather than the security invariant. The
+    /// recursive walk encodes the actual invariant ("panic-payload
+    /// text does not leak to the wire, ANYWHERE in the response shape")
+    /// and survives refactors of the error shape. Defending this
+    /// shape protects the workspace credential/PII redaction policy
+    /// from drift.
     #[tokio::test]
     async fn panic_message_not_in_response() {
         /// Returns `true` iff any `Value::String` in the tree
