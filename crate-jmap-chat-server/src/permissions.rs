@@ -40,15 +40,35 @@ pub const MANAGE_MEMBERS: &str = "manage_members";
 /// `removeCategories`, `updateCategories`).
 pub const MANAGE_CHANNELS: &str = "manage_channels";
 
-/// Sentinel returned for `SpacePatchOp` variants the helper does not
-/// recognize. [`SpacePatchOp`] is `#[non_exhaustive]` upstream, so a
-/// future-added variant cannot be matched here at compile time.
+/// Result of [`required_permissions_for_op`] — typed alternative to
+/// a sentinel-string return value.
 ///
-/// Returning a non-empty permission slice containing a string no realistic
-/// caller will ever hold ensures the helper fails closed: an unrecognized
-/// op cannot be authorized merely by absence of a permission requirement.
-/// Backends that observe this sentinel MUST reject the op.
-const UNKNOWN_OP_SENTINEL: &str = "__unknown_space_patch_op__";
+/// `SpacePatchOp` is `#[non_exhaustive]` upstream, so a future-added
+/// variant cannot be matched at compile time from this downstream
+/// crate. The [`UnknownOp`](Self::UnknownOp) arm signals that
+/// situation explicitly; backends MUST reject ops that produce
+/// `UnknownOp` rather than treating an empty permission set as
+/// "no permissions required".
+///
+/// The enum is `#[non_exhaustive]` so future variants (e.g. a
+/// `Conditional` arm carrying a runtime predicate) can be added
+/// without a SemVer break. Match arms in consumer code should
+/// include a `_ => { /* fail closed */ }` catch-all.
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RequiredPermissions {
+    /// The op's permission requirement is known and enumerated by
+    /// the draft. The contained slice is the list of permission
+    /// strings the caller MUST hold to apply this op. A caller's
+    /// effective-permission set must be a superset of this slice.
+    Known(&'static [&'static str]),
+    /// The op variant is not recognized by this version of
+    /// `required_permissions_for_op`. This happens when a
+    /// downstream-extended [`SpacePatchOp`] adds a new variant
+    /// that the kit predates. Backends MUST reject the op rather
+    /// than authorize it as zero-permissions-required.
+    UnknownOp,
+}
 
 /// Returns the set of permission strings required to apply this
 /// [`SpacePatchOp`] variant, per draft-atwood-jmap-chat-00 §Space/set
@@ -72,6 +92,15 @@ const UNKNOWN_OP_SENTINEL: &str = "__unknown_space_patch_op__";
 ///   `updateChannels`, `addCategories`, `removeCategories`,
 ///   `updateCategories`.
 ///
+/// Return shape: [`RequiredPermissions::Known`] carries the spec-
+/// derived permission slice; [`RequiredPermissions::UnknownOp`]
+/// signals that the op variant is not recognized and the backend
+/// MUST reject the patch (fail closed). The typed return value
+/// replaced an earlier `&'static [&'static str]` shape that used a
+/// magic sentinel string `"__unknown_space_patch_op__"` to signal
+/// the unknown case; that contract was load-bearing on a name no
+/// public API exposed, see bd:JMAP-x2gd.37.
+///
 /// This helper is pure and has no side effects. Backends consume it
 /// inside [`ChatBackend::apply_space_patch`] after resolving the
 /// caller's effective permissions. Handlers MUST NOT consume this
@@ -80,45 +109,46 @@ const UNKNOWN_OP_SENTINEL: &str = "__unknown_space_patch_op__";
 ///
 /// [`PatchObject`]: jmap_types::PatchObject
 /// [`ChatBackend::apply_space_patch`]: crate::backend::ChatBackend::apply_space_patch
-pub fn required_permissions_for_op(op: &SpacePatchOp) -> &'static [&'static str] {
+pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
     match op {
         // Role family — draft §Space/set lines 1102, 1105, 1108.
         SpacePatchOp::AddRole(_)
         | SpacePatchOp::RemoveRole(_)
-        | SpacePatchOp::UpdateRole { .. } => &[MANAGE_ROLES],
+        | SpacePatchOp::UpdateRole { .. } => RequiredPermissions::Known(&[MANAGE_ROLES]),
 
         // Member add/remove — draft §Space/set lines 1111, 1114.
-        SpacePatchOp::AddMember { .. } | SpacePatchOp::RemoveMember(_) => &[MANAGE_MEMBERS],
+        SpacePatchOp::AddMember { .. } | SpacePatchOp::RemoveMember(_) => {
+            RequiredPermissions::Known(&[MANAGE_MEMBERS])
+        }
 
         // Member update — draft §Space/set line 1117. Modifying `roleIds`
         // requires `manage_roles` in addition to `manage_members`; nick-only
         // edits require only `manage_members`.
         SpacePatchOp::UpdateMember { patch, .. } => {
             if patch.role_ids.is_some() {
-                &[MANAGE_MEMBERS, MANAGE_ROLES]
+                RequiredPermissions::Known(&[MANAGE_MEMBERS, MANAGE_ROLES])
             } else {
-                &[MANAGE_MEMBERS]
+                RequiredPermissions::Known(&[MANAGE_MEMBERS])
             }
         }
 
         // Channel family — draft §Space/set lines 1120, 1123, 1126.
         SpacePatchOp::AddChannel(_)
         | SpacePatchOp::RemoveChannel(_)
-        | SpacePatchOp::UpdateChannel { .. } => &[MANAGE_CHANNELS],
+        | SpacePatchOp::UpdateChannel { .. } => RequiredPermissions::Known(&[MANAGE_CHANNELS]),
 
         // Category family — draft §Space/set line 1129. Categories are a
         // sub-property of the channel-set per the draft; the same permission
         // gates both.
         SpacePatchOp::AddCategory(_)
         | SpacePatchOp::RemoveCategory(_)
-        | SpacePatchOp::UpdateCategory { .. } => &[MANAGE_CHANNELS],
+        | SpacePatchOp::UpdateCategory { .. } => RequiredPermissions::Known(&[MANAGE_CHANNELS]),
 
         // `SpacePatchOp` is `#[non_exhaustive]` upstream. A future-added
         // variant cannot be matched at compile time from this downstream
-        // crate. Fail closed by returning a sentinel string no caller can
-        // realistically hold; backends MUST reject ops whose required-set
-        // contains this sentinel.
-        _ => &[UNKNOWN_OP_SENTINEL],
+        // crate. Fail closed via the typed `UnknownOp` arm; backends MUST
+        // reject ops that produce this value.
+        _ => RequiredPermissions::UnknownOp,
     }
 }
 
@@ -176,13 +206,19 @@ mod tests {
     #[test]
     fn add_role_requires_manage_roles() {
         let op = SpacePatchOp::AddRole(role_fixture());
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_ROLES]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_ROLES])
+        );
     }
 
     #[test]
     fn remove_role_requires_manage_roles() {
         let op = SpacePatchOp::RemoveRole(Id::from("r1"));
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_ROLES]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_ROLES])
+        );
     }
 
     #[test]
@@ -193,7 +229,10 @@ mod tests {
             id: Id::from("r1"),
             patch,
         };
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_ROLES]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_ROLES])
+        );
     }
 
     #[test]
@@ -205,13 +244,19 @@ mod tests {
         // Spec table: `addMembers` is `manage_members`. The role_ids field on
         // AddMember does NOT additionally require `manage_roles` — only
         // `updateMembers` with a roleIds change does.
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_MEMBERS]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_MEMBERS])
+        );
     }
 
     #[test]
     fn remove_member_requires_manage_members() {
         let op = SpacePatchOp::RemoveMember(Id::from("u1"));
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_MEMBERS]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_MEMBERS])
+        );
     }
 
     #[test]
@@ -222,7 +267,10 @@ mod tests {
             user_id: Id::from("u1"),
             patch,
         };
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_MEMBERS]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_MEMBERS])
+        );
     }
 
     #[test]
@@ -235,7 +283,7 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            &[MANAGE_MEMBERS, MANAGE_ROLES]
+            RequiredPermissions::Known(&[MANAGE_MEMBERS, MANAGE_ROLES])
         );
     }
 
@@ -251,20 +299,26 @@ mod tests {
         };
         assert_eq!(
             required_permissions_for_op(&op),
-            &[MANAGE_MEMBERS, MANAGE_ROLES]
+            RequiredPermissions::Known(&[MANAGE_MEMBERS, MANAGE_ROLES])
         );
     }
 
     #[test]
     fn add_channel_requires_manage_channels() {
         let op = SpacePatchOp::AddChannel(channel_create_fixture());
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_CHANNELS]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+        );
     }
 
     #[test]
     fn remove_channel_requires_manage_channels() {
         let op = SpacePatchOp::RemoveChannel(Id::from("ch1"));
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_CHANNELS]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+        );
     }
 
     #[test]
@@ -275,19 +329,28 @@ mod tests {
             id: Id::from("ch1"),
             patch,
         };
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_CHANNELS]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+        );
     }
 
     #[test]
     fn add_category_requires_manage_channels() {
         let op = SpacePatchOp::AddCategory(category_fixture());
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_CHANNELS]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+        );
     }
 
     #[test]
     fn remove_category_requires_manage_channels() {
         let op = SpacePatchOp::RemoveCategory(Id::from("cat1"));
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_CHANNELS]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+        );
     }
 
     #[test]
@@ -298,7 +361,10 @@ mod tests {
             id: Id::from("cat1"),
             patch,
         };
-        assert_eq!(required_permissions_for_op(&op), &[MANAGE_CHANNELS]);
+        assert_eq!(
+            required_permissions_for_op(&op),
+            RequiredPermissions::Known(&[MANAGE_CHANNELS])
+        );
     }
 
     // The constants are also the verbatim permission strings used on the
@@ -312,16 +378,32 @@ mod tests {
         assert_eq!(MANAGE_CHANNELS, "manage_channels");
     }
 
-    // Helper returns `&'static [&'static str]`: no allocation. Pin that the
-    // function pointer signature is stable by calling and binding to that
-    // exact type.
+    // Helper returns `RequiredPermissions` carrying `&'static [&'static str]`
+    // for the Known arm: no allocation. Pin the function pointer signature so
+    // a future return-type drift is caught at compile time.
     #[test]
-    fn helper_returns_static_slice() {
-        fn assert_static_slice<F>(_f: F)
+    fn helper_returns_typed_known_or_unknown() {
+        fn assert_typed_return<F>(_f: F)
         where
-            F: Fn(&SpacePatchOp) -> &'static [&'static str],
+            F: Fn(&SpacePatchOp) -> RequiredPermissions,
         {
         }
-        assert_static_slice(required_permissions_for_op);
+        assert_typed_return(required_permissions_for_op);
+    }
+
+    // Round-trip the typed return shape: a Known arm must carry a non-empty,
+    // static slice; the UnknownOp arm must be constructible as a literal so
+    // consumers can write match arms that fail closed.
+    #[test]
+    fn unknown_op_variant_is_distinct_from_any_known_arm() {
+        // Two Known values with different content are unequal; a Known value
+        // is never equal to UnknownOp.
+        let a = RequiredPermissions::Known(&[MANAGE_ROLES]);
+        let b = RequiredPermissions::Known(&[MANAGE_MEMBERS]);
+        let u = RequiredPermissions::UnknownOp;
+        assert_ne!(a, b);
+        assert_ne!(a, u);
+        assert_ne!(b, u);
+        assert_eq!(u, RequiredPermissions::UnknownOp);
     }
 }
