@@ -2660,7 +2660,9 @@ fn validate_space_patch_ops(
     ops: &[SpacePatchOp],
     protect_last_admin: bool,
 ) -> Result<(), SetError> {
-    use crate::permissions::{required_permissions_for_op, MANAGE_MEMBERS, MANAGE_SPACE};
+    use crate::permissions::{
+        required_permissions_for_op, RequiredPermissions, MANAGE_MEMBERS, MANAGE_SPACE,
+    };
 
     // Identity-dependent checks: permission gating + hierarchy.
     if let Some(caller_id) = caller_id {
@@ -2670,11 +2672,32 @@ fn validate_space_patch_ops(
         for op in ops {
             // Permission gate (criterion 1). Applies to ALL op
             // families. `required_permissions_for_op` returns the
-            // per-variant permission slice from
-            // draft-atwood-jmap-chat-00 §Space/set; a caller missing
-            // any required permission triggers a whole-patch reject
-            // (criterion 6).
-            let required = required_permissions_for_op(op);
+            // per-variant permission set from draft-atwood-jmap-chat-00
+            // §Space/set; a caller missing any required permission
+            // triggers a whole-patch reject (criterion 6). An unknown
+            // op variant fails closed via `RequiredPermissions::UnknownOp`
+            // — the kit cannot enumerate permissions for a variant it
+            // does not recognize, so the safe answer is "no, you cannot
+            // apply it".
+            // `RequiredPermissions` is `#[non_exhaustive]` at the public
+            // crate boundary, but the compiler sees all variants from
+            // within this crate. Match exhaustively on the in-crate
+            // variant set so a future Conditional / Layered / etc. arm
+            // forces a deliberate fail-closed decision at compile time
+            // rather than silently routing through a wildcard.
+            let required = match required_permissions_for_op(op) {
+                RequiredPermissions::Known(slice) => slice,
+                RequiredPermissions::UnknownOp => {
+                    return Err(
+                        SetError::new(SetErrorType::Forbidden).with_description(format!(
+                            "unknown SpacePatchOp variant `{}`; this version of \
+                             the kit cannot determine its permission requirement, \
+                             rejecting fail-closed",
+                            variant_name(op)
+                        )),
+                    );
+                }
+            };
             for req in required {
                 if !caller_perms.contains(*req) {
                     return Err(
