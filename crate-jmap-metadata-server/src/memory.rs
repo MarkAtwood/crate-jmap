@@ -595,6 +595,20 @@ impl MetadataBackend for MemoryBackend {
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let mut inner = self.inner.lock().unwrap();
 
+        // Defense-in-depth account guard (bd:JMAP-ayoz.2). The handler
+        // layer (handle_metadata_set) is canonical for RFC 8620 §1.6.2
+        // accountNotFound, but a backend `create_object` is also called
+        // directly from test seeders and from any future caller that
+        // bypasses the handler. Silently extending `known_accounts` on
+        // a per-object call would mean a stray create attaches private
+        // metadata records to a phantom account.
+        if !inner.known_accounts.contains(account_id.as_ref()) {
+            return Err(BackendSetError::Other(MemoryError(format!(
+                "unknown account: {}",
+                account_id.as_ref()
+            ))));
+        }
+
         // Serialize so we can both inspect for the uniqueness key (when this
         // is a Metadata object) and stash the final JSON in the store.
         let mut val = serde_json::to_value(&obj)
@@ -634,7 +648,6 @@ impl MetadataBackend for MemoryBackend {
             BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
         })?;
 
-        inner.known_accounts.insert(account_id.as_ref().to_owned());
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         // Capture related_type / type_name from the stored value BEFORE the
         // val moves into objects_mut. For non-Metadata types these strings
@@ -1134,5 +1147,54 @@ mod tests {
             .await
             .unwrap();
         assert_eq!(not_found, vec![new_id]);
+    }
+
+    /// Oracle: bd:JMAP-ayoz.2 — `create_object` against an unknown
+    /// accountId MUST return an error and MUST NOT auto-register the
+    /// account in `known_accounts`. Defense-in-depth for callers that
+    /// bypass the handler-level `account_exists` guard.
+    #[tokio::test]
+    async fn create_object_unknown_account_errors_without_registering() {
+        // Backend has no known accounts.
+        let backend = MemoryBackend::new_with_accounts(&[]);
+        let bogus = Id::from("acc-bogus");
+
+        assert!(
+            !backend
+                .account_exists(&(), &bogus)
+                .await
+                .expect("account_exists must succeed"),
+            "pre-condition: acc-bogus must not be known",
+        );
+
+        let meta: Metadata = serde_json::from_value(serde_json::json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM1"
+        }))
+        .expect("fixture must deserialize");
+
+        let result = backend
+            .create_object::<Metadata>(&(), &bogus, "c1", meta)
+            .await;
+
+        match result {
+            Err(BackendSetError::Other(MemoryError(msg))) => {
+                assert!(
+                    msg.contains("unknown account"),
+                    "error message must identify the account problem: {msg}",
+                );
+            }
+            other => panic!("expected BackendSetError::Other for unknown account, got: {other:?}"),
+        }
+
+        // Post-condition: the bogus account was NOT silently registered.
+        assert!(
+            !backend
+                .account_exists(&(), &bogus)
+                .await
+                .expect("account_exists must succeed"),
+            "create_object must not auto-register unknown accountId",
+        );
     }
 }
