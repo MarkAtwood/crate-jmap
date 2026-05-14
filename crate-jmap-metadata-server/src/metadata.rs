@@ -186,9 +186,31 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
 
 /// Re-fetch each Id in `response[key]` via `get_objects::<Metadata>` and
 /// retain only those whose `relatedType` and `@type` match the supplied
-/// filters. A Metadata object that the backend can no longer fetch (e.g.
-/// it was destroyed between the `/changes` call and this fetch) is dropped
-/// to avoid returning stale Ids.
+/// filters.
+///
+/// **TOCTOU policy** (bd:JMAP-ayoz.4). If a Metadata object the change
+/// log named for this window can no longer be fetched — typically because
+/// a concurrent /set destroyed it between the `get_metadata_changes` call
+/// and the `get_objects` call inside this function — its Id is **kept**
+/// in the filtered array, not dropped.
+///
+/// Rationale: dropping the Id is the worst of both worlds. The state
+/// token covers the window inclusive of the original change-log entry,
+/// but the response arrays would no longer carry it; a client diffing
+/// against the response would believe the object was never
+/// created/updated in this window and the next /changes call from the
+/// new state would not re-report it (the entry is on the wrong side of
+/// the state cursor). The Id would be silently lost. Keeping the Id
+/// matches the conservative interpretation of draft §3.3: the filter
+/// applies to which entries appear, not to which entries the server is
+/// allowed to forget.
+///
+/// Note that the default-impl path is still best-effort wrt filter
+/// fidelity for objects that disappear mid-flight: a kept Id may not
+/// actually match the filter the client requested (because we cannot
+/// inspect its `relatedType` / `@type` post-destroy). Backends that
+/// override `get_metadata_changes` and pre-filter from the change log
+/// directly do not pay this cost.
 async fn filter_changes_array<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -229,7 +251,10 @@ async fn filter_changes_array<B: MetadataBackend>(
         .into_iter()
         .filter(|id_str| {
             let Some(meta) = lookup.get(id_str) else {
-                return false; // dropped — object disappeared
+                // TOCTOU policy (see function rustdoc): the object
+                // disappeared between the change-log read and this
+                // re-fetch. Keep the Id rather than silently drop it.
+                return true;
             };
             if let Some(rt) = filter_related_type {
                 if meta.related_type() != rt {
@@ -995,5 +1020,63 @@ mod tests {
             .filter_map(|v| v.as_str())
             .collect();
         assert_eq!(created_ids, vec!["md1"]);
+    }
+
+    /// Oracle: bd:JMAP-ayoz.4 — filter_changes_array's post-fetch path
+    /// MUST NOT silently drop an Id whose Metadata object disappeared
+    /// between the change-log read and the get_objects re-fetch (TOCTOU
+    /// with a concurrent destroyer). The Id is kept; per draft §3.3 the
+    /// filter applies to which entries appear, not to which entries the
+    /// server is allowed to forget.
+    ///
+    /// Setup: seed the change log with two created Ids (md_present,
+    /// md_gone), but only register md_present's actual Metadata object
+    /// in the mock. The re-fetch returns md_gone in `not_found`,
+    /// simulating a concurrent destroy.
+    #[tokio::test]
+    async fn changes_filter_keeps_id_when_object_disappeared_mid_flight() {
+        let backend = MockBackend::new_with_account("acc1");
+        // Only one of the two created-id targets actually exists in the
+        // mock store — the other simulates a concurrent destroy.
+        backend.add_metadata(
+            "acc1",
+            "md_present",
+            json!({
+                "@type": "Annotation",
+                "id": "md_present",
+                "relatedType": "Email",
+                "relatedId": "EM1"
+            }),
+        );
+        {
+            let mut guard = backend.state_for_test();
+            let acct = guard.get_mut("acc1").unwrap();
+            acct.created = vec![Id::from("md_present"), Id::from("md_gone")];
+            acct.state = 1;
+        }
+
+        // Use a filter so filter_changes_array runs (it short-circuits
+        // when both filter args are None).
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": "Email"
+        });
+        let (resp, _) = handle_metadata_changes(&backend, &(), args).await.unwrap();
+
+        let created_ids: Vec<&str> = resp["created"]
+            .as_array()
+            .expect("created must be array")
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert!(
+            created_ids.contains(&"md_present"),
+            "md_present (Email) must survive filter: {resp}",
+        );
+        assert!(
+            created_ids.contains(&"md_gone"),
+            "md_gone (disappeared mid-flight) MUST be kept, not silently dropped: {resp}",
+        );
     }
 }
