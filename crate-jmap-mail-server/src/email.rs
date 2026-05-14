@@ -2210,10 +2210,13 @@ pub async fn handle_email_parse<B: MailBackend>(
             }
             Err(_) => {
                 // RFC 8621 §5.8: distinguish "blob not found" from "not parsable".
-                if backend.blob_exists(caller, &account_id, blob_id).await {
-                    not_parsable.push(Value::String(blob_id.as_ref().to_owned()));
-                } else {
-                    not_found.push(Value::String(blob_id.as_ref().to_owned()));
+                // A transient backend error (Err) propagates as a top-level
+                // serverFail so the client retries instead of silently
+                // mis-classifying the blob as not-found.
+                match backend.blob_exists(caller, &account_id, blob_id).await {
+                    Ok(true) => not_parsable.push(Value::String(blob_id.as_ref().to_owned())),
+                    Ok(false) => not_found.push(Value::String(blob_id.as_ref().to_owned())),
+                    Err(e) => return Err(server_fail_from_backend(&e)),
                 }
             }
         }

@@ -185,12 +185,26 @@ pub trait MailBackend: JmapBackend {
     /// forces each backend author to confront this distinction. A default of `true`
     /// would silently produce non-conformant behavior for backends where blobs can
     /// be absent.
+    ///
+    /// # Three-way result
+    ///
+    /// The return type is `Result<bool, Self::Error>` to distinguish three
+    /// states that callers actually need to tell apart:
+    ///
+    /// - `Ok(true)` — the blob is definitely present and reachable.
+    /// - `Ok(false)` — the blob is definitely absent. The handler maps this
+    ///   to `invalidProperties` ("blob not found") on a create, or to a
+    ///   `notFound` entry on `Email/parse`.
+    /// - `Err(_)` — connectivity/transient failure. The handler maps this
+    ///   to `serverFail` so the client knows to retry. Returning `Ok(false)`
+    ///   for a transient backend failure is a bug: it surfaces as a
+    ///   deterministic-looking error and the client will not retry.
     fn blob_exists(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = bool> + Send;
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Parse a raw message blob and return an Email object without storing it
     /// (RFC 8621 §5.8 — `Email/parse`).

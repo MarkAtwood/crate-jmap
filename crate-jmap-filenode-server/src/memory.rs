@@ -656,9 +656,14 @@ impl FileNodeBackend for MemoryBackend {
         Ok(result)
     }
 
-    async fn blob_exists(&self, _caller: &(), _account_id: &Id, _blob_id: &Id) -> bool {
+    async fn blob_exists(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        _blob_id: &Id,
+    ) -> Result<bool, Self::Error> {
         // In the test environment, all blobs are assumed to exist.
-        true
+        Ok(true)
     }
 
     /// Case-folding algorithm: `str::to_lowercase` (Unicode simple lowercase,

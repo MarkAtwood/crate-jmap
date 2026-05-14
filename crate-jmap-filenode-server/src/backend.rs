@@ -128,12 +128,27 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// Used by `FileNode/set` to validate `blobId` fields before creating or
     /// updating a file node with type `"file"`.
+    ///
+    /// # Three-way result
+    ///
+    /// The return type is `Result<bool, Self::Error>` to distinguish three
+    /// states that callers actually need to tell apart:
+    ///
+    /// - `Ok(true)` — the blob is definitely present and reachable.
+    /// - `Ok(false)` — the blob is definitely absent. The handler maps this
+    ///   to `invalidProperties` ("blob not found") on a create.
+    /// - `Err(_)` — connectivity/transient failure. The handler maps this
+    ///   to `serverFail` so the client knows to retry. Returning `Ok(false)`
+    ///   for a transient backend failure is a bug: the client receives a
+    ///   deterministic-looking error and will not retry.
+    ///
+    /// Mirrors the canonical `MailBackend::blob_exists` contract.
     fn blob_exists(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         blob_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = bool> + Send;
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Returns the id of any sibling node that already has the given name, or
     /// `None` if the name is unique within that parent.

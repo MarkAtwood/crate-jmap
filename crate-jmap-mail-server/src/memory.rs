@@ -1368,9 +1368,14 @@ impl MailBackend for MemoryBackend {
     // blob_exists / parse_email
     // -----------------------------------------------------------------------
 
-    async fn blob_exists(&self, _caller: &(), _account_id: &Id, blob_id: &Id) -> bool {
+    async fn blob_exists(
+        &self,
+        _caller: &(),
+        _account_id: &Id,
+        blob_id: &Id,
+    ) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
-        inner.blobs.contains_key(blob_id)
+        Ok(inner.blobs.contains_key(blob_id))
     }
 
     async fn parse_email(

@@ -177,6 +177,10 @@ pub(crate) mod test_support {
         /// Used to verify error propagation through
         /// `handle_filenode_get`'s fetchParents path.
         get_ancestors_err: Option<String>,
+        /// When `Some(msg)`, `blob_exists` returns `Err(MockError(msg))`.
+        /// Used to verify error propagation through `handle_filenode_set`'s
+        /// blobId pre-check.
+        blob_exists_err: Option<String>,
         /// Pre-seeded FileNode list returned by `get_objects::<FileNode>`.
         /// Stored as the JSON shape so the generic round-trip in
         /// `get_objects` can decode it back into `O`.
@@ -214,6 +218,7 @@ pub(crate) mod test_support {
                     query_objects_err: None,
                     query_objects_calls: 0,
                     get_ancestors_err: None,
+                    blob_exists_err: None,
                     get_objects_nodes: Vec::new(),
                     create_object_override_name: None,
                 })),
@@ -234,6 +239,13 @@ pub(crate) mod test_support {
         /// fetchParents path.
         pub fn set_get_ancestors_err(&self, msg: &str) {
             self.inner.lock().unwrap().get_ancestors_err = Some(msg.to_owned());
+        }
+
+        /// Cause `blob_exists` to return `Err(MockError(msg))`. Used to
+        /// exercise error propagation through `handle_filenode_set`'s
+        /// blob existence pre-check on file-type creates.
+        pub fn set_blob_exists_err(&self, msg: &str) {
+            self.inner.lock().unwrap().blob_exists_err = Some(msg.to_owned());
         }
 
         /// Add a pre-seeded FileNode (as a JSON value) to the list returned
@@ -566,9 +578,18 @@ pub(crate) mod test_support {
                 .unwrap_or_default())
         }
 
-        async fn blob_exists(&self, _caller: &(), _account_id: &Id, _blob_id: &Id) -> bool {
-            // Mock always reports blobs as existing.
-            true
+        async fn blob_exists(
+            &self,
+            _caller: &(),
+            _account_id: &Id,
+            _blob_id: &Id,
+        ) -> Result<bool, Self::Error> {
+            let guard = self.inner.lock().unwrap();
+            if let Some(msg) = guard.blob_exists_err.as_ref() {
+                return Err(MockError(msg.clone()));
+            }
+            // In the test environment, all blobs are assumed to exist.
+            Ok(true)
         }
 
         async fn find_sibling_by_name(

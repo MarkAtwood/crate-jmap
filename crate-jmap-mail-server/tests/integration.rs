@@ -618,7 +618,12 @@ async fn search_snippet_get_capability_gated() {
                 .await
         }
 
-        async fn blob_exists(&self, _caller: &(), account_id: &Id, blob_id: &Id) -> bool {
+        async fn blob_exists(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            blob_id: &Id,
+        ) -> Result<bool, Self::Error> {
             self.0.blob_exists(&(), account_id, blob_id).await
         }
 
@@ -12269,6 +12274,40 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
         err.error_type.as_str(),
         "cannotCalculateChanges",
         "error must be cannotCalculateChanges; got: {:?}",
+        err.error_type
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Email/parse — blob_exists Err propagates as top-level serverFail
+// Oracle: MailBackend::blob_exists contract (bd:JMAP-510h.31) — Err(_) from
+// a transient backend failure MUST NOT be silently treated as
+// "blob not found"; it must propagate as serverFail so the client retries.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn email_parse_blob_exists_err_propagates_as_server_fail() {
+    use jmap_mail_server::handle_email_parse;
+
+    let backend = FaultyBackend::new();
+    backend.inner.register_account(&Id::from("acct1"));
+
+    // Inject blob_exists fault. Don't store the blob — parse_email will
+    // fail first, then the handler asks blob_exists (which now Errs).
+    backend.inject("", "blob_exists");
+
+    let parse_args = serde_json::json!({
+        "accountId": "acct1",
+        "blobIds": ["B-does-not-exist"],
+    });
+    let result = handle_email_parse(&backend, &(), parse_args).await;
+    let err =
+        result.expect_err("blob_exists Err must surface as a JmapError, not be silently coerced");
+    assert_eq!(
+        err.error_type.as_str(),
+        "serverFail",
+        "transient backend error MUST surface as serverFail so the client \
+         retries; got: {:?}",
         err.error_type
     );
 }

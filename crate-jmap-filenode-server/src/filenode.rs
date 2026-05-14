@@ -515,15 +515,21 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
                 continue;
             }
 
-            // For file nodes, verify the blob exists.
+            // For file nodes, verify the blob exists. A transient backend
+            // error propagates as a top-level serverFail so the client
+            // retries instead of silently mis-classifying as blob-not-found.
             if matches!(node.node_type.as_ref(), Some(NodeType::File)) {
                 if let Some(ref blob_id) = node.blob_id {
-                    if !backend.blob_exists(caller, &account_id, blob_id).await {
-                        not_created.insert(
-                            create_id,
-                            json!({ "type": "invalidProperties", "properties": ["blobId"], "description": "blob not found" }),
-                        );
-                        continue;
+                    match backend.blob_exists(caller, &account_id, blob_id).await {
+                        Ok(true) => {}
+                        Ok(false) => {
+                            not_created.insert(
+                                create_id,
+                                json!({ "type": "invalidProperties", "properties": ["blobId"], "description": "blob not found" }),
+                            );
+                            continue;
+                        }
+                        Err(e) => return Err(server_fail_from_backend(&e)),
                     }
                 }
             }
@@ -1602,6 +1608,42 @@ mod tests {
             "fetchParents + get_ancestors Err must propagate as JMAP \
              error, not return a silently-truncated list. got Ok: {:?}",
             result.ok()
+        );
+    }
+
+    /// Oracle: FileNodeBackend::blob_exists contract — `Err(_)` MUST
+    /// propagate as a top-level serverFail. Silently treating a backend
+    /// error as Ok(false) and returning `invalidProperties: blob not
+    /// found` mis-classifies a transient connectivity failure as a
+    /// deterministic error, so the client will not retry.
+    ///
+    /// Regression for bd JMAP-510h.31 — the prior signature returned
+    /// bool, leaving the implementor no way to signal Err.
+    #[tokio::test]
+    async fn set_create_blob_exists_err_propagates_as_server_fail() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.set_blob_exists_err("simulated S3 timeout");
+
+        let args = json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": {
+                    "name": "doc.bin",
+                    "parentId": null,
+                    "role": null,
+                    "nodeType": "file",
+                    "blobId": "B-some-blob"
+                }
+            }
+        });
+        let result = handle_filenode_set(&backend, &(), args).await;
+        let err = result
+            .expect_err("blob_exists Err must surface as a JmapError, not Ok with notCreated");
+        assert_eq!(
+            err.error_type.as_str(),
+            "serverFail",
+            "transient backend error MUST surface as serverFail so the \
+             client retries; got: {err:?}"
         );
     }
 
