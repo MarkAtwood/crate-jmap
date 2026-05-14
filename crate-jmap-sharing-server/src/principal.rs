@@ -61,6 +61,19 @@ pub async fn handle_principal_set<B: SharingBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
+    // RFC 8620 §3.6.2: an unknown accountId MUST surface as `accountNotFound`.
+    // The /get-family handlers in `jmap_server::handlers` perform this check
+    // internally; the hand-rolled /set handler must reproduce it explicitly.
+    // Mirrors the canonical pattern at
+    // `crate-jmap-mail-server/src/mailbox.rs:441-447`.
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
     let old_state = backend
         .get_state::<Principal>(caller, &account_id)
         .await
@@ -373,6 +386,31 @@ mod tests {
         let result = handle_principal_set(&backend, &(), args).await;
         let err = result.expect_err("must return top-level error for non-string destroy element");
         assert_eq!(err.error_type.as_str(), "invalidArguments");
+    }
+
+    /// Oracle: Principal/set with unknown accountId must return top-level
+    /// accountNotFound (RFC 8620 §3.6.2), NOT silently proceed and build a
+    /// fabricated /set response envelope. Regression guard for
+    /// bd:JMAP-3t94.1.
+    #[tokio::test]
+    async fn set_unknown_account_returns_account_not_found() {
+        // MockBackend::new() registers no accounts → account_exists returns
+        // false for any accountId.
+        let backend = MockBackend::new();
+        let args = json!({
+            "accountId": "unknown",
+            "create": {
+                "c1": { "type": "individual", "name": "Mallory" }
+            }
+        });
+        let result = handle_principal_set(&backend, &(), args).await;
+        let err = result.expect_err("must return top-level error for unknown account");
+        assert_eq!(
+            err.error_type.as_str(),
+            "accountNotFound",
+            "unknown accountId must produce accountNotFound; got: {:?}",
+            err.error_type
+        );
     }
 
     /// Oracle: Principal/set create with invalid JSON → invalidProperties in notCreated.
