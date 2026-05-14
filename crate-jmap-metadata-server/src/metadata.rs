@@ -597,7 +597,7 @@ fn walk_filter_for_related_ids_constraint(
 /// Handle a `Metadata/query` method call (draft-ietf-jmap-metadata-01 §3.4).
 ///
 /// Standard JMAP `/query` per RFC 8620 §5.5. The
-/// [`MetadataFilterCondition`](jmap_metadata_types::MetadataFilterCondition)
+/// [`MetadataFilterCondition`]
 /// supports `@type`, `relatedType`, `relatedId`/`relatedIds`, `isPrivate`,
 /// and `textMatch` operators (§3.4.1). Per §3.4.2 the result is sortable on
 /// `id`, `@type`, `relatedType`, `relatedId`, and `isPrivate`.
