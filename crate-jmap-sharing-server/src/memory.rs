@@ -156,6 +156,18 @@ impl Inner {
 ///
 /// Stores objects as serialized JSON; each mutation bumps a monotonic state
 /// counter and records a change log entry.
+///
+/// # Clone semantics — shared state, not independent copies
+///
+/// `MemoryBackend: Clone` is implemented as a cheap [`Arc`] clone:
+/// `b1.clone()` produces a second handle to the **same** shared state
+/// behind a [`Mutex`]. Mutating through one clone is visible through every
+/// other clone. This is the workspace pattern for `Arc<Mutex<_>>`-backed
+/// reference impls and matches the canonical `jmap-mail-server`.
+///
+/// To build an independent backend (e.g. for parameterized tests that need
+/// distinct state per case), construct a new instance with
+/// [`Self::new`] / [`Self::default`] rather than calling `.clone()`.
 #[derive(Clone, Default)]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
@@ -168,14 +180,33 @@ impl MemoryBackend {
         Self::default()
     }
 
+    /// Register an account as known even if it has no objects yet.
+    /// Use this in tests that need an empty-but-valid account.
+    ///
+    /// Matches the canonical [`jmap_mail_server::memory::MemoryBackend::register_account`](https://docs.rs/jmap-mail-server)
+    /// shape (`&self` + `&Id`). Prefer this over the legacy
+    /// [`Self::new_with_accounts`] constructor in new code — it composes
+    /// with `Arc<MemoryBackend>` since it takes `&self`, and accepts the
+    /// strongly-typed [`Id`] rather than a raw `&str`.
+    pub fn register_account(&self, account_id: &Id) {
+        let mut inner = self.inner.lock().unwrap();
+        inner.known_accounts.insert(account_id.as_ref().to_owned());
+    }
+
     /// Register one or more accounts as known even if they have no objects yet.
+    ///
+    /// Convenience constructor that calls [`Self::register_account`] for
+    /// each id. Equivalent to `Self::new()` followed by repeated
+    /// `register_account` calls. The canonical sibling
+    /// `jmap-mail-server` does NOT ship this shape — it only ships
+    /// `register_account(&self, &Id)`. This crate keeps `new_with_accounts`
+    /// for ergonomic test fixture construction; new code SHOULD prefer
+    /// `register_account` post-construction for canonical-template
+    /// alignment.
     pub fn new_with_accounts(account_ids: &[&str]) -> Self {
         let b = Self::new();
-        {
-            let mut inner = b.inner.lock().unwrap();
-            for id in account_ids {
-                inner.known_accounts.insert((*id).to_owned());
-            }
+        for id in account_ids {
+            b.register_account(&Id::from(*id));
         }
         b
     }
@@ -243,9 +274,15 @@ impl MemoryBackend {
     }
 }
 
-/// A simple string error for MemoryBackend failures.
+/// Opaque storage-layer error returned by [`MemoryBackend`] operations.
+///
+/// The inner [`String`] is a human-readable description intended for
+/// diagnostic logging; it is not a stable wire-format identifier.
 #[derive(Debug)]
-pub struct MemoryError(pub String);
+pub struct MemoryError(
+    /// Human-readable description of the underlying failure.
+    pub String,
+);
 
 impl std::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -475,8 +512,7 @@ impl JmapBackend for MemoryBackend {
         let query_state = State::from(
             inner
                 .current_state(O::TYPE_NAME, account_id.as_ref())
-                .to_string()
-                .as_str(),
+                .to_string(),
         );
 
         let start = if position >= 0 {
@@ -528,8 +564,7 @@ impl JmapBackend for MemoryBackend {
         let new_query_state = State::from(
             inner
                 .current_state(O::TYPE_NAME, account_id.as_ref())
-                .to_string()
-                .as_str(),
+                .to_string(),
         );
 
         let current_ids: Vec<Id> = inner
@@ -575,6 +610,12 @@ impl SharingBackend for MemoryBackend {
         let server_id = Self::demo_next_id(&mut inner, O::TYPE_NAME, account_id.as_ref());
 
         // Serialize, set "id" to the server-assigned id, then deserialize back.
+        // Uses `map_err` (not `.expect`) because `O` is an associated type
+        // controlled by the consumer: a downstream `SetObject` impl with a
+        // hand-rolled `Serialize` could in principle fail. Handler-site
+        // serializations of plain crate-defined types use `.expect` since
+        // their derive(Serialize) impl is provably infallible
+        // (see `helpers::set_error_value`, `principal::handle_principal_set`).
         let mut val = serde_json::to_value(&obj)
             .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize: {e}"))))?;
         val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
@@ -640,6 +681,10 @@ impl SharingBackend for MemoryBackend {
         // update` shapes. `current` is a clone of the stored value, so a
         // partially-applied patch on error is discarded with the local
         // without touching storage.
+        //
+        // `map_err` (not `.expect`) on `to_value(&patch)` because
+        // `O::Patch` is a consumer-controlled associated type — see the
+        // `create_object` comment above for the full rationale.
         let patch_val = serde_json::to_value(&patch)
             .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize patch: {e}"))))?;
         if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
