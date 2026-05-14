@@ -185,9 +185,11 @@ pub async fn handle_changes<O: JmapObject, B: JmapBackend>(
             "newState": result.new_state.as_ref(),
             "hasMoreChanges": result.has_more_changes,
             "updatedProperties": Value::Null,
-            "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-            "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-            "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+            // bd:JMAP-wlip.28 — Vec<Id> serializes directly via Id's
+            // #[serde(transparent)] impl; no intermediate &str Vec needed.
+            "created":   result.created,
+            "updated":   result.updated,
+            "destroyed": result.destroyed,
         }),
         vec![],
     ))
@@ -269,7 +271,9 @@ pub async fn handle_query<O: QueryObject, B: JmapBackend>(
         "queryState": result.query_state.as_ref(),
         "canCalculateChanges": result.can_calculate_changes,
         "position": result.position,
-        "ids": result.ids.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        // bd:JMAP-wlip.28 — Vec<Id> serializes directly via Id's
+        // #[serde(transparent)] impl.
+        "ids": result.ids,
     });
     if calculate_total {
         if let Some(t) = result.total {
@@ -358,7 +362,6 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         .await
         .map_err(JmapError::from)?;
 
-    let removed: Vec<&str> = result.removed.iter().map(|id| id.as_ref()).collect();
     let added: Vec<Value> = result
         .added
         .iter()
@@ -374,7 +377,8 @@ pub async fn handle_query_changes<O: QueryObject, B: JmapBackend>(
         "accountId": account_id.as_ref(),
         "oldQueryState": result.old_query_state.as_ref(),
         "newQueryState": result.new_query_state.as_ref(),
-        "removed": removed,
+        // bd:JMAP-wlip.28 — Vec<Id> serializes directly.
+        "removed": result.removed,
         "added": added,
     });
     if calculate_total {

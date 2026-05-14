@@ -13,6 +13,9 @@ pub fn ser<T: serde::Serialize>(val: T) -> Result<serde_json::Value, JmapError> 
 ///
 /// RFC 8620 §5.1 specifies `notFound` as `Id[]` — always an array, never
 /// `null`. Returns an empty array when all requested ids were found.
+///
+/// Equivalent to `serde_json::to_value(ids)` but threads through
+/// `Value::Array` directly so the call site is infallible (bd:JMAP-wlip.28).
 pub fn not_found_json(ids: &[Id]) -> Value {
     Value::Array(
         ids.iter()
