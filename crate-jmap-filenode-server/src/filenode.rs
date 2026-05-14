@@ -67,20 +67,26 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
             let node_ids: Vec<Id> = existing_ids.iter().map(|s| Id::from(s.as_str())).collect();
 
             if !node_ids.is_empty() {
-                if let Ok(ancestors) = backend.get_ancestors(caller, &account_id, &node_ids).await {
-                    let list = response["list"].as_array_mut().expect("list must be array");
-                    for ancestor in ancestors {
-                        // Deduplicate: only append if not already in the list.
-                        let ancestor_id = ancestor.id.as_ref().to_owned();
-                        if !existing_ids.contains(&ancestor_id) {
-                            if let Ok(v) = serde_json::to_value(&ancestor) {
-                                list.push(v);
-                            }
+                // draft-ietf-jmap-filenode-13 §3.2.1 makes fetchParents
+                // part of the request contract: the response shape does
+                // not advertise that ancestors are missing, so silently
+                // dropping a backend error would let the client believe
+                // the requested nodes are root-level when they may have
+                // ancestors. Surface a serverFail instead.
+                let ancestors = backend
+                    .get_ancestors(caller, &account_id, &node_ids)
+                    .await
+                    .map_err(|e| server_fail_from_backend(&e))?;
+                let list = response["list"].as_array_mut().expect("list must be array");
+                for ancestor in ancestors {
+                    // Deduplicate: only append if not already in the list.
+                    let ancestor_id = ancestor.id.as_ref().to_owned();
+                    if !existing_ids.contains(&ancestor_id) {
+                        if let Ok(v) = serde_json::to_value(&ancestor) {
+                            list.push(v);
                         }
                     }
                 }
-                // Non-fatal: if ancestors cannot be fetched, return the
-                // list without parent nodes. Clients should handle this.
             }
         }
     }
@@ -1063,6 +1069,56 @@ mod tests {
             .await
             .expect("must succeed");
         assert!(resp["list"].as_array().unwrap().is_empty());
+    }
+
+    /// Oracle: fetchParents=true with a non-empty list, and the backend
+    /// returns `Err` from `get_ancestors`: the handler MUST surface the
+    /// error as a JMAP serverFail rather than silently returning the
+    /// un-expanded list (which would look identical on the wire to a
+    /// successful fetchParents=true response where every node is at root).
+    ///
+    /// Regression for bd JMAP-510h.6 — the prior code used
+    /// `if let Ok(ancestors) = ... { ... } // Non-fatal` which discarded
+    /// the error.
+    #[tokio::test]
+    async fn get_fetch_parents_propagates_get_ancestors_err() {
+        let backend = MockBackend::new_with_account("acc1");
+        // Seed one FileNode so the response `list` is non-empty and
+        // the fetchParents branch is taken. Minimal valid FileNode
+        // shape; the type crate's deserializer accepts these fields.
+        backend.add_get_objects_node(json!({
+            "id": "child",
+            "name": "child",
+            "parentId": null,
+            "role": null,
+            "isExecutable": false,
+            "isTopLevel": true,
+            "nodeType": "directory",
+            "target": null,
+            "blobId": null,
+            "type": null,
+            "size": 0,
+            "shareWith": null,
+            "myRights": null,
+            "annotations": null,
+            "created": "1970-01-01T00:00:00Z",
+            "modified": "1970-01-01T00:00:00Z",
+            "accessed": null
+        }));
+        backend.set_get_ancestors_err("simulated DB timeout");
+
+        let args = json!({
+            "accountId": "acc1",
+            "ids": ["child"],
+            "fetchParents": true
+        });
+        let result = handle_filenode_get(&backend, &(), args).await;
+        assert!(
+            result.is_err(),
+            "fetchParents + get_ancestors Err must propagate as JMAP \
+             error, not return a silently-truncated list. got Ok: {:?}",
+            result.ok()
+        );
     }
 
     // -----------------------------------------------------------------------
