@@ -342,11 +342,20 @@ fn apply_jmap_patch(base: &mut serde_json::Map<String, Value>, path: &str, val: 
 ///
 /// Fetches cards from `fromAccountId`, delegates copy to the backend, and
 /// returns `copied`/`notCopied` maps.
+///
+/// Implements the RFC 8620 §5.4 mandates inherited by ContactCard/copy:
+/// `fromAccountId` MUST differ from `accountId` (rejected with
+/// `invalidArguments`); `ifFromInState` is checked against the source
+/// account's current state; `onSuccessDestroyOriginal` triggers an
+/// implicit `ContactCard/set destroy` against the source account and
+/// emits a synthetic `ContactCard/set` invocation per RFC 8620 §6.3;
+/// `destroyFromIfInState` (if supplied) gates the implicit destroy
+/// against the source state at destroy time.
 pub async fn handle_contact_card_copy<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-    _call_id: &str,
+    call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (to_account_id, mut args) = extract_account_id(args)?;
 
@@ -355,6 +364,16 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         .and_then(|v| v.as_str())
         .map(Id::from)
         .ok_or_else(|| JmapError::invalid_arguments("fromAccountId is required"))?;
+
+    // RFC 8620 §5.4: fromAccountId MUST differ from accountId. Without
+    // this check, a same-account /copy fetches and re-inserts the same
+    // card, producing a duplicate id in one account (silent data
+    // integrity bug — see bd:JMAP-qz9v.2).
+    if from_account_id == to_account_id {
+        return Err(JmapError::invalid_arguments(
+            "fromAccountId must be different from accountId",
+        ));
+    }
 
     // Verify both accounts exist.
     let to_exists = backend
@@ -373,6 +392,29 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         return Err(JmapError::from_account_not_found());
     }
 
+    let on_success_destroy_original: bool = args
+        .get("onSuccessDestroyOriginal")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+
+    let destroy_from_if_in_state: Option<String> = args
+        .get("destroyFromIfInState")
+        .and_then(|v| v.as_str())
+        .map(String::from);
+
+    // RFC 8620 §5.4: ifFromInState — check source account state at the
+    // start of the method. Mismatch aborts the whole /copy with
+    // stateMismatch.
+    if let Some(if_from_in_state) = args.get("ifFromInState").and_then(|v| v.as_str()) {
+        let from_state = backend
+            .get_state::<ContactCard>(caller, &from_account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+        if if_from_in_state != from_state.as_ref() {
+            return Err(JmapError::state_mismatch());
+        }
+    }
+
     let old_state = backend
         .get_state::<ContactCard>(caller, &to_account_id)
         .await
@@ -387,6 +429,9 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
     let mut copied = serde_json::Map::new();
     let mut not_copied = serde_json::Map::new();
     let mut mutated = false;
+    // (copy_id, source_id) for each successfully copied entry — used to
+    // drive the implicit destroy when onSuccessDestroyOriginal is true.
+    let mut copied_source_ids: Vec<(String, Id)> = Vec::new();
 
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, spec_val) in create_map {
@@ -444,10 +489,11 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                 Ok((_new_id, copied_obj)) => {
                     mutated = true;
                     copied.insert(
-                        create_id,
+                        create_id.clone(),
                         serde_json::to_value(&copied_obj)
                             .expect("derive(Serialize) on plain data is infallible"),
                     );
+                    copied_source_ids.push((create_id, source_id));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_copied.insert(create_id, set_error_value(&set_err));
@@ -480,17 +526,101 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         old_state.clone()
     };
 
-    Ok((
-        json!({
-            "fromAccountId": from_account_id.as_ref(),
-            "accountId": to_account_id.as_ref(),
-            "oldState": old_state.as_ref(),
-            "newState": new_state.as_ref(),
-            "copied":    if copied.is_empty()     { Value::Null } else { Value::Object(copied) },
-            "notCopied": if not_copied.is_empty() { Value::Null } else { Value::Object(not_copied) },
-        }),
-        vec![],
-    ))
+    let resp = json!({
+        "fromAccountId": from_account_id.as_ref(),
+        "accountId": to_account_id.as_ref(),
+        "oldState": old_state.as_ref(),
+        "newState": new_state.as_ref(),
+        "copied":    if copied.is_empty()     { Value::Null } else { Value::Object(copied) },
+        "notCopied": if not_copied.is_empty() { Value::Null } else { Value::Object(not_copied) },
+    });
+
+    // RFC 8620 §5.4: onSuccessDestroyOriginal — destroy each successfully
+    // copied source card and emit a single implicit ContactCard/set
+    // response. The dispatcher appends extra invocations verbatim to
+    // methodResponses, so the full response object is built here.
+    let mut extra: Vec<Invocation> = Vec::new();
+
+    if on_success_destroy_original && !copied_source_ids.is_empty() {
+        let from_old_state = backend
+            .get_state::<ContactCard>(caller, &from_account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+
+        let mut destroyed: Vec<Value> = Vec::new();
+        let mut not_destroyed = serde_json::Map::new();
+
+        // RFC 8620 §5.4: destroyFromIfInState gates the implicit destroy
+        // against the source account state at destroy time. Mismatch
+        // skips every destroy with a stateMismatch SetError per source
+        // id; the /copy itself is unaffected (already succeeded).
+        let state_matches = destroy_from_if_in_state
+            .as_deref()
+            .is_none_or(|expected| expected == from_old_state.as_ref());
+
+        if !state_matches {
+            for (_, source_id) in &copied_source_ids {
+                not_destroyed.insert(
+                    source_id.as_ref().to_owned(),
+                    json!({
+                        "type": "stateMismatch",
+                        "description":
+                            "destroyFromIfInState did not match source account state",
+                    }),
+                );
+            }
+        } else {
+            for (_, source_id) in &copied_source_ids {
+                match backend
+                    .destroy_object::<ContactCard>(caller, &from_account_id, source_id)
+                    .await
+                {
+                    Ok(()) => {
+                        destroyed.push(Value::String(source_id.as_ref().to_owned()));
+                    }
+                    Err(BackendSetError::SetError(set_err)) => {
+                        not_destroyed
+                            .insert(source_id.as_ref().to_owned(), set_error_value(&set_err));
+                    }
+                    Err(BackendSetError::Other(e)) => {
+                        not_destroyed.insert(
+                            source_id.as_ref().to_owned(),
+                            json!({ "type": "serverFail", "description": e.to_string() }),
+                        );
+                    }
+                    Err(_) => {
+                        not_destroyed.insert(
+                            source_id.as_ref().to_owned(),
+                            json!({
+                                "type": "serverFail",
+                                "description": "unhandled backend error variant",
+                            }),
+                        );
+                    }
+                }
+            }
+        }
+
+        let from_new_state = backend
+            .get_state::<ContactCard>(caller, &from_account_id)
+            .await
+            .map_err(|e| server_fail_from_backend(&e))?;
+
+        let set_resp = json!({
+            "accountId": from_account_id.as_ref(),
+            "oldState": from_old_state.as_ref(),
+            "newState": from_new_state.as_ref(),
+            "created": Value::Null,
+            "updated": Value::Null,
+            "destroyed": if destroyed.is_empty() { Value::Null } else { Value::Array(destroyed) },
+            "notCreated": Value::Null,
+            "notUpdated": Value::Null,
+            "notDestroyed": if not_destroyed.is_empty() { Value::Null } else { Value::Object(not_destroyed) },
+        });
+        extra.push(("ContactCard/set".to_owned(), set_resp, call_id.to_owned()));
+    }
+
+    Ok((resp, extra))
 }
 
 // ---------------------------------------------------------------------------
@@ -831,6 +961,230 @@ mod tests {
         assert_eq!(
             resp["notCopied"]["c1"]["type"], "notFound",
             "unknown source id must yield notFound: {resp}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // RFC 8620 §5.4 mandates for ContactCard/copy (bd:JMAP-qz9v.2)
+    // -----------------------------------------------------------------------
+
+    /// Oracle (RFC 8620 §5.4): `fromAccountId` MUST differ from `accountId`.
+    /// Same-account /copy is rejected with invalidArguments — previously it
+    /// silently proceeded and produced a duplicate id in one account.
+    #[tokio::test]
+    async fn copy_same_account_rejected_with_invalid_arguments() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_contact_card("acc1", "card1");
+
+        let args = json!({
+            "accountId": "acc1",
+            "fromAccountId": "acc1",
+            "create": { "c1": { "id": "card1" } }
+        });
+        let err = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect_err("same-account copy must error");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
+    }
+
+    /// Oracle (RFC 8620 §5.4): `ifFromInState` checks the SOURCE account
+    /// state. Mismatch aborts the /copy with stateMismatch.
+    #[tokio::test]
+    async fn copy_if_from_in_state_mismatch_rejected_with_state_mismatch() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        // MockBackend.get_state always returns "0"; provide a different
+        // expected value to trigger the mismatch.
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "ifFromInState": "stale-state-value",
+            "create": { "c1": { "id": "card1" } }
+        });
+        let err = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect_err("ifFromInState mismatch must error");
+        assert_eq!(err.error_type.as_str(), "stateMismatch");
+    }
+
+    /// Oracle (RFC 8620 §5.4): `ifFromInState` matching the source state
+    /// allows the /copy to proceed normally.
+    #[tokio::test]
+    async fn copy_if_from_in_state_match_proceeds() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "ifFromInState": "0", // MockBackend.get_state always returns "0"
+            "create": { "c1": { "id": "card1" } }
+        });
+        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect("ifFromInState match must succeed");
+        assert!(
+            resp["copied"]["c1"].is_object(),
+            "copy must succeed when ifFromInState matches: {resp}"
+        );
+    }
+
+    /// Oracle (RFC 8620 §5.4): `onSuccessDestroyOriginal: true` emits a
+    /// synthetic `ContactCard/set` invocation per RFC 8620 §6.3. The
+    /// invocation carries `accountId == fromAccountId`, the source
+    /// account's old and new states, and one entry per copied source id
+    /// (either in `destroyed` or `notDestroyed`).
+    #[tokio::test]
+    async fn copy_on_success_destroy_original_emits_synthetic_set_invocation() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "onSuccessDestroyOriginal": true,
+            "create": { "c1": { "id": "card1" } }
+        });
+        let (_, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect("/copy must succeed");
+
+        assert_eq!(
+            extra.len(),
+            1,
+            "onSuccessDestroyOriginal must emit exactly one synthetic invocation"
+        );
+        let (method, set_resp, returned_call_id) = &extra[0];
+        assert_eq!(method, "ContactCard/set");
+        assert_eq!(returned_call_id, "c0", "call_id must be echoed");
+        assert_eq!(
+            set_resp["accountId"], "acc1",
+            "synthetic /set targets fromAccountId: {set_resp}"
+        );
+        // MockBackend.destroy_object always returns NotFound, so the
+        // source id ends up in notDestroyed rather than destroyed. The
+        // important assertion is that the destroy was attempted.
+        assert!(
+            set_resp["notDestroyed"]["card1"].is_object(),
+            "source id must appear in synthetic /set notDestroyed: {set_resp}"
+        );
+    }
+
+    /// Oracle (RFC 8620 §5.4): `onSuccessDestroyOriginal: false` (default)
+    /// is a no-op — no synthetic invocation is emitted.
+    #[tokio::test]
+    async fn copy_on_success_destroy_original_default_false_emits_no_extra() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "create": { "c1": { "id": "card1" } }
+        });
+        let (_, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect("/copy must succeed");
+        assert!(
+            extra.is_empty(),
+            "default onSuccessDestroyOriginal=false must emit no extra invocations"
+        );
+    }
+
+    /// Oracle (RFC 8620 §5.4): `onSuccessDestroyOriginal: true` with NO
+    /// successful copies (e.g. all sources missing) emits no synthetic
+    /// invocation — there are no source ids to destroy.
+    #[tokio::test]
+    async fn copy_on_success_destroy_original_no_successful_copies_emits_no_extra() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        // Do NOT seed any card — source not found.
+
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "onSuccessDestroyOriginal": true,
+            "create": { "c1": { "id": "missing-card" } }
+        });
+        let (_, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect("/copy must succeed");
+        assert!(
+            extra.is_empty(),
+            "no successful copies → no synthetic destroy invocation"
+        );
+    }
+
+    /// Oracle (RFC 8620 §5.4): `destroyFromIfInState` mismatching the
+    /// source account state at destroy time produces a stateMismatch
+    /// SetError per source id in the synthetic /set's notDestroyed.
+    /// The /copy itself is unaffected (it already succeeded).
+    #[tokio::test]
+    async fn copy_destroy_from_if_in_state_mismatch_fails_all_destroys() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "onSuccessDestroyOriginal": true,
+            "destroyFromIfInState": "stale-state-value",
+            "create": { "c1": { "id": "card1" } }
+        });
+        let (resp, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect("/copy must succeed (mismatch only affects implicit destroy)");
+
+        // The /copy itself succeeded.
+        assert!(
+            resp["copied"]["c1"].is_object(),
+            "copy must succeed despite destroyFromIfInState mismatch: {resp}"
+        );
+
+        // The synthetic /set's notDestroyed carries stateMismatch.
+        let (_, set_resp, _) = &extra[0];
+        assert_eq!(
+            set_resp["notDestroyed"]["card1"]["type"], "stateMismatch",
+            "destroyFromIfInState mismatch must produce stateMismatch: {set_resp}"
+        );
+        assert!(
+            set_resp["destroyed"].is_null(),
+            "no destroys must succeed when destroyFromIfInState mismatches: {set_resp}"
+        );
+    }
+
+    /// Oracle (RFC 8620 §5.4): `destroyFromIfInState` matching the
+    /// source account state lets the implicit destroy proceed.
+    #[tokio::test]
+    async fn copy_destroy_from_if_in_state_match_proceeds() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "onSuccessDestroyOriginal": true,
+            "destroyFromIfInState": "0", // MockBackend.get_state always returns "0"
+            "create": { "c1": { "id": "card1" } }
+        });
+        let (_, extra) = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect("/copy must succeed");
+
+        // Destroy was attempted (MockBackend always returns NotFound for
+        // destroys, so the result is notDestroyed[card1] = notFound, NOT
+        // stateMismatch — the state check passed).
+        let (_, set_resp, _) = &extra[0];
+        assert_eq!(
+            set_resp["notDestroyed"]["card1"]["type"], "notFound",
+            "destroyFromIfInState match must allow destroy attempt: {set_resp}"
         );
     }
 
