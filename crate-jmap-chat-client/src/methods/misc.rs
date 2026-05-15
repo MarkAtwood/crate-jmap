@@ -229,22 +229,7 @@ impl super::SessionClient {
         }
         let has_chat_push = input.chat_push.is_some();
         if let Some(cp) = input.chat_push {
-            let mut seen = std::collections::HashSet::new();
-            for (account_id, _) in cp {
-                if !seen.insert(account_id) {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(format!(
-                        "push_subscription_create: duplicate accountId '{}' in chat_push",
-                        account_id
-                    )));
-                }
-            }
-            let mut chat_push_map = serde_json::Map::new();
-            for (account_id, config) in cp {
-                chat_push_map.insert(
-                    account_id.as_ref().to_owned(),
-                    serde_json::to_value(config).map_err(jmap_base_client::ClientError::Parse)?,
-                );
-            }
+            let chat_push_map = build_chat_push_map(cp, "push_subscription_create")?;
             create_obj["chatPush"] = serde_json::Value::Object(chat_push_map);
         }
         let args = serde_json::json!({
@@ -325,23 +310,7 @@ impl super::SessionClient {
                 patch_map.insert("chatPush".into(), serde_json::Value::Null);
             }
             Patch::Set(cp) => {
-                let mut seen = std::collections::HashSet::new();
-                for (account_id, _) in *cp {
-                    if !seen.insert(account_id) {
-                        return Err(jmap_base_client::ClientError::InvalidArgument(format!(
-                            "push_subscription_update: duplicate accountId '{}' in chat_push",
-                            account_id
-                        )));
-                    }
-                }
-                let mut chat_push_map = serde_json::Map::new();
-                for (account_id, config) in *cp {
-                    chat_push_map.insert(
-                        account_id.as_ref().to_owned(),
-                        serde_json::to_value(config)
-                            .map_err(jmap_base_client::ClientError::Parse)?,
-                    );
-                }
+                let chat_push_map = build_chat_push_map(cp, "push_subscription_update")?;
                 patch_map.insert("chatPush".into(), serde_json::Value::Object(chat_push_map));
             }
         }
@@ -392,4 +361,39 @@ impl super::SessionClient {
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
+}
+
+// ---------------------------------------------------------------------------
+// chat_push map builder (shared by push_subscription_create + _update)
+// ---------------------------------------------------------------------------
+
+/// Build a `chatPush` wire object from a slice of `(accountId, config)`
+/// pairs (draft-atwood-jmap-chat-push-00 §3.1).
+///
+/// Returns `InvalidArgument` if the slice contains a duplicate `accountId`
+/// — duplicate accountIds in the patch are an argument-validation error
+/// regardless of whether the request can otherwise be sent. The
+/// `context` string is included in the error message so callers can
+/// distinguish `push_subscription_create` from `push_subscription_update`
+/// in diagnostics.
+///
+/// Single-pass: each insert detects collision via the returned previous
+/// value, replacing the previous two-pass (HashSet duplicate check then
+/// serialize-and-insert) idiom that was hand-duplicated across two
+/// call sites (bd:JMAP-26di.55).
+fn build_chat_push_map(
+    cp: &[(&Id, jmap_chat_types::ChatPushConfig)],
+    context: &'static str,
+) -> Result<serde_json::Map<String, serde_json::Value>, jmap_base_client::ClientError> {
+    let mut chat_push_map = serde_json::Map::new();
+    for (account_id, config) in cp {
+        let key = account_id.as_ref().to_owned();
+        let value = serde_json::to_value(config).map_err(jmap_base_client::ClientError::Parse)?;
+        if chat_push_map.insert(key, value).is_some() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(format!(
+                "{context}: duplicate accountId '{account_id}' in chat_push"
+            )));
+        }
+    }
+    Ok(chat_push_map)
 }
