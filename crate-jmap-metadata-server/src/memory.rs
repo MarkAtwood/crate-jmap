@@ -39,6 +39,23 @@
 //! - **Related-object validation (§3.1)**: not enforced — `relatedType` and
 //!   `relatedId` are accepted as-is. Real backends should verify that the
 //!   referenced object exists.
+//! - **`Metadata/query` filter and sort (§3.4)**: implemented for the five
+//!   filter fields (`@type`, `relatedType`, `relatedIds`, `isPrivate`,
+//!   `textMatch`) and the five sortable properties (`id`, `@type`,
+//!   `relatedType`, `relatedId`, `isPrivate`). `textMatch` walks vendor
+//!   string properties via a case-insensitive substring check; servers
+//!   that index those properties externally will want a real search
+//!   path. Operator filters (`AND`/`OR`/`NOT`) are NOT supported because
+//!   `Metadata::Filter = MetadataFilterCondition` (bare); the dispatcher
+//!   rejects operator-wrapped filters with `unsupportedFilter` before
+//!   reaching the backend.
+//! - **`Metadata/queryChanges` filter and sort (§3.5)**: NOT implemented.
+//!   The filter and sort arguments are discarded; the result is computed
+//!   from the change log without per-filter pruning. A client that
+//!   filters or sorts the parent `/query` MUST issue a fresh `/query`
+//!   call after a `cannotCalculateChanges`-style mismatch rather than
+//!   trusting `/queryChanges`. Override `query_changes` in a real
+//!   backend.
 //!
 //! # Single-user limitation (per-caller scoping is NOT implemented)
 //!
@@ -117,7 +134,7 @@ use crate::{
 // json_merge_patch lives in jmap-server (the shared foundation crate).
 // Every reference backend imports it; the canonical RFC 7396 tests live
 // with the function there.
-use jmap_metadata_types::Metadata;
+use jmap_metadata_types::{Metadata, MetadataFilterCondition};
 use jmap_server::{json_merge_patch, MergePatchError};
 use jmap_types::{Id, State};
 
@@ -568,30 +585,132 @@ impl JmapBackend for MemoryBackend {
         &self,
         _caller: &(),
         account_id: &Id,
-        _filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
     ) -> Result<QueryResult, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        // Snapshot the stored objects under the lock, then drop the lock
+        // before deserialising for filter/sort. Holding the std Mutex
+        // across the deserialise loop would block any concurrent
+        // dispatcher thread for the duration of the scan.
+        let (mut entries, query_state) = {
+            let inner = self.inner.lock().unwrap();
+            let entries: Vec<(Id, serde_json::Value)> = inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .map(|m| {
+                    m.iter()
+                        .map(|(id, val)| (id.clone(), val.clone()))
+                        .collect()
+                })
+                .unwrap_or_default();
+            let qs = State::from(
+                inner
+                    .current_state(O::TYPE_NAME, account_id.as_ref())
+                    .to_string()
+                    .as_str(),
+            );
+            (entries, qs)
+        };
 
-        let mut ids: Vec<Id> = inner
-            .objects_ref(O::TYPE_NAME, account_id.as_ref())
-            .map(|m| {
-                let mut keys: Vec<Id> = m.keys().cloned().collect();
-                keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
-                keys
+        // Recover the typed filter / sort via a JSON roundtrip. Mirrors
+        // the canonical jmap-mail-server pattern (memory.rs:665-792):
+        // O::Filter / O::Comparator are Serialize, and the dispatcher has
+        // already deserialised the wire JSON into the typed form, so the
+        // roundtrip is a type-identity operation that cannot fail. Per
+        // Pattern G (jmap-mail-server commit bc79c70), surface a panic
+        // here rather than silently dropping the filter — silent-drop
+        // would return ALL objects when the client expected a filtered
+        // subset (the same query-correctness hazard bd:JMAP-826m.4
+        // tracks).
+        let metadata_filter: Option<MetadataFilterCondition> =
+            if O::TYPE_NAME == Metadata::TYPE_NAME {
+                filter.map(|f| {
+                    let v = serde_json::to_value(f)
+                        .expect("derive(Serialize) on plain data is infallible");
+                    serde_json::from_value(v).expect(
+                        "type-identity roundtrip on MetadataFilterCondition is infallible: \
+                         the JSON came from Serialize on the same concrete type",
+                    )
+                })
+            } else {
+                None
+            };
+
+        // Decode the comparator list. Metadata::Comparator is
+        // serde_json::Value (see jmap-metadata-types::backend), each one
+        // shaped as {property, isAscending} per RFC 8620 §5.5. The
+        // handler validates property names before reaching the backend;
+        // this code accepts any unknown property as "no constraint"
+        // (sort comparators with unsupported properties return an empty
+        // tuple and contribute nothing to the comparison).
+        let metadata_sort: Vec<(String, bool)> = if O::TYPE_NAME == Metadata::TYPE_NAME {
+            sort.map(|s| {
+                s.iter()
+                    .filter_map(|c| {
+                        let v = serde_json::to_value(c).ok()?;
+                        let prop = v.get("property")?.as_str()?.to_owned();
+                        let asc = v
+                            .get("isAscending")
+                            .and_then(|x| x.as_bool())
+                            .unwrap_or(true);
+                        Some((prop, asc))
+                    })
+                    .collect()
             })
-            .unwrap_or_default();
+            .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
 
+        // Apply filter to Metadata entries. Non-Metadata types have no
+        // typed filter on this backend (MemoryBackend only stores
+        // Metadata); the filter argument is left unapplied and the
+        // entries vector for non-Metadata types is empty anyway because
+        // create_object refuses non-Metadata writes.
+        if O::TYPE_NAME == Metadata::TYPE_NAME {
+            if let Some(ref cond) = metadata_filter {
+                entries.retain(|(_, val)| {
+                    match serde_json::from_value::<Metadata>(val.clone()) {
+                        Ok(meta) => metadata_matches_condition(&meta, cond),
+                        // A stored value that does not deserialise into
+                        // Metadata is a backend invariant violation, not
+                        // a filter miss. Keep the entry so it surfaces
+                        // in /get rather than silently disappearing
+                        // from /query.
+                        Err(_) => true,
+                    }
+                });
+            }
+            // Sort. Default order (no comparators): ascending by id —
+            // preserves the pre-fix lexicographic ordering used by
+            // existing tests and the jmap-test-suite oracle.
+            if metadata_sort.is_empty() {
+                entries.sort_by(|a, b| a.0.as_ref().cmp(b.0.as_ref()));
+            } else {
+                // Pre-deserialise each entry once so the sort comparator
+                // does not pay the Metadata::deserialize cost N log N
+                // times.
+                let mut typed: Vec<(Id, serde_json::Value, Option<Metadata>)> = entries
+                    .into_iter()
+                    .map(|(id, val)| {
+                        let meta = serde_json::from_value::<Metadata>(val.clone()).ok();
+                        (id, val, meta)
+                    })
+                    .collect();
+                typed.sort_by(|a, b| compare_metadata_sort(&metadata_sort, a, b));
+                entries = typed.into_iter().map(|(id, val, _)| (id, val)).collect();
+            }
+        } else {
+            // Non-Metadata types: preserve the pre-fix ordering for any
+            // future O that this backend may be extended to store.
+            entries.sort_by(|a, b| a.0.as_ref().cmp(b.0.as_ref()));
+        }
+
+        let ids: Vec<Id> = entries.into_iter().map(|(id, _)| id).collect();
         let total = ids.len() as u64;
-        let query_state = State::from(
-            inner
-                .current_state(O::TYPE_NAME, account_id.as_ref())
-                .to_string()
-                .as_str(),
-        );
 
+        // RFC 8620 §5.5 — clamp effective position to [0, len].
         let start = if position >= 0 {
             (position as usize).min(ids.len())
         } else {
@@ -599,14 +718,14 @@ impl JmapBackend for MemoryBackend {
             ids.len().saturating_sub(neg)
         };
 
-        ids = ids[start..]
+        let page: Vec<Id> = ids[start..]
             .iter()
             .take(limit.map_or(usize::MAX, |n| n as usize))
             .cloned()
             .collect();
 
         Ok(QueryResult::new(
-            ids,
+            page,
             start as u64,
             Some(total),
             query_state,
@@ -1009,6 +1128,147 @@ impl MetadataBackend for MemoryBackend {
             State::from(current_state.to_string()),
         ))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Filter and sort helpers (bd:JMAP-826m.4)
+// ---------------------------------------------------------------------------
+
+/// Return `true` if `meta` satisfies every constraint in `cond`.
+///
+/// All [`MetadataFilterCondition`] fields are AND-combined (RFC 8620 §5.5
+/// — a bare condition with multiple fields is equivalent to splitting
+/// into per-field conditions under AND).
+///
+/// Per draft-ietf-jmap-metadata-01 §3.4.1 each field's semantics:
+/// - `@type`: match if the Metadata `@type` discriminator is in the list.
+/// - `relatedType`: case-sensitive equality.
+/// - `relatedIds`: match if the Metadata `relatedId` is in the list.
+/// - `isPrivate`: equality (Metadata default is `false` per §2.2.1.5).
+/// - `textMatch`: case-insensitive substring against vendor-specific
+///   string properties. For [`Metadata::Annotation`] this means values
+///   of the `.extra` map; for `ImapMetadata` / `WebDavMetadata` it means
+///   values of the `.metadata` BTreeMap plus the `.extra` map.
+fn metadata_matches_condition(meta: &Metadata, cond: &MetadataFilterCondition) -> bool {
+    if let Some(ref types) = cond.type_names {
+        if !types.iter().any(|t| t == meta.type_name()) {
+            return false;
+        }
+    }
+    if let Some(ref rt) = cond.related_type {
+        if meta.related_type() != rt.as_str() {
+            return false;
+        }
+    }
+    if let Some(ref rids) = cond.related_ids {
+        if !rids.iter().any(|id| id == meta.related_id()) {
+            return false;
+        }
+    }
+    if let Some(want_private) = cond.is_private {
+        if meta.is_private() != want_private {
+            return false;
+        }
+    }
+    if let Some(ref needle) = cond.text_match {
+        if !metadata_text_match(meta, needle) {
+            return false;
+        }
+    }
+    true
+}
+
+/// Case-insensitive substring search across the vendor-specific string
+/// properties of a Metadata object.
+///
+/// Per draft-ietf-jmap-metadata-01 §3.4.1, `textMatch` searches "vendor-
+/// specific string properties". For this reference impl that means:
+/// - [`Metadata::Annotation`]: string values of the `.extra` flatten map.
+///   The `id`, `relatedType`, `relatedId`, `isPrivate` typed fields are
+///   NOT searched (they are not vendor properties).
+/// - [`Metadata::ImapMetadata`] / [`Metadata::WebDavMetadata`]: values
+///   of the typed `.metadata` BTreeMap (which IS the vendor payload for
+///   those variants per §2.2.2.1 / §2.2.3.1) plus any leftover `.extra`
+///   map entries.
+///
+/// Non-string `.extra` values are skipped (only string properties are
+/// searchable per the spec's "string properties" language).
+fn metadata_text_match(meta: &Metadata, needle: &str) -> bool {
+    let needle_lower = needle.to_lowercase();
+    let extra_match = |extra: &serde_json::Map<String, serde_json::Value>| -> bool {
+        extra.values().any(|v| {
+            v.as_str()
+                .map(|s| s.to_lowercase().contains(&needle_lower))
+                .unwrap_or(false)
+        })
+    };
+    match meta {
+        Metadata::Annotation(a) => extra_match(&a.extra),
+        Metadata::ImapMetadata(m) => {
+            m.metadata
+                .values()
+                .any(|s| s.to_lowercase().contains(&needle_lower))
+                || extra_match(&m.extra)
+        }
+        Metadata::WebDavMetadata(m) => {
+            m.metadata
+                .values()
+                .any(|s| s.to_lowercase().contains(&needle_lower))
+                || extra_match(&m.extra)
+        }
+        // Metadata is #[non_exhaustive]; a future spec variant cannot be
+        // text-matched without per-variant logic. Conservative default
+        // is "no match" so an unknown variant does not silently pass a
+        // textMatch filter that should have failed.
+        _ => false,
+    }
+}
+
+/// Compare two Metadata entries against a list of sort comparators.
+///
+/// Comparators are applied in order; the first non-Equal result wins.
+/// Per draft-ietf-jmap-metadata-01 §3.4.2 the sortable properties are
+/// `id`, `@type`, `relatedType`, `relatedId`, and `isPrivate`. Unknown
+/// property names produce `Ordering::Equal` (no constraint) so the next
+/// comparator (if any) takes effect; if every comparator is unknown,
+/// the order is unspecified per RFC 8620 §5.5 (we return Equal, which
+/// keeps insertion order via the stable sort).
+///
+/// Entries whose stored JSON did not deserialise into [`Metadata`] are
+/// sorted by id only (they are backend-invariant violations and should
+/// not influence property-based ordering).
+fn compare_metadata_sort(
+    sort: &[(String, bool)],
+    a: &(Id, serde_json::Value, Option<Metadata>),
+    b: &(Id, serde_json::Value, Option<Metadata>),
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let (a_id, _, a_meta) = a;
+    let (b_id, _, b_meta) = b;
+    let (Some(a_m), Some(b_m)) = (a_meta.as_ref(), b_meta.as_ref()) else {
+        return a_id.as_ref().cmp(b_id.as_ref());
+    };
+    for (property, ascending) in sort {
+        let ord = match property.as_str() {
+            "id" => a_id.as_ref().cmp(b_id.as_ref()),
+            "@type" => a_m.type_name().cmp(b_m.type_name()),
+            "relatedType" => a_m.related_type().cmp(b_m.related_type()),
+            "relatedId" => a_m.related_id().as_ref().cmp(b_m.related_id().as_ref()),
+            "isPrivate" => a_m.is_private().cmp(&b_m.is_private()),
+            // Unknown sort property — defer to the next comparator.
+            // Validation of property names is the handler's job (per
+            // workspace AGENTS.md "Caller identity / permission
+            // enforcement: backends are canonical for permission
+            // enforcement"; sort-property validation is a wire-shape
+            // check, handler-canonical).
+            _ => Ordering::Equal,
+        };
+        let ord = if *ascending { ord } else { ord.reverse() };
+        if ord != Ordering::Equal {
+            return ord;
+        }
+    }
+    Ordering::Equal
 }
 
 // ---------------------------------------------------------------------------
