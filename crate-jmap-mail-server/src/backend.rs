@@ -251,10 +251,47 @@ pub trait MailBackend: JmapBackend {
         filter: Option<&jmap_mail_types::EmailFilterCondition>,
     ) -> impl std::future::Future<Output = Result<Vec<jmap_mail_types::SearchSnippet>, Self::Error>> + Send;
 
-    /// Returns true if this account supports the given JMAP object type.
-    /// Called by the server consumer (e.g. the session capability builder) —
-    /// NOT called internally by the handler library. Backends that support all
-    /// types unconditionally can return `true` always.
+    /// Returns `true` if this backend implementation supports the given
+    /// JMAP object type.
+    ///
+    /// # Contract
+    ///
+    /// This is a **global, stateless backend-capability check** — it asks
+    /// "did this implementation wire up the methods needed for type
+    /// `O`?", not "does this user's account have this type enabled?".
+    /// That is why the method is synchronous and takes no `caller` or
+    /// `account_id` arguments. Per-account capability variation belongs
+    /// in the consumer's session-capability builder (workspace AGENTS.md
+    /// library-kit posture), NOT here.
+    ///
+    /// # Types in scope
+    ///
+    /// Implementors should answer for the JMAP object types this
+    /// trait covers (RFC 8621 plus opt-in extensions): `Email`,
+    /// `Mailbox`, `Thread`, `Identity`, `EmailSubmission`,
+    /// `VacationResponse`, `SearchSnippet`, and (under the
+    /// corresponding feature flags) `SieveScript` and MDN types.
+    /// Backends MAY answer for object types from sibling extensions
+    /// (`Calendar`, `Chat`, etc.) if they also implement those
+    /// traits, but the typical pattern is one backend impl per
+    /// extension family. A backend that does not recognise `O`
+    /// SHOULD return `false`.
+    ///
+    /// # Callers
+    ///
+    /// The handler library calls this method when handling optional
+    /// methods. For example,
+    /// [`handle_search_snippet_get`](crate::handle_search_snippet_get)
+    /// returns `accountNotSupportedByMethod` when
+    /// `supports_type::<SearchSnippet>()` is `false`, so that backends
+    /// without snippet support can short-circuit before any per-method
+    /// state is touched. The server consumer also calls this method
+    /// when building the JMAP session capability response.
+    ///
+    /// # Default
+    ///
+    /// Backends that support every type in this trait unconditionally
+    /// can return `true` always.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
     /// Maximum number of email IDs to fetch from the backend when
