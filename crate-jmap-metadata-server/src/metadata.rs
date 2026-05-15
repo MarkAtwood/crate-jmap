@@ -220,6 +220,29 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
 /// inspect its `relatedType` / `@type` post-destroy). Backends that
 /// override `get_metadata_changes` and pre-filter from the change log
 /// directly do not pay this cost.
+///
+/// # Batch-size warning for default-impl backends
+///
+/// This helper makes one `get_objects::<Metadata>(..., Some(&ids), None)`
+/// call carrying every change-window id. There is NO max-batch cap,
+/// NO chunking, NO size guard (bd:JMAP-826m.22). For a default-impl
+/// database-backed `MetadataBackend` this can mean:
+///
+/// - An `IN (...)` clause with thousands of items, exceeding common
+///   driver limits (PostgreSQL ~32k, SQLite ~999).
+/// - A single network round-trip pulling every changed object's
+///   payload — expensive when `/changes` was supposed to be the
+///   lightweight cursor-style read.
+/// - Memory pressure: the `id → Metadata` lookup table holds every
+///   returned object plus a clone of each.
+///
+/// **Production backends MUST override `MetadataBackend::get_metadata_changes`**
+/// to pre-filter from their change log directly. Backends that ship the
+/// default impl unmodified will pay O(window_size) cost on every
+/// `/changes` call. The override pattern is the only way to fully avoid
+/// this helper's batch behaviour; chunking inside this helper would
+/// still issue O(window_size / chunk_size) round-trips for the same
+/// data volume.
 async fn filter_changes_array<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
