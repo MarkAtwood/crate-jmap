@@ -426,8 +426,20 @@ pub async fn handle_submission_set<B: MailBackend>(
                 Err(err) => {
                     let err_json = match err {
                         CreateError::SetError(se) => set_error_value(&se),
-                        CreateError::Server(msg) => {
-                            json!({ "type": "serverFail", "description": msg })
+                        CreateError::Server(jmap_err) => {
+                            // server_fail_from_backend already stripped any
+                            // backend Display text at the source call site;
+                            // we just need the wire shape that matches
+                            // the JmapError's type + description.
+                            let mut obj = serde_json::Map::new();
+                            obj.insert(
+                                "type".to_owned(),
+                                Value::String(jmap_err.error_type.clone()),
+                            );
+                            if let Some(desc) = &jmap_err.description {
+                                obj.insert("description".to_owned(), Value::String(desc.clone()));
+                            }
+                            Value::Object(obj)
                         }
                     };
                     not_created.insert(create_id.clone(), err_json);
@@ -749,9 +761,14 @@ pub(crate) fn check_no_crlf(s: &str) -> bool {
 }
 
 /// Typed error for [`process_create`] — avoids `Result<Value, Value>`.
+///
+/// `Server` carries a fully-formed [`JmapError`] so backend `Display`
+/// text never leaks into the wire — call sites use
+/// [`server_fail_from_backend`] (which drops backend text and returns a
+/// generic serverFail) before wrapping in this variant.
 enum CreateError {
     SetError(SetError),
-    Server(String),
+    Server(JmapError),
 }
 
 impl From<SetError> for CreateError {
@@ -793,7 +810,7 @@ async fn process_create<B: MailBackend>(
             None,
         )
         .await
-        .map_err(|e| CreateError::Server(e.to_string()))?;
+        .map_err(|e| CreateError::Server(server_fail_from_backend(&e)))?;
 
     let identity = identities.into_iter().next().ok_or_else(|| {
         CreateError::SetError(
@@ -825,7 +842,7 @@ async fn process_create<B: MailBackend>(
             None,
         )
         .await
-        .map_err(|e| CreateError::Server(e.to_string()))?;
+        .map_err(|e| CreateError::Server(server_fail_from_backend(&e)))?;
 
     let email = emails.into_iter().next().ok_or_else(|| {
         CreateError::SetError(
@@ -923,8 +940,10 @@ async fn process_create<B: MailBackend>(
         .await
         .map_err(|e| match e {
             BackendSetError::SetError(set_err) => CreateError::SetError(set_err),
-            BackendSetError::Other(inner) => CreateError::Server(inner.to_string()),
-            _ => CreateError::Server("unhandled backend error variant".to_owned()),
+            BackendSetError::Other(inner) => CreateError::Server(server_fail_from_backend(&inner)),
+            _ => CreateError::Server(JmapError::server_fail(
+                "unhandled backend error variant".to_owned(),
+            )),
         })?;
 
     // create_object guarantees created_obj.id == server_id; serialize as-is.
