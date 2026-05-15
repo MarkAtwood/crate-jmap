@@ -69,13 +69,34 @@ pub async fn handle_metadata_get<B: MetadataBackend>(
 pub async fn handle_metadata_changes<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
-    mut args: Value,
+    args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    // Extract the Metadata-specific filter args before parsing the rest.
-    // We remove them from the arg map even though we no longer delegate to
-    // the generic /changes handler — keeping the wire validation strict
-    // (unknown args remaining after this point are still ignored silently,
-    // matching RFC 8620 §1.6 forgiveness for unknown fields).
+    // Resolve accountId and verify the account exists FIRST, before any
+    // method-specific argument parsing. RFC 8620 §3.6.2 lists both
+    // `accountNotFound` and `invalidArguments` as method-level errors;
+    // the canonical jmap-server generic handlers all check account
+    // existence before parsing other args (jmap-server/src/handlers.rs
+    // `handle_get`, `handle_changes`, `handle_query`,
+    // `handle_query_changes`). Sibling extension-server crates mirror
+    // that ordering. Parsing filter args first would make
+    // `{accountId: "bogus", filterRelatedType: 42}` return
+    // `invalidArguments` instead of `accountNotFound` — contributors
+    // debugging an unknown account would chase the filter complaint
+    // instead of their accountId. bd:JMAP-826m.34.
+    let (account_id, mut args) = extract_account_id(args)?;
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+
+    // Extract the Metadata-specific filter args. We remove them from the
+    // arg map even though we no longer delegate to the generic /changes
+    // handler — keeping the wire validation strict (unknown args
+    // remaining after this point are still ignored silently, matching
+    // RFC 8620 §1.6 forgiveness for unknown fields).
     //
     // Recognized fields with the wrong shape (e.g. `filterRelatedType: 42`,
     // `filterMetadataType: "Email"` instead of an array) MUST surface as
@@ -85,30 +106,18 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
     // errors with the standard JMAP error type. Wire-level Null deserialises
     // to `Option::None`, matching the spec's "filter absent" semantics.
     let (filter_related_type, filter_metadata_type) = {
-        let map = args
-            .as_object_mut()
-            .ok_or_else(|| JmapError::invalid_arguments("args must be an object"))?;
-        let filter_related_type: Option<String> = match map.remove("filterRelatedType") {
+        let filter_related_type: Option<String> = match args.remove("filterRelatedType") {
             None => None,
             Some(v) => serde_json::from_value(v)
                 .map_err(|e| JmapError::invalid_arguments(format!("filterRelatedType: {e}")))?,
         };
-        let filter_metadata_type: Option<Vec<String>> = match map.remove("filterMetadataType") {
+        let filter_metadata_type: Option<Vec<String>> = match args.remove("filterMetadataType") {
             None => None,
             Some(v) => serde_json::from_value(v)
                 .map_err(|e| JmapError::invalid_arguments(format!("filterMetadataType: {e}")))?,
         };
         (filter_related_type, filter_metadata_type)
     };
-
-    let (account_id, args) = extract_account_id(args)?;
-    if !backend
-        .account_exists(caller, &account_id)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?
-    {
-        return Err(JmapError::account_not_found());
-    }
 
     let since_state: State = match args.get("sinceState").and_then(|v| v.as_str()) {
         Some(s) => State::from(s),
@@ -706,9 +715,7 @@ pub async fn handle_metadata_query<B: MetadataBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    if let Some(args_map) = args.as_object() {
-        validate_metadata_filter(args_map)?;
-    }
+    let args = preflight_query_account_and_filter(backend, caller, args).await?;
     jmap_server::handlers::handle_query::<Metadata, B>(backend, caller, args).await
 }
 
@@ -722,10 +729,55 @@ pub async fn handle_metadata_query_changes<B: MetadataBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
-    if let Some(args_map) = args.as_object() {
-        validate_metadata_filter(args_map)?;
-    }
+    let args = preflight_query_account_and_filter(backend, caller, args).await?;
     jmap_server::handlers::handle_query_changes::<Metadata, B>(backend, caller, args).await
+}
+
+/// Verify the account exists, then run the Metadata-specific filter
+/// validation, then return the args untouched for the generic handler to
+/// re-parse.
+///
+/// **Ordering** (bd:JMAP-826m.34): RFC 8620 §3.6.2 lists
+/// `accountNotFound` and `invalidArguments` / `unsupportedFilter` as
+/// method-level errors without explicit ordering, but the canonical
+/// jmap-server generic handlers all check account existence before
+/// parsing method-specific args. Mirror that ordering here so a request
+/// like `{"accountId": "bogus", "filter": {"related_ids": [...]}}`
+/// returns `accountNotFound` (the user's actual problem) rather than
+/// `unsupportedFilter` (which would send the contributor chasing the
+/// filter complaint instead).
+///
+/// The generic handler will re-run `account_exists` after we return; the
+/// duplicate call is idempotent and cheap (a HashMap lookup in the
+/// reference MemoryBackend). Production backends that find the duplicate
+/// expensive can short-circuit `account_exists` with a one-shot cache.
+async fn preflight_query_account_and_filter<B: MetadataBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    args: Value,
+) -> Result<Value, JmapError> {
+    let Some(args_map) = args.as_object() else {
+        return Err(JmapError::invalid_arguments(
+            "arguments must be an object containing accountId",
+        ));
+    };
+    // Peek at accountId without consuming `args` so we can hand the same
+    // value to the generic handler below.
+    let account_id_str = args_map
+        .get("accountId")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| JmapError::invalid_arguments("accountId is required"))?;
+    let account_id = Id::new_validated(account_id_str)
+        .map_err(|e| JmapError::invalid_arguments(format!("accountId is not a valid Id: {e}")))?;
+    if !backend
+        .account_exists(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?
+    {
+        return Err(JmapError::account_not_found());
+    }
+    validate_metadata_filter(args_map)?;
+    Ok(args)
 }
 
 // ---------------------------------------------------------------------------
@@ -1544,5 +1596,154 @@ mod tests {
             .await
             .expect_err("must reject snake_case typo");
         assert_eq!(err.error_type, "unsupportedFilter", "got: {err:?}");
+    }
+
+    // -----------------------------------------------------------------------
+    // Method-level error ordering — account check runs first (bd:JMAP-826m.34)
+    //
+    // RFC 8620 §3.6.2 lists both `accountNotFound` and `invalidArguments` /
+    // `unsupportedFilter` as method-level errors. The canonical
+    // jmap-server generic handlers all resolve accountId and verify the
+    // account exists BEFORE parsing method-specific args. The
+    // jmap-metadata-server wrappers must mirror that ordering so a
+    // request with both an unknown account AND a malformed filter / arg
+    // returns `accountNotFound` (the user's actual problem) rather than
+    // the filter complaint.
+    // -----------------------------------------------------------------------
+
+    /// Oracle: `Metadata/changes` with an unknown accountId AND a
+    /// malformed `filterRelatedType` MUST return `accountNotFound`, not
+    /// `invalidArguments`. The reviewer's debugging-experience argument:
+    /// a contributor with a wrong accountId should see "your accountId
+    /// is unknown", not "your filterRelatedType is malformed".
+    #[tokio::test]
+    async fn changes_unknown_account_with_malformed_filter_returns_account_not_found() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "bogus",
+            "sinceState": "0",
+            "filterRelatedType": 42  // wrong shape — should NOT win the error race
+        });
+        let err = handle_metadata_changes(&backend, &(), args)
+            .await
+            .expect_err("must reject unknown account");
+        assert_eq!(
+            err.error_type, "accountNotFound",
+            "expected accountNotFound to win the error race, got: {err:?}",
+        );
+    }
+
+    /// Oracle: `Metadata/changes` with an unknown accountId AND a
+    /// malformed `filterMetadataType` MUST also return `accountNotFound`.
+    #[tokio::test]
+    async fn changes_unknown_account_with_malformed_metadata_type_filter_returns_account_not_found()
+    {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "bogus",
+            "sinceState": "0",
+            "filterMetadataType": "Email"  // wrong shape (must be array)
+        });
+        let err = handle_metadata_changes(&backend, &(), args)
+            .await
+            .expect_err("must reject unknown account");
+        assert_eq!(err.error_type, "accountNotFound", "got: {err:?}");
+    }
+
+    /// Oracle: a known accountId with a malformed `filterRelatedType`
+    /// STILL returns `invalidArguments` — the ordering fix did not
+    /// remove the filter-shape check, only re-ordered it. Negative
+    /// control for the ordering fix.
+    #[tokio::test]
+    async fn changes_known_account_with_malformed_filter_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": 42
+        });
+        let err = handle_metadata_changes(&backend, &(), args)
+            .await
+            .expect_err("must reject malformed filter shape");
+        assert_eq!(
+            err.error_type, "invalidArguments",
+            "filter-shape check must still run for a known account: {err:?}",
+        );
+    }
+
+    /// Oracle: `Metadata/query` with an unknown accountId AND a
+    /// malformed filter MUST return `accountNotFound`. Before
+    /// bd:JMAP-826m.1 + .34, this path would have returned
+    /// `unsupportedFilter` because `validate_metadata_filter` ran before
+    /// the generic handler's account check.
+    #[tokio::test]
+    async fn query_unknown_account_with_malformed_filter_returns_account_not_found() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "bogus",
+            "filter": {
+                "related_ids": ["EM1"]  // snake_case typo — unsupportedFilter under .1
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject unknown account");
+        assert_eq!(
+            err.error_type, "accountNotFound",
+            "expected accountNotFound to win the error race, got: {err:?}",
+        );
+    }
+
+    /// Oracle: a known accountId with a malformed filter STILL returns
+    /// `unsupportedFilter`. Negative control for the query ordering fix.
+    #[tokio::test]
+    async fn query_known_account_with_malformed_filter_returns_unsupported_filter() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "related_ids": ["EM1"]
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject malformed filter for known account");
+        assert_eq!(err.error_type, "unsupportedFilter", "got: {err:?}");
+    }
+
+    /// Oracle: `Metadata/queryChanges` with an unknown accountId AND a
+    /// malformed filter MUST return `accountNotFound`.
+    #[tokio::test]
+    async fn query_changes_unknown_account_with_malformed_filter_returns_account_not_found() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "bogus",
+            "sinceQueryState": "0",
+            "filter": {
+                "related_ids": ["EM1"]
+            }
+        });
+        let err = handle_metadata_query_changes(&backend, &(), args)
+            .await
+            .expect_err("must reject unknown account");
+        assert_eq!(err.error_type, "accountNotFound", "got: {err:?}");
+    }
+
+    /// Oracle: also validates the §3.4.1 cross-field check (relatedIds
+    /// without relatedType) loses to the account check. A malformed
+    /// `accountId` should not be masked by a separately-invalid filter.
+    #[tokio::test]
+    async fn query_unknown_account_with_invalid_filter_cross_field_returns_account_not_found() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "bogus",
+            "filter": {
+                "relatedIds": ["EM1"]  // §3.4.1 violation — invalidArguments under existing path
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject unknown account");
+        assert_eq!(err.error_type, "accountNotFound", "got: {err:?}");
     }
 }
