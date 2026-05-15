@@ -165,11 +165,9 @@ where
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
-                Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
-                        Box::pin(async move { $body }) as HandlerFuture
-                    },
-                ),
+                move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
+                    Box::pin(async move { $body }) as HandlerFuture
+                },
             ));
             dispatcher.register($method, h);
         }};
@@ -313,11 +311,9 @@ pub fn register_mdn_handlers<B>(
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
-                Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
-                        Box::pin(async move { $body }) as HandlerFuture
-                    },
-                ),
+                move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
+                    Box::pin(async move { $body }) as HandlerFuture
+                },
             ));
             dispatcher.register($method, h);
         }};
@@ -367,11 +363,9 @@ where
             let backend_arc: Arc<B> = Arc::clone(&$backend);
             let h: Arc<dyn JmapHandler<B::CallerCtx>> = Arc::new(ClosureHandler::new(
                 backend_arc,
-                Box::new(
-                    move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
-                        Box::pin(async move { $body }) as HandlerFuture
-                    },
-                ),
+                move |$b: Arc<B>, $ci: String, $a: serde_json::Value, $ctx: B::CallerCtx| {
+                    Box::pin(async move { $body }) as HandlerFuture
+                },
             ));
             dispatcher.register($method, h);
         }};
