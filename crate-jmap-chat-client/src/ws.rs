@@ -33,7 +33,26 @@ pub enum ChatWsFrame {
     /// Also produced when a known chat type fails to deserialize — `type_name`
     /// will be `"ChatTypingEvent"` or `"ChatPresenceEvent"` in that case.
     Unknown {
-        /// The `@type` value from the JSON frame; `"<no @type>"` if absent.
+        /// The unknown-frame discriminant value. Possible sources:
+        /// - The verbatim `@type` string from the underlying
+        ///   [`WsFrame::Unknown`] when the chat-side parser does not
+        ///   recognise it (typical: future chat-extension events).
+        /// - `"<no @type>"` (the literal string) when the underlying
+        ///   `WsFrame::Unknown` itself reported an absent `@type` field —
+        ///   that sentinel originates in `jmap-base-client` and
+        ///   propagates through unchanged.
+        /// - `"ChatTypingEvent"` or `"ChatPresenceEvent"` when a known
+        ///   chat-event type failed payload deserialization (see the
+        ///   parent variant's doc comment above).
+        /// - `"<unknown>"` when the underlying [`WsFrame`] is a future
+        ///   non-`Unknown` variant added by `jmap-base-client` after
+        ///   `parse_chat_ws_frame` was last updated.
+        ///
+        /// Callers wishing to distinguish "server sent JSON without
+        /// `@type`" from "this parser doesn't recognise the value"
+        /// must match on the literal strings; the field intentionally
+        /// flattens both cases into one `String` to keep the variant
+        /// shape stable across future spec edits.
         type_name: String,
     },
 }
