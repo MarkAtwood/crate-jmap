@@ -47,9 +47,10 @@ pub mod participant_identity;
 pub mod principal;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, CalendarsBackend, ChangesResult, GetObject,
-    JmapBackend, JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType,
-    SetObject,
+    AddedItem, AvailabilityError, BackendChangesError, BackendSetError, CalendarEventGetArgs,
+    CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend, ChangesResult, GetObject,
+    JmapBackend, JmapObject, ParseResult, QueryCalendarEventsError, QueryChangesResult,
+    QueryObject, QueryResult, SetDefaultResult, SetError, SetErrorType, SetObject,
 };
 pub use calendar::{handle_calendar_changes, handle_calendar_get, handle_calendar_set};
 pub use event::{
