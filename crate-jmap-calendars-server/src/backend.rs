@@ -530,10 +530,11 @@ pub trait CalendarsBackend: JmapBackend {
         _account_id: &jmap_types::Id,
         blob_ids: &[jmap_types::Id],
         _properties: Option<&[String]>,
-    ) -> impl std::future::Future<Output = Result<ParseResult, Self::Error>> + Send {
+    ) -> impl std::future::Future<Output = Result<CalendarEventParseResult, Self::Error>> + Send
+    {
         let not_parsable = blob_ids.to_vec();
         async move {
-            Ok(ParseResult {
+            Ok(CalendarEventParseResult {
                 parsed: std::collections::HashMap::new(),
                 not_found: vec![],
                 not_parsable,
@@ -573,12 +574,13 @@ pub trait CalendarsBackend: JmapBackend {
 /// Marked `#[non_exhaustive]` so future calendars-draft revisions (e.g. an
 /// iCalendar parse-warnings vector or a per-blob error map) can be added
 /// without a SemVer break for backends that construct the struct directly.
-/// External crates must use [`ParseResult::new`] rather than struct-literal
-/// syntax. Mirrors the `MdnParseResult` precedent in the locked sister crate
-/// `jmap-mail-server` (see `crate-jmap-mail-server/src/mdn.rs`).
+/// External crates must use [`CalendarEventParseResult::new`] rather than struct-literal
+/// syntax. The object-prefix naming mirrors the `MdnParseResult` precedent in
+/// the canonical sister crate `jmap-mail-server` (see
+/// `crate-jmap-mail-server/src/mdn.rs`).
 #[non_exhaustive]
 #[derive(Debug)]
-pub struct ParseResult {
+pub struct CalendarEventParseResult {
     /// Successfully parsed: blobId → list of parsed [`CalendarEvent`](jmap_calendars_types::CalendarEvent)s.
     pub parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
     /// Blob IDs that were not found in the blob store.
@@ -587,8 +589,8 @@ pub struct ParseResult {
     pub not_parsable: Vec<jmap_types::Id>,
 }
 
-impl ParseResult {
-    /// Construct a `ParseResult`.
+impl CalendarEventParseResult {
+    /// Construct a `CalendarEventParseResult`.
     ///
     /// Required because the struct is `#[non_exhaustive]` — external crates
     /// cannot use struct-literal syntax.
