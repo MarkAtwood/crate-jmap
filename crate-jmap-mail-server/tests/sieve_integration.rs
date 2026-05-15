@@ -976,6 +976,67 @@ async fn sieve_set_update_too_large() {
     );
 }
 
+/// SieveScript/set rejects the (N+1)th create with overQuota once the
+/// per-account script-count cap is reached.
+///
+/// Oracle: RFC 8620 §5.3 — overQuota is the spec-defined SetError type for
+/// creates that would exceed a backend-enforced quota. The cap value itself
+/// is workspace-policy backend-configurable (workspace AGENTS.md "Backend
+/// caps and limits"), exposed via the
+/// [`SieveBackend::max_sieve_scripts_per_account`] trait method.
+///
+/// Regression: bd:JMAP-q2wa.14. The cap used to be a private constant
+/// `MAX_SIEVE_SCRIPTS = 100` enforced on every backend with no override
+/// path — this test demonstrates that a backend can now configure a lower
+/// cap and the handler honours it.
+#[tokio::test]
+async fn sieve_set_create_overquota_respects_backend_cap() {
+    let backend = MemoryBackend::new();
+    let account_id = setup_account(&backend).await;
+    store_valid_blob(&backend);
+    // Cap at 1 — the second create in the same request must overQuota.
+    backend.set_max_sieve_scripts_per_account(1);
+
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "a": { "name": "first", "blobId": "valid-script-blob" },
+            "b": { "name": "second", "blobId": "valid-script-blob" }
+        }
+    });
+
+    let (resp, _) = handle_sieve_set(&backend, &(), args)
+        .await
+        .expect("handle_sieve_set must not return a method-level error");
+
+    // Exactly one of {a, b} must be created (BTreeMap iteration order is
+    // alphabetical, so 'a' wins, but we don't depend on that).
+    let created = resp.get("created").and_then(|v| v.as_object());
+    let not_created = resp.get("notCreated").and_then(|v| v.as_object());
+
+    let created_count = created.map(|m| m.len()).unwrap_or(0);
+    let not_created_count = not_created.map(|m| m.len()).unwrap_or(0);
+
+    assert_eq!(
+        created_count, 1,
+        "exactly one create must succeed under cap=1; resp: {resp}"
+    );
+    assert_eq!(
+        not_created_count, 1,
+        "exactly one create must be rejected under cap=1; resp: {resp}"
+    );
+
+    // The rejected entry must be an overQuota SetError.
+    let rejected_entry = not_created
+        .and_then(|m| m.values().next())
+        .expect("notCreated must have one entry");
+    assert_eq!(
+        rejected_entry["type"].as_str(),
+        Some("overQuota"),
+        "rejected create must be overQuota; got: {rejected_entry}"
+    );
+}
+
 /// Test 19: SieveScript/validate rejects blob exceeding maxSizeScript with tooLarge.
 ///
 /// Oracle: RFC 9661 §2.6 — the validate method MUST observe `maxSizeScript`,

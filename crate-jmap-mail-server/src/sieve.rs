@@ -12,12 +12,6 @@ pub(crate) const SIEVE_ERR_INVALID: &str = "invalidSieve";
 /// IANA-registered JMAP Sieve error type for active-script destroy attempts.
 pub(crate) const SIEVE_ERR_IS_ACTIVE: &str = "sieveIsActive";
 
-/// Maximum number of Sieve scripts per account.
-///
-/// A real backend would derive this from the account's `SieveScripts` capability,
-/// but for the test backend a hard ceiling of 100 is a reasonable default.
-const MAX_SIEVE_SCRIPTS: usize = 100;
-
 use jmap_mail_types::SieveScript;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde::Deserialize;
@@ -90,6 +84,35 @@ pub trait SieveBackend: jmap_server::JmapBackend {
         let _ = caller;
         let _ = account_id;
         async move { Ok(None) }
+    }
+
+    /// Maximum number of Sieve scripts permitted in this account.
+    ///
+    /// Used to enforce a per-account script-count quota at create time.
+    /// When the next create would push the total above this value, the
+    /// handler rejects the create with an `overQuota` [`SetError`]
+    /// (RFC 8620 §5.3).
+    ///
+    /// The default implementation returns `100` — a conservative
+    /// reference-impl-grade ceiling that preserves prior in-handler
+    /// behaviour. Production backends SHOULD override this with the
+    /// site's actual per-account quota; backends that wish to enforce
+    /// no count cap may return [`usize::MAX`].
+    ///
+    /// RFC 9661 does not define a script-count capability field; this
+    /// cap is workspace-policy "backend-configurable, not
+    /// spec-advertised" (workspace AGENTS.md "Backend caps and
+    /// limits"). Consumers that need to surface remaining quota to
+    /// clients should use JMAP Quota
+    /// (`urn:ietf:params:jmap:quotas`).
+    fn max_sieve_scripts_per_account(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<usize, Self::Error>> + Send {
+        let _ = caller;
+        let _ = account_id;
+        async move { Ok(100) }
     }
 
     /// Returns the [`Id`] of the Sieve script that backs the `VacationResponse`
@@ -430,6 +453,14 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
         .await
         .map_err(|e| server_fail_from_backend(&e))?;
 
+    // Per-account script-count cap. Hoisted once for the same reason as
+    // get_objects above — the cap is a backend property, not a per-create
+    // decision, so a single fetch suffices for the whole loop.
+    let max_scripts = backend
+        .max_sieve_scripts_per_account(caller, &account_id)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
     let mut successful_creates: usize = 0;
     // Track names successfully created within this call to detect intra-call duplicates.
     let mut names_created_this_call: HashSet<String> = HashSet::new();
@@ -437,7 +468,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (creation_id, obj_val) in create_map {
             // R7: overQuota check.
-            if all_scripts_before_create.len() + successful_creates >= MAX_SIEVE_SCRIPTS {
+            if all_scripts_before_create.len() + successful_creates >= max_scripts {
                 not_created.insert(
                     creation_id,
                     set_error_value(&SetError::new(SetErrorType::OverQuota)),

@@ -118,6 +118,12 @@ struct Inner {
     /// Optional maxSizeScript limit in bytes for sieve size enforcement tests.
     #[cfg(feature = "sieve")]
     max_sieve_script_limit: Option<u64>,
+    /// Optional per-account script-count cap for sieve overQuota tests.
+    /// `None` falls through to the trait default of 100; tests that need a
+    /// lower cap set this to make overQuota observable without creating 100
+    /// scripts.
+    #[cfg(feature = "sieve")]
+    max_sieve_scripts_limit: Option<usize>,
     /// account_id → (message_id_string → email_id) for duplicate detection in import_email
     message_id_index: HashMap<String, HashMap<String, Id>>,
     /// explicitly registered account ids (accounts may exist with no objects yet)
@@ -279,6 +285,17 @@ impl MemoryBackend {
     #[cfg(feature = "sieve")]
     pub fn set_max_sieve_script_bytes(&self, limit: u64) {
         self.inner.lock().unwrap().max_sieve_script_limit = Some(limit);
+    }
+
+    /// Set the maximum per-account Sieve script count for overQuota tests.
+    ///
+    /// When set, `SieveBackend::max_sieve_scripts_per_account` returns this
+    /// limit, causing `handle_sieve_set` to reject the (N+1)th create with
+    /// `overQuota` once the account already has N scripts. When unset, the
+    /// trait default of 100 applies.
+    #[cfg(feature = "sieve")]
+    pub fn set_max_sieve_scripts_per_account(&self, limit: usize) {
+        self.inner.lock().unwrap().max_sieve_scripts_limit = Some(limit);
     }
 
     /// Reference impl of `Mailbox/query` filter+sort+paginate (RFC 8621 §2.3).
@@ -2741,6 +2758,15 @@ impl SieveBackend for MemoryBackend {
     ) -> impl std::future::Future<Output = Result<Option<u64>, Self::Error>> + Send {
         let limit = self.inner.lock().unwrap().max_sieve_script_limit;
         async move { Ok(limit) }
+    }
+
+    fn max_sieve_scripts_per_account(
+        &self,
+        _caller: &(),
+        _account_id: &jmap_types::Id,
+    ) -> impl std::future::Future<Output = Result<usize, Self::Error>> + Send {
+        let limit = self.inner.lock().unwrap().max_sieve_scripts_limit;
+        async move { Ok(limit.unwrap_or(100)) }
     }
 
     fn get_sieve_blob(
