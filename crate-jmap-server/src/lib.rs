@@ -491,12 +491,12 @@ pub type BackendCallFn<B, C> =
 /// let handler: Arc<ClosureHandler<MyBackend, AuthCtx>> =
 ///     Arc::new(ClosureHandler::new(
 ///         Arc::new(my_backend),
-///         Box::new(|b, call_id, args, ctx| {
+///         |b, call_id, args, ctx| {
 ///             Box::pin(async move {
 ///                 // ctx.user_id is available here
 ///                 handle_something(&*b, args, &ctx.user_id).await
 ///             })
-///         }),
+///         },
 ///     ));
 ///
 /// let mut dispatcher: Dispatcher<AuthCtx> = Dispatcher::new();
@@ -530,8 +530,26 @@ impl<B: Send + Sync + 'static, C: Clone + Send + 'static> ClosureHandler<B, C> {
     /// context, metrics handle, timeout, etc.) can be added without a
     /// major-version bump — external callers MUST go through `new`
     /// rather than struct-literal syntax.
-    pub fn new(backend: Arc<B>, call_fn: Box<BackendCallFn<B, C>>) -> Self {
-        Self { backend, call_fn }
+    ///
+    /// The `call_fn` parameter is generic over
+    /// `F: Fn(...) + Send + Sync + 'static` (bd:JMAP-jfia.40), so
+    /// callers can pass a closure directly without wrapping it in
+    /// `Box::new`. Existing callers that already wrap in
+    /// `Box::new(...)` continue to compile unchanged:
+    /// `Box<dyn Fn(...) + Send + Sync + 'static>` itself implements
+    /// `Fn(...)` via the blanket
+    /// `impl<F: Fn(...)> Fn(...) for Box<F>`, so the boxed form
+    /// satisfies the generic bound. Internally, the closure is boxed
+    /// once at construction and stored as
+    /// `Box<BackendCallFn<B, C>>`.
+    pub fn new<F>(backend: Arc<B>, call_fn: F) -> Self
+    where
+        F: Fn(Arc<B>, String, serde_json::Value, C) -> HandlerFuture + Send + Sync + 'static,
+    {
+        Self {
+            backend,
+            call_fn: Box::new(call_fn),
+        }
     }
 }
 
@@ -1285,13 +1303,13 @@ mod tests {
 
         let handler: Arc<ClosureHandler<DummyBackend, Ctx>> = Arc::new(ClosureHandler::new(
             Arc::new(DummyBackend),
-            Box::new(move |_b, _call_id, _args, ctx| {
+            move |_b: Arc<DummyBackend>, _call_id: String, _args: Value, ctx: Ctx| {
                 let cap = Arc::clone(&received_clone);
                 Box::pin(async move {
                     *cap.lock().unwrap() = Some(ctx.0.clone());
                     Ok((serde_json::json!({}), vec![]))
                 })
-            }),
+            },
         ));
 
         let ctx = Ctx("alice".to_owned());
@@ -1318,10 +1336,9 @@ mod tests {
         #[derive(Clone)]
         struct Ctx;
 
-        let h = ClosureHandler::new(
-            Arc::new(DummyBackend),
-            Box::new(|_b, _ci, _a, _ctx| Box::pin(async { Ok((serde_json::json!({}), vec![])) })),
-        );
+        let h = ClosureHandler::new(Arc::new(DummyBackend), |_b, _ci, _a, _ctx| {
+            Box::pin(async { Ok((serde_json::json!({}), vec![])) })
+        });
         assert_handler::<Ctx, _>(&h);
     }
 }
