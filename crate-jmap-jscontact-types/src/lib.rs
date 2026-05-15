@@ -1035,6 +1035,18 @@ impl Serialize for AnniversaryDate {
     fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
         match self {
             AnniversaryDate::PartialDate(d) => d.serialize(s),
+            // When emitting a `Timestamp` in `AnniversaryDate` position the
+            // `@type` discriminator is what distinguishes the variant from
+            // the default `PartialDate`; if the caller left `at_type` as
+            // `None` we re-stamp it on the way out so the wire output is
+            // unambiguous and survives a serialize→deserialize round trip.
+            // A caller-provided `at_type` (even an odd value) is preserved
+            // verbatim for forward-compat / faithful echo. See bd:JMAP-sgrr.29.
+            AnniversaryDate::Timestamp(t) if t.at_type.is_none() => {
+                let mut stamped = t.clone();
+                stamped.at_type = Some("Timestamp".to_owned());
+                stamped.serialize(s)
+            }
             AnniversaryDate::Timestamp(t) => t.serialize(s),
             AnniversaryDate::Unknown(v) => v.serialize(s),
         }
@@ -1639,6 +1651,65 @@ mod tests {
             };
             assert_eq!(inner, value, "Unknown payload preserved across round trip");
         }
+    }
+
+    #[test]
+    fn anniversary_date_timestamp_at_type_none_round_trips_as_timestamp() {
+        // Regression test for bd:JMAP-sgrr.29.
+        //
+        // A Rust-side caller can construct
+        // `AnniversaryDate::Timestamp(Timestamp { at_type: None, .. })`
+        // because `Timestamp::at_type` is `Option<String>` (a Timestamp
+        // standing alone outside an Anniversary may omit `@type` per
+        // workspace `@type` convention). When that value is emitted in
+        // `AnniversaryDate` position the Serialize impl re-stamps
+        // `@type = "Timestamp"` so the wire output is unambiguous and
+        // deserializes back to the `Timestamp` variant rather than
+        // silently routing to the default `PartialDate`.
+        //
+        // Independent oracle: hand-built `Timestamp` with `at_type:
+        // None` (the construction path the bug report describes).
+        let original = AnniversaryDate::Timestamp(Timestamp {
+            at_type: None,
+            utc: "2022-05-22T03:30:00Z".to_owned(),
+            extra: serde_json::Map::new(),
+        });
+        let wire = serde_json::to_value(&original).expect("serialize");
+        // Wire must carry the @type discriminator so a peer can dispatch.
+        assert_eq!(
+            wire.get("@type").and_then(|t| t.as_str()),
+            Some("Timestamp"),
+            "Serialize must re-stamp @type when caller left it None: {wire}",
+        );
+        let back: AnniversaryDate = serde_json::from_value(wire).expect("deserialize");
+        match back {
+            AnniversaryDate::Timestamp(t) => {
+                assert_eq!(t.utc, "2022-05-22T03:30:00Z");
+                assert!(t.extra.is_empty(), "no stray flatten-extras");
+            }
+            other => panic!("variant identity lost: expected Timestamp, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn anniversary_date_timestamp_preserves_caller_at_type() {
+        // Sibling of `anniversary_date_timestamp_at_type_none_round_trips_as_timestamp`.
+        // When the caller DID set `at_type` we must preserve it verbatim
+        // — the re-stamp logic only applies on the `None` path. This
+        // guards against an over-eager fix that would overwrite caller
+        // input.
+        let original = AnniversaryDate::Timestamp(Timestamp {
+            at_type: Some("Timestamp".to_owned()),
+            utc: "2022-05-22T03:30:00Z".to_owned(),
+            extra: serde_json::Map::new(),
+        });
+        let wire = serde_json::to_value(&original).expect("serialize");
+        assert_eq!(
+            wire.get("@type").and_then(|t| t.as_str()),
+            Some("Timestamp"),
+        );
+        let back: AnniversaryDate = serde_json::from_value(wire).expect("deserialize");
+        assert!(matches!(back, AnniversaryDate::Timestamp(_)));
     }
 
     // ── Note + Author (RFC 9553 Figure 43 / §2.8.3) ───────────────────────
