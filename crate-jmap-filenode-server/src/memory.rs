@@ -245,9 +245,15 @@ impl JmapBackend for MemoryBackend {
                 // Return all nodes.
                 let mut nodes: Vec<O> = Vec::new();
                 for node in store.nodes.values() {
-                    let v = serde_json::to_value(node).map_err(|e| MemoryError(e.to_string()))?;
-                    let obj: O =
-                        serde_json::from_value(v).map_err(|e| MemoryError(e.to_string()))?;
+                    let v = serde_json::to_value(node).map_err(|e| {
+                        MemoryError(format!("get_objects all: serialize FileNode: {e}"))
+                    })?;
+                    let obj: O = serde_json::from_value(v).map_err(|e| {
+                        MemoryError(format!(
+                            "get_objects all: deserialize {}: {e}",
+                            O::TYPE_NAME
+                        ))
+                    })?;
                     nodes.push(obj);
                 }
                 Ok((nodes, vec![]))
@@ -257,10 +263,15 @@ impl JmapBackend for MemoryBackend {
                 let mut not_found: Vec<Id> = Vec::new();
                 for id in id_slice {
                     if let Some(node) = store.nodes.get(id) {
-                        let v =
-                            serde_json::to_value(node).map_err(|e| MemoryError(e.to_string()))?;
-                        let obj: O =
-                            serde_json::from_value(v).map_err(|e| MemoryError(e.to_string()))?;
+                        let v = serde_json::to_value(node).map_err(|e| {
+                            MemoryError(format!("get_objects by-ids: serialize FileNode: {e}"))
+                        })?;
+                        let obj: O = serde_json::from_value(v).map_err(|e| {
+                            MemoryError(format!(
+                                "get_objects by-ids: deserialize {}: {e}",
+                                O::TYPE_NAME
+                            ))
+                        })?;
                         found.push(obj);
                     } else {
                         not_found.push(id.clone());
@@ -468,11 +479,18 @@ impl FileNodeBackend for MemoryBackend {
         }
 
         // Serialize obj → FileNode → assign id → deserialize back to O.
-        let v = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let v = serde_json::to_value(&obj).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!(
+                "create_object: serialize {}: {e}",
+                O::TYPE_NAME
+            )))
+        })?;
 
-        let mut node: FileNode = serde_json::from_value(v)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let mut node: FileNode = serde_json::from_value(v).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!(
+                "create_object: deserialize FileNode: {e}"
+            )))
+        })?;
 
         let new_id = {
             let mut guard = self.inner.lock().unwrap();
@@ -486,10 +504,17 @@ impl FileNodeBackend for MemoryBackend {
             new_id
         };
 
-        let result_v = serde_json::to_value(&node)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
-        let result_obj: O = serde_json::from_value(result_v)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let result_v = serde_json::to_value(&node).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!(
+                "create_object: serialize stored FileNode: {e}"
+            )))
+        })?;
+        let result_obj: O = serde_json::from_value(result_v).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!(
+                "create_object: deserialize result {}: {e}",
+                O::TYPE_NAME
+            )))
+        })?;
 
         Ok((new_id, result_obj))
     }
@@ -514,8 +539,9 @@ impl FileNodeBackend for MemoryBackend {
         // syntax (e.g. "keywords/flag1") are ignored — the key is merged as-is at
         // the top level of the serialized node.  This is sufficient for the current
         // integration tests and simpler than a full RFC 7396 implementation.
-        let patch_val = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let patch_val = serde_json::to_value(&patch).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!("update_object: serialize patch: {e}")))
+        })?;
 
         let mut guard = self.inner.lock().unwrap();
         let store = guard
@@ -530,8 +556,11 @@ impl FileNodeBackend for MemoryBackend {
 
         // Serialize the stored node to JSON, apply the patch as a JSON merge,
         // then deserialize back to FileNode.
-        let mut node_val = serde_json::to_value(&node)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let mut node_val = serde_json::to_value(&node).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!(
+                "update_object: serialize stored FileNode: {e}"
+            )))
+        })?;
 
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
             for (k, v) in patch_obj {
@@ -539,16 +568,26 @@ impl FileNodeBackend for MemoryBackend {
             }
         }
 
-        let updated_node: FileNode = serde_json::from_value(node_val)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let updated_node: FileNode = serde_json::from_value(node_val).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!(
+                "update_object: deserialize merged FileNode: {e}"
+            )))
+        })?;
 
         store.nodes.insert(id.clone(), updated_node.clone());
         store.bump_state(ChangeType::Updated, id.clone());
 
-        let result_v = serde_json::to_value(&updated_node)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
-        let result_obj: O = serde_json::from_value(result_v)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+        let result_v = serde_json::to_value(&updated_node).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!(
+                "update_object: serialize updated FileNode: {e}"
+            )))
+        })?;
+        let result_obj: O = serde_json::from_value(result_v).map_err(|e| {
+            BackendSetError::Other(MemoryError(format!(
+                "update_object: deserialize result {}: {e}",
+                O::TYPE_NAME
+            )))
+        })?;
 
         Ok(Some(result_obj))
     }
