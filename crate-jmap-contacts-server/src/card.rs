@@ -469,8 +469,17 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
             // Apply any patch fields from the copy spec (RFC 8620 §6.3).
             // Paths are JSON Pointer segments (RFC 6901): split on '/',
             // decode ~1 → '/' and ~0 → '~'.  null value = delete.
+            //
+            // serialize-roundtrip-then-patch: serialize the source card to
+            // JSON, mutate the JSON via apply_jmap_patch, then deserialize
+            // back to ContactCard. Failure to deserialize the patched JSON
+            // signals that the patch produced a structurally invalid card
+            // (e.g. wrong type for a typed field); surface as an
+            // invalidProperties SetError per RFC 8620 §5.3 rather than
+            // silently using the un-patched card and claiming success.
             if let Value::Object(spec_obj) = &spec_val {
-                let mut card_val = serde_json::to_value(&card).unwrap_or_default();
+                let mut card_val = serde_json::to_value(&card)
+                    .expect("derive(Serialize) on plain data is infallible");
                 if let Value::Object(ref mut merged_map) = card_val {
                     for (k, v) in spec_obj {
                         if k == "id" {
@@ -479,7 +488,20 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                         apply_jmap_patch(merged_map, k, v.clone());
                     }
                 }
-                card = serde_json::from_value(card_val).unwrap_or(card);
+                card = match serde_json::from_value(card_val) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        not_copied.insert(
+                            create_id,
+                            json!({
+                                "type": "invalidProperties",
+                                "description":
+                                    format!("patch produced invalid ContactCard: {e}"),
+                            }),
+                        );
+                        continue;
+                    }
+                };
             }
 
             match backend
@@ -1156,6 +1178,42 @@ mod tests {
         assert!(
             set_resp["destroyed"].is_null(),
             "no destroys must succeed when destroyFromIfInState mismatches: {set_resp}"
+        );
+    }
+
+    /// Oracle (bd:JMAP-qz9v.54): a patch that produces a structurally
+    /// invalid ContactCard (e.g. addressBookIds set to a non-Object
+    /// value) must surface as `invalidProperties` in notCopied, not be
+    /// silently swallowed via `unwrap_or(card)` while claiming success.
+    #[tokio::test]
+    async fn copy_patch_producing_invalid_card_yields_invalid_properties() {
+        let mut backend = MockBackend::new_with_account("acc1");
+        backend.add_account("acc2");
+        backend.add_contact_card("acc1", "card1");
+
+        // addressBookIds expects Option<HashMap<Id, bool>>; a string
+        // value cannot be deserialized into that type.
+        let args = json!({
+            "accountId": "acc2",
+            "fromAccountId": "acc1",
+            "create": {
+                "c1": {
+                    "id": "card1",
+                    "addressBookIds": "not-an-object"
+                }
+            }
+        });
+        let (resp, _) = handle_contact_card_copy(&backend, &(), args, "c0")
+            .await
+            .expect("/copy must not return a top-level error");
+
+        assert!(
+            resp["copied"].is_null(),
+            "invalid-patch copy must not appear in copied: {resp}"
+        );
+        assert_eq!(
+            resp["notCopied"]["c1"]["type"], "invalidProperties",
+            "structurally invalid patched card must surface as invalidProperties: {resp}"
         );
     }
 
