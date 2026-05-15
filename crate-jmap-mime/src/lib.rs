@@ -4,17 +4,23 @@
 //!
 //! # Usage
 //!
+//! A real `MailBackend::parse_email` implementation MUST surface
+//! `mime_tree::parse` and `decode_body_value` errors as JMAP method
+//! errors per RFC 8620 §3.6.2 — never panic. This example uses `?` and
+//! returns `Result` so the pattern reads correctly when copied.
+//!
 //! ```rust
 //! use jmap_mime::{message_to_jmap_body, body_value_to_jmap};
 //! use jmap_types::Id;
 //! use mime_tree::{parse, decode_body_value};
 //!
+//! # fn demo() -> Result<(), Box<dyn std::error::Error>> {
 //! let raw = b"From: alice@example.com\r\n\
 //!             Content-Type: text/plain; charset=utf-8\r\n\
 //!             \r\n\
 //!             Hello, world!\r\n";
 //!
-//! let msg = parse(raw).expect("parse failed");
+//! let msg = parse(raw)?;
 //!
 //! // Assign blob IDs for each leaf part (storage layer decides how).
 //! let fields = message_to_jmap_body(&msg, |part| {
@@ -26,10 +32,14 @@
 //!
 //! // Decode body values on demand and map them into EmailBodyValue.
 //! for part_id in &fields.body_value_part_ids {
-//!     let part = msg.part_index.find_by_id(part_id).expect("part must exist");
-//!     let decoded = decode_body_value(raw, part, Some(8192)).expect("decode failed");
-//!     let _jmap_val = body_value_to_jmap(decoded);
+//!     if let Some(part) = msg.part_index.find_by_id(part_id) {
+//!         let decoded = decode_body_value(raw, part, Some(8192))?;
+//!         let _jmap_val = body_value_to_jmap(decoded);
+//!     }
 //! }
+//! # Ok(())
+//! # }
+//! # demo().unwrap();
 //! ```
 
 #![forbid(unsafe_code)]
