@@ -118,7 +118,12 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
         Err(AvailabilityError::Forbidden) => Err(JmapError::forbidden()),
         Err(AvailabilityError::TooLarge) => Err(JmapError::too_large()),
         Err(AvailabilityError::RateLimit) => Err(JmapError::rate_limit()),
-        Err(AvailabilityError::Other(e)) => Err(JmapError::server_fail(e.to_string())),
+        // bd:JMAP-ic0j.53 — match the rest of this crate (and every other
+        // handler that wraps `Self::Error`): use `server_fail_from_backend`
+        // so the wire `description` is the constant `SERVER_FAIL_INTERNAL_DESC`
+        // rather than the backend error's `Display` output. This preserves the
+        // workspace-wide rule that backend-error text MUST NOT reach the wire.
+        Err(AvailabilityError::Other(e)) => Err(server_fail_from_backend(&e)),
     }
 }
 
@@ -243,6 +248,228 @@ mod tests {
             err.error_type.as_str(),
             "invalidArguments",
             "wrong error type: {err:?}"
+        );
+    }
+
+    /// Regression for bd:JMAP-ic0j.53: `AvailabilityError::Other(e)` must
+    /// surface to the wire as the constant
+    /// [`jmap_server::SERVER_FAIL_INTERNAL_DESC`] description, NOT the
+    /// backend error's `Display` output.
+    ///
+    /// Oracle: `jmap_server::handlers::server_fail_from_backend` is
+    /// documented as deliberately discarding the backend error text to
+    /// prevent leakage of internal state (account ids, database error
+    /// text, principal ids, etc.) into JMAP wire responses. Every other
+    /// backend-error site in this crate already uses that helper; the
+    /// `AvailabilityError::Other` arm used to call
+    /// `JmapError::server_fail(e.to_string())` directly, which bypassed
+    /// the redaction. This test asserts the bypass is gone.
+    ///
+    /// Independent oracle: the canary string
+    /// `"SECRET-ACCOUNT-ID=12345-leakage-canary"` is supplied by THIS
+    /// test as the backend's `Display` output. If the wire `description`
+    /// ever contains the canary, the redaction broke. The assertion
+    /// against the constant `SERVER_FAIL_INTERNAL_DESC` is symmetric with
+    /// the canonical redaction test in
+    /// `crate-jmap-server/src/handlers.rs::server_fail_from_backend_drops_display_text`.
+    #[tokio::test]
+    async fn get_availability_other_error_is_redacted_on_the_wire() {
+        use jmap_server::{
+            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError as JsSetError,
+            SetErrorType as JsSetErrorType, SetObject, SERVER_FAIL_INTERNAL_DESC,
+        };
+        use jmap_types::State;
+
+        const CANARY: &str = "SECRET-ACCOUNT-ID=12345-leakage-canary";
+
+        #[derive(Debug)]
+        struct FaultyError(&'static str);
+        impl std::fmt::Display for FaultyError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+        impl std::error::Error for FaultyError {}
+
+        struct FaultyBackend;
+
+        impl JmapBackend for FaultyBackend {
+            type Error = FaultyError;
+            type CallerCtx = ();
+
+            async fn account_exists(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<bool, Self::Error> {
+                Ok(true)
+            }
+
+            async fn get_objects<O: GetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _ids: Option<&[Id]>,
+                _properties: Option<&[String]>,
+            ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+                Ok((vec![], vec![]))
+            }
+
+            async fn get_state<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<State, Self::Error> {
+                Ok(State::from("0"))
+            }
+
+            async fn get_changes<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _since_state: &State,
+                _max_changes: Option<u64>,
+            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+                Ok(ChangesResult::new(
+                    vec![],
+                    vec![],
+                    vec![],
+                    false,
+                    State::from("0"),
+                ))
+            }
+
+            async fn query_objects<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+            ) -> Result<QueryResult, Self::Error> {
+                Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ))
+            }
+
+            async fn query_changes<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                since_query_state: &State,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _max_changes: Option<u64>,
+                _up_to_id: Option<&Id>,
+                _collapse_threads: bool,
+            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                Ok(QueryChangesResult::new(
+                    since_query_state.clone(),
+                    State::from("0"),
+                    Some(0),
+                    vec![],
+                    vec![],
+                ))
+            }
+        }
+
+        impl CalendarsBackend for FaultyBackend {
+            async fn create_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _create_id: &str,
+                obj: O,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("mock-id"), obj))
+            }
+
+            async fn update_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+                _patch: O::Patch,
+            ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+                Err(BackendSetError::SetError(JsSetError::new(
+                    JsSetErrorType::NotFound,
+                )))
+            }
+
+            async fn destroy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+            ) -> Result<(), BackendSetError<Self::Error>> {
+                Ok(())
+            }
+
+            fn supports_type<O: JmapObject>(&self) -> bool {
+                true
+            }
+
+            async fn calendar_has_events(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _calendar_id: &Id,
+            ) -> Result<bool, Self::Error> {
+                Ok(false)
+            }
+
+            async fn get_availability(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _principal_id: &Id,
+                _utc_start: &UTCDate,
+                _utc_end: &UTCDate,
+                _show_details: bool,
+                _event_properties: Option<&[String]>,
+            ) -> Result<Vec<jmap_calendars_types::BusyPeriod>, AvailabilityError<Self::Error>>
+            {
+                Err(AvailabilityError::Other(FaultyError(CANARY)))
+            }
+        }
+
+        let backend = FaultyBackend;
+        let args = json!({
+            "accountId": "acc1",
+            "id": "principal1",
+            "utcStart": "2024-06-15T09:00:00Z",
+            "utcEnd": "2024-06-15T10:00:00Z"
+        });
+        let err = handle_principal_get_availability(&backend, &(), args)
+            .await
+            .expect_err("backend Other error must surface as JmapError");
+
+        assert_eq!(
+            err.error_type.as_str(),
+            "serverFail",
+            "wrong error type: {err:?}"
+        );
+        // The canary MUST NOT appear in the wire description — that is
+        // the leakage this test exists to catch.
+        let desc = err.description.as_deref().unwrap_or("");
+        assert!(
+            !desc.contains(CANARY),
+            "wire description leaked backend error text containing canary: {desc:?}"
+        );
+        // The description MUST be exactly the constant the redaction
+        // helper produces. This pins the contract: if the helper ever
+        // changes, the symmetric test in crate-jmap-server will catch it
+        // there too.
+        assert_eq!(
+            desc, SERVER_FAIL_INTERNAL_DESC,
+            "wire description must be the constant SERVER_FAIL_INTERNAL_DESC, \
+             not the backend error text: {desc:?}"
         );
     }
 }
