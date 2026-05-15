@@ -796,9 +796,16 @@ impl<'a> UpdateMemberRoleInput<'a> {
 
 /// Input parameters for `Chat/set` create.
 ///
-/// Discriminates the three Chat creation kinds from the spec. Each variant
-/// carries the fields required for that kind plus an optional `client_id`;
-/// when `None`, a ULID is generated automatically.
+/// Discriminates the two user-creatable Chat kinds from the spec. Each
+/// variant carries the fields required for that kind plus an optional
+/// `client_id`; when `None`, a ULID is generated automatically.
+///
+/// Channel Chats are NOT created via `Chat/set`. Per
+/// draft-atwood-jmap-chat-00 §Chat (line 436), Channel Chats are created
+/// as part of a Space via the `addChannels` patch key in `Space/set`
+/// (see [`SpacePatch::add_channels`] and [`SpaceAddChannelInput`]); the
+/// server assigns the channel's chatId at that time. A spec-compliant
+/// server will reject a `Chat/set` create with `kind: "channel"`.
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum ChatCreateInput<'a> {
@@ -823,17 +830,6 @@ pub enum ChatCreateInput<'a> {
         avatar_blob_id: Option<&'a Id>,
         /// Optional auto-expiry interval applied to new messages.
         message_expiry_seconds: Option<u64>,
-    },
-    /// Create a channel chat inside a Space.
-    Channel {
-        /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
-        client_id: Option<&'a str>,
-        /// The Space this channel belongs to.
-        space_id: &'a Id,
-        /// Display name for the channel.
-        name: &'a str,
-        /// Optional channel description / topic.
-        description: Option<&'a str>,
     },
 }
 

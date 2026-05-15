@@ -171,12 +171,18 @@ impl super::SessionClient {
     /// Create a Chat (JMAP Chat §Chat/set create).
     ///
     /// Dispatches to the correct spec `kind` based on the `input` variant:
-    /// `Direct`, `Group`, or `Channel`. When `client_id` inside the variant is
-    /// `None`, a ULID is generated automatically.
+    /// `Direct` or `Group`. When `client_id` inside the variant is `None`, a
+    /// ULID is generated automatically.
     ///
     /// For `Direct` chats: if one already exists with the given `contact_id`,
     /// the server returns it in `SetResponse.updated` rather than `created`
     /// (dedup rule per spec).
+    ///
+    /// Channel Chats are NOT created via `Chat/set` — per
+    /// draft-atwood-jmap-chat-00 §Chat (line 436) they are created via
+    /// `Space/set` with the `addChannels` patch key. Use
+    /// [`super::SessionClient::space_update`] with
+    /// [`super::SpacePatch::add_channels`] to create a Channel.
     pub async fn chat_create(
         &self,
         input: &ChatCreateInput<'_>,
@@ -220,28 +226,6 @@ impl super::SessionClient {
                 }
                 if let Some(s) = message_expiry_seconds {
                     obj["messageExpirySeconds"] = (*s).into();
-                }
-                create_obj = obj;
-                *client_id
-            }
-            ChatCreateInput::Channel {
-                client_id,
-                space_id,
-                name,
-                description,
-            } => {
-                if name.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "chat_create: name may not be empty".into(),
-                    ));
-                }
-                let mut obj = serde_json::json!({
-                    "kind": "channel",
-                    "spaceId": space_id,
-                    "name": name,
-                });
-                if let Some(d) = description {
-                    obj["description"] = (*d).into();
                 }
                 create_obj = obj;
                 *client_id
