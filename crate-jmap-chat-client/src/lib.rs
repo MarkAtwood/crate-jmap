@@ -53,7 +53,13 @@ pub use ws::{ChatWsExt, ChatWsFrame};
 ///
 /// All JMAP Chat method calls are made through the [`SessionClient`] returned
 /// by [`with_chat_session`](JmapChatExt::with_chat_session).
-pub trait JmapChatExt {
+///
+/// This trait is **sealed**: implementations outside this crate are not
+/// permitted. The crate adds an `impl` only for
+/// [`jmap_base_client::JmapClient`]. Sealing prevents downstream
+/// divergence (e.g. `impl JmapChatExt for MySimulator`) and keeps
+/// adding methods to the trait a non-breaking change.
+pub trait JmapChatExt: sealed::Sealed {
     /// Create a [`SessionClient`] bound to this client and session.
     ///
     /// All JMAP Chat method calls are made through the returned [`SessionClient`].
@@ -67,4 +73,10 @@ impl JmapChatExt for jmap_base_client::JmapClient {
             session,
         }
     }
+}
+
+mod sealed {
+    /// Sealing-trait for [`super::JmapChatExt`] — see the trait's rustdoc.
+    pub trait Sealed {}
+    impl Sealed for ::jmap_base_client::JmapClient {}
 }

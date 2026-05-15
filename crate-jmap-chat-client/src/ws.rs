@@ -93,7 +93,13 @@ pub fn parse_chat_ws_frame(frame: WsFrame) -> ChatWsFrame {
 /// Extension trait adding JMAP Chat ephemeral-event methods to [`WsSession`].
 ///
 /// Import this trait to use: `use jmap_chat_client::ChatWsExt;`
-pub trait ChatWsExt {
+///
+/// This trait is **sealed**: implementations outside this crate are not
+/// permitted. The crate adds an `impl` only for
+/// [`jmap_base_client::WsSession`]. Sealing prevents downstream
+/// divergence and keeps adding methods to the trait a non-breaking
+/// change.
+pub trait ChatWsExt: sealed::Sealed {
     /// Receive the next frame from the server, interpreted as a [`ChatWsFrame`].
     ///
     /// Returns `None` when the server has cleanly closed the connection.
@@ -124,6 +130,12 @@ pub trait ChatWsExt {
     fn send_stream_disable(
         &mut self,
     ) -> impl std::future::Future<Output = Result<(), ClientError>> + Send;
+}
+
+mod sealed {
+    /// Sealing-trait for [`super::ChatWsExt`] — see the trait's rustdoc.
+    pub trait Sealed {}
+    impl Sealed for ::jmap_base_client::WsSession {}
 }
 
 impl ChatWsExt for WsSession {

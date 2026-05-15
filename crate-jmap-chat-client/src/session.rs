@@ -133,7 +133,13 @@ pub struct ChatPushCapability {
 /// ```ignore
 /// use jmap_chat_client::ChatSessionExt;
 /// ```
-pub trait ChatSessionExt {
+///
+/// This trait is **sealed**: implementations outside this crate are not
+/// permitted. The crate adds an `impl` only for
+/// [`jmap_base_client::Session`]. Sealing prevents downstream
+/// divergence and keeps adding methods to the trait a non-breaking
+/// change.
+pub trait ChatSessionExt: sealed::Sealed {
     /// Returns the primary account ID for the JMAP Chat capability, if present.
     ///
     /// Reads `primaryAccounts["urn:ietf:params:jmap:chat"]`.
@@ -189,6 +195,12 @@ pub trait ChatSessionExt {
     ///
     /// Checks for `capabilities["urn:ietf:params:jmap:quota"]`.
     fn supports_quotas(&self) -> bool;
+}
+
+mod sealed {
+    /// Sealing-trait for [`super::ChatSessionExt`] — see the trait's rustdoc.
+    pub trait Sealed {}
+    impl Sealed for ::jmap_base_client::Session {}
 }
 
 // ---------------------------------------------------------------------------
