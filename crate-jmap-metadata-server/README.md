@@ -32,8 +32,15 @@ use jmap_metadata_server::{MetadataBackend, register_metadata_handlers};
 use jmap_server::Dispatcher;
 
 // 1. Implement MetadataBackend for your storage layer (see trait section below).
+//    MetadataBackend is a sub-trait of jmap_server::JmapBackend, so the impl
+//    block below is shorthand for "impl JmapBackend AND MetadataBackend" —
+//    you need both. See the MetadataBackend trait section below for the
+//    write methods and the jmap-server crate docs for JmapBackend's read
+//    methods (get_objects, get_state, get_changes, query_objects,
+//    query_changes).
 struct MyBackend { /* db pool, etc. */ }
-impl MetadataBackend for MyBackend { /* ... */ }
+impl jmap_server::JmapBackend for MyBackend { /* type Error, type CallerCtx, principal_id, get_objects, get_state, get_changes, query_objects, query_changes ... */ }
+impl MetadataBackend for MyBackend { /* create_object, update_object, destroy_object */ }
 
 // 2. Wire all 5 Metadata methods into a Dispatcher in one call.
 let mut dispatcher: Dispatcher<()> = Dispatcher::new();
