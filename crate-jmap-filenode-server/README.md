@@ -239,9 +239,11 @@ until the family is published to crates.io.
 - No production storage backend ships with this crate. A tree-backed reference
   implementation `MemoryBackend` lives in `src/memory.rs` and is gated behind
   `feature = "memory"` — it is intended for tests, examples, and contributor
-  smoke-testing only, and is explicitly not suitable for production use. An
-  internal `MockBackend` (`#[cfg(test)]`) in `src/lib.rs` is used by this
-  crate's own unit tests and is not part of the public surface.
+  smoke-testing only, and is explicitly not suitable for production use. Unit
+  tests under `#[cfg(test)]` use this same `MemoryBackend` plus a thin
+  fault-injection wrapper (`FaultyBackend`, kept inside `mod tests` for unit
+  tests that cannot import from `tests/`) — mirroring the canonical
+  `jmap-mail-server` test harness layout.
 
 ## References
 
