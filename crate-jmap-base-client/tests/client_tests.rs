@@ -467,6 +467,33 @@ async fn test_call_round_trip() {
     assert_eq!(resp.method_responses.len(), 1);
     assert_eq!(resp.method_responses[0].0, "Mailbox/get");
     assert_eq!(resp.method_responses[0].2, "r1");
+
+    // Tighten the args check (bd:JMAP-6r7c.7): inspect the args payload so a
+    // regression that zeroed or stripped it cannot pass this test silently.
+    // The fixture sets accountId="A13824", state="m-state-1", list=[],
+    // notFound=[]; all four are checked.
+    let args = resp.method_responses[0]
+        .1
+        .as_object()
+        .expect("method-response args must be a JSON object");
+    assert_eq!(
+        args.get("accountId").and_then(|v| v.as_str()),
+        Some("A13824"),
+        "args.accountId must match call_response.json fixture"
+    );
+    assert_eq!(
+        args.get("state").and_then(|v| v.as_str()),
+        Some("m-state-1"),
+        "args.state must match call_response.json fixture"
+    );
+    assert!(
+        args.get("list").and_then(|v| v.as_array()).is_some_and(Vec::is_empty),
+        "args.list must be an empty array"
+    );
+    assert!(
+        args.get("notFound").and_then(|v| v.as_array()).is_some_and(Vec::is_empty),
+        "args.notFound must be an empty array"
+    );
 }
 
 /// Oracle: security requirement — call response body capped at 8 MiB.
@@ -945,6 +972,11 @@ async fn test_subscribe_events_accepts_charset_parameter() {
 
 /// Oracle: RFC 8620 §3.4 — extract_response finds the matching invocation
 /// by call_id and deserializes its arguments.
+///
+/// The assertion inspects the returned Value (bd:JMAP-6r7c.7), not just
+/// the Result variant — a regression that returned Ok(Value::Null) or
+/// stripped fields from the args payload would otherwise pass with the
+/// weaker is_ok()-only check.
 #[test]
 fn test_extract_response_success() {
     let resp = jmap_types::JmapResponse::new(
@@ -957,8 +989,29 @@ fn test_extract_response_success() {
         None,
     );
 
-    let val = jmap_base_client::client::extract_response::<serde_json::Value>(&resp, "r1");
-    assert!(val.is_ok(), "extract_response must succeed: {val:?}");
+    let val: serde_json::Value = jmap_base_client::client::extract_response(&resp, "r1")
+        .expect("extract_response must succeed");
+    let args = val
+        .as_object()
+        .expect("extract_response must return the args object verbatim");
+    assert_eq!(
+        args.get("accountId").and_then(|v| v.as_str()),
+        Some("A13824"),
+        "extract_response must preserve args.accountId from the invocation"
+    );
+    assert_eq!(
+        args.get("state").and_then(|v| v.as_str()),
+        Some("s1"),
+        "extract_response must preserve args.state from the invocation"
+    );
+    assert!(
+        args.contains_key("list"),
+        "extract_response must preserve args.list (even when empty)"
+    );
+    assert!(
+        args.contains_key("notFound"),
+        "extract_response must preserve args.notFound (even when empty)"
+    );
 }
 
 /// Oracle: RFC 8620 §3.4 — extract_response returns ClientError::MethodNotFound
