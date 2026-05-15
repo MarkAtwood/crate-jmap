@@ -13,6 +13,48 @@ use std::collections::HashMap;
 use jmap_types::{Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
 
+use crate::collision::{self, CollisionError};
+
+/// Camel-case wire-format names of every typed field on [`ContactCard`].
+///
+/// Used by [`ContactCard::validate_extras`] to detect vendor-extras
+/// key collisions before serialize. Order is not significant; the
+/// helper sorts collisions alphabetically. JMAP-glx8.25.
+const CONTACT_CARD_TYPED_FIELDS: &[&str] = &[
+    "id",
+    "addressBookIds",
+    "version",
+    "created",
+    "kind",
+    "language",
+    "members",
+    "prodId",
+    "relatedTo",
+    "uid",
+    "updated",
+    "name",
+    "nicknames",
+    "organizations",
+    "speakToAs",
+    "titles",
+    "emails",
+    "onlineServices",
+    "phones",
+    "preferredLanguages",
+    "calendars",
+    "schedulingAddresses",
+    "addresses",
+    "cryptoKeys",
+    "directories",
+    "links",
+    "media",
+    "localizations",
+    "anniversaries",
+    "keywords",
+    "notes",
+    "personalInfo",
+];
+
 /// A JMAP ContactCard object (RFC 9610 §3).
 ///
 /// Wraps the JSContact Card format (RFC 9553 §2) with two JMAP-specific
@@ -265,8 +307,33 @@ pub struct ContactCard {
     /// In short: treat `extra` as a write-only catch-all for unknown
     /// keys discovered at deserialize, and do not programmatically
     /// insert keys that match a typed field. JMAP-glx8.19.
+    ///
+    /// See [`ContactCard::validate_extras`] for a runtime pre-serialize
+    /// check that detects this hazard. JMAP-glx8.25.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl ContactCard {
+    /// Check that no [`extra`](Self::extra) key shadows a typed
+    /// wire-format field of this struct. Returns
+    /// [`Err(CollisionError)`](CollisionError) listing any colliding
+    /// keys; otherwise returns `Ok(())`.
+    ///
+    /// Recommended pre-serialize hook for producers who construct
+    /// `ContactCard` values programmatically and need to guarantee
+    /// that the resulting JSON does not contain duplicate object keys.
+    /// See the [`extra`](Self::extra) collision contract for the
+    /// underlying hazard. JMAP-glx8.25.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CollisionError`] when one or more keys in
+    /// [`extra`](Self::extra) match one of the camelCase wire-format
+    /// names of this struct's typed fields.
+    pub fn validate_extras(&self) -> Result<(), CollisionError> {
+        collision::check(&self.extra, CONTACT_CARD_TYPED_FIELDS)
+    }
 }
 
 /// Filter condition for `ContactCard/query` (RFC 9610 §3.3.1).

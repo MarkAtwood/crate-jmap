@@ -67,6 +67,7 @@ pub mod addressbook;
 pub mod backend;
 pub mod capability;
 pub mod card;
+pub mod collision;
 
 /// Module alias re-exporting [`jmap_jscontact_types`].
 ///
@@ -81,6 +82,7 @@ pub use addressbook::{AddressBook, AddressBookRights};
 pub use backend::{AddressBookProperty, ContactCardProperty};
 pub use capability::{ContactsAccountCapability, ContactsCapability, JMAP_CONTACTS_URI};
 pub use card::{ContactCard, ContactCardComparator, ContactCardFilterCondition};
+pub use collision::CollisionError;
 
 /// Constant identifiers for [`ContactCardComparator::property`] sort keys
 /// (re-export of [`card::prop`]).
@@ -1401,5 +1403,152 @@ mod tests {
             Some("second"),
             "extra map last-wins on duplicate keys"
         );
+    }
+
+    // ── validate_extras (JMAP-glx8.25) ───────────────────────────────────
+    //
+    // The `validate_extras()` method on each affected type is a defensive
+    // pre-serialize check that detects keys in `extra` that shadow typed
+    // wire-format fields. The tests below pin the contract: clean extras
+    // pass, every typed wire-field name collides when programmatically
+    // inserted into `extra`, and multi-collision reports list all keys.
+
+    /// `ContactCard::validate_extras` returns `Ok(())` when `extra` is
+    /// empty or contains only non-colliding vendor keys.
+    #[test]
+    fn contact_card_validate_extras_ok_on_clean() {
+        let c = ContactCard::default();
+        assert!(c.validate_extras().is_ok(), "empty extras must pass");
+
+        let mut c = ContactCard::default();
+        c.extra.insert("acmeCorpFoo".into(), json!("bar"));
+        assert!(c.validate_extras().is_ok(), "vendor-only key must pass");
+    }
+
+    /// `ContactCard::validate_extras` returns `Err` listing every
+    /// typed wire-format field name when programmatically inserted
+    /// into `extra`. Oracle: the spec'd list of camelCase field names
+    /// from RFC 9610 §3 + RFC 9553 §2 + workspace extras-preservation
+    /// policy.
+    #[test]
+    fn contact_card_validate_extras_detects_every_typed_field_collision() {
+        // Every typed wire-format field name on ContactCard. Kept here
+        // independent of the const in card.rs as the test oracle.
+        let typed_fields = [
+            "id",
+            "addressBookIds",
+            "version",
+            "created",
+            "kind",
+            "language",
+            "members",
+            "prodId",
+            "relatedTo",
+            "uid",
+            "updated",
+            "name",
+            "nicknames",
+            "organizations",
+            "speakToAs",
+            "titles",
+            "emails",
+            "onlineServices",
+            "phones",
+            "preferredLanguages",
+            "calendars",
+            "schedulingAddresses",
+            "addresses",
+            "cryptoKeys",
+            "directories",
+            "links",
+            "media",
+            "localizations",
+            "anniversaries",
+            "keywords",
+            "notes",
+            "personalInfo",
+        ];
+        for field in typed_fields {
+            let mut c = ContactCard::default();
+            c.extra.insert(field.into(), json!("collision"));
+            let err = c
+                .validate_extras()
+                .expect_err(&format!("{field} collision must be detected"));
+            assert_eq!(err.keys(), &[field.to_string()]);
+        }
+    }
+
+    /// `ContactCard::validate_extras` reports multiple collisions in
+    /// alphabetical order in a single `Err`.
+    #[test]
+    fn contact_card_validate_extras_reports_multiple_collisions() {
+        let mut c = ContactCard::default();
+        c.extra.insert("uid".into(), json!("a"));
+        c.extra.insert("id".into(), json!("b"));
+        c.extra.insert("acmeCorpFoo".into(), json!("c"));
+        let err = c.validate_extras().expect_err("multi-collision must error");
+        assert_eq!(err.keys(), &["id".to_string(), "uid".to_string()]);
+        let msg = err.to_string();
+        assert!(msg.contains("id, uid"), "got: {msg}");
+    }
+
+    /// `AddressBook::validate_extras` returns `Ok(())` on clean extras
+    /// and `Err` on every typed wire-format field collision.
+    #[test]
+    fn address_book_validate_extras_detects_every_typed_field_collision() {
+        let typed_fields = [
+            "id",
+            "name",
+            "description",
+            "sortOrder",
+            "isDefault",
+            "isSubscribed",
+            "shareWith",
+            "myRights",
+        ];
+        // Build a minimal AddressBook (without using the literal field
+        // names that would interfere with the test).
+        let template = json!({
+            "id": "ab-test",
+            "name": "Test",
+            "description": null,
+            "sortOrder": 0,
+            "isDefault": false,
+            "isSubscribed": true,
+            "shareWith": null,
+            "myRights": {
+                "mayRead": true, "mayWrite": false,
+                "mayShare": false, "mayDelete": false
+            }
+        });
+        let mut ab: AddressBook = serde_json::from_value(template).unwrap();
+        assert!(ab.validate_extras().is_ok(), "clean extras pass");
+
+        for field in typed_fields {
+            ab.extra.clear();
+            ab.extra.insert(field.into(), json!("collision"));
+            let err = ab
+                .validate_extras()
+                .expect_err(&format!("{field} collision must be detected"));
+            assert_eq!(err.keys(), &[field.to_string()]);
+        }
+    }
+
+    /// `AddressBookRights::validate_extras` returns `Ok(())` on clean
+    /// extras and `Err` on every typed wire-format field collision.
+    #[test]
+    fn address_book_rights_validate_extras_detects_every_typed_field_collision() {
+        let typed_fields = ["mayRead", "mayWrite", "mayShare", "mayDelete"];
+        let mut r = AddressBookRights::default();
+        assert!(r.validate_extras().is_ok(), "clean extras pass");
+
+        for field in typed_fields {
+            r.extra.clear();
+            r.extra.insert(field.into(), json!(true));
+            let err = r
+                .validate_extras()
+                .expect_err(&format!("{field} collision must be detected"));
+            assert_eq!(err.keys(), &[field.to_string()]);
+        }
     }
 }
