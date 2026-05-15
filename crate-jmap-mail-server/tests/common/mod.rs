@@ -9,7 +9,7 @@
 //!   `use common::MemoryBackend;` unchanged.
 //! - keeps the test-only [`FaultyBackend`] fault-injection wrapper that
 //!   forces specific backend operations to return
-//!   `BackendSetError::Other(MemoryError(_))`. This is testing
+//!   `BackendSetError::Other(MemoryError)`. This is testing
 //!   scaffolding (not a reference impl) and so stays here.
 //! - keeps small test-fixture byte constants (`VALID_MDN_BLOB` etc.) that
 //!   are oracle data, not reference-impl code.
@@ -37,7 +37,7 @@ use jmap_types::{Id, State, UTCDate};
 /// `BackendSetError::Other` for specific `(type_name, operation)` pairs.
 ///
 /// Call [`FaultyBackend::inject`] before the operation under test. The first
-/// matching call returns `BackendSetError::Other(MemoryError("injected …"))`;
+/// matching call returns `BackendSetError::Other(MemoryError::new("injected …".to_owned()))`;
 /// the flag is cleared so subsequent calls go to the inner backend normally.
 ///
 /// Test-only — kept in the test harness rather than the public reference
@@ -166,7 +166,7 @@ impl MailBackend for FaultyBackend {
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         if self.take_fault(O::TYPE_NAME, "create") {
-            return Err(BackendSetError::Other(MemoryError(
+            return Err(BackendSetError::Other(MemoryError::new(
                 "injected create error".to_owned(),
             )));
         }
@@ -183,7 +183,7 @@ impl MailBackend for FaultyBackend {
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         if self.take_fault(O::TYPE_NAME, "update") {
-            return Err(BackendSetError::Other(MemoryError(
+            return Err(BackendSetError::Other(MemoryError::new(
                 "injected update error".to_owned(),
             )));
         }
@@ -199,7 +199,7 @@ impl MailBackend for FaultyBackend {
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
         if self.take_fault(O::TYPE_NAME, "destroy") {
-            return Err(BackendSetError::Other(MemoryError(
+            return Err(BackendSetError::Other(MemoryError::new(
                 "injected destroy error".to_owned(),
             )));
         }
@@ -216,7 +216,7 @@ impl MailBackend for FaultyBackend {
         received_at: Option<&jmap_types::UTCDate>,
     ) -> Result<(Id, jmap_mail_types::Email), BackendSetError<Self::Error>> {
         if self.take_fault("Email", "import") {
-            return Err(BackendSetError::Other(MemoryError(
+            return Err(BackendSetError::Other(MemoryError::new(
                 "injected import error".to_owned(),
             )));
         }
@@ -243,7 +243,7 @@ impl MailBackend for FaultyBackend {
         blob_id: &Id,
     ) -> Result<bool, Self::Error> {
         if self.take_fault("", "blob_exists") {
-            return Err(MemoryError("injected blob_exists failure".to_owned()));
+            return Err(MemoryError::new("injected blob_exists failure".to_owned()));
         }
         self.inner.blob_exists(&(), account_id, blob_id).await
     }

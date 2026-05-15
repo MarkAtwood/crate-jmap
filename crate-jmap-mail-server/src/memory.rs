@@ -460,17 +460,39 @@ fn mailbox_matches_filter(
 
 /// Opaque storage-layer error returned by [`MemoryBackend`] operations.
 ///
-/// The inner [`String`] is a human-readable description intended for
+/// The inner description is a human-readable string intended for
 /// diagnostic logging; it is not a stable wire-format identifier.
+///
+/// # Forward compatibility
+///
+/// This type is `#[non_exhaustive]` and uses a named-field shape so
+/// future revisions can add structured context (error kind, source
+/// reference, account id, etc.) without a breaking change. Outside-
+/// crate construction goes through [`MemoryError::new`]; outside-crate
+/// reads go through [`MemoryError::description`].
+#[non_exhaustive]
 #[derive(Debug)]
-pub struct MemoryError(
+pub struct MemoryError {
+    description: String,
+}
+
+impl MemoryError {
+    /// Construct a [`MemoryError`] from a human-readable description.
+    pub fn new(description: impl Into<String>) -> Self {
+        Self {
+            description: description.into(),
+        }
+    }
+
     /// Human-readable description of the underlying failure.
-    pub String,
-);
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+}
 
 impl std::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "MemoryBackend error: {}", self.0)
+        write!(f, "MemoryBackend error: {}", self.description)
     }
 }
 
@@ -514,7 +536,7 @@ impl JmapBackend for MemoryBackend {
                 match store.get(id) {
                     Some(val) => {
                         let obj: O = O::deserialize(val).map_err(|e| {
-                            MemoryError(format!("deserialize {}: {e}", O::TYPE_NAME))
+                            MemoryError::new(format!("deserialize {}: {e}", O::TYPE_NAME))
                         })?;
                         found.push(obj);
                     }
@@ -524,7 +546,7 @@ impl JmapBackend for MemoryBackend {
         } else {
             for val in store.values() {
                 let obj: O = O::deserialize(val)
-                    .map_err(|e| MemoryError(format!("deserialize {}: {e}", O::TYPE_NAME)))?;
+                    .map_err(|e| MemoryError::new(format!("deserialize {}: {e}", O::TYPE_NAME)))?;
                 found.push(obj);
             }
         }
@@ -558,7 +580,9 @@ impl JmapBackend for MemoryBackend {
         max_changes: Option<u64>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
         let since: u64 = since_state.as_ref().parse().map_err(|_| {
-            BackendChangesError::Other(MemoryError(format!("invalid state token: {since_state}")))
+            BackendChangesError::Other(MemoryError::new(format!(
+                "invalid state token: {since_state}"
+            )))
         })?;
 
         // Snapshot relevant change log entries under a brief lock, then release.
@@ -1013,7 +1037,7 @@ impl MailBackend for MemoryBackend {
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         let mut val = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize: {e}"))))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
         // Use the object's existing id if it is a meaningful server-assigned
         // value (e.g. VacationResponse always uses "singleton"). Treat absent
         // or "placeholder" ids as a signal to assign a fresh UUID.
@@ -1061,7 +1085,7 @@ impl MailBackend for MemoryBackend {
             }
         }
         let created_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
+            BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
         })?;
 
         let mut inner = self.inner.lock().unwrap();
@@ -1095,7 +1119,7 @@ impl MailBackend for MemoryBackend {
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         let patch_val: serde_json::Value = serde_json::to_value(patch)
-            .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
 
         let mut inner = self.inner.lock().unwrap();
         let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
@@ -1273,7 +1297,7 @@ impl MailBackend for MemoryBackend {
 
             // Serialize the email for storage.
             let email_val = serde_json::to_value(&email).map_err(|e| {
-                BackendSetError::Other(MemoryError(format!("serialize email: {e}")))
+                BackendSetError::Other(MemoryError::new(format!("serialize email: {e}")))
             })?;
 
             // Insert or update Thread (append email_id if thread exists).
@@ -1443,7 +1467,7 @@ impl MailBackend for MemoryBackend {
                 .blobs
                 .get(blob_id)
                 .cloned()
-                .ok_or_else(|| MemoryError(format!("blob not found: {blob_id}")))?
+                .ok_or_else(|| MemoryError::new(format!("blob not found: {blob_id}")))?
         };
 
         let parsed = parse_rfc5322_headers(&bytes);
@@ -1525,7 +1549,7 @@ impl MailBackend for MemoryBackend {
         };
 
         let src_email: Email = serde_json::from_value(src_val).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("deserialize source email: {e}")))
+            BackendSetError::Other(MemoryError::new(format!("deserialize source email: {e}")))
         })?;
 
         // Assign thread in destination account.
@@ -1565,7 +1589,7 @@ impl MailBackend for MemoryBackend {
         new_email.preview = src_email.preview.clone();
 
         let email_val = serde_json::to_value(&new_email).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("serialize copied email: {e}")))
+            BackendSetError::Other(MemoryError::new(format!("serialize copied email: {e}")))
         })?;
         let thread_val = serde_json::json!({
             "id": thread_id.to_string(),
@@ -2498,7 +2522,7 @@ impl MdnBackend for MemoryBackend {
             // Mdn is #[non_exhaustive] and defined outside this crate, so we
             // round-trip through JSON to construct a modified copy.
             let mut sent_val = serde_json::to_value(&mdn).map_err(|e| {
-                jmap_server::backend::BackendSetError::Other(MemoryError(format!(
+                jmap_server::backend::BackendSetError::Other(MemoryError::new(format!(
                     "serialize mdn: {e}"
                 )))
             })?;
@@ -2540,7 +2564,7 @@ impl MdnBackend for MemoryBackend {
                 }
             }
             let sent_mdn: Mdn = serde_json::from_value(sent_val).map_err(|e| {
-                jmap_server::backend::BackendSetError::Other(MemoryError(format!(
+                jmap_server::backend::BackendSetError::Other(MemoryError::new(format!(
                     "deserialize sent mdn: {e}"
                 )))
             })?;
@@ -2659,7 +2683,7 @@ impl MdnBackend for MemoryBackend {
                         "extensionFields": serde_json::Value::Null,
                     });
                     let mdn: Mdn = serde_json::from_value(mdn_val)
-                        .map_err(|e| MemoryError(format!("deserialize parsed mdn: {e}")))?;
+                        .map_err(|e| MemoryError::new(format!("deserialize parsed mdn: {e}")))?;
                     parsed.insert(blob_id, mdn);
                 }
             }
