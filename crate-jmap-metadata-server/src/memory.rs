@@ -114,11 +114,36 @@
 //!
 //! # Concurrency
 //!
-//! `std::sync::Mutex` is used for simplicity. The `await_holding_lock`
-//! clippy lint is enabled module-wide and enforces that no lock guard
-//! is held across an `.await`. If a future change requires holding a
-//! guard across `.await`, switch to `tokio::sync::Mutex` rather than
-//! disabling the lint.
+//! **Single global `std::sync::Mutex` — testing-grade only.** All read
+//! and write operations on this backend serialize through one mutex
+//! that wraps the entire account state map. Under any concurrent load
+//! (multiple simultaneous `/get` / `/set` / `/query` calls), every
+//! operation blocks until the previous one finishes. The
+//! `await_holding_lock` clippy lint is enabled module-wide so the
+//! guard never crosses an `.await`, but the tokio worker thread that
+//! happens to be running an operation still cannot yield (no `.await`
+//! inside the critical section) until the operation completes.
+//!
+//! **This is intentional for the reference impl** — a single mutex is
+//! straightforward to reason about and keeps the source readable for
+//! contributors. It is **NOT a pattern to copy into a real backend.**
+//! A production-grade MetadataBackend must use one of:
+//!
+//! - Per-account or per-record fine-grained locking (e.g.
+//!   `DashMap<AccountId, AccountState>` or sharded mutexes).
+//! - An ACID storage layer (Postgres / SQLite / FoundationDB) that
+//!   handles concurrency internally; the backend impl then becomes a
+//!   thin adapter.
+//! - Optimistic concurrency with versioning, where reads do not block
+//!   writes and vice versa.
+//!
+//! **The mutex type is `std::sync::Mutex`, not `tokio::sync::Mutex`,
+//! because no operation awaits inside the critical section.** If a
+//! future change requires holding the guard across an `.await`, switch
+//! to `tokio::sync::Mutex` rather than disabling the
+//! `await_holding_lock` lint. Swapping to `tokio::sync::Mutex` alone
+//! does NOT fix the per-operation serialization — only the
+//! coarse-grained locking strategy does.
 
 #![allow(async_fn_in_trait)]
 #![deny(clippy::await_holding_lock)]
