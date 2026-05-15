@@ -98,6 +98,37 @@ where
     }
 }
 
+/// Read an optional boolean argument from a method-arguments envelope without
+/// removing it (bd:JMAP-ic0j.39).
+///
+/// Returns `default` if `key` is absent, if the value is not a boolean, or if
+/// the value is `Value::Null`. This is the canonical workspace helper for
+/// JMAP's "permissive parsing" convention on optional boolean controls
+/// (RFC 8620 §3.6.1 — unknown / non-typed values coerce to the spec default).
+///
+/// Use [`take_bool_arg`] if the caller wants to consume the entry as part of
+/// a "walk the args map removing as we go" pattern.
+///
+/// Collapses ~50 near-identical
+/// `args.get(K).and_then(|v| v.as_bool()).unwrap_or(default)` blocks across
+/// the extension-server family into single-line calls.
+pub fn bool_arg(args: &Map<String, Value>, key: &str, default: bool) -> bool {
+    args.get(key).and_then(|v| v.as_bool()).unwrap_or(default)
+}
+
+/// Read an optional boolean argument from a method-arguments envelope,
+/// removing it from the map (bd:JMAP-ic0j.39).
+///
+/// Returns `default` if `key` is absent, if the value is not a boolean, or if
+/// the value is `Value::Null`. Mirrors the semantics of [`bool_arg`] but
+/// consumes the entry from `args`. Matches the canonical mail-server
+/// "remove-as-we-go" parsing pattern.
+pub fn take_bool_arg(args: &mut Map<String, Value>, key: &str, default: bool) -> bool {
+    args.remove(key)
+        .and_then(|v| v.as_bool())
+        .unwrap_or(default)
+}
+
 /// Extract `accountId` from a JMAP method arguments envelope and return both
 /// the extracted [`Id`] and the remaining argument map.
 ///

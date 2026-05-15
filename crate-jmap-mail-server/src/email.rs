@@ -13,7 +13,7 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, find_immutable_patch_key,
     not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{bool_arg, server_fail_from_backend, take_bool_arg};
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
 const DEFAULT_EMAIL_GET_PROPERTIES: &[&str] = &[
@@ -518,18 +518,9 @@ pub async fn handle_email_get<B: MailBackend>(
         Some(v) => serde_json::from_value(v)
             .map_err(|e| JmapError::invalid_arguments(format!("bodyProperties: {e}")))?,
     };
-    let fetch_text_body_values: bool = args
-        .remove("fetchTextBodyValues")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let fetch_html_body_values: bool = args
-        .remove("fetchHTMLBodyValues")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let fetch_all_body_values: bool = args
-        .remove("fetchAllBodyValues")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let fetch_text_body_values: bool = take_bool_arg(&mut args, "fetchTextBodyValues", false);
+    let fetch_html_body_values: bool = take_bool_arg(&mut args, "fetchHTMLBodyValues", false);
+    let fetch_all_body_values: bool = take_bool_arg(&mut args, "fetchAllBodyValues", false);
     let max_body_value_bytes: u64 = match args.remove("maxBodyValueBytes") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_u64().ok_or_else(|| {
@@ -715,15 +706,9 @@ pub async fn handle_email_query<B: MailBackend>(
         })?,
     };
 
-    let collapse_threads: bool = args
-        .remove("collapseThreads")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let collapse_threads: bool = take_bool_arg(&mut args, "collapseThreads", false);
 
-    let calculate_total: bool = args
-        .remove("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let calculate_total: bool = take_bool_arg(&mut args, "calculateTotal", false);
 
     // RFC 8620 §5.5: anchor-based pagination overrides position.
     let anchor: Option<Id> = match args.remove("anchor") {
@@ -956,15 +941,9 @@ pub async fn handle_email_query_changes<B: MailBackend>(
     // RFC 8621 §4.5: collapseThreads mirrors the argument from the original
     // Email/query that produced the sinceQueryState. Backends that track
     // per-query result sets use it to return thread-collapsed deltas.
-    let collapse_threads: bool = args
-        .remove("collapseThreads")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let collapse_threads: bool = take_bool_arg(&mut args, "collapseThreads", false);
 
-    let calculate_total: bool = args
-        .remove("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let calculate_total: bool = take_bool_arg(&mut args, "calculateTotal", false);
 
     let sort_slice = sort.as_deref();
     let result = backend
@@ -2090,18 +2069,9 @@ pub async fn handle_email_parse<B: MailBackend>(
         Some(v) => serde_json::from_value(v)
             .map_err(|e| JmapError::invalid_arguments(format!("bodyProperties: {e}")))?,
     };
-    let fetch_text_body_values: bool = args
-        .remove("fetchTextBodyValues")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let fetch_html_body_values: bool = args
-        .remove("fetchHTMLBodyValues")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
-    let fetch_all_body_values: bool = args
-        .remove("fetchAllBodyValues")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let fetch_text_body_values: bool = take_bool_arg(&mut args, "fetchTextBodyValues", false);
+    let fetch_html_body_values: bool = take_bool_arg(&mut args, "fetchHTMLBodyValues", false);
+    let fetch_all_body_values: bool = take_bool_arg(&mut args, "fetchAllBodyValues", false);
     let max_body_value_bytes: u64 = match args.remove("maxBodyValueBytes") {
         None | Some(Value::Null) => 0,
         Some(v) => v.as_u64().ok_or_else(|| {
@@ -2282,10 +2252,7 @@ pub async fn handle_email_copy<B: MailBackend>(
         _ => return Err(JmapError::invalid_arguments("create is required")),
     };
 
-    let on_success_destroy_original: bool = args
-        .get("onSuccessDestroyOriginal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let on_success_destroy_original: bool = bool_arg(&args, "onSuccessDestroyOriginal", false);
 
     // ifFromInState: check source account state (RFC 8620 §5.4).
     if let Some(if_from_in_state) = args.get("ifFromInState").and_then(|v| v.as_str()) {

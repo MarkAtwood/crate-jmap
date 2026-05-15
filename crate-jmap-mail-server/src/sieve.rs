@@ -22,7 +22,7 @@ use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, set_error_value, SetAccumulators,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, take_bool_arg};
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
 /// and `SieveScript/validate` operations (RFC 9661).
@@ -1071,10 +1071,7 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
         })?,
     };
 
-    let calculate_total: bool = args
-        .remove("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let calculate_total: bool = take_bool_arg(&mut args, "calculateTotal", false);
 
     // Step 4: fetch all scripts for the account.
     let (all_scripts, _not_found) = backend

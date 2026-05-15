@@ -11,7 +11,7 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, not_found_json, serialize_value,
     set_error_value, SetAccumulators,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{bool_arg, server_fail_from_backend};
 
 // ---------------------------------------------------------------------------
 // Mailbox/get (RFC 8621 §2.1)
@@ -123,10 +123,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    let calculate_total: bool = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
     let limit: Option<u64> = match args.get("limit") {
         None | Some(Value::Null) => None,
@@ -201,11 +198,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     // Reject explicitly rather than silently ignoring — silently returning flat
     // results would produce semantically wrong data for clients relying on
     // tree-mode ordering.
-    if args
-        .get("sortAsTree")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-    {
+    if bool_arg(&args, "sortAsTree", false) {
         return Err(JmapError::unsupported_sort());
     }
     // filterAsTree=true changes child-mailbox inclusion semantics (RFC 8621 §2.3):
@@ -213,11 +206,7 @@ pub async fn handle_mailbox_query<B: MailBackend>(
     // Reject explicitly rather than silently ignoring — filterAsTree affects which
     // mailboxes appear in the result, so silently returning flat results would
     // produce semantically wrong data for clients relying on tree-mode semantics.
-    if args
-        .get("filterAsTree")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false)
-    {
+    if bool_arg(&args, "filterAsTree", false) {
         return Err(JmapError::unsupported_filter());
     }
 
@@ -373,10 +362,7 @@ pub async fn handle_mailbox_query_changes<B: MailBackend>(
         }
     };
 
-    let calculate_total: bool = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
     let result = backend
         .query_changes::<Mailbox>(
@@ -458,10 +444,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         }
     }
 
-    let on_destroy_remove_emails = args
-        .get("onDestroyRemoveEmails")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let on_destroy_remove_emails = bool_arg(&args, "onDestroyRemoveEmails", false);
 
     // Fetch all existing mailboxes before any mutations. This snapshot is used
     // in the create loop to check role uniqueness (no two mailboxes may share a
