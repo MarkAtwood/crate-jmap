@@ -404,7 +404,7 @@ fn restore_crlf(raw_value: &str) -> Vec<u8> {
 fn jmap_email_address_value(addr: mime_tree::EmailAddress) -> Value {
     let mut ea = EmailAddress::new(addr.address.unwrap_or_default());
     ea.name = addr.name;
-    serde_json::to_value(ea).unwrap_or(Value::Null)
+    serde_json::to_value(ea).expect("derive(Serialize) on plain data is infallible")
 }
 
 /// Convert a `mime_tree::AddressGroup` to the JMAP `EmailAddressGroup`
@@ -423,7 +423,7 @@ fn jmap_email_address_group_value(group: mime_tree::AddressGroup) -> Value {
             .collect(),
     );
     eag.name = group.name;
-    serde_json::to_value(eag).unwrap_or(Value::Null)
+    serde_json::to_value(eag).expect("derive(Serialize) on plain data is infallible")
 }
 
 /// Extract header value(s) from `email_json["headers"]` for the given request.
