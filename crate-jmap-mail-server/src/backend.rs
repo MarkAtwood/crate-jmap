@@ -153,17 +153,27 @@ pub trait MailBackend: JmapBackend {
         Output = Result<(jmap_types::Id, jmap_mail_types::Email), BackendSetError<Self::Error>>,
     > + Send;
 
-    /// Return the thread id of the first stored [`Email`](jmap_mail_types::Email) whose
-    /// `messageId` list intersects `message_ids`, or `None` if no match exists.
+    /// Look up the thread id of the first stored
+    /// [`Email`](jmap_mail_types::Email) whose `messageId` list intersects
+    /// `message_ids`, or `None` if no match exists.
     ///
-    /// **Persistent backends MUST override this method.** The default `next_id`
-    /// generator used when this returns `None` is seeded from system-clock
-    /// nanoseconds at process startup. Two processes that start within the same
-    /// nanosecond (common in containers and test harnesses) will produce
-    /// identical ID sequences, silently corrupting thread graphs across
-    /// restarts. A persistent backend must derive thread IDs from durable
-    /// storage — for example, by looking up a content-addressed hash of the
-    /// message-id header — so that thread identity survives process boundaries.
+    /// The handler uses this method during `Email/set` / `Email/import` to
+    /// reuse an existing thread id when an incoming message has the same
+    /// `Message-ID` / `References` as a stored message. If this method
+    /// returns `None`, the handler calls
+    /// [`create_object`](MailBackend::create_object)`::<Email>` which
+    /// generates a fresh thread id via the backend's own ID generator.
+    ///
+    /// # Persistence guidance
+    ///
+    /// Backends with durable storage SHOULD derive thread ids from a
+    /// content-addressed hash of the `Message-ID` header (or a stable
+    /// per-account index of message-id → thread-id) so that thread
+    /// identity survives process restarts. Backends that generate
+    /// thread ids from a process-startup-seeded counter (e.g.
+    /// the reference `MemoryBackend`) will produce different thread
+    /// graphs across restarts: acceptable for tests, unacceptable
+    /// for production.
     fn find_thread_by_message_ids(
         &self,
         caller: &Self::CallerCtx,
