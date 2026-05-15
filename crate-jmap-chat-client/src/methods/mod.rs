@@ -156,7 +156,16 @@ impl<T> From<T> for Patch<T> {
 impl<T: serde::Serialize> Patch<T> {
     /// Returns `None` when `Keep` (omit key from patch),
     /// `Some(Value::Null)` when `Clear`, or `Some(serialized_value)` when `Set`.
-    pub fn map_entry(&self) -> Result<Option<serde_json::Value>, serde_json::Error> {
+    ///
+    /// Crate-internal helper for the `*_set` / `*_update` builders. Not
+    /// exposed publicly because (a) the return type would leak
+    /// `serde_json::Error` into the public SemVer surface (per
+    /// bd:JMAP-26di.35) and (b) external callers construct `Patch<T>`
+    /// via `Patch::from(v)` / `Patch::Clear` and let serde + the
+    /// `#[serde(skip_serializing_if = "Patch::is_keep")]` attribute
+    /// handle wire serialization — they have no reason to call this
+    /// helper directly.
+    pub(crate) fn map_entry(&self) -> Result<Option<serde_json::Value>, serde_json::Error> {
         match self {
             Patch::Keep => Ok(None),
             Patch::Clear => Ok(Some(serde_json::Value::Null)),
