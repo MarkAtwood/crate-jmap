@@ -62,6 +62,160 @@ async fn space_get_omits_ids_and_properties_when_none() {
     );
 }
 
+/// `Space/get` decode coverage: populated wire object must round-trip
+/// through the [`jmap_chat_types::Space`] `Deserialize` impl with every
+/// required field plus a representative optional (`description`) and
+/// each nested collection (`roles`, `members`, `categories`) populated
+/// with at least one entry. Without this test a regression that broke
+/// `Space` deserialize would still pass every other `Space/get` smoke
+/// test (they all return `"list": []`).
+///
+/// Mirrors the canonical extension-client shape
+/// `crate-jmap-calendars-client/tests/calendar_smoke_tests.rs::calendar_get_smoke`.
+///
+/// Oracles:
+///   - draft-atwood-jmap-chat-00 §Space — Space object field set
+///   - RFC 8620 §5.1 — /get response envelope
+#[tokio::test]
+async fn space_get_decodes_populated_space() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Space/get",
+            {
+                "accountId": "A13824",
+                "state": "sp-state-2",
+                "list": [
+                    {
+                        "id": "space-1",
+                        "name": "Engineering",
+                        "description": "Engineering team space",
+                        "roles": [
+                            {
+                                "id": "role-admin",
+                                "name": "Admin",
+                                "permissions": ["manage_channels", "manage_roles"],
+                                "position": 0
+                            }
+                        ],
+                        "members": [
+                            {
+                                "id": "u1",
+                                "roleIds": ["role-admin"],
+                                "joinedAt": "2026-01-01T00:00:00Z"
+                            }
+                        ],
+                        "categories": [
+                            {
+                                "id": "cat-1",
+                                "name": "General",
+                                "position": 0,
+                                "channelIds": ["chat-c1"]
+                            }
+                        ],
+                        "uncategorizedChannelIds": [],
+                        "createdAt": "2026-01-01T00:00:00Z",
+                        "isPublic": true,
+                        "isPubliclyPreviewable": false,
+                        "memberCount": 1
+                    }
+                ],
+                "notFound": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let resp = sc
+        .space_get(None, None)
+        .await
+        .expect("space_get: must succeed");
+
+    assert_eq!(resp.account_id.as_ref(), "A13824", "accountId mismatch");
+    assert_eq!(resp.state, "sp-state-2", "state mismatch");
+    assert_eq!(resp.list.len(), 1, "list must contain exactly one Space");
+
+    let space = &resp.list[0];
+    assert_eq!(space.id.as_ref(), "space-1", "id mismatch");
+    assert_eq!(space.name, "Engineering", "name mismatch");
+    assert_eq!(
+        space.description.as_deref(),
+        Some("Engineering team space"),
+        "description optional must round-trip"
+    );
+    assert_eq!(
+        space.created_at.as_ref(),
+        "2026-01-01T00:00:00Z",
+        "createdAt mismatch"
+    );
+    assert!(space.is_public, "isPublic must be true");
+    assert!(
+        !space.is_publicly_previewable,
+        "isPubliclyPreviewable must be false"
+    );
+    assert_eq!(space.member_count, 1, "memberCount mismatch");
+
+    assert_eq!(space.roles.len(), 1, "roles must have 1 entry");
+    assert_eq!(
+        space.roles[0].id.as_ref(),
+        "role-admin",
+        "roles[0].id mismatch"
+    );
+    assert_eq!(space.roles[0].name, "Admin", "roles[0].name mismatch");
+    assert_eq!(
+        space.roles[0].permissions.len(),
+        2,
+        "roles[0].permissions must have 2 entries"
+    );
+    assert_eq!(space.roles[0].position, 0, "roles[0].position mismatch");
+
+    assert_eq!(space.members.len(), 1, "members must have 1 entry");
+    assert_eq!(space.members[0].id.as_ref(), "u1", "members[0].id mismatch");
+    assert_eq!(
+        space.members[0].role_ids.len(),
+        1,
+        "members[0].roleIds must have 1 entry"
+    );
+    assert_eq!(
+        space.members[0].role_ids[0].as_ref(),
+        "role-admin",
+        "members[0].roleIds[0] mismatch"
+    );
+
+    assert_eq!(space.categories.len(), 1, "categories must have 1 entry");
+    assert_eq!(
+        space.categories[0].id.as_ref(),
+        "cat-1",
+        "categories[0].id mismatch"
+    );
+    assert_eq!(
+        space.categories[0].name, "General",
+        "categories[0].name mismatch"
+    );
+    assert_eq!(
+        space.categories[0].channel_ids.len(),
+        1,
+        "categories[0].channelIds must have 1 entry"
+    );
+    assert_eq!(
+        space.categories[0].channel_ids[0].as_ref(),
+        "chat-c1",
+        "categories[0].channelIds[0] mismatch"
+    );
+
+    assert!(
+        space.uncategorized_channel_ids.is_empty(),
+        "uncategorizedChannelIds must round-trip as empty"
+    );
+}
+
 /// `Space/changes` must thread `since_state` and `max_changes` and
 /// reject empty `since_state` client-side (space.rs:57-62, RFC 8620 §5.2).
 #[tokio::test]

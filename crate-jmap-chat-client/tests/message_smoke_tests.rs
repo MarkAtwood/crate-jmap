@@ -96,6 +96,177 @@ async fn message_get_threads_ids_and_omits_properties_when_none() {
     );
 }
 
+/// `Message/get` decode coverage: populated wire object must round-trip
+/// through the [`jmap_chat_types::Message`] `Deserialize` impl with
+/// every required field plus representative optionals (`replyTo`,
+/// `editedAt`) and each nested collection (`attachments`, `mentions`,
+/// `reactions`) populated with at least one entry. Without this test a
+/// regression that broke `Message` deserialize would still pass every
+/// other `Message/get` smoke test (they all return `"list": []`).
+///
+/// Also exercises the manual `SenderId` `Deserialize` (message.rs:74-92)
+/// — the sentinel string `"self"` must map to `SenderId::Owner`.
+///
+/// Mirrors the canonical extension-client shape
+/// `crate-jmap-calendars-client/tests/calendar_smoke_tests.rs::calendar_get_smoke`.
+///
+/// Oracles:
+///   - draft-atwood-jmap-chat-00 §Message — Message object field set
+///   - RFC 8620 §5.1 — /get response envelope
+#[tokio::test]
+async fn message_get_decodes_populated_message() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Message/get",
+            {
+                "accountId": "A13824",
+                "state": "m-state-2",
+                "list": [
+                    {
+                        "id": "msg-1",
+                        "senderMsgId": "client-msg-1",
+                        "senderId": "self",
+                        "chatId": "chat-1",
+                        "body": "Hello, world!",
+                        "bodyType": "text/plain",
+                        "attachments": [
+                            {
+                                "blobId": "blob-1",
+                                "filename": "doc.pdf",
+                                "contentType": "application/pdf",
+                                "size": 12345,
+                                "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+                            }
+                        ],
+                        "mentions": [
+                            {
+                                "id": "u2",
+                                "offset": 7,
+                                "length": 5
+                            }
+                        ],
+                        "actions": [],
+                        "reactions": {
+                            "self-r1": {
+                                "emoji": "👍",
+                                "senderId": "self",
+                                "sentAt": "2026-01-20T14:30:00Z"
+                            }
+                        },
+                        "sentAt": "2026-01-20T14:30:00Z",
+                        "receivedAt": "2026-01-20T14:30:01Z",
+                        "deliveryState": "delivered",
+                        "replyTo": "msg-0",
+                        "editedAt": "2026-01-20T14:35:00Z"
+                    }
+                ],
+                "notFound": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let ids = [Id::from("msg-1")];
+    let resp = sc
+        .message_get(&ids, None)
+        .await
+        .expect("message_get: must succeed");
+
+    assert_eq!(resp.account_id.as_ref(), "A13824", "accountId mismatch");
+    assert_eq!(resp.state, "m-state-2", "state mismatch");
+    assert_eq!(resp.list.len(), 1, "list must contain exactly one Message");
+
+    let msg = &resp.list[0];
+    assert_eq!(msg.id.as_ref(), "msg-1", "id mismatch");
+    assert_eq!(
+        msg.sender_msg_id.as_ref(),
+        "client-msg-1",
+        "senderMsgId mismatch"
+    );
+    assert!(
+        matches!(msg.sender_id, jmap_chat_types::SenderId::Owner),
+        "senderId 'self' must deserialise to SenderId::Owner, got {:?}",
+        msg.sender_id
+    );
+    assert_eq!(msg.chat_id.as_ref(), "chat-1", "chatId mismatch");
+    assert_eq!(msg.body, "Hello, world!", "body mismatch");
+    assert_eq!(msg.body_type, "text/plain", "bodyType mismatch");
+    assert!(
+        matches!(
+            msg.delivery_state,
+            jmap_chat_types::DeliveryState::Delivered
+        ),
+        "deliveryState 'delivered' must deserialise to DeliveryState::Delivered, got {:?}",
+        msg.delivery_state
+    );
+    assert_eq!(
+        msg.sent_at.as_ref(),
+        "2026-01-20T14:30:00Z",
+        "sentAt mismatch"
+    );
+    assert_eq!(
+        msg.received_at.as_ref(),
+        "2026-01-20T14:30:01Z",
+        "receivedAt mismatch"
+    );
+
+    assert_eq!(msg.attachments.len(), 1, "attachments must have 1 entry");
+    assert_eq!(
+        msg.attachments[0].blob_id.as_ref(),
+        "blob-1",
+        "attachments[0].blobId mismatch"
+    );
+    assert_eq!(
+        msg.attachments[0].filename, "doc.pdf",
+        "attachments[0].filename mismatch"
+    );
+    assert_eq!(
+        msg.attachments[0].content_type, "application/pdf",
+        "attachments[0].contentType mismatch"
+    );
+    assert_eq!(
+        msg.attachments[0].size, 12345,
+        "attachments[0].size mismatch"
+    );
+
+    assert_eq!(msg.mentions.len(), 1, "mentions must have 1 entry");
+    assert_eq!(msg.mentions[0].id.as_ref(), "u2", "mentions[0].id mismatch");
+    assert_eq!(msg.mentions[0].offset, 7, "mentions[0].offset mismatch");
+    assert_eq!(msg.mentions[0].length, 5, "mentions[0].length mismatch");
+
+    assert!(msg.actions.is_empty(), "actions must round-trip as empty");
+
+    assert_eq!(msg.reactions.len(), 1, "reactions must have 1 entry");
+    let reaction = msg
+        .reactions
+        .get("self-r1")
+        .expect("reactions['self-r1'] must be present");
+    assert_eq!(reaction.emoji, "👍", "reaction emoji mismatch");
+    assert!(
+        matches!(reaction.sender_id, jmap_chat_types::SenderId::Owner),
+        "reaction.senderId 'self' must deserialise to SenderId::Owner"
+    );
+
+    assert_eq!(
+        msg.reply_to.as_ref().map(|id| id.as_ref()),
+        Some("msg-0"),
+        "replyTo optional must round-trip"
+    );
+    assert_eq!(
+        msg.edited_at.as_ref().map(|d| d.as_ref()),
+        Some("2026-01-20T14:35:00Z"),
+        "editedAt optional must round-trip"
+    );
+}
+
 /// `Message/query` must require either `chat_id` or `has_mention=true`
 /// (message.rs:67-71) — both omitted should short-circuit before send.
 #[tokio::test]
