@@ -239,21 +239,23 @@ impl Inner {
 
     /// Recompute `calendars_with_events` for the given account by scanning
     /// the CalendarEvent store.
+    ///
+    /// The HashSet is built from an iterator chain that takes only an
+    /// immutable borrow of `self.objects`. The chain's borrow ends at the
+    /// `.collect()`, so the subsequent `self.aux_mut(account_id)` call is
+    /// free to take the mutable borrow without violating the borrow checker.
+    /// This avoids cloning the entire CalendarEvent map (whose values carry
+    /// full JSON bodies — recurrence rules, participants, alerts) just to
+    /// read keys from one nested map. bd:JMAP-ic0j.40.
     fn recompute_calendars_with_events(&mut self, account_id: &str) {
-        let events = self
+        let set: HashSet<Id> = self
             .objects
             .get(&("CalendarEvent", account_id.to_owned()))
-            .cloned()
-            .unwrap_or_default();
-
-        let mut set: HashSet<Id> = HashSet::new();
-        for value in events.values() {
-            if let Some(map) = value.get("calendarIds").and_then(|v| v.as_object()) {
-                for k in map.keys() {
-                    set.insert(Id::from(k.as_str()));
-                }
-            }
-        }
+            .into_iter()
+            .flat_map(|m| m.values())
+            .filter_map(|v| v.get("calendarIds").and_then(|c| c.as_object()))
+            .flat_map(|map| map.keys().map(|k| Id::from(k.as_str())))
+            .collect();
         self.aux_mut(account_id).calendars_with_events = set;
     }
 
