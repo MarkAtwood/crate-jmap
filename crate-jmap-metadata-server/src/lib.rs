@@ -207,21 +207,20 @@ pub(crate) mod test_support {
             acct.metadatas.insert(Id::from(id), meta);
         }
 
-        /// Force the next `create_object` call(s) to fail with the given
-        /// [`SetError`]. Sticky — clear via [`Self::clear_forced_create_error`].
+        /// Force the **next** `create_object` call to fail with the given
+        /// [`SetError`]. One-shot: auto-resets after a single create call
+        /// consumes the slot (bd:JMAP-826m.15). Tests that need a second
+        /// forced error must call this method again.
+        ///
+        /// The one-shot shape matches the existing call-site pattern
+        /// (every existing usage in this crate is `force_create_error(...)`
+        /// followed by exactly one `create_object` call) and removes a
+        /// future-bug magnet where a sticky error silently affected
+        /// subsequent unrelated creates on the same backend instance.
         pub fn force_create_error(&self, account_id: &str, err: SetError) {
             let mut guard = self.state.lock().unwrap();
             let acct = guard.entry(account_id.to_owned()).or_default();
             acct.forced_create_error = Some(err);
-        }
-
-        /// Clear any previously-installed forced create error.
-        #[allow(dead_code)]
-        pub fn clear_forced_create_error(&self, account_id: &str) {
-            let mut guard = self.state.lock().unwrap();
-            if let Some(acct) = guard.get_mut(account_id) {
-                acct.forced_create_error = None;
-            }
         }
 
         /// Lock the backend's internal account-state map for the duration of
@@ -386,8 +385,12 @@ pub(crate) mod test_support {
             let mut guard = self.state.lock().unwrap();
             let acct = guard.entry(account_id.as_ref().to_owned()).or_default();
 
-            if let Some(err) = &acct.forced_create_error {
-                return Err(BackendSetError::SetError(err.clone()));
+            // Consume the one-shot forced error if present
+            // (bd:JMAP-826m.15). `.take()` resets the slot so a second
+            // create_object call on the same backend instance is not
+            // silently affected by a prior test's forced error.
+            if let Some(err) = acct.forced_create_error.take() {
+                return Err(BackendSetError::SetError(err));
             }
 
             acct.next_id += 1;
