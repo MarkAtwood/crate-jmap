@@ -1028,6 +1028,35 @@ pub enum AnniversaryDate {
     /// deserialize error on any spec-conformant input carrying a
     /// future `@type` value, silently losing data. The variant exists
     /// specifically to prevent that bug. See `bd:JMAP-sgrr.10`.
+    ///
+    /// # Construction precondition (Rust-side callers)
+    ///
+    /// Lossless round-trip through this variant requires that the
+    /// wrapped [`serde_json::Value`] is **either**:
+    ///
+    /// 1. not a JSON object (any scalar, array, or `null`), **or**
+    /// 2. a JSON object whose `@type` field is set to a string value
+    ///    *outside* the set the deserializer dispatches on —
+    ///    currently `{"PartialDate", "Timestamp"}` plus implicit
+    ///    `@type` absence (which routes to `PartialDate` per
+    ///    RFC 9553 §2.8.1's `defaultType` rule).
+    ///
+    /// Wrapping a `Value` that is an object **with** `@type` set to
+    /// `"PartialDate"` or `"Timestamp"`, **or** an object with no
+    /// `@type` at all (a bare `PartialDate` shape), will not survive
+    /// a serialize → deserialize round trip as `Unknown`: the
+    /// deserializer will re-dispatch on the recognised `@type` (or on
+    /// `defaultType = PartialDate` if `@type` is absent) and produce
+    /// the corresponding typed variant. Variant identity is lost,
+    /// though the underlying field data is preserved through the
+    /// typed shape.
+    ///
+    /// This is intentional: the dispatch contract documented above is
+    /// driven entirely by `@type`; the variant is for shapes the
+    /// dispatcher does not recognise. No spec-conformant RFC 9553
+    /// emitter produces wire input that triggers this asymmetry — the
+    /// concern is composing callers who hand-construct `Unknown(v)`
+    /// without first checking `v`. See `bd:JMAP-sgrr.28`.
     Unknown(serde_json::Value),
 }
 
@@ -1650,6 +1679,56 @@ mod tests {
                 unreachable!("matches! above already guards this")
             };
             assert_eq!(inner, value, "Unknown payload preserved across round trip");
+        }
+    }
+
+    #[test]
+    fn anniversary_date_unknown_object_with_recognised_at_type_loses_variant_identity() {
+        // Pin test for bd:JMAP-sgrr.28.
+        //
+        // The Unknown variant's round-trip contract holds only when
+        // the wrapped Value's @type is OUTSIDE the dispatcher's
+        // recognised set ({"PartialDate", "Timestamp"}) or the Value
+        // is not an object. When a caller wraps a Value whose @type
+        // IS recognised — or an object with no @type at all (which
+        // routes to PartialDate by RFC 9553 §2.8.1's defaultType
+        // rule) — variant identity is lost across serialize →
+        // deserialize: the deserializer re-dispatches on the @type
+        // and produces the typed variant.
+        //
+        // This is documented behaviour, not a bug. The test pins it
+        // so a future contributor does not accidentally "fix" the
+        // dispatch contract and break the documented preservation
+        // posture for genuinely-unknown shapes.
+        //
+        // Independent oracle: hand-built JSON literals chosen to
+        // exercise each recognised dispatch path.
+        let cases: &[(&str, serde_json::Value, fn(&AnniversaryDate) -> bool)] = &[
+            (
+                "object with @type = PartialDate",
+                serde_json::json!({"@type": "PartialDate", "year": 2000}),
+                |d| matches!(d, AnniversaryDate::PartialDate(_)),
+            ),
+            (
+                "object with @type = Timestamp",
+                serde_json::json!({"@type": "Timestamp", "utc": "2000-01-01T00:00:00Z"}),
+                |d| matches!(d, AnniversaryDate::Timestamp(_)),
+            ),
+            (
+                "object with no @type (defaultType = PartialDate)",
+                serde_json::json!({"year": 2000}),
+                |d| matches!(d, AnniversaryDate::PartialDate(_)),
+            ),
+        ];
+        for (label, value, expected) in cases {
+            let original = AnniversaryDate::Unknown(value.clone());
+            let wire = serde_json::to_value(&original).expect("serialize");
+            assert_eq!(&wire, value, "{label}: serialize forwards verbatim");
+            let back: AnniversaryDate = serde_json::from_value(wire).expect("deserialize");
+            assert!(
+                expected(&back),
+                "{label}: contract — recognised @type re-dispatches off Unknown, got {back:?}",
+            );
         }
     }
 
