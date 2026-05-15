@@ -695,3 +695,468 @@ async fn changes_filter_combined_related_type_and_metadata_type() {
         "only (Email, Annotation) must survive on destroyed: {args}",
     );
 }
+
+// ---------------------------------------------------------------------------
+// Metadata/query filter and sort tests (bd:JMAP-826m.4)
+//
+// MemoryBackend::query_objects previously discarded `_filter` and `_sort`,
+// returning every stored object regardless of the client's filter. The
+// fix walks the in-memory store, deserialises each entry into Metadata,
+// and applies the typed filter / sort.
+// ---------------------------------------------------------------------------
+
+/// Oracle: §3.4.1 — `Metadata/query` with `filter: {relatedType: "Email"}`
+/// returns only objects whose `relatedType` is `"Email"`. Before the fix,
+/// the Mailbox-related annotation would have been incorrectly included.
+#[tokio::test]
+async fn query_filter_related_type_returns_only_matches() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let email_ann = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM1"
+        }),
+    )
+    .await;
+    let _mailbox_ann = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Mailbox",
+            "relatedId": "MB1"
+        }),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({
+            "accountId": "acc1",
+            "filter": {"relatedType": "Email"}
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids = args["ids"].as_array().expect("ids must be array");
+    assert_eq!(
+        ids.len(),
+        1,
+        "filter relatedType=Email must yield one id: {args}"
+    );
+    assert_eq!(ids[0], email_ann.as_ref());
+}
+
+/// Oracle: §3.4.1 — `filter: {"@type": ["Annotation"]}` returns only
+/// objects whose `@type` is in the list.
+#[tokio::test]
+async fn query_filter_type_names_returns_only_matches() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let ann = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM1"
+        }),
+    )
+    .await;
+    let _imap = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "ImapMetadata",
+            "relatedType": "Mailbox",
+            "relatedId": "MB1",
+            "metadata": {"k": "v"}
+        }),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({
+            "accountId": "acc1",
+            "filter": {"@type": ["Annotation"]}
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids = args["ids"].as_array().expect("ids must be array");
+    assert_eq!(
+        ids.len(),
+        1,
+        "filter @type=[Annotation] must yield one id: {args}"
+    );
+    assert_eq!(ids[0], ann.as_ref());
+}
+
+/// Oracle: §3.4.1 — `filter: {relatedType: "Email", relatedIds: [...]}`
+/// returns only objects whose `relatedId` is in the list AND whose
+/// `relatedType` matches. The cross-field constraint is satisfied
+/// (relatedIds with relatedType).
+#[tokio::test]
+async fn query_filter_related_ids_returns_only_matches() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let em1 = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM1"
+        }),
+    )
+    .await;
+    let _em2 = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM2"
+        }),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({
+            "accountId": "acc1",
+            "filter": {"relatedType": "Email", "relatedIds": ["EM1"]}
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids = args["ids"].as_array().expect("ids must be array");
+    assert_eq!(
+        ids.len(),
+        1,
+        "filter relatedIds=[EM1] must yield one id: {args}"
+    );
+    assert_eq!(ids[0], em1.as_ref());
+}
+
+/// Oracle: §3.4.1 — `filter: {isPrivate: true}` returns only objects
+/// whose `isPrivate` is `true`. Default-false objects are excluded.
+#[tokio::test]
+async fn query_filter_is_private_returns_only_matches() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let priv_ann = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM1",
+            "isPrivate": true
+        }),
+    )
+    .await;
+    let _pub_ann = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM2",
+            "isPrivate": false
+        }),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({
+            "accountId": "acc1",
+            "filter": {"isPrivate": true}
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids = args["ids"].as_array().expect("ids must be array");
+    assert_eq!(
+        ids.len(),
+        1,
+        "filter isPrivate=true must yield one id: {args}"
+    );
+    assert_eq!(ids[0], priv_ann.as_ref());
+}
+
+/// Oracle: §3.4.1 — `filter: {textMatch: "review"}` matches the
+/// vendor-string property containing the needle case-insensitively.
+/// Annotations whose `.extra` does not contain the needle are excluded.
+#[tokio::test]
+async fn query_filter_text_match_searches_vendor_string_props() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let hit = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM1",
+            "acme.example.com:workflow": "Pending Review"
+        }),
+    )
+    .await;
+    let _miss = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM2",
+            "acme.example.com:workflow": "approved"
+        }),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({
+            "accountId": "acc1",
+            "filter": {"textMatch": "REVIEW"}
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids = args["ids"].as_array().expect("ids must be array");
+    assert_eq!(
+        ids.len(),
+        1,
+        "case-insensitive textMatch must yield one id: {args}"
+    );
+    assert_eq!(ids[0], hit.as_ref());
+}
+
+/// Oracle: §3.4.2 — `sort: [{property: "relatedType", isAscending: true}]`
+/// orders the results by `relatedType`. Hand-built oracle: seed three
+/// records in non-alphabetical order, expect them back in alphabetical
+/// order of `relatedType`.
+#[tokio::test]
+async fn query_sort_related_type_ascending() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    // Seed in non-alphabetical order to defeat any insertion-order luck.
+    let mailbox = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Mailbox",
+            "relatedId": "MB1"
+        }),
+    )
+    .await;
+    let calendar = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Calendar",
+            "relatedId": "CAL1"
+        }),
+    )
+    .await;
+    let email = seed_metadata(
+        &backend,
+        "acc1",
+        json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM1"
+        }),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({
+            "accountId": "acc1",
+            "sort": [{"property": "relatedType", "isAscending": true}]
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids: Vec<&str> = args["ids"]
+        .as_array()
+        .expect("ids must be array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    // Calendar < Email < Mailbox alphabetically.
+    assert_eq!(
+        ids,
+        vec![calendar.as_ref(), email.as_ref(), mailbox.as_ref()],
+        "sort by relatedType asc must order Calendar < Email < Mailbox: {args}",
+    );
+}
+
+/// Oracle: §3.4.2 — `sort: [{property: "relatedType", isAscending: false}]`
+/// reverses the order. Negative control for the `isAscending` flag.
+#[tokio::test]
+async fn query_sort_related_type_descending() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let mailbox = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Mailbox", "relatedId": "MB1"}),
+    )
+    .await;
+    let email = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM1"}),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({
+            "accountId": "acc1",
+            "sort": [{"property": "relatedType", "isAscending": false}]
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids: Vec<&str> = args["ids"]
+        .as_array()
+        .expect("ids must be array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![mailbox.as_ref(), email.as_ref()],
+        "descending must invert: {args}",
+    );
+}
+
+/// Oracle: filter AND sort compose. Filter to relatedType=Email, sort by
+/// relatedId ascending. Records that should not survive the filter must
+/// not appear in the sort.
+#[tokio::test]
+async fn query_filter_and_sort_compose() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let _mailbox = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Mailbox", "relatedId": "MB1"}),
+    )
+    .await;
+    let em2 = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM2"}),
+    )
+    .await;
+    let em1 = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM1"}),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({
+            "accountId": "acc1",
+            "filter": {"relatedType": "Email"},
+            "sort": [{"property": "relatedId", "isAscending": true}]
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids: Vec<&str> = args["ids"]
+        .as_array()
+        .expect("ids must be array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        vec![em1.as_ref(), em2.as_ref()],
+        "filter (Email only) + sort (relatedId asc) must yield EM1 then EM2: {args}",
+    );
+}
+
+/// Oracle: empty filter returns all objects (pre-fix behaviour preserved
+/// as a negative control). Sort default is ascending by id.
+#[tokio::test]
+async fn query_no_filter_no_sort_returns_all_ordered_by_id() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let a = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM1"}),
+    )
+    .await;
+    let b = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Mailbox", "relatedId": "MB1"}),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call("Metadata/query", json!({"accountId": "acc1"}), "c0");
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids = args["ids"].as_array().expect("ids must be array");
+    assert_eq!(ids.len(), 2);
+    // demo_next_id is monotonic so first-seeded id sorts before second-seeded.
+    let mut expected = vec![a.as_ref(), b.as_ref()];
+    expected.sort();
+    let got: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
+    assert_eq!(
+        got, expected,
+        "no filter / no sort returns all by id asc: {args}"
+    );
+}
