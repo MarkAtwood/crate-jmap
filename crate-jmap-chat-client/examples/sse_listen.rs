@@ -94,12 +94,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     // Client side: connect to the stub and consume the SSE stream.
     let client =
         JmapClient::new_plain(NoneAuth, &format!("http://{addr}"), ClientConfig::default())?;
+    // Production: track the last non-None `frame.id` from previous
+    // sessions in durable storage, and pass it as the second arg here
+    // to resume from where the prior session was disconnected. This
+    // demo passes `None` because it's a one-shot example with no
+    // resumption.
     let mut stream = client.subscribe_events(&event_source_url, None).await?;
 
     let mut count = 0usize;
     while let Some(frame) = stream.next().await {
         let frame = frame?;
         count += 1;
+        // Production: persist `frame.id` (when Some) before processing
+        // the event payload, so a crash between persistence and ack
+        // doesn't lose the event on reconnect.
         println!("frame #{count}: event={:?} id={:?}", frame.event, frame.id);
     }
     println!("stream closed after {count} frame(s)");

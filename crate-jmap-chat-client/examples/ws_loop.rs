@@ -36,7 +36,7 @@ const RESPONSE_FRAME: &str =
     r#"{"@type":"Response","requestId":"r1","methodResponses":[],"sessionState":"s1"}"#;
 
 /// JMAP-WSS §3.7 `StateChange` push frame. The `pushState` field is
-/// RFC 8887 §4.3.5.1; it lands in `StateChange.extra` per the workspace
+/// RFC 8887 §4.3.5; it lands in `StateChange.extra` per the workspace
 /// extras-preservation policy and round-trips losslessly.
 const STATE_CHANGE_FRAME: &str = concat!(
     r#"{"@type":"StateChange","#,
@@ -65,6 +65,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     // Client side: open the WS session and drive the chat-aware read
     // loop until the stub closes (next_chat_frame returns None).
+    //
+    // Production: after `next_chat_frame` returns `None` (clean close)
+    // or `Some(Err(...))` (transport error), reconnect with
+    // exponential backoff. JMAP base-client's `connect_ws` doc
+    // (ws/mod.rs in crate-jmap-base-client) is explicit that the
+    // caller is responsible for reconnecting — the library does not
+    // retry transparently. After reconnect, resend any
+    // `WebSocketPushEnable` and (when implemented) re-issue the prior
+    // `pushState` to resume push delivery from the right point.
     let mut session = connect_ws(&ws_url, None).await?;
 
     let mut count = 0usize;
