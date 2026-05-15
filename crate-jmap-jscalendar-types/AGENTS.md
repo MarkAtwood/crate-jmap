@@ -64,7 +64,7 @@ Run all four before considering any work done.
 | Dependencies | jmap-types, serde, serde_json only |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | All public structs | `#[non_exhaustive]` |
-| `@type` discriminator | Wire field `"@type"`; Rust field `at_type: String` |
+| `@type` discriminator | Wire field `"@type"`; Rust field `at_type: String` (bare, not `Option`, because RFC 8984 marks every `@type` as `(mandatory)` with no `defaultType` annotations — diverges from sibling `jmap-jscontact-types` which uses `Option<String>` per RFC 9553 §1.3.4; see `PLAN.md`) |
 
 ## Non-interactive shell commands
 

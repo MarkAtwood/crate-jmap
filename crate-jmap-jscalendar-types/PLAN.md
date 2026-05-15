@@ -49,8 +49,23 @@ Single module (`src/lib.rs`). All types are `#[non_exhaustive]` and derive
 `Debug, Clone, PartialEq, Serialize, Deserialize` (plus `Eq, Hash` where
 the inner types permit it). Wire-format JSON uses
 `#[serde(rename_all = "camelCase")]` on every struct, and the JSCalendar
-`@type` discriminator is mapped to a `String` field named `at_type` with
-`#[serde(rename = "@type")]`.
+`@type` discriminator is mapped to a bare `String` field named `at_type`
+with `#[serde(rename = "@type")]`.
+
+The `at_type` field is bare `String` (not `Option<String>`) because RFC
+8984 marks every `@type` discriminator as `(mandatory)` — there are 12
+such "@type: \"X\" (mandatory)" annotations across the spec and zero
+`defaultType` annotations. JSCalendar therefore requires `@type` to be
+present on every sub-object on the wire.
+
+This diverges from the sibling `jmap-jscontact-types`, which uses
+`at_type: Option<String>` because RFC 9553 §1.3.4 introduces the
+`defaultType` notation that permits omitting `@type` in implied-type
+positions (e.g. `Anniversary.date` defaults to `PartialDate`). The
+divergence is spec-driven and intentional per the workspace canonical-
+templates rule ("every type crate looks like every other type crate,
+modulo only the differences mandated by the relevant RFC or draft").
+See `bd:JMAP-sgrr.3`.
 
 ### Scalar wrappers (newtype around `String`)
 

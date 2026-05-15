@@ -49,7 +49,7 @@ Run all four before considering any work done.
 | Dependencies | serde, serde_json only — no JMAP dep |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | All public structs | `#[non_exhaustive]` |
-| `@type` discriminator | Wire field `"@type"`; Rust field `at_type: String` |
+| `@type` discriminator | Wire field `"@type"`; Rust field `at_type: Option<String>` with `default + skip_serializing_if = "Option::is_none"` (RFC 9553 §1.3.4 permits `@type` omission in `defaultType` positions like `Anniversary.date`; diverges from sibling `jmap-jscalendar-types` which uses bare `String` because RFC 8984 marks every `@type` as `(mandatory)`; see `PLAN.md` and `bd:JMAP-sgrr.3`) |
 
 ## Non-interactive shell commands
 
