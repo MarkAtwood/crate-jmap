@@ -43,6 +43,7 @@ pub use jmap_types::{
 /// `account_id` is always `null` for PushSubscription objects (they are not
 /// account-scoped). `Option<Id>` handles both the null case and servers that
 /// echo the session accountId anyway.
+#[non_exhaustive]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PushSubscriptionCreateResponse {
@@ -66,6 +67,7 @@ pub struct PushSubscriptionCreateResponse {
 /// Response to a `Chat/typing` call (JMAP Chat §Chat/typing).
 ///
 /// The server echoes only `accountId`.
+#[non_exhaustive]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TypingResponse {
@@ -80,6 +82,7 @@ pub struct TypingResponse {
 }
 
 /// Response to a `Space/join` call (JMAP Chat §Space/join).
+#[non_exhaustive]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpaceJoinResponse {

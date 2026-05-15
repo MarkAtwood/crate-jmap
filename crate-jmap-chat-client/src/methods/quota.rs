@@ -18,6 +18,7 @@ use super::{ChangesResponse, GetResponse};
 /// usage in the UI and warn the user when approaching limits.
 ///
 /// [`SessionClient::quota_get`]: super::SessionClient::quota_get
+#[non_exhaustive]
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Quota {
