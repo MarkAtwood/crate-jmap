@@ -12408,6 +12408,132 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
 }
 
 // ---------------------------------------------------------------------------
+// Filter/Comparator type-identity roundtrip probes
+//
+// memory.rs:query_objects re-decodes the generic O::Filter / O::Comparator
+// values via a serde_json::to_value -> from_value roundtrip back to the
+// concrete extension type (MailboxFilterCondition, EmailFilter,
+// EmailSubmissionFilter, EmailComparator). bd:JMAP-q2wa.3 replaced the
+// silent-fallback .ok().and_then(.ok()) chain with .expect() calls
+// asserting infallibility. These tests probe that asserted infallibility
+// against the actual extension types so a future custom-serde change that
+// breaks the roundtrip surfaces as a test failure instead of a runtime
+// panic in production.
+// ---------------------------------------------------------------------------
+
+/// Oracle: MailboxFilterCondition roundtrips losslessly through
+/// serde_json::to_value -> from_value. Equivalence is asserted via
+/// re-serialization: the re-serialized form must equal the original
+/// serialized form (the type itself doesn't impl PartialEq, but its
+/// JSON wire shape is the contract the backend cares about).
+///
+/// Regression probe for bd:JMAP-q2wa.3.
+#[test]
+fn mailbox_filter_condition_serde_roundtrip_lossless() {
+    use jmap_mail_types::MailboxFilterCondition;
+
+    let mut original = MailboxFilterCondition::default();
+    original.name = Some("Inbox".to_owned());
+    let v = serde_json::to_value(&original)
+        .expect("to_value on MailboxFilterCondition must be infallible");
+    let decoded: MailboxFilterCondition = serde_json::from_value(v.clone()).expect(
+        "from_value on MailboxFilterCondition must succeed on Serialize output of the same type",
+    );
+    let v2 = serde_json::to_value(&decoded)
+        .expect("re-serialization of decoded MailboxFilterCondition must be infallible");
+    assert_eq!(
+        v, v2,
+        "type-identity roundtrip must be lossless at the wire-shape level"
+    );
+}
+
+/// Oracle: EmailFilter (== Filter<EmailFilterCondition>) roundtrips
+/// losslessly through serde_json::to_value -> from_value for both the
+/// Condition and Operator variants.
+///
+/// Regression probe for bd:JMAP-q2wa.3.
+#[test]
+fn email_filter_serde_roundtrip_lossless() {
+    use jmap_mail_types::{EmailFilter, EmailFilterCondition};
+    use jmap_types::query::{Filter, FilterOperator, Operator};
+
+    // Bare Condition variant.
+    let mut cond = EmailFilterCondition::default();
+    cond.in_mailbox = Some(Id::from("mbx1"));
+    let cond_only: EmailFilter = Filter::Condition(cond);
+    let v = serde_json::to_value(&cond_only).expect("to_value on EmailFilter must be infallible");
+    let decoded: EmailFilter = serde_json::from_value(v.clone())
+        .expect("from_value on EmailFilter must succeed on Serialize output of the same type");
+    assert_eq!(
+        decoded, cond_only,
+        "Condition-variant roundtrip must be lossless; intermediate JSON: {v}"
+    );
+
+    // Operator variant (AND of two Conditions).
+    let mut c1 = EmailFilterCondition::default();
+    c1.in_mailbox = Some(Id::from("mbx1"));
+    let mut c2 = EmailFilterCondition::default();
+    c2.from = Some("alice@example.com".to_owned());
+    let op: EmailFilter = Filter::Operator(FilterOperator::new(
+        Operator::And,
+        vec![Filter::Condition(c1), Filter::Condition(c2)],
+    ));
+    let v = serde_json::to_value(&op).expect("to_value on EmailFilter must be infallible");
+    let decoded: EmailFilter = serde_json::from_value(v.clone())
+        .expect("from_value on EmailFilter must succeed on Serialize output of the same type");
+    assert_eq!(
+        decoded, op,
+        "Operator-variant roundtrip must be lossless; intermediate JSON: {v}"
+    );
+}
+
+/// Oracle: EmailSubmissionFilter (== Filter<EmailSubmissionFilterCondition>)
+/// roundtrips losslessly through serde_json::to_value -> from_value.
+///
+/// Regression probe for bd:JMAP-q2wa.3.
+#[test]
+fn email_submission_filter_serde_roundtrip_lossless() {
+    use jmap_mail_types::{EmailSubmissionFilter, EmailSubmissionFilterCondition};
+    use jmap_types::query::Filter;
+
+    let mut cond = EmailSubmissionFilterCondition::default();
+    cond.identity_ids = Some(vec![Id::from("id1")]);
+    let original: EmailSubmissionFilter = Filter::Condition(cond);
+    let v = serde_json::to_value(&original)
+        .expect("to_value on EmailSubmissionFilter must be infallible");
+    let decoded: EmailSubmissionFilter = serde_json::from_value(v.clone()).expect(
+        "from_value on EmailSubmissionFilter must succeed on Serialize output of the same type",
+    );
+    assert_eq!(
+        decoded, original,
+        "type-identity roundtrip must be lossless; intermediate JSON: {v}"
+    );
+}
+
+/// Oracle: a Vec of EmailComparator roundtrips losslessly through
+/// serde_json::to_value -> from_value.
+///
+/// Regression probe for bd:JMAP-q2wa.3.
+#[test]
+fn email_comparator_vec_serde_roundtrip_lossless() {
+    use jmap_mail_types::{ComparatorProperty, EmailComparator};
+
+    let mut c0 = EmailComparator::new(ComparatorProperty::ReceivedAt);
+    c0.is_ascending = false;
+    let c1 = EmailComparator::new(ComparatorProperty::Size);
+    let original = vec![c0, c1];
+    let v = serde_json::to_value(&original)
+        .expect("to_value on Vec<EmailComparator> must be infallible");
+    let decoded: Vec<EmailComparator> = serde_json::from_value(v.clone()).expect(
+        "from_value on Vec<EmailComparator> must succeed on Serialize output of the same type",
+    );
+    assert_eq!(
+        decoded, original,
+        "type-identity roundtrip must be lossless; intermediate JSON: {v}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Email/parse — blob_exists Err propagates as top-level serverFail
 // Oracle: MailBackend::blob_exists contract (bd:JMAP-510h.31) — Err(_) from
 // a transient backend failure MUST NOT be silently treated as
