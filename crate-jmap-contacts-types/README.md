@@ -30,7 +30,7 @@ below for the usage pattern.
 
 ## What it's for
 
-RFC 6889 / draft-ietf-jmap-contacts data types, consumed by
+RFC 9610 data types, consumed by
 `jmap-contacts-server` (method handlers + the `ContactsBackend` trait)
 and `jmap-contacts-client` (typed method bindings). Re-exports
 `jmap-jscontact-types` as the `jscontact` module so callers can opt into

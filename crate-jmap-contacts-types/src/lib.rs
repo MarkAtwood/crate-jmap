@@ -305,13 +305,6 @@ mod tests {
     /// AddressBook round-trip: description Some vs None.
     #[test]
     fn address_book_round_trip_with_description() {
-        let rights = AddressBookRights {
-            may_read: true,
-            may_write: false,
-            may_share: false,
-            may_delete: false,
-            extra: serde_json::Map::new(),
-        };
         // Construct via JSON (avoids #[non_exhaustive] struct literal restriction).
         let original_json = json!({
             "id": "ab1",
@@ -329,9 +322,8 @@ mod tests {
         });
         let ab: AddressBook = serde_json::from_value(original_json).unwrap();
         assert_eq!(ab.description.as_deref(), Some("Work contacts"));
-        let _rt: AddressBook = serde_json::from_str(&serde_json::to_string(&ab).unwrap()).unwrap();
-        // rights field unused directly; just suppress unused-variable warning
-        let _ = rights;
+        let rt: AddressBook = serde_json::from_str(&serde_json::to_string(&ab).unwrap()).unwrap();
+        assert_eq!(rt.description.as_deref(), Some("Work contacts"));
     }
 
     /// description: null → None in Rust → "description": null on the wire.
@@ -664,11 +656,6 @@ mod tests {
             serde_json::from_str(&serde_json::to_string(&c).unwrap()).unwrap();
         assert_eq!(rt.property, "name/given");
         assert!(!rt.is_ascending);
-    }
-
-    // ── Suppress unused-import warnings ─────────────────────────────────
-    fn _use_imports() {
-        let _: HashMap<String, bool> = HashMap::new();
     }
 
     // ── ContactCard sloppy-field → jmap-jscontact-types typed round-trip ──
@@ -1056,14 +1043,16 @@ mod tests {
         assert_eq!(back, card.related_to.unwrap());
     }
 
-    /// Deserialize the sloppy `keywords` field (String[Boolean]) through `HashMap<String, bool>`.
+    /// Typed `keywords` field (RFC 9553 §2.8.2 `String[Boolean]`) round-trips.
     /// Oracle: RFC 9553 Figure 42.
     ///
     /// RFC 9553 §2.8.2 declares `keywords` as `String[Boolean]` — there is
     /// no JSContact object type for keywords, only a tag→true map. The
-    /// typed shape is therefore the standard library `HashMap<String, bool>`.
+    /// field is typed as `Option<HashMap<String, bool>>` to match the
+    /// sibling `members` and `address_book_ids` fields and the spec's
+    /// closed shape (JMAP-glx8.3).
     #[test]
-    fn sloppy_field_keywords_roundtrips_through_string_bool_map() {
+    fn keywords_roundtrips_as_string_bool_map() {
         let card_json = json!({
             "keywords": {
                 "internet": true,
@@ -1071,11 +1060,10 @@ mod tests {
             }
         });
         let card: ContactCard = serde_json::from_value(card_json).unwrap();
-        let kws: HashMap<String, bool> =
-            serde_json::from_value(card.keywords.clone().unwrap()).unwrap();
+        let kws = card.keywords.as_ref().expect("keywords present");
         assert!(kws["internet"]);
-        let back = serde_json::to_value(&kws).unwrap();
-        assert_eq!(back, card.keywords.unwrap());
+        assert!(kws["IETF"]);
+        assert_eq!(kws.len(), 2);
     }
 
     /// Verify the `jscontact` module alias resolves to the same crate as
