@@ -232,19 +232,10 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             // §5.9: client cannot set both utcStart and start simultaneously,
             // or both utcEnd and duration.
             let obj_json = &obj_val;
-            let has_utc_start = obj_json
-                .get("utcStart")
-                .map(|v| !v.is_null())
-                .unwrap_or(false);
-            let has_start = obj_json.get("start").map(|v| !v.is_null()).unwrap_or(false);
-            let has_utc_end = obj_json
-                .get("utcEnd")
-                .map(|v| !v.is_null())
-                .unwrap_or(false);
-            let has_duration = obj_json
-                .get("duration")
-                .map(|v| !v.is_null())
-                .unwrap_or(false);
+            let has_utc_start = obj_json.get("utcStart").is_some_and(|v| !v.is_null());
+            let has_start = obj_json.get("start").is_some_and(|v| !v.is_null());
+            let has_utc_end = obj_json.get("utcEnd").is_some_and(|v| !v.is_null());
+            let has_duration = obj_json.get("duration").is_some_and(|v| !v.is_null());
 
             if has_utc_start && has_start {
                 not_created.insert(
@@ -332,22 +323,10 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
         for (id_str, patch_val) in update_map {
             // §5.9: patch cannot contain both utcStart and start, or both
             // utcEnd and duration.
-            let has_utc_start = patch_val
-                .get("utcStart")
-                .map(|v| !v.is_null())
-                .unwrap_or(false);
-            let has_start = patch_val
-                .get("start")
-                .map(|v| !v.is_null())
-                .unwrap_or(false);
-            let has_utc_end = patch_val
-                .get("utcEnd")
-                .map(|v| !v.is_null())
-                .unwrap_or(false);
-            let has_duration = patch_val
-                .get("duration")
-                .map(|v| !v.is_null())
-                .unwrap_or(false);
+            let has_utc_start = patch_val.get("utcStart").is_some_and(|v| !v.is_null());
+            let has_start = patch_val.get("start").is_some_and(|v| !v.is_null());
+            let has_utc_end = patch_val.get("utcEnd").is_some_and(|v| !v.is_null());
+            let has_duration = patch_val.get("duration").is_some_and(|v| !v.is_null());
 
             if has_utc_start && has_start {
                 not_updated.insert(
