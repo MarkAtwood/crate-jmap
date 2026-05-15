@@ -563,6 +563,7 @@ let emails = client.email_get(&session, account_id, &[]).await?;
 | `UnexpectedResponse(String)` | Server violated the JMAP protocol (wrong Content-Type, etc.) |
 | `Serialize(serde_json::Error)` | Serialization failure in `WsSession::send_request` |
 | `InvalidHeaderValue(InvalidHeaderValueError)` | A header value contained characters that are not valid HTTP header-value bytes (typically a credential string with non-printable or non-ASCII characters). |
+| `RateLimited { retry_after }` | Server rate-limited the request; `retry_after` is the absolute UTC instant from RFC 9110 §10.2.3 `Retry-After`. The base crate does not currently produce this variant — HTTP 429 surfaces as `ClientError::Http` today (track `HttpError::status() == Some(429)` to detect it). The variant is part of the stable contract so extension crates that wrap the transport can produce it themselves and so callers can match on it now without an API break later (bd:JMAP-6lsm.3). |
 
 `HttpError`, `WebSocketError`, and `InvalidHeaderValueError` are opaque
 wrapper types around the underlying transport-crate errors. They keep
