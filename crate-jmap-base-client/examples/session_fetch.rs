@@ -95,13 +95,32 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 /// Print the typed Session fields. Maps are sorted so output is deterministic.
+///
+/// Two fields are deliberately rendered as redaction placeholders instead
+/// of their literal values (bd:JMAP-6r7c.9, bd:JMAP-6r7c.60):
+///
+/// - `session.username` is the authenticated user's identifier — typically
+///   a full email address, which is PII under GDPR/CCPA. The `Session`
+///   type's manual `Debug` impl already redacts it; this example must not
+///   route around that redaction via `Display`.
+/// - `session.state` is the RFC 8620 §2 session-state token. It is not an
+///   auth credential, but it uniquely identifies the client's session and
+///   is the same shape of leak as logging a session cookie.
+///
+/// The other URL fields are deployment metadata, not credentials — print
+/// them verbatim for diagnostics. Production code that wants the typed
+/// values should access them via accessor methods or `{:?}`, both of
+/// which respect the redaction.
 fn print_session(session: &Session) {
-    println!("username:        {}", session.username);
+    // session.username is PII (typically an email); session.state is a
+    // session-identifying opaque token (cookie-grade). Both are
+    // intentionally rendered as placeholders here — see fn doc.
+    println!("username:        [REDACTED]");
     println!("api_url:         {}", session.api_url);
     println!("upload_url:      {}", session.upload_url);
     println!("download_url:    {}", session.download_url);
     println!("event_source:    {}", session.event_source_url);
-    println!("state:           {}", session.state);
+    println!("state:           [opaque]");
 
     let mut caps: Vec<&String> = session.capabilities.keys().collect();
     caps.sort();
