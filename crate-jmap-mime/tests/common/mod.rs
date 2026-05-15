@@ -13,6 +13,8 @@
 //! Workspace tracking: bd:JMAP-t307.1 (restoring the CI guarantee that
 //! the bench file's prior doc comment incorrectly claimed).
 
+use std::fmt::Write as _;
+
 use mime_tree::parse;
 
 // ---------- Fixture builders ----------
@@ -62,7 +64,7 @@ pub fn build_medium_multipart() -> Vec<u8> {
     for (idx, label) in ["alpha", "beta", "gamma"].iter().enumerate() {
         s.push_str("--b1\r\n");
         s.push_str("Content-Type: text/plain; charset=utf-8\r\n");
-        s.push_str(&format!("Content-ID: <part-{}@example.com>\r\n", idx));
+        writeln!(s, "Content-ID: <part-{idx}@example.com>\r").expect("writing to String");
         s.push_str("\r\n");
         let target = s.len() + 1024;
         while s.len() < target {
@@ -117,10 +119,9 @@ pub fn build_large_deep_multipart() -> Vec<u8> {
     s.push_str("Date: Mon, 11 May 2026 12:00:00 +0000\r\n");
     s.push_str("Message-ID: <large-bench-1@example.com>\r\n");
     s.push_str("MIME-Version: 1.0\r\n");
-    s.push_str(&format!(
-        "Content-Type: multipart/mixed; boundary=\"{}\"\r\n",
-        boundaries[0]
-    ));
+    let outer = &boundaries[0];
+    writeln!(s, "Content-Type: multipart/mixed; boundary=\"{outer}\"\r")
+        .expect("writing to String");
     s.push_str("\r\n");
 
     write_level(&mut s, &boundaries, 0, LEAF_PAD_BYTES);
@@ -136,16 +137,17 @@ fn write_level(out: &mut String, boundaries: &[String], level: usize, leaf_pad: 
     let boundary = &boundaries[level];
     let is_deepest = level + 1 == boundaries.len();
 
+    let level_num = level + 1;
     for leaf_idx in 0..3 {
         out.push_str("--");
         out.push_str(boundary);
         out.push_str("\r\n");
         out.push_str("Content-Type: text/plain; charset=utf-8\r\n");
-        out.push_str(&format!(
-            "Content-ID: <L{}-leaf-{}@example.com>\r\n",
-            level + 1,
-            leaf_idx
-        ));
+        writeln!(
+            out,
+            "Content-ID: <L{level_num}-leaf-{leaf_idx}@example.com>\r"
+        )
+        .expect("writing to String");
         out.push_str("\r\n");
         let target = out.len() + leaf_pad;
         while out.len() < target {
@@ -159,10 +161,8 @@ fn write_level(out: &mut String, boundaries: &[String], level: usize, leaf_pad: 
         out.push_str("--");
         out.push_str(boundary);
         out.push_str("\r\n");
-        out.push_str(&format!(
-            "Content-Type: multipart/mixed; boundary=\"{}\"\r\n",
-            inner
-        ));
+        writeln!(out, "Content-Type: multipart/mixed; boundary=\"{inner}\"\r")
+            .expect("writing to String");
         out.push_str("\r\n");
         write_level(out, boundaries, level + 1, leaf_pad);
     }

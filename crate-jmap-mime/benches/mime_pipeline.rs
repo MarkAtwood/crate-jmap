@@ -21,6 +21,16 @@
 //! the code under test. The aim is a stable regression baseline, not
 //! absolute throughput numbers.
 //!
+//! Two bench modes per workload, deliberately kept separate so a
+//! regression localises to one layer:
+//! - `parse_*` measures only `mime_tree::parse`.
+//! - `convert_*` measures only `message_to_jmap_body`, with parse hoisted
+//!   out of the inner loop.
+//!
+//! A combined "pipeline" mode is intentionally omitted: it equals the sum
+//! of the two layers and adds no information that the localised benches
+//! do not already give. See bd:JMAP-t307.3.
+//!
 //! Fixture builders and structural-invariant asserts live in
 //! `tests/common/mod.rs` and are shared with `tests/bench_fixtures.rs` so
 //! that the structural invariants run under `cargo test` (the workspace
@@ -60,7 +70,7 @@ fn bench_parse_small(c: &mut Criterion) {
         b.iter(|| {
             let msg = parse(black_box(&bytes)).expect("small fixture must parse");
             black_box(msg);
-        })
+        });
     });
 }
 
@@ -71,7 +81,7 @@ fn bench_parse_medium(c: &mut Criterion) {
         b.iter(|| {
             let msg = parse(black_box(&bytes)).expect("medium fixture must parse");
             black_box(msg);
-        })
+        });
     });
 }
 
@@ -82,48 +92,7 @@ fn bench_parse_large(c: &mut Criterion) {
         b.iter(|| {
             let msg = parse(black_box(&bytes)).expect("large fixture must parse");
             black_box(msg);
-        })
-    });
-}
-
-// ---------- adapter (parse + convert) benches ----------
-
-fn bench_pipeline_small(c: &mut Criterion) {
-    let bytes = build_small_plain();
-    assert_small_fixture(&bytes);
-    c.bench_function("pipeline_small_plain", |b| {
-        b.iter(|| {
-            let msg = parse(black_box(&bytes)).expect("small fixture must parse");
-            let fields =
-                message_to_jmap_body(black_box(&msg), |p| Id::from(format!("blob-{}", p.part_id)));
-            black_box(fields);
-        })
-    });
-}
-
-fn bench_pipeline_medium(c: &mut Criterion) {
-    let bytes = build_medium_multipart();
-    assert_medium_fixture(&bytes);
-    c.bench_function("pipeline_medium_multipart", |b| {
-        b.iter(|| {
-            let msg = parse(black_box(&bytes)).expect("medium fixture must parse");
-            let fields =
-                message_to_jmap_body(black_box(&msg), |p| Id::from(format!("blob-{}", p.part_id)));
-            black_box(fields);
-        })
-    });
-}
-
-fn bench_pipeline_large(c: &mut Criterion) {
-    let bytes = build_large_deep_multipart();
-    assert_large_fixture(&bytes);
-    c.bench_function("pipeline_large_deep_multipart", |b| {
-        b.iter(|| {
-            let msg = parse(black_box(&bytes)).expect("large fixture must parse");
-            let fields =
-                message_to_jmap_body(black_box(&msg), |p| Id::from(format!("blob-{}", p.part_id)));
-            black_box(fields);
-        })
+        });
     });
 }
 
@@ -135,10 +104,12 @@ fn bench_convert_small(c: &mut Criterion) {
     let msg: ParsedMessage = parse(&bytes).expect("small fixture must parse");
     c.bench_function("convert_small_plain", |b| {
         b.iter(|| {
-            let fields =
-                message_to_jmap_body(black_box(&msg), |p| Id::from(format!("blob-{}", p.part_id)));
+            let fields = message_to_jmap_body(black_box(&msg), |p| {
+                let part_id = &p.part_id;
+                Id::from(format!("blob-{part_id}"))
+            });
             black_box(fields);
-        })
+        });
     });
 }
 
@@ -148,10 +119,12 @@ fn bench_convert_medium(c: &mut Criterion) {
     let msg: ParsedMessage = parse(&bytes).expect("medium fixture must parse");
     c.bench_function("convert_medium_multipart", |b| {
         b.iter(|| {
-            let fields =
-                message_to_jmap_body(black_box(&msg), |p| Id::from(format!("blob-{}", p.part_id)));
+            let fields = message_to_jmap_body(black_box(&msg), |p| {
+                let part_id = &p.part_id;
+                Id::from(format!("blob-{part_id}"))
+            });
             black_box(fields);
-        })
+        });
     });
 }
 
@@ -161,10 +134,12 @@ fn bench_convert_large(c: &mut Criterion) {
     let msg: ParsedMessage = parse(&bytes).expect("large fixture must parse");
     c.bench_function("convert_large_deep_multipart", |b| {
         b.iter(|| {
-            let fields =
-                message_to_jmap_body(black_box(&msg), |p| Id::from(format!("blob-{}", p.part_id)));
+            let fields = message_to_jmap_body(black_box(&msg), |p| {
+                let part_id = &p.part_id;
+                Id::from(format!("blob-{part_id}"))
+            });
             black_box(fields);
-        })
+        });
     });
 }
 
@@ -173,9 +148,6 @@ criterion_group!(
     bench_parse_small,
     bench_parse_medium,
     bench_parse_large,
-    bench_pipeline_small,
-    bench_pipeline_medium,
-    bench_pipeline_large,
     bench_convert_small,
     bench_convert_medium,
     bench_convert_large,
