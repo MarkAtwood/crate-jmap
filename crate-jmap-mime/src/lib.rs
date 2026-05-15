@@ -104,6 +104,23 @@ pub struct JmapBodyFields {
 /// per-part raw headers can extract them from `part.header_range` and the
 /// original `&[u8]`.
 ///
+/// # `blob_id_for` contract
+///
+/// The closure MUST be idempotent on `part.part_id`: repeated calls for
+/// parts with the same `part_id` MUST return the same `Id`. A counter-
+/// based or remote-allocate scheme that returns a fresh `Id` on every
+/// invocation will produce a JMAP `Email` response in which the same
+/// logical leaf appears under multiple distinct `blobId`s, which is a
+/// silent wire-format defect. Pure functions of `part.part_id` (or of
+/// the part bytes) satisfy the contract trivially.
+///
+/// `part_to_jmap` invokes the closure at most once per leaf in the
+/// subtree rooted at `part`. The frequency contract is only relevant
+/// when the same closure is also passed to [`message_to_jmap_body`],
+/// which calls the closure once per appearance in `body_structure` /
+/// `text_body` / `html_body` / `attachments` (so up to three times per
+/// plain-only leaf — see [`message_to_jmap_body`]).
+///
 /// # Depth bound
 ///
 /// The recursion is bounded by [`MAX_PART_DEPTH`]. A multipart subtree
@@ -167,11 +184,33 @@ pub fn body_value_to_jmap(val: DecodedBodyValue) -> EmailBodyValue {
 /// Build the full JMAP body fields from a [`ParsedMessage`].
 ///
 /// Converts the entire part tree and all RFC 8621 §4.1.4 body lists.
-/// The `blob_id_for` closure is called once per non-multipart leaf part.
 ///
-/// The returned [`JmapBodyFields::body_value_part_ids`] lists the part IDs
-/// the caller must decode via [`mime_tree::decode_body_value`] to populate
-/// `bodyValues` in the JMAP response.
+/// # `blob_id_for` contract
+///
+/// The closure is invoked once per appearance of a non-multipart leaf
+/// in the produced fields, not once per unique leaf. In a plain-text-only
+/// message — by far the most common shape — RFC 8621 §4.1.4 mandates
+/// that `html_body` mirrors `text_body`, so the single text leaf is
+/// emitted from `body_structure`, `text_body`, and `html_body` and the
+/// closure is invoked three times for it. The closure MUST therefore be
+/// idempotent on `part.part_id`; see [`part_to_jmap`] for the full
+/// contract.
+///
+/// # `body_value_part_ids` shape
+///
+/// The returned [`JmapBodyFields::body_value_part_ids`] is the
+/// **concatenation** of [`mime_tree::ParsedMessage::text_body`] and
+/// [`mime_tree::ParsedMessage::html_body`] — in that order, with no
+/// dedup. For plain-only messages where `html_body` mirrors `text_body`,
+/// a leaf's `part_id` therefore appears twice in this list. Callers that
+/// build a `bodyValues` map keyed by `part_id` will silently dedup; a
+/// caller that builds an order-preserving `Vec` or that emits each entry
+/// directly to a JSON sink will produce duplicates. Dedup at the call
+/// site if either matters.
+///
+/// The caller must decode each `part_id` in `body_value_part_ids` via
+/// [`mime_tree::decode_body_value`] to populate `bodyValues` in the
+/// JMAP response.
 ///
 /// # Depth bound
 ///
