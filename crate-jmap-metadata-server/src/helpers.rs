@@ -131,8 +131,7 @@ pub(crate) fn metadata_value(m: &Metadata) -> serde_json::Value {
 /// Note: this is the message a future panic would surface. Keep it
 /// short and reader-actionable; the rustdoc above each call site is
 /// where the "why this is unreachable" rationale belongs.
-const INFALLIBLE_SERIALIZE_JUSTIFICATION: &str =
-    "derive(Serialize) on plain data is infallible";
+const INFALLIBLE_SERIALIZE_JUSTIFICATION: &str = "derive(Serialize) on plain data is infallible";
 
 /// Build the `serverFail` response value for the
 /// `BackendSetError`-non-exhaustive catch-all in `/set` handlers.
