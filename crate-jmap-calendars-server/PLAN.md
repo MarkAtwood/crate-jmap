@@ -359,7 +359,7 @@ pub trait CalendarsBackend: JmapBackend {
         account_id: &Id,
         blob_ids: &[Id],
         properties: Option<&[String]>,
-    ) -> impl Future<Output = Result<ParseResult, Self::Error>> + Send {
+    ) -> impl Future<Output = Result<CalendarEventParseResult, Self::Error>> + Send {
         /* default: all blobs notParsable */
     }
 
@@ -389,8 +389,11 @@ pub struct CalendarEventSetArgs { /* see backend.rs */ }
 
 /// Result of `CalendarEvent/parse` (draft §5.13).
 ///
-/// **(drift)** Originally planned as `ParseEventResult`.
-pub struct ParseResult {
+/// **(drift)** Originally planned as `ParseEventResult`; renamed
+/// from the bare `ParseResult` shipped name to follow the
+/// object-prefix sibling pattern used by jmap-mail-server's
+/// `MdnParseResult` (bd:JMAP-ic0j.56).
+pub struct CalendarEventParseResult {
     pub parsed: HashMap<Id, Vec<CalendarEvent>>,
     pub not_found: Vec<Id>,
     pub not_parsable: Vec<Id>,
@@ -429,7 +432,7 @@ src/
   lib.rs                   re-exports; register_calendars_handlers macro
   backend.rs               CalendarsBackend trait; CalendarEventGetArgs,
                            CalendarEventQueryArgs, CalendarEventSetArgs;
-                           ParseResult, SetDefaultResult; AvailabilityError,
+                           CalendarEventParseResult, SetDefaultResult; AvailabilityError,
                            QueryCalendarEventsError; re-exports of
                            BackendChangesError/BackendSetError/etc. from jmap-server
   calendar.rs              Calendar/get, /changes, /set (onDestroyRemoveEvents +

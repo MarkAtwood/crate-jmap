@@ -179,7 +179,7 @@ pub trait CalendarsBackend: JmapBackend {
         account_id: &Id,
         blob_ids: &[Id],
         properties: Option<&[String]>,
-    ) -> impl Future<Output = Result<ParseResult, Self::Error>> + Send
+    ) -> impl Future<Output = Result<CalendarEventParseResult, Self::Error>> + Send
     { /* all blobs → not_parsable */ }
 
     /// Fetch availability data for a principal (draft §2.2 —
@@ -277,7 +277,7 @@ clients that request these properties will receive objects without them.
 ### `CalendarEvent/parse` — blob parsing delegation
 
 `CalendarEvent/parse` (draft §5.13) passes the blob id list directly to
-`parse_calendar_event_blobs`. The handler maps the `ParseResult` into the
+`parse_calendar_event_blobs`. The handler maps the `CalendarEventParseResult` into the
 wire response (`parsed`, `notFound`, `notParsable`). No blob-level logic
 is performed by the handler itself.
 
