@@ -75,19 +75,15 @@ async fn chat_get_omits_ids_and_properties_when_none() {
         "properties must be omitted when caller passes None"
     );
 
-    // RFC 8620 §3.3 — `using` MUST include core and chat capability URIs.
-    let using = &body["using"];
-    assert!(
-        using
-            .as_array()
-            .is_some_and(|a| a.iter().any(|v| v == "urn:ietf:params:jmap:core")),
-        "using must include core capability"
-    );
-    assert!(
-        using
-            .as_array()
-            .is_some_and(|a| a.iter().any(|v| v == "urn:ietf:params:jmap:chat")),
-        "using must include chat capability"
+    // RFC 8620 §3.3 — `using` MUST equal the exact USING_CHAT constant
+    // (`core` + `chat`). assert_eq! on the full array (not the legacy
+    // any() membership checks) so a regression that swapped in
+    // USING_CHAT_PUSH or accidentally added an extra capability is
+    // also caught.
+    assert_eq!(
+        body["using"],
+        json!(["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:chat"]),
+        "using must equal USING_CHAT exactly"
     );
 }
 

@@ -60,6 +60,17 @@ async fn space_get_omits_ids_and_properties_when_none() {
         args.get("properties").is_none(),
         "properties must be omitted when None"
     );
+    // RFC 8620 §3.3 — Space/* methods MUST declare USING_CHAT
+    // (`core` + `chat`). assert_eq! on the full array so a regression
+    // that swapped to USING_CHAT_PUSH or added an extra capability is
+    // also caught. One assertion per method-family per bd:JMAP-26di.10
+    // — every other Space/* smoke test in this file goes through the
+    // same build_request site and inherits the constant.
+    assert_eq!(
+        body["using"],
+        json!(["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:chat"]),
+        "Space/* using must equal USING_CHAT exactly"
+    );
 }
 
 /// `Space/get` decode coverage: populated wire object must round-trip
