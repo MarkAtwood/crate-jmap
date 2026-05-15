@@ -513,11 +513,43 @@ impl JmapBackend for MemoryBackend {
 
         for entry in &relevant {
             for id in &entry.created {
+                // bd:JMAP-ic0j.15 — guard against id recycling.
+                //
+                // Under bd:JMAP-ic0j.2's monotonic-counter invariant a
+                // mint-after-destroy never re-uses an id, so the dedup
+                // state's `destroyed` vec cannot contain a later entry's
+                // `created` id. This `debug_assert!` trips immediately
+                // in tests if a future regression in id minting
+                // re-introduces recycling, surfacing what would
+                // otherwise be a silent-drop bug — the dedup pass
+                // would collapse create+destroy on the same id into a
+                // destroy-only report from the perspective of
+                // `/changes` (RFC 8620 §5.2 'every distinct state MUST
+                // be reported correctly').
+                debug_assert!(
+                    !destroyed.contains(id),
+                    "MemoryBackend change_log invariant violated: id {id} \
+                     appears in entry.created after appearing in an earlier \
+                     entry.destroyed. This indicates id recycling in the \
+                     demo id minter (regression of bd:JMAP-ic0j.2). The \
+                     dedup pass below silently drops the create in release \
+                     builds."
+                );
                 if !destroyed.contains(id) && !created.contains(id) {
                     created.push(id.clone());
                 }
             }
             for id in &entry.updated {
+                // Same recycling guard for updated. An update on a
+                // previously-destroyed id is equally impossible under
+                // the monotonic-counter invariant.
+                debug_assert!(
+                    !destroyed.contains(id),
+                    "MemoryBackend change_log invariant violated: id {id} \
+                     appears in entry.updated after appearing in an earlier \
+                     entry.destroyed. This indicates id recycling in the \
+                     demo id minter (regression of bd:JMAP-ic0j.2)."
+                );
                 if !destroyed.contains(id) && !created.contains(id) && !updated.contains(id) {
                     updated.push(id.clone());
                 }
@@ -975,5 +1007,183 @@ mod demo_id_tests {
 
         assert!(id1.as_ref() < id2.as_ref());
         assert!(id2.as_ref() < id3.as_ref());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests for change_log dedup invariant (bd:JMAP-ic0j.15)
+// ---------------------------------------------------------------------------
+
+#[cfg(all(test, debug_assertions))]
+mod change_log_dedup_tests {
+    use super::*;
+    use jmap_calendars_types::Calendar;
+
+    /// Seed a `MemoryBackend` with a synthetic change_log so the dedup
+    /// loop can be exercised against arbitrary patterns. The state
+    /// counter is set to the highest `new_state` in `entries`.
+    fn seed_change_log(backend: &MemoryBackend, account_id: &str, entries: Vec<ChangeEntry>) {
+        let mut inner = backend.inner.lock().unwrap();
+        inner.known_accounts.insert(account_id.to_owned());
+        let max_state = entries.iter().map(|e| e.new_state).max().unwrap_or(0);
+        let key = ("Calendar", account_id.to_owned());
+        inner.change_log.insert(key.clone(), entries);
+        inner.states.insert(key, max_state);
+    }
+
+    /// Regression for bd:JMAP-ic0j.15 + bd:JMAP-ic0j.2.
+    ///
+    /// Constructs a synthetic change_log that contains the id recycling
+    /// pattern (id X appears in entry K's `destroyed` and entry K+2's
+    /// `created`), then drives `get_changes` to walk the dedup loop and
+    /// confirm the `debug_assert!` fires.
+    ///
+    /// The synthetic state directly pokes private `Inner` fields,
+    /// reproducing what the pre-bd:JMAP-ic0j.2 id minter would have
+    /// produced in a destroy+create round-trip on the same id. Without
+    /// the assertion, the loop's existing dedup would silently collapse
+    /// the create into a destroy-only report, breaking client-side
+    /// caches per RFC 8620 §5.2.
+    #[tokio::test]
+    #[should_panic(expected = "MemoryBackend change_log invariant violated")]
+    async fn dedup_pass_panics_on_recycled_id_in_created() {
+        let backend = MemoryBackend::new();
+        let acc_id = Id::from("acc1");
+        let recycled = Id::from("calendar0000000000000001");
+
+        seed_change_log(
+            &backend,
+            acc_id.as_ref(),
+            vec![
+                // Entry K=1: created the original.
+                ChangeEntry {
+                    new_state: 1,
+                    created: vec![recycled.clone()],
+                    updated: vec![],
+                    destroyed: vec![],
+                },
+                // Entry K=2: destroyed it.
+                ChangeEntry {
+                    new_state: 2,
+                    created: vec![],
+                    updated: vec![],
+                    destroyed: vec![recycled.clone()],
+                },
+                // Entry K=3: re-mints the SAME id (the bug we are
+                // guarding against; impossible under bd:JMAP-ic0j.2's
+                // invariant).
+                ChangeEntry {
+                    new_state: 3,
+                    created: vec![recycled.clone()],
+                    updated: vec![],
+                    destroyed: vec![],
+                },
+            ],
+        );
+
+        // The dedup loop walks entries 1..=3 because since_n=0.
+        // Processing entry K=3's `created` triggers the debug_assert.
+        let _ = backend
+            .get_changes::<Calendar>(&(), &acc_id, &State::from("0"), None)
+            .await;
+    }
+
+    /// Same recycling pattern but the recycled id appears in
+    /// entry K=3's `updated` slot rather than `created`. Equally
+    /// impossible under the monotonic-counter invariant — an update
+    /// on a destroyed id requires re-minting, which the invariant
+    /// forbids.
+    #[tokio::test]
+    #[should_panic(expected = "MemoryBackend change_log invariant violated")]
+    async fn dedup_pass_panics_on_recycled_id_in_updated() {
+        let backend = MemoryBackend::new();
+        let acc_id = Id::from("acc1");
+        let recycled = Id::from("calendar0000000000000001");
+
+        seed_change_log(
+            &backend,
+            acc_id.as_ref(),
+            vec![
+                ChangeEntry {
+                    new_state: 1,
+                    created: vec![recycled.clone()],
+                    updated: vec![],
+                    destroyed: vec![],
+                },
+                ChangeEntry {
+                    new_state: 2,
+                    created: vec![],
+                    updated: vec![],
+                    destroyed: vec![recycled.clone()],
+                },
+                ChangeEntry {
+                    new_state: 3,
+                    created: vec![],
+                    updated: vec![recycled.clone()],
+                    destroyed: vec![],
+                },
+            ],
+        );
+
+        let _ = backend
+            .get_changes::<Calendar>(&(), &acc_id, &State::from("0"), None)
+            .await;
+    }
+
+    /// Control: the non-recycling create-then-destroy-then-create-different-id
+    /// pattern (which is what bd:JMAP-ic0j.2 guarantees) must NOT trip
+    /// the assertion. Two distinct ids, both round-tripped through
+    /// destroy and re-create, end up correctly classified.
+    #[tokio::test]
+    async fn dedup_pass_does_not_panic_on_distinct_recreated_ids() {
+        let backend = MemoryBackend::new();
+        let acc_id = Id::from("acc1");
+        let id_a = Id::from("calendar0000000000000001");
+        let id_b = Id::from("calendar0000000000000002");
+
+        seed_change_log(
+            &backend,
+            acc_id.as_ref(),
+            vec![
+                ChangeEntry {
+                    new_state: 1,
+                    created: vec![id_a.clone()],
+                    updated: vec![],
+                    destroyed: vec![],
+                },
+                ChangeEntry {
+                    new_state: 2,
+                    created: vec![],
+                    updated: vec![],
+                    destroyed: vec![id_a.clone()],
+                },
+                // A DIFFERENT id, not the destroyed one.
+                ChangeEntry {
+                    new_state: 3,
+                    created: vec![id_b.clone()],
+                    updated: vec![],
+                    destroyed: vec![],
+                },
+            ],
+        );
+
+        let result = backend
+            .get_changes::<Calendar>(&(), &acc_id, &State::from("0"), None)
+            .await
+            .expect("must not error");
+
+        // id_a was created and then destroyed within the window → final
+        // classification is destroyed only. id_b was created in the
+        // window → final classification is created only.
+        assert_eq!(
+            result.destroyed,
+            vec![id_a],
+            "destroyed-then-not-recreated id stays in destroyed"
+        );
+        assert_eq!(
+            result.created,
+            vec![id_b],
+            "newly-minted id appears in created"
+        );
     }
 }
