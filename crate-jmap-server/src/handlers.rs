@@ -79,6 +79,58 @@ pub fn server_fail_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -> Jmap
     JmapError::server_fail(SERVER_FAIL_INTERNAL_DESC)
 }
 
+/// Construct the per-id `serverFail` [`Value`] used inside the
+/// `notCreated`/`notUpdated`/`notDestroyed` maps of `/set` responses
+/// (bd:JMAP-ic0j.68), without echoing the backend error's
+/// [`Display`](std::fmt::Display) output onto the wire.
+///
+/// This is the [`Value`]-shaped sibling of [`server_fail_from_backend`].
+/// The handler-layer helper returns a [`JmapError`] which is only useful
+/// where the entire method invocation fails. Per-id `/set` failures are
+/// expressed as a [`serde_json::Value`] keyed under each failing id in
+/// `notCreated` / `notUpdated` / `notDestroyed`; the existing
+/// `JmapError`-shaped helper does not fit those sites, so each crate
+/// previously hand-rolled
+/// `json!({ "type": "serverFail", "description": e.to_string() })` —
+/// every one of which leaks the backend error's `Display` onto the wire,
+/// in direct violation of the [`JmapBackend::Error`](crate::JmapBackend)
+/// Display MUST-NOT contract.
+///
+/// **The `err` parameter is intentionally discarded** (bd:JMAP-jfia.22),
+/// matching the contract on [`server_fail_from_backend`]. It exists only
+/// to keep the call site ergonomic — the function never reads it, logs
+/// it, or stashes it. Callers that want their backend error visible in
+/// operator logs MUST log it explicitly at the call site before invoking
+/// this helper.
+///
+/// The function is generic over any [`Display`](std::fmt::Display) so it
+/// applies uniformly to [`JmapBackend::Error`](crate::JmapBackend),
+/// [`BackendSetError::Other`](crate::BackendSetError),
+/// [`BackendChangesError::Other`](crate::BackendChangesError), and any
+/// extension-trait-specific error envelope. It also accepts the
+/// `&String` shape produced by some legacy helpers that flattened a
+/// backend error to `String` before propagating.
+///
+/// # Use at every per-id /set serverFail site
+///
+/// Replace:
+///
+/// ```ignore
+/// json!({ "type": "serverFail", "description": e.to_string() })
+/// ```
+///
+/// with:
+///
+/// ```ignore
+/// server_fail_value_from_backend(&e)
+/// ```
+pub fn server_fail_value_from_backend<E: std::fmt::Display + ?Sized>(_err: &E) -> Value {
+    json!({
+        "type": "serverFail",
+        "description": SERVER_FAIL_INTERNAL_DESC,
+    })
+}
+
 // ---------------------------------------------------------------------------
 // handle_get
 // ---------------------------------------------------------------------------
@@ -446,5 +498,62 @@ mod tests {
         let _ = server_fail_from_backend("a string");
         let _ = server_fail_from_backend(&"&str".to_owned());
         let _ = server_fail_from_backend(&42_u64);
+    }
+
+    /// Oracle (bd:JMAP-ic0j.68): [`server_fail_value_from_backend`] MUST
+    /// NOT echo the backend error's `Display` text into the per-id
+    /// `serverFail` Value used inside `/set`'s `notCreated`/`notUpdated`/
+    /// `notDestroyed` maps. Mirrors the
+    /// [`server_fail_from_backend_drops_display_text`] oracle for the
+    /// `JmapError`-shaped sibling helper.
+    ///
+    /// Test vector: an error whose `Display` contains a canary string
+    /// resembling a credential leak. The canary literal is hand-built and
+    /// not derived from any production type's behaviour.
+    #[test]
+    fn server_fail_value_from_backend_drops_display_text() {
+        #[derive(Debug)]
+        struct LeakyError(&'static str);
+        impl std::fmt::Display for LeakyError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str(self.0)
+            }
+        }
+        impl std::error::Error for LeakyError {}
+
+        const CANARY: &str = "TOKEN-DO-NOT-LEAK-d00d";
+        let err = LeakyError(CANARY);
+
+        let wire = server_fail_value_from_backend(&err);
+
+        // The canary MUST NOT appear anywhere in the serialized wire shape.
+        let wire_str = wire.to_string();
+        assert!(
+            !wire_str.contains(CANARY),
+            "server_fail_value_from_backend must not echo backend error \
+             Display onto the wire; got {wire_str}"
+        );
+        // Wire shape: { "type": "serverFail", "description": "internal error" }.
+        assert_eq!(wire["type"], "serverFail");
+        assert_eq!(
+            wire["description"], SERVER_FAIL_INTERNAL_DESC,
+            "description must be the static 'internal error' string"
+        );
+    }
+
+    /// Oracle: the helper accepts any `Display` — not just
+    /// [`JmapBackend::Error`](crate::JmapBackend) — so the extension
+    /// `*-server` crates' per-method handlers can use the same call
+    /// site for `BackendSetError::Other`, `BackendChangesError::Other`,
+    /// and the `&String` shape produced by some legacy helpers.
+    #[test]
+    fn server_fail_value_from_backend_accepts_generic_display() {
+        // String, &str, &String, and a custom Display all compile-check
+        // that the bound is `Display + ?Sized`.
+        let _ = server_fail_value_from_backend("a string");
+        let _ = server_fail_value_from_backend(&"owned-String".to_owned());
+        let owned: String = "owned".to_string();
+        let _ = server_fail_value_from_backend(&owned);
+        let _ = server_fail_value_from_backend(&42_u64);
     }
 }

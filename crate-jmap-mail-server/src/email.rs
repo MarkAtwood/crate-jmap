@@ -13,7 +13,9 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, find_immutable_patch_key,
     not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
-use jmap_server::{bool_arg, server_fail_from_backend, take_bool_arg};
+use jmap_server::{
+    bool_arg, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
+};
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
 const DEFAULT_EMAIL_GET_PROPERTIES: &[&str] = &[
@@ -1115,10 +1117,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     not_created.insert(create_id.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_created.insert(
@@ -1186,10 +1185,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     not_updated.insert(id_str.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str.clone(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_updated.insert(
@@ -1235,10 +1231,7 @@ pub async fn handle_email_set<B: MailBackend>(
                     not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_destroyed.insert(
@@ -1981,10 +1974,7 @@ pub async fn handle_email_import<B: MailBackend>(
                 not_created.insert(import_id, set_error_value(&set_err));
             }
             Err(BackendSetError::Other(e)) => {
-                not_created.insert(
-                    import_id,
-                    json!({ "type": "serverFail", "description": e.to_string() }),
-                );
+                not_created.insert(import_id, server_fail_value_from_backend(&e));
             }
             Err(_) => {
                 not_created.insert(
@@ -2359,10 +2349,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                 not_created.insert(copy_id, set_error_value(&set_err));
             }
             Err(BackendSetError::Other(e)) => {
-                not_created.insert(
-                    copy_id,
-                    json!({ "type": "serverFail", "description": e.to_string() }),
-                );
+                not_created.insert(copy_id, server_fail_value_from_backend(&e));
             }
             Err(_) => {
                 not_created.insert(
@@ -2438,7 +2425,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                     Err(BackendSetError::Other(e)) => {
                         email_not_destroyed.insert(
                             source_id.as_ref().to_owned(),
-                            json!({ "type": "serverFail", "description": e.to_string() }),
+                            server_fail_value_from_backend(&e),
                         );
                     }
                     Err(_) => {
@@ -2507,7 +2494,7 @@ pub async fn handle_email_copy<B: MailBackend>(
                         Err(BackendSetError::Other(e)) => {
                             email_not_updated.insert(
                                 source_id.as_ref().to_owned(),
-                                json!({ "type": "serverFail", "description": e.to_string() }),
+                                server_fail_value_from_backend(&e),
                             );
                         }
                         Err(_) => {

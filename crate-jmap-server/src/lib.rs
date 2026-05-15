@@ -41,7 +41,7 @@ pub use backend::{
 };
 pub use handlers::{
     handle_changes, handle_get, handle_query, handle_query_changes, server_fail_from_backend,
-    SERVER_FAIL_INTERNAL_DESC,
+    server_fail_value_from_backend, SERVER_FAIL_INTERNAL_DESC,
 };
 #[allow(deprecated)]
 pub use helpers::ser;

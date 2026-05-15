@@ -10,7 +10,7 @@ use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     extract_account_id, finalize_set_response, now_utc_string, set_error_value, SetAccumulators,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // Chat/get
@@ -349,9 +349,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                                         SetError::new(SetErrorType::AlreadyExists)
                                             .with_existing_id(canonical_id),
                                     )
-                                    .unwrap_or_else(|e| {
-                                        json!({ "type": "serverFail", "description": e.to_string() })
-                                    }),
+                                    .unwrap_or_else(|e| server_fail_value_from_backend(&e)),
                                 );
                                 continue;
                             }
@@ -374,10 +372,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     not_created.insert(create_id.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_created.insert(
@@ -451,10 +446,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_updated.insert(
@@ -500,10 +492,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                     not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_destroyed.insert(

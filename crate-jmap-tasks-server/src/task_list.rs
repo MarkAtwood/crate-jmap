@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, TasksBackend};
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // TaskList/get
@@ -144,16 +144,10 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                     not_created.insert(create_id, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(create_id, server_fail_value_from_backend(&e));
                 }
                 Err(other) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "serverFail", "description": other.to_string() }),
-                    );
+                    not_created.insert(create_id, server_fail_value_from_backend(&other));
                 }
             }
         }
@@ -200,16 +194,10 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                     not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(other) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": other.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&other));
                 }
             }
         }
@@ -259,16 +247,10 @@ pub async fn handle_task_list_set<B: TasksBackend>(
                     not_destroyed.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(other) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": other.to_string() }),
-                    );
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&other));
                 }
             }
         }

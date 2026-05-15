@@ -14,7 +14,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ContactsBackend};
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // ContactCard/get
@@ -136,10 +136,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                     not_created.insert(create_id, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(create_id, server_fail_value_from_backend(&e));
                 }
                 // BackendSetError is #[non_exhaustive]; this arm captures
                 // any future variant Cargo.lock may pull in and surfaces
@@ -200,10 +197,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                     not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 // BackendSetError is #[non_exhaustive]; surface any future
                 // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
@@ -252,10 +246,7 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                     not_destroyed.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 // BackendSetError is #[non_exhaustive]; surface any future
                 // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
@@ -532,10 +523,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                     not_copied.insert(create_id, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_copied.insert(
-                        create_id,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_copied.insert(create_id, server_fail_value_from_backend(&e));
                 }
                 // BackendSetError is #[non_exhaustive]; surface any future
                 // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
@@ -621,7 +609,7 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                     Err(BackendSetError::Other(e)) => {
                         not_destroyed.insert(
                             source_id.as_ref().to_owned(),
-                            json!({ "type": "serverFail", "description": e.to_string() }),
+                            server_fail_value_from_backend(&e),
                         );
                     }
                     // BackendSetError is #[non_exhaustive]; surface any future

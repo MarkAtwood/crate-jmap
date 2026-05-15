@@ -23,7 +23,7 @@ use crate::helpers::{
     extract_account_id, find_immutable_patch_key, not_found_json, now_utc_string, serialize_value,
     set_error_value,
 };
-use jmap_server::{bool_arg, server_fail_from_backend};
+use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // EmailSubmission/get
@@ -477,10 +477,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     not_updated.insert(id_str.clone(), set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str.clone(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str.clone(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_updated.insert(
@@ -529,10 +526,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_destroyed.insert(
@@ -653,7 +647,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Err(BackendSetError::Other(e)) => {
                         email_not_updated.insert(
                             email_id.as_ref().to_owned(),
-                            json!({ "type": "serverFail", "description": e.to_string() }),
+                            server_fail_value_from_backend(&e),
                         );
                     }
                     Err(_) => {
@@ -694,7 +688,7 @@ pub async fn handle_submission_set<B: MailBackend>(
                     Err(BackendSetError::Other(e)) => {
                         email_not_destroyed.insert(
                             email_id.as_ref().to_owned(),
-                            json!({ "type": "serverFail", "description": e.to_string() }),
+                            server_fail_value_from_backend(&e),
                         );
                     }
                     Err(_) => {

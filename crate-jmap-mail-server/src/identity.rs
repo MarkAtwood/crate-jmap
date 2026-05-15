@@ -10,7 +10,7 @@ use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, not_found_json, serialize_value,
     set_error_value, SetAccumulators,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 /// Handle an `Identity/get` method call (RFC 8621 §6.1).
 ///
@@ -277,10 +277,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                     not_created.insert(create_id, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(create_id, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_created.insert(
@@ -361,10 +358,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                     not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_updated.insert(
@@ -441,10 +435,7 @@ pub async fn handle_identity_set<B: MailBackend>(
                     not_destroyed.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_destroyed.insert(
