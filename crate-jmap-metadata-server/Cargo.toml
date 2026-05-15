@@ -39,3 +39,7 @@ tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
 # Self-dep with the `memory` feature ensures integration tests get the
 # reference impl without exposing it to downstream users by default.
 jmap-metadata-server = { workspace = true, features = ["memory"] }
+# Stub JmapObject types in regression tests (bd:JMAP-826m.13) need
+# #[derive(Serialize, Deserialize)]. Test-only — matches the
+# canonical jmap-mail-server which has serde as a direct dep.
+serde = { workspace = true }

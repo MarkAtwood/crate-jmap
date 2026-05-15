@@ -795,6 +795,15 @@ impl MetadataBackend for MemoryBackend {
         _create_id: &str,
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        // Refuse non-Metadata O at the top, before any state is touched
+        // (bd:JMAP-826m.13). The trait is generic over O for forward
+        // compatibility with the workspace canonical pattern, but this
+        // backend only knows Metadata; a non-Metadata create previously
+        // bumped state and pushed a change-log record with empty
+        // related_type/type_name before partial work silently completed.
+        if O::TYPE_NAME != Metadata::TYPE_NAME {
+            return Err(unsupported_object_type::<O>());
+        }
         let mut inner = self.inner.lock().unwrap();
 
         // Defense-in-depth account guard (bd:JMAP-ayoz.2). The handler
@@ -890,6 +899,11 @@ impl MetadataBackend for MemoryBackend {
         id: &Id,
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        // Refuse non-Metadata O at the top (bd:JMAP-826m.13). See the
+        // create_object guard for the same rationale.
+        if O::TYPE_NAME != Metadata::TYPE_NAME {
+            return Err(unsupported_object_type::<O>());
+        }
         let mut inner = self.inner.lock().unwrap();
 
         let existing = inner
@@ -982,6 +996,11 @@ impl MetadataBackend for MemoryBackend {
         account_id: &Id,
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
+        // Refuse non-Metadata O at the top (bd:JMAP-826m.13). See the
+        // create_object guard for the same rationale.
+        if O::TYPE_NAME != Metadata::TYPE_NAME {
+            return Err(unsupported_object_type::<O>());
+        }
         let mut inner = self.inner.lock().unwrap();
 
         let removed = inner
@@ -1128,6 +1147,31 @@ impl MetadataBackend for MemoryBackend {
             State::from(current_state.to_string()),
         ))
     }
+}
+
+// ---------------------------------------------------------------------------
+// Backend guards (bd:JMAP-826m.13)
+// ---------------------------------------------------------------------------
+
+/// Return a `BackendSetError::Other` describing an attempted /set call
+/// against this backend with an object type that is not Metadata.
+///
+/// The trait `MetadataBackend` is generic over `O: SetObject` to match
+/// the canonical workspace shape, but this reference backend stores
+/// only [`Metadata`]. A non-Metadata call previously bumped state and
+/// pushed a change-log record with empty `related_type` / `type_name`
+/// before partial work silently completed — a future-bug magnet.
+///
+/// The error is intentionally `BackendSetError::Other` (a storage-layer
+/// error) rather than `SetError` (a per-target /set failure): the
+/// trait's documented invariant is that backends handle the JMAP object
+/// types they claim to support, and "wrong O type at the trait
+/// boundary" is a programmer error, not a per-target wire failure.
+fn unsupported_object_type<O: JmapObject>() -> BackendSetError<MemoryError> {
+    BackendSetError::Other(MemoryError(format!(
+        "MemoryBackend supports only Metadata (got {})",
+        O::TYPE_NAME
+    )))
 }
 
 // ---------------------------------------------------------------------------
@@ -1526,5 +1570,97 @@ mod tests {
                 .expect("account_exists must succeed"),
             "create_object must not auto-register unknown accountId",
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // bd:JMAP-826m.13 — non-Metadata O is refused at the trait boundary
+    //
+    // The MetadataBackend trait is generic over O: SetObject for forward
+    // compatibility with the workspace canonical shape, but this backend
+    // stores only Metadata. The pre-fix code silently did partial work
+    // (state bump, change-log push) for a non-Metadata O before any
+    // failure surfaced from the typed objects map. The guards added in
+    // this bead refuse the call at the top of each /set method.
+    // -----------------------------------------------------------------------
+
+    /// Stub JmapObject used only in regression tests below to verify the
+    /// guards. Does not participate in any real JMAP wire format.
+    #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+    struct StubObject;
+
+    impl crate::backend::JmapObject for StubObject {
+        const TYPE_NAME: &'static str = "StubObject_NotMetadata";
+        type Property = ();
+    }
+
+    impl crate::backend::SetObject for StubObject {
+        type Patch = serde_json::Value;
+    }
+
+    /// Oracle: a `create_object::<StubObject>` call MUST be refused with
+    /// a BackendSetError::Other carrying an unsupported-type message.
+    /// Pre-fix, this call would have bumped state and pushed a
+    /// change-log entry with empty related_type/type_name.
+    #[tokio::test]
+    async fn create_object_non_metadata_refused_at_boundary() {
+        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let state_before = backend
+            .get_state::<Metadata>(&(), &Id::from("acc1"))
+            .await
+            .expect("get_state must succeed");
+
+        let err = backend
+            .create_object::<StubObject>(&(), &Id::from("acc1"), "c1", StubObject)
+            .await
+            .expect_err("non-Metadata create must be refused");
+        match err {
+            BackendSetError::Other(MemoryError(msg)) => {
+                assert!(
+                    msg.contains("MemoryBackend supports only Metadata"),
+                    "unsupported-type message must name Metadata: {msg}",
+                );
+                assert!(
+                    msg.contains("StubObject_NotMetadata"),
+                    "unsupported-type message must name the rejected type: {msg}",
+                );
+            }
+            other => panic!("expected BackendSetError::Other, got: {other:?}"),
+        }
+
+        let state_after = backend
+            .get_state::<Metadata>(&(), &Id::from("acc1"))
+            .await
+            .expect("get_state must succeed");
+        assert_eq!(
+            state_before, state_after,
+            "refused create must not bump state",
+        );
+    }
+
+    /// Oracle: same guard applies to update_object.
+    #[tokio::test]
+    async fn update_object_non_metadata_refused_at_boundary() {
+        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let err = backend
+            .update_object::<StubObject>(
+                &(),
+                &Id::from("acc1"),
+                &Id::from("does-not-matter"),
+                serde_json::Value::Null,
+            )
+            .await
+            .expect_err("non-Metadata update must be refused");
+        assert!(matches!(err, BackendSetError::Other(_)));
+    }
+
+    /// Oracle: same guard applies to destroy_object.
+    #[tokio::test]
+    async fn destroy_object_non_metadata_refused_at_boundary() {
+        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let err = backend
+            .destroy_object::<StubObject>(&(), &Id::from("acc1"), &Id::from("does-not-matter"))
+            .await
+            .expect_err("non-Metadata destroy must be refused");
+        assert!(matches!(err, BackendSetError::Other(_)));
     }
 }
