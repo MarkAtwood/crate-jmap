@@ -1016,6 +1016,18 @@ pub enum AnniversaryDate {
     /// An absolute UTC timestamp.
     Timestamp(Timestamp),
     /// Any other shape; preserved opaquely.
+    ///
+    /// Carries the raw `serde_json::Value` so a future-spec `@type`
+    /// variant a JSContact extension server may emit round-trips
+    /// losslessly through this crate, even though the kit cannot
+    /// dispatch on it. Matches the workspace extras-preservation
+    /// posture (see workspace `AGENTS.md`).
+    ///
+    /// **Do not remove this variant** to "simplify" the enum into
+    /// `{PartialDate, Timestamp}` only — that would force a
+    /// deserialize error on any spec-conformant input carrying a
+    /// future `@type` value, silently losing data. The variant exists
+    /// specifically to prevent that bug. See `bd:JMAP-sgrr.10`.
     Unknown(serde_json::Value),
 }
 
