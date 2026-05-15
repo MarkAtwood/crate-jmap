@@ -24,6 +24,13 @@ use super::{
 /// `Map::entry(...).or_insert(...)` pattern used by every method builder so
 /// the collision semantics (typed-field wins, extras lose silently) stay
 /// uniform across `Metadata/*`.
+///
+/// Expected `extras` size is small — vendor / site / private-extension args
+/// on a JMAP method call are typically zero (the common case) or a single-
+/// digit number of keys. The per-key hash lookup is O(1) average and the
+/// outer loop is bounded by the same small count; no allocation budget
+/// concern in practice. Callers that genuinely need to inject hundreds of
+/// extras keys per call should use the lower-level `build_request` directly.
 fn merge_extras(args: &mut serde_json::Value, extras: serde_json::Map<String, serde_json::Value>) {
     let obj = args
         .as_object_mut()
