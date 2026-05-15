@@ -356,6 +356,176 @@ async fn contact_card_set_create_with_client_id_rejected() {
 }
 
 // ---------------------------------------------------------------------------
+// ContactCard.addressBookIds non-empty invariant (bd:JMAP-qz9v.16)
+//
+// RFC 9610 §3: a ContactCard MUST belong to at least one AddressBook at
+// all times. Both create and update paths must reject post-mutation
+// states with empty addressBookIds.
+// ---------------------------------------------------------------------------
+
+/// Oracle: create with addressBookIds absent → invalidProperties.
+#[tokio::test]
+async fn contact_card_create_missing_address_book_ids_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book"),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "create": {
+            "c1": {
+                "@type": "Card",
+                "version": "1.0",
+                "uid": "no-books-card",
+                "name": { "@type": "Name", "full": "Alice" }
+                // No addressBookIds field at all.
+            }
+        }
+    });
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    assert_eq!(
+        resp["notCreated"]["c1"]["type"], "invalidProperties",
+        "missing addressBookIds must be rejected: {resp}"
+    );
+    let properties = resp["notCreated"]["c1"]["properties"]
+        .as_array()
+        .expect("properties must be array");
+    assert_eq!(properties[0], "addressBookIds");
+}
+
+/// Oracle: create with addressBookIds = {} → invalidProperties.
+#[tokio::test]
+async fn contact_card_create_empty_address_book_ids_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book"),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "create": {
+            "c1": {
+                "@type": "Card",
+                "version": "1.0",
+                "uid": "empty-books-card",
+                "addressBookIds": {},
+                "name": { "@type": "Name", "full": "Bob" }
+            }
+        }
+    });
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    assert_eq!(
+        resp["notCreated"]["c1"]["type"], "invalidProperties",
+        "empty addressBookIds must be rejected: {resp}"
+    );
+}
+
+/// Oracle: update that removes the last addressBookIds entry must be
+/// rejected with invalidProperties. The stored card remains untouched.
+#[tokio::test]
+async fn contact_card_update_removing_last_address_book_id_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card1",
+        contact_card_fixture("card1", "ab1", "Alice"),
+    );
+
+    // RFC 7396 merge-patch shape: {"addressBookIds": {"ab1": null}}
+    // removes the ab1 key. The result is addressBookIds = {} which must
+    // be rejected.
+    let args = json!({
+        "accountId": "acc1",
+        "update": {
+            "card1": {
+                "addressBookIds": { "ab1": Value::Null }
+            }
+        }
+    });
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    assert_eq!(
+        resp["notUpdated"]["card1"]["type"], "invalidProperties",
+        "patch that empties addressBookIds must be rejected: {resp}"
+    );
+
+    // The stored card is unchanged.
+    let args = json!({ "accountId": "acc1", "ids": ["card1"] });
+    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let list = get_resp["list"].as_array().unwrap();
+    assert_eq!(list.len(), 1);
+    assert_eq!(
+        list[0]["addressBookIds"],
+        json!({ "ab1": true }),
+        "rejected update must leave the stored card unchanged: {get_resp}"
+    );
+}
+
+/// Oracle: update that doesn't touch addressBookIds keeps the existing
+/// non-empty state and succeeds.
+#[tokio::test]
+async fn contact_card_update_unrelated_field_preserves_invariant() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card1",
+        contact_card_fixture("card1", "ab1", "Alice"),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "update": {
+            "card1": {
+                "kind": "individual"
+            }
+        }
+    });
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    assert!(
+        resp["notUpdated"].is_null(),
+        "unrelated-field update must succeed: {resp}"
+    );
+    assert!(
+        resp["updated"]["card1"].is_null() || resp["updated"]["card1"].is_object(),
+        "updated must contain card1: {resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // AddressBook/set onDestroyRemoveContents cascade tests (bd:JMAP-qz9v.1)
 //
 // RFC 9610 §2.3: when onDestroyRemoveContents is true, the destroy must
