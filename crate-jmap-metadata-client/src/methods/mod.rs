@@ -21,15 +21,60 @@ pub use jmap_types::{
 };
 
 // ---------------------------------------------------------------------------
-// MetadataChangesParams — extra arguments for Metadata/changes
-// (draft-ietf-jmap-metadata-01 §3.3)
+// Method-level argument structs (draft-ietf-jmap-metadata-01 §3 + workspace
+// extras-preservation policy)
 // ---------------------------------------------------------------------------
+
+/// Extra method-level arguments for `Metadata/get`
+/// (draft-ietf-jmap-metadata-01 §3.2).
+///
+/// Draft-01 defines no method-specific args on `Metadata/get` beyond the
+/// RFC 8620 §5.1 standard set; this struct carries only the vendor /
+/// site / private-extension `extra` flatten field. Future draft revisions
+/// or vendor extensions add typed knobs without a breaking signature change
+/// because `metadata_get` accepts `Option<MetadataGetParams>`.
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataGetParams {
+    /// Catch-all for vendor / site / private extension fields. Preserves
+    /// unknown fields across deserialize/serialize round-trip per workspace
+    /// extras-preservation policy (see workspace AGENTS.md).
+    ///
+    /// Keys MUST NOT collide with the standard RFC 8620 §5.1 arg names
+    /// (`accountId`, `ids`, `properties`); `metadata_get` will silently
+    /// retain the typed-field value if an extras key collides.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Extra method-level arguments for `Metadata/set`
+/// (draft-ietf-jmap-metadata-01 §3.1).
+///
+/// Draft-01 defines no method-specific args on `Metadata/set` beyond the
+/// RFC 8620 §5.3 standard set; this struct carries only the vendor /
+/// site / private-extension `extra` flatten field. The `if_in_state`
+/// argument is passed as a positional parameter to `metadata_set`,
+/// mirroring the canonical `email_set` shape.
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataSetParams {
+    /// Catch-all for vendor / site / private extension fields. Preserves
+    /// unknown fields across deserialize/serialize round-trip per workspace
+    /// extras-preservation policy (see workspace AGENTS.md).
+    ///
+    /// Keys MUST NOT collide with the standard RFC 8620 §5.3 arg names
+    /// (`accountId`, `ifInState`, `create`, `update`, `destroy`);
+    /// `metadata_set` will silently retain the typed-field value if an
+    /// extras key collides.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
 
 /// Extra method-level arguments for `Metadata/changes`
 /// (draft-ietf-jmap-metadata-01 §3.3).
 ///
-/// Both fields are optional. Pass `None` (or `Default::default()`) to fetch
-/// all Metadata changes regardless of `relatedType` or `@type`.
+/// Both filter fields are optional. Pass `None` (or `Default::default()`)
+/// to fetch all Metadata changes regardless of `relatedType` or `@type`.
 ///
 /// Per §3.3, when both filters are specified the server MUST return only
 /// changes to Metadata objects that satisfy both criteria (logical AND).
@@ -56,6 +101,53 @@ pub struct MetadataChangesParams {
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
+    ///
+    /// Keys MUST NOT collide with the standard RFC 8620 §5.2 / draft-01
+    /// §3.3 arg names (`accountId`, `sinceState`, `maxChanges`,
+    /// `filterRelatedType`, `filterMetadataType`); `metadata_changes` will
+    /// silently retain the typed-field value if an extras key collides.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Extra method-level arguments for `Metadata/query`
+/// (draft-ietf-jmap-metadata-01 §3.4).
+///
+/// Draft-01 defines no method-specific args on `Metadata/query` beyond the
+/// RFC 8620 §5.5 standard set; this struct carries only the vendor /
+/// site / private-extension `extra` flatten field.
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataQueryParams {
+    /// Catch-all for vendor / site / private extension fields. Preserves
+    /// unknown fields across deserialize/serialize round-trip per workspace
+    /// extras-preservation policy (see workspace AGENTS.md).
+    ///
+    /// Keys MUST NOT collide with the standard RFC 8620 §5.5 arg names
+    /// (`accountId`, `filter`, `sort`, `position`, `limit`, etc.);
+    /// `metadata_query` will silently retain the typed-field value if an
+    /// extras key collides.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Extra method-level arguments for `Metadata/queryChanges`
+/// (draft-ietf-jmap-metadata-01 §3.5).
+///
+/// Draft-01 defines no method-specific args on `Metadata/queryChanges`
+/// beyond the RFC 8620 §5.6 standard set; this struct carries only the
+/// vendor / site / private-extension `extra` flatten field.
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MetadataQueryChangesParams {
+    /// Catch-all for vendor / site / private extension fields. Preserves
+    /// unknown fields across deserialize/serialize round-trip per workspace
+    /// extras-preservation policy (see workspace AGENTS.md).
+    ///
+    /// Keys MUST NOT collide with the standard RFC 8620 §5.6 arg names
+    /// (`accountId`, `sinceQueryState`, `maxChanges`, etc.);
+    /// `metadata_query_changes` will silently retain the typed-field value
+    /// if an extras key collides.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -394,5 +486,77 @@ mod tests {
             .insert("acmeCorpCursor".into(), json!("opaque-token"));
         let v = serde_json::to_value(&params).expect("serialize MetadataChangesParams");
         assert_eq!(v["acmeCorpCursor"], json!("opaque-token"));
+    }
+
+    /// `MetadataGetParams::default()` serializes to an empty object.
+    /// Oracle: `skip_serializing_if = serde_json::Map::is_empty` on the
+    /// `extra` flatten field.
+    #[test]
+    fn metadata_get_params_default_is_empty_object() {
+        let v = serde_json::to_value(MetadataGetParams::default())
+            .expect("serialize MetadataGetParams");
+        assert_eq!(v, json!({}));
+    }
+
+    /// `MetadataGetParams.extra` flattens into serialized JSON.
+    #[test]
+    fn metadata_get_params_propagates_vendor_extras() {
+        let mut params = MetadataGetParams::default();
+        params.extra.insert("acmeCorpAuditFlag".into(), json!(true));
+        let v = serde_json::to_value(&params).expect("serialize MetadataGetParams");
+        assert_eq!(v["acmeCorpAuditFlag"], json!(true));
+    }
+
+    /// `MetadataSetParams::default()` serializes to an empty object.
+    #[test]
+    fn metadata_set_params_default_is_empty_object() {
+        let v = serde_json::to_value(MetadataSetParams::default())
+            .expect("serialize MetadataSetParams");
+        assert_eq!(v, json!({}));
+    }
+
+    /// `MetadataSetParams.extra` flattens into serialized JSON.
+    #[test]
+    fn metadata_set_params_propagates_vendor_extras() {
+        let mut params = MetadataSetParams::default();
+        params.extra.insert("acmeCorpAuditFlag".into(), json!(true));
+        let v = serde_json::to_value(&params).expect("serialize MetadataSetParams");
+        assert_eq!(v["acmeCorpAuditFlag"], json!(true));
+    }
+
+    /// `MetadataQueryParams::default()` serializes to an empty object.
+    #[test]
+    fn metadata_query_params_default_is_empty_object() {
+        let v = serde_json::to_value(MetadataQueryParams::default())
+            .expect("serialize MetadataQueryParams");
+        assert_eq!(v, json!({}));
+    }
+
+    /// `MetadataQueryParams.extra` flattens into serialized JSON.
+    #[test]
+    fn metadata_query_params_propagates_vendor_extras() {
+        let mut params = MetadataQueryParams::default();
+        params
+            .extra
+            .insert("acmeCorpAnchor".into(), json!("MD-cursor-1"));
+        let v = serde_json::to_value(&params).expect("serialize MetadataQueryParams");
+        assert_eq!(v["acmeCorpAnchor"], json!("MD-cursor-1"));
+    }
+
+    /// `MetadataQueryChangesParams::default()` serializes to an empty object.
+    #[test]
+    fn metadata_query_changes_params_default_is_empty_object() {
+        let v = serde_json::to_value(MetadataQueryChangesParams::default())
+            .expect("serialize MetadataQueryChangesParams");
+        assert_eq!(v, json!({}));
+    }
+
+    /// `MetadataQueryChangesParams.extra` flattens into serialized JSON.
+    #[test]
+    fn metadata_query_changes_params_propagates_vendor_extras() {
+        let mut params = MetadataQueryChangesParams::default();
+        params.extra.insert("acmeCorpUpTo".into(), json!("MD-99"));
+        let v = serde_json::to_value(&params).expect("serialize MetadataQueryChangesParams");
+        assert_eq!(v["acmeCorpUpTo"], json!("MD-99"));
     }
 }

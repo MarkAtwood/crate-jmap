@@ -49,7 +49,7 @@ async fn metadata_get_round_trip() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .metadata_get(None, None)
+        .metadata_get(None, None, None)
         .await
         .expect("metadata_get_round_trip: must succeed");
 
@@ -233,7 +233,7 @@ async fn metadata_set_create_round_trip() {
         }
     });
     let resp = sc
-        .metadata_set(Some(create_obj), None, None)
+        .metadata_set(Some(create_obj), None, None, None, None)
         .await
         .expect("metadata_set_create_round_trip: must succeed");
 
@@ -283,7 +283,13 @@ async fn metadata_query_with_filter_and_sort() {
     let filter = json!({ "relatedType": "Email" });
     let sort = json!([{ "property": "id", "isAscending": true }]);
     let resp = sc
-        .metadata_query(Some(filter.clone()), Some(sort.clone()), Some(0), Some(50))
+        .metadata_query(
+            Some(filter.clone()),
+            Some(sort.clone()),
+            Some(0),
+            Some(50),
+            None,
+        )
         .await
         .expect("metadata_query_with_filter_and_sort: must succeed");
 
@@ -332,7 +338,7 @@ async fn metadata_query_changes_round_trip() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .metadata_query_changes(&jmap_types::State::from("qs1"), None)
+        .metadata_query_changes(&jmap_types::State::from("qs1"), None, None)
         .await
         .expect("metadata_query_changes_round_trip: must succeed");
 
@@ -355,5 +361,176 @@ async fn metadata_query_changes_round_trip() {
         body["methodCalls"][0][1]["sinceQueryState"],
         json!("qs1"),
         "sinceQueryState must be qs1 in wire request"
+    );
+}
+
+/// Test JMAP-wzq9.1 — Metadata/set passes `ifInState` in the wire request
+/// when `if_in_state` is `Some`.
+///
+/// Oracle: RFC 8620 §5.3 — `ifInState` is a top-level /set arg the server
+/// uses for optimistic-concurrency guard. Wire field name is camelCase.
+#[tokio::test]
+async fn metadata_set_passes_if_in_state() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Metadata/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s10",
+                "newState": "s11",
+                "created": null,
+                "updated": null,
+                "destroyed": ["MD-gone"],
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let state = jmap_types::State::from("s10");
+    let _resp = sc
+        .metadata_set(
+            None,
+            None,
+            Some(vec![jmap_types::Id::from("MD-gone")]),
+            Some(&state),
+            None,
+        )
+        .await
+        .expect("metadata_set_passes_if_in_state: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("metadata_set_passes_if_in_state: must have recorded requests");
+    let body: serde_json::Value = serde_json::from_slice(&reqs[0].body)
+        .expect("metadata_set_passes_if_in_state: request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["ifInState"],
+        json!("s10"),
+        "ifInState must be 's10' in wire request"
+    );
+}
+
+/// Test JMAP-wzq9.2 — `MetadataSetParams.extra` flattens into the
+/// `Metadata/set` wire request.
+///
+/// Oracle: workspace extras-preservation policy — vendor extras MUST round-
+/// trip into the args object. Uses `acmeCorpAuditFlag` (synthetic) so the
+/// assertion is independent of any draft-defined typed field.
+#[tokio::test]
+async fn metadata_set_propagates_params_extras() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Metadata/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2",
+                "created": null,
+                "updated": null,
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let mut params = jmap_metadata_client::MetadataSetParams::default();
+    params.extra.insert("acmeCorpAuditFlag".into(), json!(true));
+    let _resp = sc
+        .metadata_set(None, None, None, None, Some(params))
+        .await
+        .expect("metadata_set_propagates_params_extras: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("metadata_set_propagates_params_extras: must have recorded requests");
+    let body: serde_json::Value = serde_json::from_slice(&reqs[0].body)
+        .expect("metadata_set_propagates_params_extras: request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["acmeCorpAuditFlag"],
+        json!(true),
+        "acmeCorpAuditFlag from MetadataSetParams.extra must propagate to args"
+    );
+}
+
+/// Test JMAP-wzq9.2 — extras keys colliding with typed wire fields do NOT
+/// overwrite the typed value (`Map::entry(...).or_insert` semantics).
+///
+/// Oracle: documented collision contract on `MetadataSetParams.extra` and
+/// every sibling params struct. A caller passing `extra["accountId"]` is
+/// silently ignored; the session-derived accountId wins.
+#[tokio::test]
+async fn metadata_set_params_extras_do_not_overwrite_account_id() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Metadata/set",
+            {
+                "accountId": "A13824",
+                "oldState": "s1",
+                "newState": "s2",
+                "created": null,
+                "updated": null,
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let mut params = jmap_metadata_client::MetadataSetParams::default();
+    // Caller-supplied extras attempt to overwrite a typed field.
+    params.extra.insert("accountId".into(), json!("HIJACKED"));
+    let _resp = sc
+        .metadata_set(None, None, None, None, Some(params))
+        .await
+        .expect("metadata_set_params_extras_do_not_overwrite_account_id: must succeed");
+
+    let reqs = server.received_requests().await.expect(
+        "metadata_set_params_extras_do_not_overwrite_account_id: must have recorded requests",
+    );
+    let body: serde_json::Value = serde_json::from_slice(&reqs[0].body).expect(
+        "metadata_set_params_extras_do_not_overwrite_account_id: request body must be valid JSON",
+    );
+    let args = &body["methodCalls"][0][1];
+    // The session-derived accountId must win over the extras attempt.
+    assert_eq!(
+        args["accountId"],
+        json!("A13824"),
+        "accountId from session must win over extras hijack attempt"
     );
 }
