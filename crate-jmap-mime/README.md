@@ -158,6 +158,19 @@ shape plus a decoded `bodyValues` entry for the first text part.
   multipart types (`multipart/signed`, `multipart/encrypted`) are treated as
   ordinary multipart containers. Signature verification and decryption are out
   of scope for this crate.
+- **Blob ID construction is the consumer's responsibility — and must be
+  unguessable if access control depends on it.** The closure passed to
+  `message_to_jmap_body` / `part_to_jmap` receives a `&ParsedPart` whose
+  `part_id` is a deterministic dotted IMAP path (`"1"`, `"2.1"`, `"3.4.7"`).
+  The illustrative `format!("blob-{part_id}")` form used throughout the
+  examples is **for demonstration only** — its output is enumerable across
+  all mailboxes, so a consumer that treats blobId existence as authorization
+  will leak blobs across users. Production backends should either
+  (a) make `blobId` content-addressed (`SHA-256(part_bytes)`, optionally
+  surfaced via `urn:ietf:params:jmap:cid` per draft-atwood-jmap-cid-00 /
+  `jmap-cid-types`), (b) make `blobId` a random opaque token bound to the
+  (account, part) pair in the storage layer, or (c) enforce access control
+  on `(caller, blobId)` rather than on `blobId` alone.
 - **`blob_id_for` is invoked once per appearance, not once per unique leaf.**
   `message_to_jmap_body` walks `body_structure`, `text_body`, `html_body`,
   and `attachments` independently, calling the closure on every visited
