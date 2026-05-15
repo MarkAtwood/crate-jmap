@@ -245,9 +245,6 @@ typed Chat-specific event types on top of the base-client transports.
   `SpaceJoinResponse` (not a `SetResponse`). It cannot be used with
   `JmapRequestBuilder::add_call` in combination with other `/set` invocations in
   a multi-method request — use it as a standalone call.
-- **No `Chat/queryChanges` in the current server spec.** Some object types have
-  `queryChanges` on the client without a corresponding handler in
-  `jmap-chat-server`; check server capability before calling.
 
 ## References
 
