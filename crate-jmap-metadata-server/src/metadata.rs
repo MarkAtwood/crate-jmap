@@ -533,23 +533,60 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
 // Metadata/query and Metadata/queryChanges
 // ---------------------------------------------------------------------------
 
-/// Validate the Metadata-specific cross-field constraint in a filter tree
-/// before delegating to the generic /query or /queryChanges handler.
+/// Known wire-format field names of [`MetadataFilterCondition`] leaf nodes,
+/// per draft-ietf-jmap-metadata-01 §3.4.1. Used by
+/// [`walk_filter_for_unknown_keys`] to reject filters that carry typos,
+/// snake_case field names, vendor extensions, or future-spec fields.
 ///
-/// draft-ietf-jmap-metadata-01 §3.4.1 mandates: *"relatedIds MUST only be
-/// specified when relatedType is also specified. If relatedIds is
-/// specified without relatedType, the server MUST reject the query with
-/// an invalidArguments error."*
+/// **MAINTENANCE:** This list must mirror the wire-format field names of
+/// [`MetadataFilterCondition`] in `jmap-metadata-types`. If a new field is
+/// added to that struct, add its wire name here. Drift causes valid filter
+/// conditions to be rejected with `unsupportedFilter` instead of being
+/// applied — a protocol misbehavior that is not a compile error.
+const KNOWN_CONDITION_KEYS: &[&str] = &[
+    "@type",
+    "relatedType",
+    "relatedIds",
+    "isPrivate",
+    "textMatch",
+];
+
+/// Validate a filter tree before delegating to the generic /query or
+/// /queryChanges handler.
 ///
-/// The generic `jmap_server::handlers::handle_query` is unaware of this
-/// constraint — it only parses the filter into the typed shape. The
-/// validation must happen in the metadata-server handler shim, before
-/// the delegate runs.
+/// Performs two passes:
 ///
-/// Returns `Ok(())` when the filter is absent, deserializes into a tree
-/// with no constraint violation, or fails to deserialize at all (the
-/// generic will surface the deserialize failure as `unsupportedFilter`,
-/// which is the spec-correct error for malformed filter shape).
+/// 1. **Unknown-keys pass** ([`walk_filter_for_unknown_keys`]): walks the
+///    raw filter JSON tree and rejects any object node whose keys do not
+///    match the known filter schema (operator nodes: `operator`,
+///    `conditions`; condition leaves: the
+///    [`MetadataFilterCondition`] wire-format fields enumerated in
+///    [`KNOWN_CONDITION_KEYS`]). Returns `unsupportedFilter` per
+///    RFC 8620 §5.5.
+///
+///    This catches typos (`related_ids` vs `relatedIds`), vendor
+///    extensions, and future-spec fields — all of which would otherwise
+///    deserialize into [`MetadataFilterCondition::default`] and silently
+///    return every object in the account.
+///
+///    Filter-algebra extensibility is **excluded** from the workspace
+///    extras-preservation policy — silent-drop of an unknown filter
+///    clause is a query-correctness bug. Vendors that need filterable
+///    custom fields must use the draft-ietf-jmap-metadata `Annotation`
+///    object or fork [`MetadataFilterCondition`]. See workspace
+///    AGENTS.md "Filter-algebra exclusion".
+///
+/// 2. **Cross-field pass** ([`walk_filter_for_related_ids_constraint`]):
+///    draft-ietf-jmap-metadata-01 §3.4.1 mandates *"relatedIds MUST only
+///    be specified when relatedType is also specified. If relatedIds is
+///    specified without relatedType, the server MUST reject the query
+///    with an invalidArguments error."* Returns `invalidArguments`.
+///
+/// Returns `Ok(())` when the filter is absent or null. A filter whose
+/// JSON shape is malformed in a way the unknown-keys walker does not
+/// detect (e.g. a numeric where a string is expected) falls through to
+/// the generic handler, which surfaces the deserialize failure as
+/// `unsupportedFilter` via `optional_arg`.
 fn validate_metadata_filter(args: &serde_json::Map<String, Value>) -> Result<(), JmapError> {
     let Some(filter_val) = args.get("filter") else {
         return Ok(());
@@ -557,11 +594,69 @@ fn validate_metadata_filter(args: &serde_json::Map<String, Value>) -> Result<(),
     if filter_val.is_null() {
         return Ok(());
     }
+    walk_filter_for_unknown_keys(filter_val)?;
+    // The unknown-keys walk already ensured every object node carries
+    // only keys we recognise, so typed deserialize cannot silently drop
+    // a typo'd field. A residual deserialize failure here means the
+    // value of a known field is the wrong JSON type (e.g.
+    // `relatedIds: 42`) — let the generic handler surface that as
+    // `unsupportedFilter` per its own contract.
     let filter: Filter<MetadataFilterCondition> = match serde_json::from_value(filter_val.clone()) {
         Ok(f) => f,
         Err(_) => return Ok(()),
     };
     walk_filter_for_related_ids_constraint(&filter)
+}
+
+/// Recursively walk the raw filter JSON tree and reject any object node
+/// whose keys are not in the known schema (RFC 8620 §5.5 filter algebra
+/// + [`MetadataFilterCondition`] leaf fields).
+///
+/// Operator nodes are identified by the presence of an `operator` key
+/// (matching the [`Filter`] untagged-union discrimination). Allowed keys
+/// on operator nodes: `operator`, `conditions`. Condition leaf nodes are
+/// any object without an `operator` key; allowed keys are
+/// [`KNOWN_CONDITION_KEYS`].
+///
+/// Non-object filter nodes (arrays, strings, etc.) are passed through
+/// untouched — the typed deserialize pass that runs after this walk will
+/// surface those as `unsupportedFilter` via the generic handler.
+fn walk_filter_for_unknown_keys(node: &Value) -> Result<(), JmapError> {
+    let Some(obj) = node.as_object() else {
+        return Ok(());
+    };
+    if obj.contains_key("operator") {
+        // Operator node: allowed keys are `operator` and `conditions`.
+        for key in obj.keys() {
+            if key != "operator" && key != "conditions" {
+                return Err(unsupported_filter_unknown_key(key));
+            }
+        }
+        if let Some(conditions) = obj.get("conditions").and_then(|v| v.as_array()) {
+            for child in conditions {
+                walk_filter_for_unknown_keys(child)?;
+            }
+        }
+        Ok(())
+    } else {
+        // Condition leaf: allowed keys are MetadataFilterCondition wire fields.
+        for key in obj.keys() {
+            if !KNOWN_CONDITION_KEYS.contains(&key.as_str()) {
+                return Err(unsupported_filter_unknown_key(key));
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Construct an `unsupportedFilter` error carrying the offending key name
+/// in the description.
+fn unsupported_filter_unknown_key(key: &str) -> JmapError {
+    let mut err = JmapError::unsupported_filter();
+    err.description = Some(format!(
+        "filter: unknown field {key:?} (RFC 8620 §5.5; draft-ietf-jmap-metadata-01 §3.4.1)"
+    ));
+    err
 }
 
 /// Recursively walk a `Filter<MetadataFilterCondition>` tree and return
@@ -1297,5 +1392,157 @@ mod tests {
             .await
             .expect_err("must reject relatedIds-without-relatedType");
         assert_eq!(err.error_type, "invalidArguments", "got: {err:?}");
+    }
+
+    // -----------------------------------------------------------------------
+    // Metadata/query unknown-filter-key rejection (bd:JMAP-826m.1)
+    //
+    // MetadataFilterCondition has all-Option fields and the workspace
+    // canonical-template rule forbids `#[serde(deny_unknown_fields)]` on
+    // FilterCondition types (see crate-jmap-mail-types/src/query.rs:32-33).
+    // The validator must instead walk the raw filter JSON tree and reject
+    // any unknown key before typed deserialize silently drops it.
+    //
+    // RFC 8620 §5.5 prescribes `unsupportedFilter` for filters the server
+    // cannot process. The cross-field §3.4.1 check is unchanged
+    // (`invalidArguments`).
+    // -----------------------------------------------------------------------
+
+    /// Oracle: snake_case typo `related_ids` (instead of camelCase
+    /// `relatedIds`) MUST be rejected with `unsupportedFilter`. Before the
+    /// fix, the typo'd field was silently dropped, the validator saw a
+    /// default-constructed condition, and the /query returned ALL objects
+    /// — a query-correctness bug.
+    #[tokio::test]
+    async fn query_snake_case_typo_returns_unsupported_filter() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "related_ids": ["EM1"]
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject snake_case typo");
+        assert_eq!(
+            err.error_type, "unsupportedFilter",
+            "expected unsupportedFilter, got: {err:?}",
+        );
+    }
+
+    /// Oracle: an unknown leaf field (vendor extension, future-spec field,
+    /// or typo) MUST be rejected with `unsupportedFilter` rather than
+    /// silently dropped.
+    #[tokio::test]
+    async fn query_unknown_leaf_key_returns_unsupported_filter() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "relatedType": "Email",
+                "acmeVendorField": "anything"
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject unknown leaf field");
+        assert_eq!(err.error_type, "unsupportedFilter", "got: {err:?}");
+    }
+
+    /// Oracle: an unknown key on an operator node (e.g. an attempted
+    /// "metadata" sidecar on a FilterOperator) MUST be rejected with
+    /// `unsupportedFilter`. Operator nodes allow only `operator` and
+    /// `conditions`.
+    #[tokio::test]
+    async fn query_unknown_operator_key_returns_unsupported_filter() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "operator": "AND",
+                "conditions": [{ "relatedType": "Email" }],
+                "extraOperatorField": true
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject unknown operator-node field");
+        assert_eq!(err.error_type, "unsupportedFilter", "got: {err:?}");
+    }
+
+    /// Oracle: an unknown leaf key nested inside a FilterOperator
+    /// (AND/OR/NOT) tree MUST also be rejected with `unsupportedFilter`.
+    /// The walk is recursive.
+    #[tokio::test]
+    async fn query_nested_unknown_key_returns_unsupported_filter() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "operator": "OR",
+                "conditions": [
+                    { "relatedType": "Email" },
+                    {
+                        "operator": "AND",
+                        "conditions": [
+                            { "vendorTypo": "x" }
+                        ]
+                    }
+                ]
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject deeply-nested unknown key");
+        assert_eq!(err.error_type, "unsupportedFilter", "got: {err:?}");
+    }
+
+    /// Oracle: every documented `MetadataFilterCondition` wire field
+    /// (`@type`, `relatedType`, `relatedIds`, `isPrivate`, `textMatch`)
+    /// MUST pass the unknown-key check. Negative control for the
+    /// `KNOWN_CONDITION_KEYS` allow-list — if any wire field is removed
+    /// from the list, this test catches it.
+    #[tokio::test]
+    async fn query_all_known_leaf_keys_pass_validation() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "@type": ["Annotation"],
+                "relatedType": "Email",
+                "relatedIds": ["EM1"],
+                "isPrivate": false,
+                "textMatch": "needle"
+            }
+        });
+        // MockBackend does not implement /query and returns empty. What
+        // matters is that the call does NOT return `unsupportedFilter` —
+        // the validation must pass through.
+        let result = handle_metadata_query(&backend, &(), args).await;
+        if let Err(e) = result {
+            assert_ne!(
+                e.error_type, "unsupportedFilter",
+                "all known wire fields must pass validation: {e:?}",
+            );
+        }
+    }
+
+    /// Oracle: same unknown-key rejection applies to /queryChanges per
+    /// §3.5 (which references §3.4.1 for filter semantics).
+    #[tokio::test]
+    async fn query_changes_snake_case_typo_returns_unsupported_filter() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "sinceQueryState": "0",
+            "filter": {
+                "related_ids": ["EM1"]
+            }
+        });
+        let err = handle_metadata_query_changes(&backend, &(), args)
+            .await
+            .expect_err("must reject snake_case typo");
+        assert_eq!(err.error_type, "unsupportedFilter", "got: {err:?}");
     }
 }
