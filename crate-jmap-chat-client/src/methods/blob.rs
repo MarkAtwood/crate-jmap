@@ -21,10 +21,13 @@ const USING_BLOB: &[&str] = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap
 #[serde(rename_all = "camelCase")]
 pub struct BlobLookupEntry {
     /// The blobId that was queried.
-    pub id: String,
-    /// Per-type reverse lookup: keys are data type names (e.g. `"Message"`),
-    /// values are object IDs that reference this blob.
-    pub matched_ids: HashMap<String, Vec<String>>,
+    pub id: Id,
+    /// Per-type reverse lookup: keys are JMAP data type names (e.g.
+    /// `"Message"`, `"Chat"`); values are the typed [`Id`]s of objects
+    /// that reference this blob. The keys stay `String` because data
+    /// type names are externally-defined spec strings and not
+    /// uniformly enumerable across extensions.
+    pub matched_ids: HashMap<String, Vec<Id>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -47,7 +50,7 @@ pub struct BlobLookupResponse {
     /// blobIds that were not found or not accessible (access-control safe).
     /// An absent field and an empty array are semantically identical.
     #[serde(default)]
-    pub not_found: Vec<String>,
+    pub not_found: Vec<Id>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
