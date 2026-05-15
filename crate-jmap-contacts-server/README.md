@@ -20,22 +20,35 @@ wires the dispatcher into HTTP / SSE / WebSocket transport themselves.
 
 ## How to use
 
-```rust
+```rust,ignore
 use std::sync::Arc;
 use jmap_contacts_server::{ContactsBackend, register_contacts_handlers};
 use jmap_server::Dispatcher;
 
-// 1. Implement ContactsBackend for your storage layer (see trait section below).
-struct MyBackend { /* db pool, etc. */ }
-impl ContactsBackend for MyBackend { /* ... */ }
+// 1. Implement ContactsBackend for your storage layer. The impl must
+//    also satisfy the JmapBackend supertrait (account_exists,
+//    get_objects, get_state, get_changes, query_objects, query_changes)
+//    and declare `type Error` and `type CallerCtx`. See the
+//    ContactsBackend trait section below for the full surface.
 
-// 2. Wire all 9 contacts methods into a Dispatcher in one call.
-let mut dispatcher: Dispatcher<()> = Dispatcher::new();
-register_contacts_handlers(&mut dispatcher, Arc::new(MyBackend { /* ... */ }));
+// 2. Construct a dispatcher parameterised on your CallerCtx type, then
+//    register all 9 contacts methods in one call.
+let mut dispatcher: Dispatcher<MyCallerCtx> = Dispatcher::new();
+register_contacts_handlers(&mut dispatcher, Arc::new(my_backend));
 
 // 3. Dispatch JMAP requests (in your HTTP handler).
-// let response = dispatcher.dispatch(request, (), session_state).await;
+// let response = dispatcher.dispatch(request, caller_ctx, session_state).await;
 ```
+
+`Dispatcher<C>` requires `B::CallerCtx = C`; `register_contacts_handlers`
+enforces the match at the type level. For a single-user dev server use
+`Dispatcher<()>` with a backend whose `CallerCtx = ()`. For
+multi-tenant production, define a typed caller context (e.g. a
+principal-id newtype) and parameterise both sides on that type.
+
+For a runnable, type-checked variant of this example, see the
+[crate-level documentation](https://docs.rs/jmap-contacts-server) — the
+doctest in `lib.rs` is verified by `cargo test --doc`.
 
 After `register_contacts_handlers` returns, the dispatcher handles every method
 name listed in the [Registered methods](#registered-methods) section below. The
@@ -59,12 +72,13 @@ read-side methods (`get_objects`, `get_state`, `get_changes`, `query_objects`,
 `jmap-server`). `ContactsBackend` adds write operations and contacts-specific
 operations.
 
-```rust
+```rust,ignore
 pub trait ContactsBackend: JmapBackend {
     /// Create a new AddressBook or ContactCard.
     /// Returns (assigned_id, created_object) on success.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         create_id: &str,
         obj: O,
@@ -76,6 +90,7 @@ pub trait ContactsBackend: JmapBackend {
     /// verbatim.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -84,6 +99,7 @@ pub trait ContactsBackend: JmapBackend {
     /// Destroy an AddressBook or ContactCard by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
     ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
@@ -98,6 +114,7 @@ pub trait ContactsBackend: JmapBackend {
     /// return the newly assigned (id, card).
     fn copy_contact_card(
         &self,
+        caller: &Self::CallerCtx,
         from_account_id: &Id,
         to_account_id: &Id,
         card: ContactCard,
@@ -109,11 +126,20 @@ pub trait ContactsBackend: JmapBackend {
     /// with addressBookHasContents.
     fn address_book_has_contents(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         address_book_id: &Id,
     ) -> impl Future<Output = bool> + Send;
 }
 ```
+
+Every method receives a `caller: &Self::CallerCtx` reference as its
+first parameter. The handler closures registered by
+`register_contacts_handlers` forward the caller context unchanged from
+[`jmap_server::Dispatcher::dispatch`], so the backend sees exactly the
+value the HTTP transport layer supplied — typically a typed auth
+identity (user id, principal id, OAuth bearer claim) the consumer's
+HTTP middleware authenticates before invoking dispatch.
 
 `BackendSetError<E>` is an enum over two variants:
 
