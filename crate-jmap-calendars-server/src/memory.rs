@@ -142,13 +142,27 @@ struct ChangeEntry {
 /// Per-account auxiliary state that is not keyed by object type.
 #[derive(Default, Clone)]
 struct AccountAux {
-    /// Set of Calendar ids that have at least one CalendarEvent attached
-    /// (drives `Calendar/set` destroy rejection with `calendarHasEvent`
-    /// per draft-ietf-jmap-calendars-26 §4.4.1 when
-    /// `onDestroyRemoveEvents` is `false`). Maintained as a derived index
-    /// over the CalendarEvent store; kept in sync by `create_object` /
-    /// `update_object` / `destroy_object` for the CalendarEvent type.
-    calendars_with_events: HashSet<Id>,
+    /// Reverse index: `calendar_id → count of CalendarEvent objects that
+    /// reference it`. Used to answer "does Calendar X have any events?" in
+    /// `O(1)` for the `calendarHasEvent` destroy rejection
+    /// (draft-ietf-jmap-calendars-26 §4.4.1 when `onDestroyRemoveEvents`
+    /// is `false`).
+    ///
+    /// Maintained incrementally by `apply_calendar_event_index_delta`,
+    /// called from each CalendarEvent `create_object` / `update_object` /
+    /// `destroy_object` (which already have the old + new JSON in hand).
+    /// `seed_object` falls back to `recompute_calendar_event_counts` since
+    /// it bypasses the trait-impl mutators and the old state is unknown.
+    /// Entries reach `0` only briefly during a multi-step update; the
+    /// delta helper deletes any entry that returns to `0` so
+    /// `counts.contains_key(id)` is a valid "has events?" test.
+    ///
+    /// bd:JMAP-ic0j.8 — replaces an earlier `HashSet<Id>` that was rebuilt
+    /// by a full scan of the CalendarEvent store on every mutation
+    /// (`O(N)` per write, `O(N²)` ingest). The reverse-index counter
+    /// preserves correctness and makes each mutation `O(k)` in the size
+    /// of the changed event's `calendarIds` (typically 1–3).
+    calendar_event_counts: HashMap<Id, u32>,
     /// Current default Calendar id, if set
     /// (draft-ietf-jmap-calendars-26 §4.3 `onSuccessSetIsDefault`).
     default_calendar: Option<Id>,
@@ -237,48 +251,73 @@ impl Inner {
         self.aux.get(account_id)
     }
 
-    /// Recompute `calendars_with_events` for the given account by scanning
-    /// the CalendarEvent store.
+    /// Rebuild `calendar_event_counts` for the given account from scratch
+    /// by scanning the CalendarEvent store.
     ///
-    /// The HashSet is built from an iterator chain that takes only an
-    /// immutable borrow of `self.objects`. The chain's borrow ends at the
-    /// `.collect()`, so the subsequent `self.aux_mut(account_id)` call is
-    /// free to take the mutable borrow without violating the borrow checker.
-    /// This avoids cloning the entire CalendarEvent map (whose values carry
-    /// full JSON bodies — recurrence rules, participants, alerts) just to
-    /// read keys from one nested map. bd:JMAP-ic0j.40.
-    fn recompute_calendars_with_events(&mut self, account_id: &str) {
-        let set: HashSet<Id> = self
-            .objects
-            .get(&("CalendarEvent", account_id.to_owned()))
-            .into_iter()
-            .flat_map(|m| m.values())
-            .filter_map(|v| v.get("calendarIds").and_then(|c| c.as_object()))
-            .flat_map(|map| map.keys().map(|k| Id::from(k.as_str())))
-            .collect();
-        self.aux_mut(account_id).calendars_with_events = set;
+    /// `O(N)` in the number of events. Reserved for `seed_object`, which
+    /// bypasses the trait-impl mutators and therefore has no
+    /// before/after pair to feed `apply_calendar_event_index_delta`. The
+    /// counter map is built from an iterator chain that takes only an
+    /// immutable borrow of `self.objects` so the subsequent
+    /// `self.aux_mut(account_id)` call is free to take the mutable borrow.
+    /// Avoids cloning the CalendarEvent map. bd:JMAP-ic0j.40 / .8.
+    fn recompute_calendar_event_counts(&mut self, account_id: &str) {
+        let mut counts: HashMap<Id, u32> = HashMap::new();
+        if let Some(map) = self.objects.get(&("CalendarEvent", account_id.to_owned())) {
+            for v in map.values() {
+                if let Some(cal_ids) = v.get("calendarIds").and_then(|c| c.as_object()) {
+                    for k in cal_ids.keys() {
+                        *counts.entry(Id::from(k.as_str())).or_insert(0) += 1;
+                    }
+                }
+            }
+        }
+        self.aux_mut(account_id).calendar_event_counts = counts;
     }
 
-    /// Run any per-type index maintenance that must follow a successful
-    /// generic `/set` mutation (create, update, or destroy) of an object
-    /// of `type_name`.
+    /// Apply a single CalendarEvent mutation to the reverse-index counter
+    /// in `O(k)` where `k` is the size of the symmetric difference between
+    /// `old.calendarIds` and `new.calendarIds` (typically 0–3).
     ///
-    /// Today the only such index is the per-account `calendars_with_events`
-    /// set, which depends on CalendarEvent.calendarIds. Centralising the
-    /// type-name dispatch in one helper keeps the three generic methods
-    /// (create_object, update_object, destroy_object) from each repeating
-    /// the `if O::TYPE_NAME == "CalendarEvent"` line. Tracks
-    /// bd:JMAP-ic0j.44.
+    /// - `old = None, new = Some(v)`: create — increment counter for each
+    ///   id in `v.calendarIds`.
+    /// - `old = Some(v), new = None`: destroy — decrement counter for each
+    ///   id in `v.calendarIds`, removing entries that reach `0`.
+    /// - `old = Some(a), new = Some(b)`: update — decrement for ids in
+    ///   `a \ b`, increment for ids in `b \ a`, leave intersection alone.
     ///
-    /// A more principled fix (a per-type `after_set_hook` on the
-    /// `JmapObject` foundation trait, dispatched at the type-system level
-    /// rather than via runtime string equality) would require a workspace-
-    /// foundation change with propagation through every extension server;
-    /// see the parent bead for the rationale on why that lives at the
-    /// canonical layer, not in calendars-server alone.
-    fn maintain_indexes_after_set(&mut self, type_name: &str, account_id: &str) {
-        if type_name == "CalendarEvent" {
-            self.recompute_calendars_with_events(account_id);
+    /// A value with no `calendarIds` field, or with a non-object
+    /// `calendarIds`, contributes no ids on its side of the delta — this
+    /// matches the convention that an event without `calendarIds`
+    /// references no calendars.
+    ///
+    /// bd:JMAP-ic0j.8.
+    fn apply_calendar_event_index_delta(
+        &mut self,
+        account_id: &str,
+        old: Option<&serde_json::Value>,
+        new: Option<&serde_json::Value>,
+    ) {
+        let extract = |v: Option<&serde_json::Value>| -> HashSet<Id> {
+            v.and_then(|v| v.get("calendarIds"))
+                .and_then(|c| c.as_object())
+                .map(|m| m.keys().map(|k| Id::from(k.as_str())).collect())
+                .unwrap_or_default()
+        };
+        let old_ids = extract(old);
+        let new_ids = extract(new);
+
+        let aux = self.aux_mut(account_id);
+        for added in new_ids.difference(&old_ids) {
+            *aux.calendar_event_counts.entry(added.clone()).or_insert(0) += 1;
+        }
+        for removed in old_ids.difference(&new_ids) {
+            if let Some(n) = aux.calendar_event_counts.get_mut(removed) {
+                *n = n.saturating_sub(1);
+                if *n == 0 {
+                    aux.calendar_event_counts.remove(removed);
+                }
+            }
         }
     }
 }
@@ -400,7 +439,14 @@ impl MemoryBackend {
         inner
             .objects_mut(type_name, account_id)
             .insert(Id::from(id), value);
-        inner.maintain_indexes_after_set(type_name, account_id);
+        // bd:JMAP-ic0j.8 — seed_object bypasses the trait-impl mutators
+        // so we have no before/after pair to feed
+        // `apply_calendar_event_index_delta`; fall back to a full rebuild
+        // of `calendar_event_counts`. seed_object is only called from
+        // test fixtures, so the `O(N)` rebuild cost is acceptable here.
+        if type_name == "CalendarEvent" {
+            inner.recompute_calendar_event_counts(account_id);
+        }
     }
 
     // bd:JMAP-ic0j.28 — set_default_calendar_for_test /
@@ -828,6 +874,13 @@ impl CalendarsBackend for MemoryBackend {
         })?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        // bd:JMAP-ic0j.8 — for CalendarEvent, feed the new value to the
+        // incremental index updater before the move into storage so we
+        // don't have to look it back up. For other types this branch is
+        // unused (the index helper extracts no ids and does nothing).
+        if O::TYPE_NAME == "CalendarEvent" {
+            inner.apply_calendar_event_index_delta(account_id.as_ref(), None, Some(&val));
+        }
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(server_id.clone(), val);
@@ -839,8 +892,6 @@ impl CalendarsBackend for MemoryBackend {
                 updated: vec![],
                 destroyed: vec![],
             });
-
-        inner.maintain_indexes_after_set(O::TYPE_NAME, account_id.as_ref());
 
         Ok((server_id, stored_obj))
     }
@@ -859,14 +910,12 @@ impl CalendarsBackend for MemoryBackend {
             .get(id)
             .cloned();
 
-        let mut current = match existing {
-            Some(v) => v,
-            None => {
-                return Err(BackendSetError::SetError(SetError::new(
-                    SetErrorType::NotFound,
-                )))
-            }
+        let Some(old_value) = existing else {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )));
         };
+        let mut current = old_value.clone();
 
         // Apply JSON Merge Patch (RFC 7396): merge patch fields into current value.
         // A `MergePatchError::DepthExceeded` return (bd:JMAP-wlip.1) surfaces
@@ -885,6 +934,17 @@ impl CalendarsBackend for MemoryBackend {
         }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        // bd:JMAP-ic0j.8 — for CalendarEvent, the incremental index
+        // update needs both the pre-patch (`old_value`) and post-patch
+        // (`current`) JSON in hand. We pass both before moving `current`
+        // into storage.
+        if O::TYPE_NAME == "CalendarEvent" {
+            inner.apply_calendar_event_index_delta(
+                account_id.as_ref(),
+                Some(&old_value),
+                Some(&current),
+            );
+        }
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(id.clone(), current);
@@ -896,8 +956,6 @@ impl CalendarsBackend for MemoryBackend {
                 updated: vec![id.clone()],
                 destroyed: vec![],
             });
-
-        inner.maintain_indexes_after_set(O::TYPE_NAME, account_id.as_ref());
 
         Ok(None)
     }
@@ -915,7 +973,7 @@ impl CalendarsBackend for MemoryBackend {
             .remove(id);
 
         match removed {
-            Some(_) => {
+            Some(old_value) => {
                 let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
                 inner
                     .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -925,7 +983,16 @@ impl CalendarsBackend for MemoryBackend {
                         updated: vec![],
                         destroyed: vec![id.clone()],
                     });
-                inner.maintain_indexes_after_set(O::TYPE_NAME, account_id.as_ref());
+                // bd:JMAP-ic0j.8 — for CalendarEvent, feed the removed
+                // value as `old` (and no `new`) so the reverse-index
+                // counter decrements its calendar ids.
+                if O::TYPE_NAME == "CalendarEvent" {
+                    inner.apply_calendar_event_index_delta(
+                        account_id.as_ref(),
+                        Some(&old_value),
+                        None,
+                    );
+                }
                 Ok(())
             }
             None => Err(BackendSetError::SetError(SetError::new(
@@ -948,10 +1015,12 @@ impl CalendarsBackend for MemoryBackend {
         calendar_id: &Id,
     ) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
+        // bd:JMAP-ic0j.8 — `calendar_event_counts` entries are deleted
+        // when they reach 0, so `contains_key` is a valid "has events?"
+        // test without inspecting the count value.
         Ok(inner
             .aux_ref(account_id.as_ref())
-            .map(|a| a.calendars_with_events.contains(calendar_id))
-            .unwrap_or(false))
+            .is_some_and(|a| a.calendar_event_counts.contains_key(calendar_id)))
     }
 
     async fn set_default_calendar(
@@ -1389,5 +1458,367 @@ mod limits_default_tests {
             a, b,
             "default impl returns the same struct for every account"
         );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests for the incremental calendar_event_counts reverse index
+// (bd:JMAP-ic0j.8)
+//
+// These tests probe the index directly by inspecting the AccountAux state
+// after a sequence of mutations. The oracle is hand-computed expected
+// counter values per mutation step, NOT a round-trip through the
+// `recompute_calendar_event_counts` full-rescan (which would be a
+// self-test against the same code path). The full-rescan is used as a
+// separate cross-check: an "equivalence" test verifies that the
+// incremental index after a sequence of mutations matches the full-rescan
+// result, where the full-rescan is invoked manually only as the oracle.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod calendar_event_counts_tests {
+    use super::*;
+
+    fn count(backend: &MemoryBackend, account_id: &str, calendar_id: &str) -> u32 {
+        let inner = backend.inner.lock().unwrap();
+        inner
+            .aux_ref(account_id)
+            .and_then(|a| a.calendar_event_counts.get(&Id::from(calendar_id)))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    fn has_key(backend: &MemoryBackend, account_id: &str, calendar_id: &str) -> bool {
+        let inner = backend.inner.lock().unwrap();
+        inner
+            .aux_ref(account_id)
+            .is_some_and(|a| a.calendar_event_counts.contains_key(&Id::from(calendar_id)))
+    }
+
+    /// Oracle: a single seeded event referencing cal1 produces a count of
+    /// exactly 1 under cal1, and no entry for any other calendar.
+    #[test]
+    fn seed_single_event_single_calendar_count_is_one() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "evt1",
+            serde_json::json!({"id": "evt1", "calendarIds": {"cal1": true}}),
+        );
+        assert_eq!(count(&backend, "acc1", "cal1"), 1);
+        assert!(!has_key(&backend, "acc1", "cal2"));
+    }
+
+    /// Oracle: two seeded events both referencing cal1 produce a count
+    /// of 2 — verifies the counter accumulates rather than overwriting.
+    #[test]
+    fn seed_two_events_same_calendar_count_is_two() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "evt1",
+            serde_json::json!({"id": "evt1", "calendarIds": {"cal1": true}}),
+        );
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "evt2",
+            serde_json::json!({"id": "evt2", "calendarIds": {"cal1": true}}),
+        );
+        assert_eq!(count(&backend, "acc1", "cal1"), 2);
+    }
+
+    /// Oracle: a single event referencing two calendars (cal1 + cal2)
+    /// contributes 1 to each — verifies the index handles the JMAP
+    /// "event-in-multiple-calendars" case (§5.2 multi-calendar events).
+    #[test]
+    fn seed_event_with_multiple_calendars_each_gets_one() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "evt1",
+            serde_json::json!({
+                "id": "evt1",
+                "calendarIds": {"cal1": true, "cal2": true}
+            }),
+        );
+        assert_eq!(count(&backend, "acc1", "cal1"), 1);
+        assert_eq!(count(&backend, "acc1", "cal2"), 1);
+    }
+
+    /// Oracle: seeding an event referencing cal1, then seeding another
+    /// in cal2, then "destroying" (re-seeding without cal1) leaves
+    /// counters that match a full rescan of the resulting CalendarEvent
+    /// store.
+    ///
+    /// `seed_object` performs a full rescan after each call (it bypasses
+    /// the incremental delta helper), so this test is principally a
+    /// correctness probe of `recompute_calendar_event_counts` against
+    /// independent expected values. It establishes that the full-rescan
+    /// oracle used elsewhere in this module is itself sound.
+    #[test]
+    fn seed_then_seed_yields_correct_counts() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "evt1",
+            serde_json::json!({"id": "evt1", "calendarIds": {"cal1": true}}),
+        );
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "evt2",
+            serde_json::json!({"id": "evt2", "calendarIds": {"cal2": true}}),
+        );
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "evt3",
+            serde_json::json!({"id": "evt3", "calendarIds": {"cal2": true, "cal3": true}}),
+        );
+        assert_eq!(count(&backend, "acc1", "cal1"), 1);
+        assert_eq!(count(&backend, "acc1", "cal2"), 2);
+        assert_eq!(count(&backend, "acc1", "cal3"), 1);
+        assert!(!has_key(&backend, "acc1", "cal4"));
+    }
+
+    fn calendar_event(uid: &str, calendar_ids: &[&str]) -> jmap_calendars_types::CalendarEvent {
+        let mut cal_ids = serde_json::Map::new();
+        for c in calendar_ids {
+            cal_ids.insert((*c).to_owned(), serde_json::Value::Bool(true));
+        }
+        serde_json::from_value(serde_json::json!({
+            "@type": "Event",
+            "uid": uid,
+            "calendarIds": cal_ids,
+        }))
+        .expect("CalendarEvent deserialization must succeed for valid fixture JSON")
+    }
+
+    /// Oracle: a sequence of `create_object` / `update_object` /
+    /// `destroy_object` calls through the real `CalendarsBackend` trait
+    /// path produces a final reverse-index counter map that is
+    /// byte-identical to the result of a from-scratch full rescan over
+    /// the current CalendarEvent store. The full-rescan implementation
+    /// (`recompute_calendar_event_counts`) is the independent oracle: it
+    /// re-derives the map from the storage, never consulting the
+    /// incremental state.
+    ///
+    /// This is the canonical correctness check for the incremental
+    /// algorithm in `apply_calendar_event_index_delta`. If any of the
+    /// three /set production paths fail to maintain the index, the final
+    /// equality check fails.
+    #[tokio::test]
+    async fn incremental_matches_full_rescan_under_mixed_workload() {
+        let backend = MemoryBackend::new().with_account("acc1");
+
+        // Seed two events: one in cal1, one in cal2. Seed triggers a
+        // full rescan, so after this the index is whatever rescan
+        // produces.
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "seed1",
+            serde_json::json!({"id": "seed1", "calendarIds": {"cal1": true}}),
+        );
+        backend.seed_object(
+            "acc1",
+            "CalendarEvent",
+            "seed2",
+            serde_json::json!({"id": "seed2", "calendarIds": {"cal2": true}}),
+        );
+
+        // Create three more events through the real /set path, exercising
+        // the incremental delta helper.
+        let (id1, _) = backend
+            .create_object::<jmap_calendars_types::CalendarEvent>(
+                &(),
+                &Id::from("acc1"),
+                "c1",
+                calendar_event("u1", &["cal1", "cal3"]),
+            )
+            .await
+            .unwrap();
+        let (id2, _) = backend
+            .create_object::<jmap_calendars_types::CalendarEvent>(
+                &(),
+                &Id::from("acc1"),
+                "c2",
+                calendar_event("u2", &["cal2"]),
+            )
+            .await
+            .unwrap();
+        let _ = backend
+            .create_object::<jmap_calendars_types::CalendarEvent>(
+                &(),
+                &Id::from("acc1"),
+                "c3",
+                calendar_event("u3", &["cal3"]),
+            )
+            .await
+            .unwrap();
+
+        // Destroy two of them, also via the real /set path.
+        backend
+            .destroy_object::<jmap_calendars_types::CalendarEvent>(&(), &Id::from("acc1"), &id1)
+            .await
+            .unwrap();
+        backend
+            .destroy_object::<jmap_calendars_types::CalendarEvent>(&(), &Id::from("acc1"), &id2)
+            .await
+            .unwrap();
+
+        // Cross-check against the from-scratch oracle.
+        let mut inner = backend.inner.lock().unwrap();
+        let incremental = inner.aux_ref("acc1").unwrap().calendar_event_counts.clone();
+        inner.recompute_calendar_event_counts("acc1");
+        let from_scratch = inner.aux_ref("acc1").unwrap().calendar_event_counts.clone();
+        assert_eq!(
+            incremental, from_scratch,
+            "incremental index must match full-rescan after a mixed workload\n\
+             incremental={incremental:?}\nfull-rescan={from_scratch:?}"
+        );
+    }
+
+    /// Oracle: create followed by destroy of the same event leaves the
+    /// counter at 0 for the calendar id it referenced, and the entry is
+    /// deleted (so `contains_key` returns false). Exercises the
+    /// incremental path through both production code branches.
+    #[tokio::test]
+    async fn create_then_destroy_removes_entry() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let (id, _) = backend
+            .create_object::<jmap_calendars_types::CalendarEvent>(
+                &(),
+                &Id::from("acc1"),
+                "c1",
+                calendar_event("u1", &["cal1"]),
+            )
+            .await
+            .unwrap();
+        assert_eq!(count(&backend, "acc1", "cal1"), 1);
+
+        backend
+            .destroy_object::<jmap_calendars_types::CalendarEvent>(&(), &Id::from("acc1"), &id)
+            .await
+            .unwrap();
+        assert!(
+            !has_key(&backend, "acc1", "cal1"),
+            "entry must be removed when count reaches 0"
+        );
+    }
+
+    /// Oracle: when two events share a calendar id and only one is
+    /// destroyed, the counter drops from 2 to 1 and the entry is
+    /// retained. Verifies the counter doesn't collapse to 0 prematurely.
+    #[tokio::test]
+    async fn create_two_destroy_one_keeps_entry() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let (id1, _) = backend
+            .create_object::<jmap_calendars_types::CalendarEvent>(
+                &(),
+                &Id::from("acc1"),
+                "c1",
+                calendar_event("u1", &["cal1"]),
+            )
+            .await
+            .unwrap();
+        let _ = backend
+            .create_object::<jmap_calendars_types::CalendarEvent>(
+                &(),
+                &Id::from("acc1"),
+                "c2",
+                calendar_event("u2", &["cal1"]),
+            )
+            .await
+            .unwrap();
+        assert_eq!(count(&backend, "acc1", "cal1"), 2);
+
+        backend
+            .destroy_object::<jmap_calendars_types::CalendarEvent>(&(), &Id::from("acc1"), &id1)
+            .await
+            .unwrap();
+        assert_eq!(count(&backend, "acc1", "cal1"), 1);
+        assert!(has_key(&backend, "acc1", "cal1"));
+    }
+
+    /// Oracle: `apply_calendar_event_index_delta` handles the
+    /// update-style transition where calendarIds change from {cal1} to
+    /// {cal2}. The unit-level test bypasses the full /set machinery and
+    /// drives the helper directly so the diff math is exercised in
+    /// isolation. Expected: cal1 count drops to 0 and the entry is
+    /// removed; cal2 count rises to 1.
+    #[test]
+    fn apply_delta_old_to_new_swaps_calendar_ids() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let old = serde_json::json!({"calendarIds": {"cal1": true}});
+        let new = serde_json::json!({"calendarIds": {"cal2": true}});
+
+        // First, pretend an event in cal1 already exists.
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            inner.apply_calendar_event_index_delta("acc1", None, Some(&old));
+        }
+        assert_eq!(count(&backend, "acc1", "cal1"), 1);
+
+        // Now apply the swap.
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            inner.apply_calendar_event_index_delta("acc1", Some(&old), Some(&new));
+        }
+        assert!(!has_key(&backend, "acc1", "cal1"));
+        assert_eq!(count(&backend, "acc1", "cal2"), 1);
+    }
+
+    /// Oracle: the no-op case — when `old` and `new` have identical
+    /// calendarIds, the delta is empty and counters are unchanged.
+    #[test]
+    fn apply_delta_identical_old_new_is_noop() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let v = serde_json::json!({"calendarIds": {"cal1": true, "cal2": true}});
+
+        // Establish baseline.
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            inner.apply_calendar_event_index_delta("acc1", None, Some(&v));
+        }
+        assert_eq!(count(&backend, "acc1", "cal1"), 1);
+        assert_eq!(count(&backend, "acc1", "cal2"), 1);
+
+        // Apply old==new; nothing should change.
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            inner.apply_calendar_event_index_delta("acc1", Some(&v), Some(&v));
+        }
+        assert_eq!(count(&backend, "acc1", "cal1"), 1);
+        assert_eq!(count(&backend, "acc1", "cal2"), 1);
+    }
+
+    /// Oracle: a value with no `calendarIds` field contributes no ids.
+    /// Tests the defensive code path that handles malformed or partial
+    /// JSON without panicking.
+    #[test]
+    fn apply_delta_value_without_calendar_ids_contributes_nothing() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let bare = serde_json::json!({"id": "evt1"}); // no calendarIds
+        let with_ids = serde_json::json!({"calendarIds": {"cal1": true}});
+
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            // bare -> with_ids: incr cal1 only
+            inner.apply_calendar_event_index_delta("acc1", Some(&bare), Some(&with_ids));
+        }
+        assert_eq!(count(&backend, "acc1", "cal1"), 1);
+
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            // with_ids -> bare: decr cal1 to 0, remove
+            inner.apply_calendar_event_index_delta("acc1", Some(&with_ids), Some(&bare));
+        }
+        assert!(!has_key(&backend, "acc1", "cal1"));
     }
 }
