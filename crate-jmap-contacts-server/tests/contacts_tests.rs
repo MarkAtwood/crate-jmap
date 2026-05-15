@@ -491,3 +491,89 @@ async fn contact_card_query_sort_by_created_descending() {
         "sort by created descending must be newest first: {resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Test 15: ContactCard/copy onSuccessDestroyOriginal end-to-end (bd:JMAP-qz9v.2)
+// Oracle: RFC 8620 §5.4 inherited by RFC 9610 §3.4 — successful copies
+// followed by an implicit destroy must remove the source cards from the
+// fromAccountId account.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn contact_card_copy_on_success_destroy_original_actually_destroys_source() {
+    use jmap_contacts_server::handle_contact_card_copy;
+
+    let backend = MemoryBackend::new()
+        .with_account("acc1")
+        .with_account("acc2");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Source Book"),
+    );
+    backend.seed_object(
+        "acc2",
+        "AddressBook",
+        "ab2",
+        address_book_fixture("ab2", "Destination Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-source",
+        contact_card_fixture("card-source", "ab1", "Source Card"),
+    );
+
+    let args = json!({
+        "accountId": "acc2",
+        "fromAccountId": "acc1",
+        "onSuccessDestroyOriginal": true,
+        "create": {
+            "c1": {
+                "id": "card-source",
+                "addressBookIds": { "ab2": true }
+            }
+        }
+    });
+    let (resp, extra) = handle_contact_card_copy(&backend, &(), args, "call-0")
+        .await
+        .expect("/copy must succeed");
+
+    // The /copy itself succeeded.
+    assert!(
+        resp["copied"]["c1"].is_object(),
+        "copy must succeed: {resp}"
+    );
+
+    // A single synthetic ContactCard/set invocation was emitted.
+    assert_eq!(extra.len(), 1, "exactly one synthetic invocation expected");
+    let (method, set_resp, _) = &extra[0];
+    assert_eq!(method, "ContactCard/set");
+
+    // The source card appears in the synthetic /set's destroyed array.
+    let destroyed = set_resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array (non-empty) when destroy succeeds");
+    assert_eq!(
+        destroyed.len(),
+        1,
+        "exactly one source destroyed: {set_resp}"
+    );
+    assert_eq!(destroyed[0], "card-source");
+
+    // Verify the source card is actually gone from acc1.
+    let args = json!({ "accountId": "acc1", "ids": ["card-source"] });
+    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let not_found = get_resp["notFound"]
+        .as_array()
+        .expect("notFound must be array");
+    assert_eq!(
+        not_found.len(),
+        1,
+        "source card must be gone after destroy: {get_resp}"
+    );
+    assert_eq!(not_found[0], "card-source");
+}
