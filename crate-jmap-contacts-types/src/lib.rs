@@ -82,6 +82,10 @@ pub use backend::{AddressBookProperty, ContactCardProperty};
 pub use capability::{ContactsAccountCapability, ContactsCapability, JMAP_CONTACTS_URI};
 pub use card::{ContactCard, ContactCardComparator, ContactCardFilterCondition};
 
+/// Constant identifiers for [`ContactCardComparator::property`] sort keys
+/// (re-export of [`card::prop`]).
+pub use card::prop as comparator_prop;
+
 // ── JSContact sub-object re-exports (RFC 9553) ───────────────────────────────
 //
 // Mirrors the jmap-calendars-types re-export pattern. Top-level access to
@@ -1069,21 +1073,26 @@ mod tests {
     /// Verify the `jscontact` module alias resolves to the same crate as
     /// the top-level re-exports.
     ///
-    /// Because every public struct in `jmap-jscontact-types` is
-    /// `#[non_exhaustive]`, external crates cannot construct instances
-    /// with a struct literal. We deserialize from JSON instead to obtain
-    /// concrete instances and then assert that the aliased path and the
-    /// top-level re-export resolve to the same type.
+    /// Type identity is asserted at **compile time** by the const fn
+    /// pointers below: if `jmap_jscontact_types::Name`,
+    /// `crate::jscontact::Name`, and the top-level `Name` re-export ever
+    /// resolved to distinct types, these `const _ASSERT_*` items would
+    /// fail to typecheck and the build would break — no runtime call
+    /// needed. JMAP-glx8.21.
     #[test]
     fn jscontact_module_alias_is_jmap_jscontact_types() {
+        const _ASSERT_ALIASED_SAME_AS_DIRECT: fn(
+            jmap_jscontact_types::Name,
+        ) -> crate::jscontact::Name = |x| x;
+        const _ASSERT_TOP_LEVEL_SAME_AS_DIRECT: fn(jmap_jscontact_types::Name) -> Name = |x| x;
+
+        // Smoke-test that all three paths actually deserialize the same
+        // wire JSON; a regression in re-export visibility would show up
+        // as a build error here, not a runtime panic.
         let v = json!({ "full": "Vincent van Gogh" });
-        let direct: jmap_jscontact_types::Name = serde_json::from_value(v.clone()).unwrap();
-        let aliased: crate::jscontact::Name = serde_json::from_value(v).unwrap();
-        // Both paths resolve to the same type; equality is well-defined.
-        assert_eq!(direct, aliased);
-        // Same with the top-level re-export.
-        let top_level: Name = direct.clone();
-        assert_eq!(direct, top_level);
+        let _direct: jmap_jscontact_types::Name = serde_json::from_value(v.clone()).unwrap();
+        let _aliased: crate::jscontact::Name = serde_json::from_value(v.clone()).unwrap();
+        let _top_level: Name = serde_json::from_value(v).unwrap();
     }
 
     // ── Extras-preservation policy tests (JMAP-lbdy.5) ───────────────────

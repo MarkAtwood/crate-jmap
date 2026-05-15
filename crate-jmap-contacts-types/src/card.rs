@@ -27,6 +27,18 @@ use serde::{Deserialize, Serialize};
 /// Complex sub-object maps (addresses, phones, emails, etc.) use
 /// [`serde_json::Value`] to avoid coupling this crate to every nested
 /// JSContact type.
+///
+/// # Construction
+///
+/// [`ContactCard::default()`] returns a card with every field unset,
+/// useful for incremental construction (e.g. building a `ContactCard/set
+/// create` argument by patching the wanted fields). It is **not** a valid
+/// wire payload on its own: RFC 9610 §3 requires `id` (server-set) and
+/// `addressBookIds` on full-object responses, and RFC 9553 §2.1 requires
+/// `@type` (implicit) plus `version` and `uid` on creation. The handler
+/// layer (`jmap-contacts-server`) is responsible for rejecting partial
+/// cards on `/set` create; servers building `/get` responses MUST fill in
+/// `id` and `addressBookIds` before serializing. JMAP-glx8.16.
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -58,7 +70,14 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
 
-    /// Date and time when the Card was created (UTCDateTime).
+    /// Date and time when the Card was created (RFC 8620 UTCDate format:
+    /// `YYYY-MM-DDTHH:MM:SS[.SSS]Z`, exactly the `Z` UTC suffix).
+    ///
+    /// [`UTCDate`] is a transparent `String` newtype in `jmap-types`; it
+    /// performs **no parse validation** at construction. Callers building a
+    /// `ContactCard/set` argument MUST supply a syntactically valid
+    /// UTCDate; the handler layer rejects malformed values with
+    /// `invalidProperties`. JMAP-glx8.18.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created: Option<UTCDate>,
 
@@ -95,11 +114,27 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub uid: Option<String>,
 
-    /// Date and time when the Card was last modified (UTCDateTime; server-set).
+    /// Date and time when the Card was last modified (UTCDate; server-set).
+    ///
+    /// See [`created`](Self::created) for the format and validation
+    /// contract. JMAP-glx8.18.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated: Option<UTCDate>,
 
     // ── RFC 9553 §2.2 Name and Organization ─────────────────────────────
+    //
+    // The 22 sub-object fields below are `Option<serde_json::Value>` per
+    // the workspace Sloppy-Value pattern (see workspace AGENTS.md). RFC
+    // 9553 §2.2-§2.8 requires that each value be a **JSON object** of
+    // the relevant sub-type shape, but the wire type accepts any JSON
+    // (string, number, array, bool, null, object) and round-trips it
+    // unchanged. A caller submitting a non-object value produces a
+    // wire-format violation; the handler layer (`jmap-contacts-server`)
+    // is responsible for rejecting non-object values with
+    // `invalidProperties` per RFC 8620 §5.3. Typed access from
+    // `jmap-jscontact-types` (re-exported at this crate's root) MUST
+    // wrap `serde_json::from_value` in a `Result` to handle non-object
+    // wire shapes gracefully. JMAP-glx8.13.
     /// The name of the entity.  JSContact Name object (complex sub-object).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<serde_json::Value>,
@@ -208,6 +243,28 @@ pub struct ContactCard {
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
+    ///
+    /// # Collision contract
+    ///
+    /// `extra` MUST NOT contain a key that matches one of the typed
+    /// wire-format field names (`id`, `addressBookIds`, `version`,
+    /// `created`, `kind`, `language`, `members`, `prodId`, `relatedTo`,
+    /// `uid`, `updated`, `name`, `nicknames`, `organizations`,
+    /// `speakToAs`, `titles`, `emails`, `onlineServices`, `phones`,
+    /// `preferredLanguages`, `calendars`, `schedulingAddresses`,
+    /// `addresses`, `cryptoKeys`, `directories`, `links`, `media`,
+    /// `localizations`, `anniversaries`, `keywords`, `notes`,
+    /// `personalInfo`). On deserialize, `#[serde(flatten)]` consumes
+    /// matching keys into their typed fields first; truly unknown keys
+    /// land in `extra`. On serialize, a colliding key in `extra` is
+    /// emitted as a **duplicate JSON object key** alongside the typed
+    /// field. RFC 8259 §4 leaves duplicate-key handling
+    /// implementation-defined; JMAP servers MAY accept, reject, or
+    /// last-wins.
+    ///
+    /// In short: treat `extra` as a write-only catch-all for unknown
+    /// keys discovered at deserialize, and do not programmatically
+    /// insert keys that match a typed field. JMAP-glx8.19.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -220,6 +277,36 @@ pub struct ContactCard {
 /// Note: several field names use forward-slash separators on the wire
 /// (e.g., `"name/given"`, `"name/surname"`, `"name/surname2"`).  These are
 /// encoded using explicit `#[serde(rename = "...")]` attributes.
+///
+/// # Field semantics
+///
+/// Two classes of filter field, with different matching contracts:
+///
+/// - **Exact-match fields** ([`in_address_book`](Self::in_address_book),
+///   [`uid`](Self::uid), [`has_member`](Self::has_member),
+///   [`kind`](Self::kind)) test value equality (string equality for the
+///   `String`-typed fields, [`Id`] equality for `in_address_book`).
+///   These are unambiguous and portable across servers.
+///
+/// - **Range fields** ([`created_before`](Self::created_before),
+///   [`created_after`](Self::created_after), and the `updated_*` siblings)
+///   test [`UTCDate`] ordering — `*_before` is strictly less than, `*_after`
+///   is greater than or equal to, per RFC 8620 §5.6.
+///
+/// - **Text-match fields** ([`text`](Self::text), [`name`](Self::name),
+///   [`name_given`](Self::name_given), [`name_surname`](Self::name_surname),
+///   [`name_surname2`](Self::name_surname2), [`nickname`](Self::nickname),
+///   [`organization`](Self::organization), [`email`](Self::email),
+///   [`phone`](Self::phone), [`online_service`](Self::online_service),
+///   [`address`](Self::address), [`note`](Self::note)) — **matching
+///   semantics are server-defined**. RFC 9610 §3.3.1 does NOT specify
+///   case-sensitivity, substring-vs-prefix-vs-exact, Unicode
+///   normalization (NFC/NFD), accent folding, or word-boundary handling.
+///   A caller writing `filter.name = Some("müller".into())` may get
+///   different result sets from different servers running identical
+///   queries. Portable callers SHOULD treat text-match fields as
+///   approximate full-text-search filters, not exact value tests.
+///   JMAP-glx8.17.
 ///
 /// # Excluded from extras preservation
 ///
@@ -264,19 +351,33 @@ pub struct ContactCardFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
 
-    /// Card `created` must be before this UTCDateTime.
+    /// Card `created` must be strictly before this UTCDate
+    /// (`YYYY-MM-DDTHH:MM:SS[.SSS]Z`).
+    ///
+    /// [`UTCDate`] is a transparent `String` newtype with no parse
+    /// validation at construction; the server rejects syntactically
+    /// invalid values per RFC 8620 §5.6. JMAP-glx8.18.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_before: Option<UTCDate>,
 
-    /// Card `created` must be equal to or after this UTCDateTime.
+    /// Card `created` must be equal to or after this UTCDate.
+    ///
+    /// See [`created_before`](Self::created_before) for the format and
+    /// validation contract.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_after: Option<UTCDate>,
 
-    /// Card `updated` must be before this UTCDateTime.
+    /// Card `updated` must be strictly before this UTCDate.
+    ///
+    /// See [`created_before`](Self::created_before) for the format and
+    /// validation contract.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_before: Option<UTCDate>,
 
-    /// Card `updated` must be equal to or after this UTCDateTime.
+    /// Card `updated` must be equal to or after this UTCDate.
+    ///
+    /// See [`created_before`](Self::created_before) for the format and
+    /// validation contract.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub updated_after: Option<UTCDate>,
 
@@ -335,9 +436,18 @@ pub struct ContactCardFilterCondition {
 
 /// Comparator for `ContactCard/query` sort order (RFC 9610 §3.3.2).
 ///
-/// The `property` field holds the sort key string.  Required values:
-/// `"created"`, `"updated"`.  Recommended values: `"name/given"`,
-/// `"name/surname"`, `"name/surname2"`.
+/// The `property` field holds the sort key string. RFC 9610 §3.3.2 declares
+/// a small required + recommended set; const identifiers are exposed in
+/// [`prop`] for spelling-safe call sites:
+///
+/// - Required: `"created"`, `"updated"` ([`prop::CREATED`], [`prop::UPDATED`]).
+/// - Recommended: `"name/given"`, `"name/surname"`, `"name/surname2"`
+///   ([`prop::NAME_GIVEN`], [`prop::NAME_SURNAME`], [`prop::NAME_SURNAME2`]).
+///
+/// The `property` type stays `String` to preserve forward-compat with
+/// server-specific sort keys and with future RFC additions (the workspace
+/// filter-algebra exclusion blocks a typed-enum-with-`Other(String)`
+/// shape; see [`ContactCardFilterCondition`]).
 ///
 /// # Excluded from extras preservation
 ///
@@ -350,19 +460,46 @@ pub struct ContactCardFilterCondition {
 ///
 /// Cross-reference: bd JMAP-lbdy "Decision: filter algebra excluded".
 #[non_exhaustive]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ContactCardComparator {
     /// Sort key string.
     pub property: String,
     /// Sort direction; `true` = ascending (default), `false` = descending.
-    #[serde(default = "default_true")]
+    #[serde(default = "default_ascending")]
     pub is_ascending: bool,
     /// Optional collation identifier (RFC 4790).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub collation: Option<String>,
 }
 
-fn default_true() -> bool {
+fn default_ascending() -> bool {
     true
+}
+
+/// Constant identifiers for [`ContactCardComparator::property`] sort keys
+/// declared by RFC 9610 §3.3.2.
+///
+/// Using a const at the call site catches typos at compile time:
+///
+/// ```rust
+/// # use jmap_contacts_types::card::{ContactCardComparator, prop};
+/// let mut cmp = ContactCardComparator::default();
+/// cmp.property = prop::CREATED.into();
+/// ```
+///
+/// Servers MAY support additional sort keys; the `property` type
+/// remains `String` so vendor extensions and future RFC additions
+/// round-trip unchanged. JMAP-glx8.14.
+pub mod prop {
+    /// Required sort key (RFC 9610 §3.3.2): card `created` timestamp.
+    pub const CREATED: &str = "created";
+    /// Required sort key (RFC 9610 §3.3.2): card `updated` timestamp.
+    pub const UPDATED: &str = "updated";
+    /// Recommended sort key: NameComponent with `kind = "given"`.
+    pub const NAME_GIVEN: &str = "name/given";
+    /// Recommended sort key: NameComponent with `kind = "surname"`.
+    pub const NAME_SURNAME: &str = "name/surname";
+    /// Recommended sort key: NameComponent with `kind = "surname2"`.
+    pub const NAME_SURNAME2: &str = "name/surname2";
 }
