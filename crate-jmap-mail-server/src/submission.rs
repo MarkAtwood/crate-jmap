@@ -23,7 +23,7 @@ use crate::helpers::{
     extract_account_id, find_immutable_patch_key, not_found_json, now_utc_string, serialize_value,
     set_error_value,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{bool_arg, server_fail_from_backend};
 
 // ---------------------------------------------------------------------------
 // EmailSubmission/get
@@ -114,10 +114,7 @@ pub async fn handle_submission_query<B: MailBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    let calculate_total: bool = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
     let limit: Option<u64> = match args.get("limit") {
         None | Some(Value::Null) => None,
@@ -283,10 +280,7 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
         }
     };
 
-    let calculate_total: bool = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let calculate_total: bool = bool_arg(&args, "calculateTotal", false);
 
     let result = backend
         .query_changes::<EmailSubmission>(

@@ -9,7 +9,7 @@ use crate::backend::{
     CalendarsBackend, QueryCalendarEventsError,
 };
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
-use jmap_server::server_fail_from_backend;
+use jmap_server::{bool_arg, server_fail_from_backend};
 
 // ---------------------------------------------------------------------------
 // CalendarEvent/get
@@ -93,10 +93,7 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     let get_args = CalendarEventGetArgs {
         recurrence_overrides_before,
         recurrence_overrides_after,
-        reduce_participants: args
-            .get("reduceParticipants")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
+        reduce_participants: bool_arg(&args, "reduceParticipants", false),
         time_zone: args
             .get("timeZone")
             .and_then(|v| v.as_str())
@@ -213,10 +210,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     // the spec defines no such requirement and we match Calendar/set's
     // tolerance for unknown args.
     let set_args = CalendarEventSetArgs {
-        send_scheduling_messages: args
-            .get("sendSchedulingMessages")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false),
+        send_scheduling_messages: bool_arg(&args, "sendSchedulingMessages", false),
     };
 
     let mut created = serde_json::Map::new();
@@ -568,10 +562,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
         }
     }
 
-    let on_success_destroy_original: bool = args
-        .get("onSuccessDestroyOriginal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let on_success_destroy_original: bool = bool_arg(&args, "onSuccessDestroyOriginal", false);
 
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
@@ -804,10 +795,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     }
 
     // Standard /query parameters (RFC 8620 §5.5).
-    let calculate_total = args
-        .get("calculateTotal")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let calculate_total = bool_arg(&args, "calculateTotal", false);
 
     let limit: Option<u64> = match args.get("limit") {
         None | Some(Value::Null) => None,
@@ -861,10 +849,7 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
         };
 
     // §5.11 extras.
-    let expand_recurrences = args
-        .get("expandRecurrences")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let expand_recurrences = bool_arg(&args, "expandRecurrences", false);
     let time_zone = args
         .get("timeZone")
         .and_then(|v| v.as_str())

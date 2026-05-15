@@ -13,7 +13,7 @@ use crate::helpers::{
     apply_default_change_to_response, extract_account_id, finalize_set_response,
     resolve_on_success_set_is_default, set_error_value, SetAccumulators,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{bool_arg, server_fail_from_backend};
 
 // ---------------------------------------------------------------------------
 // Calendar/get
@@ -70,10 +70,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    let on_destroy_remove_events = args
-        .get("onDestroyRemoveEvents")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let on_destroy_remove_events = bool_arg(&args, "onDestroyRemoveEvents", false);
 
     // §4.3: onSuccessSetIsDefault — Id|null. Captured here so we can resolve
     // a possible "#createId" reference against the post-create state. The

@@ -5,7 +5,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{AvailabilityError, CalendarsBackend};
 use crate::helpers::extract_account_id;
-use jmap_server::server_fail_from_backend;
+use jmap_server::{bool_arg, server_fail_from_backend};
 
 // ---------------------------------------------------------------------------
 // Principal/getAvailability
@@ -78,10 +78,7 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
         ));
     }
 
-    let show_details = args_map
-        .get("showDetails")
-        .and_then(|v| v.as_bool())
-        .unwrap_or(false);
+    let show_details = bool_arg(&args_map, "showDetails", false);
 
     let event_properties: Option<Vec<String>> = args_map
         .get("eventProperties")
