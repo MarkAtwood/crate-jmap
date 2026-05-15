@@ -894,6 +894,58 @@ mod tests {
         assert_eq!(resp["notCreated"]["c1"]["type"], "forbidden");
     }
 
+    /// Oracle: bd:JMAP-826m.15 — `force_create_error` is one-shot: the
+    /// next create_object call consumes the slot and subsequent creates
+    /// on the same backend succeed. Pre-fix the error was sticky,
+    /// silently affecting every later create.
+    #[tokio::test]
+    async fn force_create_error_is_one_shot_and_auto_resets() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.force_create_error(
+            "acc1",
+            SetError::new(SetErrorType::AlreadyExists).with_description("one-shot"),
+        );
+
+        // First create — forced to fail.
+        let args1 = json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": {
+                    "@type": "Annotation",
+                    "relatedType": "Email",
+                    "relatedId": "EM1"
+                }
+            }
+        });
+        let (resp1, _) = handle_metadata_set(&backend, &(), args1).await.unwrap();
+        assert_eq!(
+            resp1["notCreated"]["c1"]["type"], "alreadyExists",
+            "first create must hit the forced error: {resp1}",
+        );
+
+        // Second create on the same backend — forced error should be
+        // gone, the create should succeed normally.
+        let args2 = json!({
+            "accountId": "acc1",
+            "create": {
+                "c2": {
+                    "@type": "Annotation",
+                    "relatedType": "Email",
+                    "relatedId": "EM2"
+                }
+            }
+        });
+        let (resp2, _) = handle_metadata_set(&backend, &(), args2).await.unwrap();
+        assert!(
+            resp2["created"]["c2"].is_object(),
+            "second create must succeed after forced error consumed: {resp2}",
+        );
+        assert!(
+            resp2["notCreated"].as_object().is_none_or(|m| m.is_empty()),
+            "second create must not be in notCreated: {resp2}",
+        );
+    }
+
     /// Oracle: RFC 8620 §5.3 — malformed Annotation create (missing
     /// required `relatedType`) → `invalidProperties` in notCreated. No
     /// backend call is made. The SetError carries a non-empty
