@@ -133,3 +133,32 @@ pub(crate) fn metadata_value(m: &Metadata) -> serde_json::Value {
 /// where the "why this is unreachable" rationale belongs.
 const INFALLIBLE_SERIALIZE_JUSTIFICATION: &str =
     "derive(Serialize) on plain data is infallible";
+
+/// Build the `serverFail` response value for the
+/// `BackendSetError`-non-exhaustive catch-all in `/set` handlers.
+///
+/// `BackendSetError` is `#[non_exhaustive]` (workspace foundation
+/// convention) so every `match` on it carries an `Err(_)` catch-all
+/// that fires only when a future variant lands in `jmap-server`
+/// without a matching update here. The catch-all previously emitted
+/// a generic `"unhandled backend error variant"` description that
+/// gave operators triaging a production `serverFail` no signal about
+/// WHICH variant fired.
+///
+/// This helper surfaces the variant via `{e:?}` (`BackendSetError`
+/// derives `Debug`) so the wire description reads e.g.
+/// `"unhandled backend error variant: SomeFutureVariant { .. }"`.
+/// RFC 8620 §5.3 declares `description` as non-localised
+/// debugging-grade text, which is the right channel for this
+/// information.
+///
+/// Tracks bd:JMAP-826m.30 (de-duplication) and bd:JMAP-826m.36
+/// (actionable variant name).
+pub(crate) fn unhandled_backend_set_error<E: std::fmt::Debug>(
+    e: &jmap_server::BackendSetError<E>,
+) -> Value {
+    json!({
+        "type": "serverFail",
+        "description": format!("unhandled backend error variant: {e:?}"),
+    })
+}
