@@ -1160,3 +1160,157 @@ async fn query_no_filter_no_sort_returns_all_ordered_by_id() {
         "no filter / no sort returns all by id asc: {args}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Metadata/query position handling (bd:JMAP-826m.5)
+//
+// RFC 8620 §5.5: `position` in the request may be negative to indicate an
+// offset from the end of the result list. The response always echoes a
+// non-negative `position` (the effective 0-based start index from the
+// beginning of the full result list).
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8620 §5.5 — `position: -1` against a result set of 3
+/// returns a single-item ids array starting at the last entry, and the
+/// response echoes `position: 2` (not -1).
+#[tokio::test]
+async fn query_negative_position_within_bounds_clamps_from_end() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let a = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM1"}),
+    )
+    .await;
+    let b = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM2"}),
+    )
+    .await;
+    let c = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM3"}),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({"accountId": "acc1", "position": -1}),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    // Default sort is id-asc; the last id in id-asc order is the
+    // expected single result.
+    let mut sorted = [a.as_ref(), b.as_ref(), c.as_ref()];
+    sorted.sort_unstable();
+    let last_id = sorted[2];
+
+    let ids = args["ids"].as_array().expect("ids must be array");
+    assert_eq!(
+        ids.len(),
+        1,
+        "position=-1 with 3 results returns exactly one id: {args}"
+    );
+    assert_eq!(
+        ids[0].as_str(),
+        Some(last_id),
+        "position=-1 with 3 results returns the last id: {args}"
+    );
+    assert_eq!(
+        args["position"].as_u64(),
+        Some(2),
+        "response echoes effective non-negative position (2 for offset-1 of len-3): {args}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.5 — `position: -100` (|neg| > len) is clamped to
+/// position 0; the full result list is returned, and the response echoes
+/// `position: 0`.
+#[tokio::test]
+async fn query_negative_position_beyond_bounds_clamps_to_zero() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM1"}),
+    )
+    .await;
+    seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM2"}),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({"accountId": "acc1", "position": -100}),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids = args["ids"].as_array().expect("ids must be array");
+    assert_eq!(
+        ids.len(),
+        2,
+        "position=-100 (|neg| > len) returns the full list: {args}"
+    );
+    assert_eq!(
+        args["position"].as_u64(),
+        Some(0),
+        "response echoes position=0 for over-large negative offset: {args}"
+    );
+}
+
+/// Oracle: RFC 8620 §5.5 — `position: 100` (positive, > len) is clamped
+/// to position == len; ids is empty; the response echoes the clamped
+/// position.
+#[tokio::test]
+async fn query_positive_position_beyond_bounds_clamps_to_len() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM1"}),
+    )
+    .await;
+    seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM2"}),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/query",
+        json!({"accountId": "acc1", "position": 100}),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+
+    let ids = args["ids"].as_array().expect("ids must be array");
+    assert!(
+        ids.is_empty(),
+        "position=100 (> len=2) returns no ids: {args}"
+    );
+    assert_eq!(
+        args["position"].as_u64(),
+        Some(2),
+        "response echoes position=len=2 for over-large positive offset: {args}"
+    );
+}
