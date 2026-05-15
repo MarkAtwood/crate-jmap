@@ -116,19 +116,24 @@ impl ChatWsExt for WsSession {
         // Wrap in EphemeralMessage::Enable so the @type discriminant is included
         // in the serialized output (ChatStreamEnable itself has no @type field).
         let msg = EphemeralMessage::Enable(enable.clone());
-        let text =
-            serde_json::to_string(&msg).map_err(|e| ClientError::InvalidArgument(e.to_string()))?;
+        // serde_json::to_string failure on a typed Serialize value is an
+        // internal-invariant bug (the struct is built locally, not caller
+        // input). Surface as ClientError::Parse to preserve the structured
+        // serde_json::Error rather than dropping it into a String via
+        // InvalidArgument.
+        let text = serde_json::to_string(&msg).map_err(ClientError::Parse)?;
         self.send_text(text).await
     }
 
     async fn send_stream_disable(&mut self) -> Result<(), ClientError> {
-        // ChatStreamDisable is #[non_exhaustive]; construct via deserialization.
-        let msg: EphemeralMessage = serde_json::from_str(r#"{"@type":"ChatStreamDisable"}"#)
-            .map_err(|e| {
-                ClientError::InvalidArgument(format!("ChatStreamDisable serialization: {e}"))
-            })?;
-        let text =
-            serde_json::to_string(&msg).map_err(|e| ClientError::InvalidArgument(e.to_string()))?;
+        // ChatStreamDisable is #[non_exhaustive]; construct via deserialization
+        // of a hardcoded literal. A failure here is an internal-invariant bug
+        // (the literal is built byte-for-byte above), so ClientError::Parse
+        // preserves the structured error for debugging without conflating it
+        // with caller-supplied InvalidArgument.
+        let msg: EphemeralMessage =
+            serde_json::from_str(r#"{"@type":"ChatStreamDisable"}"#).map_err(ClientError::Parse)?;
+        let text = serde_json::to_string(&msg).map_err(ClientError::Parse)?;
         self.send_text(text).await
     }
 }
