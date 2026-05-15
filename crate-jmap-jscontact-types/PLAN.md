@@ -60,10 +60,13 @@ value MAY omit `@type` entirely, a `Timestamp` value MUST set
 `src/lib.rs:977` depends on this distinction.
 
 This shape diverges from the sibling `jmap-jscalendar-types`, which uses
-bare `at_type: String`. The divergence is tracked by `bd:JMAP-sgrr.3`
-as a workspace canonical-sibling consistency question; this PLAN
-documents the current crate's choice without pre-deciding the
-workspace-wide harmonization.
+bare `at_type: String`. The divergence is spec-driven and intentional:
+RFC 8984 marks every JSCalendar `@type` as `(mandatory)` (with zero
+`defaultType` annotations), so `jmap-jscalendar-types` correctly mirrors
+that with bare `String`. The workspace canonical-templates rule says
+"every type crate looks like every other type crate, **modulo only the
+differences mandated by the relevant RFC or draft**" — this is exactly
+that case. Resolved by `bd:JMAP-sgrr.3`.
 
 ### Object types
 
