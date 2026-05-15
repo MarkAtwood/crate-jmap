@@ -1217,4 +1217,189 @@ mod tests {
         let kws = c.keywords.as_ref().unwrap();
         assert_eq!(kws.get("IETF").copied(), Some(false));
     }
+
+    // ── Negative deserialize at the wire boundary (JMAP-glx8.23) ─────────
+    //
+    // The crate sits at the JMAP-wire deserialize boundary. Downstream
+    // consumers (jmap-contacts-server, third-party kits) need a documented
+    // contract for what malformed / oversized / spec-violating input does
+    // when it reaches `serde_json::from_str` on these types. The tests
+    // below pin that contract: the type-crate either accepts cleanly
+    // (handler layer rejects later) or returns `Err`. No test asserts a
+    // handler-layer behavior; those concerns live in `jmap-contacts-server`
+    // (bd:JMAP-yfpq).
+    //
+    // Oracle: hand-built JSON whose shape is independent of the code
+    // under test, per workspace test-integrity rule.
+
+    /// Malformed JSON returns `Err` from `serde_json::from_str` — does not
+    /// panic, does not silently parse a partial value. Oracle: three
+    /// hand-built malformed inputs.
+    #[test]
+    fn malformed_json_returns_error() {
+        // Truncated object — closing brace missing.
+        let truncated = r#"{"id": "card-1""#;
+        assert!(serde_json::from_str::<ContactCard>(truncated).is_err());
+
+        // Mismatched braces — closes with `]` instead of `}`.
+        let mismatched = r#"{"id": "card-1"]"#;
+        assert!(serde_json::from_str::<ContactCard>(mismatched).is_err());
+
+        // Unterminated string literal.
+        let unterminated = r#"{"id": "card-1}"#;
+        assert!(serde_json::from_str::<ContactCard>(unterminated).is_err());
+    }
+
+    /// Oversized `name` value on `AddressBook` deserialises cleanly: the
+    /// type accepts up to `String::MAX_LEN` regardless of the 255-octet
+    /// upper bound declared by RFC 9610 §2. The handler layer
+    /// (`jmap-contacts-server`, bd:JMAP-yfpq) is responsible for
+    /// rejecting names that exceed the spec bound with
+    /// `invalidProperties` per RFC 8620 §5.3. Oracle: hand-built JSON
+    /// with a 1000-byte string.
+    #[test]
+    fn oversized_name_deserialises_to_typed_field() {
+        let big_name = "x".repeat(1000);
+        let raw = json!({
+            "id": "ab-big-name",
+            "name": big_name,
+            "description": null,
+            "sortOrder": 0,
+            "isDefault": false,
+            "isSubscribed": true,
+            "shareWith": null,
+            "myRights": {
+                "mayRead": true, "mayWrite": false,
+                "mayShare": false, "mayDelete": false
+            }
+        });
+        let ab: AddressBook = serde_json::from_value(raw).unwrap();
+        assert_eq!(ab.name.len(), 1000);
+    }
+
+    /// `sortOrder` values in `[2^31, 2^32)` deserialise cleanly into the
+    /// typed `u32` field, even though RFC 9610 §2 declares the spec range
+    /// `[0, 2^31)`. The handler layer is responsible for rejecting values
+    /// outside the spec range. This test documents the spec-range vs
+    /// type-range gap. Oracle: hand-built JSON with `sortOrder` =
+    /// 2_147_483_648 (one past the spec ceiling, well within `u32::MAX`).
+    #[test]
+    fn sort_order_overflow_outside_spec_range_accepts() {
+        let raw = json!({
+            "id": "ab-overflow",
+            "name": "Overflow",
+            "description": null,
+            "sortOrder": 2_147_483_648u64,
+            "isDefault": false,
+            "isSubscribed": true,
+            "shareWith": null,
+            "myRights": {
+                "mayRead": true, "mayWrite": false,
+                "mayShare": false, "mayDelete": false
+            }
+        });
+        let ab: AddressBook = serde_json::from_value(raw).unwrap();
+        assert_eq!(ab.sort_order, 2_147_483_648);
+    }
+
+    /// A Sloppy-Value field (`ContactCard.name`, typed as
+    /// `Option<serde_json::Value>`) accepts any JSON shape, including
+    /// non-object values like a bare string. The handler layer is
+    /// responsible for rejecting non-object wire shapes per RFC 9553 §2.2.
+    /// Typed access via `serde_json::from_value::<Name>(...)` returns
+    /// `Err` when the wire shape is not an object. Oracle: hand-built
+    /// JSON with `name` as a string instead of an object.
+    #[test]
+    fn sloppy_field_accepts_non_object_value() {
+        let raw = json!({
+            "id": "card-1",
+            "name": "vincent"
+        });
+        let c: ContactCard = serde_json::from_value(raw).unwrap();
+        let name_value = c.name.as_ref().unwrap();
+        assert!(name_value.is_string(), "sloppy field preserved the string");
+
+        // Typed access through jmap-jscontact-types fails cleanly — does
+        // not panic — when the wire shape is not the expected object.
+        let typed = serde_json::from_value::<Name>(name_value.clone());
+        assert!(typed.is_err(), "Name expects an object, got a string");
+    }
+
+    /// A deeply nested but bounded sloppy-field value deserialises
+    /// cleanly: serde_json's default recursion limit is 128 levels of
+    /// nesting, and 100-deep nesting fits comfortably under that. Oracle:
+    /// hand-built 100-level nested JSON object inside the `name` field.
+    #[test]
+    fn deeply_nested_sloppy_field_within_serde_json_limit_succeeds() {
+        // Build {"id":"c","name":{"x":{"x":...{"x":1}...}}} with 100
+        // levels of "x" nesting inside name.
+        let mut nested = String::from("1");
+        for _ in 0..100 {
+            nested = format!("{{\"x\":{nested}}}");
+        }
+        let payload = format!("{{\"id\":\"c\",\"name\":{nested}}}");
+        let c: ContactCard = serde_json::from_str(&payload)
+            .expect("100-deep nesting must be within serde_json's default 128 recursion limit");
+        assert!(c.name.is_some());
+    }
+
+    /// A sloppy-field value nested past serde_json's default 128-level
+    /// recursion limit returns `Err`. Oracle: hand-built 200-level
+    /// nested JSON object inside the `name` field. This documents that
+    /// the type-crate inherits serde_json's stack-overflow defense; it
+    /// does NOT make a memory-budget claim — see JMAP-glx8.24 for the
+    /// memory-and-CPU contract.
+    #[test]
+    fn deeply_nested_sloppy_field_beyond_serde_json_limit_errors() {
+        let mut nested = String::from("1");
+        for _ in 0..200 {
+            nested = format!("{{\"x\":{nested}}}");
+        }
+        let payload = format!("{{\"id\":\"c\",\"name\":{nested}}}");
+        let result: Result<ContactCard, _> = serde_json::from_str(&payload);
+        assert!(
+            result.is_err(),
+            "200-deep nesting must exceed serde_json's default 128 recursion limit"
+        );
+    }
+
+    /// JSON object with a duplicate **typed** field key: `serde_derive`'s
+    /// generated visitor REJECTS the duplicate with a "duplicate field"
+    /// error. RFC 8259 §4 leaves duplicate-key handling
+    /// implementation-defined; this crate's typed-struct contract is
+    /// strict-reject. Cross-implementation behavior (Go, Python, Java)
+    /// varies — see the extras-collision contract on
+    /// [`ContactCard::extra`] (card.rs:247-267). Oracle: hand-built
+    /// JSON with two `"uid"` keys.
+    #[test]
+    fn duplicate_typed_field_keys_rejected() {
+        let raw = r#"{"id":"card-1","uid":"first","uid":"second"}"#;
+        let err = serde_json::from_str::<ContactCard>(raw)
+            .expect_err("typed field duplicate must be rejected");
+        let msg = err.to_string();
+        assert!(
+            msg.contains("duplicate field"),
+            "expected duplicate-field error, got: {msg}"
+        );
+    }
+
+    /// JSON object with a duplicate **vendor-extra** key: the
+    /// `#[serde(flatten)]` `extra` field is backed by
+    /// `serde_json::Map<String, Value>`, which last-wins on duplicate
+    /// keys (matching the untyped `serde_json::Value` path). This
+    /// documents the asymmetry — typed fields reject duplicates,
+    /// vendor extras absorb the last value silently. Cross-reference:
+    /// [`ContactCard::extra`] collision contract. Oracle: hand-built
+    /// JSON with two `"acmeCorpExternalId"` keys.
+    #[test]
+    fn duplicate_vendor_extra_keys_last_wins() {
+        let raw = r#"{"id":"card-1","acmeCorpExternalId":"first","acmeCorpExternalId":"second"}"#;
+        let c: ContactCard = serde_json::from_str(raw)
+            .expect("vendor-extra duplicates fold into extra map, last-wins");
+        assert_eq!(
+            c.extra.get("acmeCorpExternalId").and_then(|v| v.as_str()),
+            Some("second"),
+            "extra map last-wins on duplicate keys"
+        );
+    }
 }
