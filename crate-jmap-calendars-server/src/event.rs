@@ -353,11 +353,24 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             // by property identity only: clearing a shared property
             // (`{"title": null}`) is still a shared-property mutation and
             // must NOT be routed to the per-user code path.
+            //
+            // RFC 8620 §5.3 PatchObject keys may be JSON Pointer paths
+            // into nested values (e.g. `"alerts/abc/trigger"` targets the
+            // `trigger` field of the alert object at key `"abc"` in the
+            // `alerts` map). Routing is decided on the first path segment
+            // (the property identity), not the full pointer string.
+            // RFC 6901 escapes (`~0` for `~`, `~1` for `/`) are NOT
+            // expanded here: a wire key like `"keywords~1foo"` is the
+            // literal property name `keywords/foo`, which is neither a
+            // per-user nor a known shared property, so it routes to the
+            // shared path where the backend rejects it.
             let is_per_user_only = patch_val
                 .as_object()
                 .map(|m| {
-                    m.iter()
-                        .all(|(k, _)| jmap_calendars_types::is_per_user_calendar_event_property(k))
+                    m.iter().all(|(k, _)| {
+                        let head = k.split_once('/').map_or(k.as_str(), |(h, _)| h);
+                        jmap_calendars_types::is_per_user_calendar_event_property(head)
+                    })
                 })
                 .unwrap_or(false);
 
@@ -1652,6 +1665,147 @@ mod tests {
             !*backend.per_user_called.lock().unwrap(),
             "update_per_user_properties must NOT be called when shared \
              properties are cleared"
+        );
+    }
+
+    /// Regression for JMAP-ic0j.3: a patch whose only top-level keys are
+    /// JSON Pointer paths drilling into a per-user property (e.g.
+    /// `alerts/abc/trigger`) must route to `update_per_user_properties`,
+    /// NOT `update_object`. Pre-fix the predicate did a whole-string
+    /// match against the fixed per-user property list, so `alerts/abc`
+    /// returned false (correctly per
+    /// `is_per_user_calendar_event_property`) and the patch was
+    /// misrouted to the shared path — bumping the shared `updated`
+    /// timestamp (draft §5.4) and potentially triggering iTIP REQUEST
+    /// (§5.9.2.1) for what should be a per-user-only mutation.
+    ///
+    /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — routing is by
+    /// property identity, which for a JSON Pointer key is the first
+    /// path segment (RFC 6901 §3) before the first unescaped `/`.
+    #[tokio::test]
+    async fn set_update_per_user_subpath_patch_routes_to_per_user_path() {
+        let backend = routing::TrackingBackend::new();
+        let args = json!({
+            "accountId": "acc",
+            "update": {
+                "ev1": {
+                    "alerts/abc/trigger": {
+                        "@type": "OffsetTrigger",
+                        "offset": "-PT15M"
+                    },
+                    "alerts/abc/action": "display"
+                }
+            }
+        });
+        let _ = handle_calendar_event_set(&backend, &(), args).await;
+
+        assert!(
+            *backend.per_user_called.lock().unwrap(),
+            "update_per_user_properties must be called for a patch \
+             whose JSON Pointer keys all drill into a per-user property"
+        );
+        assert!(
+            !*backend.update_called.lock().unwrap(),
+            "update_object must NOT be called when every top-level key \
+             is a JSON Pointer rooted at a per-user property"
+        );
+    }
+
+    /// Regression for JMAP-ic0j.3: a patch mixing a per-user JSON Pointer
+    /// key (`alerts/abc/trigger`) with a shared-property key (`title`)
+    /// must route to `update_object`. The mixed case is the existing
+    /// `set_update_mixed_patch_routes_to_update_object` test extended to
+    /// the pointer-key case.
+    #[tokio::test]
+    async fn set_update_mixed_subpath_patch_routes_to_update_object() {
+        let backend = routing::TrackingBackend::new();
+        let args = json!({
+            "accountId": "acc",
+            "update": {
+                "ev1": {
+                    "alerts/abc/trigger": {
+                        "@type": "OffsetTrigger",
+                        "offset": "-PT15M"
+                    },
+                    "title": "New Title"
+                }
+            }
+        });
+        let _ = handle_calendar_event_set(&backend, &(), args).await;
+
+        assert!(
+            *backend.update_called.lock().unwrap(),
+            "update_object must be called for a mixed pointer/shared patch"
+        );
+        assert!(
+            !*backend.per_user_called.lock().unwrap(),
+            "update_per_user_properties must NOT be called for a mixed \
+             pointer/shared patch"
+        );
+    }
+
+    /// Regression for JMAP-ic0j.3: a patch whose only top-level key is a
+    /// JSON Pointer path drilling into a *shared* property (e.g.
+    /// `title/foo`) must route to `update_object`, where the backend
+    /// produces an `invalidPatch` / `invalidProperties` SetError. Pre-fix
+    /// behavior was identical (string `"title/foo"` doesn't match any
+    /// per-user property), so this test locks in the routing contract
+    /// against a future regression that might mistakenly extend the
+    /// head-segment fix to all keys.
+    #[tokio::test]
+    async fn set_update_shared_subpath_patch_routes_to_update_object() {
+        let backend = routing::TrackingBackend::new();
+        let args = json!({
+            "accountId": "acc",
+            "update": {
+                "ev1": { "title/foo": "x" }
+            }
+        });
+        let _ = handle_calendar_event_set(&backend, &(), args).await;
+
+        assert!(
+            *backend.update_called.lock().unwrap(),
+            "update_object must be called when the pointer head is a \
+             shared property"
+        );
+        assert!(
+            !*backend.per_user_called.lock().unwrap(),
+            "update_per_user_properties must NOT be called when the \
+             pointer head is a shared property"
+        );
+    }
+
+    /// Regression for JMAP-ic0j.3: an RFC 6901-escaped key like
+    /// `keywords~1foo` is the literal property name `keywords/foo`
+    /// (where `~1` decodes to `/`). This is neither a per-user nor a
+    /// known shared property, so it must route to `update_object`
+    /// where the backend rejects it. The fix uses `split_once('/')` on
+    /// the *wire* key (not the decoded pointer segment), so the
+    /// escaped form has no `/` and the head is the full key — which
+    /// is not in the per-user set.
+    ///
+    /// Oracle: RFC 6901 §4 escaping — `~1` represents `/`. RFC 8620 §5.3
+    /// PatchObject keys are JSON Pointers, so escape rules apply.
+    #[tokio::test]
+    async fn set_update_escaped_slash_key_routes_to_update_object() {
+        let backend = routing::TrackingBackend::new();
+        let args = json!({
+            "accountId": "acc",
+            "update": {
+                "ev1": { "keywords~1foo": "x" }
+            }
+        });
+        let _ = handle_calendar_event_set(&backend, &(), args).await;
+
+        assert!(
+            *backend.update_called.lock().unwrap(),
+            "update_object must be called when the wire key contains \
+             no unescaped `/` and the head is not a per-user property"
+        );
+        assert!(
+            !*backend.per_user_called.lock().unwrap(),
+            "update_per_user_properties must NOT be called for an \
+             RFC 6901-escaped property name"
         );
     }
 
