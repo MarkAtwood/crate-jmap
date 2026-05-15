@@ -159,10 +159,10 @@ struct Inner {
 
 impl Inner {
     fn current_state(&self, type_name: &'static str, account_id: &str) -> u64 {
-        *self
-            .states
+        self.states
             .get(&(type_name, account_id.to_owned()))
-            .unwrap_or(&0)
+            .copied()
+            .unwrap_or(0)
     }
 
     fn bump_state(&mut self, type_name: &'static str, account_id: &str) -> u64 {
