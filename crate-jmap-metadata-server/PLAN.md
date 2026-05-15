@@ -46,15 +46,21 @@ error codes, and behavioral requirements come from the spec, not from memory.
 
 ### Canonical template
 
-`~/PROJECT/crate-jmap/crate-jmap-sharing-server/` — closest single-extension-server
-analog. `MetadataBackend` is cookie-cut from `SharingBackend`; the `helpers.rs`,
-`register_metadata_handlers`, and dispatcher-registration scaffolding are
-copied verbatim with type names adjusted.
+`~/PROJECT/crate-jmap/crate-jmap-mail-server/` is the workspace's canonical
+extension-server template per the workspace `AGENTS.md` "Canonical Templates"
+section. Trait shape, error-mapping helpers, handler-registration pattern,
+and the propagation rule (changes to the canonical first, then sweep
+siblings) all anchor on `jmap-mail-server`.
 
-The canonical extension-server template is `jmap-mail-server` per the
-workspace `AGENTS.md` canonical-template propagation rule; `jmap-sharing-server`
-is the closest precedent for a single-capability single-object-family server,
-which matches Metadata's shape.
+The closest single-extension precedent for a single-capability
+single-object-family server is `~/PROJECT/crate-jmap/crate-jmap-sharing-server/`,
+which is a sibling (not a canonical) under the same template. Where this
+crate's scaffolding shape matched sharing-server's better than mail-server's
+single-extension shape (e.g. the `MetadataBackend` trait owning one
+object family rather than several), the cookie-cut started from
+sharing-server. The propagation rule still anchors on mail-server: a
+divergence from mail-server is a regression of the cookie-cutter intent
+even when sharing-server happens to share the same divergence.
 
 ## Capability URI
 

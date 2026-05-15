@@ -276,7 +276,9 @@ pub(crate) mod test_support {
             };
             // Down-cast Metadata -> O via serde round-trip. This is the
             // canonical bridge for the JmapBackend::get_objects generic
-            // parameter; identical to sharing-server's mock pattern.
+            // parameter (the same bridge every reference MockBackend uses
+            // to satisfy the generic O on a backend that stores a single
+            // concrete type).
             let mut converted: Vec<O> = Vec::with_capacity(found_meta.len());
             for m in found_meta {
                 let v = serde_json::to_value(&m).map_err(|e| MockError(e.to_string()))?;
