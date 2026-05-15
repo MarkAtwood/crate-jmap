@@ -946,6 +946,38 @@ mod tests {
         );
     }
 
+    /// Oracle: bd:JMAP-826m.19 — MockBackend hard-errors on
+    /// create_object for an unknown account, aligning with the public
+    /// MemoryBackend. Pre-fix the two backends diverged: MockBackend
+    /// silently auto-registered an account via `.entry(...).or_default()`,
+    /// MemoryBackend hard-errored with `unknown account`. Two backends
+    /// with different unknown-account behavior were a future-bug magnet
+    /// for contributors writing dual-target tests.
+    #[tokio::test]
+    async fn mock_backend_create_against_unknown_account_errors() {
+        use crate::test_support::MockBackend;
+        let backend = MockBackend::new(); // No accounts registered.
+        let meta: Metadata = serde_json::from_value(json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM1"
+        }))
+        .unwrap();
+        let err = backend
+            .create_object::<Metadata>(&(), &Id::from("bogus"), "c1", meta)
+            .await
+            .expect_err("must reject create against unknown account");
+        match err {
+            BackendSetError::Other(crate::test_support::MockError(msg)) => {
+                assert!(
+                    msg.contains("unknown account"),
+                    "expected 'unknown account' in error: {msg}",
+                );
+            }
+            other => panic!("expected BackendSetError::Other, got: {other:?}"),
+        }
+    }
+
     /// Oracle: RFC 8620 §5.3 — malformed Annotation create (missing
     /// required `relatedType`) → `invalidProperties` in notCreated. No
     /// backend call is made. The SetError carries a non-empty
