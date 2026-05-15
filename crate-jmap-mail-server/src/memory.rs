@@ -647,10 +647,25 @@ impl JmapBackend for MemoryBackend {
         // enough that the dispatch is cleaner than retrofitting the Email
         // pipeline below.
         if O::TYPE_NAME == "Mailbox" {
-            let mailbox_filter: Option<MailboxFilterCondition> = filter.and_then(|f| {
-                serde_json::to_value(f)
-                    .ok()
-                    .and_then(|v| serde_json::from_value(v).ok())
+            // Type-identity roundtrip: when O::TYPE_NAME == "Mailbox" the
+            // generic O::Filter is necessarily MailboxFilterCondition (see
+            // jmap-mail-types::backend::QueryObject impl), so both halves
+            // of this serde roundtrip are infallible:
+            //   - to_value(&f) cannot fail: derive(Serialize) on plain data.
+            //   - from_value::<MailboxFilterCondition>(v) cannot fail: v was
+            //     just produced by Serialize on the same concrete type.
+            // Pattern G policy (bc79c70) requires .expect() rather than
+            // silent .ok() fallback, so a future custom-serde change here
+            // surfaces as a panic instead of silently dropping the filter
+            // (which would return ALL mailboxes when the client expected
+            // a filtered subset).
+            let mailbox_filter: Option<MailboxFilterCondition> = filter.map(|f| {
+                let v =
+                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+                serde_json::from_value(v).expect(
+                    "type-identity roundtrip on MailboxFilterCondition is infallible: \
+                     the JSON came from Serialize on the same concrete type",
+                )
             });
             // Mailbox::Comparator is serde_json::Value (the wire shape per RFC 8621
             // §2.3 — only `name` and `sortOrder` are valid properties). The handler
@@ -682,33 +697,54 @@ impl JmapBackend for MemoryBackend {
                 .await;
         }
 
+        // Type-identity roundtrip: when O::TYPE_NAME == "Email" the generic
+        // O::Filter is necessarily EmailFilter, so both halves of this serde
+        // roundtrip are infallible. See the Mailbox arm above for the full
+        // rationale and the Pattern G (bc79c70) policy reference.
         let email_filter: Option<EmailFilter> = if O::TYPE_NAME == "Email" {
-            filter.and_then(|f| {
-                serde_json::to_value(f)
-                    .ok()
-                    .and_then(|v| serde_json::from_value(v).ok())
+            filter.map(|f| {
+                let v =
+                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+                serde_json::from_value(v).expect(
+                    "type-identity roundtrip on EmailFilter is infallible: \
+                     the JSON came from Serialize on the same concrete type",
+                )
             })
         } else {
             None
         };
 
-        // Decode EmailComparator list for Email queries (JSON roundtrip via O::Comparator).
+        // Decode EmailComparator list for Email queries (JSON roundtrip via
+        // O::Comparator). Type-identity roundtrip: when O::TYPE_NAME == "Email"
+        // the generic O::Comparator is necessarily EmailComparator, so both
+        // halves of the roundtrip are infallible. Same Pattern G rationale
+        // as the filter roundtrips above.
         let email_sort: Option<Vec<EmailComparator>> = if O::TYPE_NAME == "Email" {
-            sort.and_then(|s| {
-                serde_json::to_value(s)
-                    .ok()
-                    .and_then(|v| serde_json::from_value(v).ok())
+            sort.map(|s| {
+                let v =
+                    serde_json::to_value(s).expect("derive(Serialize) on plain data is infallible");
+                serde_json::from_value(v).expect(
+                    "type-identity roundtrip on Vec<EmailComparator> is infallible: \
+                     the JSON came from Serialize on the same concrete type",
+                )
             })
         } else {
             None
         };
 
+        // Type-identity roundtrip: when O::TYPE_NAME == "EmailSubmission" the
+        // generic O::Filter is necessarily EmailSubmissionFilter, so both
+        // halves of this serde roundtrip are infallible. Same Pattern G
+        // rationale as the Mailbox arm above.
         let submission_filter: Option<EmailSubmissionFilter> = if O::TYPE_NAME == "EmailSubmission"
         {
-            filter.and_then(|f| {
-                serde_json::to_value(f)
-                    .ok()
-                    .and_then(|v| serde_json::from_value(v).ok())
+            filter.map(|f| {
+                let v =
+                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+                serde_json::from_value(v).expect(
+                    "type-identity roundtrip on EmailSubmissionFilter is infallible: \
+                     the JSON came from Serialize on the same concrete type",
+                )
             })
         } else {
             None
