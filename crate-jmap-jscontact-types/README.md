@@ -87,9 +87,13 @@ The same pattern works for `EmailAddress`, `Phone`, `Address`,
   §2.4 / §2.5 / §2.6 / §2.8 boundary.
 - `#[non_exhaustive]` on every public struct, so additive spec evolution is
   a non-breaking change.
-- Wire field `"@type"` is mapped to the Rust field `at_type: String` via
-  `#[serde(rename = "@type")]`. The field is kept as `String` (not a closed
-  enum) to preserve forward-compatibility with new sub-object types.
+- Wire field `"@type"` is mapped to the Rust field
+  `at_type: Option<String>` via `#[serde(rename = "@type", default,
+  skip_serializing_if = "Option::is_none")]`. The field is kept as
+  `String` (not a closed enum) for forward-compatibility with new
+  sub-object types, and wrapped in `Option` because RFC 9553 §1.3.4
+  permits omitting `@type` in `defaultType` positions (notably
+  `Anniversary.date` defaulting to `PartialDate`).
 - `#[serde(rename_all = "camelCase")]` on all structs.
 - No async. `#[forbid(unsafe_code)]` at the crate root.
 - Dependencies limited to `serde`, `serde_json` — no JMAP dep.
@@ -114,6 +118,14 @@ The same pattern works for `EmailAddress`, `Phone`, `Address`,
   `serde_json::Value` rather than typed sub-types from this crate. To
   reach the typed shape, deserialise the value through one of the
   types here (e.g. `serde_json::from_value::<Address>(...)`).
+- There is no public `Resource` trait or generic across the five
+  Resource-derived types (`Calendar`, `CryptoKey`, `Directory`,
+  `Link`, `Media`). RFC 9553 §1.4.4 defines `Resource` as a
+  documentation-only abstract type; the wire format is a flat object
+  per concrete type and the crate mirrors that. Consumers that want
+  to write a single helper accepting any Resource-derived type need
+  to define their own outer enum or trait. See `PLAN.md`
+  §"Resource-derived types" for the rationale.
 
 ## References
 
