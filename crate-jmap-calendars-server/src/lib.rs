@@ -71,8 +71,15 @@ pub use participant_identity::{
 };
 pub use principal::handle_principal_get_availability;
 
-/// Capability URI for `urn:ietf:params:jmap:calendars`.
-pub use jmap_calendars_types::JMAP_CALENDARS_URI;
+/// Capability URI for JMAP Calendars (draft-ietf-jmap-calendars-26 §1.5.1).
+///
+/// Defined as a local `const` rather than re-exported from
+/// `jmap_calendars_types` (bd:JMAP-ic0j.30): the URI string is normative
+/// and constant per the draft, so locking calendars-server's published API
+/// to the upstream crate's const SHAPE (renames, moves, removal) is
+/// unnecessary. Matches the canonical `jmap-mail-server` pattern at
+/// `crate-jmap-mail-server/src/lib.rs:45` (`pub const JMAP_MAIL_URI`).
+pub const JMAP_CALENDARS_URI: &str = "urn:ietf:params:jmap:calendars";
 
 // ---------------------------------------------------------------------------
 // register_calendars_handlers — the main entry point for consumers

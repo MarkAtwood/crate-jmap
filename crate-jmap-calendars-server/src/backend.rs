@@ -15,7 +15,16 @@ pub use jmap_server::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
 };
-pub use jmap_types::PatchObject;
+
+// bd:JMAP-ic0j.30 — `jmap_types::PatchObject` is referenced as a fully
+// qualified path in trait signatures below, NOT re-exported from this
+// crate's public API. Callers needing `PatchObject` import it directly
+// from `jmap_types` so a `jmap_types` major-version bump does not break
+// consumers who never reference `PatchObject` through this crate's API
+// surface. Matches the canonical `jmap-mail-server` pattern at
+// `crate-jmap-mail-server/src/backend.rs:14-17` (no `PatchObject`
+// re-export).
+use jmap_types::PatchObject;
 
 // ---------------------------------------------------------------------------
 // CalendarsBackend trait
