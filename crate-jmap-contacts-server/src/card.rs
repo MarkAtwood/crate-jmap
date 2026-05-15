@@ -141,12 +141,17 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                // BackendSetError is #[non_exhaustive]; this arm captures
+                // any future variant Cargo.lock may pull in and surfaces
+                // its Debug repr to the client rather than discarding it
+                // (bd:JMAP-qz9v.53).
+                Err(other) => {
                     not_created.insert(
                         create_id,
                         json!({
                             "type": "serverFail",
-                            "description": "unhandled backend error variant",
+                            "description":
+                                format!("unhandled backend error variant: {other:?}"),
                         }),
                     );
                 }
@@ -200,12 +205,15 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                // BackendSetError is #[non_exhaustive]; surface any future
+                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
+                Err(other) => {
                     not_updated.insert(
                         id_str,
                         json!({
                             "type": "serverFail",
-                            "description": "unhandled backend error variant",
+                            "description":
+                                format!("unhandled backend error variant: {other:?}"),
                         }),
                     );
                 }
@@ -249,12 +257,15 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                // BackendSetError is #[non_exhaustive]; surface any future
+                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
+                Err(other) => {
                     not_destroyed.insert(
                         id_str,
                         json!({
                             "type": "serverFail",
-                            "description": "unhandled backend error variant",
+                            "description":
+                                format!("unhandled backend error variant: {other:?}"),
                         }),
                     );
                 }
@@ -526,12 +537,15 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                // BackendSetError is #[non_exhaustive]; surface any future
+                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
+                Err(other) => {
                     not_copied.insert(
                         create_id,
                         json!({
                             "type": "serverFail",
-                            "description": "unhandled backend error variant",
+                            "description":
+                                format!("unhandled backend error variant: {other:?}"),
                         }),
                     );
                 }
@@ -610,12 +624,15 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
                             json!({ "type": "serverFail", "description": e.to_string() }),
                         );
                     }
-                    Err(_) => {
+                    // BackendSetError is #[non_exhaustive]; surface any future
+                    // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
+                    Err(other) => {
                         not_destroyed.insert(
                             source_id.as_ref().to_owned(),
                             json!({
                                 "type": "serverFail",
-                                "description": "unhandled backend error variant",
+                                "description":
+                                    format!("unhandled backend error variant: {other:?}"),
                             }),
                         );
                     }
