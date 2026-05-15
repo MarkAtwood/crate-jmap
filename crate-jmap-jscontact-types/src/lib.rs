@@ -353,6 +353,12 @@ pub struct Title {
 // ── EmailAddress (RFC 9553 §2.3.1) ────────────────────────────────────────────
 
 /// An email address (RFC 9553 §2.3.1).
+///
+/// Distinct from the JMAP Mail RFC 8621 §2 binding type
+/// [`jmap_mail_types::EmailAddress`](https://docs.rs/jmap-mail-types):
+/// that type carries an RFC 5322 mailbox (`name` + `email`) and appears
+/// in `Email.from` / `Email.to` etc., whereas this `EmailAddress` is a
+/// JSContact sub-object embedded in a `ContactCard.emails` map.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -506,6 +512,13 @@ pub struct LanguagePref {
 ///
 /// Extends the abstract [Resource](crate#design-resource-derived-types)
 /// type with a mandatory `kind` value of either `"calendar"` or `"freeBusy"`.
+///
+/// Distinct from the JMAP Calendars binding object
+/// [`jmap_calendars_types::Calendar`](https://docs.rs/jmap-calendars-types):
+/// that type is a top-level JMAP wire object with `id`, `name`,
+/// `myRights`, `shareWith`, etc., whereas this `Calendar` is a JSContact
+/// resource sub-object embedded in a `ContactCard`. The two wire shapes
+/// are unrelated.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -590,6 +603,12 @@ pub struct SchedulingAddress {
 /// At least one of `components`, `coordinates`, `country_code`, `full`,
 /// or `time_zone` must be set per the RFC; this is not enforced at the
 /// type level.
+///
+/// Distinct from the JMAP Mail RFC 8621 §3.2 submission-address type
+/// [`jmap_mail_types::Address`](https://docs.rs/jmap-mail-types):
+/// that type is an RFC 5321 SMTP envelope address with `email` and
+/// `parameters`, whereas this `Address` is a JSContact postal-address
+/// sub-object embedded in a `ContactCard.addresses` map.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -1158,6 +1177,12 @@ pub struct PersonalInfo {
 /// This is the value type for the `relatedTo` property on a `ContactCard`.
 /// Each map key is the `uid` of the related Card; each value is a
 /// `Relation` object describing the relationship.
+///
+/// Distinct from the JSCalendar RFC 8984 §1.4.10 type
+/// [`jmap_jscalendar_types::Relation`](https://docs.rs/jmap-jscalendar-types):
+/// that type relates JSCalendar entries (events, tasks) via UID and
+/// has a different `relation` enumeration; this `Relation` relates
+/// JSContact Cards.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
