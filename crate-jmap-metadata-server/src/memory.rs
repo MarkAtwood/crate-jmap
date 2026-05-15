@@ -396,9 +396,18 @@ impl MemoryBackend {
             static COUNTER: AtomicU64 = AtomicU64::new(0);
             static BASE: OnceLock<u64> = OnceLock::new();
             let base = *BASE.get_or_init(|| {
+                // `Duration::as_nanos()` returns u128; explicit try_from
+                // makes the u64 narrowing audible. u64 nanos overflow at
+                // ~year 2554, so the conversion is in practice always
+                // infallible within the lifetime of any deployment, but
+                // an explicit `try_from` documents that and avoids the
+                // cargo-cult `as u64` pattern downstream contributors
+                // might copy. The fallback (1e9 = epoch + 1 second) is
+                // unchanged.
                 SystemTime::now()
                     .duration_since(UNIX_EPOCH)
-                    .map(|d| d.as_nanos() as u64)
+                    .ok()
+                    .and_then(|d| u64::try_from(d.as_nanos()).ok())
                     .unwrap_or(1_000_000_000)
             });
             let n = base.wrapping_add(COUNTER.fetch_add(1, Ordering::Relaxed));
