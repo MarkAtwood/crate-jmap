@@ -1991,12 +1991,18 @@ mod tests {
             .take_last_get_args()
             .expect("backend must have received get_args");
         assert_eq!(
-            recorded.recurrence_overrides_before.as_deref(),
+            recorded
+                .recurrence_overrides_before
+                .as_ref()
+                .map(jmap_types::UTCDate::as_ref),
             Some("2026-01-01T00:00:00Z"),
             "recurrenceOverridesBefore must be forwarded"
         );
         assert_eq!(
-            recorded.recurrence_overrides_after.as_deref(),
+            recorded
+                .recurrence_overrides_after
+                .as_ref()
+                .map(jmap_types::UTCDate::as_ref),
             Some("2025-01-01T00:00:00Z"),
             "recurrenceOverridesAfter must be forwarded"
         );
