@@ -1,6 +1,6 @@
 //! Display-formatting helpers for JMAP Chat clients.
 
-use chrono::{DateTime, Datelike, Timelike, Utc, Weekday};
+use chrono::{DateTime, Datelike, Timelike, Utc};
 
 use jmap_types::UTCDate;
 
@@ -62,42 +62,25 @@ pub fn format_receipt_timestamp_at(dt: &UTCDate, now: &UTCDate) -> String {
         ..=0 => "Today".to_string(),
         1 => "Yesterday".to_string(),
         2..=6 => {
-            let weekday = match parsed.weekday() {
-                Weekday::Mon => "Mon",
-                Weekday::Tue => "Tue",
-                Weekday::Wed => "Wed",
-                Weekday::Thu => "Thu",
-                Weekday::Fri => "Fri",
-                Weekday::Sat => "Sat",
-                Weekday::Sun => "Sun",
-            };
-            format!("{} {:02}:{:02}", weekday, parsed.hour(), parsed.minute())
+            // chrono's %a is locale-independent: short English weekday
+            // name (Mon, Tue, Wed, Thu, Fri, Sat, Sun) regardless of
+            // the host OS locale — matching the prior hand-rolled
+            // table byte-for-byte while delegating to chrono's tested
+            // implementation.
+            format!(
+                "{} {:02}:{:02}",
+                parsed.format("%a"),
+                parsed.hour(),
+                parsed.minute()
+            )
         }
         _ => {
-            let month = match parsed.month() {
-                1 => "Jan",
-                2 => "Feb",
-                3 => "Mar",
-                4 => "Apr",
-                5 => "May",
-                6 => "Jun",
-                7 => "Jul",
-                8 => "Aug",
-                9 => "Sep",
-                10 => "Oct",
-                11 => "Nov",
-                12 => "Dec",
-                // chrono::Datelike::month() is contractually 1..=12. A
-                // value outside that range is a chrono-API regression,
-                // not a normal-flow case. Refuse to silently mis-label
-                // (the old '_ => "Dec"' arm silently re-mapped every
-                // out-of-range value to December).
-                _ => unreachable!("chrono::Datelike::month() returns 1..=12"),
-            };
+            // %b is the locale-independent short month name (Jan, Feb,
+            // ..., Dec). Same byte-equivalent guarantee as %a above.
             if parsed.year() != now.year() {
-                format!("{} {} {}", month, parsed.day(), parsed.year())
+                format!("{} {} {}", parsed.format("%b"), parsed.day(), parsed.year())
             } else {
-                format!("{} {}", month, parsed.day())
+                format!("{} {}", parsed.format("%b"), parsed.day())
             }
         }
     }
