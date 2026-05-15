@@ -58,6 +58,26 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
     let utc_end = UTCDate::new_validated(utc_end)
         .map_err(|_| JmapError::invalid_arguments("utcEnd: invalid UTCDate"))?;
 
+    // §2.2: utcStart is inclusive and utcEnd is exclusive, defining the
+    // half-open interval `[utcStart, utcEnd)`. An empty or reversed
+    // interval is semantically meaningless: the relevance predicate
+    // ('event finishes after utcStart AND starts before utcEnd') gives
+    // an empty set, and a backend that translates the window into a
+    // SQL `BETWEEN` or a recurrence-expansion loop could silently
+    // return wrong results or, worse, loop unboundedly on reversed
+    // bounds. Reject before the backend sees the call.
+    //
+    // UTCDate is RFC 8620 §1.4 `YYYY-MM-DDTHH:MM:SSZ` (20 chars,
+    // fixed-width zero-padded, `Z` suffix) — lexical string ordering
+    // coincides with chronological ordering, so comparing `as_ref()`
+    // is correct without adding a PartialOrd derive to UTCDate
+    // (workspace foundation crate). bd:JMAP-ic0j.5.
+    if utc_end.as_ref() <= utc_start.as_ref() {
+        return Err(JmapError::invalid_arguments(
+            "utcEnd must be strictly after utcStart",
+        ));
+    }
+
     let show_details = args_map
         .get("showDetails")
         .and_then(|v| v.as_bool())
@@ -169,6 +189,59 @@ mod tests {
         assert_eq!(
             err.error_type.as_str(),
             "accountNotFound",
+            "wrong error type: {err:?}"
+        );
+    }
+
+    /// Regression for bd:JMAP-ic0j.5: a reversed window (utcEnd
+    /// strictly earlier than utcStart) must be rejected with
+    /// `invalidArguments` before the backend sees the call.
+    ///
+    /// Oracle: draft-ietf-jmap-calendars-26 §2.2 defines the window
+    /// `[utcStart, utcEnd)` (inclusive/exclusive); the relevance
+    /// predicate at §2.2 ('event finishes after utcStart AND starts
+    /// before utcEnd') is only satisfiable when utcStart < utcEnd.
+    /// A backend that naively translates the window into a database
+    /// range query or a recurrence-expansion loop could return wrong
+    /// results or loop unboundedly on a reversed window.
+    #[tokio::test]
+    async fn get_availability_reversed_window_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "id": "principal1",
+            "utcStart": "2024-06-15T10:00:00Z",
+            "utcEnd": "2024-06-15T09:00:00Z"
+        });
+        let err = handle_principal_get_availability(&backend, &(), args)
+            .await
+            .expect_err("reversed window must return error");
+        assert_eq!(
+            err.error_type.as_str(),
+            "invalidArguments",
+            "wrong error type: {err:?}"
+        );
+    }
+
+    /// Regression for bd:JMAP-ic0j.5: a zero-width window
+    /// (utcEnd == utcStart) is also rejected with `invalidArguments`
+    /// because the half-open interval `[T, T)` is empty by definition
+    /// and a query against it is pathological.
+    #[tokio::test]
+    async fn get_availability_zero_width_window_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "id": "principal1",
+            "utcStart": "2024-06-15T09:00:00Z",
+            "utcEnd": "2024-06-15T09:00:00Z"
+        });
+        let err = handle_principal_get_availability(&backend, &(), args)
+            .await
+            .expect_err("zero-width window must return error");
+        assert_eq!(
+            err.error_type.as_str(),
+            "invalidArguments",
             "wrong error type: {err:?}"
         );
     }
