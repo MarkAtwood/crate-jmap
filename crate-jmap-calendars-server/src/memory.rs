@@ -856,12 +856,17 @@ impl CalendarsBackend for MemoryBackend {
         )
     }
 
-    async fn calendar_has_events(&self, _caller: &(), account_id: &Id, calendar_id: &Id) -> bool {
+    async fn calendar_has_events(
+        &self,
+        _caller: &(),
+        account_id: &Id,
+        calendar_id: &Id,
+    ) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
-        inner
+        Ok(inner
             .aux_ref(account_id.as_ref())
             .map(|a| a.calendars_with_events.contains(calendar_id))
-            .unwrap_or(false)
+            .unwrap_or(false))
     }
 
     async fn set_default_calendar(

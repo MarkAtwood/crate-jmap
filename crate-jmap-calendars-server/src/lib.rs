@@ -661,12 +661,12 @@ pub(crate) mod test_support {
             _caller: &(),
             account_id: &Id,
             calendar_id: &Id,
-        ) -> bool {
+        ) -> Result<bool, Self::Error> {
             let guard = self.state.lock().unwrap();
-            guard
+            Ok(guard
                 .get(account_id.as_ref())
                 .map(|acct| acct.calendars_with_events.contains(calendar_id))
-                .unwrap_or(false)
+                .unwrap_or(false))
         }
 
         // Scheduling-aware overrides: the mock has no iTIP delivery support,
