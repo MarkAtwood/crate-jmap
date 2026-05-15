@@ -184,12 +184,24 @@ impl MemoryBackend {
     }
 
     /// Register an account and return `self` for chaining.
+    ///
+    /// **Idempotent on collision.** If the account already exists, the
+    /// existing per-account state (nodes, state counter, change log)
+    /// is preserved and this call is a no-op. To deliberately erase
+    /// an account, drop the `MemoryBackend` and construct a new one,
+    /// or use a future `reset_account` API.
+    ///
+    /// Rationale (bd:JMAP-510h.41): a re-registration in a long-lived
+    /// process (e.g. a SIGHUP-driven config reload) must not silently
+    /// drop the account's nodes. `HashMap::insert` would have done
+    /// exactly that.
     pub fn with_account(self, account_id: &str) -> Self {
         self.inner
             .lock()
             .unwrap()
             .accounts
-            .insert(account_id.to_owned(), AccountStore::new());
+            .entry(account_id.to_owned())
+            .or_insert_with(AccountStore::new);
         self
     }
 
@@ -1040,5 +1052,69 @@ fn date_on_or_after(node_date: Option<&jmap_types::UTCDate>, bound: &jmap_types:
     match node_date {
         Some(d) => d.as_ref() >= bound.as_ref(),
         None => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Build a minimal FileNode by serde round-trip for fixture use.
+    fn make_filenode(id: &str, name: &str) -> FileNode {
+        serde_json::from_value(json!({
+            "id": id,
+            "name": name,
+            "parentId": null,
+            "role": null,
+            "nodeType": "directory",
+            "target": null,
+            "blobId": null,
+            "type": null,
+            "size": null,
+            "shareWith": null,
+            "myRights": null,
+            "created": "1970-01-01T00:00:00Z",
+            "modified": "1970-01-01T00:00:00Z",
+            "accessed": null
+        }))
+        .expect("fixture FileNode must deserialize")
+    }
+
+    /// Oracle: with_account on an existing account is a no-op — pre-existing
+    /// nodes, state counter, and change log all survive (bd:JMAP-510h.41).
+    /// The original `HashMap::insert` semantics would have replaced the
+    /// account with a fresh empty `AccountStore`, silently dropping all
+    /// pre-existing data.
+    #[tokio::test]
+    async fn with_account_preserves_existing_account_state() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_node("acc1", make_filenode("n1", "first"));
+
+        // Confirm the seed landed.
+        let (nodes, _missing) = backend
+            .get_objects::<FileNode>(&(), &Id::from("acc1"), None, None)
+            .await
+            .expect("get_objects must succeed");
+        assert_eq!(nodes.len(), 1, "seed must be observable before re-register");
+
+        // Re-register the same account id. Pre-fix this destroyed
+        // the pre-existing state; post-fix it must be a no-op.
+        let backend = backend.with_account("acc1");
+
+        let (nodes, _missing) = backend
+            .get_objects::<FileNode>(&(), &Id::from("acc1"), None, None)
+            .await
+            .expect("get_objects must succeed after re-register");
+        assert_eq!(
+            nodes.len(),
+            1,
+            "pre-existing seed MUST survive a second with_account on the same id"
+        );
+        assert_eq!(
+            nodes[0].id.as_ref(),
+            "n1",
+            "the surviving node must be the originally-seeded one"
+        );
     }
 }
