@@ -6,6 +6,7 @@
 //! consumer of [`SetAccumulators`], [`finalize_set_response`], and
 //! [`set_error_value`].
 
+use jmap_metadata_types::Metadata;
 use jmap_types::{Id, Invocation, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};
 
@@ -106,5 +107,29 @@ where
 /// `.expect` below is provably unreachable: `serde_json::to_value` on a
 /// derive-Serialize type with no custom logic cannot fail.
 pub(crate) fn set_error_value(e: &jmap_server::SetError) -> serde_json::Value {
-    serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
+    serde_json::to_value(e).expect(INFALLIBLE_SERIALIZE_JUSTIFICATION)
 }
+
+/// Serialize a [`Metadata`] to a JSON value for inclusion in
+/// `created`/`updated` maps in the `Metadata/set` response.
+///
+/// Sibling helper to [`set_error_value`]: factors out the
+/// "derive-Serialize is infallible" justification so it lives in
+/// exactly one place. `Metadata` is a `#[derive(Serialize)]`-only type
+/// (no custom serializer logic), so `serde_json::to_value` on it cannot
+/// fail in practice — the `.expect` is a documentation marker rather
+/// than a runtime path.
+pub(crate) fn metadata_value(m: &Metadata) -> serde_json::Value {
+    serde_json::to_value(m).expect(INFALLIBLE_SERIALIZE_JUSTIFICATION)
+}
+
+/// Shared `.expect` message for plain-data Serialize sites in this
+/// crate. Hoisted out of duplicated string literals at the four call
+/// sites that previously inlined the same justification (bd:JMAP-826m.50,
+/// bd:JMAP-826m.29).
+///
+/// Note: this is the message a future panic would surface. Keep it
+/// short and reader-actionable; the rustdoc above each call site is
+/// where the "why this is unreachable" rationale belongs.
+const INFALLIBLE_SERIALIZE_JUSTIFICATION: &str =
+    "derive(Serialize) on plain data is infallible";
