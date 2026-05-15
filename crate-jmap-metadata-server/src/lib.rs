@@ -45,8 +45,8 @@ pub mod metadata;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, MetadataBackend, QueryChangesResult, QueryObject, QueryResult, SetError,
-    SetErrorType, SetObject,
+    JmapObject, MetadataBackend, MetadataProperty, QueryChangesResult, QueryObject, QueryResult,
+    SetError, SetErrorType, SetObject,
 };
 pub use metadata::{
     handle_metadata_changes, handle_metadata_get, handle_metadata_query,

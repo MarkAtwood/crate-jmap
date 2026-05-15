@@ -47,7 +47,7 @@ pub mod task_notification;
 pub use backend::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
-    TasksBackend,
+    TaskListProperty, TaskNotificationProperty, TaskProperty, TasksBackend,
 };
 pub use task::{
     handle_task_changes, handle_task_copy, handle_task_get, handle_task_query,

@@ -48,10 +48,11 @@ pub mod principal;
 
 pub use backend::{
     AddedItem, AvailabilityError, BackendChangesError, BackendSetError, CalendarEventGetArgs,
-    CalendarEventParseResult, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
-    CalendarsLimits, ChangesResult, GetObject, JmapBackend, JmapObject, QueryCalendarEventsError,
-    QueryChangesResult, QueryObject, QueryResult, SetDefaultResult, SetError, SetErrorType,
-    SetObject,
+    CalendarEventNotificationProperty, CalendarEventParseResult, CalendarEventProperty,
+    CalendarEventQueryArgs, CalendarEventSetArgs, CalendarProperty, CalendarsBackend,
+    CalendarsLimits, ChangesResult, GetObject, JmapBackend, JmapObject,
+    ParticipantIdentityProperty, QueryCalendarEventsError, QueryChangesResult, QueryObject,
+    QueryResult, SetDefaultResult, SetError, SetErrorType, SetObject,
 };
 pub use calendar::{handle_calendar_changes, handle_calendar_get, handle_calendar_set};
 pub use event::{
