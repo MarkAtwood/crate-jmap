@@ -441,13 +441,10 @@ pub(crate) mod test_support {
             // store it as a Metadata for later retrieval.
             let v = serde_json::to_value(&obj)
                 .map_err(|e| BackendSetError::Other(MockError::new(format!("serialize: {e}"))))?;
-            let mut v = match v {
-                serde_json::Value::Object(m) => m,
-                _ => {
-                    return Err(BackendSetError::SetError(SetError::new(
-                        SetErrorType::InvalidProperties,
-                    )))
-                }
+            let serde_json::Value::Object(mut v) = v else {
+                return Err(BackendSetError::SetError(SetError::new(
+                    SetErrorType::InvalidProperties,
+                )));
             };
             v.insert(
                 "id".to_owned(),
