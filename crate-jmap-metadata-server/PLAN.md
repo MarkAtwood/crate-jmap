@@ -108,8 +108,12 @@ results.
 
 ## MetadataBackend Trait
 
-Cookie-cut from `SharingBackend`. Read-side operations come from `JmapBackend`
-(supertrait); write operations are defined here.
+Same trait shape as the canonical `MailBackend` (`jmap-mail-server`) modulo
+the spec content: read-side operations come from `JmapBackend` (supertrait);
+write operations are defined here. The single-object-family scaffolding
+(one Metadata type, no per-method backend hooks) matches
+`SharingBackend` more closely than `MailBackend`'s multi-type surface,
+but the trait-shape and propagation rule anchor on `MailBackend`.
 
 ```rust
 pub trait MetadataBackend: JmapBackend {
@@ -160,8 +164,13 @@ src/
   memory.rs     [feature="memory"] reference impl of MetadataBackend
 ```
 
-All five handler functions live in `metadata.rs` because the crate has a single
-JMAP object type. Same shape as `jmap-filenode-server`.
+All five handler functions live in `metadata.rs` because the crate has a
+single JMAP object type. This is the same single-object-family layout
+`jmap-filenode-server` and `jmap-sharing-server` adopt; the multi-object
+layout (per-object-type module file) used by `jmap-mail-server` —
+which is the workspace canonical extension-server template — applies
+when a server crate hosts multiple JMAP object types and is therefore
+not needed here.
 
 ## Test Strategy
 
