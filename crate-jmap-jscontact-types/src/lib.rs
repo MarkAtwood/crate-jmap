@@ -953,7 +953,17 @@ pub struct Timestamp {
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
-    /// The UTC date-time.
+    /// The UTC date-time (RFC 9553 §1.4.5 `UTCDateTime`): an RFC 3339
+    /// date-time string with the time-offset always `"Z"`, e.g.
+    /// `"2022-05-22T03:30:00Z"`.
+    ///
+    /// Stored as bare `String` so deserialize accepts any peer-emitted
+    /// value losslessly. The format is NOT validated at construction or
+    /// deserialize time; callers that need the parsed value should pipe
+    /// it through `chrono::DateTime::parse_from_rfc3339` or
+    /// `time::OffsetDateTime::parse` themselves (per the workspace
+    /// convention used by `jmap_types::UTCDate`, which carries the same
+    /// parse-on-demand contract).
     pub utc: String,
 
     /// Catch-all for vendor / site / private extension fields not covered
@@ -1087,7 +1097,13 @@ pub struct Note {
     /// The free-text value of this note.
     pub note: String,
 
-    /// UTC date-time when the note was created (RFC 9553 §1.4.5 UTCDateTime).
+    /// UTC date-time when the note was created (RFC 9553 §1.4.5
+    /// `UTCDateTime`): an RFC 3339 date-time string with the time-offset
+    /// always `"Z"`, e.g. `"2022-05-22T03:30:00Z"`.
+    ///
+    /// Stored as bare `String` and not validated; callers that need the
+    /// parsed value should use `chrono::DateTime::parse_from_rfc3339` or
+    /// `time::OffsetDateTime::parse`. Same contract as [`Timestamp::utc`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created: Option<String>,
 
