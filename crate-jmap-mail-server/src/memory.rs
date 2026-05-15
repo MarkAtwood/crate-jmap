@@ -1066,9 +1066,10 @@ impl MailBackend for MemoryBackend {
             .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
         // Use the object's existing id if it is a meaningful server-assigned
         // value (e.g. VacationResponse always uses "singleton"). Treat absent
-        // or "placeholder" ids as a signal to assign a fresh UUID.
+        // or [`crate::helpers::PLACEHOLDER_ID`] ids as a signal to assign a
+        // fresh UUID.
         let id = match val.get("id").and_then(|v| v.as_str()) {
-            Some(s) if s != "placeholder" => Id::from(s),
+            Some(s) if s != crate::helpers::PLACEHOLDER_ID => Id::from(s),
             _ => {
                 let uuid_id = Id::from(uuid::Uuid::new_v4().to_string());
                 if let serde_json::Value::Object(ref mut map) = val {

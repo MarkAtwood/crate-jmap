@@ -580,7 +580,8 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             }
 
             // e. Build SieveScript object — is_active always false on creation.
-            let mut script = SieveScript::new(Id::from("placeholder"), blob_id, false);
+            let mut script =
+                SieveScript::new(Id::from(crate::helpers::PLACEHOLDER_ID), blob_id, false);
             script.name = name.clone();
 
             // f. Persist via backend.

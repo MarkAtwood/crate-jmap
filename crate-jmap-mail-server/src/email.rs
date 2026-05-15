@@ -1682,7 +1682,7 @@ async fn build_email_from_create<B: MailBackend>(
 
     // Use a placeholder id; create_object assigns the real one.
     let mut email = Email::new(
-        Id::from("placeholder"),
+        Id::from(crate::helpers::PLACEHOLDER_ID),
         blob_id,
         thread_id,
         mailbox_ids,
