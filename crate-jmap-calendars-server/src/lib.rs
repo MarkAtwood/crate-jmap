@@ -329,6 +329,14 @@ pub(crate) mod test_support {
         /// Like [`add_object`](Self::add_object) but takes `&self`, so callers
         /// already holding an `Arc<MockBackend>` (e.g. dispatcher-driven tests)
         /// can seed without unwrapping the `Arc`.
+        ///
+        /// # Panics
+        ///
+        /// Same preconditions and panic shapes as
+        /// [`MemoryBackend::seed_object`](crate::memory::MemoryBackend::seed_object):
+        /// `type_name` must be one of the four known
+        /// `jmap_calendars_types::backend::*::TYPE_NAME` values, and `value`
+        /// must be a JSON object whose `id` field matches `id`. bd:JMAP-ic0j.32.
         #[allow(dead_code)]
         pub fn seed_object(
             &self,
@@ -337,6 +345,34 @@ pub(crate) mod test_support {
             id: &str,
             value: serde_json::Value,
         ) {
+            const KNOWN_TYPES: &[&str] = &[
+                "Calendar",
+                "CalendarEvent",
+                "CalendarEventNotification",
+                "ParticipantIdentity",
+            ];
+            assert!(
+                KNOWN_TYPES.contains(&type_name),
+                "seed_object: type_name {type_name:?} is not one of the known \
+                 jmap-calendars-types TYPE_NAME values {KNOWN_TYPES:?}"
+            );
+            let obj = value.as_object().unwrap_or_else(|| {
+                panic!(
+                    "seed_object: value must be a JSON object with an `id` field, \
+                     got {value:?}"
+                )
+            });
+            let value_id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_else(|| {
+                panic!(
+                    "seed_object: value must contain an `id` string field; got value = {value:?}"
+                )
+            });
+            assert_eq!(
+                value_id, id,
+                "seed_object: value's `id` field {value_id:?} does not match the \
+                 `id` argument {id:?}"
+            );
+
             let mut guard = self.state.lock().unwrap();
             let acct = guard.entry(account_id.to_owned()).or_default();
             acct.objects

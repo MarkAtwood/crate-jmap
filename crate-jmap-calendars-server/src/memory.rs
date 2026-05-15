@@ -330,11 +330,29 @@ impl MemoryBackend {
     /// Seed a pre-existing object into the store without bumping the state
     /// counter or recording a change-log entry.
     ///
-    /// Intended for test fixture setup. The `type_name` must match
-    /// `O::TYPE_NAME` of the type being seeded
-    /// (e.g. `"Calendar"`, `"CalendarEvent"`, `"CalendarEventNotification"`,
-    /// `"ParticipantIdentity"`). The `value` must be a JSON object with at
-    /// least an `id` field matching `id`.
+    /// Intended for test fixture setup. The `type_name` must be exactly one
+    /// of the four `O::TYPE_NAME` values defined by `jmap-calendars-types`:
+    /// `"Calendar"`, `"CalendarEvent"`, `"CalendarEventNotification"`, or
+    /// `"ParticipantIdentity"`. The `value` must be a JSON object whose `id`
+    /// field matches the `id` argument.
+    ///
+    /// # Panics
+    ///
+    /// Panics with a clear message if either precondition is violated:
+    ///
+    /// - `type_name` is not one of the four known values — catches typos
+    ///   like `"calendarevent"` (lowercase) or `"CalenderEvent"` (misspelled)
+    ///   that would otherwise silently insert into a dead namespace.
+    /// - `value` is not a JSON object, or its `id` field is missing or does
+    ///   not equal `id` — catches mistakes like `json!(42)`,
+    ///   `json!({})`, or `json!({"id": "wrong-id"})` that would otherwise
+    ///   surface much later as opaque `MemoryError("deserialize ...")` from
+    ///   `get_objects`.
+    ///
+    /// bd:JMAP-ic0j.32. The fixture-setup contract is documented in two
+    /// places (this rustdoc + the panic messages) so a test author who hits
+    /// the panic at runtime gets actionable guidance without having to read
+    /// the source.
     pub fn seed_object(
         &self,
         account_id: &str,
@@ -342,15 +360,47 @@ impl MemoryBackend {
         id: &str,
         value: serde_json::Value,
     ) {
+        // Catch typos in `type_name` at the seed boundary rather than letting
+        // them silently corrupt the fixture into a dead namespace.
+        const KNOWN_TYPES: &[&str] = &[
+            "Calendar",
+            "CalendarEvent",
+            "CalendarEventNotification",
+            "ParticipantIdentity",
+        ];
+        assert!(
+            KNOWN_TYPES.contains(&type_name),
+            "seed_object: type_name {type_name:?} is not one of the known \
+             jmap-calendars-types TYPE_NAME values {KNOWN_TYPES:?}. \
+             Likely a typo — the lookup would silently store into a dead \
+             namespace no method reads from."
+        );
+
+        // Validate the value's shape at the seed boundary so a malformed
+        // fixture fails fast HERE, not in the get_objects deserialize path.
+        let obj = value.as_object().unwrap_or_else(|| {
+            panic!(
+                "seed_object: value must be a JSON object with an `id` field, \
+                 got {value:?}"
+            )
+        });
+        let value_id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_else(|| {
+            panic!("seed_object: value must contain an `id` string field; got value = {value:?}")
+        });
+        assert_eq!(
+            value_id, id,
+            "seed_object: value's `id` field {value_id:?} does not match the \
+             `id` argument {id:?} — the object would be reachable by the arg \
+             id but its serialized form would carry the value-id, breaking \
+             round-trip"
+        );
+
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.to_owned());
         inner
             .objects_mut(type_name, account_id)
             .insert(Id::from(id), value);
-        // Keep the derived index in sync if we just seeded a CalendarEvent.
-        if type_name == "CalendarEvent" {
-            inner.recompute_calendars_with_events(account_id);
-        }
+        inner.maintain_indexes_after_set(type_name, account_id);
     }
 
     /// Set the default `Calendar` id for an account
@@ -1244,5 +1294,76 @@ mod change_log_dedup_tests {
             vec![id_b],
             "newly-minted id appears in created"
         );
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests for seed_object precondition assertions (bd:JMAP-ic0j.32)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod seed_object_validation_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Regression for bd:JMAP-ic0j.32: a misspelled `type_name` panics
+    /// instead of silently storing into a dead namespace.
+    ///
+    /// Oracle: the four valid `type_name` values are the
+    /// `O::TYPE_NAME` constants defined in
+    /// `jmap_calendars_types::backend` (Calendar, CalendarEvent,
+    /// CalendarEventNotification, ParticipantIdentity). Anything else
+    /// is a test-author typo.
+    #[test]
+    #[should_panic(expected = "not one of the known")]
+    fn seed_object_rejects_unknown_type_name() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "calendarevent", "ev1", json!({"id": "ev1"}));
+    }
+
+    /// Regression for bd:JMAP-ic0j.32: a non-object value panics
+    /// instead of silently storing data that get_objects cannot
+    /// deserialize.
+    #[test]
+    #[should_panic(expected = "must be a JSON object")]
+    fn seed_object_rejects_non_object_value() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "Calendar", "cal1", json!(42));
+    }
+
+    /// Regression for bd:JMAP-ic0j.32: a value missing the `id` field
+    /// panics instead of storing a fixture whose `id` field will be
+    /// absent on read-back.
+    #[test]
+    #[should_panic(expected = "must contain an `id` string field")]
+    fn seed_object_rejects_value_without_id_field() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "Calendar", "cal1", json!({"name": "Work"}));
+    }
+
+    /// Regression for bd:JMAP-ic0j.32: a value whose `id` field does
+    /// not match the `id` argument panics rather than producing a
+    /// fixture that's reachable by one id but serializes with another.
+    #[test]
+    #[should_panic(expected = "does not match the `id` argument")]
+    fn seed_object_rejects_id_mismatch() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "Calendar", "cal1", json!({"id": "cal2"}));
+    }
+
+    /// Positive control: the happy path still works for each of the
+    /// four known type_name values.
+    #[test]
+    fn seed_object_accepts_known_type_names() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "Calendar", "c1", json!({"id": "c1"}));
+        backend.seed_object("acc1", "CalendarEvent", "e1", json!({"id": "e1"}));
+        backend.seed_object(
+            "acc1",
+            "CalendarEventNotification",
+            "n1",
+            json!({"id": "n1"}),
+        );
+        backend.seed_object("acc1", "ParticipantIdentity", "p1", json!({"id": "p1"}));
     }
 }

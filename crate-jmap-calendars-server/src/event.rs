@@ -1212,8 +1212,15 @@ mod tests {
         // Register dst as a real account. add_object's underlying seed_object
         // uses entry().or_default() on the account map, so this both creates
         // the account entry (so account_exists("dst") returns true) and seeds
-        // a placeholder object that is unrelated to the copy target.
-        backend.add_object("dst", "CalendarEvent", "_placeholder_", json!({}));
+        // a placeholder object that is unrelated to the copy target. The
+        // placeholder carries a matching `id` field to satisfy the
+        // seed_object preconditions (bd:JMAP-ic0j.32).
+        backend.add_object(
+            "dst",
+            "CalendarEvent",
+            "_placeholder_",
+            json!({"id": "_placeholder_"}),
+        );
 
         let args = json!({
             "accountId": "dst",
