@@ -169,12 +169,15 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                // BackendSetError is #[non_exhaustive]; surface any future
+                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
+                Err(other) => {
                     not_created.insert(
                         create_id,
                         json!({
                             "type": "serverFail",
-                            "description": "unhandled backend error variant",
+                            "description":
+                                format!("unhandled backend error variant: {other:?}"),
                         }),
                     );
                 }
@@ -228,12 +231,15 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                // BackendSetError is #[non_exhaustive]; surface any future
+                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
+                Err(other) => {
                     not_updated.insert(
                         id_str,
                         json!({
                             "type": "serverFail",
-                            "description": "unhandled backend error variant",
+                            "description":
+                                format!("unhandled backend error variant: {other:?}"),
                         }),
                     );
                 }
@@ -304,12 +310,15 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
+                // BackendSetError is #[non_exhaustive]; surface any future
+                // variant's Debug repr instead of discarding it (bd:JMAP-qz9v.53).
+                Err(other) => {
                     not_destroyed.insert(
                         id_str,
                         json!({
                             "type": "serverFail",
-                            "description": "unhandled backend error variant",
+                            "description":
+                                format!("unhandled backend error variant: {other:?}"),
                         }),
                     );
                 }
