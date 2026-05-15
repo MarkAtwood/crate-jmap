@@ -1649,7 +1649,6 @@ mod tests {
         QueryChangesResult, QueryObject, QueryResult, SetObject,
     };
     use crate::memory::{MemoryBackend, MemoryError};
-    use crate::test_support::MockBackend;
     use jmap_types::State;
 
     // -----------------------------------------------------------------------
@@ -1724,19 +1723,7 @@ mod tests {
         after_calls: u64,
     }
 
-    // The associated items below are exercised by the unit tests that
-    // bd:JMAP-510h.14.3 migrates from MockBackend to FaultyBackend. They
-    // are intentionally unused in this commit (.14.2 adds the wrapper;
-    // .14.3 wires it into the existing tests).
-    #[allow(dead_code)]
     impl FaultyBackend {
-        fn new() -> Self {
-            Self {
-                inner: MemoryBackend::new(),
-                faults: std::sync::Arc::new(std::sync::Mutex::new(FaultState::default())),
-            }
-        }
-
         fn new_with_account(account_id: &str) -> Self {
             Self {
                 inner: MemoryBackend::new().with_account(account_id),
@@ -2129,6 +2116,37 @@ mod tests {
     }
 
     // -----------------------------------------------------------------------
+    // Fixture helpers
+    // -----------------------------------------------------------------------
+
+    /// Build a minimal FileNode by JSON round-trip — FileNode is
+    /// `#[non_exhaustive]` so its struct literal is unavailable outside
+    /// the defining crate. `parent_id_str` is `None` for top-level nodes.
+    fn make_filenode(id: &str, parent_id_str: Option<&str>, name: &str) -> FileNode {
+        let parent = match parent_id_str {
+            Some(s) => serde_json::Value::String(s.to_owned()),
+            None => serde_json::Value::Null,
+        };
+        serde_json::from_value(json!({
+            "id": id,
+            "name": name,
+            "parentId": parent,
+            "role": null,
+            "nodeType": "directory",
+            "target": null,
+            "blobId": null,
+            "type": null,
+            "size": null,
+            "shareWith": null,
+            "myRights": null,
+            "created": "1970-01-01T00:00:00Z",
+            "modified": "1970-01-01T00:00:00Z",
+            "accessed": null
+        }))
+        .expect("make_filenode fixture must deserialize")
+    }
+
+    // -----------------------------------------------------------------------
     // FileNode/get
     // -----------------------------------------------------------------------
 
@@ -2201,30 +2219,11 @@ mod tests {
     /// the error.
     #[tokio::test]
     async fn get_fetch_parents_propagates_get_ancestors_err() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = FaultyBackend::new_with_account("acc1");
         // Seed one FileNode so the response `list` is non-empty and
-        // the fetchParents branch is taken. Minimal valid FileNode
-        // shape; the type crate's deserializer accepts these fields.
-        backend.add_get_objects_node(json!({
-            "id": "child",
-            "name": "child",
-            "parentId": null,
-            "role": null,
-            "isExecutable": false,
-            "isTopLevel": true,
-            "nodeType": "directory",
-            "target": null,
-            "blobId": null,
-            "type": null,
-            "size": 0,
-            "shareWith": null,
-            "myRights": null,
-            "annotations": null,
-            "created": "1970-01-01T00:00:00Z",
-            "modified": "1970-01-01T00:00:00Z",
-            "accessed": null
-        }));
-        backend.set_get_ancestors_err("simulated DB timeout");
+        // the fetchParents branch is taken.
+        backend.seed_node("acc1", make_filenode("child", None, "child"));
+        backend.inject_get_ancestors_err("simulated DB timeout");
 
         let args = json!({
             "accountId": "acc1",
@@ -2250,8 +2249,8 @@ mod tests {
     /// bool, leaving the implementor no way to signal Err.
     #[tokio::test]
     async fn set_create_blob_exists_err_propagates_as_server_fail() {
-        let backend = MockBackend::new_with_account("acc1");
-        backend.set_blob_exists_err("simulated S3 timeout");
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.inject_blob_exists_err("simulated S3 timeout");
 
         let args = json!({
             "accountId": "acc1",
@@ -2340,11 +2339,12 @@ mod tests {
     /// depth=1 expansion fetches parentId="dir1" and adds children.
     #[tokio::test]
     async fn query_depth_one_returns_children() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = FaultyBackend::new_with_account("acc1");
         // Root-level node returned by the initial query.
-        backend.set_children(None, &["dir1"]);
+        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
         // dir1's children.
-        backend.set_children(Some("dir1"), &["child1", "child2"]);
+        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
+        backend.seed_node("acc1", make_filenode("child2", Some("dir1"), "child2"));
 
         let args = json!({
             "accountId": "acc1",
@@ -2372,10 +2372,13 @@ mod tests {
     /// child1 has grandchildren, but depth=1 must NOT return them.
     #[tokio::test]
     async fn query_depth_one_stops_at_first_level() {
-        let backend = MockBackend::new_with_account("acc1");
-        backend.set_children(None, &["dir1"]);
-        backend.set_children(Some("dir1"), &["child1"]);
-        backend.set_children(Some("child1"), &["grandchild1"]);
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
+        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
+        backend.seed_node(
+            "acc1",
+            make_filenode("grandchild1", Some("child1"), "grandchild1"),
+        );
 
         let args = json!({
             "accountId": "acc1",
@@ -2399,10 +2402,13 @@ mod tests {
     /// Oracle: depth=2 → two levels of expansion.
     #[tokio::test]
     async fn query_depth_two_returns_grandchildren() {
-        let backend = MockBackend::new_with_account("acc1");
-        backend.set_children(None, &["dir1"]);
-        backend.set_children(Some("dir1"), &["child1"]);
-        backend.set_children(Some("child1"), &["grandchild1"]);
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
+        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
+        backend.seed_node(
+            "acc1",
+            make_filenode("grandchild1", Some("child1"), "grandchild1"),
+        );
 
         let args = json!({
             "accountId": "acc1",
@@ -2427,9 +2433,10 @@ mod tests {
     /// Regression test: the refactored implementation must produce identical output.
     #[tokio::test]
     async fn query_depth_one_via_subtree_matches_manual_loop() {
-        let backend = MockBackend::new_with_account("acc1");
-        backend.set_children(None, &["dir1"]);
-        backend.set_children(Some("dir1"), &["child1", "child2"]);
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
+        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
+        backend.seed_node("acc1", make_filenode("child2", Some("dir1"), "child2"));
 
         let args = json!({
             "accountId": "acc1",
@@ -2460,11 +2467,11 @@ mod tests {
     /// indistinguishable from a depth>0 success with zero descendants.
     #[tokio::test]
     async fn query_depth_gt_zero_propagates_query_subtree_err() {
-        let backend = MockBackend::new_with_account("acc1");
-        backend.set_children(None, &["root"]);
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("root", None, "root"));
         // Succeed on the initial top-level query_objects (call 0),
         // fail on the per-level recursion inside query_subtree (call 1).
-        backend.set_query_objects_err_after("simulated DB timeout", 1);
+        backend.inject_query_objects_err_after("simulated DB timeout", 1);
 
         let args = json!({
             "accountId": "acc1",
@@ -2494,11 +2501,11 @@ mod tests {
     async fn query_subtree_default_impl_propagates_query_objects_err() {
         use crate::backend::FileNodeBackend;
 
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = FaultyBackend::new_with_account("acc1");
         // Seed level 0 so the loop has work to do, then arm the failure
         // injection for the per-level query_objects call.
-        backend.set_children(None, &["root"]);
-        backend.set_query_objects_err("simulated DB timeout");
+        backend.seed_node("acc1", make_filenode("root", None, "root"));
+        backend.inject_query_objects_err("simulated DB timeout");
 
         let root_ids = [Id::from("root")];
         let result = backend
@@ -2526,9 +2533,13 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.2.3.
     #[tokio::test]
     async fn set_destroy_node_with_children_returns_node_has_children() {
-        let backend = MockBackend::new_with_account("acc1");
-        // Declare dir1 has one child not in this destroy request.
-        backend.set_descendants("dir1", &["child1"]);
+        let backend = FaultyBackend::new_with_account("acc1");
+        // Seed one child whose parent_id is dir1, so MemoryBackend's
+        // get_descendant_ids(dir1) returns [child1]. dir1 itself is
+        // intentionally NOT seeded — the nodeHasChildren guard fires
+        // before backend.destroy is called, so dir1's existence does
+        // not matter to this assertion.
+        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
 
         let args = json!({
             "accountId": "acc1",
@@ -2557,10 +2568,13 @@ mod tests {
     /// is true proceeds to the backend (no nodeHasChildren guard).
     #[tokio::test]
     async fn set_destroy_node_with_children_and_flag_true_calls_backend() {
-        let backend = MockBackend::new_with_account("acc1");
-        // Backend returns notFound for this id since we didn't pre-seed it.
-        // The point: the handler must reach the backend, not short-circuit.
-        backend.set_descendants("dir1", &["child1"]);
+        let backend = FaultyBackend::new_with_account("acc1");
+        // Seed one descendant so MemoryBackend's get_descendant_ids
+        // returns [child1] — the nodeHasChildren guard would fire if
+        // onDestroyRemoveChildren were false. dir1 itself is NOT
+        // seeded, so when the handler eventually calls destroy_object,
+        // the inner MemoryBackend returns notFound.
+        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
 
         let args = json!({
             "accountId": "acc1",
@@ -2593,8 +2607,15 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.2.3.
     #[tokio::test]
     async fn set_destroy_with_remove_children_true_includes_descendants_in_destroyed() {
-        let backend = MockBackend::new_with_account("acc1");
-        backend.set_descendants("dir1", &["child1", "child2"]);
+        let backend = FaultyBackend::new_with_account("acc1");
+        // Seed two descendants but NOT dir1. With MemoryBackend, the
+        // cascade succeeds on child1+child2 (they exist), then the
+        // top-level destroy of dir1 fails with notFound (dir1 never
+        // existed). The wire-level result is the same as the original
+        // mock-only test: notDestroyed["dir1"]["type"] == "notFound"
+        // and nodeHasChildren never appears.
+        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
+        backend.seed_node("acc1", make_filenode("child2", Some("dir1"), "child2"));
 
         let args = json!({
             "accountId": "acc1",
@@ -2605,26 +2626,23 @@ mod tests {
             .await
             .expect("must not return top-level error");
 
-        // Mock destroy always returns notFound, so descendants go to notDestroyed.
-        // They must NOT be notFound due to nodeHasChildren — they should be notFound
-        // from the backend, meaning cascade was attempted.
         let not_destroyed = &resp["notDestroyed"];
         assert!(
             not_destroyed.is_object(),
             "notDestroyed must be present: {resp}"
         );
 
-        // The cascade hit child1 first and failed with notFound (backend error),
-        // so it was reported under the parent id. No nodeHasChildren error.
         assert_ne!(
             not_destroyed["dir1"]["type"].as_str(),
             Some("nodeHasChildren"),
             "nodeHasChildren MUST NOT appear when onDestroyRemoveChildren=true: {resp}"
         );
-        // The error must be notFound (propagated from backend cascade failure).
+        // The error must be notFound — either propagated from a
+        // cascade failure (mock semantics) or from the top-level
+        // destroy of the unseeded dir1 (memory semantics).
         assert_eq!(
             not_destroyed["dir1"]["type"], "notFound",
-            "cascade failure should report backend's notFound: {resp}"
+            "destroy of unseeded dir1 should report notFound: {resp}"
         );
     }
 
@@ -2638,10 +2656,11 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.2.3 (no cycles constraint).
     #[tokio::test]
     async fn set_update_circular_parent_returns_invalid_properties() {
-        let backend = MockBackend::new_with_account("acc1");
-        // "node2" is a descendant of "node1", so moving node1 under node2
-        // would create a cycle.
-        backend.set_descendants("node1", &["node2"]);
+        let backend = FaultyBackend::new_with_account("acc1");
+        // Seed node2 with parent_id=node1, so MemoryBackend's
+        // get_descendant_ids(node1) returns [node2]. Moving node1
+        // under node2 would create a cycle.
+        backend.seed_node("acc1", make_filenode("node2", Some("node1"), "node2"));
 
         let args = json!({
             "accountId": "acc1",
@@ -2724,9 +2743,17 @@ mod tests {
     /// the same destroy request.
     #[tokio::test]
     async fn set_destroy_parent_and_all_children_succeeds() {
-        let backend = MockBackend::new_with_account("acc1");
-        // node_parent has one child: node_child. Both are in the destroy request.
-        backend.set_descendants("node_parent", &["node_child"]);
+        let backend = FaultyBackend::new_with_account("acc1");
+        // Seed node_child with parent_id=node_parent, so
+        // get_descendant_ids(node_parent) returns [node_child]. Both
+        // are in the destroy request — the all-covered check passes
+        // and the handler proceeds to backend.destroy. node_parent
+        // itself is unseeded (destroy → notFound) but the test only
+        // asserts that nodeHasChildren never appears.
+        backend.seed_node(
+            "acc1",
+            make_filenode("node_child", Some("node_parent"), "node_child"),
+        );
 
         let args = json!({
             "accountId": "acc1",
@@ -2936,9 +2963,9 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.2.3.
     #[tokio::test]
     async fn set_create_collision_reject_returns_already_exists() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = FaultyBackend::new_with_account("acc1");
         // Register a sibling named "foo" under root (no parent).
-        backend.set_sibling(None, "foo", "existing-id-1");
+        backend.seed_node("acc1", make_filenode("existing-id-1", None, "foo"));
 
         let args = json!({
             "accountId": "acc1",
@@ -2969,9 +2996,9 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.2.3.
     #[tokio::test]
     async fn set_create_collision_rename_uses_suffixed_name() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = FaultyBackend::new_with_account("acc1");
         // "foo" collides; "foo-1" does not.
-        backend.set_sibling(None, "foo", "existing-id-1");
+        backend.seed_node("acc1", make_filenode("existing-id-1", None, "foo"));
 
         let args = json!({
             "accountId": "acc1",
@@ -3005,9 +3032,9 @@ mod tests {
     /// from the client. Regression for bd JMAP-510h.8.
     #[tokio::test]
     async fn set_create_rename_response_name_overrides_backend_echo() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = FaultyBackend::new_with_account("acc1");
         // Pre-seed collision on "foo".
-        backend.set_sibling(None, "foo", "existing-id-1");
+        backend.seed_node("acc1", make_filenode("existing-id-1", None, "foo"));
         // Simulate a backend that returns a different name from what
         // the handler asked it to store. Without the post-create
         // enforcement, the response would carry "backend-normalised"
