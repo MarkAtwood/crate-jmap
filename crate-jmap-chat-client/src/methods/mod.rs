@@ -855,8 +855,11 @@ pub struct ChatPatch<'a> {
     pub receive_typing_indicators: Option<bool>,
     /// Replace the entire pinned-message list. `Some(&[])` clears all pins.
     pub pinned_message_ids: Option<&'a [Id]>,
-    /// Spec defines this as `UnsignedInt` (non-nullable).
-    pub message_expiry_seconds: Option<u64>,
+    /// Local message-expiry policy in seconds (draft-atwood-jmap-chat-00
+    /// §Chat line 505: `messageExpirySeconds (UnsignedInt, optional)`).
+    /// `Patch::Clear` removes the policy server-side; `Patch::Set(n)` sets
+    /// it; `Patch::Keep` (default) leaves it unchanged.
+    pub message_expiry_seconds: Patch<u64>,
     /// Whether read receipts are shared with peers. `None` = no change.
     pub receipt_sharing: Option<bool>,
     /// New display name (group chats, admin only).

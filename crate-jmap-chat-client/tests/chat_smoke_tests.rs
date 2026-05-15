@@ -691,6 +691,118 @@ async fn chat_update_patch_muted_serializes() {
     );
 }
 
+/// `Chat/set` update with `message_expiry_seconds: Patch::Clear` must
+/// emit JSON `null` (RFC 8620 §5.3 patch semantics) so the server
+/// removes the local expiry policy. Pins the bd:JMAP-26di.8 fix that
+/// changed the field type from `Option<u64>` (no null-clear capability)
+/// to `Patch<u64>`; without `Patch::Clear`, the spec-defined "optional"
+/// nullability (draft-atwood-jmap-chat-00 §Chat line 505) was
+/// unreachable for callers.
+#[tokio::test]
+async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Chat/set",
+            {
+                "accountId": "A13824",
+                "oldState": "c-1",
+                "newState": "c-2",
+                "created": null,
+                "updated": { "chat-1": null },
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let mut patch = jmap_chat_client::methods::ChatPatch::default();
+    patch.message_expiry_seconds = jmap_chat_client::methods::Patch::Clear;
+    let _ = sc
+        .chat_update(&chat_id, &patch)
+        .await
+        .expect("chat_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["update"]["chat-1"],
+        json!({ "messageExpirySeconds": null }),
+        "Patch::Clear must serialise the field as JSON null"
+    );
+}
+
+/// `Chat/set` update with `message_expiry_seconds: Patch::Set(N)` must
+/// emit `N` verbatim on the wire (sibling of the Clear test above).
+/// Together with the Clear test this exercises both halves of the
+/// three-way Patch<u64> shape; the implicit third case (Patch::Keep)
+/// is already covered by `chat_update_patch_muted_serializes`.
+#[tokio::test]
+async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Chat/set",
+            {
+                "accountId": "A13824",
+                "oldState": "c-1",
+                "newState": "c-2",
+                "created": null,
+                "updated": { "chat-1": null },
+                "destroyed": null,
+                "notCreated": null,
+                "notUpdated": null,
+                "notDestroyed": null
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let mut patch = jmap_chat_client::methods::ChatPatch::default();
+    patch.message_expiry_seconds = jmap_chat_client::methods::Patch::Set(86_400);
+    let _ = sc
+        .chat_update(&chat_id, &patch)
+        .await
+        .expect("chat_update: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["update"]["chat-1"],
+        json!({ "messageExpirySeconds": 86_400 }),
+        "Patch::Set(N) must serialise the field as integer N"
+    );
+}
+
 /// `Chat/set` destroy must thread the `ids` slice through to the `destroy`
 /// wire key (chat.rs:387-391) and reject an empty slice client-side
 /// (chat.rs:382-386, RFC 8620 §5.3).
