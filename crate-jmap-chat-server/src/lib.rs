@@ -77,9 +77,10 @@ pub mod presence;
 pub mod space;
 
 pub use backend::{
-    AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits,
-    EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject,
-    QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
+    AddedItem, BackendChangesError, BackendSetError, ChangesResult, ChatBackend,
+    ChatContactProperty, ChatLimits, ChatProperty, EmojiSetOp, GetObject, JmapBackend, JmapObject,
+    MessageProperty, OpResult, QueryChangesResult, QueryObject, QueryResult, ReadPositionProperty,
+    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp, SpaceProperty,
 };
 pub use ban::{handle_ban_changes, handle_ban_get, handle_ban_set};
 pub use chat::{

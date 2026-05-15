@@ -83,8 +83,8 @@ pub mod principal;
 
 pub use backend::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
-    JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
-    SharingBackend,
+    JmapObject, PrincipalProperty, QueryChangesResult, QueryObject, QueryResult, SetError,
+    SetErrorType, SetObject, ShareNotificationProperty, SharingBackend,
 };
 pub use notification::{
     handle_share_notification_changes, handle_share_notification_get,
