@@ -100,7 +100,7 @@ pub async fn handle_principal_get_availability<B: CalendarsBackend>(
             &utc_start,
             &utc_end,
             show_details,
-            event_properties.as_deref().map(|v| v as &[String]),
+            event_properties.as_deref(),
         )
         .await
     {
