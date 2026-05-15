@@ -485,6 +485,273 @@ async fn contact_card_update_removing_last_address_book_id_rejected() {
     );
 }
 
+// ---------------------------------------------------------------------------
+// ContactCard.uid uniqueness within an Account (bd:JMAP-qz9v.6)
+//
+// RFC 9610 §3: 'There MUST NOT be more than one ContactCard with the
+// same uid in an Account.' Enforced in MemoryBackend.create_object and
+// update_object.
+// ---------------------------------------------------------------------------
+
+/// Oracle: create two cards with the same uid in one /set call —
+/// the second must fail with invalidProperties on uid.
+#[tokio::test]
+async fn contact_card_create_duplicate_uid_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book"),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "create": {
+            "c1": {
+                "@type": "Card",
+                "version": "1.0",
+                "uid": "urn:uuid:shared",
+                "addressBookIds": { "ab1": true },
+                "name": { "@type": "Name", "full": "Alice" }
+            },
+            "c2": {
+                "@type": "Card",
+                "version": "1.0",
+                "uid": "urn:uuid:shared",
+                "addressBookIds": { "ab1": true },
+                "name": { "@type": "Name", "full": "Bob" }
+            }
+        }
+    });
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    // The handler iterates creates in deterministic order; one succeeds,
+    // the other fails. Whichever order, one of c1/c2 must end up in
+    // notCreated with the uid-uniqueness error.
+    let created = &resp["created"];
+    let not_created = &resp["notCreated"];
+    let created_count = created.as_object().map(|m| m.len()).unwrap_or(0);
+    let not_created_count = not_created.as_object().map(|m| m.len()).unwrap_or(0);
+    assert_eq!(created_count, 1, "exactly one card must be created: {resp}");
+    assert_eq!(
+        not_created_count, 1,
+        "exactly one card must be rejected: {resp}"
+    );
+
+    // Whichever was rejected, its type is invalidProperties on uid.
+    let rejected = not_created.as_object().unwrap().values().next().unwrap();
+    assert_eq!(
+        rejected["type"], "invalidProperties",
+        "uid duplicate must be rejected as invalidProperties: {resp}"
+    );
+    let properties = rejected["properties"].as_array().expect("properties array");
+    assert_eq!(properties[0], "uid");
+}
+
+/// Oracle: create a card with a uid that already exists in the
+/// account (seeded) → invalidProperties.
+#[tokio::test]
+async fn contact_card_create_with_uid_matching_seeded_card_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "seeded",
+        json!({
+            "id": "seeded",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "urn:uuid:taken",
+            "addressBookIds": { "ab1": true }
+        }),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "create": {
+            "c1": {
+                "@type": "Card",
+                "version": "1.0",
+                "uid": "urn:uuid:taken",
+                "addressBookIds": { "ab1": true }
+            }
+        }
+    });
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    assert_eq!(
+        resp["notCreated"]["c1"]["type"], "invalidProperties",
+        "duplicate uid (vs seeded card) must be rejected: {resp}"
+    );
+}
+
+/// Oracle: same uid in DIFFERENT accounts is allowed — the uniqueness
+/// is per-Account, not global.
+#[tokio::test]
+async fn contact_card_same_uid_different_accounts_allowed() {
+    let backend = MemoryBackend::new()
+        .with_account("acc1")
+        .with_account("acc2");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book"),
+    );
+    backend.seed_object(
+        "acc2",
+        "AddressBook",
+        "ab2",
+        address_book_fixture("ab2", "Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-a1",
+        json!({
+            "id": "card-a1",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "urn:uuid:cross-account",
+            "addressBookIds": { "ab1": true }
+        }),
+    );
+
+    let args = json!({
+        "accountId": "acc2",
+        "create": {
+            "c1": {
+                "@type": "Card",
+                "version": "1.0",
+                "uid": "urn:uuid:cross-account",
+                "addressBookIds": { "ab2": true }
+            }
+        }
+    });
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    assert!(
+        resp["created"]["c1"].is_object(),
+        "same uid in different account must be allowed: {resp}"
+    );
+}
+
+/// Oracle: update a card with a uid patch that another card already
+/// uses → invalidProperties.
+#[tokio::test]
+async fn contact_card_update_to_duplicate_uid_rejected() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-a",
+        json!({
+            "id": "card-a",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "urn:uuid:a",
+            "addressBookIds": { "ab1": true }
+        }),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-b",
+        json!({
+            "id": "card-b",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "urn:uuid:b",
+            "addressBookIds": { "ab1": true }
+        }),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "update": {
+            "card-b": { "uid": "urn:uuid:a" }
+        }
+    });
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    assert_eq!(
+        resp["notUpdated"]["card-b"]["type"], "invalidProperties",
+        "uid collision in update must be rejected: {resp}"
+    );
+
+    // The stored card-b must be unchanged.
+    let args = json!({ "accountId": "acc1", "ids": ["card-b"] });
+    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    assert_eq!(
+        get_resp["list"][0]["uid"], "urn:uuid:b",
+        "rejected update must leave the stored uid unchanged: {get_resp}"
+    );
+}
+
+/// Oracle: update the same card with the SAME uid it already has
+/// (no-op uid change) must succeed — self-exclusion in the uniqueness
+/// check allows the no-op case.
+#[tokio::test]
+async fn contact_card_update_with_same_uid_succeeds() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-a",
+        json!({
+            "id": "card-a",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "urn:uuid:a",
+            "addressBookIds": { "ab1": true }
+        }),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "update": {
+            "card-a": { "uid": "urn:uuid:a" }
+        }
+    });
+    let (resp, _) = handle_contact_card_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    assert!(
+        resp["notUpdated"].is_null(),
+        "no-op uid update must succeed: {resp}"
+    );
+}
+
 /// Oracle: update that doesn't touch addressBookIds keeps the existing
 /// non-empty state and succeeds.
 #[tokio::test]
