@@ -1352,18 +1352,63 @@ pub mod space;
 // SetError extension accessors (JMAP Chat slow-mode)
 // ---------------------------------------------------------------------------
 
-/// Read the `serverRetryAfter` extension field from a [`SetError`] per the
-/// JMAP Chat slow-mode draft.
+/// Error from [`server_retry_after`] when the `serverRetryAfter` field is
+/// present but doesn't parse as a [`jmap_types::UTCDate`].
 ///
-/// The base [`jmap_types::SetError`] type captures unknown extension fields
-/// in its `extra` map via `#[serde(flatten)]`. JMAP Chat's `rateLimited`
-/// error includes a `serverRetryAfter` UTCDate telling the client when it
-/// may retry. Returns `None` when the field is absent or not parseable as a
-/// `UTCDate`.
-pub fn server_retry_after(err: &SetError) -> Option<jmap_types::UTCDate> {
-    err.extra
-        .get("serverRetryAfter")
-        .and_then(|v| jmap_types::UTCDate::deserialize(v).ok())
+/// The raw JSON value is preserved for diagnostics — callers can log it
+/// to surface server-side bugs (e.g. emitting a numeric-seconds form
+/// when the workspace convention is a UTCDate string).
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ServerRetryAfterError {
+    /// The `serverRetryAfter` field was present in the `SetError.extra`
+    /// map but its value did not deserialise into a `UTCDate`. The raw
+    /// JSON value is included for diagnostics.
+    Malformed(serde_json::Value),
+}
+
+impl std::fmt::Display for ServerRetryAfterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ServerRetryAfterError::Malformed(raw) => {
+                write!(f, "serverRetryAfter present but malformed: {raw}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ServerRetryAfterError {}
+
+/// Read the `serverRetryAfter` extension field from a [`SetError`] per the
+/// JMAP Chat slow-mode workspace convention.
+///
+/// The base [`jmap_types::SetError`] type captures unknown extension
+/// fields in its `extra` map via `#[serde(flatten)]`. JMAP Chat's
+/// `rateLimited` error includes a `serverRetryAfter` UTCDate telling
+/// the client when it may retry. This accessor distinguishes the three
+/// possible outcomes so callers can react appropriately:
+///
+/// - `Ok(None)` — the field is absent. The server is using `rateLimited`
+///   without a retry hint; the caller may apply a default backoff.
+/// - `Ok(Some(t))` — the field is present and parsed; honour `t`.
+/// - `Err(ServerRetryAfterError::Malformed(raw))` — the field is
+///   present but its value is not a valid `UTCDate`. The raw JSON is
+///   returned so the caller can log a server-side bug; the caller
+///   should still apply a default backoff (the bug is server-side).
+///
+/// Prior to bd:JMAP-26di.50 this function returned a single `Option`
+/// that conflated absent and malformed; the new shape gives the caller
+/// the diagnostic information it needs to distinguish them.
+pub fn server_retry_after(
+    err: &SetError,
+) -> Result<Option<jmap_types::UTCDate>, ServerRetryAfterError> {
+    match err.extra.get("serverRetryAfter") {
+        None => Ok(None),
+        Some(v) => match jmap_types::UTCDate::deserialize(v) {
+            Ok(d) => Ok(Some(d)),
+            Err(_) => Err(ServerRetryAfterError::Malformed(v.clone())),
+        },
+    }
 }
 
 // ---------------------------------------------------------------------------

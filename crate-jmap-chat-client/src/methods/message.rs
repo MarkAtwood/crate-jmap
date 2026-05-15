@@ -190,11 +190,21 @@ impl super::SessionClient {
         if let Some(not_created) = &set_resp.not_created {
             if let Some(err) = not_created.get(client_id_str) {
                 if err.error_type == "rateLimited" {
-                    let retry_after = super::server_retry_after(err).ok_or_else(|| {
-                        jmap_base_client::ClientError::UnexpectedResponse(
-                            "rateLimited SetError missing serverRetryAfter".into(),
-                        )
-                    })?;
+                    let retry_after = match super::server_retry_after(err) {
+                        Ok(Some(t)) => t,
+                        Ok(None) => {
+                            return Err(jmap_base_client::ClientError::UnexpectedResponse(
+                                "rateLimited SetError missing serverRetryAfter".into(),
+                            ));
+                        }
+                        Err(super::ServerRetryAfterError::Malformed(raw)) => {
+                            return Err(jmap_base_client::ClientError::UnexpectedResponse(
+                                format!(
+                                    "rateLimited SetError has malformed serverRetryAfter: {raw}"
+                                ),
+                            ));
+                        }
+                    };
                     return Err(jmap_base_client::ClientError::RateLimited { retry_after });
                 }
             }
