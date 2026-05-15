@@ -3,8 +3,8 @@
 //! The in-memory backend used by these tests now lives in the crate itself
 //! as the public reference implementation
 //! [`jmap_filenode_server::memory::MemoryBackend`]. This module re-exports
-//! it (and `ChangeType`, `MemoryError`) under the historical `common::*`
-//! paths so existing tests can use `use common::MemoryBackend;` unchanged.
+//! it (and `MemoryError`) under the historical `common::*` paths so
+//! existing tests can use `use common::MemoryBackend;` unchanged.
 //!
 //! Each integration test binary includes this module with `mod common;`.
 //! Dead-code and unused-import warnings are suppressed because not all
@@ -12,4 +12,4 @@
 #![allow(dead_code)]
 #![allow(unused_imports)]
 
-pub use jmap_filenode_server::memory::{ChangeType, MemoryBackend, MemoryError};
+pub use jmap_filenode_server::memory::{MemoryBackend, MemoryError};
