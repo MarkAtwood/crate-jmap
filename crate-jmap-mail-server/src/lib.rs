@@ -126,6 +126,25 @@ pub use vacation::{handle_vacation_get, handle_vacation_set};
 /// The dispatcher's `CallerCtx` is taken from `B::CallerCtx`; every registered
 /// closure forwards it as `&ctx` into the wrapped `handle_*` function. Backends
 /// that use `type CallerCtx = ()` therefore see `&()` inside every handler.
+///
+/// # Re-registration semantics
+///
+/// This function calls [`Dispatcher::register`] once per RFC 8621 method
+/// name. `Dispatcher::register` **silently overwrites** any pre-existing
+/// handler under the same method name (the underlying primitive is
+/// `HashMap::insert`). Three consequences callers MUST be aware of:
+///
+/// - **Double-call**: invoking this function twice on the same
+///   dispatcher loses the first set's handlers. The second call wins.
+/// - **Custom overrides go LAST**: to replace a single handler (e.g.
+///   provide a custom `Email/get`), call this function FIRST, then
+///   `dispatcher.register("Email/get", my_override)`. The inverse order
+///   silently undoes the custom handler.
+/// - **No collision diagnostic**: there is no error or log when a
+///   handler is overwritten. The contract is "last register wins" and
+///   the caller is responsible for ordering.
+///
+/// [`Dispatcher::register`]: jmap_server::Dispatcher::register
 pub fn register_mail_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: MailBackend + 'static,
@@ -271,6 +290,16 @@ pub use jmap_server::ClosureHandler;
 ///
 /// The handlers themselves do not inspect the `using` field — that
 /// validation is the dispatcher/framework layer's responsibility.
+///
+/// # Re-registration semantics
+///
+/// Calls [`Dispatcher::register`] for each MDN method name. The
+/// dispatcher's underlying `HashMap::insert` silently overwrites any
+/// existing handler under the same name. See
+/// [`register_mail_handlers`] for the full re-registration contract
+/// (double-call, custom overrides, no collision diagnostic).
+///
+/// [`Dispatcher::register`]: jmap_server::Dispatcher::register
 #[cfg(feature = "mdn")]
 pub fn register_mdn_handlers<B>(
     dispatcher: &mut Dispatcher<B::CallerCtx>,
@@ -317,6 +346,17 @@ pub fn register_mdn_handlers<B>(
 /// before method dispatch.
 ///
 /// Backends must implement both [`MailBackend`] and [`SieveBackend`].
+///
+/// # Re-registration semantics
+///
+/// Calls [`Dispatcher::register`] for each `SieveScript/*` method
+/// name. The dispatcher's underlying `HashMap::insert` silently
+/// overwrites any existing handler under the same name. See
+/// [`register_mail_handlers`] for the full re-registration contract
+/// (double-call, custom overrides, no collision diagnostic).
+///
+/// [`Dispatcher::register`]: jmap_server::Dispatcher::register
+/// [`SieveBackend`]: sieve::SieveBackend
 #[cfg(feature = "sieve")]
 pub fn register_sieve_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
