@@ -165,9 +165,12 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub anniversaries: Option<serde_json::Value>,
 
-    /// Keywords set: keyword → `true`.
+    /// Keywords set: keyword → `true` (RFC 9553 §2.8.2 `String[Boolean]`).
+    ///
+    /// Typed because the wire shape is closed by spec and matches the
+    /// sibling `members` and `address_book_ids` fields. JMAP-glx8.3.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub keywords: Option<serde_json::Value>,
+    pub keywords: Option<HashMap<String, bool>>,
 
     /// Notes map: id → Note object.
     #[serde(skip_serializing_if = "Option::is_none")]

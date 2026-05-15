@@ -25,7 +25,9 @@ type is a JMAP binding of the JSContact Card format defined in RFC 9553.
 | `card.rs` | `ContactCard`, `ContactCardFilterCondition`, `ContactCardComparator` | RFC 9610 §3, §3.3, §3.3.1; RFC 9553 §2 |
 | `backend.rs` | `AddressBookProperty`, `ContactCardProperty` | RFC 9610 §2, §3 |
 | `capability.rs` | `ContactsCapability`, `ContactsAccountCapability`, `JMAP_CONTACTS_URI` | RFC 9610 §1.4.1 |
-| `string_enum.rs` | `string_enum!` macro for open-ended string-typed enums | n/a |
+
+The `string_enum!` macro used by `backend.rs` is imported from `jmap-types`
+(consolidated under JMAP-wk77); this crate does not define its own copy.
 
 JSContact sub-object types (`Name`, `EmailAddress`, `Phone`, `Address`, etc.)
 defined in RFC 9553 §2.x are **not** exported as typed Rust structs. All
@@ -166,7 +168,8 @@ values remain opaque per RFC 8620 §5.3.
 
 Several enum-like fields used at the JMAP layer (e.g. `AddressBookProperty`,
 `ContactCardProperty`) are open-ended: the spec allows vendor-specific
-extensions. The `string_enum!` macro (in `src/string_enum.rs`) produces a
+extensions. The `string_enum!` macro (consolidated to `jmap-types` per
+JMAP-wk77 and imported as `use jmap_types::impl_string_enum;`) produces a
 non-exhaustive enum with a `Custom(String)` variant that round-trips unknown
 values through serde. Closed-set enums are not used here because the spec
 does not declare any sub-set non-extensible.
@@ -297,8 +300,10 @@ src/
   backend.rs       AddressBookProperty, ContactCardProperty
   capability.rs    ContactsCapability, ContactsAccountCapability,
                    JMAP_CONTACTS_URI const
-  string_enum.rs   `string_enum!` macro for open-ended string-typed enums
 ```
+
+The `string_enum!` macro is imported from `jmap-types` (see JMAP-wk77);
+this crate does not define its own copy.
 
 There is no `jscontact/` submodule inside this crate. Typed Rust structs
 for JSContact sub-objects (RFC 9553 §2.x) live in the sibling
