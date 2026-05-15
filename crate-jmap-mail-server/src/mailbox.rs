@@ -1165,7 +1165,7 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
 
     // Use a placeholder id; the backend will assign the real one.
     let mut mailbox = Mailbox::new(
-        Id::from("placeholder"),
+        Id::from(crate::helpers::PLACEHOLDER_ID),
         name,
         sort_order,
         0,

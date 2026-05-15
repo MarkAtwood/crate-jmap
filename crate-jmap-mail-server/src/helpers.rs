@@ -18,6 +18,24 @@ pub(crate) use jmap_server::{extract_account_id, not_found_json, now_utc_string,
 /// use the same string and a rename is caught at compile time.
 pub(crate) const PLACEHOLDER_BLOB_ID: &str = "placeholder-blob";
 
+/// Sentinel object ID set by `*/set` create handlers before the backend
+/// assigns the real one.
+///
+/// Used in [`crate::backend::MailBackend::create_object`] callers in
+/// `email.rs`, `identity.rs`, `mailbox.rs`, `sieve.rs`, and
+/// `submission.rs`. The backend MUST replace this value with a real,
+/// unique, account-scoped Id and return it as the first element of
+/// the result tuple (see the `create_object` contract). Clients must
+/// never see this value.
+///
+/// Sibling of [`PLACEHOLDER_BLOB_ID`]; defined as a constant so the
+/// five write-side handler sites and the read-side `MemoryBackend`
+/// detection site all use the same string and a rename is caught
+/// at compile time. Visibility is `pub(crate)` rather than `pub` —
+/// see bd:JMAP-q2wa.23 for why exposing this as a public stability
+/// surface is deferred.
+pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
+
 /// Return only the keys in `prop_set` from the JSON object `obj`.
 ///
 /// Used by all `*/get` handlers to enforce the RFC 8620 §5.1 rule that when

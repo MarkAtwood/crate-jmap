@@ -921,7 +921,7 @@ async fn process_create<B: MailBackend>(
     // --- Build submission object ---
     // Use a placeholder id; the backend will assign the real one.
     let mut submission = EmailSubmission::new(
-        Id::from("placeholder"),
+        Id::from(crate::helpers::PLACEHOLDER_ID),
         identity_id.clone(),
         email_id.clone(),
         thread_id,
