@@ -1644,8 +1644,489 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    use crate::memory::MemoryBackend;
+    use crate::backend::{
+        BackendChangesError, CaseFolding, ChangesResult, GetObject, JmapBackend, JmapObject,
+        QueryChangesResult, QueryObject, QueryResult, SetObject,
+    };
+    use crate::memory::{MemoryBackend, MemoryError};
     use crate::test_support::MockBackend;
+    use jmap_types::State;
+
+    // -----------------------------------------------------------------------
+    // FaultyBackend — fault-injection wrapper around MemoryBackend
+    // -----------------------------------------------------------------------
+
+    /// Thin wrapper around [`MemoryBackend`] that can inject errors or
+    /// override behavior for specific backend operations.
+    ///
+    /// Mirrors the canonical [`jmap-mail-server` `FaultyBackend` pattern
+    /// in `tests/common/mod.rs`][canonical] (see workspace AGENTS.md
+    /// "Canonical Templates"). Unlike the canonical, this wrapper lives
+    /// inside `mod tests` because the src-side unit tests cannot
+    /// import from `tests/`.
+    ///
+    /// # Fault knobs
+    ///
+    /// - [`inject_get_ancestors_err`][Self::inject_get_ancestors_err]: next
+    ///   call to `get_ancestors` returns `Err`.
+    /// - [`inject_blob_exists_err`][Self::inject_blob_exists_err]: next call
+    ///   to `blob_exists` returns `Err`.
+    /// - [`inject_query_objects_err`][Self::inject_query_objects_err]: next
+    ///   call to `query_objects` returns `Err`.
+    /// - [`inject_query_objects_err_after`][Self::inject_query_objects_err_after]:
+    ///   first `n` calls to `query_objects` succeed, then the next returns
+    ///   `Err`. Used to exercise depth-expansion paths in
+    ///   `query_subtree` where level-0 must succeed and the first
+    ///   per-level recursion must fail.
+    /// - [`set_create_object_override_name`][Self::set_create_object_override_name]:
+    ///   persistent override that swaps the `name` field of any created
+    ///   object. Simulates a backend that normalises names rather than
+    ///   echoing the supplied value. Used to exercise the handler's
+    ///   enforcement of the rename MUST
+    ///   (draft-ietf-jmap-filenode-13 §3.2.3 lines 572-575).
+    ///
+    /// Test-only — kept inside `mod tests` rather than the public
+    /// reference implementation to avoid promoting "fault-injection"
+    /// as part of the stable public API.
+    ///
+    /// [canonical]: https://github.com/MarkAtwood/crate-jmap/blob/main/crate-jmap-mail-server/tests/common/mod.rs
+    struct FaultyBackend {
+        inner: MemoryBackend,
+        faults: std::sync::Arc<std::sync::Mutex<FaultState>>,
+    }
+
+    #[derive(Default)]
+    struct FaultState {
+        /// When `Some`, the next call to `get_ancestors` returns
+        /// `Err(MemoryError(msg))`. Cleared on consumption.
+        get_ancestors_err: Option<String>,
+        /// When `Some`, the next call to `blob_exists` returns
+        /// `Err(MemoryError(msg))`. Cleared on consumption.
+        blob_exists_err: Option<String>,
+        /// When `Some`, `query_objects` returns `Err(MemoryError(msg))`
+        /// once `query_objects_calls` reaches `after_calls`. The first
+        /// matching call fires the fault and clears the entry; subsequent
+        /// calls go through to the inner backend unaffected.
+        query_objects_err: Option<QueryObjectsErrConfig>,
+        /// Running count of `query_objects` invocations on this backend.
+        query_objects_calls: u64,
+        /// When `Some`, every `create_object` call overrides the `name`
+        /// field of the returned object with this string. Persistent
+        /// across calls (not consumed) — simulates a backend that
+        /// normalises names systematically rather than per-call.
+        create_object_override_name: Option<String>,
+    }
+
+    struct QueryObjectsErrConfig {
+        msg: String,
+        /// Number of calls to allow through before failing. `0` means the
+        /// very next call fails.
+        after_calls: u64,
+    }
+
+    // The associated items below are exercised by the unit tests that
+    // bd:JMAP-510h.14.3 migrates from MockBackend to FaultyBackend. They
+    // are intentionally unused in this commit (.14.2 adds the wrapper;
+    // .14.3 wires it into the existing tests).
+    #[allow(dead_code)]
+    impl FaultyBackend {
+        fn new() -> Self {
+            Self {
+                inner: MemoryBackend::new(),
+                faults: std::sync::Arc::new(std::sync::Mutex::new(FaultState::default())),
+            }
+        }
+
+        fn new_with_account(account_id: &str) -> Self {
+            Self {
+                inner: MemoryBackend::new().with_account(account_id),
+                faults: std::sync::Arc::new(std::sync::Mutex::new(FaultState::default())),
+            }
+        }
+
+        /// Schedule a `MemoryError(msg)` for the next `get_ancestors`
+        /// call. Single-shot.
+        fn inject_get_ancestors_err(&self, msg: &str) {
+            self.faults.lock().unwrap().get_ancestors_err = Some(msg.to_owned());
+        }
+
+        /// Schedule a `MemoryError(msg)` for the next `blob_exists`
+        /// call. Single-shot.
+        fn inject_blob_exists_err(&self, msg: &str) {
+            self.faults.lock().unwrap().blob_exists_err = Some(msg.to_owned());
+        }
+
+        /// Schedule a `MemoryError(msg)` for the next `query_objects`
+        /// call. Single-shot.
+        fn inject_query_objects_err(&self, msg: &str) {
+            self.faults.lock().unwrap().query_objects_err = Some(QueryObjectsErrConfig {
+                msg: msg.to_owned(),
+                after_calls: 0,
+            });
+        }
+
+        /// Schedule a `MemoryError(msg)` for the `n`-th-and-later
+        /// `query_objects` call. The first `n` calls succeed; the
+        /// (`n`+1)-th fails. Single-shot: only the first matching call
+        /// fires the fault.
+        fn inject_query_objects_err_after(&self, msg: &str, after_calls: u64) {
+            self.faults.lock().unwrap().query_objects_err = Some(QueryObjectsErrConfig {
+                msg: msg.to_owned(),
+                after_calls,
+            });
+        }
+
+        /// Persistently override the `name` field of every object
+        /// returned from `create_object` with `name`. Not consumed on
+        /// call — simulates a backend that normalises names
+        /// systematically.
+        fn set_create_object_override_name(&self, name: &str) {
+            self.faults.lock().unwrap().create_object_override_name = Some(name.to_owned());
+        }
+
+        /// Forward to the inner [`MemoryBackend::seed_node`] for fixture
+        /// setup. Lets fault-injecting tests pre-populate the tree the
+        /// same way the no-fault tests do.
+        #[allow(dead_code)]
+        fn seed_node(&self, account_id: &str, node: FileNode) {
+            self.inner.seed_node(account_id, node);
+        }
+    }
+
+    impl JmapBackend for FaultyBackend {
+        type Error = MemoryError;
+        type CallerCtx = ();
+
+        async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+            self.inner.account_exists(&(), account_id).await
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            ids: Option<&[Id]>,
+            properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            self.inner
+                .get_objects::<O>(&(), account_id, ids, properties)
+                .await
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            self.inner.get_state::<O>(&(), account_id).await
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            since_state: &State,
+            max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            self.inner
+                .get_changes::<O>(&(), account_id, since_state, max_changes)
+                .await
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            filter: Option<&O::Filter>,
+            sort: Option<&[O::Comparator]>,
+            limit: Option<u64>,
+            position: i64,
+        ) -> Result<QueryResult, Self::Error> {
+            // Single-shot fault: consume the entry only when the
+            // configured call count is reached.
+            {
+                let mut guard = self.faults.lock().unwrap();
+                let call_index = guard.query_objects_calls;
+                guard.query_objects_calls = guard.query_objects_calls.saturating_add(1);
+                let fire = guard
+                    .query_objects_err
+                    .as_ref()
+                    .is_some_and(|cfg| call_index >= cfg.after_calls);
+                if fire {
+                    let msg = guard
+                        .query_objects_err
+                        .take()
+                        .map(|c| c.msg)
+                        .unwrap_or_default();
+                    return Err(MemoryError(msg));
+                }
+            }
+            self.inner
+                .query_objects::<O>(&(), account_id, filter, sort, limit, position)
+                .await
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            since_query_state: &State,
+            filter: Option<&O::Filter>,
+            sort: Option<&[O::Comparator]>,
+            max_changes: Option<u64>,
+            up_to_id: Option<&Id>,
+            collapse_threads: bool,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            self.inner
+                .query_changes::<O>(
+                    &(),
+                    account_id,
+                    since_query_state,
+                    filter,
+                    sort,
+                    max_changes,
+                    up_to_id,
+                    collapse_threads,
+                )
+                .await
+        }
+    }
+
+    impl FileNodeBackend for FaultyBackend {
+        async fn create_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            create_id: &str,
+            obj: O,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            // Persistent override: every create returns the same
+            // overridden name field. The override is a behavior swap,
+            // not a fault, so it does not consume.
+            let override_name = self
+                .faults
+                .lock()
+                .unwrap()
+                .create_object_override_name
+                .clone();
+            if let Some(name) = override_name {
+                let mut v = serde_json::to_value(&obj)
+                    .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+                if let serde_json::Value::Object(ref mut m) = v {
+                    m.insert("name".to_owned(), serde_json::Value::String(name));
+                }
+                let reshaped: O = serde_json::from_value(v)
+                    .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+                return self
+                    .inner
+                    .create_object::<O>(&(), account_id, create_id, reshaped)
+                    .await;
+            }
+            self.inner
+                .create_object::<O>(&(), account_id, create_id, obj)
+                .await
+        }
+
+        async fn update_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            id: &Id,
+            patch: O::Patch,
+        ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+            self.inner
+                .update_object::<O>(&(), account_id, id, patch)
+                .await
+        }
+
+        async fn destroy_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            id: &Id,
+        ) -> Result<(), BackendSetError<Self::Error>> {
+            self.inner.destroy_object::<O>(&(), account_id, id).await
+        }
+
+        fn supports_type<O: JmapObject>(&self) -> bool {
+            self.inner.supports_type::<O>()
+        }
+
+        async fn get_ancestors(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            ids: &[Id],
+        ) -> Result<Vec<FileNode>, Self::Error> {
+            // Single-shot: consume the entry on this call.
+            if let Some(msg) = self.faults.lock().unwrap().get_ancestors_err.take() {
+                return Err(MemoryError(msg));
+            }
+            self.inner.get_ancestors(&(), account_id, ids).await
+        }
+
+        async fn get_descendant_ids(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            id: &Id,
+        ) -> Result<Vec<Id>, Self::Error> {
+            self.inner.get_descendant_ids(&(), account_id, id).await
+        }
+
+        async fn blob_exists(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            blob_id: &Id,
+        ) -> Result<bool, Self::Error> {
+            // Single-shot: consume the entry on this call.
+            if let Some(msg) = self.faults.lock().unwrap().blob_exists_err.take() {
+                return Err(MemoryError(msg));
+            }
+            self.inner.blob_exists(&(), account_id, blob_id).await
+        }
+
+        async fn find_sibling_by_name(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            parent_id: Option<&Id>,
+            name: &str,
+            folding: CaseFolding,
+        ) -> Result<Option<Id>, Self::Error> {
+            self.inner
+                .find_sibling_by_name(&(), account_id, parent_id, name, folding)
+                .await
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // FaultyBackend — wrapper self-tests
+    // -----------------------------------------------------------------------
+    //
+    // These tests verify the FaultyBackend wrapper does what it says. The
+    // oracle is the behaviour of the inner MemoryBackend: a fault-injecting
+    // call must return Err with the configured message, the next call must
+    // succeed by delegating to the inner. The .14.3 migrations exercise the
+    // wrapper through the full handler stack; these self-tests pin the
+    // single-shot semantics independent of any handler-level assertion.
+
+    /// Oracle: inject_get_ancestors_err fires once, then the next call
+    /// delegates to the inner MemoryBackend.
+    #[tokio::test]
+    async fn faulty_backend_get_ancestors_err_is_single_shot() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.inject_get_ancestors_err("simulated boom");
+        let err = backend
+            .get_ancestors(&(), &Id::from("acc1"), &[Id::from("any")])
+            .await
+            .expect_err("first call must surface the injected error");
+        assert_eq!(err.0, "simulated boom");
+        // Second call: no fault armed, delegates to inner MemoryBackend
+        // which returns Ok(empty) for an unknown id.
+        let ok = backend
+            .get_ancestors(&(), &Id::from("acc1"), &[Id::from("any")])
+            .await
+            .expect("second call must delegate to inner");
+        assert!(ok.is_empty());
+    }
+
+    /// Oracle: inject_blob_exists_err fires once, then the next call
+    /// delegates to the inner (which always returns Ok(true) for the
+    /// reference impl).
+    #[tokio::test]
+    async fn faulty_backend_blob_exists_err_is_single_shot() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.inject_blob_exists_err("simulated boom");
+        let err = backend
+            .blob_exists(&(), &Id::from("acc1"), &Id::from("blob1"))
+            .await
+            .expect_err("first call must surface the injected error");
+        assert_eq!(err.0, "simulated boom");
+        let ok = backend
+            .blob_exists(&(), &Id::from("acc1"), &Id::from("blob1"))
+            .await
+            .expect("second call must delegate to inner");
+        assert!(ok);
+    }
+
+    /// Oracle: inject_query_objects_err fires on the very next call
+    /// (after_calls = 0).
+    #[tokio::test]
+    async fn faulty_backend_query_objects_err_fires_immediately() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.inject_query_objects_err("simulated boom");
+        let err = backend
+            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
+            .await
+            .expect_err("first call must surface the injected error");
+        assert_eq!(err.0, "simulated boom");
+    }
+
+    /// Oracle: inject_query_objects_err_after(_, 1) lets the first call
+    /// through and fires on the second.
+    #[tokio::test]
+    async fn faulty_backend_query_objects_err_after_one_succeeds_then_fails() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.inject_query_objects_err_after("simulated boom", 1);
+        // First call: delegates to inner.
+        let _first = backend
+            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
+            .await
+            .expect("first call must succeed (after_calls = 1)");
+        // Second call: fires the fault.
+        let err = backend
+            .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
+            .await
+            .expect_err("second call must surface the injected error");
+        assert_eq!(err.0, "simulated boom");
+    }
+
+    /// Oracle: set_create_object_override_name is persistent. Every
+    /// create_object call swaps the name field with the override.
+    #[tokio::test]
+    async fn faulty_backend_create_object_name_override_is_persistent() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.set_create_object_override_name("backend-normalised");
+        let fixture = serde_json::from_value::<FileNode>(json!({
+            "id": "ignored-on-create",
+            "name": "client-supplied",
+            "parentId": null,
+            "role": null,
+            "isExecutable": false,
+            "isTopLevel": true,
+            "nodeType": "directory",
+            "target": null,
+            "blobId": null,
+            "type": null,
+            "size": 0,
+            "shareWith": null,
+            "myRights": null,
+            "annotations": null,
+            "created": "1970-01-01T00:00:00Z",
+            "modified": "1970-01-01T00:00:00Z",
+            "accessed": null
+        }))
+        .expect("fixture must deserialize");
+        let (_id, created) = backend
+            .create_object::<FileNode>(&(), &Id::from("acc1"), "c0", fixture.clone())
+            .await
+            .expect("create must succeed");
+        assert_eq!(
+            created.name, "backend-normalised",
+            "the override MUST replace the client-supplied name"
+        );
+        // Persistent: a second create also gets the override.
+        let (_id2, second) = backend
+            .create_object::<FileNode>(&(), &Id::from("acc1"), "c1", fixture)
+            .await
+            .expect("second create must succeed");
+        assert_eq!(
+            second.name, "backend-normalised",
+            "the override MUST persist across calls"
+        );
+    }
 
     // -----------------------------------------------------------------------
     // FileNode/get
