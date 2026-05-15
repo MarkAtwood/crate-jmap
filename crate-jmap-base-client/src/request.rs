@@ -164,12 +164,47 @@ impl Session {
     /// - `Ok(Some(...))` — WebSocket is supported; use `result.url` to connect.
     /// - `Err` — capability key is present but the value is malformed.
     pub fn websocket_capability(&self) -> Result<Option<WebSocketCapability>, ClientError> {
-        let Some(raw) = self.capabilities.get("urn:ietf:params:jmap:websocket") else {
+        self.extension_capability("urn:ietf:params:jmap:websocket")
+    }
+
+    /// Returns the parsed extension-capability object for `capability_uri`,
+    /// deserialized into the caller-supplied type `T` (bd:JMAP-6r7c.22).
+    ///
+    /// Use this when an extension defines a typed capability struct (the
+    /// way `urn:ietf:params:jmap:websocket` maps to [`WebSocketCapability`])
+    /// and you want a typed view instead of poking at the raw
+    /// `serde_json::Value` in [`Session::capabilities`]. Each extension
+    /// `*-client` crate should expose a typed `XxxCapability` struct and
+    /// a thin wrapper like:
+    ///
+    /// ```rust,ignore
+    /// pub fn mail_capability(session: &Session) -> Result<Option<MailCapability>, ClientError> {
+    ///     session.extension_capability("urn:ietf:params:jmap:mail")
+    /// }
+    /// ```
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(None)` — server does not advertise this capability.
+    /// - `Ok(Some(_))` — capability is advertised AND the value parsed into `T`.
+    /// - `Err(ClientError::Parse)` — capability is advertised but the value
+    ///   could not be deserialised into `T`. Indicates either a server bug,
+    ///   a schema-version mismatch, or a `T` type that does not match the
+    ///   spec for `capability_uri`.
+    ///
+    /// The function only inspects the value when the key is present; an
+    /// absent key always returns `Ok(None)` regardless of `T`.
+    pub fn extension_capability<T>(
+        &self,
+        capability_uri: &str,
+    ) -> Result<Option<T>, ClientError>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let Some(raw) = self.capabilities.get(capability_uri) else {
             return Ok(None);
         };
-        WebSocketCapability::deserialize(raw)
-            .map(Some)
-            .map_err(ClientError::Parse)
+        T::deserialize(raw).map(Some).map_err(ClientError::Parse)
     }
 
     /// Returns `true` if the server advertises the JMAP Blob Content
@@ -261,6 +296,36 @@ pub struct AccountInfo {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl AccountInfo {
+    /// Returns the parsed per-account extension-capability object for
+    /// `capability_uri`, deserialized into the caller-supplied type `T`
+    /// (bd:JMAP-6r7c.22).
+    ///
+    /// Per-account counterpart of [`Session::extension_capability`]. Used
+    /// when an extension defines an account-scoped capability shape (e.g.
+    /// per-account quotas, per-account folder roots) rather than a
+    /// server-wide one.
+    ///
+    /// # Returns
+    ///
+    /// - `Ok(None)` — this account does not advertise this capability.
+    /// - `Ok(Some(_))` — capability is advertised AND the value parsed into `T`.
+    /// - `Err(ClientError::Parse)` — capability is advertised but the value
+    ///   could not be deserialised into `T`.
+    pub fn account_extension_capability<T>(
+        &self,
+        capability_uri: &str,
+    ) -> Result<Option<T>, ClientError>
+    where
+        T: serde::de::DeserializeOwned,
+    {
+        let Some(raw) = self.account_capabilities.get(capability_uri) else {
+            return Ok(None);
+        };
+        T::deserialize(raw).map(Some).map_err(ClientError::Parse)
+    }
 }
 
 /// Manual `Debug` impl that redacts `name` (bd:JMAP-sc1b.104).
@@ -896,5 +961,147 @@ mod tests {
                 .and_then(|v| v.as_u64()),
             Some(30000)
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // Session::extension_capability / AccountInfo::account_extension_capability
+    // (bd:JMAP-6r7c.22)
+    // -----------------------------------------------------------------------
+
+    /// Hand-written capability struct standing in for any future extension
+    /// (e.g. JMAP Mail / Calendars / Tasks). Has the same shape as
+    /// `WebSocketCapability` deliberately — the helper is generic, the
+    /// caller supplies the schema.
+    #[derive(Debug, Deserialize, PartialEq)]
+    #[serde(rename_all = "camelCase")]
+    struct FakeMailCapability {
+        max_size_upload: u64,
+        max_size_request: u64,
+    }
+
+    fn build_session_with_capability(uri: &str, value: serde_json::Value) -> Session {
+        let raw = json!({
+            "capabilities": { uri: value },
+            "accounts": {},
+            "primaryAccounts": {},
+            "username": "u@example.com",
+            "apiUrl": "https://jmap.example.com/api/",
+            "downloadUrl": "https://jmap.example.com/dl/{accountId}/{blobId}/{name}?accept={type}",
+            "uploadUrl": "https://jmap.example.com/ul/{accountId}/",
+            "eventSourceUrl": "https://jmap.example.com/sse/?types={types}&closeafter={closeafter}&ping={ping}",
+            "state": "s1",
+        });
+        serde_json::from_value(raw).expect("Session must deserialize")
+    }
+
+    /// Oracle: `Session::extension_capability::<T>` returns `Ok(None)` when
+    /// the capability key is absent, regardless of `T`.
+    #[test]
+    fn extension_capability_absent_returns_ok_none() {
+        let session = build_session_with_capability(
+            "urn:ietf:params:jmap:other",
+            json!({"unrelated": "value"}),
+        );
+        let result: Result<Option<FakeMailCapability>, _> =
+            session.extension_capability("urn:ietf:params:jmap:mail");
+        assert!(
+            matches!(result, Ok(None)),
+            "absent capability key must return Ok(None), got {result:?}"
+        );
+    }
+
+    /// Oracle: `Session::extension_capability::<T>` returns `Ok(Some(T))`
+    /// when the capability is present and the value matches `T`.
+    #[test]
+    fn extension_capability_present_and_valid_returns_ok_some() {
+        let session = build_session_with_capability(
+            "urn:ietf:params:jmap:mail",
+            json!({"maxSizeUpload": 50000000, "maxSizeRequest": 10000000}),
+        );
+        let cap: FakeMailCapability = session
+            .extension_capability("urn:ietf:params:jmap:mail")
+            .expect("must not error")
+            .expect("capability must be present");
+        assert_eq!(cap.max_size_upload, 50_000_000);
+        assert_eq!(cap.max_size_request, 10_000_000);
+    }
+
+    /// Oracle: `Session::extension_capability::<T>` returns
+    /// `Err(ClientError::Parse)` when the capability is present but the
+    /// value cannot deserialise into `T` (server bug or schema mismatch).
+    #[test]
+    fn extension_capability_present_but_malformed_returns_parse_err() {
+        let session = build_session_with_capability(
+            "urn:ietf:params:jmap:mail",
+            // Wrong shape — missing required maxSizeRequest field.
+            json!({"maxSizeUpload": 50000000}),
+        );
+        let result: Result<Option<FakeMailCapability>, _> =
+            session.extension_capability("urn:ietf:params:jmap:mail");
+        assert!(
+            matches!(result, Err(ClientError::Parse(_))),
+            "malformed capability value must surface as ClientError::Parse, got {result:?}"
+        );
+    }
+
+    /// Oracle: `Session::websocket_capability()` delegates to
+    /// `extension_capability` and the existing semantics are preserved
+    /// (regression test for the refactor).
+    #[test]
+    fn websocket_capability_still_works_after_refactor() {
+        let session = build_session_with_capability(
+            "urn:ietf:params:jmap:websocket",
+            json!({"url": "wss://jmap.example.com/ws", "supportsPush": true}),
+        );
+        let ws = session
+            .websocket_capability()
+            .expect("must not error")
+            .expect("websocket capability must be present");
+        assert_eq!(ws.url, "wss://jmap.example.com/ws");
+        assert!(ws.supports_push);
+    }
+
+    /// Oracle: `AccountInfo::account_extension_capability::<T>` returns
+    /// `Ok(None)` when the per-account capability key is absent.
+    #[test]
+    fn account_extension_capability_absent_returns_ok_none() {
+        let raw = json!({
+            "name": "alice@example.com",
+            "isPersonal": true,
+            "isReadOnly": false,
+            "accountCapabilities": {},
+        });
+        let acct: AccountInfo =
+            serde_json::from_value(raw).expect("AccountInfo must deserialize");
+        let result: Result<Option<FakeMailCapability>, _> =
+            acct.account_extension_capability("urn:ietf:params:jmap:mail");
+        assert!(
+            matches!(result, Ok(None)),
+            "absent per-account capability must return Ok(None), got {result:?}"
+        );
+    }
+
+    /// Oracle: `AccountInfo::account_extension_capability::<T>` returns
+    /// `Ok(Some(T))` when the per-account capability is present and valid.
+    #[test]
+    fn account_extension_capability_present_and_valid() {
+        let raw = json!({
+            "name": "alice@example.com",
+            "isPersonal": true,
+            "isReadOnly": false,
+            "accountCapabilities": {
+                "urn:ietf:params:jmap:mail": {
+                    "maxSizeUpload": 50000000,
+                    "maxSizeRequest": 10000000,
+                },
+            },
+        });
+        let acct: AccountInfo =
+            serde_json::from_value(raw).expect("AccountInfo must deserialize");
+        let cap: FakeMailCapability = acct
+            .account_extension_capability("urn:ietf:params:jmap:mail")
+            .expect("must not error")
+            .expect("capability must be present");
+        assert_eq!(cap.max_size_upload, 50_000_000);
     }
 }
