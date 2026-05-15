@@ -1750,6 +1750,67 @@ mod tests {
         );
     }
 
+    // ── @type-vs-extras serde-interaction probe (bd:JMAP-sgrr.6) ──────────
+    //
+    // Every wire-format struct combines `#[serde(rename = "@type", ...)]`
+    // on `at_type` with `#[serde(flatten)]` on `extra`. The intended
+    // behavior is that an `@type` field on the wire populates `at_type`
+    // and `extra` stays empty; the pathological alternative is that
+    // flatten captures `@type` into `extra` and `at_type` stays None.
+    // Workspace policy reasons from serde docs that the explicit rename
+    // takes priority over flatten, but no test verified the behaviour
+    // empirically. These probes lock it in so a future serde release
+    // that subtly changes the interaction would fail loudly here rather
+    // than silently break every JSContact emitter.
+
+    #[test]
+    fn name_at_type_populates_at_type_not_extras() {
+        // Probe 1: bare @type. Independent oracle: a hand-built JSON
+        // literal with @type set; assert the typed field captures it
+        // and extras stays empty; assert full round-trip equality.
+        let wire = json!({"@type": "Name", "full": "Alice"});
+        let de: Name = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(
+            de.at_type.as_deref(),
+            Some("Name"),
+            "@type must populate at_type, not flow into extras"
+        );
+        assert!(
+            de.extra.is_empty(),
+            "@type must NOT leak into extras; found: {:?}",
+            de.extra
+        );
+        let back = serde_json::to_value(&de).unwrap();
+        assert_eq!(back, wire, "round-trip must preserve @type on the wire");
+    }
+
+    #[test]
+    fn name_at_type_and_vendor_extras_coexist_separately() {
+        // Probe 2: @type AND a vendor extra. Independent oracle: a
+        // hand-built JSON literal carrying both; assert at_type captures
+        // @type, extras captures the vendor key only, and full
+        // round-trip preserves the wire shape byte-for-byte.
+        let wire = json!({
+            "@type": "Name",
+            "full": "Alice",
+            "acmeCorpNameSource": "hr",
+        });
+        let de: Name = serde_json::from_value(wire.clone()).unwrap();
+        assert_eq!(de.at_type.as_deref(), Some("Name"));
+        assert_eq!(
+            de.extra.get("acmeCorpNameSource"),
+            Some(&json!("hr")),
+            "vendor key must land in extras"
+        );
+        assert!(
+            !de.extra.contains_key("@type"),
+            "@type must NOT also appear in extras; found: {:?}",
+            de.extra
+        );
+        let back = serde_json::to_value(&de).unwrap();
+        assert_eq!(back, wire);
+    }
+
     #[test]
     fn nickname_preserves_vendor_extras() {
         assert_extras_roundtrip::<Nickname>(
