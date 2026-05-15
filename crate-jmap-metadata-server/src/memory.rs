@@ -53,6 +53,22 @@
 //!   impl — any `isPrivate` value is accepted. Real backends that need
 //!   per-account gating should override `create_object` / `update_object`
 //!   to consult their capability table.
+//! - **Id minting (§3.1.1)**: server-side ids are minted by
+//!   `demo_next_id`. The default-feature mode (deterministic) computes
+//!   the id from `HashMap.len() + 1`. This is fast and lex-orderable
+//!   for readable test output, but **silently recycles ids across
+//!   destroy events**: create object1 (id `metadata...001`), destroy
+//!   object1, then create object2 — object2 also gets `metadata...001`.
+//!   The `realistic-demo-ids` feature switches to a process-global
+//!   atomic counter that avoids the recycle (at the cost of
+//!   non-deterministic ids across test runs). **Both modes are
+//!   demonstration-quality**; production backends must mint ULIDs (or
+//!   equivalent globally-unique, monotonic, persistent-across-restarts
+//!   ids). A consequence specific to the default mode: a
+//!   `Metadata/changes` response can carry an id in `destroyed` and a
+//!   later /changes carry the same id in `created`, which clients
+//!   relying on JMAP's "ids are unique forever" assumption (RFC 8620
+//!   §1.2) will misinterpret as a resurrection.
 //! - **Quota (§6)**: not enforced.
 //! - **Related-object validation (§3.1)**: not enforced — `relatedType` and
 //!   `relatedId` are accepted as-is. Real backends should verify that the
@@ -1612,6 +1628,58 @@ mod tests {
                 .await
                 .expect("account_exists must succeed"),
             "create_object must not auto-register unknown accountId",
+        );
+    }
+
+    /// Oracle: bd:JMAP-826m.18 — the default-feature (deterministic)
+    /// `demo_next_id` strategy recycles ids across destroy events. This
+    /// test locks in the recycling behavior as a documented invariant
+    /// of the demo backend, so a future change that switches to a
+    /// strictly-monotonic counter has to revisit this test deliberately
+    /// rather than silently break the demo's repeatable-ids property.
+    ///
+    /// **Behavioural consequence**: under this id-minting strategy a
+    /// `Metadata/changes` response can carry the same id in `destroyed`
+    /// and in a later `created` array. Clients relying on JMAP's
+    /// "ids are unique forever" assumption (RFC 8620 §1.2) will
+    /// misinterpret the second create as a resurrection. **Production
+    /// backends MUST mint ULIDs / globally-unique ids** — see the
+    /// module-level rustdoc 'Id minting' bullet.
+    #[cfg(not(feature = "realistic-demo-ids"))]
+    #[tokio::test]
+    async fn demo_next_id_recycles_ids_across_destroy_in_deterministic_mode() {
+        let backend = MemoryBackend::new_with_accounts(&["acc1"]);
+        let meta1: Metadata = serde_json::from_value(serde_json::json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM1"
+        }))
+        .unwrap();
+        let (id1, _) = backend
+            .create_object::<Metadata>(&(), &Id::from("acc1"), "c1", meta1)
+            .await
+            .expect("first create");
+
+        backend
+            .destroy_object::<Metadata>(&(), &Id::from("acc1"), &id1)
+            .await
+            .expect("destroy");
+
+        let meta2: Metadata = serde_json::from_value(serde_json::json!({
+            "@type": "Annotation",
+            "relatedType": "Email",
+            "relatedId": "EM2"
+        }))
+        .unwrap();
+        let (id2, _) = backend
+            .create_object::<Metadata>(&(), &Id::from("acc1"), "c2", meta2)
+            .await
+            .expect("second create");
+
+        assert_eq!(
+            id1, id2,
+            "deterministic mode SHOULD recycle ids — production backends MUST NOT \
+             follow this pattern. See module rustdoc 'Id minting' bullet.",
         );
     }
 
