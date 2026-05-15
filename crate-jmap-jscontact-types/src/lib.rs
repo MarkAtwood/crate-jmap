@@ -1719,6 +1719,12 @@ mod tests {
 
     /// Generic helper: assert a vendor field round-trips through the
     /// given type's `extra` field.
+    ///
+    /// Asserts full object equality after the round-trip — not just the
+    /// vendor key. The stronger assertion catches subtle bugs where a
+    /// typed field unexpectedly lands in `extra` (or a vendor field
+    /// unexpectedly captures a typed field's value) due to a serde
+    /// `flatten` + `rename` interaction. See `bd:JMAP-sgrr.8`.
     fn assert_extras_roundtrip<T>(
         mut raw: serde_json::Value,
         vendor_key: &str,
@@ -1726,12 +1732,12 @@ mod tests {
     ) where
         T: serde::de::DeserializeOwned + Serialize,
     {
-        raw[vendor_key] = vendor_val.clone();
+        raw[vendor_key] = vendor_val;
         let de: T = serde_json::from_value(raw.clone()).unwrap();
         let back = serde_json::to_value(&de).unwrap();
         assert_eq!(
-            back[vendor_key], vendor_val,
-            "vendor field {vendor_key} must round-trip"
+            back, raw,
+            "full round-trip must preserve typed fields AND the vendor extra"
         );
     }
 
