@@ -90,6 +90,38 @@ pub struct ChatSseFrame {
 /// - everything else → [`ChatSseEvent::Unknown`]
 ///
 /// Never panics. Malformed JSON is silently ignored and produces `Unknown`.
+///
+/// # Edge-case contract
+///
+/// The behaviour for the corner cases an SSE consumer is likely to hit:
+///
+/// - **Empty block** (`""`): returns
+///   `ChatSseFrame { event: ChatSseEvent::Unknown { event_type: "" }, id: None }`.
+///   Callers writing a stream-resume loop should skip these rather
+///   than treat them as end-of-stream — SSE permits arbitrary
+///   intervening blank-line keep-alives.
+/// - **Block with no `event:` field**: same as empty block —
+///   `ChatSseEvent::Unknown { event_type: "" }`.
+/// - **Block with `event:` but no `data:`**: the typed-event arms
+///   (`typing`, `presence`, `state`) fall through to
+///   `ChatSseEvent::Unknown { event_type: "<that-type>" }` because the
+///   payload deserialise fails on empty input.
+/// - **Multiple `event:` lines**: the base parser keeps the last
+///   assignment (later `event:` lines overwrite earlier ones).
+///   Multiple `data:` lines are joined with `\n` then JSON-parsed
+///   (RFC 8895 §9.1).
+/// - **Line endings**: `block.lines()` handles `\n` and `\r\n`
+///   transparently; trailing empty lines are folded.
+/// - **Comments** (lines starting with `:`) and unknown field names:
+///   silently ignored per RFC 8895 §9.1.
+/// - **`id:` line**: passes through to [`ChatSseFrame::id`]. Empty
+///   value (`id:\n` or `id: \n`) maps to `None`; non-empty maps to
+///   `Some(value)`. Track this and send on reconnect as
+///   `Last-Event-ID` per RFC 8620 §7.3.
+/// - **Non-UTF-8 input**: not possible — the function takes `&str`,
+///   so the caller has already produced valid UTF-8. Use
+///   `String::from_utf8_lossy` upstream if your SSE transport may
+///   surface invalid bytes.
 pub fn parse_chat_sse_block(block: &str) -> ChatSseFrame {
     let frame = jmap_base_client::parse_sse_block(block);
     let event = match frame.event {
