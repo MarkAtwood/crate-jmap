@@ -43,3 +43,8 @@ jmap-metadata-server = { workspace = true, features = ["memory"] }
 # #[derive(Serialize, Deserialize)]. Test-only — matches the
 # canonical jmap-mail-server which has serde as a direct dep.
 serde = { workspace = true }
+# Log-redaction canary harness (bd:JMAP-826m.53). Tests-only buffering
+# tracing subscriber, mirroring the pattern used by jmap-base-client's
+# tests/common/log_capture.rs.
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"] }

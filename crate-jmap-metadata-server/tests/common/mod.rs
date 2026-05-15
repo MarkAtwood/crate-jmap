@@ -12,3 +12,5 @@
 #![allow(unused_imports)]
 
 pub use jmap_metadata_server::memory::{MemoryBackend, MemoryError};
+
+pub mod log_capture;
