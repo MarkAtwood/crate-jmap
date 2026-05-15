@@ -273,10 +273,7 @@ pub trait FileNodeBackend: JmapBackend {
             let mut frontier: Vec<jmap_types::Id> = root_ids;
             let mut depth_remaining = max_depth;
 
-            loop {
-                if frontier.is_empty() || depth_remaining == 0 {
-                    break;
-                }
+            while !frontier.is_empty() && depth_remaining > 0 {
                 depth_remaining = depth_remaining.saturating_sub(1);
                 let mut next_frontier: Vec<jmap_types::Id> = Vec::new();
                 for parent_id in frontier.drain(..) {

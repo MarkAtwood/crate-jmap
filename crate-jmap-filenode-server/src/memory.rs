@@ -641,10 +641,7 @@ impl FileNodeBackend for MemoryBackend {
             .filter_map(|id| store.nodes.get(id).and_then(|n| n.parent_id.clone()))
             .collect();
 
-        loop {
-            if frontier.is_empty() {
-                break;
-            }
+        while !frontier.is_empty() {
             let mut next_frontier: Vec<Id> = Vec::new();
             for parent_id in frontier.drain(..) {
                 if !visited.insert(parent_id.clone()) {
@@ -682,10 +679,7 @@ impl FileNodeBackend for MemoryBackend {
         let mut frontier: Vec<Id> = vec![id.clone()];
         let mut visited: std::collections::HashSet<Id> = std::iter::once(id.clone()).collect();
 
-        loop {
-            if frontier.is_empty() {
-                break;
-            }
+        while !frontier.is_empty() {
             let mut next_frontier: Vec<Id> = Vec::new();
             for current_id in &frontier {
                 for node in store.nodes.values() {
