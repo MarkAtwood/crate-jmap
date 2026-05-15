@@ -24,6 +24,7 @@
 //!
 //! Workspace tracking: bd:JMAP-sc1b.106.
 
+use std::fmt::Write as _;
 use std::hint::black_box;
 
 use criterion::{criterion_group, criterion_main, Criterion};
@@ -113,9 +114,14 @@ fn large_session_json(num_accounts: usize) -> String {
         if i > 0 {
             accounts.push(',');
         }
-        accounts.push_str(&format!(
-            r#""A{:03}": {{
-                "name": "user{}@example.com",
+        // write! formats straight into the buffer; avoids the per-iteration
+        // String allocation of push_str(&format!(...)) (bd:JMAP-6r7c.55).
+        // Inline format args follow the workspace inline-args sweep
+        // (bd:JMAP-6r7c.56).
+        write!(
+            accounts,
+            r#""A{i:03}": {{
+                "name": "user{i}@example.com",
                 "isPersonal": false,
                 "isReadOnly": false,
                 "accountCapabilities": {{
@@ -124,9 +130,9 @@ fn large_session_json(num_accounts: usize) -> String {
                         "maxMailboxDepth": 10
                     }}
                 }}
-            }}"#,
-            i, i
-        ));
+            }}"#
+        )
+        .expect("writing to a String never fails");
     }
     format!(
         r#"{{
