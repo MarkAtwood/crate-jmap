@@ -139,10 +139,32 @@ impl super::SessionClient {
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
     /// optional; pass `None` to omit any operation from the request.
     ///
+    /// `create` is `Option<serde_json::Value>` and MUST be a JSON object
+    /// whose keys are caller-chosen creation ids (RFC 8620 §5.3 — the
+    /// creation id strings may be referenced via the `#`-prefixed result-
+    /// reference syntax in RFC 8620 §3.7) and whose values are partial
+    /// Metadata objects per draft-ietf-jmap-metadata-01 §3.1 (one of the
+    /// three `@type` variants: `Annotation` per §2.1.1, `ImapMetadata`
+    /// per §2.1.2, `WebDavMetadata` per §2.1.3, each with at minimum
+    /// `relatedType`, `relatedId`, and an optional `isPrivate`). The
+    /// server assigns the final `id` and returns it under `created` in
+    /// the response. Wire-shape mismatches (e.g. passing an array or a
+    /// primitive) are rejected by the server as `invalidArguments` after
+    /// a network round-trip.
+    ///
     /// `update` is `Option<HashMap<Id, PatchObject>>` (RFC 8620 §5.3). Wire
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
+    ///
+    /// The asymmetry between typed `update` and untyped `create` is
+    /// deliberate: PatchObject is a stable workspace-defined type with one
+    /// JSON-Pointer-keyed shape, whereas a Metadata create object is one of
+    /// three `@type` variants and the spec accepts the full JSON wire
+    /// shape (including vendor-defined extras at every level). Forcing
+    /// `create` through a single Rust type would fight the spec's
+    /// extensibility model. Mirrors the canonical mail-client `email_set`
+    /// signature.
     ///
     /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency
     /// guard (RFC 8620 §5.3): the server returns `stateMismatch` if the
@@ -159,6 +181,19 @@ impl super::SessionClient {
     /// `alreadyExists`, `forbidden` (if `maySetPrivate: false` and
     /// `isPrivate: true` is requested), `overQuota`, or
     /// `invalidProperties` SetErrors per §3.1.
+    ///
+    /// # Errors
+    ///
+    /// Returns `ClientError::InvalidArgument` if `serde_json::to_value`
+    /// fails when serializing the `update` map. In practice this can
+    /// occur only under pathological conditions (allocation failure on a
+    /// very large HashMap; a `PatchObject` whose internal JSON tree
+    /// exceeds `serde_json`'s recursion limit). The size of `update` is
+    /// otherwise bounded only by available memory; the wire request is
+    /// streamed by the HTTP client without an explicit cap. Callers
+    /// dealing with thousands of patches per call may prefer to batch
+    /// across multiple `metadata_set` invocations to bound per-request
+    /// memory pressure.
     pub async fn metadata_set(
         &self,
         create: Option<serde_json::Value>,
@@ -207,9 +242,39 @@ impl super::SessionClient {
     /// so callers can mix filter conditions with `FilterOperator` algebra
     /// without forcing a single type through the API.
     ///
+    /// Construct a filter via `serde_json::to_value` on the typed shape, or
+    /// inline as a JSON literal:
+    ///
+    /// ```ignore
+    /// // Match Annotations on a specific Email.
+    /// let filter = serde_json::json!({
+    ///     "relatedType": "Email",
+    ///     "relatedId":   "EM456",
+    ///     "@type":       "Annotation"
+    /// });
+    /// // Match Annotations on either of two Emails (FilterOperator algebra).
+    /// let filter = serde_json::json!({
+    ///     "operator": "OR",
+    ///     "conditions": [
+    ///         { "relatedType": "Email", "relatedId": "EM456" },
+    ///         { "relatedType": "Email", "relatedId": "EM789" }
+    ///     ]
+    /// });
+    /// ```
+    ///
     /// Sort comparators MUST set `property` to one of `id`, `@type`,
     /// `relatedType`, `relatedId`, or `isPrivate` per §3.4.2; `id` MUST be
     /// supported by every server, the others SHOULD be supported.
+    ///
+    /// Construct sort as an array of comparator objects:
+    ///
+    /// ```ignore
+    /// // Ascending by @type, then by id.
+    /// let sort = serde_json::json!([
+    ///     { "property": "@type", "isAscending": true },
+    ///     { "property": "id",    "isAscending": true }
+    /// ]);
+    /// ```
     ///
     /// Pass `params: Some(MetadataQueryParams { extra: ... })` to inject
     /// vendor / site / private method-level extension args; pass `None`
@@ -297,8 +362,17 @@ mod tests {
     // wire-shape oracles for response types using JSON literals taken
     // from draft-ietf-jmap-metadata-01 and RFC 8620.
 
-    /// Oracle: Annotation deserialization from draft-ietf-jmap-metadata-01
-    /// §1.6.1 (example 1). Expected JSON taken verbatim from the draft.
+    /// Oracle: Annotation deserialization composed from
+    /// draft-ietf-jmap-metadata-01 §7.5 ("Creating an Email with Annotation
+    /// Atomically"). The `id`, `relatedType`, and `relatedId` fields are
+    /// verbatim from the server's `Metadata/set` response object at
+    /// draft §7.5 lines 1591-1597 (id=MD789, relatedType=Email,
+    /// relatedId=EM456). The `isPrivate: true` and
+    /// `acme.example.com:workflowState: "pending-review"` fields are
+    /// verbatim from the client's `onSuccessCreateMetadata` Annotation
+    /// object earlier in the same §7.5 example (lines 1540-1544). The
+    /// test merges the two into a single deserialization fixture for the
+    /// post-creation server view.
     #[test]
     fn annotation_deserializes_from_spec_example() {
         let json = json!({
@@ -311,20 +385,18 @@ mod tests {
         });
         let meta: jmap_metadata_types::Metadata =
             serde_json::from_value(json).expect("Annotation must deserialize");
-        match meta {
-            jmap_metadata_types::Metadata::Annotation(a) => {
-                assert_eq!(a.related_type, "Email");
-                assert_eq!(a.related_id.as_ref(), "EM456");
-                assert_eq!(a.is_private, Some(true));
-                assert_eq!(
-                    a.extra
-                        .get("acme.example.com:workflowState")
-                        .and_then(|v| v.as_str()),
-                    Some("pending-review")
-                );
-            }
-            _ => panic!("expected Annotation variant"),
-        }
+        let jmap_metadata_types::Metadata::Annotation(a) = meta else {
+            panic!("expected Annotation variant");
+        };
+        assert_eq!(a.related_type, "Email");
+        assert_eq!(a.related_id.as_ref(), "EM456");
+        assert_eq!(a.is_private, Some(true));
+        assert_eq!(
+            a.extra
+                .get("acme.example.com:workflowState")
+                .and_then(|v| v.as_str()),
+            Some("pending-review")
+        );
     }
 
     /// Oracle: GetResponse<Metadata> deserializes from RFC 8620 §5.1 shape.

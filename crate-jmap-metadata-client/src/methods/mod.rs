@@ -94,6 +94,12 @@ pub struct MetadataChangesParams {
     /// Restrict the `created`/`updated`/`destroyed` arrays in the response
     /// to Metadata objects whose `@type` is in this list
     /// (draft-ietf-jmap-metadata-01 §3.3).
+    ///
+    /// `None` disables filtering on `@type` (all types are returned).
+    /// `Some(vec![])` is a legal empty array meaning "match no `@type`
+    /// values" per draft §3.3 — the server returns empty `created` /
+    /// `updated` / `destroyed` arrays regardless of actual changes. If
+    /// you mean "return everything", use `None`, not `Some(vec![])`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub filter_metadata_type: Option<Vec<String>>,
 
