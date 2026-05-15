@@ -958,6 +958,27 @@ pub struct Timestamp {
 ///
 /// Serde is implemented manually because `#[serde(tag = "@type", other)]`
 /// with tuple variants is not supported by the derive macro.
+///
+/// # Deserialize dispatch contract
+///
+/// - `@type` absent (no field at all) and `@type: "PartialDate"` both
+///   route to the [`PartialDate`](Self::PartialDate) variant. Per RFC
+///   9553 §1.3.4 the wire forms are interchangeable for the default
+///   type; this enum treats them as a single variant.
+/// - `@type: "Timestamp"` routes to the [`Timestamp`](Self::Timestamp)
+///   variant.
+/// - Any other `@type` string value (including the literal empty
+///   string, which RFC 9553 does not define) routes to
+///   [`Unknown`](Self::Unknown) with the original `serde_json::Value`
+///   preserved for round-trip.
+///
+/// # Error context
+///
+/// Errors parsing the inner `PartialDate` or `Timestamp` body surface
+/// as `serde::de::Error::custom` strings. They do not include the
+/// path within a parent [`Anniversary`]; callers debugging a deeply-
+/// nested `ContactCard` (from the consumer `jmap-contacts-types`
+/// crate) should wrap the parse and add context at the call site.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum AnniversaryDate {
