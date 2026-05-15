@@ -231,3 +231,25 @@ documented serde attributes and at least one round-trip preservation
 test. New types MUST NOT derive `Hash` if they carry an `extra` field —
 `serde_json::Map` does not implement `Hash`. If `Hash` is genuinely
 needed on a new type, file a bead and discuss before proceeding.
+
+### `serde_json` version-pin contract
+
+The crate re-exports `serde_json::Value` and `serde_json::Map` in its
+public API in two places:
+
+1. The `extra: serde_json::Map<String, serde_json::Value>` flatten
+   field on every wire-format struct (23 structs).
+2. The `AnniversaryDate::Unknown(serde_json::Value)` variant
+   (`src/lib.rs:969`).
+
+Consumers MUST coordinate their `serde_json` major version with this
+crate's. A `serde_json` 2.0 release would require a major-version
+bump of this crate too: any direct caller that pattern-binds an
+`AnniversaryDate::Unknown(v)` or destructures `extra` would recompile
+against a different upstream `Value`/`Map` type identity.
+
+This is per the workspace Sloppy-Value and extras-preservation
+policies (see workspace `AGENTS.md`). Wrapping the `Value` in an
+opaque newtype would hide the version pin but would diverge from the
+workspace pattern used by ~30 sibling crates, so it is intentionally
+not done.

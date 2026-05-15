@@ -126,6 +126,16 @@ The same pattern works for `EmailAddress`, `Phone`, `Address`,
   to write a single helper accepting any Resource-derived type need
   to define their own outer enum or trait. See `PLAN.md`
   §"Resource-derived types" for the rationale.
+- This crate re-exports `serde_json::Value` and `serde_json::Map`
+  in its public API (the `extra` flatten field on every wire-format
+  struct, and the `AnniversaryDate::Unknown(serde_json::Value)`
+  variant). Consumers MUST coordinate their `serde_json` major
+  version with this crate's. A `serde_json` 2.0 release would
+  require a major-version bump here too, and any direct caller that
+  pattern-binds an `AnniversaryDate::Unknown(v)` would also need
+  to recompile against the new major. This is per the workspace
+  Sloppy-Value and extras-preservation policies (see workspace
+  `AGENTS.md`).
 
 ## References
 
