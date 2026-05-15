@@ -31,6 +31,14 @@ pub async fn handle_filenode_get<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
+    // Capability gate: backends that opted out of FileNode via
+    // supports_type::<FileNode>() short-circuit before touching
+    // any argument. Mirrors the canonical jmap-mail-server pattern
+    // (snippet.rs:35).
+    if !backend.supports_type::<FileNode>() {
+        return Err(JmapError::account_not_supported_by_method());
+    }
+
     let fetch_parents = args
         .get("fetchParents")
         .and_then(|v| v.as_bool())
@@ -121,6 +129,9 @@ pub async fn handle_filenode_changes<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
+    if !backend.supports_type::<FileNode>() {
+        return Err(JmapError::account_not_supported_by_method());
+    }
     jmap_server::handlers::handle_changes::<FileNode, B>(backend, caller, args).await
 }
 
@@ -162,6 +173,9 @@ pub async fn handle_filenode_set<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
+    if !backend.supports_type::<FileNode>() {
+        return Err(JmapError::account_not_supported_by_method());
+    }
     let (account_id, mut args) = extract_account_id(args)?;
 
     let old_state = backend
@@ -878,6 +892,9 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
     args: Value,
     call_id: &str,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
+    if !backend.supports_type::<FileNode>() {
+        return Err(JmapError::account_not_supported_by_method());
+    }
     let from_account_id: Id = match args.get("fromAccountId").and_then(|v| v.as_str()) {
         Some(s) => Id::from(s),
         None => return Err(JmapError::invalid_arguments("fromAccountId is required")),
@@ -1561,6 +1578,9 @@ pub async fn handle_filenode_query<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
+    if !backend.supports_type::<FileNode>() {
+        return Err(JmapError::account_not_supported_by_method());
+    }
     // Extract depth before delegating — the generic handler strips unrecognised args.
     let depth: u64 = args.get("depth").and_then(|v| v.as_u64()).unwrap_or(0);
 
@@ -1632,6 +1652,9 @@ pub async fn handle_filenode_query_changes<B: FileNodeBackend>(
     caller: &B::CallerCtx,
     args: Value,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
+    if !backend.supports_type::<FileNode>() {
+        return Err(JmapError::account_not_supported_by_method());
+    }
     jmap_server::handlers::handle_query_changes::<FileNode, B>(backend, caller, args).await
 }
 
@@ -2144,6 +2167,247 @@ mod tests {
             "accessed": null
         }))
         .expect("make_filenode fixture must deserialize")
+    }
+
+    // -----------------------------------------------------------------------
+    // Capability gate — supports_type::<FileNode>() => false
+    // -----------------------------------------------------------------------
+
+    /// Thin wrapper around MemoryBackend whose
+    /// `supports_type::<FileNode>()` returns `false`, simulating a
+    /// deployment that has opted out of the FileNode capability.
+    /// Every other method delegates to the inner backend (and must
+    /// never be reached when the gate works).
+    ///
+    /// Mirrors the canonical jmap-mail-server NoSnippetBackend
+    /// pattern (tests/integration.rs:490).
+    struct NoFileNodeBackend(MemoryBackend);
+
+    impl JmapBackend for NoFileNodeBackend {
+        type Error = MemoryError;
+        type CallerCtx = ();
+
+        async fn account_exists(&self, _caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+            self.0.account_exists(&(), account_id).await
+        }
+
+        async fn get_objects<O: GetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            ids: Option<&[Id]>,
+            properties: Option<&[String]>,
+        ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            self.0
+                .get_objects::<O>(&(), account_id, ids, properties)
+                .await
+        }
+
+        async fn get_state<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+        ) -> Result<State, Self::Error> {
+            self.0.get_state::<O>(&(), account_id).await
+        }
+
+        async fn get_changes<O: JmapObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            since_state: &State,
+            max_changes: Option<u64>,
+        ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+            self.0
+                .get_changes::<O>(&(), account_id, since_state, max_changes)
+                .await
+        }
+
+        async fn query_objects<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            filter: Option<&O::Filter>,
+            sort: Option<&[O::Comparator]>,
+            limit: Option<u64>,
+            position: i64,
+        ) -> Result<QueryResult, Self::Error> {
+            self.0
+                .query_objects::<O>(&(), account_id, filter, sort, limit, position)
+                .await
+        }
+
+        async fn query_changes<O: QueryObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            since_query_state: &State,
+            filter: Option<&O::Filter>,
+            sort: Option<&[O::Comparator]>,
+            max_changes: Option<u64>,
+            up_to_id: Option<&Id>,
+            collapse_threads: bool,
+        ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+            self.0
+                .query_changes::<O>(
+                    &(),
+                    account_id,
+                    since_query_state,
+                    filter,
+                    sort,
+                    max_changes,
+                    up_to_id,
+                    collapse_threads,
+                )
+                .await
+        }
+    }
+
+    impl FileNodeBackend for NoFileNodeBackend {
+        async fn create_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            create_id: &str,
+            obj: O,
+        ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+            self.0
+                .create_object::<O>(&(), account_id, create_id, obj)
+                .await
+        }
+
+        async fn update_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            id: &Id,
+            patch: O::Patch,
+        ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+            self.0.update_object::<O>(&(), account_id, id, patch).await
+        }
+
+        async fn destroy_object<O: SetObject + Send + Sync>(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            id: &Id,
+        ) -> Result<(), BackendSetError<Self::Error>> {
+            self.0.destroy_object::<O>(&(), account_id, id).await
+        }
+
+        fn supports_type<O: JmapObject>(&self) -> bool {
+            // Opt out of FileNode; everything else delegates (no
+            // other type is currently registered by this crate but
+            // a future capability expansion would want this shape).
+            if std::any::TypeId::of::<O>() == std::any::TypeId::of::<FileNode>() {
+                false
+            } else {
+                self.0.supports_type::<O>()
+            }
+        }
+
+        async fn get_ancestors(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            ids: &[Id],
+        ) -> Result<Vec<FileNode>, Self::Error> {
+            self.0.get_ancestors(&(), account_id, ids).await
+        }
+
+        async fn get_descendant_ids(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            id: &Id,
+        ) -> Result<Vec<Id>, Self::Error> {
+            self.0.get_descendant_ids(&(), account_id, id).await
+        }
+
+        async fn blob_exists(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            blob_id: &Id,
+        ) -> Result<bool, Self::Error> {
+            self.0.blob_exists(&(), account_id, blob_id).await
+        }
+
+        async fn find_sibling_by_name(
+            &self,
+            _caller: &(),
+            account_id: &Id,
+            parent_id: Option<&Id>,
+            name: &str,
+            folding: CaseFolding,
+        ) -> Result<Option<Id>, Self::Error> {
+            self.0
+                .find_sibling_by_name(&(), account_id, parent_id, name, folding)
+                .await
+        }
+    }
+
+    /// Oracle: every FileNode/* handler MUST short-circuit with
+    /// `accountNotSupportedByMethod` when the backend's
+    /// `supports_type::<FileNode>()` returns `false`. Without this
+    /// gate, register_filenode_handlers would route the request into
+    /// the handler and the handler would call backend methods on a
+    /// type the backend has opted out of (bd:JMAP-510h.43 +
+    /// bd:JMAP-510h.34). The gate mirrors the canonical
+    /// jmap-mail-server snippet.rs:35 pattern.
+    #[tokio::test]
+    async fn all_handlers_gate_on_supports_type_false() {
+        let backend = NoFileNodeBackend(MemoryBackend::new().with_account("acc1"));
+
+        let cases: &[(&str, &dyn Fn(serde_json::Value) -> serde_json::Value)] = &[
+            (
+                "FileNode/get",
+                &|_| json!({"accountId": "acc1", "ids": null}),
+            ),
+            (
+                "FileNode/changes",
+                &|_| json!({"accountId": "acc1", "sinceState": "0"}),
+            ),
+            (
+                "FileNode/set",
+                &|_| json!({"accountId": "acc1", "destroy": []}),
+            ),
+            (
+                "FileNode/copy",
+                &|_| json!({"fromAccountId": "acc1", "accountId": "acc1", "create": {}}),
+            ),
+            (
+                "FileNode/query",
+                &|_| json!({"accountId": "acc1", "filter": null, "sort": null}),
+            ),
+            (
+                "FileNode/queryChanges",
+                &|_| json!({"accountId": "acc1", "sinceQueryState": "0"}),
+            ),
+        ];
+
+        for (method, build_args) in cases {
+            let args = build_args(json!(null));
+            let err = match *method {
+                "FileNode/get" => handle_filenode_get(&backend, &(), args).await.err(),
+                "FileNode/changes" => handle_filenode_changes(&backend, &(), args).await.err(),
+                "FileNode/set" => handle_filenode_set(&backend, &(), args).await.err(),
+                "FileNode/copy" => handle_filenode_copy(&backend, &(), args, "c0").await.err(),
+                "FileNode/query" => handle_filenode_query(&backend, &(), args).await.err(),
+                "FileNode/queryChanges" => handle_filenode_query_changes(&backend, &(), args)
+                    .await
+                    .err(),
+                _ => panic!("unknown method: {method}"),
+            };
+            let err =
+                err.unwrap_or_else(|| panic!("{method} must error when FileNode is unsupported"));
+            assert_eq!(
+                err.error_type.as_str(),
+                "accountNotSupportedByMethod",
+                "{method}: must return accountNotSupportedByMethod, got: {:?}",
+                err.error_type
+            );
+        }
     }
 
     // -----------------------------------------------------------------------
