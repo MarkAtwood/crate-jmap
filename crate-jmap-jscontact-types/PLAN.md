@@ -162,6 +162,35 @@ the figure number cited in the doc comment.
 
 ## Type-design constraints
 
+### Classifier-attribute strings are bare `Option<String>` / `String`
+
+Several types carry a `kind` (or analogous classifier) field whose
+RFC 9553 spec enumerates a list of values:
+
+- `NameComponent.kind` — `given`, `surname`, `middle`, ...
+- `Title.kind` — `title`, `role`
+- `Calendar.kind` — `calendar`, `freeBusy`
+- `Anniversary.kind` — `birth`, `death`, `wedding`
+- `PersonalInfo.kind` — `expertise`, `hobby`, `interest`
+- `Directory.kind`, `Link.kind`, `Media.kind`,
+  `AddressComponent.kind`
+
+Every one of these is typed as bare `Option<String>` or `String`, NOT
+as a `#[non_exhaustive] enum { Variant, …, Other(String) }`. This is
+deliberate per the workspace policy "externally-owned-schema
+classifier strings" exclusion in workspace `AGENTS.md`. Real-world
+emitters (Outlook, Google, Apple, vCard converters, localized
+clients) routinely send values outside the RFC 9553 enumeration; a
+typed enum would do no real programmatic dispatch and pay a
+maintenance cost for every spec revision.
+
+A future contributor proposing "type these properly" as an enum
+should be redirected to the workspace `AGENTS.md` exclusion section
+and the README §Gotchas note at lines 99-107. The bare-`String`
+shape is intentional, not an oversight.
+
+Tracked by `bd:JMAP-sgrr.11`.
+
 ### Integer width policy (`UnsignedInt` fields)
 
 RFC 9553 §1.4.2 defines `UnsignedInt` as the integer range `0..=2^53-1`
