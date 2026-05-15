@@ -59,6 +59,26 @@ impl TransportConfig for DefaultTransport {
 /// Use when the server presents a certificate signed by a private CA.
 /// Pair with any [`AuthProvider`] for credential injection — including
 /// [`BearerAuth`] or [`BasicAuth`] if the server also requires credentials.
+///
+/// # Trust scope (bd:JMAP-6r7c.57)
+///
+/// **The bundled public webpki-roots are DISABLED in the constructed
+/// reqwest client.** This type is intended for private-CA pinning —
+/// connecting to a JMAP server identified by a private CA the operator
+/// controls, *refusing* certificates signed by any public CA. That is
+/// the threat model where this transport matters: a corporate internal
+/// JMAP server, a service-mesh deployment, an air-gapped network. A
+/// compromised or malicious public CA (DigiNotar 2011, Symantec 2017,
+/// etc.) issuing a certificate for the target host name would otherwise
+/// bypass the private-CA defense entirely; disabling the public roots
+/// closes that gap.
+///
+/// If you want trust against BOTH the bundled public roots AND a custom
+/// CA (a "hybrid" deployment), `CustomCaTransport` is the wrong tool —
+/// implement [`TransportConfig`] directly with the additive behaviour
+/// (`reqwest::ClientBuilder::add_root_certificate` does NOT call
+/// `.tls_built_in_root_certs(false)` by default, so a hand-rolled impl
+/// has the additive shape automatically).
 #[derive(Debug, Clone)]
 pub struct CustomCaTransport {
     der_cert: Vec<u8>,
@@ -75,8 +95,14 @@ impl TransportConfig for CustomCaTransport {
     fn build_client(&self) -> Result<reqwest::Client, ClientError> {
         let cert =
             reqwest::Certificate::from_der(&self.der_cert).map_err(ClientError::from_reqwest)?;
+        // Replace (not augment) the trust root set with the configured
+        // private CA. tls_built_in_root_certs(false) disables the bundled
+        // webpki-roots before add_root_certificate adds the private CA —
+        // the order matters because reqwest treats add_root_certificate
+        // as additive (bd:JMAP-6r7c.57).
         let client = reqwest::ClientBuilder::new()
             .connect_timeout(std::time::Duration::from_secs(10))
+            .tls_built_in_root_certs(false)
             .add_root_certificate(cert)
             .build()
             .map_err(ClientError::from_reqwest)?;
