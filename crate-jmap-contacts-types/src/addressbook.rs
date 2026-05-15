@@ -10,6 +10,26 @@ use std::collections::HashMap;
 use jmap_types::Id;
 use serde::{Deserialize, Serialize};
 
+use crate::collision::{self, CollisionError};
+
+/// Camel-case wire-format names of every typed field on
+/// [`AddressBookRights`]. Used by
+/// [`AddressBookRights::validate_extras`]. JMAP-glx8.25.
+const ADDRESS_BOOK_RIGHTS_TYPED_FIELDS: &[&str] = &["mayRead", "mayWrite", "mayShare", "mayDelete"];
+
+/// Camel-case wire-format names of every typed field on [`AddressBook`].
+/// Used by [`AddressBook::validate_extras`]. JMAP-glx8.25.
+const ADDRESS_BOOK_TYPED_FIELDS: &[&str] = &[
+    "id",
+    "name",
+    "description",
+    "sortOrder",
+    "isDefault",
+    "isSubscribed",
+    "shareWith",
+    "myRights",
+];
+
 /// Access rights a principal holds on an AddressBook (RFC 9610 §2).
 ///
 /// All four rights are booleans.  `Default` produces all-false, which is the
@@ -39,8 +59,29 @@ pub struct AddressBookRights {
     /// matches a typed field name produces a duplicate JSON object key
     /// on serialize. Treat `extra` as a write-only catch-all for unknown
     /// keys discovered at deserialize. JMAP-glx8.19.
+    ///
+    /// See [`AddressBookRights::validate_extras`] for a runtime
+    /// pre-serialize check that detects this hazard. JMAP-glx8.25.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl AddressBookRights {
+    /// Check that no [`extra`](Self::extra) key shadows a typed
+    /// wire-format field of this struct. Returns
+    /// [`Err(CollisionError)`](CollisionError) listing any colliding
+    /// keys; otherwise returns `Ok(())`. See
+    /// [`ContactCard::validate_extras`](crate::ContactCard::validate_extras)
+    /// for the design rationale. JMAP-glx8.25.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CollisionError`] when one or more keys in
+    /// [`extra`](Self::extra) match one of the camelCase wire-format
+    /// names of this struct's typed fields.
+    pub fn validate_extras(&self) -> Result<(), CollisionError> {
+        collision::check(&self.extra, ADDRESS_BOOK_RIGHTS_TYPED_FIELDS)
+    }
 }
 
 /// A JMAP AddressBook object (RFC 9610 §2).
@@ -88,6 +129,27 @@ pub struct AddressBook {
     /// collision contract: programmatically inserting a key that
     /// matches a typed field name produces a duplicate JSON object key
     /// on serialize. JMAP-glx8.19.
+    ///
+    /// See [`AddressBook::validate_extras`] for a runtime pre-serialize
+    /// check that detects this hazard. JMAP-glx8.25.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl AddressBook {
+    /// Check that no [`extra`](Self::extra) key shadows a typed
+    /// wire-format field of this struct. Returns
+    /// [`Err(CollisionError)`](CollisionError) listing any colliding
+    /// keys; otherwise returns `Ok(())`. See
+    /// [`ContactCard::validate_extras`](crate::ContactCard::validate_extras)
+    /// for the design rationale. JMAP-glx8.25.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CollisionError`] when one or more keys in
+    /// [`extra`](Self::extra) match one of the camelCase wire-format
+    /// names of this struct's typed fields.
+    pub fn validate_extras(&self) -> Result<(), CollisionError> {
+        collision::check(&self.extra, ADDRESS_BOOK_TYPED_FIELDS)
+    }
 }
