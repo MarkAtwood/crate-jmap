@@ -383,7 +383,22 @@ pub(crate) mod test_support {
             obj: O,
         ) -> Result<(Id, O), BackendSetError<Self::Error>> {
             let mut guard = self.state.lock().unwrap();
-            let acct = guard.entry(account_id.as_ref().to_owned()).or_default();
+
+            // Defense-in-depth account guard (bd:JMAP-826m.19).
+            // Pre-fix this method silently auto-registered an unknown
+            // account via `.entry(...).or_default()`, diverging from
+            // the public MemoryBackend which hard-errors. Two backends
+            // with different unknown-account behavior are a future-bug
+            // magnet for contributors writing dual-target tests.
+            if !guard.contains_key(account_id.as_ref()) {
+                return Err(BackendSetError::Other(MockError(format!(
+                    "unknown account: {}",
+                    account_id.as_ref()
+                ))));
+            }
+            let acct = guard
+                .get_mut(account_id.as_ref())
+                .expect("checked contains_key above");
 
             // Consume the one-shot forced error if present
             // (bd:JMAP-826m.15). `.take()` resets the slot so a second
