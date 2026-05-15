@@ -56,7 +56,7 @@ impl super::SessionClient {
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut filter = serde_json::Map::new();
-        if let Some(ref k) = input.filter_kind {
+        if let Some(k) = &input.filter_kind {
             let kind_str = serde_json::to_value(k).map_err(jmap_base_client::ClientError::Parse)?;
             filter.insert("kind".into(), kind_str);
         }
@@ -309,7 +309,7 @@ impl super::SessionClient {
                     .iter()
                     .map(|m: &AddMemberInput<'_>| {
                         let mut obj = serde_json::json!({ "id": m.id });
-                        if let Some(ref role) = m.role {
+                        if let Some(role) = &m.role {
                             obj["role"] = serde_json::to_value(role)
                                 .map_err(jmap_base_client::ClientError::Parse)?;
                         }
