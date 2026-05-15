@@ -207,15 +207,10 @@ impl ChatSessionExt for jmap_base_client::Session {
         let Some(account) = self.accounts.get(account_id) else {
             return Ok(None);
         };
-        let Some(raw) = account
-            .account_capabilities
-            .get("urn:ietf:params:jmap:chat")
-        else {
-            return Ok(None);
-        };
-        ChatCapability::deserialize(raw)
-            .map(Some)
-            .map_err(jmap_base_client::ClientError::Parse)
+        // Delegate to the foundation helper rather than duplicating its
+        // body. Future changes to the helper (extra logging, error
+        // mapping, telemetry) propagate automatically.
+        account.account_extension_capability::<ChatCapability>("urn:ietf:params:jmap:chat")
     }
 
     fn chat_push_capability(
@@ -225,15 +220,8 @@ impl ChatSessionExt for jmap_base_client::Session {
         let Some(account) = self.accounts.get(account_id) else {
             return Ok(None);
         };
-        let Some(raw) = account
-            .account_capabilities
-            .get("urn:ietf:params:jmap:chat:push")
-        else {
-            return Ok(None);
-        };
-        ChatPushCapability::deserialize(raw)
-            .map(Some)
-            .map_err(jmap_base_client::ClientError::Parse)
+        // Delegate to the foundation helper — see chat_capability above.
+        account.account_extension_capability::<ChatPushCapability>("urn:ietf:params:jmap:chat:push")
     }
 
     fn supports_chat_websocket(&self) -> bool {
