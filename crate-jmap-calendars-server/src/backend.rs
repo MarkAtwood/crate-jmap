@@ -116,6 +116,15 @@ pub trait CalendarsBackend: JmapBackend {
     /// Returns `Some(updated_object)` if the backend modified any properties
     /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
     /// or `None` if the patch was applied verbatim.
+    ///
+    /// **Callers must handle the `Some` case.** When the return value is
+    /// `Some(O)`, the handler should serialize the updated object and include
+    /// the server-modified fields in the `updated` map of the `/set` response
+    /// (RFC 8620 §5.3). Discarding the return value causes server-modified
+    /// fields to be silently omitted from the response. Per-request auth
+    /// context is available via the `caller` parameter, which the
+    /// `register_calendars_handlers` closures forward unchanged from
+    /// [`jmap_server::Dispatcher::dispatch`].
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -145,6 +154,16 @@ pub trait CalendarsBackend: JmapBackend {
     /// Default implementation delegates to `update_object`. Backends serving
     /// multiple users SHOULD override this to store per-user properties
     /// separately so that shared `updated` timestamps are not affected.
+    ///
+    /// **Callers must handle the `Some` case.** Same contract as
+    /// [`update_object`](Self::update_object): when the return value is
+    /// `Some(CalendarEvent)`, the handler MUST serialize the updated event
+    /// and include the server-modified fields in the `updated` map of the
+    /// `/set` response (RFC 8620 §5.3). Discarding the return value causes
+    /// server-modified fields to be silently omitted. This is especially
+    /// relevant on the per-user path because the backend often DOES modify
+    /// fields the client did not patch (e.g. a per-user `alerts` map that
+    /// the server normalises or attaches metadata to).
     fn update_per_user_properties(
         &self,
         caller: &Self::CallerCtx,
