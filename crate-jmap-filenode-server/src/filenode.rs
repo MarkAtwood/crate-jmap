@@ -129,7 +129,7 @@ pub async fn handle_filenode_changes<B: FileNodeBackend>(
 // ---------------------------------------------------------------------------
 
 /// Collision-handling policy for `FileNode/set` create operations.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum OnExists {
     /// null / absent (default) — return `alreadyExists`.
     Reject,
