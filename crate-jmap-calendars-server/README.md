@@ -64,6 +64,14 @@ read-side methods (`get_objects`, `get_state`, `get_changes`, `query_objects`,
 `jmap-server`). `CalendarsBackend` adds write operations and
 calendar-specific operations.
 
+Every `CalendarsBackend` method takes `caller: &Self::CallerCtx` as its
+first argument after `&self`. The `CallerCtx` associated type is inherited
+from `JmapBackend` and lets backends carry per-request caller identity
+(typically a principal id resolved from HTTP auth) into the JMAP method
+layer. Reference impls that do not need identity (e.g. `MemoryBackend`)
+use `type CallerCtx = ();`. See the workspace AGENTS.md "Caller identity
+(foundation seam)" section.
+
 ```rust
 pub trait CalendarsBackend: JmapBackend {
     // --- Write operations ---
@@ -71,6 +79,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// Create a new object. Returns (assigned_id, created_object).
     fn create_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         create_id: &str,
         obj: O,
@@ -82,6 +91,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// if the patch was applied verbatim.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
         patch: O::Patch,
@@ -90,6 +100,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// Destroy an object by id.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
     ) -> impl Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
@@ -109,14 +120,18 @@ pub trait CalendarsBackend: JmapBackend {
     /// Apply a patch consisting only of per-user CalendarEvent properties
     /// (draft §5.4).
     ///
+    /// `patch` is a `jmap_types::PatchObject` — the typed wire shape for
+    /// RFC 8620 §5.3 PatchObjects.
+    ///
     /// Default implementation delegates to update_object. Backends serving
     /// multiple users SHOULD override this to store per-user properties
     /// separately so that the shared updated timestamp is not bumped.
     fn update_per_user_properties(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         id: &Id,
-        patch: serde_json::Value,
+        patch: PatchObject,
     ) -> impl Future<Output = Result<Option<CalendarEvent>, BackendSetError<Self::Error>>> + Send
     { /* delegates to update_object */ }
 
@@ -129,6 +144,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// collapsed to Ok(false) on a transient backend failure.
     fn calendar_has_events(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         calendar_id: &Id,
     ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
@@ -136,17 +152,19 @@ pub trait CalendarsBackend: JmapBackend {
     /// Compute utcStart and utcEnd for a CalendarEvent by converting
     /// start/duration and the event's time zone into UTC (draft §5.2).
     ///
-    /// Returns (utc_start, utc_end) as RFC 3339 strings, or None for each
+    /// Returns `(utc_start, utc_end)` as `jmap_types::UTCDate` values
+    /// (RFC 8620 §1.4 `YYYY-MM-DDTHH:MM:SSZ` wire form), or None for each
     /// if data is absent or the time zone is unknown.
     ///
     /// Default: returns (None, None). Backends with time-zone support
     /// MUST override this.
     fn compute_utc_times(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         event: &CalendarEvent,
         tz_hint: Option<&str>,
-    ) -> impl Future<Output = (Option<String>, Option<String>)> + Send
+    ) -> impl Future<Output = (Option<UTCDate>, Option<UTCDate>)> + Send
     { async { (None, None) } }
 
     /// Parse calendar event blobs (draft §5.13 — CalendarEvent/parse).
@@ -157,6 +175,7 @@ pub trait CalendarsBackend: JmapBackend {
     /// Default: puts all blobs in not_parsable; returns no parsed events.
     fn parse_calendar_event_blobs(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         blob_ids: &[Id],
         properties: Option<&[String]>,
@@ -166,21 +185,34 @@ pub trait CalendarsBackend: JmapBackend {
     /// Fetch availability data for a principal (draft §2.2 —
     /// Principal/getAvailability).
     ///
+    /// `utc_start` and `utc_end` are `jmap_types::UTCDate` values bounding
+    /// the half-open interval `[utc_start, utc_end)`.
+    ///
     /// Returns the list of BusyPeriod values within the requested UTC range.
     ///
     /// Default: returns an empty list.
     fn get_availability(
         &self,
+        caller: &Self::CallerCtx,
         account_id: &Id,
         principal_id: &Id,
-        utc_start: &str,
-        utc_end: &str,
+        utc_start: &UTCDate,
+        utc_end: &UTCDate,
         show_details: bool,
         event_properties: Option<&[String]>,
     ) -> impl Future<Output = Result<Vec<BusyPeriod>, AvailabilityError<Self::Error>>> + Send
     { async { Ok(vec![]) } }
 }
 ```
+
+The trait carries additional methods this snippet omits for brevity —
+the scheduling-aware `create_calendar_event` / `update_calendar_event` /
+`destroy_calendar_event` (forwarded the `sendSchedulingMessages` flag),
+the `§5.7`-aware `get_calendar_events`, the `§5.11`-aware
+`query_calendar_events`, and `set_default_calendar` /
+`set_default_participant_identity` for the `onSuccessSetIsDefault` hook.
+All take `caller` as first arg after `&self`. See `src/backend.rs` for
+the full canonical signatures.
 
 `BackendSetError<E>` is an enum over two variants:
 
@@ -279,14 +311,22 @@ variants to the appropriate JMAP method-level errors.
 
 ## Capability URIs
 
-Include these in your Session object's `capabilities` map:
+Include these in your Session object's `capabilities` map. The constants
+are defined in `jmap-calendars-types` and imported directly from there.
+Only `JMAP_CALENDARS_URI` is re-exported from this crate as a
+convenience — for the others, depend on `jmap-calendars-types` and
+import them by their canonical path:
 
 ```rust
-// Re-exported from jmap-calendars-types:
-pub const JMAP_CALENDARS_URI: &str         = "urn:ietf:params:jmap:calendars";
-pub const JMAP_CALENDARS_PARSE_URI: &str   = "urn:ietf:params:jmap:calendars:parse";
-pub const JMAP_PRINCIPALS_AVAILABILITY_URI: &str
-                                           = "urn:ietf:params:jmap:principals:availability";
+// Re-exported from jmap-calendars-server for convenience:
+pub use jmap_calendars_server::JMAP_CALENDARS_URI;
+// = "urn:ietf:params:jmap:calendars"
+
+// Imported directly from jmap-calendars-types:
+pub use jmap_calendars_types::{
+    JMAP_CALENDARS_PARSE_URI,           // "urn:ietf:params:jmap:calendars:parse"
+    JMAP_PRINCIPALS_AVAILABILITY_URI,   // "urn:ietf:params:jmap:principals:availability"
+};
 ```
 
 Which URIs to advertise depends on which capabilities your backend supports.
