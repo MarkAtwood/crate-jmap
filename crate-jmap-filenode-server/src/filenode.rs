@@ -1720,12 +1720,12 @@ mod tests {
     #[derive(Default)]
     struct FaultState {
         /// When `Some`, the next call to `get_ancestors` returns
-        /// `Err(MemoryError(msg))`. Cleared on consumption.
+        /// `Err(MemoryError::new(msg))`. Cleared on consumption.
         get_ancestors_err: Option<String>,
         /// When `Some`, the next call to `blob_exists` returns
-        /// `Err(MemoryError(msg))`. Cleared on consumption.
+        /// `Err(MemoryError::new(msg))`. Cleared on consumption.
         blob_exists_err: Option<String>,
-        /// When `Some`, `query_objects` returns `Err(MemoryError(msg))`
+        /// When `Some`, `query_objects` returns `Err(MemoryError::new(msg))`
         /// once `query_objects_calls` reaches `after_calls`. The first
         /// matching call fires the fault and clears the entry; subsequent
         /// calls go through to the inner backend unaffected.
@@ -1754,19 +1754,19 @@ mod tests {
             }
         }
 
-        /// Schedule a `MemoryError(msg)` for the next `get_ancestors`
+        /// Schedule a `MemoryError::new(msg)` for the next `get_ancestors`
         /// call. Single-shot.
         fn inject_get_ancestors_err(&self, msg: &str) {
             self.faults.lock().unwrap().get_ancestors_err = Some(msg.to_owned());
         }
 
-        /// Schedule a `MemoryError(msg)` for the next `blob_exists`
+        /// Schedule a `MemoryError::new(msg)` for the next `blob_exists`
         /// call. Single-shot.
         fn inject_blob_exists_err(&self, msg: &str) {
             self.faults.lock().unwrap().blob_exists_err = Some(msg.to_owned());
         }
 
-        /// Schedule a `MemoryError(msg)` for the next `query_objects`
+        /// Schedule a `MemoryError::new(msg)` for the next `query_objects`
         /// call. Single-shot.
         fn inject_query_objects_err(&self, msg: &str) {
             self.faults.lock().unwrap().query_objects_err = Some(QueryObjectsErrConfig {
@@ -1775,7 +1775,7 @@ mod tests {
             });
         }
 
-        /// Schedule a `MemoryError(msg)` for the `n`-th-and-later
+        /// Schedule a `MemoryError::new(msg)` for the `n`-th-and-later
         /// `query_objects` call. The first `n` calls succeed; the
         /// (`n`+1)-th fails. Single-shot: only the first matching call
         /// fires the fault.
@@ -1868,7 +1868,7 @@ mod tests {
                         .take()
                         .map(|c| c.msg)
                         .unwrap_or_default();
-                    return Err(MemoryError(msg));
+                    return Err(MemoryError::new(msg));
                 }
             }
             self.inner
@@ -1921,12 +1921,12 @@ mod tests {
                 .clone();
             if let Some(name) = override_name {
                 let mut v = serde_json::to_value(&obj)
-                    .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+                    .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
                 if let serde_json::Value::Object(ref mut m) = v {
                     m.insert("name".to_owned(), serde_json::Value::String(name));
                 }
                 let reshaped: O = serde_json::from_value(v)
-                    .map_err(|e| BackendSetError::Other(MemoryError(e.to_string())))?;
+                    .map_err(|e| BackendSetError::Other(MemoryError::new(e.to_string())))?;
                 return self
                     .inner
                     .create_object::<O>(&(), account_id, create_id, reshaped)
@@ -1970,7 +1970,7 @@ mod tests {
         ) -> Result<Vec<FileNode>, Self::Error> {
             // Single-shot: consume the entry on this call.
             if let Some(msg) = self.faults.lock().unwrap().get_ancestors_err.take() {
-                return Err(MemoryError(msg));
+                return Err(MemoryError::new(msg));
             }
             self.inner.get_ancestors(&(), account_id, ids).await
         }
@@ -1992,7 +1992,7 @@ mod tests {
         ) -> Result<bool, Self::Error> {
             // Single-shot: consume the entry on this call.
             if let Some(msg) = self.faults.lock().unwrap().blob_exists_err.take() {
-                return Err(MemoryError(msg));
+                return Err(MemoryError::new(msg));
             }
             self.inner.blob_exists(&(), account_id, blob_id).await
         }
@@ -2032,7 +2032,7 @@ mod tests {
             .get_ancestors(&(), &Id::from("acc1"), &[Id::from("any")])
             .await
             .expect_err("first call must surface the injected error");
-        assert_eq!(err.0, "simulated boom");
+        assert_eq!(err.description(), "simulated boom");
         // Second call: no fault armed, delegates to inner MemoryBackend
         // which returns Ok(empty) for an unknown id.
         let ok = backend
@@ -2053,7 +2053,7 @@ mod tests {
             .blob_exists(&(), &Id::from("acc1"), &Id::from("blob1"))
             .await
             .expect_err("first call must surface the injected error");
-        assert_eq!(err.0, "simulated boom");
+        assert_eq!(err.description(), "simulated boom");
         let ok = backend
             .blob_exists(&(), &Id::from("acc1"), &Id::from("blob1"))
             .await
@@ -2071,7 +2071,7 @@ mod tests {
             .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
             .await
             .expect_err("first call must surface the injected error");
-        assert_eq!(err.0, "simulated boom");
+        assert_eq!(err.description(), "simulated boom");
     }
 
     /// Oracle: inject_query_objects_err_after(_, 1) lets the first call
@@ -2090,7 +2090,7 @@ mod tests {
             .query_objects::<FileNode>(&(), &Id::from("acc1"), None, None, None, 0)
             .await
             .expect_err("second call must surface the injected error");
-        assert_eq!(err.0, "simulated boom");
+        assert_eq!(err.description(), "simulated boom");
     }
 
     /// Oracle: set_create_object_override_name is persistent. Every
