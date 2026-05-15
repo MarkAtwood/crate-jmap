@@ -927,14 +927,30 @@ impl MetadataBackend for MemoryBackend {
         // §3.1 uniqueness enforcement — only when the type being created is
         // actually Metadata. The trait is generic over O for forward
         // compatibility; the constraint is type-specific.
+        //
+        // Extract the uniqueness key directly from the JSON `Value` via
+        // `UniquenessKey::from_stored`, skipping the typed deserialize
+        // round-trip the previous form did (`from_value(val.clone())
+        // -> Metadata`). The serialize-then-deserialize pair was a
+        // tautology post-bd:JMAP-826m.13 — `O` is statically Metadata
+        // here (the top-of-method guard rejects non-Metadata `O`), so
+        // we just round-tripped Metadata's own Serialize output through
+        // Metadata's Deserialize, which accepts by construction. No
+        // validation was gained, and a Value::clone of the full record
+        // (including the `extra` vendor-field map under workspace
+        // extras-preservation policy) was paid on every create. The
+        // `from_stored` form returns `None` for malformed input; that
+        // path should not fire here because the source was `to_value`
+        // on a typed `O = Metadata`, but if it ever does we surface
+        // it as a backend invariant violation rather than a SetError.
         if O::TYPE_NAME == Metadata::TYPE_NAME {
-            let typed: Metadata = serde_json::from_value(val.clone()).map_err(|e| {
-                BackendSetError::SetError(
-                    SetError::new(SetErrorType::InvalidProperties)
-                        .with_description(format!("Metadata deserialize: {e}")),
-                )
+            let key = UniquenessKey::from_stored(&val).ok_or_else(|| {
+                BackendSetError::Other(MemoryError::new(
+                    "create_object: serialised Metadata missing required fields \
+                     (backend invariant violation)"
+                        .to_owned(),
+                ))
             })?;
-            let key = UniquenessKey::from_metadata(&typed);
             if let Some(existing_id) =
                 Self::find_uniqueness_conflict(&inner, account_id.as_ref(), &key, None)
             {
