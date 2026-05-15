@@ -138,13 +138,39 @@ pub(crate) mod test_support {
 
     use crate::backend::MetadataBackend;
 
-    /// Minimal error type for the mock backend.
+    /// Opaque storage-layer error returned by [`MockBackend`] operations.
+    ///
+    /// Mirrors the canonical [`jmap-mail-server`]'s `MemoryError`
+    /// shape — `#[non_exhaustive]`, named-field, constructor +
+    /// description accessor — per workspace AGENTS.md canonical-template
+    /// propagation rule. Outside-crate construction goes through
+    /// [`MockError::new`]; outside-crate reads go through
+    /// [`MockError::description`]. Future revisions can add structured
+    /// context (error kind, source reference, account id, etc.) without
+    /// a breaking change.
+    #[non_exhaustive]
     #[derive(Debug)]
-    pub struct MockError(pub String);
+    pub struct MockError {
+        description: String,
+    }
+
+    impl MockError {
+        /// Construct a [`MockError`] from a human-readable description.
+        pub fn new(description: impl Into<String>) -> Self {
+            Self {
+                description: description.into(),
+            }
+        }
+
+        /// Human-readable description of the underlying failure.
+        pub fn description(&self) -> &str {
+            &self.description
+        }
+    }
 
     impl std::fmt::Display for MockError {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "mock error: {}", self.0)
+            write!(f, "mock error: {}", self.description)
         }
     }
 
@@ -280,8 +306,8 @@ pub(crate) mod test_support {
             // concrete type).
             let mut converted: Vec<O> = Vec::with_capacity(found_meta.len());
             for m in found_meta {
-                let v = serde_json::to_value(&m).map_err(|e| MockError(e.to_string()))?;
-                let o: O = serde_json::from_value(v).map_err(|e| MockError(e.to_string()))?;
+                let v = serde_json::to_value(&m).map_err(|e| MockError::new(e.to_string()))?;
+                let o: O = serde_json::from_value(v).map_err(|e| MockError::new(e.to_string()))?;
                 converted.push(o);
             }
             Ok((converted, not_found))
@@ -391,7 +417,7 @@ pub(crate) mod test_support {
             // with different unknown-account behavior are a future-bug
             // magnet for contributors writing dual-target tests.
             if !guard.contains_key(account_id.as_ref()) {
-                return Err(BackendSetError::Other(MockError(format!(
+                return Err(BackendSetError::Other(MockError::new(format!(
                     "unknown account: {}",
                     account_id.as_ref()
                 ))));
@@ -414,7 +440,7 @@ pub(crate) mod test_support {
             // Inject the assigned id into obj via serde round-trip, then
             // store it as a Metadata for later retrieval.
             let v = serde_json::to_value(&obj)
-                .map_err(|e| BackendSetError::Other(MockError(format!("serialize: {e}"))))?;
+                .map_err(|e| BackendSetError::Other(MockError::new(format!("serialize: {e}"))))?;
             let mut v = match v {
                 serde_json::Value::Object(m) => m,
                 _ => {
@@ -430,14 +456,15 @@ pub(crate) mod test_support {
             let v = serde_json::Value::Object(v);
 
             let stored: Metadata = serde_json::from_value(v.clone()).map_err(|e| {
-                BackendSetError::Other(MockError(format!("deserialize stored: {e}")))
+                BackendSetError::Other(MockError::new(format!("deserialize stored: {e}")))
             })?;
             acct.metadatas.insert(new_id.clone(), stored);
             acct.state += 1;
             acct.created.push(new_id.clone());
 
-            let echoed: O = serde_json::from_value(v)
-                .map_err(|e| BackendSetError::Other(MockError(format!("deserialize echo: {e}"))))?;
+            let echoed: O = serde_json::from_value(v).map_err(|e| {
+                BackendSetError::Other(MockError::new(format!("deserialize echo: {e}")))
+            })?;
             Ok((new_id, echoed))
         }
 

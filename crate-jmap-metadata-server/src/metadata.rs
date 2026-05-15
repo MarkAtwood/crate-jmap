@@ -991,10 +991,11 @@ mod tests {
             .await
             .expect_err("must reject create against unknown account");
         match err {
-            BackendSetError::Other(crate::test_support::MockError(msg)) => {
+            BackendSetError::Other(e) => {
                 assert!(
-                    msg.contains("unknown account"),
-                    "expected 'unknown account' in error: {msg}",
+                    e.description().contains("unknown account"),
+                    "expected 'unknown account' in error: {}",
+                    e.description(),
                 );
             }
             other => panic!("expected BackendSetError::Other, got: {other:?}"),

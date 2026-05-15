@@ -506,13 +506,44 @@ impl MemoryBackend {
     }
 }
 
-/// A simple string error for `MemoryBackend` failures.
+/// Opaque storage-layer error returned by [`MemoryBackend`] operations.
+///
+/// The inner description is a human-readable string intended for
+/// diagnostic logging; it is not a stable wire-format identifier.
+///
+/// # Forward compatibility
+///
+/// This type is `#[non_exhaustive]` and uses a named-field shape so
+/// future revisions can add structured context (error kind, source
+/// reference, account id, etc.) without a breaking change. Outside-
+/// crate construction goes through [`MemoryError::new`]; outside-crate
+/// reads go through [`MemoryError::description`].
+///
+/// Mirrors the canonical [`jmap-mail-server`'s `MemoryError`] shape
+/// per workspace AGENTS.md canonical-template propagation rule.
+#[non_exhaustive]
 #[derive(Debug)]
-pub struct MemoryError(pub String);
+pub struct MemoryError {
+    description: String,
+}
+
+impl MemoryError {
+    /// Construct a [`MemoryError`] from a human-readable description.
+    pub fn new(description: impl Into<String>) -> Self {
+        Self {
+            description: description.into(),
+        }
+    }
+
+    /// Human-readable description of the underlying failure.
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+}
 
 impl std::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
+        f.write_str(&self.description)
     }
 }
 
@@ -545,7 +576,7 @@ impl JmapBackend for MemoryBackend {
                         match O::deserialize(val) {
                             Ok(obj) => list.push(obj),
                             Err(e) => {
-                                return Err(MemoryError(format!(
+                                return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
                                 )))
@@ -563,7 +594,7 @@ impl JmapBackend for MemoryBackend {
                         Some(val) => match O::deserialize(val) {
                             Ok(obj) => found.push(obj),
                             Err(e) => {
-                                return Err(MemoryError(format!(
+                                return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
                                 )))
@@ -873,7 +904,7 @@ impl MetadataBackend for MemoryBackend {
         // a per-object call would mean a stray create attaches private
         // metadata records to a phantom account.
         if !inner.known_accounts.contains(account_id.as_ref()) {
-            return Err(BackendSetError::Other(MemoryError(format!(
+            return Err(BackendSetError::Other(MemoryError::new(format!(
                 "unknown account: {}",
                 account_id.as_ref()
             ))));
@@ -882,7 +913,7 @@ impl MetadataBackend for MemoryBackend {
         // Serialize so we can both inspect for the uniqueness key (when this
         // is a Metadata object) and stash the final JSON in the store.
         let mut val = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize: {e}"))))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
 
         // §3.1 uniqueness enforcement — only when the type being created is
         // actually Metadata. The trait is generic over O for forward
@@ -915,7 +946,7 @@ impl MetadataBackend for MemoryBackend {
         // the caller per the MetadataBackend invariant.
         val["id"] = serde_json::Value::String(server_id.as_ref().to_owned());
         let stored_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
+            BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
         })?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
@@ -985,8 +1016,9 @@ impl MetadataBackend for MemoryBackend {
         // update` shapes. `current` is a clone of the stored value, so a
         // partially-applied patch on error is discarded with the local
         // without touching storage.
-        let patch_val = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize patch: {e}"))))?;
+        let patch_val = serde_json::to_value(&patch).map_err(|e| {
+            BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
+        })?;
         if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
             return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::InvalidPatch)
@@ -1227,7 +1259,7 @@ impl MetadataBackend for MemoryBackend {
 /// types they claim to support, and "wrong O type at the trait
 /// boundary" is a programmer error, not a per-target wire failure.
 fn unsupported_object_type<O: JmapObject>() -> BackendSetError<MemoryError> {
-    BackendSetError::Other(MemoryError(format!(
+    BackendSetError::Other(MemoryError::new(format!(
         "MemoryBackend supports only Metadata (got {})",
         O::TYPE_NAME
     )))
@@ -1612,10 +1644,11 @@ mod tests {
             .await;
 
         match result {
-            Err(BackendSetError::Other(MemoryError(msg))) => {
+            Err(BackendSetError::Other(e)) => {
                 assert!(
-                    msg.contains("unknown account"),
-                    "error message must identify the account problem: {msg}",
+                    e.description().contains("unknown account"),
+                    "error message must identify the account problem: {}",
+                    e.description(),
                 );
             }
             other => panic!("expected BackendSetError::Other for unknown account, got: {other:?}"),
@@ -1725,7 +1758,8 @@ mod tests {
             .await
             .expect_err("non-Metadata create must be refused");
         match err {
-            BackendSetError::Other(MemoryError(msg)) => {
+            BackendSetError::Other(e) => {
+                let msg = e.description();
                 assert!(
                     msg.contains("MemoryBackend supports only Metadata"),
                     "unsupported-type message must name Metadata: {msg}",
