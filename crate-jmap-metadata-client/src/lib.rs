@@ -16,7 +16,7 @@
 //! let session = client.fetch_session().await?;
 //! let sc = client.with_metadata_session(session);
 //! // Fetch all Metadata objects in the account.
-//! let metadata = sc.metadata_get(None, None).await?;
+//! let metadata = sc.metadata_get(None, None, None).await?;
 //! # let _ = metadata;
 //! # Ok(())
 //! # }
@@ -28,7 +28,8 @@ pub mod methods;
 
 pub use jmap_base_client::ClientError;
 pub use methods::{
-    AddedItem, ChangesResponse, GetResponse, MetadataChangesParams, QueryChangesResponse,
+    AddedItem, ChangesResponse, GetResponse, MetadataChangesParams, MetadataGetParams,
+    MetadataQueryChangesParams, MetadataQueryParams, MetadataSetParams, QueryChangesResponse,
     QueryResponse, SessionClient, SetError, SetResponse,
 };
 

@@ -14,20 +14,38 @@ use std::collections::HashMap;
 use jmap_types::{Id, PatchObject, State};
 
 use super::{
-    ChangesResponse, GetResponse, MetadataChangesParams, QueryChangesResponse, QueryResponse,
-    SetResponse,
+    ChangesResponse, GetResponse, MetadataChangesParams, MetadataGetParams,
+    MetadataQueryChangesParams, MetadataQueryParams, MetadataSetParams, QueryChangesResponse,
+    QueryResponse, SetResponse,
 };
+
+/// Flatten extras from a params struct into the args object, preserving
+/// typed-field values on key collisions. Centralises the
+/// `Map::entry(...).or_insert(...)` pattern used by every method builder so
+/// the collision semantics (typed-field wins, extras lose silently) stay
+/// uniform across `Metadata/*`.
+fn merge_extras(args: &mut serde_json::Value, extras: serde_json::Map<String, serde_json::Value>) {
+    let obj = args
+        .as_object_mut()
+        .expect("merge_extras: args is constructed as an Object");
+    for (k, v) in extras {
+        obj.entry(k).or_insert(v);
+    }
+}
 
 impl super::SessionClient {
     /// Fetch Metadata objects by IDs (draft-ietf-jmap-metadata-01 §3.2).
     ///
     /// If `ids` is `None`, the server returns all Metadata objects for the
     /// account in one response. Pass `properties: None` to return all
-    /// fields.
+    /// fields. Pass `params: Some(MetadataGetParams { extra: ... })` to
+    /// inject vendor / site / private method-level extension args; pass
+    /// `None` (or `Some(Default::default())`) for the standard wire shape.
     pub async fn metadata_get(
         &self,
         ids: Option<&[Id]>,
         properties: Option<&[&str]>,
+        params: Option<MetadataGetParams>,
     ) -> Result<GetResponse<jmap_metadata_types::Metadata>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         // Omit `ids` / `properties` entirely when None rather than sending
@@ -44,6 +62,9 @@ impl super::SessionClient {
             args["properties"] = serde_json::Value::Array(
                 props.iter().copied().map(serde_json::Value::from).collect(),
             );
+        }
+        if let Some(p) = params {
+            merge_extras(&mut args, p.extra);
         }
         let req = super::build_request("Metadata/get", args, super::USING_METADATA);
         let resp = self.call_internal(api_url, &req).await?;
@@ -94,17 +115,11 @@ impl super::SessionClient {
                 args["filterMetadataType"] =
                     serde_json::to_value(&v).expect("Vec<String> Serialize is infallible");
             }
-            // Vendor extras: flatten any caller-supplied keys directly into
-            // the args object. Note that an extras key colliding with a
-            // typed-field wire name (`filterRelatedType`, `filterMetadataType`,
-            // `accountId`, `sinceState`, `maxChanges`) is the caller's
-            // responsibility to avoid; we do NOT overwrite typed fields here.
-            for (k, v) in p.extra {
-                args.as_object_mut()
-                    .expect("args is constructed as an Object")
-                    .entry(k)
-                    .or_insert(v);
-            }
+            // Vendor extras: flatten caller-supplied keys directly into the
+            // args object. Typed-field wire names (`filterRelatedType`,
+            // `filterMetadataType`, `accountId`, `sinceState`, `maxChanges`)
+            // win on collision — the helper uses `Map::entry(...).or_insert`.
+            merge_extras(&mut args, p.extra);
         }
         let req = super::build_request("Metadata/changes", args, super::USING_METADATA);
         let resp = self.call_internal(api_url, &req).await?;
@@ -122,6 +137,16 @@ impl super::SessionClient {
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
     ///
+    /// Pass `if_in_state: Some(&state)` to use an optimistic-concurrency
+    /// guard (RFC 8620 §5.3): the server returns `stateMismatch` if the
+    /// current state does not match. Required for safe read-modify-write
+    /// given the `(relatedType, relatedId, @type, isPrivate)` uniqueness
+    /// invariant.
+    ///
+    /// Pass `params: Some(MetadataSetParams { extra: ... })` to inject
+    /// vendor / site / private method-level extension args; pass `None`
+    /// (or `Some(Default::default())`) for the standard wire shape.
+    ///
     /// The server enforces uniqueness on the tuple
     /// `(relatedType, relatedId, @type, isPrivate)` and may return
     /// `alreadyExists`, `forbidden` (if `maySetPrivate: false` and
@@ -132,11 +157,16 @@ impl super::SessionClient {
         create: Option<serde_json::Value>,
         update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
+        if_in_state: Option<&State>,
+        params: Option<MetadataSetParams>,
     ) -> Result<SetResponse<jmap_metadata_types::Metadata>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         if let Some(c) = create {
             args["create"] = c;
         }
@@ -149,6 +179,9 @@ impl super::SessionClient {
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
+        }
+        if let Some(p) = params {
+            merge_extras(&mut args, p.extra);
         }
         let req = super::build_request("Metadata/set", args, super::USING_METADATA);
         let resp = self.call_internal(api_url, &req).await?;
@@ -170,12 +203,17 @@ impl super::SessionClient {
     /// Sort comparators MUST set `property` to one of `id`, `@type`,
     /// `relatedType`, `relatedId`, or `isPrivate` per §3.4.2; `id` MUST be
     /// supported by every server, the others SHOULD be supported.
+    ///
+    /// Pass `params: Some(MetadataQueryParams { extra: ... })` to inject
+    /// vendor / site / private method-level extension args; pass `None`
+    /// (or `Some(Default::default())`) for the standard wire shape.
     pub async fn metadata_query(
         &self,
         filter: Option<serde_json::Value>,
         sort: Option<serde_json::Value>,
         position: Option<u64>,
         limit: Option<u64>,
+        params: Option<MetadataQueryParams>,
     ) -> Result<QueryResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
@@ -193,6 +231,9 @@ impl super::SessionClient {
         if let Some(l) = limit {
             args["limit"] = l.into();
         }
+        if let Some(p) = params {
+            merge_extras(&mut args, p.extra);
+        }
         let req = super::build_request("Metadata/query", args, super::USING_METADATA);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
@@ -203,10 +244,15 @@ impl super::SessionClient {
     ///
     /// Returns which Metadata IDs were removed from or added to the query
     /// result set since the given state. `max_changes` may be `None`.
+    ///
+    /// Pass `params: Some(MetadataQueryChangesParams { extra: ... })` to
+    /// inject vendor / site / private method-level extension args; pass
+    /// `None` (or `Some(Default::default())`) for the standard wire shape.
     pub async fn metadata_query_changes(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
+        params: Option<MetadataQueryChangesParams>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
         // Defence-in-depth: see `metadata_changes`.
         if since_query_state.as_ref().is_empty() {
@@ -221,6 +267,9 @@ impl super::SessionClient {
         });
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
+        }
+        if let Some(p) = params {
+            merge_extras(&mut args, p.extra);
         }
         let req = super::build_request("Metadata/queryChanges", args, super::USING_METADATA);
         let resp = self.call_internal(api_url, &req).await?;
