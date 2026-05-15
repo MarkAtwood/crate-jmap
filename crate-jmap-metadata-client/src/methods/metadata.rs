@@ -190,10 +190,14 @@ impl super::SessionClient {
     /// very large HashMap; a `PatchObject` whose internal JSON tree
     /// exceeds `serde_json`'s recursion limit). The size of `update` is
     /// otherwise bounded only by available memory; the wire request is
-    /// streamed by the HTTP client without an explicit cap. Callers
-    /// dealing with thousands of patches per call may prefer to batch
-    /// across multiple `metadata_set` invocations to bound per-request
-    /// memory pressure.
+    /// buffered by the HTTP client (reqwest's `RequestBuilder::json`
+    /// serializes the body upfront via `serde_json::to_vec`), so the
+    /// transient peak holds the source `HashMap`, the intermediate
+    /// `serde_json::Value` tree, and the serialized `Vec<u8>` body
+    /// simultaneously — roughly 3-4× the `HashMap`'s in-memory size.
+    /// Callers dealing with thousands of patches per call may prefer to
+    /// batch across multiple `metadata_set` invocations to bound that
+    /// transient peak.
     pub async fn metadata_set(
         &self,
         create: Option<serde_json::Value>,
