@@ -24,6 +24,17 @@ use crate::MailBackend;
 ///
 /// All maps are keyed by the fixture's logical name (e.g. `"inbox"`,
 /// `"plain-simple"`, `"thread-alpha"`).
+///
+/// # Forward compatibility
+///
+/// This type is `#[non_exhaustive]` so that future fixture categories
+/// (`submission`, `identity`, `vacation_response`, etc.) can be added
+/// without a SemVer break. Outside-crate consumers construct via
+/// [`SeedData::new`] or [`SeedData::default`]; field reads
+/// (`seed.mailbox["inbox"]`) continue to work because the existing
+/// fields stay `pub`.
+#[non_exhaustive]
+#[derive(Default)]
 pub struct SeedData {
     /// Logical name → assigned mailbox Id.
     pub mailbox: HashMap<&'static str, Id>,
@@ -36,6 +47,28 @@ pub struct SeedData {
     /// (`"thread-alpha"`). Follow this convention when adding new thread
     /// fixtures.
     pub thread: HashMap<&'static str, Id>,
+}
+
+impl SeedData {
+    /// Construct a [`SeedData`] from the three currently-defined
+    /// fixture-category maps. New categories added in future revisions
+    /// (`submission`, `identity`, etc.) will start empty; use
+    /// [`SeedData::default`] followed by field assignment, or wait for
+    /// a `with_*` extension method, if those categories matter to your
+    /// fixture.
+    pub fn new(
+        mailbox: HashMap<&'static str, Id>,
+        email: HashMap<&'static str, Id>,
+        thread: HashMap<&'static str, Id>,
+    ) -> Self {
+        Self {
+            mailbox,
+            email,
+            thread,
+            // Future fields default-initialise here. Adding a category
+            // does NOT break this constructor's signature.
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
