@@ -193,9 +193,16 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Patch<T> {
 // Constants
 // ---------------------------------------------------------------------------
 
-/// The call-id embedded in every single-method JMAP request produced by
-/// [`build_request`]. Pass directly to `jmap_base_client::extract_response`.
-pub(crate) const CALL_ID: &str = "r1";
+/// The call-id embedded in every single-method JMAP request produced
+/// by this crate. Pass directly to
+/// [`jmap_base_client::extract_response`].
+///
+/// External callers need this constant when indexing into
+/// `SetResponse`-shaped `created` / `notCreated` / `updated` maps
+/// returned by methods that use a per-call client id. For example,
+/// after `blob_convert` callers look up the converted blob via
+/// `response.created.as_ref().and_then(|m| m.get(jmap_chat_client::methods::CALL_ID))`.
+pub const CALL_ID: &str = "r1";
 
 /// Capability URIs for standard JMAP Chat method calls (RFC 8620 §3.3).
 pub(crate) const USING_CHAT: &[&str] = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:chat"];
