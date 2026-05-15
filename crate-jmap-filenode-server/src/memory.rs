@@ -377,13 +377,21 @@ impl JmapBackend for MemoryBackend {
         let current_state = State::from(store.state.to_string());
 
         // Parse the filter as FileNodeFilterCondition via serde round-trip.
-        // This avoids the #[non_exhaustive] restriction outside the defining crate.
-        let fc: Option<jmap_filenode_types::FileNodeFilterCondition> = if let Some(f) = filter {
-            serde_json::to_value(f)
-                .ok()
-                .and_then(|v| serde_json::from_value(v).ok())
-        } else {
-            None
+        // This avoids the #[non_exhaustive] restriction outside the defining
+        // crate. Serde errors are propagated as MemoryError rather than
+        // silently dropped — silent-drop on filter parse degenerates into
+        // an unfiltered query, which is a query-correctness bug
+        // (workspace AGENTS.md "Filter algebra exclusion §1"; bd:JMAP-510h.53).
+        let fc: Option<jmap_filenode_types::FileNodeFilterCondition> = match filter {
+            None => None,
+            Some(f) => {
+                let v = serde_json::to_value(f)
+                    .map_err(|e| MemoryError(format!("serialize filter: {e}")))?;
+                Some(
+                    serde_json::from_value(v)
+                        .map_err(|e| MemoryError(format!("parse filter: {e}")))?,
+                )
+            }
         };
 
         let mut ids: Vec<Id> = Vec::new();
