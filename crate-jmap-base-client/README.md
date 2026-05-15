@@ -193,7 +193,7 @@ while let Some(frame) = stream.next().await {
                 }
             }
         }
-        SseEvent::Unknown { event_type } => {
+        SseEvent::Unknown { event_type, .. } => {
             // keepalive ping or unrecognized event type — safe to ignore
             let _ = event_type;
         }
