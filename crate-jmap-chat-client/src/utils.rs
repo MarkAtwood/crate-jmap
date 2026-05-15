@@ -86,7 +86,13 @@ pub fn format_receipt_timestamp_at(dt: &UTCDate, now: &UTCDate) -> String {
                 9 => "Sep",
                 10 => "Oct",
                 11 => "Nov",
-                _ => "Dec",
+                12 => "Dec",
+                // chrono::Datelike::month() is contractually 1..=12. A
+                // value outside that range is a chrono-API regression,
+                // not a normal-flow case. Refuse to silently mis-label
+                // (the old '_ => "Dec"' arm silently re-mapped every
+                // out-of-range value to December).
+                _ => unreachable!("chrono::Datelike::month() returns 1..=12"),
             };
             if parsed.year() != now.year() {
                 format!("{} {} {}", month, parsed.day(), parsed.year())

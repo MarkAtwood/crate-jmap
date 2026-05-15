@@ -33,16 +33,20 @@ pub enum ContactPresenceFilter {
 }
 
 impl TryFrom<jmap_chat_types::Presence> for ContactPresenceFilter {
-    /// Conversion fails when `p` is `Presence::Other`.
-    type Error = ();
-    fn try_from(p: jmap_chat_types::Presence) -> Result<Self, ()> {
+    /// Conversion fails when `p` is [`jmap_chat_types::Presence::Other`].
+    /// The failed value is returned in the `Err` so callers can recover
+    /// the original wire string (typically for logging or selective
+    /// fallback) rather than dropping it to a unit error.
+    type Error = jmap_chat_types::Presence;
+
+    fn try_from(p: jmap_chat_types::Presence) -> Result<Self, Self::Error> {
         match p {
             jmap_chat_types::Presence::Online => Ok(ContactPresenceFilter::Online),
             jmap_chat_types::Presence::Away => Ok(ContactPresenceFilter::Away),
             jmap_chat_types::Presence::Busy => Ok(ContactPresenceFilter::Busy),
             jmap_chat_types::Presence::Invisible => Ok(ContactPresenceFilter::Invisible),
             jmap_chat_types::Presence::Offline => Ok(ContactPresenceFilter::Offline),
-            _ => Err(()),
+            other => Err(other),
         }
     }
 }
