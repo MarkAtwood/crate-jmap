@@ -40,8 +40,13 @@ Content-Type: text/html; charset=utf-8\r\n\
 fn main() -> Result<(), Box<dyn Error>> {
     let msg = parse(RAW)?;
 
-    // Storage layer would assign real blob IDs; the example uses a counter.
-    let fields = message_to_jmap_body(&msg, |part| Id::from(format!("blob-{}", part.part_id)));
+    // Storage layer would assign real blob IDs; the example uses a
+    // deterministic function of part_id (idempotent on part.part_id, as
+    // required by message_to_jmap_body's contract).
+    let fields = message_to_jmap_body(&msg, |part| {
+        let part_id = &part.part_id;
+        Id::from(format!("blob-{part_id}"))
+    });
 
     println!("textBody parts: {}", fields.text_body.len());
     println!("htmlBody parts: {}", fields.html_body.len());
