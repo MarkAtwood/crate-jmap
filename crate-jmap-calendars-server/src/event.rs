@@ -1011,12 +1011,7 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
         });
 
     match backend
-        .parse_calendar_event_blobs(
-            caller,
-            &account_id,
-            &blob_ids,
-            properties.as_deref().map(|v| v as &[String]),
-        )
+        .parse_calendar_event_blobs(caller, &account_id, &blob_ids, properties.as_deref())
         .await
     {
         Ok(result) => {
