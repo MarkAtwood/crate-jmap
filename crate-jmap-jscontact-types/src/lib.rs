@@ -22,6 +22,35 @@
 //! types (not `Option`) to express the requirement at the type level —
 //! callers building a fresh sub-object must populate them.
 //!
+//! ## Design: cross-field invariants are not type-enforced
+//!
+//! Six structs carry a cross-field "at least one of X, Y must be set"
+//! constraint at the rustdoc level that the Rust type system does not
+//! enforce. The kit's posture is "types model the wire shape; semantic
+//! validity is the consumer's job" (see the kit-vs-jig section in the
+//! workspace `AGENTS.md`). Encoding these constraints in the type system
+//! would diverge from that posture and force the partial-response
+//! `Option` modelling into a corner.
+//!
+//! Callers building a fresh value for emission MUST validate the
+//! constraint themselves before serializing. The constraints, gathered
+//! into one place so each consumer does not have to re-derive them
+//! from the per-struct rustdoc:
+//!
+//! | Struct | Constraint |
+//! |---|---|
+//! | [`Name`] | at least one of `components` or `full` |
+//! | [`Organization`] | at least one of `name` or `units` |
+//! | [`SpeakToAs`] | at least one of `grammatical_gender` or `pronouns` |
+//! | [`OnlineService`] | at least one of `uri` or `user` |
+//! | [`Address`] | at least one of `components`, `coordinates`, `country_code`, `full`, or `time_zone` |
+//! | [`Author`] | at least one property other than `@type` |
+//!
+//! Deserialize does not reject inputs that violate these constraints —
+//! the kit accepts partial-response inputs that legitimately omit
+//! fields. The constraint applies only to emitting fresh values. See
+//! `bd:JMAP-sgrr.30`.
+//!
 //! ## Design: `@type` discriminator
 //!
 //! Every RFC 9553 sub-object has an `@type` discriminator on the wire.
