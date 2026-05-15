@@ -33,6 +33,12 @@ pub struct AddressBookRights {
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
+    ///
+    /// See [`ContactCard::extra`](crate::ContactCard::extra) for the
+    /// collision contract: programmatically inserting a key that
+    /// matches a typed field name produces a duplicate JSON object key
+    /// on serialize. Treat `extra` as a write-only catch-all for unknown
+    /// keys discovered at deserialize. JMAP-glx8.19.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -77,6 +83,11 @@ pub struct AddressBook {
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
+    ///
+    /// See [`ContactCard::extra`](crate::ContactCard::extra) for the
+    /// collision contract: programmatically inserting a key that
+    /// matches a typed field name produces a duplicate JSON object key
+    /// on serialize. JMAP-glx8.19.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
