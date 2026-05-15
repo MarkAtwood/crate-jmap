@@ -13,7 +13,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MetadataBackend};
 use crate::helpers::{
-    extract_account_id, finalize_set_response, metadata_value, set_error_value, SetAccumulators,
+    extract_account_id, finalize_set_response, metadata_value, set_error_value,
+    unhandled_backend_set_error, SetAccumulators,
 };
 use jmap_server::{server_fail_from_backend, SetError, SetErrorType};
 
@@ -415,14 +416,8 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
-                    not_created.insert(
-                        create_id,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(other) => {
+                    not_created.insert(create_id, unhandled_backend_set_error(&other));
                 }
             }
         }
@@ -475,14 +470,8 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(other) => {
+                    not_updated.insert(id_str, unhandled_backend_set_error(&other));
                 }
             }
         }
@@ -527,14 +516,8 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
                         json!({ "type": "serverFail", "description": e.to_string() }),
                     );
                 }
-                Err(_) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({
-                            "type": "serverFail",
-                            "description": "unhandled backend error variant",
-                        }),
-                    );
+                Err(other) => {
+                    not_destroyed.insert(id_str, unhandled_backend_set_error(&other));
                 }
             }
         }
