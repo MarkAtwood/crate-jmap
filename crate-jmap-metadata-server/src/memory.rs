@@ -1010,13 +1010,10 @@ impl MetadataBackend for MemoryBackend {
             .get(id)
             .cloned();
 
-        let mut current = match existing {
-            Some(v) => v,
-            None => {
-                return Err(BackendSetError::SetError(SetError::new(
-                    SetErrorType::NotFound,
-                )))
-            }
+        let Some(mut current) = existing else {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )));
         };
 
         // Apply JSON Merge Patch (RFC 7396). A `MergePatchError::DepthExceeded`
