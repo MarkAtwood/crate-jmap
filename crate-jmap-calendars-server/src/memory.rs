@@ -395,25 +395,40 @@ impl MemoryBackend {
     pub fn seed_object(
         &self,
         account_id: &str,
-        type_name: &'static str,
+        type_name: &str,
         id: &str,
         value: serde_json::Value,
     ) {
         // Catch typos in `type_name` at the seed boundary rather than letting
         // them silently corrupt the fixture into a dead namespace.
+        //
+        // bd:JMAP-ic0j.69 — the type_name parameter is `&str` (not
+        // `&'static str`) so test authors can pass computed values from
+        // parameterised fixtures. The inner storage keys require
+        // `&'static str` though, so the dispatch below rebinds the
+        // accepted input to the matching `&'static str` literal.
+        const CALENDAR: &str = "Calendar";
+        const CALENDAR_EVENT: &str = "CalendarEvent";
+        const CALENDAR_EVENT_NOTIFICATION: &str = "CalendarEventNotification";
+        const PARTICIPANT_IDENTITY: &str = "ParticipantIdentity";
         const KNOWN_TYPES: &[&str] = &[
-            "Calendar",
-            "CalendarEvent",
-            "CalendarEventNotification",
-            "ParticipantIdentity",
+            CALENDAR,
+            CALENDAR_EVENT,
+            CALENDAR_EVENT_NOTIFICATION,
+            PARTICIPANT_IDENTITY,
         ];
-        assert!(
-            KNOWN_TYPES.contains(&type_name),
-            "seed_object: type_name {type_name:?} is not one of the known \
-             jmap-calendars-types TYPE_NAME values {KNOWN_TYPES:?}. \
-             Likely a typo — the lookup would silently store into a dead \
-             namespace no method reads from."
-        );
+        let static_type_name: &'static str = match type_name {
+            CALENDAR => CALENDAR,
+            CALENDAR_EVENT => CALENDAR_EVENT,
+            CALENDAR_EVENT_NOTIFICATION => CALENDAR_EVENT_NOTIFICATION,
+            PARTICIPANT_IDENTITY => PARTICIPANT_IDENTITY,
+            _ => panic!(
+                "seed_object: type_name {type_name:?} is not one of the known \
+                 jmap-calendars-types TYPE_NAME values {KNOWN_TYPES:?}. \
+                 Likely a typo — the lookup would silently store into a dead \
+                 namespace no method reads from."
+            ),
+        };
 
         // Validate the value's shape at the seed boundary so a malformed
         // fixture fails fast HERE, not in the get_objects deserialize path.
@@ -437,14 +452,14 @@ impl MemoryBackend {
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.to_owned());
         inner
-            .objects_mut(type_name, account_id)
+            .objects_mut(static_type_name, account_id)
             .insert(Id::from(id), value);
         // bd:JMAP-ic0j.8 — seed_object bypasses the trait-impl mutators
         // so we have no before/after pair to feed
         // `apply_calendar_event_index_delta`; fall back to a full rebuild
         // of `calendar_event_counts`. seed_object is only called from
         // test fixtures, so the `O(N)` rebuild cost is acceptable here.
-        if type_name == "CalendarEvent" {
+        if static_type_name == CALENDAR_EVENT {
             inner.recompute_calendar_event_counts(account_id);
         }
     }
@@ -1415,6 +1430,21 @@ mod seed_object_validation_tests {
             json!({"id": "n1"}),
         );
         backend.seed_object("acc1", "ParticipantIdentity", "p1", json!({"id": "p1"}));
+    }
+
+    /// Regression for bd:JMAP-ic0j.69: a non-`'static` `&str` (e.g. a
+    /// `String` slice produced by `format!`) is now accepted. The
+    /// original signature `type_name: &'static str` forced every caller
+    /// to use a string literal; the new signature lets parameterised
+    /// fixtures factor out their type names.
+    #[test]
+    fn seed_object_accepts_non_static_type_name() {
+        let backend = MemoryBackend::new();
+        // Compute the type name at runtime — would have failed to
+        // compile against the previous `&'static str` signature.
+        let prefix = "Calendar";
+        let kind = format!("{prefix}Event");
+        backend.seed_object("acc1", &kind, "e1", json!({"id": "e1"}));
     }
 }
 
