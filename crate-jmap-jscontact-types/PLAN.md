@@ -45,7 +45,25 @@ No other dependencies. No `jmap-types`.
 Single module (`src/lib.rs`). All public structs are `#[non_exhaustive]`
 and derive `Debug, Clone, PartialEq, Eq, Serialize, Deserialize`. Wire-format JSON uses
 `#[serde(rename_all = "camelCase")]`. The JSContact `@type` discriminator
-is mapped to a `String` field named `at_type` with `#[serde(rename = "@type")]`.
+is mapped to an `Option<String>` field named `at_type` with
+`#[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]`.
+
+The `@type` field is `Option<String>` rather than bare `String` because
+RFC 9553 §1.3.4 permits omitting `@type` whenever the type is implied by
+its position in the enclosing object (i.e. the field's type signature
+is unambiguous, or matches the `defaultType` attribute documented in
+the property's `[Object Definition]`). The most-cited case in this
+crate is `Anniversary.date` (§2.8.1), whose type signature is
+`PartialDate|Timestamp (defaultType: PartialDate)`: a `PartialDate`
+value MAY omit `@type` entirely, a `Timestamp` value MUST set
+`@type: "Timestamp"`. The `AnniversaryDate` deserialize impl at
+`src/lib.rs:977` depends on this distinction.
+
+This shape diverges from the sibling `jmap-jscalendar-types`, which uses
+bare `at_type: String`. The divergence is tracked by `bd:JMAP-sgrr.3`
+as a workspace canonical-sibling consistency question; this PLAN
+documents the current crate's choice without pre-deciding the
+workspace-wide harmonization.
 
 ### Object types
 
