@@ -516,6 +516,28 @@ pub struct ContactCardFilterCondition {
 /// filter-algebra exclusion blocks a typed-enum-with-`Other(String)`
 /// shape; see [`ContactCardFilterCondition`]).
 ///
+/// # Default impl divergence
+///
+/// [`ContactCardComparator::default()`] produces
+/// `is_ascending: false` because [`bool::default()`] is `false`. The
+/// **wire-default** for an absent `isAscending` key is **`true`** —
+/// `#[serde(default = "default_ascending")]` (RFC 8620 §5.5). A caller
+/// who writes
+///
+/// ```rust
+/// # use jmap_contacts_types::ContactCardComparator;
+/// let mut c = ContactCardComparator::default();
+/// c.property = "created".into();
+/// ```
+///
+/// and submits the comparator gets **descending** sort silently — the
+/// Rust API default does not match the wire-format default semantic.
+/// This is the same class of footgun as [`ContactCard::default()`]
+/// producing a wire-invalid `{}` (JMAP-glx8.16), but more dangerous
+/// because the result *looks* valid and just returns the wrong record
+/// order. Always set `is_ascending` explicitly when constructing a
+/// comparator from [`Default::default()`]. JMAP-glx8.22.
+///
 /// # Excluded from extras preservation
 ///
 /// This type is **out of scope** for the workspace extras-preservation
@@ -532,7 +554,12 @@ pub struct ContactCardFilterCondition {
 pub struct ContactCardComparator {
     /// Sort key string.
     pub property: String,
-    /// Sort direction; `true` = ascending (default), `false` = descending.
+    /// Sort direction; `true` = ascending (wire-default per RFC 8620
+    /// §5.5), `false` = descending.
+    ///
+    /// **`Default::default()` produces `false`** — see the
+    /// [`ContactCardComparator`] type-level "Default impl divergence"
+    /// note. JMAP-glx8.22.
     #[serde(default = "default_ascending")]
     pub is_ascending: bool,
     /// Optional collation identifier (RFC 4790).
