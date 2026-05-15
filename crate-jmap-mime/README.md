@@ -57,15 +57,17 @@ in `jmap-mail-types`; this crate is pure field-rename glue.
 
 ## How to use
 
-A typical `MailBackend::parse_email` implementation:
+A typical `MailBackend::parse_email` implementation. A real backend MUST
+surface parse/decode errors as JMAP method errors per RFC 8620 §3.6.2 —
+never panic on attacker-controlled input.
 
 ```rust
 use jmap_mime::{message_to_jmap_body, body_value_to_jmap};
 use jmap_types::Id;
 use mime_tree::{parse, decode_body_value};
 
-fn parse_email(raw: &[u8]) -> jmap_mail_types::Email {
-    let msg = parse(raw).expect("parse failed");
+fn parse_email(raw: &[u8]) -> Result<jmap_mail_types::Email, Box<dyn std::error::Error>> {
+    let msg = parse(raw)?;
 
     // Build body structure. The closure assigns blob IDs to leaf parts.
     let fields = message_to_jmap_body(&msg, |part| {
@@ -90,7 +92,7 @@ fn parse_email(raw: &[u8]) -> jmap_mail_types::Email {
     email.attachments = Some(fields.attachments);
     email.preview = fields.preview;
     email.body_values = Some(body_values);
-    email
+    Ok(email)
 }
 ```
 
