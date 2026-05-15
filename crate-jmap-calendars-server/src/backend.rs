@@ -664,13 +664,21 @@ pub enum AvailabilityError<E: std::error::Error + 'static> {
 #[derive(Debug, Clone, Default)]
 pub struct CalendarEventGetArgs {
     /// `recurrenceOverridesBefore`: only overrides whose recurrence id
-    /// (translated to UTC) is strictly before this UTCDateTime are returned.
-    /// `None` means no upper bound on the override id.
-    pub recurrence_overrides_before: Option<String>,
+    /// (translated to UTC) is strictly before this [`UTCDate`](jmap_types::UTCDate)
+    /// are returned. `None` means no upper bound on the override id. The
+    /// handler validates the wire value via
+    /// [`UTCDate::new_validated`](jmap_types::UTCDate::new_validated) and
+    /// rejects malformed input as `invalidArguments` before the backend is
+    /// called.
+    pub recurrence_overrides_before: Option<jmap_types::UTCDate>,
     /// `recurrenceOverridesAfter`: only overrides whose recurrence id
-    /// (translated to UTC) is on or after this UTCDateTime are returned.
-    /// `None` means no lower bound on the override id.
-    pub recurrence_overrides_after: Option<String>,
+    /// (translated to UTC) is on or after this [`UTCDate`](jmap_types::UTCDate)
+    /// are returned. `None` means no lower bound on the override id. The
+    /// handler validates the wire value via
+    /// [`UTCDate::new_validated`](jmap_types::UTCDate::new_validated) and
+    /// rejects malformed input as `invalidArguments` before the backend is
+    /// called.
+    pub recurrence_overrides_after: Option<jmap_types::UTCDate>,
     /// `reduceParticipants` (default `false`). When `true`, the backend
     /// returns only participants with the `"owner"` role or those matching
     /// the user's ParticipantIdentities.

@@ -1,7 +1,7 @@
 //! CalendarEvent/* method handlers (draft-ietf-jmap-calendars-26 §5).
 
 use jmap_calendars_types::CalendarEvent;
-use jmap_types::{Id, Invocation, JmapError, PatchObject};
+use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{
@@ -65,15 +65,34 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     };
 
     // §5.7 extras.
+    //
+    // recurrenceOverridesBefore / recurrenceOverridesAfter are UTCDateTime
+    // values (RFC 8620 §1.4 `YYYY-MM-DDTHH:MM:SSZ`). Validate at the handler
+    // boundary via `UTCDate::new_validated` so a malformed value is rejected
+    // as `invalidArguments` rather than flowing into the backend as a
+    // syntactically-undefined string. Mirrors the principal.rs
+    // utcStart/utcEnd validation pattern. bd:JMAP-ic0j.55.
+    let recurrence_overrides_before = match args
+        .get("recurrenceOverridesBefore")
+        .and_then(|v| v.as_str())
+    {
+        None => None,
+        Some(s) => Some(UTCDate::new_validated(s).map_err(|_| {
+            JmapError::invalid_arguments("recurrenceOverridesBefore: invalid UTCDate")
+        })?),
+    };
+    let recurrence_overrides_after = match args
+        .get("recurrenceOverridesAfter")
+        .and_then(|v| v.as_str())
+    {
+        None => None,
+        Some(s) => Some(UTCDate::new_validated(s).map_err(|_| {
+            JmapError::invalid_arguments("recurrenceOverridesAfter: invalid UTCDate")
+        })?),
+    };
     let get_args = CalendarEventGetArgs {
-        recurrence_overrides_before: args
-            .get("recurrenceOverridesBefore")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_owned()),
-        recurrence_overrides_after: args
-            .get("recurrenceOverridesAfter")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_owned()),
+        recurrence_overrides_before,
+        recurrence_overrides_after,
         reduce_participants: args
             .get("reduceParticipants")
             .and_then(|v| v.as_bool())
@@ -1053,6 +1072,54 @@ mod tests {
         let result = handle_calendar_event_get(&backend, &(), args).await;
         let err = result.expect_err("must return error for unknown account");
         assert_eq!(err.error_type.as_str(), "accountNotFound");
+    }
+
+    /// Regression for bd:JMAP-ic0j.55: a malformed `recurrenceOverridesBefore`
+    /// value must be rejected at the handler boundary with `invalidArguments`,
+    /// not flow into the backend as an unvalidated string.
+    ///
+    /// Oracle: RFC 8620 §1.4 defines UTCDate as `YYYY-MM-DDTHH:MM:SSZ` (20
+    /// chars, fixed-width zero-padded, `Z` suffix). `"not-a-date"` does not
+    /// satisfy that grammar; the principal.rs:51-59 pattern is the canonical
+    /// in-crate model for rejecting malformed UTCDateTime input before the
+    /// backend sees it.
+    #[tokio::test]
+    async fn get_malformed_recurrence_overrides_before_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "ids": null,
+            "recurrenceOverridesBefore": "not-a-date"
+        });
+        let err = handle_calendar_event_get(&backend, &(), args)
+            .await
+            .expect_err("malformed recurrenceOverridesBefore must return error");
+        assert_eq!(
+            err.error_type.as_str(),
+            "invalidArguments",
+            "wrong error type: {err:?}"
+        );
+    }
+
+    /// Sibling of the above: same contract for `recurrenceOverridesAfter`.
+    /// Both fields share the UTCDateTime grammar (RFC 8620 §1.4); both must
+    /// be rejected at the handler boundary on malformed input.
+    #[tokio::test]
+    async fn get_malformed_recurrence_overrides_after_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "ids": null,
+            "recurrenceOverridesAfter": "2026-01-15"
+        });
+        let err = handle_calendar_event_get(&backend, &(), args)
+            .await
+            .expect_err("malformed recurrenceOverridesAfter must return error");
+        assert_eq!(
+            err.error_type.as_str(),
+            "invalidArguments",
+            "wrong error type: {err:?}"
+        );
     }
 
     /// Oracle: CalendarEvent/set with unknown accountId returns accountNotFound.

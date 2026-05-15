@@ -373,8 +373,8 @@ pub trait CalendarsBackend: JmapBackend {
 
 /// Extra arguments for `CalendarEvent/get` (draft §5.7).
 pub struct CalendarEventGetArgs {
-    pub recurrence_overrides_before: Option<String>, // UTCDateTime
-    pub recurrence_overrides_after: Option<String>,  // UTCDateTime
+    pub recurrence_overrides_before: Option<UTCDate>,
+    pub recurrence_overrides_after: Option<UTCDate>,
     pub reduce_participants: bool,
     pub time_zone: Option<String>,                   // TimeZoneId
 }
