@@ -92,7 +92,7 @@ impl AsRef<str> for JsContactId {
 /// At least one of [`components`](Self::components) or [`full`](Self::full)
 /// must be set per the RFC; this is not enforced at the type level.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Name {
     /// Object type discriminator; SHOULD be `"Name"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
@@ -1009,7 +1009,7 @@ pub struct Timestamp {
 /// nested `ContactCard` (from the consumer `jmap-contacts-types`
 /// crate) should wrap the parse and add context at the call site.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum AnniversaryDate {
     /// A partial Gregorian date (the default per RFC 9553 §2.8.1).
     PartialDate(PartialDate),
@@ -1078,7 +1078,7 @@ impl<'de> Deserialize<'de> for AnniversaryDate {
 
 /// A memorable date or event (RFC 9553 §2.8.1).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Anniversary {
     /// Object type discriminator; SHOULD be `"Anniversary"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
