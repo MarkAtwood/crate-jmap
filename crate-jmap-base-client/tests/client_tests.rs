@@ -487,11 +487,15 @@ async fn test_call_round_trip() {
         "args.state must match call_response.json fixture"
     );
     assert!(
-        args.get("list").and_then(|v| v.as_array()).is_some_and(Vec::is_empty),
+        args.get("list")
+            .and_then(|v| v.as_array())
+            .is_some_and(Vec::is_empty),
         "args.list must be an empty array"
     );
     assert!(
-        args.get("notFound").and_then(|v| v.as_array()).is_some_and(Vec::is_empty),
+        args.get("notFound")
+            .and_then(|v| v.as_array())
+            .is_some_and(Vec::is_empty),
         "args.notFound must be an empty array"
     );
 }
