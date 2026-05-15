@@ -202,6 +202,22 @@ pub trait CalendarsBackend: JmapBackend {
         event_properties: Option<&[String]>,
     ) -> impl Future<Output = Result<Vec<BusyPeriod>, AvailabilityError<Self::Error>>> + Send
     { async { Ok(vec![]) } }
+
+    /// Implementation-defined per-account caps for this caller and
+    /// account (draft-ietf-jmap-calendars-26 §1.5 capability fields, e.g.
+    /// `maxExpandedQueryDuration`). Workspace cross-extension pattern
+    /// per AGENTS.md "Backend caps and limits": every extension trait
+    /// exposes a `limits(caller, account_id) -> XxxLimits` sync default
+    /// returning a struct of related caps as a group. The default
+    /// returns `CalendarsLimits::default` (one-year
+    /// `max_expanded_query_duration_seconds`); production backends
+    /// override per-account.
+    fn limits(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+    ) -> CalendarsLimits
+    { CalendarsLimits::default() }
 }
 ```
 

@@ -1367,3 +1367,46 @@ mod seed_object_validation_tests {
         backend.seed_object("acc1", "ParticipantIdentity", "p1", json!({"id": "p1"}));
     }
 }
+
+// ---------------------------------------------------------------------------
+// Tests for the default CalendarsBackend::limits impl (bd:JMAP-ic0j.31)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod limits_default_tests {
+    use super::*;
+    use crate::backend::CalendarsLimits;
+
+    /// Oracle (bd:JMAP-ic0j.31): the default
+    /// [`CalendarsBackend::limits`] impl returns
+    /// [`CalendarsLimits::default`] for any (caller, account_id) pair,
+    /// because [`MemoryBackend`] does not override the method.
+    /// Production backends override the trait method to vary caps
+    /// per-account; the reference impl pegs every account to defaults.
+    #[test]
+    fn memory_backend_limits_returns_default() {
+        let backend = MemoryBackend::new();
+        let account = Id::from("acc1");
+        let got = backend.limits(&(), &account);
+        assert_eq!(
+            got,
+            CalendarsLimits::default(),
+            "MemoryBackend::limits must return CalendarsLimits::default for any account"
+        );
+    }
+
+    /// Oracle (bd:JMAP-ic0j.31): the `caller` and `account_id`
+    /// arguments are plumbed through even though the default impl
+    /// ignores them. Verify by passing distinct account ids and
+    /// observing the identical Default-shaped result.
+    #[test]
+    fn memory_backend_limits_ignores_account_in_default_impl() {
+        let backend = MemoryBackend::new();
+        let a = backend.limits(&(), &Id::from("acc1"));
+        let b = backend.limits(&(), &Id::from("acc2"));
+        assert_eq!(
+            a, b,
+            "default impl returns the same struct for every account"
+        );
+    }
+}
