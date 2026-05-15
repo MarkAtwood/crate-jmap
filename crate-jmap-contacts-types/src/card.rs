@@ -81,6 +81,29 @@ const CONTACT_CARD_TYPED_FIELDS: &[&str] = &[
 /// layer (`jmap-contacts-server`) is responsible for rejecting partial
 /// cards on `/set` create; servers building `/get` responses MUST fill in
 /// `id` and `addressBookIds` before serializing. JMAP-glx8.16.
+///
+/// # Size and depth
+///
+/// Consumers of `ContactCard` SHOULD impose a request-body size limit
+/// **at the HTTP layer** before deserializing. The 22 Sloppy-Value
+/// fields (see the inline note above [`name`](Self::name)) accept
+/// arbitrarily-large JSON blobs: a 50 MiB JSON body deserializes into
+/// a `~150 MiB` `serde_json::Value` tree.
+///
+/// `serde_json`'s default 128-level recursion limit protects against
+/// stack overflow from deeply-nested input (see the negative test
+/// `deeply_nested_sloppy_field_beyond_serde_json_limit_errors`) but
+/// does **not** bound heap memory or parser CPU. A `{"name":{"x":{"x":
+/// {...127 levels of single-key nesting...}}}}` payload is small on
+/// the wire but produces a deep `Value` tree; the same wire bytes
+/// re-shaped as a wide-array (`{"name":{"a":[{},{},...]}}`) consumes
+/// proportional memory.
+///
+/// This crate ships **no body-size constant**: the limit is consumer
+/// policy, not type-crate policy, consistent with the workspace's
+/// transport-less posture (see workspace AGENTS.md "What this
+/// workspace builds"). The reference handler convention is a 10 MiB
+/// body cap; production consumers MAY raise or lower it. JMAP-glx8.24.
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
