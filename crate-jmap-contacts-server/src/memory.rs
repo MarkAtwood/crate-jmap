@@ -716,6 +716,24 @@ impl ContactsBackend for MemoryBackend {
             ));
         }
 
+        // RFC 9610 §3: a ContactCard's uid MUST be unique within an
+        // Account. Reject the create if another card in the same
+        // account already has the same uid (bd:JMAP-qz9v.6).
+        if O::TYPE_NAME == "ContactCard" {
+            if let Some(new_uid) = val.get("uid").and_then(|v| v.as_str()) {
+                if account_has_card_with_uid(&inner, account_id.as_ref(), new_uid, None) {
+                    return Err(BackendSetError::SetError(
+                        SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties(["uid"])
+                            .with_description(
+                                "ContactCard.uid must be unique within an Account \
+                                 (RFC 9610 §3)",
+                            ),
+                    ));
+                }
+            }
+        }
+
         let stored_obj: O = O::deserialize(&val).map_err(|e| {
             BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
         })?;
@@ -792,6 +810,25 @@ impl ContactsBackend for MemoryBackend {
                          (RFC 9610 §3)",
                     ),
             ));
+        }
+
+        // RFC 9610 §3: uid uniqueness within an Account. If the patch
+        // changes uid to a value another card already uses, reject
+        // (bd:JMAP-qz9v.6). The card being updated is excluded so a
+        // no-op patch (or a patch that keeps the same uid) is allowed.
+        if O::TYPE_NAME == "ContactCard" {
+            if let Some(new_uid) = current.get("uid").and_then(|v| v.as_str()) {
+                if account_has_card_with_uid(&inner, account_id.as_ref(), new_uid, Some(id)) {
+                    return Err(BackendSetError::SetError(
+                        SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties(["uid"])
+                            .with_description(
+                                "ContactCard.uid must be unique within an Account \
+                                 (RFC 9610 §3)",
+                            ),
+                    ));
+                }
+            }
         }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
@@ -1238,6 +1275,29 @@ fn contact_card_has_address_book_ids(card: &serde_json::Value) -> bool {
     card.get("addressBookIds")
         .and_then(|v| v.as_object())
         .is_some_and(|m| !m.is_empty())
+}
+
+/// Look up whether any ContactCard in `account_id` (other than
+/// `exclude_id` if supplied) has `uid` set to `target_uid`.
+///
+/// Used to enforce RFC 9610 §3: 'there MUST NOT be more than one
+/// ContactCard with the same uid in an Account.' Reference impl
+/// scans every card in the account; production backends should
+/// maintain a uid → id index.
+fn account_has_card_with_uid(
+    inner: &Inner,
+    account_id: &str,
+    target_uid: &str,
+    exclude_id: Option<&Id>,
+) -> bool {
+    inner
+        .objects_ref("ContactCard", account_id)
+        .is_some_and(|m| {
+            m.iter().any(|(id, v)| {
+                exclude_id.is_none_or(|x| x != id)
+                    && v.get("uid").and_then(|u| u.as_str()) == Some(target_uid)
+            })
+        })
 }
 
 /// Compare two ContactCard JSON values for sort by RFC 9610 §3.3.2
