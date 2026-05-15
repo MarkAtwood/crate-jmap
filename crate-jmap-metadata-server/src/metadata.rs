@@ -12,7 +12,9 @@ use jmap_types::{Filter, Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MetadataBackend};
-use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
+use crate::helpers::{
+    extract_account_id, finalize_set_response, metadata_value, set_error_value, SetAccumulators,
+};
 use jmap_server::{server_fail_from_backend, SetError, SetErrorType};
 
 // ---------------------------------------------------------------------------
@@ -402,11 +404,7 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
             {
                 Ok((_new_id, created_obj)) => {
                     mutated = true;
-                    created.insert(
-                        create_id,
-                        serde_json::to_value(&created_obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    created.insert(create_id, metadata_value(&created_obj));
                 }
                 Err(BackendSetError::SetError(set_err)) => {
                     not_created.insert(create_id, set_error_value(&set_err));
@@ -462,11 +460,7 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
             {
                 Ok(Some(obj)) => {
                     mutated = true;
-                    updated.insert(
-                        id_str,
-                        serde_json::to_value(&obj)
-                            .expect("derive(Serialize) on plain data is infallible"),
-                    );
+                    updated.insert(id_str, metadata_value(&obj));
                 }
                 Ok(None) => {
                     mutated = true;
