@@ -18,7 +18,14 @@ Converts a `mime_tree::ParsedPart` (and all its children, recursively) to a
 `jmap_mail_types::email::EmailBodyPart` tree.
 
 - The `blob_id_for` closure is called once per non-multipart leaf to assign a
-  `blobId`; the storage layer decides how to construct these IDs.
+  `blobId`; the storage layer decides how to construct these IDs. **The
+  closure MUST be idempotent on `part.part_id`** — repeated calls for parts
+  with the same `part_id` must return the same `Id`. Counter-based or
+  remote-allocate schemes that return a fresh `Id` on every call produce a
+  silent wire-format defect (the same logical leaf appears under multiple
+  distinct `blobId`s in the response). Pure functions of `part.part_id` or
+  of the part bytes satisfy the contract trivially. See the "Gotchas"
+  section for the related call-frequency caveat in `message_to_jmap_body`.
 - Multipart parts receive `None` for `part_id`, `blob_id`, and `size`.
 - The `headers`, `language`, and `location` fields are not populated because
   they require access to the raw message bytes; callers that need per-part raw
@@ -40,10 +47,15 @@ Builds the complete RFC 8621 §4.1.4 body structure from a
 - `html_body` — `Vec<EmailBodyPart>` of `text/html` display parts (`htmlBody`)
 - `attachments` — non-inline, non-display parts (`attachments`)
 - `preview` — short plaintext preview, as computed by `mime_tree` (`preview`)
-- `body_value_part_ids` — union of `textBody` and `htmlBody` part IDs; the
-  caller should decode each via `mime_tree::decode_body_value` and insert the
-  resulting `EmailBodyValue`s into the `bodyValues` map of the JMAP `Email`
-  response.
+- `body_value_part_ids` — concatenation of `textBody` and `htmlBody` part
+  IDs (in that order, with no dedup); the caller should decode each via
+  `mime_tree::decode_body_value` and insert the resulting `EmailBodyValue`s
+  into the `bodyValues` map of the JMAP `Email` response. Note: for
+  plain-text-only messages where `htmlBody` mirrors `textBody` per RFC 8621
+  §4.1.4, the same `part_id` appears twice in this list. A caller that
+  builds a `HashMap` keyed by `part_id` silently dedups, but a caller that
+  preserves order in a `Vec` or that emits each entry directly to a JSON
+  sink must dedup at the call site.
 
 ## What it's for
 
@@ -146,6 +158,16 @@ shape plus a decoded `bodyValues` entry for the first text part.
   multipart types (`multipart/signed`, `multipart/encrypted`) are treated as
   ordinary multipart containers. Signature verification and decryption are out
   of scope for this crate.
+- **`blob_id_for` is invoked once per appearance, not once per unique leaf.**
+  `message_to_jmap_body` walks `body_structure`, `text_body`, `html_body`,
+  and `attachments` independently, calling the closure on every visited
+  leaf. A plain-only message with one `text/plain` part triggers three
+  invocations on that one part (once from `body_structure`, once from
+  `text_body`, once from `html_body` — RFC 8621 §4.1.4 has `html_body`
+  mirror `text_body` when no HTML part exists). The closure MUST be
+  idempotent on `part.part_id` (see the [`part_to_jmap`](#part_to_jmappart-blob_id_for---emailbodypart)
+  section). Non-idempotent closures (counter-based, remote-allocate)
+  produce a silent wire-format defect.
 - **Recursion in this adapter is bounded by `jmap_mime::MAX_PART_DEPTH`.**
   A multipart subtree deeper than the bound is emitted as an opaque leaf
   (a multipart-typed `EmailBodyPart` with `sub_parts = None`). This is

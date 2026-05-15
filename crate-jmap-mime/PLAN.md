@@ -171,11 +171,15 @@ part ID has no matching entry in `part_index`, that part is silently dropped. Th
 `mime_tree`'s internal consistency. A corrupted or partially-parsed message would silently
 yield shorter-than-expected body lists with no error signal.
 
-### 6. `body_value_part_ids` disjointness is not asserted
+### 6. `body_value_part_ids` is concatenation, not union (JMAP-t307.10)
 
-`message_to_jmap_body` assumes `mime_tree`'s `text_body` and `html_body` ID lists are
-disjoint. If they are not, a part ID would appear twice in `body_value_part_ids`. No assert
-guards this invariant.
+`message_to_jmap_body` returns `body_value_part_ids` as the plain concatenation of
+`mime_tree`'s `text_body` and `html_body` ID lists — **no dedup**. The two lists are NOT
+disjoint by RFC 8621 §4.1.4 design: when no HTML part exists, `html_body` mirrors
+`text_body`, so the same `part_id` appears twice in the output. Callers that build a
+`HashMap` keyed by `part_id` silently dedup; callers that preserve order in a `Vec` or that
+emit each entry directly to a JSON sink must dedup at the call site. README and rustdoc
+document this.
 
 ### 7. Recursion depth bound (JMAP-t307.15)
 
