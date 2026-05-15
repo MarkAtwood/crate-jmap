@@ -403,7 +403,8 @@ impl MemoryBackend {
         // counter (u64) is reported via BackendChangesError::CannotCalculate
         // (bd:JMAP-jfia.31). Previously this used the magic-zero
         // `TooManyChanges { limit: 0 }` alias, which still maps to the
-        // same wire error via the deprecation path.
+        // same wire error via the permanent legacy-alias path
+        // (bd:JMAP-jfia.37).
         let since_n: u64 = since_state
             .as_ref()
             .parse()

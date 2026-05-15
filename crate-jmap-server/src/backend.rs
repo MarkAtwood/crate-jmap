@@ -581,9 +581,11 @@ impl<E> From<SetError> for BackendSetError<E> {
 /// variant overloaded both meanings via a magic-zero sentinel; the
 /// `CannotCalculate` variant was added in bd:JMAP-jfia.31 to surface
 /// the distinction at the type level. `TooManyChanges { limit: 0 }`
-/// is preserved as a deprecated alias — it still maps to
+/// is preserved as a **permanent** legacy alias — it still maps to
 /// `cannotCalculateChanges` via the `From` and `Display` impls — but
-/// new backends SHOULD construct `CannotCalculate` directly.
+/// new backends SHOULD construct `CannotCalculate` directly. See the
+/// `TooManyChanges` variant docs for why the alias cannot be
+/// `#[deprecated]` at the type level (bd:JMAP-jfia.37).
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum BackendChangesError<E> {
@@ -600,23 +602,34 @@ pub enum BackendChangesError<E> {
     /// `TooManyChanges { limit: 0 }` magic-zero overload. New backends
     /// SHOULD construct `CannotCalculate` directly; legacy backends
     /// that emit `TooManyChanges { limit: 0 }` still map to the same
-    /// wire error via the deprecation path.
+    /// wire error via the permanent legacy alias (bd:JMAP-jfia.37).
     CannotCalculate,
     /// The change window exceeds what the server can supply in a
     /// single `/changes` response. Maps to `tooManyChanges` with the
     /// `limit` as the suggested maximum — the client may retry with
     /// a smaller window.
     ///
-    /// **Deprecated sub-case (bd:JMAP-jfia.31)**: a `limit` of `0`
-    /// historically meant "full state reset required" and is
-    /// preserved as an alias for the new [`Self::CannotCalculate`]
-    /// variant. New code SHOULD use `CannotCalculate` directly; the
-    /// alias may be removed at the next major-version bump.
+    /// **Legacy sub-case (bd:JMAP-jfia.31, bd:JMAP-jfia.37)**: a
+    /// `limit` of `0` historically meant "full state reset
+    /// required" and is preserved as an alias for the new
+    /// [`Self::CannotCalculate`] variant. New code SHOULD use
+    /// `CannotCalculate` directly. The alias is **permanent** at
+    /// the type level — Rust cannot `#[deprecated]` a single
+    /// discriminator value of an enum variant without deprecating
+    /// the variant itself, and removing the alias would silently
+    /// break any backend still emitting `TooManyChanges { limit: 0 }`
+    /// (their returns would stop mapping to `cannotCalculateChanges`
+    /// and start emitting a malformed RFC 8620 §5.6 `tooManyChanges`
+    /// with `limit: 0`). The `From` and `Display` impls below pin
+    /// the alias semantics permanently. Match arms in extension
+    /// servers SHOULD treat `TooManyChanges { limit: 0 }` and
+    /// `CannotCalculate` as a single "full-resync required" case
+    /// rather than branching them apart.
     TooManyChanges {
         /// Maximum window size the server can supply in a single
-        /// `/changes` response. A value of `0` is the deprecated
-        /// alias for [`Self::CannotCalculate`]; any non-zero value
-        /// is the suggested maximum the client may retry with.
+        /// `/changes` response. A value of `0` is the permanent
+        /// legacy alias for [`Self::CannotCalculate`]; any non-zero
+        /// value is the suggested maximum the client may retry with.
         limit: u64,
     },
     /// An unexpected storage-layer error.
@@ -627,7 +640,7 @@ impl<E: std::fmt::Display> std::fmt::Display for BackendChangesError<E> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::CannotCalculate => write!(f, "cannot calculate changes"),
-            // Deprecated magic-zero alias (bd:JMAP-jfia.31).
+            // Permanent legacy alias (bd:JMAP-jfia.31, bd:JMAP-jfia.37).
             Self::TooManyChanges { limit: 0 } => write!(f, "cannot calculate changes"),
             Self::TooManyChanges { limit } => write!(f, "too many changes (limit: {limit})"),
             Self::Other(e) => write!(f, "{e}"),
@@ -656,10 +669,11 @@ impl<E: std::error::Error> From<BackendChangesError<E>> for jmap_types::JmapErro
             BackendChangesError::CannotCalculate => {
                 jmap_types::JmapError::cannot_calculate_changes()
             }
-            // Deprecated magic-zero alias for CannotCalculate
-            // (bd:JMAP-jfia.31). Preserved so legacy backends that
-            // emit TooManyChanges { limit: 0 } continue to produce
-            // the correct wire error.
+            // Permanent legacy alias for CannotCalculate
+            // (bd:JMAP-jfia.31, bd:JMAP-jfia.37). Preserved so
+            // backends that emit TooManyChanges { limit: 0 } produce
+            // the correct wire error. The variant docs explain why
+            // this cannot be #[deprecated] at the type level.
             BackendChangesError::TooManyChanges { limit: 0 } => {
                 jmap_types::JmapError::cannot_calculate_changes()
             }
@@ -1149,10 +1163,11 @@ mod tests {
         );
     }
 
-    /// Oracle (bd:JMAP-jfia.31): the new `CannotCalculate` variant
-    /// maps to `cannotCalculateChanges` on the wire, matching the
-    /// deprecated `TooManyChanges { limit: 0 }` alias. New backends
-    /// SHOULD emit `CannotCalculate` directly.
+    /// Oracle (bd:JMAP-jfia.31, bd:JMAP-jfia.37): the new
+    /// `CannotCalculate` variant maps to `cannotCalculateChanges`
+    /// on the wire, matching the permanent legacy
+    /// `TooManyChanges { limit: 0 }` alias. New backends SHOULD
+    /// emit `CannotCalculate` directly.
     #[test]
     fn backend_changes_error_cannot_calculate_maps_to_cannot_calculate_changes() {
         let err = jmap_types::JmapError::from(
@@ -1165,7 +1180,7 @@ mod tests {
             err.error_type
         );
 
-        // Display agrees with the deprecated-alias Display arm.
+        // Display agrees with the permanent legacy-alias Display arm.
         let s = BackendChangesError::<std::convert::Infallible>::CannotCalculate.to_string();
         assert_eq!(
             s, "cannot calculate changes",
