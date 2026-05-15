@@ -31,6 +31,24 @@
 //!   [`BackendSetError::SetError`](crate::BackendSetError::SetError)
 //!   wrapping a [`SetErrorType::AlreadyExists`](crate::SetErrorType::AlreadyExists)
 //!   with `existing_id` set to the conflicting object's Id.
+//!
+//!   **Production-backend note.** This reference impl scans every
+//!   stored Metadata object on every create (and on update for the
+//!   post-patch re-check) — O(N) per call, O(N²) for N successive
+//!   creates. That is **fine for tests** and **wrong to copy** into a
+//!   real backend. Production-grade uniqueness should be enforced by
+//!   one of:
+//!   - A database UNIQUE INDEX on
+//!     `(account_id, related_type, related_id, type_name, is_private)`
+//!     — relational backends.
+//!   - An in-memory `HashMap<UniquenessKey, Id>` or equivalent O(1)
+//!     lookup table — in-process backends. The `UniquenessKey` type
+//!     used internally by this impl is the correct shape for that
+//!     map; see the `find_uniqueness_conflict` helper for the key
+//!     extraction logic.
+//!   A "SELECT * FROM metadata WHERE account_id = ?" + loop-and-compare
+//!   in application code replicates this reference impl's O(N) scan
+//!   against a database and is the wrong pattern.
 //! - **`maySetPrivate` gating (§1.2.1)**: not enforced by the reference
 //!   impl — any `isPrivate` value is accepted. Real backends that need
 //!   per-account gating should override `create_object` / `update_object`
