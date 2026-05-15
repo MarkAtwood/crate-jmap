@@ -1055,12 +1055,12 @@ impl MailBackend for MemoryBackend {
             }
         };
         // Replace placeholder blobId with a server-assigned UUID. The Email/set
-        // create handler sets blobId to "placeholder-blob" (PLACEHOLDER_BLOB_ID in
-        // the library) because it has no raw bytes to hash; the backend is
-        // responsible for assigning the real value. MemoryBackend uses a UUID
-        // since it does not store raw blobs on this path. Real backends should
-        // store the blob and use a content hash here.
-        if val.get("blobId").and_then(|v| v.as_str()) == Some("placeholder-blob") {
+        // create handler sets blobId to [`crate::helpers::PLACEHOLDER_BLOB_ID`]
+        // because it has no raw bytes to hash; the backend is responsible for
+        // assigning the real value. MemoryBackend uses a UUID since it does
+        // not store raw blobs on this path. Real backends should store the
+        // blob and use a content hash here.
+        if val.get("blobId").and_then(|v| v.as_str()) == Some(crate::helpers::PLACEHOLDER_BLOB_ID) {
             if let serde_json::Value::Object(ref mut map) = val {
                 let blob_uuid = Id::from(uuid::Uuid::new_v4().to_string());
                 map.insert(
