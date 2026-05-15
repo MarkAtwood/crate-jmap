@@ -142,6 +142,133 @@ async fn chat_get_threads_ids_and_properties_when_some() {
     );
 }
 
+/// `Chat/get` decode coverage: populated wire object must round-trip
+/// through the [`jmap_chat_types::Chat`] `Deserialize` impl with every
+/// required field plus representative optionals (`name`, `members`,
+/// `lastMessageAt`) populated. Without this test a regression that
+/// broke `Chat` deserialize would still pass every other `Chat/get`
+/// smoke test in this file (they all return `"list": []`).
+///
+/// Mirrors the canonical extension-client shape
+/// `crate-jmap-calendars-client/tests/calendar_smoke_tests.rs::calendar_get_smoke`.
+///
+/// Oracles:
+///   - draft-atwood-jmap-chat-00 §Chat — Chat object field set
+///   - RFC 8620 §5.1 — /get response envelope (`accountId`, `state`,
+///     `list`, `notFound`)
+#[tokio::test]
+async fn chat_get_decodes_populated_chat() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Chat/get",
+            {
+                "accountId": "A13824",
+                "state": "c-state-2",
+                "list": [
+                    {
+                        "id": "chat-1",
+                        "kind": "group",
+                        "name": "Team Standup",
+                        "createdAt": "2026-01-15T09:00:00Z",
+                        "unreadCount": 3,
+                        "pinnedMessageIds": ["msg-100"],
+                        "muted": false,
+                        "receiveTypingIndicators": true,
+                        "members": [
+                            {
+                                "id": "u1",
+                                "role": "owner",
+                                "joinedAt": "2026-01-10T08:00:00Z"
+                            },
+                            {
+                                "id": "u2",
+                                "role": "member",
+                                "joinedAt": "2026-01-12T10:30:00Z",
+                                "invitedBy": "u1"
+                            }
+                        ],
+                        "lastMessageAt": "2026-01-20T14:30:00Z"
+                    }
+                ],
+                "notFound": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let resp = sc
+        .chat_get(None, None)
+        .await
+        .expect("chat_get: must succeed");
+
+    assert_eq!(resp.account_id.as_ref(), "A13824", "accountId mismatch");
+    assert_eq!(resp.state, "c-state-2", "state mismatch");
+    assert_eq!(resp.list.len(), 1, "list must contain exactly one Chat");
+
+    let chat = &resp.list[0];
+    assert_eq!(chat.id.as_ref(), "chat-1", "id mismatch");
+    assert!(
+        matches!(chat.kind, jmap_chat_types::ChatKind::Group),
+        "kind 'group' must deserialise to ChatKind::Group, got {:?}",
+        chat.kind
+    );
+    assert_eq!(
+        chat.created_at.as_ref(),
+        "2026-01-15T09:00:00Z",
+        "createdAt mismatch"
+    );
+    assert_eq!(chat.unread_count, 3, "unreadCount mismatch");
+    assert!(!chat.muted, "muted must be false");
+    assert!(
+        chat.receive_typing_indicators,
+        "receiveTypingIndicators must be true"
+    );
+    assert_eq!(
+        chat.name.as_deref(),
+        Some("Team Standup"),
+        "name optional must round-trip"
+    );
+    assert_eq!(
+        chat.pinned_message_ids.len(),
+        1,
+        "pinnedMessageIds must have 1 entry"
+    );
+    assert_eq!(
+        chat.pinned_message_ids[0].as_ref(),
+        "msg-100",
+        "pinnedMessageIds[0] mismatch"
+    );
+    let members = chat
+        .members
+        .as_deref()
+        .expect("members optional must deserialise to Some");
+    assert_eq!(members.len(), 2, "members must have 2 entries");
+    assert_eq!(members[0].id.as_ref(), "u1", "members[0].id mismatch");
+    assert_eq!(members[0].role, "owner", "members[0].role mismatch");
+    assert!(
+        members[0].invited_by.is_none(),
+        "members[0].invitedBy must be None"
+    );
+    assert_eq!(
+        members[1].invited_by.as_ref().map(|id| id.as_ref()),
+        Some("u1"),
+        "members[1].invitedBy must round-trip to Some(\"u1\")"
+    );
+    assert_eq!(
+        chat.last_message_at.as_ref().map(|d| d.as_ref()),
+        Some("2026-01-20T14:30:00Z"),
+        "lastMessageAt mismatch"
+    );
+}
+
 /// `Chat/query` with no filter set must send `filter: null` (chat.rs:66-70)
 /// while still threading position/limit.
 #[tokio::test]
