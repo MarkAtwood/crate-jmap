@@ -856,9 +856,17 @@ mod tests {
         assert_eq!(c1["acme.example.com:workflowState"], "pending-review");
     }
 
-    /// Oracle: §3.1 — uniqueness violation produces `alreadyExists` in
-    /// `notCreated`. The handler is generic — the backend reports the
-    /// constraint via `BackendSetError::SetError`.
+    /// Oracle: RFC 8620 §5.3 — when the backend reports `alreadyExists`
+    /// via `BackendSetError::SetError`, the handler routes it into
+    /// `notCreated[create_id]`. This test validates the handler's
+    /// error-routing plumbing, NOT the backend's draft §3.1 uniqueness
+    /// logic — the canary error is injected via
+    /// [`MockBackend::force_create_error`] rather than triggered by a
+    /// real duplicate-create. The §3.1 semantics test against the
+    /// reference backend lives at
+    /// `memory::tests::uniqueness_constraint_enforced` (and the
+    /// integration-level test at `tests/metadata_tests.rs ::
+    /// set_create_duplicate_returns_already_exists`).
     #[tokio::test]
     async fn set_create_uniqueness_violation_returns_already_exists() {
         let backend = MockBackend::new_with_account("acc1");
@@ -1465,7 +1473,9 @@ mod tests {
     /// Oracle: draft §3.4.1 — `relatedIds` MUST only be specified when
     /// `relatedType` is also specified. A /query call carrying a leaf
     /// `MetadataFilterCondition` with `relatedIds: [...]` and
-    /// `relatedType: null` MUST be rejected with `invalidArguments`.
+    /// `relatedType` absent (or `null` — both deserialize to `None`
+    /// per `Option<String>`'s default) MUST be rejected with
+    /// `invalidArguments`.
     #[tokio::test]
     async fn query_related_ids_without_related_type_returns_invalid_arguments() {
         let backend = MockBackend::new_with_account("acc1");
@@ -1504,6 +1514,33 @@ mod tests {
         let err = handle_metadata_query(&backend, &(), args)
             .await
             .expect_err("must reject relatedIds-without-relatedType nested in OR");
+        assert_eq!(err.error_type, "invalidArguments", "got: {err:?}");
+    }
+
+    /// Oracle: draft §3.4.1 — same recursion through a NOT operator.
+    /// Pairs with `query_nested_related_ids_without_related_type_*` to
+    /// cover all three RFC 8620 §5.5 FilterOperator branches
+    /// (AND tested by the validator's existing AND coverage in
+    /// `query_filter_and_validation`, OR tested above, NOT tested
+    /// here). The walker iterates `op.conditions` uniformly for all
+    /// three; this test guarantees the rustdoc claim "AND/OR/NOT
+    /// operator nodes recurse" is grounded by a fixture for every
+    /// branch.
+    #[tokio::test]
+    async fn query_nested_under_not_related_ids_without_related_type_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "filter": {
+                "operator": "NOT",
+                "conditions": [
+                    { "relatedIds": ["EM1"] }
+                ]
+            }
+        });
+        let err = handle_metadata_query(&backend, &(), args)
+            .await
+            .expect_err("must reject relatedIds-without-relatedType nested in NOT");
         assert_eq!(err.error_type, "invalidArguments", "got: {err:?}");
     }
 

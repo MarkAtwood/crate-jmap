@@ -190,9 +190,15 @@ use crate::{
     JmapObject, MetadataBackend, QueryChangesResult, QueryObject, QueryResult, SetError,
     SetErrorType, SetObject,
 };
-// json_merge_patch lives in jmap-server (the shared foundation crate).
-// Every reference backend imports it; the canonical RFC 7396 tests live
-// with the function there.
+// json_merge_patch is the RFC 7396 (JSON Merge Patch) implementation in
+// jmap-server (the shared foundation crate). This backend uses it
+// because draft-ietf-jmap-metadata-01 §3.3 specifies flat-key /set
+// patches that match Merge Patch semantics directly. Backends whose
+// spec defines a path-key patch dialect (e.g. jmap-mail-server's
+// Email/set, which uses "mailboxIds/abc123"-shaped paths per RFC
+// 8621 §4.6.5) implement their own apply_jmap_patch helper instead.
+// The canonical RFC 7396 tests for json_merge_patch live with the
+// function in jmap-server.
 use jmap_metadata_types::{Metadata, MetadataFilterCondition};
 use jmap_server::{json_merge_patch, MergePatchError};
 use jmap_types::{Id, State};
