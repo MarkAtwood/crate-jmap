@@ -136,6 +136,16 @@ struct Inner {
     aux: HashMap<String, AccountAux>,
     /// Explicitly registered account ids (accounts may exist with no objects yet).
     known_accounts: HashSet<String>,
+    /// `(type_name, account_id)` → monotonic counter used by
+    /// `demo_next_id` to mint deterministic ids without collisions.
+    /// Increments on every mint; never decrements on delete (bd:JMAP-ic0j.2,
+    /// mirrors bd:JMAP-qz9v.14 in `jmap-contacts-server`).
+    ///
+    /// Only present in the default (non-`realistic-demo-ids`) mode —
+    /// the realistic-demo-ids mode uses a process-global atomic
+    /// counter and never touches this field.
+    #[cfg(not(feature = "realistic-demo-ids"))]
+    next_ids: HashMap<(&'static str, String), u64>,
 }
 
 impl Inner {
@@ -329,9 +339,12 @@ impl MemoryBackend {
     /// Behavior is controlled by the `realistic-demo-ids` cargo feature:
     ///
     /// - **Default (deterministic):** returns `"<type><n:016x>"` where `n`
-    ///   is the per-(type, account) object count + 1. Lex-orderable within
-    ///   a (type, account) namespace, repeatable across test runs, easy to
-    ///   read in test debug output.
+    ///   is a per-(type, account) monotonic counter starting at `1` and
+    ///   incrementing on every mint. The counter never decrements on
+    ///   delete (bd:JMAP-ic0j.2), so a destroyed object's id is never
+    ///   re-minted within the lifetime of the process. Lex-orderable
+    ///   within a (type, account) namespace, repeatable across test
+    ///   runs, easy to read in test debug output.
     /// - **`realistic-demo-ids` enabled:** returns `"{n:016x}"` matching
     ///   the canonical `jmap-mail-server` pattern at `email.rs:1748` —
     ///   process-start nanos as base, atomic counter, no type prefix,
@@ -360,22 +373,30 @@ impl MemoryBackend {
         #[cfg(not(feature = "realistic-demo-ids"))]
         {
             // CARGO-CULT WARNING: do NOT copy this into a production backend.
-            // This deterministic mode uses an in-memory `len()` counter that:
-            //   - collides after deletes (count goes down, next id re-uses)
+            // This deterministic mode uses a per-(type, account) in-memory
+            // counter that:
             //   - resets to 0 on every process restart
             //   - is not unique across (type, account) namespaces
+            //   - is not globally collision-resistant
             // Production-grade id minting needs a real ULID or equivalent.
-            let n = inner
-                .objects_ref(type_name, account_id)
-                .map_or(0, |m| m.len());
-            let new_id = Id::from(format!("{}{:016x}", type_name.to_ascii_lowercase(), n + 1));
+            //
+            // It IS, however, monotonic within a single (type, account)
+            // namespace across deletes (bd:JMAP-ic0j.2, mirroring
+            // bd:JMAP-qz9v.14 in `jmap-contacts-server`) — a destroyed
+            // object's id will not be re-minted for a later create.
+            let key = (type_name, account_id.to_owned());
+            let counter = inner.next_ids.entry(key).or_insert(0);
+            *counter += 1;
+            let n = *counter;
+            let new_id = Id::from(format!("{}{:016x}", type_name.to_ascii_lowercase(), n));
             debug_assert!(
                 !inner
                     .objects_ref(type_name, account_id)
                     .is_some_and(|m| m.contains_key(&new_id)),
-                "MemoryBackend demo_next_id collision: deterministic mode uses a len()-based \
-                 counter that cannot survive deletes. This is the demo impl — production \
-                 backends must use ULIDs."
+                "MemoryBackend demo_next_id collision: the monotonic counter \
+                 produced an id that already exists in the store. This indicates \
+                 the counter was somehow rewound, which should not happen — the \
+                 counter is increment-only."
             );
             new_id
         }
@@ -869,5 +890,90 @@ impl CalendarsBackend for MemoryBackend {
         result.new_default = Some(identity_id.clone());
         result.previous_default = previous;
         Ok(result)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests for demo_next_id (bd:JMAP-ic0j.2, mirrors bd:JMAP-qz9v.14)
+// ---------------------------------------------------------------------------
+
+#[cfg(all(test, not(feature = "realistic-demo-ids")))]
+mod demo_id_tests {
+    use super::*;
+
+    /// Oracle (bd:JMAP-ic0j.2, mirrors bd:JMAP-qz9v.14 in
+    /// `jmap-contacts-server`): minting an id, destroying the object,
+    /// then minting again MUST produce a different id. The previous
+    /// `len()`-based counter re-minted the destroyed id, causing the
+    /// same Id to appear as both `created[K+2]` and `destroyed[K]` in
+    /// the change log — silently corrupting client-side caches and
+    /// violating RFC 8620 §5.2 'every distinct state MUST be reported
+    /// correctly'.
+    #[test]
+    fn id_not_recycled_after_destroy() {
+        let mut inner = Inner::default();
+        let acc = "acc1";
+
+        // Mint id1 and stash a placeholder in the objects map so a
+        // future debug_assert would catch a re-mint.
+        let id1 = MemoryBackend::demo_next_id(&mut inner, "Calendar", acc);
+        inner
+            .objects_mut("Calendar", acc)
+            .insert(id1.clone(), serde_json::Value::Null);
+
+        // Destroy id1 by removing it from the store.
+        inner.objects_mut("Calendar", acc).remove(&id1);
+
+        // The next mint MUST yield a different id even though the store
+        // is now empty for this (type, account).
+        let id2 = MemoryBackend::demo_next_id(&mut inner, "Calendar", acc);
+        assert_ne!(
+            id1.as_ref(),
+            id2.as_ref(),
+            "destroyed id must not be re-minted: id1={id1}, id2={id2}"
+        );
+    }
+
+    /// Oracle: the counter is per-(type, account), so two distinct
+    /// (type, account) pairs do not share id space. A CalendarEvent in
+    /// account "acc1" and a Calendar in account "acc1" can both start
+    /// at the n=1 numbering without colliding, and two different
+    /// accounts each get their own Calendar counter starting at 1.
+    #[test]
+    fn id_namespace_is_per_type_and_account() {
+        let mut inner = Inner::default();
+
+        let cal_a = MemoryBackend::demo_next_id(&mut inner, "Calendar", "acc1");
+        let ev_a = MemoryBackend::demo_next_id(&mut inner, "CalendarEvent", "acc1");
+        let cal_b = MemoryBackend::demo_next_id(&mut inner, "Calendar", "acc2");
+
+        // Different type → different prefix even at same counter value.
+        assert_ne!(cal_a.as_ref(), ev_a.as_ref());
+        // Different account → independent counter, same prefix but n=1.
+        assert_eq!(
+            cal_a.as_ref(),
+            "calendar0000000000000001",
+            "counter starts at 1 for the first mint in a namespace"
+        );
+        assert_eq!(
+            cal_b.as_ref(),
+            "calendar0000000000000001",
+            "different account namespace gets its own counter starting at 1"
+        );
+    }
+
+    /// Oracle: the counter is monotonic — successive mints in the same
+    /// (type, account) namespace yield strictly increasing ids.
+    #[test]
+    fn ids_are_monotonic_within_namespace() {
+        let mut inner = Inner::default();
+        let acc = "acc1";
+
+        let id1 = MemoryBackend::demo_next_id(&mut inner, "Calendar", acc);
+        let id2 = MemoryBackend::demo_next_id(&mut inner, "Calendar", acc);
+        let id3 = MemoryBackend::demo_next_id(&mut inner, "Calendar", acc);
+
+        assert!(id1.as_ref() < id2.as_ref());
+        assert!(id2.as_ref() < id3.as_ref());
     }
 }
