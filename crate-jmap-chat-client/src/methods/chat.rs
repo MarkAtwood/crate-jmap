@@ -188,17 +188,16 @@ impl super::SessionClient {
         input: &ChatCreateInput<'_>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let create_obj;
-        let client_id_opt = match input {
+        let (create_obj, client_id_opt) = match input {
             ChatCreateInput::Direct {
                 client_id,
                 contact_id,
             } => {
-                create_obj = serde_json::json!({
+                let obj = serde_json::json!({
                     "kind": "direct",
                     "contactId": contact_id,
                 });
-                *client_id
+                (obj, *client_id)
             }
             ChatCreateInput::Group {
                 client_id,
@@ -227,8 +226,7 @@ impl super::SessionClient {
                 if let Some(s) = message_expiry_seconds {
                     obj["messageExpirySeconds"] = (*s).into();
                 }
-                create_obj = obj;
-                *client_id
+                (obj, *client_id)
             }
         };
         let client_id = super::resolve_client_id(client_id_opt);
