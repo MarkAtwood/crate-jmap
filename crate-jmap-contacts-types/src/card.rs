@@ -36,9 +36,20 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub id: Option<Id>,
 
-    /// Set of AddressBook ids this card belongs to.  Each value MUST be
-    /// `true`; the set is encoded as `{ "<id>": true, ... }`.
-    /// (JMAP addition — wire name: `addressBookIds`.)
+    /// Set of AddressBook ids this card belongs to (JMAP addition; wire
+    /// name `addressBookIds`).
+    ///
+    /// Represented as `HashMap<Id, bool>` because the JMAP wire format
+    /// uses a JSON object with boolean values (RFC 9610 §3). Values are
+    /// always `true` in full-object responses; per RFC 9610 §3, "each
+    /// value MUST be true" — the type does not enforce that constraint,
+    /// so callers (and `jmap-contacts-server`) MUST reject `false`
+    /// values with `invalidProperties` per RFC 8620 §5.3. The map shape
+    /// is also used in PatchObject updates (RFC 8620 §5.3) where a
+    /// `null` value removes an entry.
+    ///
+    /// This shape matches the canonical `Email.mailbox_ids` precedent
+    /// in `jmap-mail-types`. JMAP-glx8.11.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub address_book_ids: Option<HashMap<Id, bool>>,
 
@@ -60,7 +71,15 @@ pub struct ContactCard {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
 
-    /// For group cards (`kind = "group"`): set of member UIDs → `true`.
+    /// For group cards (`kind = "group"`): set of member UIDs → `true`
+    /// (RFC 9553 §2.1.6).
+    ///
+    /// Values are always `true`; per RFC 9553 §2.1.6, "each value MUST
+    /// be true" — the type does not enforce that constraint, so callers
+    /// (and `jmap-contacts-server`) MUST reject `false` values with
+    /// `invalidProperties` per RFC 8620 §5.3. The map shape is also
+    /// used in PatchObject updates (RFC 8620 §5.3) where a `null` value
+    /// removes an entry. JMAP-glx8.11.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub members: Option<HashMap<String, bool>>,
 
@@ -169,6 +188,11 @@ pub struct ContactCard {
     ///
     /// Typed because the wire shape is closed by spec and matches the
     /// sibling `members` and `address_book_ids` fields. JMAP-glx8.3.
+    /// Values are always `true`; the type does not enforce that
+    /// constraint, so callers MUST reject `false` values per RFC 9553
+    /// §2.8.2. The map shape is also used in PatchObject updates
+    /// (RFC 8620 §5.3) where a `null` value removes an entry.
+    /// JMAP-glx8.11.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keywords: Option<HashMap<String, bool>>,
 

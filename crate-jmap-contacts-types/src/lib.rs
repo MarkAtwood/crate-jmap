@@ -1151,4 +1151,61 @@ mod tests {
         let back = serde_json::to_value(&c).unwrap();
         assert_eq!(back["acmeCorpExternalId"], "ldap-42");
     }
+
+    // ── MUST-be-true map values (JMAP-glx8.11) ───────────────────────────
+    //
+    // `addressBookIds`, `members`, and `keywords` are JMAP `Id[Boolean]` /
+    // `String[Boolean]` sets where the spec requires each value MUST be
+    // `true` (RFC 9610 §3, RFC 9553 §2.1.6, RFC 9553 §2.8.2). The type
+    // shape `HashMap<_, bool>` cannot enforce that — caller / server is
+    // responsible for rejecting `false`. The tests below pin the
+    // deserialise-cleanly contract so handler-layer validators know what
+    // they will see on the wire, matching the canonical `Email.mailbox_ids`
+    // precedent in `jmap-mail-types`.
+
+    /// `addressBookIds` with `false` deserialises cleanly; the type does
+    /// not enforce MUST-be-true. Oracle: hand-built JSON.
+    #[test]
+    fn contact_card_address_book_ids_accepts_false_deserialise() {
+        let raw = json!({
+            "id": "card-1",
+            "addressBookIds": { "ab1": false }
+        });
+        let c: ContactCard = serde_json::from_value(raw).unwrap();
+        let ids = c.address_book_ids.as_ref().unwrap();
+        let ab1: Id = Id::from("ab1");
+        // false is preserved on round-trip — handler layer rejects, not the type.
+        assert_eq!(ids.get(&ab1).copied(), Some(false));
+    }
+
+    /// `members` with `false` deserialises cleanly; the type does not
+    /// enforce MUST-be-true. Oracle: hand-built JSON.
+    #[test]
+    fn contact_card_members_accepts_false_deserialise() {
+        let raw = json!({
+            "id": "card-1",
+            "kind": "group",
+            "members": { "urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6": false }
+        });
+        let c: ContactCard = serde_json::from_value(raw).unwrap();
+        let mems = c.members.as_ref().unwrap();
+        assert_eq!(
+            mems.get("urn:uuid:f81d4fae-7dec-11d0-a765-00a0c91e6bf6")
+                .copied(),
+            Some(false),
+        );
+    }
+
+    /// `keywords` with `false` deserialises cleanly; the type does not
+    /// enforce MUST-be-true. Oracle: hand-built JSON.
+    #[test]
+    fn contact_card_keywords_accepts_false_deserialise() {
+        let raw = json!({
+            "id": "card-1",
+            "keywords": { "IETF": false }
+        });
+        let c: ContactCard = serde_json::from_value(raw).unwrap();
+        let kws = c.keywords.as_ref().unwrap();
+        assert_eq!(kws.get("IETF").copied(), Some(false));
+    }
 }
