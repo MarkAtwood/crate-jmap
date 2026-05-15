@@ -403,40 +403,21 @@ impl MemoryBackend {
         inner.maintain_indexes_after_set(type_name, account_id);
     }
 
-    /// Set the default `Calendar` id for an account
-    /// (draft-ietf-jmap-calendars-26 §4.3). Used by tests verifying the
-    /// `onSuccessSetIsDefault` swap path.
-    pub fn set_default_calendar_for_test(&self, account_id: &str, default_id: Option<&str>) {
-        let mut inner = self.inner.lock().unwrap();
-        inner.aux_mut(account_id).default_calendar = default_id.map(Id::from);
-    }
-
-    /// Set the default `ParticipantIdentity` id for an account
-    /// (draft-ietf-jmap-calendars-26 §3.3).
-    pub fn set_default_participant_identity_for_test(
-        &self,
-        account_id: &str,
-        default_id: Option<&str>,
-    ) {
-        let mut inner = self.inner.lock().unwrap();
-        inner.aux_mut(account_id).default_participant_identity = default_id.map(Id::from);
-    }
-
-    /// Read the recorded default `Calendar` id for an account.
-    pub fn get_default_calendar(&self, account_id: &str) -> Option<Id> {
-        let inner = self.inner.lock().unwrap();
-        inner
-            .aux_ref(account_id)
-            .and_then(|a| a.default_calendar.clone())
-    }
-
-    /// Read the recorded default `ParticipantIdentity` id for an account.
-    pub fn get_default_participant_identity(&self, account_id: &str) -> Option<Id> {
-        let inner = self.inner.lock().unwrap();
-        inner
-            .aux_ref(account_id)
-            .and_then(|a| a.default_participant_identity.clone())
-    }
+    // bd:JMAP-ic0j.28 — set_default_calendar_for_test /
+    // set_default_participant_identity_for_test / get_default_calendar /
+    // get_default_participant_identity were originally exposed as `pub`
+    // (gated only by `feature = "memory"`) for tests that never landed.
+    // They have no internal or external callers in the workspace and
+    // diverge from the canonical jmap-mail-server pattern (which exposes
+    // no `*_for_test` mutation knobs from its MemoryBackend). Removed
+    // rather than keeping dead public API surface that would become a
+    // SemVer lock once consumers start enabling the `memory` feature.
+    //
+    // The underlying `AccountAux::default_calendar` /
+    // `default_participant_identity` fields ARE exercised — by the trait
+    // impls of `CalendarsBackend::set_default_calendar` /
+    // `set_default_participant_identity` below — so deleting the helpers
+    // does not orphan storage state.
 
     /// Demo-grade id minter for the in-memory reference backend.
     ///
