@@ -362,6 +362,27 @@ pub enum MergePatchError {
     /// [`SetErrorType::InvalidPatch`](crate::SetErrorType::InvalidPatch)
     /// and MUST discard any partially-mutated `target` rather than
     /// persisting it — see the contract on [`json_merge_patch`].
+    ///
+    /// # Why no `reached` / `max` payload (bd:JMAP-jfia.39)
+    ///
+    /// The variant is intentionally unit-shaped. The cap value is
+    /// available in the `Display` impl (which interpolates
+    /// `MAX_MERGE_PATCH_DEPTH`) for log-line and user-message use.
+    /// A typed payload `{ reached: usize, max: usize }` was
+    /// considered and rejected for now because (a) no current
+    /// consumer in the workspace destructures the reached depth or
+    /// the cap programmatically — all 6 call sites map to
+    /// `SetErrorType::InvalidPatch` with a generic description; and
+    /// (b) changing a unit variant to a struct variant is a breaking
+    /// pattern-match change even on a `#[non_exhaustive]` enum (the
+    /// existing `if let Err(MergePatchError::DepthExceeded)` pattern
+    /// would stop compiling). If a future consumer needs
+    /// programmatic access to the depth, the additive evolution is
+    /// to add a new variant alongside (e.g.
+    /// `DepthExceededDetail { reached: usize, max: usize }`) and
+    /// emit the new variant from `json_merge_patch`. The unit
+    /// variant would then become unreachable but remain valid
+    /// pattern syntax for any pinned-version consumer.
     DepthExceeded,
 }
 
