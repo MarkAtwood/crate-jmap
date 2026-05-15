@@ -1,9 +1,10 @@
 //! Shared helper utilities for Metadata method handlers.
 //!
 //! Items here mirror the canonical extension-server helpers pattern
-//! (see `jmap_sharing_server::helpers` for the template). `Metadata/set`
-//! is the primary consumer of [`SetAccumulators`], [`finalize_set_response`],
-//! and [`set_error_value`].
+//! (see `jmap_mail_server::helpers` for the template per workspace
+//! `AGENTS.md` "Canonical Templates"). `Metadata/set` is the primary
+//! consumer of [`SetAccumulators`], [`finalize_set_response`], and
+//! [`set_error_value`].
 
 use jmap_types::{Id, Invocation, JmapError, JmapObject, State};
 use serde_json::{json, Map, Value};
