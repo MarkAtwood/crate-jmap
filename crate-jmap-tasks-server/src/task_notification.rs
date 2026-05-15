@@ -7,11 +7,11 @@
 
 use jmap_tasks_types::TaskNotification;
 use jmap_types::{Id, Invocation, JmapError};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::backend::{BackendSetError, SetError, SetErrorType, TasksBackend};
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // TaskNotification/get
@@ -146,16 +146,10 @@ pub async fn handle_task_notification_set<B: TasksBackend>(
                     not_destroyed.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(other) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": other.to_string() }),
-                    );
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&other));
                 }
             }
         }

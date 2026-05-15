@@ -13,7 +13,7 @@ use crate::helpers::{
     apply_default_change_to_response, extract_account_id, finalize_set_response,
     resolve_on_success_set_is_default, set_error_value, SetAccumulators,
 };
-use jmap_server::{bool_arg, server_fail_from_backend};
+use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // Calendar/get
@@ -148,10 +148,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     not_created.insert(create_id, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(create_id, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_created.insert(
@@ -207,10 +204,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_updated.insert(
@@ -298,9 +292,11 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     Ok(()) => {
                         // proceed to destroy the calendar below
                     }
-                    Err(e) => {
-                        not_destroyed
-                            .insert(id_str, json!({"type": "serverFail", "description": e}));
+                    Err(value) => {
+                        // bd:JMAP-ic0j.68 — `cleanup_calendar_events` returns
+                        // the already-redacted wire-format SetError Value so
+                        // backend Display text never reaches the wire.
+                        not_destroyed.insert(id_str, value);
                         continue;
                     }
                 }
@@ -318,10 +314,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
                     not_destroyed.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_destroyed.insert(
@@ -388,15 +381,24 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
 ///   - Events whose `calendarIds` is just this calendar are destroyed.
 ///   - Events with multiple calendarIds are patched to remove this calendar id.
 ///
-/// Returns `Err(message)` on the first sub-step failure so the calling handler
-/// can surface a `serverFail` SetError on the calendar destroy entry. Partial
-/// cleanup is not acceptable: failing fast keeps the data store consistent.
+/// Returns `Err(value)` on the first sub-step failure where `value` is the
+/// already-redacted wire-format SetError [`Value`] for the calendar's
+/// `notDestroyed` entry (bd:JMAP-ic0j.68). Partial cleanup is not acceptable:
+/// failing fast keeps the data store consistent.
+///
+/// The helper owns its own error wire shape end-to-end so that the
+/// `JmapBackend::Error` Display contract (workspace AGENTS.md "Backend trait
+/// rule") is honoured at a single chokepoint rather than at every call site.
+/// Inner `BackendSetError::SetError(set_err)` failures preserve the typed
+/// JMAP error variant via [`crate::helpers::set_error_value`]; inner
+/// `BackendSetError::Other(_)` and `JmapBackend::Error` failures collapse to
+/// the static [`server_fail_value_from_backend`] wire shape.
 async fn cleanup_calendar_events<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     account_id: &Id,
     calendar_id: &Id,
-) -> Result<(), String> {
+) -> Result<(), Value> {
     // Step 1: query event ids whose calendarIds include this calendar.
     // CalendarEventFilterCondition is #[non_exhaustive], so construct via
     // Default + field assignment rather than a struct literal.
@@ -405,7 +407,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
     let event_ids: Vec<Id> = backend
         .query_objects::<CalendarEvent>(caller, account_id, Some(&filter), None, None, 0)
         .await
-        .map_err(|e| e.to_string())?
+        .map_err(|e| server_fail_value_from_backend(&e))?
         .ids;
 
     if event_ids.is_empty() {
@@ -416,7 +418,7 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
     let (events, _not_found): (Vec<CalendarEvent>, _) = backend
         .get_objects::<CalendarEvent>(caller, account_id, Some(&event_ids), None)
         .await
-        .map_err(|e| e.to_string())?;
+        .map_err(|e| server_fail_value_from_backend(&e))?;
 
     // Step 3: for each event, destroy if single-calendar, else patch out this id.
     for event in events {
@@ -424,10 +426,12 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
 
         // The CalendarEvent's `id` is required for /set semantics — it should
         // always be Some on a real backend. If it's missing here we cannot
-        // address the event, so abort.
+        // address the event, so abort with a redacted serverFail (the
+        // "missing id" condition is a server-internal-state observation; do
+        // not surface internal cleanup state to the wire).
         let event_id = match event.id.as_ref() {
             Some(id) => id.clone(),
-            None => return Err("event missing id field during cleanup".to_owned()),
+            None => return Err(server_fail_value_from_backend(&"missing event id")),
         };
 
         if n_calendars > 1 {
@@ -445,11 +449,9 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
                 )
                 .await
                 .map_err(|e| match e {
-                    BackendSetError::SetError(set_err) => {
-                        format!("update_object failed: {}", set_err.error_type)
-                    }
-                    BackendSetError::Other(err) => err.to_string(),
-                    _ => "update_object failed: unhandled backend error variant".to_owned(),
+                    BackendSetError::SetError(set_err) => set_error_value(&set_err),
+                    BackendSetError::Other(err) => server_fail_value_from_backend(&err),
+                    _ => server_fail_value_from_backend(&"unhandled backend error variant"),
                 })?;
         } else {
             // Single-calendar (this one): destroy the event outright.
@@ -457,11 +459,9 @@ async fn cleanup_calendar_events<B: CalendarsBackend>(
                 .destroy_object::<CalendarEvent>(caller, account_id, &event_id)
                 .await
                 .map_err(|e| match e {
-                    BackendSetError::SetError(set_err) => {
-                        format!("destroy_object failed: {}", set_err.error_type)
-                    }
-                    BackendSetError::Other(err) => err.to_string(),
-                    _ => "destroy_object failed: unhandled backend error variant".to_owned(),
+                    BackendSetError::SetError(set_err) => set_error_value(&set_err),
+                    BackendSetError::Other(err) => server_fail_value_from_backend(&err),
+                    _ => server_fail_value_from_backend(&"unhandled backend error variant"),
                 })?;
         }
     }

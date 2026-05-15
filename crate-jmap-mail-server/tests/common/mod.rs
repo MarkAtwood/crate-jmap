@@ -33,12 +33,24 @@ use jmap_types::{Id, State, UTCDate};
 // FaultyBackend — injects BackendSetError::Other on demand
 // ---------------------------------------------------------------------------
 
+/// Canary literal embedded in every injected `BackendSetError::Other`
+/// payload (bd:JMAP-ic0j.68). Tests assert this string does NOT appear in
+/// the wire-format `/set` response, which proves the per-id `serverFail`
+/// Value path redacts backend-error Display text through
+/// [`jmap_server::server_fail_value_from_backend`] rather than echoing it
+/// onto the wire. Shaped like a leaked credential so a future contributor
+/// who breaks the redaction sees the visible footgun in the test failure.
+pub const FAULTY_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3a2";
+
 /// A thin wrapper around [`MemoryBackend`] that can inject
 /// `BackendSetError::Other` for specific `(type_name, operation)` pairs.
 ///
 /// Call [`FaultyBackend::inject`] before the operation under test. The first
-/// matching call returns `BackendSetError::Other(MemoryError::new("injected …".to_owned()))`;
+/// matching call returns `BackendSetError::Other(MemoryError::new("injected … <canary>".to_owned()))`;
 /// the flag is cleared so subsequent calls go to the inner backend normally.
+///
+/// The injected error text always contains [`FAULTY_BACKEND_CANARY`] so a
+/// redaction-leak assertion can be written generically.
 ///
 /// Test-only — kept in the test harness rather than the public reference
 /// implementation to avoid promoting "fault-injection" as part of the
@@ -166,9 +178,9 @@ impl MailBackend for FaultyBackend {
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
         if self.take_fault(O::TYPE_NAME, "create") {
-            return Err(BackendSetError::Other(MemoryError::new(
-                "injected create error".to_owned(),
-            )));
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected create error {FAULTY_BACKEND_CANARY}"
+            ))));
         }
         self.inner
             .create_object::<O>(&(), account_id, create_id, obj)
@@ -183,9 +195,9 @@ impl MailBackend for FaultyBackend {
         patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
         if self.take_fault(O::TYPE_NAME, "update") {
-            return Err(BackendSetError::Other(MemoryError::new(
-                "injected update error".to_owned(),
-            )));
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected update error {FAULTY_BACKEND_CANARY}"
+            ))));
         }
         self.inner
             .update_object::<O>(&(), account_id, id, patch)
@@ -199,9 +211,9 @@ impl MailBackend for FaultyBackend {
         id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
         if self.take_fault(O::TYPE_NAME, "destroy") {
-            return Err(BackendSetError::Other(MemoryError::new(
-                "injected destroy error".to_owned(),
-            )));
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected destroy error {FAULTY_BACKEND_CANARY}"
+            ))));
         }
         self.inner.destroy_object::<O>(&(), account_id, id).await
     }
@@ -216,9 +228,9 @@ impl MailBackend for FaultyBackend {
         received_at: Option<&jmap_types::UTCDate>,
     ) -> Result<(Id, jmap_mail_types::Email), BackendSetError<Self::Error>> {
         if self.take_fault("Email", "import") {
-            return Err(BackendSetError::Other(MemoryError::new(
-                "injected import error".to_owned(),
-            )));
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected import error {FAULTY_BACKEND_CANARY}"
+            ))));
         }
         self.inner
             .import_email(&(), account_id, blob_id, mailbox_ids, keywords, received_at)
@@ -243,7 +255,9 @@ impl MailBackend for FaultyBackend {
         blob_id: &Id,
     ) -> Result<bool, Self::Error> {
         if self.take_fault("", "blob_exists") {
-            return Err(MemoryError::new("injected blob_exists failure".to_owned()));
+            return Err(MemoryError::new(format!(
+                "injected blob_exists failure {FAULTY_BACKEND_CANARY}"
+            )));
         }
         self.inner.blob_exists(&(), account_id, blob_id).await
     }

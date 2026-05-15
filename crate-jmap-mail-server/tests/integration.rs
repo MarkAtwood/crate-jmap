@@ -8,7 +8,7 @@
 
 mod common;
 
-use common::{seed::setup_seed_data, FaultyBackend, MemoryBackend};
+use common::{seed::setup_seed_data, FaultyBackend, MemoryBackend, FAULTY_BACKEND_CANARY};
 use jmap_mail_server::{
     handle_email_changes, handle_email_get, handle_email_import, handle_email_query,
     handle_email_query_changes, handle_email_set, handle_identity_changes, handle_identity_get,
@@ -5716,6 +5716,146 @@ async fn mailbox_set_sort_order_overflow_rejected() {
     assert!(
         props.iter().any(|p| p.as_str() == Some("sortOrder")),
         "sortOrder must be in invalid properties list; props: {props:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Per-id /set serverFail redaction tests (bd:JMAP-ic0j.68)
+//
+// The bd:JMAP-ic0j.53 fix removed handler-layer backend-Display leaks by
+// routing JmapBackend::Error through `server_fail_from_backend`, which
+// substitutes the constant `SERVER_FAIL_INTERNAL_DESC`. That helper only
+// fits sites that produce a top-level JmapError. The /set per-id
+// `notCreated`/`notUpdated`/`notDestroyed` map entries are a different
+// shape — `serde_json::Value` keyed by id — and previously hand-rolled
+// `json!({"type":"serverFail","description":e.to_string()})` at every
+// site, defeating the redaction contract for every BackendSetError::Other
+// arm.
+//
+// bd:JMAP-ic0j.68 added a Value-shaped sibling helper
+// `server_fail_value_from_backend` and swept all ~115 sites across the
+// 8 extension-server crates. The tests below assert the FaultyBackend
+// canary literal (deliberately shaped like a leaked credential) does NOT
+// appear in the wire-format /set response, proving the redaction holds.
+// ---------------------------------------------------------------------------
+
+/// Oracle: per-id `serverFail` Value path redacts backend Display text
+/// (bd:JMAP-ic0j.68). The injected `BackendSetError::Other` carries a
+/// canary literal in its `MemoryError::Display`; the wire-format response
+/// MUST NOT contain that canary anywhere.
+#[tokio::test]
+async fn set_per_id_server_fail_redacts_backend_display_create() {
+    let backend = FaultyBackend::new();
+    backend.inner.register_account(&Id::from("acct1"));
+    backend.inject("Mailbox", "create");
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": { "c1": { "name": "Inbox" } }
+    });
+    let (resp, _) = handle_mailbox_set(&backend, &(), args).await.unwrap();
+
+    let wire = resp.to_string();
+    assert!(
+        !wire.contains(FAULTY_BACKEND_CANARY),
+        "backend-error Display canary must not appear in /set response \
+         (per-id serverFail Value path must redact); wire: {wire}"
+    );
+    // Positive control: the type field must still be serverFail and the
+    // description must be exactly the static SERVER_FAIL_INTERNAL_DESC,
+    // proving the redaction path produced the expected wire shape.
+    assert_eq!(
+        resp["notCreated"]["c1"]["type"].as_str(),
+        Some("serverFail"),
+        "notCreated[c1] must have type serverFail; resp: {resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["c1"]["description"].as_str(),
+        Some(jmap_server::SERVER_FAIL_INTERNAL_DESC),
+        "description must be the static SERVER_FAIL_INTERNAL_DESC; resp: {resp}"
+    );
+}
+
+/// Oracle (mirror of the create-path test for the update path).
+#[tokio::test]
+async fn set_per_id_server_fail_redacts_backend_display_update() {
+    let backend = FaultyBackend::new();
+    let account = Id::from("acct1");
+    let mailbox = jmap_mail_types::Mailbox::new(
+        Id::from("placeholder"),
+        "Inbox",
+        0,
+        0,
+        0,
+        0,
+        0,
+        jmap_mail_types::MailboxRights::default(),
+        true,
+    );
+    let (mbox_id, _) = backend
+        .inner
+        .create_object::<Mailbox>(&(), &account, "c0", mailbox)
+        .await
+        .unwrap();
+
+    backend.inject("Mailbox", "update");
+    let args = serde_json::json!({
+        "accountId": account.as_ref(),
+        "update": { mbox_id.as_ref(): { "name": "Updated" } }
+    });
+    let (resp, _) = handle_mailbox_set(&backend, &(), args).await.unwrap();
+
+    let wire = resp.to_string();
+    assert!(
+        !wire.contains(FAULTY_BACKEND_CANARY),
+        "backend-error Display canary must not appear in /set response \
+         (per-id serverFail Value path must redact); wire: {wire}"
+    );
+    assert_eq!(
+        resp["notUpdated"][mbox_id.as_ref()]["description"].as_str(),
+        Some(jmap_server::SERVER_FAIL_INTERNAL_DESC),
+        "description must be the static SERVER_FAIL_INTERNAL_DESC; resp: {resp}"
+    );
+}
+
+/// Oracle (mirror of the create-path test for the destroy path).
+#[tokio::test]
+async fn set_per_id_server_fail_redacts_backend_display_destroy() {
+    let backend = FaultyBackend::new();
+    let account = Id::from("acct1");
+    let mailbox = jmap_mail_types::Mailbox::new(
+        Id::from("placeholder"),
+        "Inbox",
+        0,
+        0,
+        0,
+        0,
+        0,
+        jmap_mail_types::MailboxRights::default(),
+        true,
+    );
+    let (mbox_id, _) = backend
+        .inner
+        .create_object::<Mailbox>(&(), &account, "c0", mailbox)
+        .await
+        .unwrap();
+
+    backend.inject("Mailbox", "destroy");
+    let args = serde_json::json!({
+        "accountId": account.as_ref(),
+        "destroy": [mbox_id.as_ref()]
+    });
+    let (resp, _) = handle_mailbox_set(&backend, &(), args).await.unwrap();
+
+    let wire = resp.to_string();
+    assert!(
+        !wire.contains(FAULTY_BACKEND_CANARY),
+        "backend-error Display canary must not appear in /set response \
+         (per-id serverFail Value path must redact); wire: {wire}"
+    );
+    assert_eq!(
+        resp["notDestroyed"][mbox_id.as_ref()]["description"].as_str(),
+        Some(jmap_server::SERVER_FAIL_INTERNAL_DESC),
+        "description must be the static SERVER_FAIL_INTERNAL_DESC; resp: {resp}"
     );
 }
 

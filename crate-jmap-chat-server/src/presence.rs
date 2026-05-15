@@ -14,7 +14,7 @@ use crate::helpers::{
     extract_account_id, finalize_set_response, not_found_json, now_utc_string, serialize_value,
     set_error_value, SetAccumulators,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // PresenceStatus/get
@@ -216,10 +216,7 @@ pub async fn handle_presence_set<B: ChatBackend>(
                     not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_updated.insert(

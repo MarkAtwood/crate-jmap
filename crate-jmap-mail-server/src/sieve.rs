@@ -22,7 +22,7 @@ use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
     extract_account_id, filter_properties, finalize_set_response, set_error_value, SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, take_bool_arg};
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, take_bool_arg};
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
 /// and `SieveScript/validate` operations (RFC 9661).
@@ -426,10 +426,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     not_destroyed.insert(id_str.to_owned(), set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_destroyed.insert(
@@ -554,10 +551,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     }
                     Ok(_) => {} // size OK or blob missing (missing blob handled by validate_sieve_script)
                     Err(e) => {
-                        not_created.insert(
-                            creation_id,
-                            json!({ "type": "serverFail", "description": e.to_string() }),
-                        );
+                        not_created.insert(creation_id, server_fail_value_from_backend(&e));
                         continue;
                     }
                 }
@@ -609,10 +603,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     not_created.insert(creation_id, set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        creation_id,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(creation_id, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_created.insert(
@@ -734,10 +725,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                         }
                         Ok(_) => {} // size OK or blob missing (missing blob handled by validate_sieve_script)
                         Err(e) => {
-                            not_updated.insert(
-                                id_str,
-                                json!({ "type": "serverFail", "description": e.to_string() }),
-                            );
+                            not_updated.insert(id_str, server_fail_value_from_backend(&e));
                             continue;
                         }
                     }
@@ -776,10 +764,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                     not_updated.insert(id_str, set_error_value(&se));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_updated.insert(
@@ -825,10 +810,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                         not_updated.insert(active_id_str, set_error_value(&se));
                     }
                     Err(BackendSetError::Other(e)) => {
-                        not_updated.insert(
-                            active_id_str,
-                            json!({ "type": "serverFail", "description": e.to_string() }),
-                        );
+                        not_updated.insert(active_id_str, server_fail_value_from_backend(&e));
                     }
                     Err(_) => {
                         not_updated.insert(
@@ -891,10 +873,8 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                                     deactivation_failed = true;
                                 }
                                 Err(BackendSetError::Other(e)) => {
-                                    not_updated.insert(
-                                        active_id_str,
-                                        json!({ "type": "serverFail", "description": e.to_string() }),
-                                    );
+                                    not_updated
+                                        .insert(active_id_str, server_fail_value_from_backend(&e));
                                     deactivation_failed = true;
                                 }
                                 Err(_) => {
@@ -959,10 +939,7 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
                             not_updated.insert(target_id_str, set_error_value(&se));
                         }
                         Err(BackendSetError::Other(e)) => {
-                            not_updated.insert(
-                                target_id_str,
-                                json!({ "type": "serverFail", "description": e.to_string() }),
-                            );
+                            not_updated.insert(target_id_str, server_fail_value_from_backend(&e));
                         }
                         Err(_) => {
                             not_updated.insert(

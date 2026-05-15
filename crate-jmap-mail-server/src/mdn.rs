@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{find_immutable_patch_key, set_error_value};
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].
 #[non_exhaustive]
@@ -462,7 +462,7 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                     Err(BackendSetError::Other(e)) => {
                         email_not_updated.insert(
                             email_id.as_ref().to_owned(),
-                            json!({ "type": "serverFail", "description": e.to_string() }),
+                            server_fail_value_from_backend(&e),
                         );
                     }
                     Err(_) => {

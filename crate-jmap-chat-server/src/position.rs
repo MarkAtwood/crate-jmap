@@ -14,7 +14,7 @@ use crate::helpers::{
     extract_account_id, finalize_set_response, not_found_json, serialize_value, set_error_value,
     SetAccumulators,
 };
-use jmap_server::server_fail_from_backend;
+use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // ReadPosition/get
@@ -200,10 +200,7 @@ pub async fn handle_position_set<B: ChatBackend>(
                     not_created.insert(create_id.clone(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(create_id.clone(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_created.insert(
@@ -273,10 +270,7 @@ pub async fn handle_position_set<B: ChatBackend>(
                     not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_updated.insert(
@@ -322,10 +316,7 @@ pub async fn handle_position_set<B: ChatBackend>(
                     not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str.to_owned(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_destroyed.insert(

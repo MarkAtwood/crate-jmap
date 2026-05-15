@@ -9,7 +9,7 @@ use crate::backend::{
     CalendarsBackend, QueryCalendarEventsError,
 };
 use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
-use jmap_server::{bool_arg, server_fail_from_backend};
+use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
 // CalendarEvent/get
@@ -295,10 +295,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                     not_created.insert(create_id, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(create_id, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_created.insert(
@@ -416,10 +413,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                     not_updated.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_updated.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_updated.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_updated.insert(
@@ -461,10 +455,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                     not_destroyed.insert(id_str, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_destroyed.insert(
-                        id_str,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_destroyed.insert(
@@ -601,10 +592,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                     objs
                 }
                 Err(e) => {
-                    not_created.insert(
-                        create_id,
-                        json!({"type": "serverFail", "description": e.to_string()}),
-                    );
+                    not_created.insert(create_id, server_fail_value_from_backend(&e));
                     continue;
                 }
             };
@@ -659,10 +647,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                     not_created.insert(create_id, set_error_value(&set_err));
                 }
                 Err(BackendSetError::Other(e)) => {
-                    not_created.insert(
-                        create_id,
-                        json!({ "type": "serverFail", "description": e.to_string() }),
-                    );
+                    not_created.insert(create_id, server_fail_value_from_backend(&e));
                 }
                 Err(_) => {
                     not_created.insert(
@@ -721,7 +706,7 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
                 Err(BackendSetError::Other(e)) => {
                     not_destroyed.insert(
                         source_id.as_ref().to_owned(),
-                        json!({ "type": "serverFail", "description": e.to_string() }),
+                        server_fail_value_from_backend(&e),
                     );
                 }
                 Err(_) => {
