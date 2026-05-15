@@ -18,10 +18,23 @@ use serde::Deserialize;
 /// Found at `accounts[id].accountCapabilities["urn:ietf:params:jmap:chat"]`.
 ///
 /// Spec: draft-atwood-jmap-chat-00 §3
+///
+/// # Strictness
+///
+/// The struct-level `#[serde(default)]` is deliberately NOT present:
+/// `max_body_bytes`, `max_attachment_bytes`, `max_attachments_per_message`,
+/// and `supports_threads` are spec-required fields (draft-atwood-jmap-chat-00
+/// §3 lines 171-184). A server returning `{}` for this capability is
+/// non-compliant, and the client surfaces that via a deserialize error
+/// rather than silently defaulting every field to `0` / `false` (which
+/// would cause callers to refuse to send any message because
+/// `max_body_bytes == 0`).
+///
+/// `supported_body_types` carries field-level `#[serde(default)]` only —
+/// see its rustdoc for the forward-compat tolerance rationale.
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Deserialize)]
 #[serde(rename_all = "camelCase")]
-#[serde(default)]
 pub struct ChatCapability {
     /// Maximum UTF-8 byte length of a Message body.
     pub max_body_bytes: u64,
@@ -76,9 +89,20 @@ pub struct ChatCapability {
 /// Found at `accounts[id].accountCapabilities["urn:ietf:params:jmap:chat:push"]`.
 ///
 /// Spec: draft-atwood-jmap-chat-push-00
+///
+/// # Strictness
+///
+/// The struct-level `#[serde(default)]` is deliberately NOT present:
+/// `max_snippet_bytes` and `supported_urgency_values` are spec-required
+/// (draft-atwood-jmap-chat-push-00 lines 90-94). `max_messages_per_push`
+/// is the only optional field (line 96) and is already `Option<u64>`.
+/// A server returning `{}` for this capability is non-compliant; the
+/// client surfaces that via a deserialize error rather than silently
+/// defaulting `max_snippet_bytes` to `0` (which would force every
+/// `bodySnippet` to be truncated to nothing).
 #[non_exhaustive]
 #[derive(Debug, Clone, Default, Deserialize)]
-#[serde(rename_all = "camelCase", default)]
+#[serde(rename_all = "camelCase")]
 pub struct ChatPushCapability {
     /// Maximum byte length of a `bodySnippet` in `ChatMessagePush`.
     /// Truncation occurs on a UTF-8 boundary.
@@ -468,6 +492,95 @@ mod tests {
         assert_eq!(
             obj.extra.get("acmeCorpPushTier").and_then(|v| v.as_str()),
             Some("gold")
+        );
+    }
+
+    // ── Strictness regression tests (bd:JMAP-26di.4) ───────────────────
+    //
+    // Oracle: draft-atwood-jmap-chat-00 §3 lines 171-184 mark
+    // maxBodyBytes / maxAttachmentBytes / maxAttachmentsPerMessage /
+    // supportsThreads as required (not optional). A server returning `{}`
+    // is non-compliant; we surface that as a deserialize error rather
+    // than silently zeroing every cap. Same expectation applies to
+    // draft-atwood-jmap-chat-push-00 lines 90-94 for maxSnippetBytes /
+    // supportedUrgencyValues.
+
+    /// `ChatCapability` from `{}` must FAIL to deserialize. Prior to
+    /// bd:JMAP-26di.4 the struct-level `#[serde(default)]` made this
+    /// succeed with every field silently zeroed, breaking callers that
+    /// trust `max_body_bytes` as a soft validation gate.
+    #[test]
+    fn chat_capability_empty_object_rejected() {
+        let raw = json!({});
+        let result: Result<ChatCapability, _> = serde_json::from_value(raw);
+        assert!(
+            result.is_err(),
+            "ChatCapability {{}} must fail deserialize (missing required fields); got Ok"
+        );
+    }
+
+    /// `ChatCapability` missing only `maxBodyBytes` must FAIL — partial
+    /// silent zeroing is the same hazard as `{}`.
+    #[test]
+    fn chat_capability_missing_max_body_bytes_rejected() {
+        let raw = json!({
+            "maxAttachmentBytes": 10485760,
+            "maxAttachmentsPerMessage": 10,
+            "supportsThreads": true
+        });
+        let result: Result<ChatCapability, _> = serde_json::from_value(raw);
+        assert!(
+            result.is_err(),
+            "ChatCapability without maxBodyBytes must fail deserialize; got Ok"
+        );
+    }
+
+    /// `ChatPushCapability` from `{}` must FAIL to deserialize.
+    /// `maxSnippetBytes` and `supportedUrgencyValues` are spec-required.
+    #[test]
+    fn chat_push_capability_empty_object_rejected() {
+        let raw = json!({});
+        let result: Result<ChatPushCapability, _> = serde_json::from_value(raw);
+        assert!(
+            result.is_err(),
+            "ChatPushCapability {{}} must fail deserialize (missing required fields); got Ok"
+        );
+    }
+
+    /// `ChatPushCapability` missing `supportedUrgencyValues` must FAIL.
+    /// `maxMessagesPerPush` IS optional (spec line 96) and may be omitted,
+    /// but the other two MUST be present.
+    #[test]
+    fn chat_push_capability_missing_supported_urgency_values_rejected() {
+        let raw = json!({
+            "maxSnippetBytes": 256
+        });
+        let result: Result<ChatPushCapability, _> = serde_json::from_value(raw);
+        assert!(
+            result.is_err(),
+            "ChatPushCapability without supportedUrgencyValues must fail deserialize; got Ok"
+        );
+    }
+
+    /// `ChatPushCapability` with both required fields but no
+    /// `maxMessagesPerPush` must SUCCEED — the optional field stays
+    /// optional after the strictness fix.
+    #[test]
+    fn chat_push_capability_optional_max_messages_per_push_absent_succeeds() {
+        let raw = json!({
+            "maxSnippetBytes": 256,
+            "supportedUrgencyValues": ["normal", "high"]
+        });
+        let cap: ChatPushCapability = serde_json::from_value(raw)
+            .expect("ChatPushCapability without maxMessagesPerPush must deserialize");
+        assert_eq!(cap.max_snippet_bytes, 256);
+        assert_eq!(
+            cap.supported_urgency_values,
+            vec!["normal".to_owned(), "high".to_owned()]
+        );
+        assert!(
+            cap.max_messages_per_push.is_none(),
+            "maxMessagesPerPush optional must default to None when absent"
         );
     }
 }
