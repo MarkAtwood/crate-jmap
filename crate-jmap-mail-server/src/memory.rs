@@ -814,7 +814,33 @@ impl JmapBackend for MemoryBackend {
                     .map(|map| {
                         map.iter()
                             .filter_map(|(id, val)| {
-                                let email: Email = Email::deserialize(val).ok()?;
+                                // Deserialize the stored JSON back into a typed Email.
+                                // In a well-formed reference-impl backend this never
+                                // fails: the value came from a typed Email written by
+                                // create_object. A failure here would mean the stored
+                                // object's JSON shape drifted from the current Email
+                                // type (e.g. fixture corruption, manual JSON injection,
+                                // or a type-evolution forward-compat gap).
+                                //
+                                // The reference impl logs and skips. A production
+                                // backend that hits this branch should propagate the
+                                // error via its own MemoryError-equivalent type
+                                // (workspace AGENTS.md "library-kit posture": consumers
+                                // bring the persistence + error reporting machinery).
+                                // The debug_assert surfaces fixture/type drift in CI
+                                // without changing release-build behaviour.
+                                let email = match Email::deserialize(val) {
+                                    Ok(e) => e,
+                                    Err(_e) => {
+                                        debug_assert!(
+                                            false,
+                                            "MemoryBackend: stored Email {id} failed to \
+                                             deserialize (fixture drift, type evolution, \
+                                             or manual JSON injection): {_e}"
+                                        );
+                                        return None;
+                                    }
+                                };
                                 if email_matches_filter(&email, ef, top_level_excluded_set.as_ref())
                                 {
                                     let received = val
