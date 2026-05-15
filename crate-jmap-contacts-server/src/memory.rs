@@ -701,6 +701,21 @@ impl ContactsBackend for MemoryBackend {
                 serde_json::Value::String(server_id.as_ref().to_owned()),
             );
         }
+
+        // RFC 9610 §3: a ContactCard MUST belong to at least one
+        // AddressBook at all times (until destroyed). Reject the create
+        // if addressBookIds is absent or empty (bd:JMAP-qz9v.16).
+        if O::TYPE_NAME == "ContactCard" && !contact_card_has_address_book_ids(&val) {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["addressBookIds"])
+                    .with_description(
+                        "ContactCard must have at least one entry in addressBookIds \
+                         (RFC 9610 §3)",
+                    ),
+            ));
+        }
+
         let stored_obj: O = O::deserialize(&val).map_err(|e| {
             BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
         })?;
@@ -760,6 +775,22 @@ impl ContactsBackend for MemoryBackend {
             return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::InvalidPatch)
                     .with_description("patch nesting exceeds server limit"),
+            ));
+        }
+
+        // RFC 9610 §3: a ContactCard MUST belong to at least one
+        // AddressBook at all times. Reject the update if the post-patch
+        // state has empty addressBookIds (bd:JMAP-qz9v.16). `current` is
+        // a local clone of the stored value, so a rejected patch is
+        // discarded without touching storage.
+        if O::TYPE_NAME == "ContactCard" && !contact_card_has_address_book_ids(&current) {
+            return Err(BackendSetError::SetError(
+                SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["addressBookIds"])
+                    .with_description(
+                        "ContactCard must have at least one entry in addressBookIds \
+                         (RFC 9610 §3)",
+                    ),
             ));
         }
 
@@ -1198,6 +1229,15 @@ fn json_contains_substring_recursive(v: &serde_json::Value, needle: &str) -> boo
             .any(|x| json_contains_substring_recursive(x, needle)),
         _ => false,
     }
+}
+
+/// Check whether a serialized ContactCard's `addressBookIds` field is
+/// present and non-empty (RFC 9610 §3 invariant: a card MUST belong to
+/// at least one AddressBook at all times).
+fn contact_card_has_address_book_ids(card: &serde_json::Value) -> bool {
+    card.get("addressBookIds")
+        .and_then(|v| v.as_object())
+        .is_some_and(|m| !m.is_empty())
 }
 
 /// Compare two ContactCard JSON values for sort by RFC 9610 §3.3.2
