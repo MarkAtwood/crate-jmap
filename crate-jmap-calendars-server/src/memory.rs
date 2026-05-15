@@ -352,6 +352,21 @@ impl MemoryBackend {
     /// ```rust,ignore
     /// let backend = MemoryBackend::new().with_account("acc1");
     /// ```
+    ///
+    /// # Invariants (bd:JMAP-ic0j.65)
+    ///
+    /// - **No Id validation**: `account_id` is fed unchanged through
+    ///   [`Id::from`], which is infallible and accepts any string. The
+    ///   `MemoryBackend` silently accepts bogus account ids that
+    ///   violate RFC 8620 §1.2's Id alphabet (e.g. empty string, spaces,
+    ///   non-printable characters). Production backends MUST validate
+    ///   caller-supplied ids — e.g. via [`Id::new_validated`] — before
+    ///   invoking this. The reference impl is permissive to keep test
+    ///   fixtures concise.
+    /// - **Idempotent**: calling `with_account` with the same value
+    ///   multiple times is safe and has no additional effect (the
+    ///   underlying `HashSet::insert` simply returns `false` on dup).
+    ///   This property is stable; callers may rely on it.
     #[must_use]
     pub fn with_account(self, account_id: &str) -> Self {
         self.register_account(&Id::from(account_id));
@@ -359,6 +374,19 @@ impl MemoryBackend {
     }
 
     /// Register an account as known even if it has no objects yet.
+    ///
+    /// # Invariants (bd:JMAP-ic0j.65)
+    ///
+    /// - **No Id validation**: the `account_id` argument is stored
+    ///   verbatim. The caller is responsible for validating that the id
+    ///   satisfies RFC 8620 §1.2's character-set and length constraints
+    ///   (use [`Id::new_validated`] to obtain a validated `Id`). The
+    ///   reference impl does not re-validate — this matches how
+    ///   production backends typically receive `Id` values that have
+    ///   already been validated at the handler / parser boundary.
+    /// - **Idempotent**: registering the same account multiple times is
+    ///   safe and has no additional effect. The auxiliary
+    ///   `AccountAux` slot is created only on first registration.
     pub fn register_account(&self, account_id: &Id) {
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
