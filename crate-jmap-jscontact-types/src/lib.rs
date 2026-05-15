@@ -1045,6 +1045,15 @@ impl<'de> Deserialize<'de> for AnniversaryDate {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         // Deserialize into an intermediate Value, then dispatch on @type.
         let v = serde_json::Value::deserialize(d)?;
+        // Non-object Values (scalar, array, null) cannot be a PartialDate
+        // or Timestamp — both are JSON objects with @type. Route them to
+        // Unknown so any AnniversaryDate constructed in Rust as
+        // Unknown(non-object) survives a serialize→deserialize round
+        // trip. RFC 9553 itself never emits a non-object date, so this
+        // branch is unreachable from spec-conformant wire input.
+        if !v.is_object() {
+            return Ok(AnniversaryDate::Unknown(v));
+        }
         // Match on Option<&str> so absent @type (None) and any concrete
         // @type value (Some(_)) are dispatched without conflating absent
         // with a literal empty string. RFC 9553 §1.3.4 makes @type
@@ -1599,6 +1608,37 @@ mod tests {
         assert!(matches!(anniv.date, AnniversaryDate::Unknown(_)));
         let back = serde_json::to_value(&anniv).unwrap();
         assert_eq!(back, v);
+    }
+
+    #[test]
+    fn anniversary_date_unknown_non_object_round_trips() {
+        // Regression test for bd:JMAP-sgrr.9: a non-object Value wrapped
+        // in Unknown must survive serialize→deserialize.
+        //
+        // Independent oracle: each case is a hand-built JSON literal
+        // (scalar string, array, null) chosen because no real RFC 9553
+        // emitter would produce it on the wire. The test verifies the
+        // round-trip invariant for Rust-constructable values; the wire
+        // never exercises this branch.
+        for value in [
+            serde_json::Value::String("opaque-scalar".into()),
+            serde_json::json!([1, 2, 3]),
+            serde_json::Value::Null,
+        ] {
+            let original = AnniversaryDate::Unknown(value.clone());
+            let on_wire = serde_json::to_value(&original).unwrap();
+            assert_eq!(on_wire, value, "serialize forwards verbatim");
+            let back: AnniversaryDate = serde_json::from_value(on_wire).unwrap();
+            assert!(
+                matches!(back, AnniversaryDate::Unknown(_)),
+                "non-object Value must deserialize back to Unknown, got: {back:?}",
+            );
+            // Extract the inner Value and verify it equals the original.
+            let AnniversaryDate::Unknown(inner) = back else {
+                unreachable!("matches! above already guards this")
+            };
+            assert_eq!(inner, value, "Unknown payload preserved across round trip");
+        }
     }
 
     // ── Note + Author (RFC 9553 Figure 43 / §2.8.3) ───────────────────────
