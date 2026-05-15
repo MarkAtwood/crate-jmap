@@ -881,7 +881,11 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
             return Err(JmapError::custom("cannotCalculateOccurrences"));
         }
         Err(QueryCalendarEventsError::Other(e)) => {
-            return Err(JmapError::server_fail(e.to_string()));
+            // bd:JMAP-ic0j.70 — route through server_fail_from_backend so the
+            // wire description is SERVER_FAIL_INTERNAL_DESC rather than the
+            // backend error's Display output, honoring the workspace-wide
+            // redaction contract (bd:JMAP-wlip.2 / bd:JMAP-ic0j.53).
+            return Err(server_fail_from_backend(&e));
         }
     };
 
@@ -993,7 +997,10 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
                 vec![],
             ))
         }
-        Err(e) => Err(JmapError::server_fail(e.to_string())),
+        // bd:JMAP-ic0j.70 — server_fail_from_backend keeps the wire
+        // description on SERVER_FAIL_INTERNAL_DESC rather than echoing the
+        // backend Self::Error Display onto the wire.
+        Err(e) => Err(server_fail_from_backend(&e)),
     }
 }
 
@@ -1925,6 +1932,379 @@ mod tests {
         assert!(
             set_resp["destroyed"].is_array(),
             "destroyed must be an array: {set_resp}"
+        );
+    }
+
+    /// Oracle (bd:JMAP-ic0j.70): a backend
+    /// [`QueryCalendarEventsError::Other`] carrying a canary literal in
+    /// its [`Display`](std::fmt::Display) MUST NOT leak the canary onto
+    /// the wire's top-level `serverFail.description`. Mirrors the
+    /// existing oracle in `principal.rs` for `AvailabilityError::Other`.
+    ///
+    /// Independent oracle: the canary literal is supplied by THIS test
+    /// as the backend's `Display` output. The wire description must be
+    /// exactly [`SERVER_FAIL_INTERNAL_DESC`].
+    #[tokio::test]
+    async fn query_other_error_is_redacted_on_the_wire() {
+        use jmap_server::{
+            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
+            SERVER_FAIL_INTERNAL_DESC,
+        };
+        use jmap_types::State;
+
+        const CANARY: &str = "DB-DSN=postgres://u:p@h/db-leakage-canary";
+
+        #[derive(Debug)]
+        struct FaultyError(&'static str);
+        impl std::fmt::Display for FaultyError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+        impl std::error::Error for FaultyError {}
+
+        struct FaultyBackend;
+
+        impl JmapBackend for FaultyBackend {
+            type Error = FaultyError;
+            type CallerCtx = ();
+
+            async fn account_exists(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<bool, Self::Error> {
+                Ok(true)
+            }
+
+            async fn get_objects<O: GetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _ids: Option<&[Id]>,
+                _properties: Option<&[String]>,
+            ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+                Ok((vec![], vec![]))
+            }
+
+            async fn get_state<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<State, Self::Error> {
+                Ok(State::from("0"))
+            }
+
+            async fn get_changes<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _since_state: &State,
+                _max_changes: Option<u64>,
+            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+                Ok(ChangesResult::new(
+                    vec![],
+                    vec![],
+                    vec![],
+                    false,
+                    State::from("0"),
+                ))
+            }
+
+            async fn query_objects<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+            ) -> Result<QueryResult, Self::Error> {
+                Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ))
+            }
+
+            async fn query_changes<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                since_query_state: &State,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _max_changes: Option<u64>,
+                _up_to_id: Option<&Id>,
+                _collapse_threads: bool,
+            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                Ok(QueryChangesResult::new(
+                    since_query_state.clone(),
+                    State::from("0"),
+                    Some(0),
+                    vec![],
+                    vec![],
+                ))
+            }
+        }
+
+        impl CalendarsBackend for FaultyBackend {
+            async fn create_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _create_id: &str,
+                obj: O,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("mock-id"), obj))
+            }
+
+            async fn update_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+                _patch: O::Patch,
+            ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+                Ok(None)
+            }
+
+            async fn destroy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+            ) -> Result<(), BackendSetError<Self::Error>> {
+                Ok(())
+            }
+
+            fn supports_type<O: JmapObject>(&self) -> bool {
+                true
+            }
+
+            async fn calendar_has_events(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _calendar_id: &Id,
+            ) -> Result<bool, Self::Error> {
+                Ok(false)
+            }
+
+            async fn query_calendar_events(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
+                _sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+                _args: &CalendarEventQueryArgs,
+            ) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>> {
+                Err(QueryCalendarEventsError::Other(FaultyError(CANARY)))
+            }
+        }
+
+        let backend = FaultyBackend;
+        let args = json!({ "accountId": "acc1" });
+        let err = handle_calendar_event_query(&backend, &(), args)
+            .await
+            .expect_err("backend Other must surface as JmapError");
+        assert_eq!(err.error_type.as_str(), "serverFail");
+        let desc = err.description.as_deref().unwrap_or("");
+        assert!(
+            !desc.contains(CANARY),
+            "wire description leaked backend error text containing canary: {desc:?}"
+        );
+        assert_eq!(
+            desc, SERVER_FAIL_INTERNAL_DESC,
+            "wire description must be SERVER_FAIL_INTERNAL_DESC"
+        );
+    }
+
+    /// Oracle (bd:JMAP-ic0j.70): a backend Self::Error returned from
+    /// `parse_calendar_event_blobs` MUST NOT leak its Display onto the
+    /// wire's top-level `serverFail.description`. Mirrors the query
+    /// oracle above for the `CalendarEvent/parse` path.
+    #[tokio::test]
+    async fn parse_other_error_is_redacted_on_the_wire() {
+        use crate::backend::CalendarEventParseResult;
+        use jmap_server::{
+            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
+            SERVER_FAIL_INTERNAL_DESC,
+        };
+        use jmap_types::State;
+
+        const CANARY: &str = "INTERNAL-BLOB-PATH=/srv/blobs/secret-leakage-canary";
+
+        #[derive(Debug)]
+        struct FaultyError(&'static str);
+        impl std::fmt::Display for FaultyError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+        impl std::error::Error for FaultyError {}
+
+        struct FaultyBackend;
+
+        impl JmapBackend for FaultyBackend {
+            type Error = FaultyError;
+            type CallerCtx = ();
+
+            async fn account_exists(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<bool, Self::Error> {
+                Ok(true)
+            }
+
+            async fn get_objects<O: GetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _ids: Option<&[Id]>,
+                _properties: Option<&[String]>,
+            ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+                Ok((vec![], vec![]))
+            }
+
+            async fn get_state<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<State, Self::Error> {
+                Ok(State::from("0"))
+            }
+
+            async fn get_changes<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _since_state: &State,
+                _max_changes: Option<u64>,
+            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+                Ok(ChangesResult::new(
+                    vec![],
+                    vec![],
+                    vec![],
+                    false,
+                    State::from("0"),
+                ))
+            }
+
+            async fn query_objects<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+            ) -> Result<QueryResult, Self::Error> {
+                Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ))
+            }
+
+            async fn query_changes<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                since_query_state: &State,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _max_changes: Option<u64>,
+                _up_to_id: Option<&Id>,
+                _collapse_threads: bool,
+            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                Ok(QueryChangesResult::new(
+                    since_query_state.clone(),
+                    State::from("0"),
+                    Some(0),
+                    vec![],
+                    vec![],
+                ))
+            }
+        }
+
+        impl CalendarsBackend for FaultyBackend {
+            async fn create_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _create_id: &str,
+                obj: O,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("mock-id"), obj))
+            }
+
+            async fn update_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+                _patch: O::Patch,
+            ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+                Ok(None)
+            }
+
+            async fn destroy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+            ) -> Result<(), BackendSetError<Self::Error>> {
+                Ok(())
+            }
+
+            fn supports_type<O: JmapObject>(&self) -> bool {
+                true
+            }
+
+            async fn calendar_has_events(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _calendar_id: &Id,
+            ) -> Result<bool, Self::Error> {
+                Ok(false)
+            }
+
+            async fn parse_calendar_event_blobs(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _blob_ids: &[jmap_types::Id],
+                _properties: Option<&[String]>,
+            ) -> Result<CalendarEventParseResult, Self::Error> {
+                Err(FaultyError(CANARY))
+            }
+        }
+
+        let backend = FaultyBackend;
+        let args = json!({ "accountId": "acc1", "blobIds": ["blob-1"] });
+        let err = handle_calendar_event_parse(&backend, &(), args)
+            .await
+            .expect_err("backend Self::Error must surface as JmapError");
+        assert_eq!(err.error_type.as_str(), "serverFail");
+        let desc = err.description.as_deref().unwrap_or("");
+        assert!(
+            !desc.contains(CANARY),
+            "wire description leaked backend error text containing canary: {desc:?}"
+        );
+        assert_eq!(
+            desc, SERVER_FAIL_INTERNAL_DESC,
+            "wire description must be SERVER_FAIL_INTERNAL_DESC"
         );
     }
 }

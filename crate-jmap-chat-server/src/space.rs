@@ -1448,7 +1448,10 @@ pub async fn handle_space_join<B: ChatBackend>(
             PatchObject::from_map(members_patch),
         )
         .await
-        .map_err(|e: jmap_server::BackendSetError<_>| JmapError::server_fail(e.to_string()))?;
+        // bd:JMAP-ic0j.70 — route through server_fail_from_backend so the
+        // wire description is the static SERVER_FAIL_INTERNAL_DESC rather
+        // than the backend BackendSetError Display output.
+        .map_err(|e: jmap_server::BackendSetError<_>| server_fail_from_backend(&e))?;
 
     // TOCTOU guard: re-read members after write and detect duplicate entries.
     // Two concurrent join requests can both pass the pre-check above and both
@@ -1528,7 +1531,10 @@ pub async fn handle_space_join<B: ChatBackend>(
                 PatchObject::from_map(uses_patch),
             )
             .await
-            .map_err(|e: jmap_server::BackendSetError<_>| JmapError::server_fail(e.to_string()))?;
+            // bd:JMAP-ic0j.70 — route through server_fail_from_backend so the
+            // wire description is the static SERVER_FAIL_INTERNAL_DESC rather
+            // than the backend BackendSetError Display output.
+            .map_err(|e: jmap_server::BackendSetError<_>| server_fail_from_backend(&e))?;
     }
 
     Ok((
