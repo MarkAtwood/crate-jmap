@@ -108,11 +108,40 @@ pub trait MetadataBackend: JmapBackend {
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
-    /// Returns `true` if this account supports the given JMAP object type.
+    /// Returns `true` if this backend implementation supports the given
+    /// JMAP object type.
     ///
-    /// Called by the server consumer (e.g. the session capability builder) —
-    /// NOT called internally by the handler library. Backends that support
-    /// Metadata unconditionally can return `true` always.
+    /// # Contract
+    ///
+    /// This is a **global, stateless backend-capability check** — it asks
+    /// "did this implementation wire up the methods needed for type
+    /// `O`?", not "does this user's account have this type enabled?".
+    /// That is why the method is synchronous and takes no `caller` or
+    /// `account_id` arguments. Per-account capability variation belongs
+    /// in the consumer's session-capability builder (workspace AGENTS.md
+    /// library-kit posture), NOT here.
+    ///
+    /// # Types in scope
+    ///
+    /// Implementors should answer for the JMAP object types this trait
+    /// covers (`Metadata` per draft-ietf-jmap-metadata-01). Backends MAY
+    /// answer for object types from sibling extensions (`Email`,
+    /// `Calendar`, etc.) if they also implement those traits, but the
+    /// typical pattern is one backend impl per extension family. A
+    /// backend that does not recognise `O` SHOULD return `false`.
+    ///
+    /// # Callers
+    ///
+    /// The server consumer calls this method when building the JMAP
+    /// session capability response. The handler library does not call
+    /// this method internally; per-account method-level errors are
+    /// returned via `accountNotFound` / `accountNotSupportedByMethod` /
+    /// `forbidden` from the individual /get / /set / /changes paths.
+    ///
+    /// # Default
+    ///
+    /// Backends that support Metadata unconditionally can return `true`
+    /// always.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
     /// Return changes since `since_state` filtered by the metadata-specific
