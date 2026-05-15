@@ -256,6 +256,29 @@ impl Inner {
         }
         self.aux_mut(account_id).calendars_with_events = set;
     }
+
+    /// Run any per-type index maintenance that must follow a successful
+    /// generic `/set` mutation (create, update, or destroy) of an object
+    /// of `type_name`.
+    ///
+    /// Today the only such index is the per-account `calendars_with_events`
+    /// set, which depends on CalendarEvent.calendarIds. Centralising the
+    /// type-name dispatch in one helper keeps the three generic methods
+    /// (create_object, update_object, destroy_object) from each repeating
+    /// the `if O::TYPE_NAME == "CalendarEvent"` line. Tracks
+    /// bd:JMAP-ic0j.44.
+    ///
+    /// A more principled fix (a per-type `after_set_hook` on the
+    /// `JmapObject` foundation trait, dispatched at the type-system level
+    /// rather than via runtime string equality) would require a workspace-
+    /// foundation change with propagation through every extension server;
+    /// see the parent bead for the rationale on why that lives at the
+    /// canonical layer, not in calendars-server alone.
+    fn maintain_indexes_after_set(&mut self, type_name: &str, account_id: &str) {
+        if type_name == "CalendarEvent" {
+            self.recompute_calendars_with_events(account_id);
+        }
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -784,9 +807,7 @@ impl CalendarsBackend for MemoryBackend {
                 destroyed: vec![],
             });
 
-        if O::TYPE_NAME == "CalendarEvent" {
-            inner.recompute_calendars_with_events(account_id.as_ref());
-        }
+        inner.maintain_indexes_after_set(O::TYPE_NAME, account_id.as_ref());
 
         Ok((server_id, stored_obj))
     }
@@ -843,9 +864,7 @@ impl CalendarsBackend for MemoryBackend {
                 destroyed: vec![],
             });
 
-        if O::TYPE_NAME == "CalendarEvent" {
-            inner.recompute_calendars_with_events(account_id.as_ref());
-        }
+        inner.maintain_indexes_after_set(O::TYPE_NAME, account_id.as_ref());
 
         Ok(None)
     }
@@ -873,9 +892,7 @@ impl CalendarsBackend for MemoryBackend {
                         updated: vec![],
                         destroyed: vec![id.clone()],
                     });
-                if O::TYPE_NAME == "CalendarEvent" {
-                    inner.recompute_calendars_with_events(account_id.as_ref());
-                }
+                inner.maintain_indexes_after_set(O::TYPE_NAME, account_id.as_ref());
                 Ok(())
             }
             None => Err(BackendSetError::SetError(SetError::new(
