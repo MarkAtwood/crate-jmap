@@ -1027,7 +1027,7 @@ pub async fn handle_mailbox_set<B: MailBackend>(
                             // proceed with mailbox destruction.
                             Err(BackendSetError::SetError(_)) => {}
                             Err(BackendSetError::Other(e)) => {
-                                return Err(JmapError::server_fail(e.to_string()));
+                                return Err(server_fail_from_backend(&e));
                             }
                             Err(_) => {
                                 return Err(JmapError::server_fail(

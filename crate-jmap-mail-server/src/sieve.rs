@@ -1223,7 +1223,7 @@ pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
                 return Ok((resp, vec![]));
             }
             Ok(_) => {} // size OK or blob missing (missing blob handled by validate_sieve_script)
-            Err(e) => return Err(JmapError::server_fail(e.to_string())),
+            Err(e) => return Err(server_fail_from_backend(&e)),
         }
     }
 

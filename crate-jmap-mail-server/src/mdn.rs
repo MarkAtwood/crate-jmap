@@ -387,8 +387,8 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
                 .send_mdns(caller, &req.account_id, &req.identity_id, backend_send)
                 .await
                 .map_err(|e| match e {
-                    BackendSetError::Other(inner) => JmapError::server_fail(inner.to_string()),
-                    BackendSetError::SetError(se) => JmapError::server_fail(se.to_string()),
+                    BackendSetError::Other(inner) => server_fail_from_backend(&inner),
+                    BackendSetError::SetError(se) => server_fail_from_backend(&se),
                     _ => JmapError::server_fail("unhandled backend error variant".to_owned()),
                 })?;
 
