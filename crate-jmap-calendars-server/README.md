@@ -120,16 +120,18 @@ pub trait CalendarsBackend: JmapBackend {
     ) -> impl Future<Output = Result<Option<CalendarEvent>, BackendSetError<Self::Error>>> + Send
     { /* delegates to update_object */ }
 
-    /// Returns true if the given Calendar has any events.
+    /// Returns Ok(true) if the given Calendar has any events.
     ///
     /// Called by Calendar/set before destroying a calendar when
-    /// onDestroyRemoveEvents is false (the default). If true, the handler
-    /// rejects the destroy with a calendarHasEvent SetError.
+    /// onDestroyRemoveEvents is false (the default). Ok(true) rejects
+    /// the destroy with calendarHasEvent; Ok(false) lets it proceed;
+    /// Err(_) becomes serverFail so the client retries — never silently
+    /// collapsed to Ok(false) on a transient backend failure.
     fn calendar_has_events(
         &self,
         account_id: &Id,
         calendar_id: &Id,
-    ) -> impl Future<Output = bool> + Send;
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Compute utcStart and utcEnd for a CalendarEvent by converting
     /// start/duration and the event's time zone into UTC (draft §5.2).

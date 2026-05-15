@@ -248,14 +248,36 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             let id = Id::from(id_str.as_str());
 
             // Check for events if onDestroyRemoveEvents is false (default).
-            if !on_destroy_remove_events
-                && backend.calendar_has_events(caller, &account_id, &id).await
-            {
-                not_destroyed.insert(
-                    id_str,
-                    set_error_value(&SetError::new(SetErrorType::custom("calendarHasEvent"))),
-                );
-                continue;
+            // The three-way result distinguishes 'definitely empty',
+            // 'definitely has events', and 'transient backend failure'
+            // (bd:JMAP-ic0j.4) — the last must surface as serverFail so
+            // the client knows to retry, not as a deterministic
+            // calendarHasEvent SetError.
+            if !on_destroy_remove_events {
+                match backend.calendar_has_events(caller, &account_id, &id).await {
+                    Ok(true) => {
+                        not_destroyed.insert(
+                            id_str,
+                            set_error_value(&SetError::new(SetErrorType::custom(
+                                "calendarHasEvent",
+                            ))),
+                        );
+                        continue;
+                    }
+                    Ok(false) => {
+                        // proceed to destroy below
+                    }
+                    Err(e) => {
+                        not_destroyed.insert(
+                            id_str,
+                            json!({
+                                "type": "serverFail",
+                                "description": e.to_string(),
+                            }),
+                        );
+                        continue;
+                    }
+                }
             }
 
             // PLAN.md §5 / draft-ietf-jmap-calendars-26 §4.4: when
@@ -506,6 +528,205 @@ mod tests {
         assert_eq!(
             not_destroyed["cal1"]["type"], "calendarHasEvent",
             "must produce calendarHasEvent error: {resp}"
+        );
+    }
+
+    /// Regression for bd:JMAP-ic0j.4: when `calendar_has_events` returns
+    /// `Err(_)`, the handler must NOT silently treat that as
+    /// `Ok(false)` and proceed with the destroy — doing so would
+    /// orphan any events that actually existed in the calendar. The
+    /// transient backend failure surfaces as `serverFail` on the
+    /// destroy entry so the client knows to retry.
+    ///
+    /// Oracle: the three-way-result rationale documented on
+    /// [`CalendarsBackend::calendar_has_events`] (mirrors the canonical
+    /// `MailBackend::blob_exists` shape).
+    #[tokio::test]
+    async fn set_destroy_calendar_has_events_error_returns_server_fail() {
+        use jmap_server::{
+            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError as JsSetError,
+            SetErrorType as JsSetErrorType, SetObject,
+        };
+        use jmap_types::{Id, PatchObject, State};
+
+        #[derive(Debug)]
+        struct FaultyError(&'static str);
+        impl std::fmt::Display for FaultyError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                write!(f, "{}", self.0)
+            }
+        }
+        impl std::error::Error for FaultyError {}
+
+        #[derive(Clone)]
+        struct FaultyBackend;
+
+        impl JmapBackend for FaultyBackend {
+            type Error = FaultyError;
+            type CallerCtx = ();
+
+            async fn account_exists(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<bool, Self::Error> {
+                Ok(true)
+            }
+
+            async fn get_objects<O: GetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _ids: Option<&[Id]>,
+                _properties: Option<&[String]>,
+            ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+                Ok((vec![], vec![]))
+            }
+
+            async fn get_state<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<State, Self::Error> {
+                Ok(State::from("0"))
+            }
+
+            async fn get_changes<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _since_state: &State,
+                _max_changes: Option<u64>,
+            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+                Ok(ChangesResult::new(
+                    vec![],
+                    vec![],
+                    vec![],
+                    false,
+                    State::from("0"),
+                ))
+            }
+
+            async fn query_objects<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+            ) -> Result<QueryResult, Self::Error> {
+                Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ))
+            }
+
+            async fn query_changes<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                since_query_state: &State,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _max_changes: Option<u64>,
+                _up_to_id: Option<&Id>,
+                _collapse_threads: bool,
+            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                Ok(QueryChangesResult::new(
+                    since_query_state.clone(),
+                    State::from("0"),
+                    Some(0),
+                    vec![],
+                    vec![],
+                ))
+            }
+        }
+
+        impl CalendarsBackend for FaultyBackend {
+            async fn create_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _create_id: &str,
+                obj: O,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("mock-id"), obj))
+            }
+
+            async fn update_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+                _patch: O::Patch,
+            ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+                Err(BackendSetError::SetError(JsSetError::new(
+                    JsSetErrorType::NotFound,
+                )))
+            }
+
+            async fn update_per_user_properties(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+                _patch: PatchObject,
+            ) -> Result<Option<jmap_calendars_types::CalendarEvent>, BackendSetError<Self::Error>>
+            {
+                Err(BackendSetError::SetError(JsSetError::new(
+                    JsSetErrorType::NotFound,
+                )))
+            }
+
+            async fn destroy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+            ) -> Result<(), BackendSetError<Self::Error>> {
+                Ok(())
+            }
+
+            fn supports_type<O: JmapObject>(&self) -> bool {
+                true
+            }
+
+            async fn calendar_has_events(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _calendar_id: &Id,
+            ) -> Result<bool, Self::Error> {
+                // Simulate a transient backend failure — the handler
+                // must NOT silently collapse this to Ok(false).
+                Err(FaultyError("transient backend error"))
+            }
+        }
+
+        let backend = FaultyBackend;
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": ["cal1"],
+            // onDestroyRemoveEvents defaults to false → handler calls
+            // calendar_has_events first.
+        });
+        let (resp, _) = handle_calendar_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+        let not_destroyed = &resp["notDestroyed"];
+        assert!(
+            not_destroyed.is_object(),
+            "notDestroyed must be present: {resp}"
+        );
+        assert_eq!(
+            not_destroyed["cal1"]["type"], "serverFail",
+            "transient backend error must surface as serverFail, not as a deterministic \
+             'calendarHasEvent' or silently-successful destroy: {resp}"
         );
     }
 

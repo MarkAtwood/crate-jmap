@@ -254,15 +254,37 @@ pub trait CalendarsBackend: JmapBackend {
     /// Returns `true` if the given Calendar has any events.
     ///
     /// Called by `Calendar/set` handler when `onDestroyRemoveEvents` is
-    /// `false` (the default). If this returns `true`, the handler rejects the
-    /// destroy with a `calendarHasEvent` error rather than forwarding to
-    /// `destroy_object`.
+    /// `false` (the default). If this returns `Ok(true)`, the handler
+    /// rejects the destroy with a `calendarHasEvent` error rather than
+    /// forwarding to `destroy_object`.
+    ///
+    /// # Three-way result
+    ///
+    /// The return type is `Result<bool, Self::Error>` to distinguish
+    /// three states that callers actually need to tell apart
+    /// (mirrors the canonical [`MailBackend::blob_exists`] shape):
+    ///
+    /// - `Ok(true)` — the calendar is definitely non-empty. The
+    ///   handler rejects the destroy with `calendarHasEvent`.
+    /// - `Ok(false)` — the calendar is definitely empty. The handler
+    ///   forwards to `destroy_object`.
+    /// - `Err(_)` — connectivity/transient failure. The handler maps
+    ///   this to `serverFail` so the client knows to retry. Returning
+    ///   `Ok(false)` for a transient backend failure is a bug: it
+    ///   surfaces as a deterministic-looking 'no events present'
+    ///   answer, the destroy proceeds, and any events that DID exist
+    ///   become silently orphaned. Returning `Ok(true)` for a
+    ///   transient failure is equally wrong: the client gets a
+    ///   misleading `calendarHasEvent` error that hides the real
+    ///   transient issue.
+    ///
+    /// [`MailBackend::blob_exists`]: https://docs.rs/jmap-mail-server/latest/jmap_mail_server/trait.MailBackend.html#tymethod.blob_exists
     fn calendar_has_events(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         calendar_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = bool> + Send;
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 
     /// Compute `utcStart` and `utcEnd` for a [`CalendarEvent`](jmap_calendars_types::CalendarEvent) by converting the
     /// event's `start`/`duration` fields and time zone into UTC

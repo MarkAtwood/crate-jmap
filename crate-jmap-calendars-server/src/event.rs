@@ -1557,8 +1557,8 @@ mod tests {
                 _caller: &(),
                 _account_id: &Id,
                 _calendar_id: &Id,
-            ) -> bool {
-                false
+            ) -> Result<bool, Self::Error> {
+                Ok(false)
             }
         }
     }
