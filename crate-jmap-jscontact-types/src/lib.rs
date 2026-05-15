@@ -1236,6 +1236,24 @@ mod tests {
     //! and checks the round-trip preserves the data. The RFC is the
     //! oracle — expected values are never derived from the code under
     //! test.
+    //!
+    //! ## Do not generate fixtures programmatically
+    //!
+    //! It is tempting to reduce repetition by replacing the hand-typed
+    //! JSON literals with something like
+    //! `serde_json::to_value(Name::default())`. Do not. A fixture
+    //! generated from the code under test is not an independent oracle —
+    //! it would only verify that `to_value(from_value(x)) == to_value(x)`,
+    //! which is a tautology. The figure-numbered fixtures verify that
+    //! the typed shape matches the wire shape the RFC says the wire
+    //! shape is, which is the only check that catches a misnamed serde
+    //! attribute or a renamed field.
+    //!
+    //! When RFC 9553 errata land, the figure-of-record citations in
+    //! each test name (`figure_16`, `figure_19`, etc.) are the audit
+    //! trail: re-check the erratum against the corresponding figure
+    //! before changing the fixture. See workspace `AGENTS.md` "Test
+    //! Integrity" and this crate's `PLAN.md` §"Round-trip test policy".
 
     use super::*;
     use serde_json::json;
