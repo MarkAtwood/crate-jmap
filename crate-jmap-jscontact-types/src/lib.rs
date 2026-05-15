@@ -983,20 +983,24 @@ impl<'de> Deserialize<'de> for AnniversaryDate {
     fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
         // Deserialize into an intermediate Value, then dispatch on @type.
         let v = serde_json::Value::deserialize(d)?;
-        let tag = v.get("@type").and_then(|t| t.as_str()).unwrap_or("");
-        match tag {
-            "Timestamp" => {
-                let t: Timestamp = serde_json::from_value(v).map_err(serde::de::Error::custom)?;
-                Ok(AnniversaryDate::Timestamp(t))
-            }
-            // RFC 9553 §2.8.1: PartialDate is the default type when @type is
-            // absent. Treat empty or "PartialDate" tags as PartialDate;
-            // anything else is preserved opaquely.
-            "" | "PartialDate" => {
+        // Match on Option<&str> so absent @type (None) and any concrete
+        // @type value (Some(_)) are dispatched without conflating absent
+        // with a literal empty string. RFC 9553 §1.3.4 makes @type
+        // omissible in defaultType positions but does not define an
+        // empty-string @type, so empty strings are routed to Unknown
+        // along with any other unrecognised @type value.
+        match v.get("@type").and_then(|t| t.as_str()) {
+            // RFC 9553 §2.8.1: PartialDate is the default type when @type
+            // is absent (or explicitly set to "PartialDate").
+            None | Some("PartialDate") => {
                 let d: PartialDate = serde_json::from_value(v).map_err(serde::de::Error::custom)?;
                 Ok(AnniversaryDate::PartialDate(d))
             }
-            _ => Ok(AnniversaryDate::Unknown(v)),
+            Some("Timestamp") => {
+                let t: Timestamp = serde_json::from_value(v).map_err(serde::de::Error::custom)?;
+                Ok(AnniversaryDate::Timestamp(t))
+            }
+            Some(_) => Ok(AnniversaryDate::Unknown(v)),
         }
     }
 }
