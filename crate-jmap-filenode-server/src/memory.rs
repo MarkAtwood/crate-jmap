@@ -64,13 +64,44 @@ use jmap_types::{Id, State};
 // Error type
 // ---------------------------------------------------------------------------
 
-/// Minimal error type for `MemoryBackend`.
+/// Opaque storage-layer error returned by [`MemoryBackend`] operations.
+///
+/// The inner description is a human-readable string intended for
+/// diagnostic logging; it is not a stable wire-format identifier.
+///
+/// # Forward compatibility
+///
+/// This type is `#[non_exhaustive]` and uses a named-field shape so
+/// future revisions can add structured context (error kind, source
+/// reference, account id, etc.) without a breaking change. Outside-
+/// crate construction goes through [`MemoryError::new`]; outside-crate
+/// reads go through [`MemoryError::description`].
+///
+/// Mirrors the canonical jmap-mail-server `MemoryError` shape
+/// (bd:JMAP-510h.36; canonical was reshaped in commit 2941c50).
+#[non_exhaustive]
 #[derive(Debug)]
-pub struct MemoryError(pub String);
+pub struct MemoryError {
+    description: String,
+}
+
+impl MemoryError {
+    /// Construct a [`MemoryError`] from a human-readable description.
+    pub fn new(description: impl Into<String>) -> Self {
+        Self {
+            description: description.into(),
+        }
+    }
+
+    /// Human-readable description of the underlying failure.
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+}
 
 impl std::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "memory backend error: {}", self.0)
+        write!(f, "MemoryBackend error: {}", self.description)
     }
 }
 
@@ -258,10 +289,10 @@ impl JmapBackend for MemoryBackend {
                 let mut nodes: Vec<O> = Vec::new();
                 for node in store.nodes.values() {
                     let v = serde_json::to_value(node).map_err(|e| {
-                        MemoryError(format!("get_objects all: serialize FileNode: {e}"))
+                        MemoryError::new(format!("get_objects all: serialize FileNode: {e}"))
                     })?;
                     let obj: O = serde_json::from_value(v).map_err(|e| {
-                        MemoryError(format!(
+                        MemoryError::new(format!(
                             "get_objects all: deserialize {}: {e}",
                             O::TYPE_NAME
                         ))
@@ -276,10 +307,10 @@ impl JmapBackend for MemoryBackend {
                 for id in id_slice {
                     if let Some(node) = store.nodes.get(id) {
                         let v = serde_json::to_value(node).map_err(|e| {
-                            MemoryError(format!("get_objects by-ids: serialize FileNode: {e}"))
+                            MemoryError::new(format!("get_objects by-ids: serialize FileNode: {e}"))
                         })?;
                         let obj: O = serde_json::from_value(v).map_err(|e| {
-                            MemoryError(format!(
+                            MemoryError::new(format!(
                                 "get_objects by-ids: deserialize {}: {e}",
                                 O::TYPE_NAME
                             ))
@@ -409,10 +440,10 @@ impl JmapBackend for MemoryBackend {
             None => None,
             Some(f) => {
                 let v = serde_json::to_value(f)
-                    .map_err(|e| MemoryError(format!("serialize filter: {e}")))?;
+                    .map_err(|e| MemoryError::new(format!("serialize filter: {e}")))?;
                 Some(
                     serde_json::from_value(v)
-                        .map_err(|e| MemoryError(format!("parse filter: {e}")))?,
+                        .map_err(|e| MemoryError::new(format!("parse filter: {e}")))?,
                 )
             }
         };
@@ -492,14 +523,14 @@ impl FileNodeBackend for MemoryBackend {
 
         // Serialize obj → FileNode → assign id → deserialize back to O.
         let v = serde_json::to_value(&obj).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!(
+            BackendSetError::Other(MemoryError::new(format!(
                 "create_object: serialize {}: {e}",
                 O::TYPE_NAME
             )))
         })?;
 
         let mut node: FileNode = serde_json::from_value(v).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!(
+            BackendSetError::Other(MemoryError::new(format!(
                 "create_object: deserialize FileNode: {e}"
             )))
         })?;
@@ -517,12 +548,12 @@ impl FileNodeBackend for MemoryBackend {
         };
 
         let result_v = serde_json::to_value(&node).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!(
+            BackendSetError::Other(MemoryError::new(format!(
                 "create_object: serialize stored FileNode: {e}"
             )))
         })?;
         let result_obj: O = serde_json::from_value(result_v).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!(
+            BackendSetError::Other(MemoryError::new(format!(
                 "create_object: deserialize result {}: {e}",
                 O::TYPE_NAME
             )))
@@ -552,7 +583,9 @@ impl FileNodeBackend for MemoryBackend {
         // the top level of the serialized node.  This is sufficient for the current
         // integration tests and simpler than a full RFC 7396 implementation.
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("update_object: serialize patch: {e}")))
+            BackendSetError::Other(MemoryError::new(format!(
+                "update_object: serialize patch: {e}"
+            )))
         })?;
 
         let mut guard = self.inner.lock().unwrap();
@@ -569,7 +602,7 @@ impl FileNodeBackend for MemoryBackend {
         // Serialize the stored node to JSON, apply the patch as a JSON merge,
         // then deserialize back to FileNode.
         let mut node_val = serde_json::to_value(&node).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!(
+            BackendSetError::Other(MemoryError::new(format!(
                 "update_object: serialize stored FileNode: {e}"
             )))
         })?;
@@ -581,7 +614,7 @@ impl FileNodeBackend for MemoryBackend {
         }
 
         let updated_node: FileNode = serde_json::from_value(node_val).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!(
+            BackendSetError::Other(MemoryError::new(format!(
                 "update_object: deserialize merged FileNode: {e}"
             )))
         })?;
@@ -590,12 +623,12 @@ impl FileNodeBackend for MemoryBackend {
         store.bump_state(ChangeType::Updated, id.clone());
 
         let result_v = serde_json::to_value(&updated_node).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!(
+            BackendSetError::Other(MemoryError::new(format!(
                 "update_object: serialize updated FileNode: {e}"
             )))
         })?;
         let result_obj: O = serde_json::from_value(result_v).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!(
+            BackendSetError::Other(MemoryError::new(format!(
                 "update_object: deserialize result {}: {e}",
                 O::TYPE_NAME
             )))
@@ -847,9 +880,8 @@ fn node_matches_filter(
             // Cycle safeguard: a malformed tree must not loop forever.
             depth += 1;
             if depth > 10_000 {
-                return Err(MemoryError(
-                    "node_matches_filter: ancestor chain exceeds 10_000 depth, suspected cycle"
-                        .to_owned(),
+                return Err(MemoryError::new(
+                    "node_matches_filter: ancestor chain exceeds 10_000 depth, suspected cycle",
                 ));
             }
             cur = nodes.get(pid).and_then(|n| n.parent_id.as_ref());
@@ -876,9 +908,8 @@ fn node_matches_filter(
             }
             depth += 1;
             if depth > 10_000 {
-                return Err(MemoryError(
-                    "node_matches_filter: descendant chain exceeds 10_000 depth, suspected cycle"
-                        .to_owned(),
+                return Err(MemoryError::new(
+                    "node_matches_filter: descendant chain exceeds 10_000 depth, suspected cycle",
                 ));
             }
             cur = nodes.get(pid).and_then(|n| n.parent_id.as_ref());
@@ -990,17 +1021,15 @@ fn node_matches_filter(
     }
 
     if fc.body.is_some() {
-        return Err(MemoryError(
+        return Err(MemoryError::new(
             "node_matches_filter: 'body' (full-text search) is not supported by the reference \
-             MemoryBackend"
-                .to_owned(),
+             MemoryBackend",
         ));
     }
     if fc.text.is_some() {
-        return Err(MemoryError(
+        return Err(MemoryError::new(
             "node_matches_filter: 'text' (full-text search) is not supported by the reference \
-             MemoryBackend"
-                .to_owned(),
+             MemoryBackend",
         ));
     }
 
