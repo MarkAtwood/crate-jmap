@@ -147,16 +147,19 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
     // jmap_server::handlers::handle_changes — the standard RFC 8620 §5.2
     // shape). `updatedProperties: null` per the same rationale documented
     // there (server cannot claim per-property change detail it does not
-    // track).
+    // track). The Id arrays serialize directly via Id's
+    // #[serde(transparent)] impl; no intermediate &str Vec needed
+    // (matches the canonical jmap-server::handlers::handle_changes
+    // shape).
     let mut response = json!({
         "accountId": account_id.as_ref(),
         "oldState": since_state.as_ref(),
         "newState": result.new_state.as_ref(),
         "hasMoreChanges": result.has_more_changes,
         "updatedProperties": Value::Null,
-        "created":   result.created.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-        "updated":   result.updated.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
-        "destroyed": result.destroyed.iter().map(|id| id.as_ref()).collect::<Vec<_>>(),
+        "created":   result.created,
+        "updated":   result.updated,
+        "destroyed": result.destroyed,
     });
 
     // Short-circuit: no filter args, no post-filter needed.
