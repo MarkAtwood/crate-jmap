@@ -854,6 +854,34 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
                 "expandRecurrences requires a FilterCondition with both 'before' and 'after'",
             ));
         }
+
+        // bd:JMAP-ic0j.71 — defense-in-depth handler-side pre-check against
+        // the account's `maxExpandedQueryDuration` cap (§10.7.3). Computes
+        // `before - after` in seconds and compares against
+        // `CalendarsLimits::max_expanded_query_duration_seconds`. When
+        // exceeded, short-circuit with the `expandDurationTooLarge` error
+        // BEFORE invoking the backend so the cap is enforced even when the
+        // backend itself does not enforce it.
+        //
+        // Per workspace AGENTS.md "Caller identity (foundation seam)", the
+        // backend remains canonical for enforcement; this pre-check is
+        // best-effort. When `before` or `after` cannot be parsed (e.g.
+        // floating LocalDateTime with malformed digits), the pre-check is
+        // skipped and the backend handles the request. The backend MUST
+        // still re-verify the cap atomically.
+        if let Some(secs) = expand_duration_seconds(filter.as_ref()) {
+            let limits = backend.limits(caller, &account_id);
+            // Non-positive duration (`before <= after`) cannot exceed a
+            // non-negative cap; skip and let the backend handle the
+            // inverted-bound case. Positive durations are compared in
+            // `u64` space so a cap of `u64::MAX` (effectively
+            // unlimited) is honoured rather than wrapping through `i64`.
+            if let Ok(secs_u64) = u64::try_from(secs) {
+                if secs_u64 > limits.max_expanded_query_duration_seconds {
+                    return Err(JmapError::custom("expandDurationTooLarge"));
+                }
+            }
+        }
     }
 
     let query_args = CalendarEventQueryArgs {
@@ -903,6 +931,41 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     }
 
     Ok((resp, vec![]))
+}
+
+/// Compute `before - after` in seconds for the handler-side
+/// `maxExpandedQueryDuration` pre-check (bd:JMAP-ic0j.71).
+///
+/// Returns `None` when the filter is missing, when either bound is absent,
+/// or when either bound cannot be interpreted as a wall-clock timestamp. In
+/// those cases the handler skips the pre-check and the backend handles the
+/// request (the backend remains canonical for enforcement per workspace
+/// AGENTS.md "Backend caps and limits").
+///
+/// The filter's `before` / `after` carry JSCalendar `LocalDateTime` strings
+/// (RFC 8984 §1.4.5: `YYYY-MM-DDTHH:MM:SS`, no offset — floating until a
+/// `timeZone` is applied). Duration in seconds between two wall-clock
+/// timestamps is invariant under uniform timezone choice, so we normalise
+/// each bound by appending `Z` and treating both as if they were UTC. The
+/// resulting `before - after` is the same number of elapsed seconds the
+/// expansion would cover regardless of `args.time_zone`.
+///
+/// A non-positive result (`before <= after`) is returned as-is; the caller
+/// compares against the cap value, and a non-positive duration cannot
+/// exceed a non-negative `max_expanded_query_duration_seconds` so it never
+/// trips the pre-check. The backend handles the (possibly invalid)
+/// inverted-bound case itself.
+fn expand_duration_seconds(
+    filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
+) -> Option<i64> {
+    let f = filter?;
+    let before = f.before.as_deref()?;
+    let after = f.after.as_deref()?;
+    let before_utc = UTCDate::from(format!("{before}Z"))
+        .to_epoch_seconds()
+        .ok()?;
+    let after_utc = UTCDate::from(format!("{after}Z")).to_epoch_seconds().ok()?;
+    Some(before_utc - after_utc)
 }
 
 // ---------------------------------------------------------------------------
@@ -1426,7 +1489,9 @@ mod tests {
         };
         use jmap_types::{Id, PatchObject, State};
 
-        use crate::backend::CalendarsBackend;
+        use crate::backend::{
+            CalendarEventQueryArgs, CalendarsBackend, CalendarsLimits, QueryCalendarEventsError,
+        };
 
         #[derive(Debug)]
         pub struct TrackError;
@@ -1441,6 +1506,14 @@ mod tests {
         pub struct TrackingBackend {
             pub per_user_called: Arc<Mutex<bool>>,
             pub update_called: Arc<Mutex<bool>>,
+            /// Counts invocations of `query_calendar_events`. Used by
+            /// bd:JMAP-ic0j.71 tests to assert the handler-side
+            /// `maxExpandedQueryDuration` pre-check short-circuits BEFORE
+            /// reaching the backend.
+            pub query_calendar_events_count: Arc<Mutex<u32>>,
+            /// Optional override for the `CalendarsLimits` returned by
+            /// `limits()`. `None` returns the default cap (365 days).
+            pub limits_override: Arc<Mutex<Option<crate::backend::CalendarsLimits>>>,
         }
 
         impl TrackingBackend {
@@ -1448,6 +1521,8 @@ mod tests {
                 Self {
                     per_user_called: Arc::new(Mutex::new(false)),
                     update_called: Arc::new(Mutex::new(false)),
+                    query_calendar_events_count: Arc::new(Mutex::new(0)),
+                    limits_override: Arc::new(Mutex::new(None)),
                 }
             }
         }
@@ -1598,7 +1673,186 @@ mod tests {
             ) -> Result<bool, Self::Error> {
                 Ok(false)
             }
+
+            // bd:JMAP-ic0j.71 — override the default impl (which delegates
+            // to `query_objects`) so the pre-check tests can count direct
+            // invocations of `query_calendar_events`. Returns an empty
+            // result so the test's assertions are about whether the
+            // backend was reached, not about the result shape.
+            async fn query_calendar_events(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _filter: Option<&jmap_calendars_types::CalendarEventFilterCondition>,
+                _sort: Option<&[jmap_calendars_types::CalendarEventComparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+                _args: &CalendarEventQueryArgs,
+            ) -> Result<QueryResult, QueryCalendarEventsError<Self::Error>> {
+                *self.query_calendar_events_count.lock().unwrap() += 1;
+                Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("0"),
+                    false,
+                ))
+            }
+
+            // bd:JMAP-ic0j.71 — surface the per-instance cap override.
+            fn limits(&self, _caller: &(), _account_id: &Id) -> CalendarsLimits {
+                (*self.limits_override.lock().unwrap()).unwrap_or_default()
+            }
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // bd:JMAP-ic0j.71 — handler-side `maxExpandedQueryDuration` pre-check
+    //
+    // Oracle for the duration math: `UTCDate::to_epoch_seconds` (jmap-types),
+    // verified independently against Python `datetime` vectors. Cap value
+    // comes from `CalendarsLimits::default()` (`31_536_000` = 365 days,
+    // documented at backend.rs:648-660). The assertions verify the
+    // pre-check fires BEFORE the backend, by counting direct invocations
+    // of `query_calendar_events` on the TrackingBackend.
+    // -----------------------------------------------------------------------
+
+    /// Oracle: §10.7.3 — when `expandRecurrences` is true and
+    /// `before - after` exceeds the account's `maxExpandedQueryDuration`,
+    /// the handler MUST return `expandDurationTooLarge` WITHOUT invoking
+    /// the backend's `query_calendar_events` method.
+    #[tokio::test]
+    async fn calendar_event_query_pre_check_rejects_over_cap_duration() {
+        let backend = routing::TrackingBackend::new();
+        // 500-day window > default 365-day cap.
+        let args = json!({
+            "accountId": "acc",
+            "expandRecurrences": true,
+            "filter": {
+                "after":  "2024-01-01T00:00:00",
+                "before": "2025-05-15T00:00:00",
+            },
+        });
+        let result = handle_calendar_event_query(&backend, &(), args).await;
+
+        let err = result.expect_err("over-cap duration must be rejected");
+        let json = serde_json::to_value(&err).expect("serialize JmapError");
+        assert_eq!(
+            json["type"], "expandDurationTooLarge",
+            "expected expandDurationTooLarge, got {json}"
+        );
+        assert_eq!(
+            *backend.query_calendar_events_count.lock().unwrap(),
+            0,
+            "backend MUST NOT be invoked when pre-check rejects"
+        );
+    }
+
+    /// Oracle: §10.7.3 — when `before - after` is within the
+    /// `maxExpandedQueryDuration`, the handler MUST proceed to invoke the
+    /// backend's `query_calendar_events`. The backend remains canonical
+    /// for any further cap enforcement.
+    #[tokio::test]
+    async fn calendar_event_query_pre_check_passes_under_cap_duration() {
+        let backend = routing::TrackingBackend::new();
+        // 30-day window << default 365-day cap.
+        let args = json!({
+            "accountId": "acc",
+            "expandRecurrences": true,
+            "filter": {
+                "after":  "2024-01-01T00:00:00",
+                "before": "2024-01-31T00:00:00",
+            },
+        });
+        let result = handle_calendar_event_query(&backend, &(), args).await;
+
+        result.expect("under-cap duration must be accepted by the pre-check");
+        assert_eq!(
+            *backend.query_calendar_events_count.lock().unwrap(),
+            1,
+            "backend MUST be invoked when pre-check accepts"
+        );
+    }
+
+    /// Oracle: the handler-side pre-check respects a per-instance limits
+    /// override. A backend returning a smaller cap (e.g. 7 days) must trip
+    /// the pre-check on a window that the default cap would have allowed.
+    #[tokio::test]
+    async fn calendar_event_query_pre_check_honors_backend_limits_override() {
+        let backend = routing::TrackingBackend::new();
+        // Override the cap to 7 days.
+        *backend.limits_override.lock().unwrap() = Some(
+            crate::backend::CalendarsLimits::default()
+                .with_max_expanded_query_duration_seconds(7 * 24 * 60 * 60),
+        );
+        // 14-day window > overridden 7-day cap; < default 365-day cap.
+        let args = json!({
+            "accountId": "acc",
+            "expandRecurrences": true,
+            "filter": {
+                "after":  "2024-01-01T00:00:00",
+                "before": "2024-01-15T00:00:00",
+            },
+        });
+        let result = handle_calendar_event_query(&backend, &(), args).await;
+
+        let err = result.expect_err("over-cap duration must be rejected");
+        let json = serde_json::to_value(&err).expect("serialize JmapError");
+        assert_eq!(json["type"], "expandDurationTooLarge");
+        assert_eq!(
+            *backend.query_calendar_events_count.lock().unwrap(),
+            0,
+            "backend MUST NOT be invoked when pre-check rejects"
+        );
+    }
+
+    /// Oracle: §5.11 — when `expandRecurrences` is false, the pre-check
+    /// does NOT fire even for very large windows (the cap only applies
+    /// to recurrence-expansion). The backend is dispatched normally.
+    #[tokio::test]
+    async fn calendar_event_query_pre_check_skipped_without_expand_recurrences() {
+        let backend = routing::TrackingBackend::new();
+        // 10-year window, far beyond the default 365-day cap; but
+        // expandRecurrences is false, so the cap does not apply.
+        let args = json!({
+            "accountId": "acc",
+            "filter": {
+                "after":  "2014-01-01T00:00:00",
+                "before": "2024-01-01T00:00:00",
+            },
+        });
+        let result = handle_calendar_event_query(&backend, &(), args).await;
+
+        result.expect("non-expanding query is not subject to the cap");
+        assert_eq!(
+            *backend.query_calendar_events_count.lock().unwrap(),
+            1,
+            "backend MUST be invoked when expandRecurrences is false"
+        );
+    }
+
+    /// Oracle: when a bound is unparseable, the pre-check skips and the
+    /// backend handles the request. Defense-in-depth, not validation:
+    /// malformed input is the backend's problem.
+    #[tokio::test]
+    async fn calendar_event_query_pre_check_skips_on_unparseable_bound() {
+        let backend = routing::TrackingBackend::new();
+        let args = json!({
+            "accountId": "acc",
+            "expandRecurrences": true,
+            "filter": {
+                "after":  "2024-01-01T00:00:00",
+                "before": "not-a-date-XX-XX",
+            },
+        });
+        let result = handle_calendar_event_query(&backend, &(), args).await;
+
+        result.expect("unparseable bound is passed through to backend");
+        assert_eq!(
+            *backend.query_calendar_events_count.lock().unwrap(),
+            1,
+            "backend MUST be invoked on malformed bounds (pre-check is best-effort)"
+        );
     }
 
     /// Oracle: draft-ietf-jmap-calendars-26 §5.4 — a patch containing only

@@ -1894,6 +1894,14 @@ mod tests {
     /// Oracle: §10.7.3 — when the backend signals `ExpandDurationTooLarge`,
     /// the handler MUST return a method-level `expandDurationTooLarge` error
     /// (not `serverFail`).
+    ///
+    /// Window kept under the default `maxExpandedQueryDuration` cap
+    /// (365 days, per `CalendarsLimits::default()`) so the handler-side
+    /// pre-check (bd:JMAP-ic0j.71) passes and the request reaches the
+    /// MockBackend's `trigger-too-large` sentinel branch. The point of
+    /// this test is that a BACKEND-originated `ExpandDurationTooLarge`
+    /// maps to the wire error code; the pre-check is exercised
+    /// separately by the routing-module tests in `event.rs`.
     #[tokio::test]
     async fn calendar_event_query_expand_duration_too_large() {
         let backend = Arc::new(MockBackend::new_with_account("acc1"));
@@ -1906,7 +1914,7 @@ mod tests {
                 "accountId": "acc1",
                 "filter": {
                     "inCalendar": "trigger-too-large",
-                    "before": "2030-01-01T00:00:00",
+                    "before": "2020-04-01T00:00:00",
                     "after":  "2020-01-01T00:00:00"
                 },
                 "expandRecurrences": true
@@ -1924,6 +1932,11 @@ mod tests {
     /// Oracle: §10.7.4 — when the backend signals
     /// `CannotCalculateOccurrences`, the handler MUST return a method-level
     /// `cannotCalculateOccurrences` error (not `serverFail`).
+    ///
+    /// Window kept under the default `maxExpandedQueryDuration` cap
+    /// (365 days) so the handler-side pre-check (bd:JMAP-ic0j.71) passes
+    /// and the request reaches the MockBackend's `trigger-cannot-calc`
+    /// sentinel branch.
     #[tokio::test]
     async fn calendar_event_query_cannot_calculate_occurrences() {
         let backend = Arc::new(MockBackend::new_with_account("acc1"));
@@ -1936,7 +1949,7 @@ mod tests {
                 "accountId": "acc1",
                 "filter": {
                     "inCalendar": "trigger-cannot-calc",
-                    "before": "2030-01-01T00:00:00",
+                    "before": "2020-04-01T00:00:00",
                     "after":  "2020-01-01T00:00:00"
                 },
                 "expandRecurrences": true
