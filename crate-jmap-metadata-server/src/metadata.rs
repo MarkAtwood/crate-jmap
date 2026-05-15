@@ -1039,7 +1039,7 @@ mod tests {
         // against a future change that fabricates an inaccurate property
         // list from the serde error text.
         assert!(
-            err.get("properties").map_or(true, Value::is_null),
+            err.get("properties").is_none_or(Value::is_null),
             "properties must be absent or null for whole-struct deserialize failure: {resp}",
         );
     }
