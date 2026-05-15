@@ -129,6 +129,16 @@ pub struct SpaceJoinResponse {
 /// `Patch::Keep` is **not reachable from JSON deserialization**. The custom
 /// `Deserialize` impl maps JSON `null` → `Clear` and a JSON value → `Set(v)`.
 /// An absent key (via `#[serde(default)]`) produces `Keep` via `Default`.
+///
+/// # Closed enum (no `#[non_exhaustive]`)
+///
+/// `Patch` is deliberately **not** marked `#[non_exhaustive]`. The three
+/// variants exhaustively model JMAP's tri-state patch semantic
+/// (RFC 8620 §5.3: absent key = no change; value = set; JSON `null` =
+/// clear), and no future spec extension is anticipated. Callers may
+/// `match` on `Patch<T>` without a wildcard arm. Every other public
+/// enum in this crate carries `#[non_exhaustive]`; this one is the
+/// principled exception per bd:JMAP-26di.48.
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum Patch<T> {
     /// Omit the field from the patch — server leaves it unchanged.
