@@ -37,6 +37,41 @@
 //! assert_eq!(name.components.unwrap()[0].value, "Vincent");
 //! ```
 //!
+//! # Logging safety
+//!
+//! This crate derives plain [`Debug`] on all PII-bearing types
+//! ([`ContactCard`], [`AddressBook`], and the 30+ re-exported RFC 9553
+//! JSContact sub-types: [`Name`], [`EmailAddress`], [`Phone`],
+//! [`Address`], [`Note`], [`Anniversary`], [`PersonalInfo`],
+//! [`CryptoKey`], etc.). Consumers using `tracing` or `log` macros
+//! that interpolate values via `?` (debug) or `%` (display) emit the
+//! full record contents to the configured sink. This includes phone
+//! numbers, email addresses, postal addresses, names, notes, and
+//! CryptoKey URIs — all of which are typically regulated as
+//! personally-identifying information under GDPR Article 5, CCPA
+//! §1798.100, and similar privacy frameworks.
+//!
+//! Consumers SHOULD wrap PII-bearing values in a redacting newtype
+//! before logging, or use a structured-logging field-allowlist:
+//!
+//! ```ignore
+//! // BAD — leaks every name, phone, email, address into the log sink.
+//! tracing::debug!(card = ?contact_card, "fetched contact");
+//!
+//! // GOOD — emits only the opaque id and surfaces nothing else.
+//! tracing::debug!(card_id = %contact_card.id.as_deref().unwrap_or_default(), "fetched contact");
+//! ```
+//!
+//! The workspace has a Debug-redaction precedent in `jmap-base-client`
+//! for credential-bearing types ([`BearerAuth`], [`BasicAuth`],
+//! `Session`, `AccountInfo`) but **not** for PII-bearing types. The
+//! decision whether to propagate that precedent workspace-wide is
+//! tracked by a separate workspace-policy bead; this crate's current
+//! posture is plain `Debug` plus this safety contract. JMAP-glx8.26.
+//!
+//! [`BearerAuth`]: https://docs.rs/jmap-base-client
+//! [`BasicAuth`]: https://docs.rs/jmap-base-client
+//!
 //! # Example
 //!
 //! ```rust
