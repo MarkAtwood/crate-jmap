@@ -69,18 +69,16 @@ pub fn parse_chat_ws_frame(frame: WsFrame) -> ChatWsFrame {
         WsFrame::StateChange(sc) => ChatWsFrame::StateChange(sc),
         WsFrame::Response(r) => ChatWsFrame::Response(r),
         WsFrame::Unknown { type_name, raw } => match type_name.as_str() {
-            "ChatTypingEvent" => match serde_json::from_value::<ChatTypingEvent>(raw) {
-                Ok(evt) => ChatWsFrame::ChatTyping(evt),
-                Err(_) => ChatWsFrame::Unknown {
+            "ChatTypingEvent" => serde_json::from_value::<ChatTypingEvent>(raw)
+                .map(ChatWsFrame::ChatTyping)
+                .unwrap_or_else(|_| ChatWsFrame::Unknown {
                     type_name: "ChatTypingEvent".to_owned(),
-                },
-            },
-            "ChatPresenceEvent" => match serde_json::from_value::<ChatPresenceEvent>(raw) {
-                Ok(evt) => ChatWsFrame::ChatPresence(evt),
-                Err(_) => ChatWsFrame::Unknown {
+                }),
+            "ChatPresenceEvent" => serde_json::from_value::<ChatPresenceEvent>(raw)
+                .map(ChatWsFrame::ChatPresence)
+                .unwrap_or_else(|_| ChatWsFrame::Unknown {
                     type_name: "ChatPresenceEvent".to_owned(),
-                },
-            },
+                }),
             _ => ChatWsFrame::Unknown { type_name },
         },
         // WsFrame is #[non_exhaustive]: forward any future base-client variants as Unknown.
