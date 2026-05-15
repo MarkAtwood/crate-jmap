@@ -49,7 +49,7 @@ pub mod principal;
 pub use backend::{
     AddedItem, AvailabilityError, BackendChangesError, BackendSetError, CalendarEventGetArgs,
     CalendarEventParseResult, CalendarEventQueryArgs, CalendarEventSetArgs, CalendarsBackend,
-    ChangesResult, GetObject, JmapBackend, JmapObject, QueryCalendarEventsError,
+    CalendarsLimits, ChangesResult, GetObject, JmapBackend, JmapObject, QueryCalendarEventsError,
     QueryChangesResult, QueryObject, QueryResult, SetDefaultResult, SetError, SetErrorType,
     SetObject,
 };

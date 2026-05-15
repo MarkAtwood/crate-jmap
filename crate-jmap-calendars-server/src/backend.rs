@@ -563,11 +563,137 @@ pub trait CalendarsBackend: JmapBackend {
     > + Send {
         async { Ok(vec![]) }
     }
+
+    /// Implementation-defined per-account calendars caps for this caller and
+    /// account (bd:JMAP-ic0j.31).
+    ///
+    /// Backends that enforce caps such as
+    /// [`max_expanded_query_duration_seconds`](CalendarsLimits::max_expanded_query_duration_seconds)
+    /// (draft-ietf-jmap-calendars-26 §1.5 `maxExpandedQueryDuration`)
+    /// return them through this method. The default implementation returns
+    /// [`CalendarsLimits::default`], which carries conservative
+    /// reference-impl-grade values suitable for tests and single-tenant
+    /// dev servers; production deployments are expected to override.
+    ///
+    /// Workspace cross-extension pattern: see `AGENTS.md` "Backend caps
+    /// and limits" — every extension's backend trait exposes a
+    /// `limits(caller, account_id) -> XxxLimits` sync default method
+    /// returning a struct of related caps as a group. The `caller` and
+    /// `account_id` arguments are plumbed even though the default impl
+    /// ignores them so production backends can vary caps per-account
+    /// (Free vs. Pro tier, multi-tenant SaaS, etc.) without a future API
+    /// break.
+    ///
+    /// Consumers that wish to surface caps to clients via JMAP session
+    /// capability advertisement (draft-ietf-jmap-calendars-26 §1.5
+    /// `urn:ietf:params:jmap:calendars` capability fields, e.g.
+    /// `maxExpandedQueryDuration`) read the value here and format it
+    /// for the session response — this kit does not advertise caps on
+    /// any session capability, per workspace policy that production
+    /// cap-advertisement uses the JMAP Quotas extension.
+    ///
+    /// Enforcement of per-call rejections (such as the
+    /// [`QueryCalendarEventsError::ExpandDurationTooLarge`] variant) is
+    /// canonically the backend's responsibility per workspace
+    /// AGENTS.md "Caller identity (foundation seam)". Handler-side
+    /// pre-checks against [`Self::limits`] are defense-in-depth and
+    /// optional; see bd:JMAP-ic0j.71 for the
+    /// `maxExpandedQueryDuration` defense-in-depth follow-up.
+    fn limits(&self, _caller: &Self::CallerCtx, _account_id: &jmap_types::Id) -> CalendarsLimits {
+        CalendarsLimits::default()
+    }
 }
 
 // ---------------------------------------------------------------------------
 // Supporting types for new backend methods
 // ---------------------------------------------------------------------------
+
+/// Implementation-defined per-account caps that gate selected
+/// `Calendar*` operations (bd:JMAP-ic0j.31).
+///
+/// Returned by [`CalendarsBackend::limits`]. Mirrors the workspace
+/// cross-extension pattern documented in `AGENTS.md` "Backend caps and
+/// limits": every extension defines its own `XxxLimits` struct
+/// (`ChatLimits`, `CalendarsLimits`, …) returned via a sync default
+/// method on the extension's backend trait.
+///
+/// The struct is `#[non_exhaustive]` so adding fields for additional
+/// caps (e.g. `max_calendars_per_event` and `max_participants_per_event`,
+/// both defined as capability fields in draft-ietf-jmap-calendars-26
+/// §1.5 but not yet enforced) is an additive non-breaking change.
+/// External callers (test backends, production backends overriding
+/// [`CalendarsBackend::limits`]) construct instances via
+/// [`CalendarsLimits::new`] rather than field-init syntax.
+///
+/// # Spec contract
+///
+/// `max_expanded_query_duration_seconds` corresponds to the
+/// `maxExpandedQueryDuration` capability field
+/// (draft-ietf-jmap-calendars-26 §1.5). The spec's wire shape is an
+/// ISO 8601 [`Duration`](jmap_calendars_types::jscalendar::Duration);
+/// consumers formatting the session capability convert from this
+/// integer-seconds representation. The integer representation is the
+/// implementation shape because backend enforcement requires arithmetic
+/// (`before - after` in seconds), and the workspace's sealed dep set
+/// excludes `chrono`.
+///
+/// # Default values
+///
+/// The defaults are conservative reference-impl values not tied to any
+/// spec-mandated number. Production backends override the whole method,
+/// not individual fields.
+///
+/// | Field | Default | Rationale |
+/// |---|---|---|
+/// | `max_expanded_query_duration_seconds` | `31_536_000` (365 days) | One calendar year is the common "what most clients reasonably ask for" range; longer windows tend to fan out recurrence expansion into prohibitive enumeration costs. |
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CalendarsLimits {
+    /// Maximum query window (in seconds) the server will honour when
+    /// `CalendarEvent/query` is invoked with `expandRecurrences = true`
+    /// (draft-ietf-jmap-calendars-26 §5.11, §10.7.3). Enforced against
+    /// the difference between the filter's `before` and `after` values.
+    /// When exceeded, the backend returns
+    /// [`QueryCalendarEventsError::ExpandDurationTooLarge`] and the
+    /// handler maps it to the method-level `expandDurationTooLarge`
+    /// error per §10.7.3.
+    pub max_expanded_query_duration_seconds: u64,
+}
+
+impl Default for CalendarsLimits {
+    fn default() -> Self {
+        Self {
+            max_expanded_query_duration_seconds: 31_536_000,
+        }
+    }
+}
+
+impl CalendarsLimits {
+    /// Construct a [`CalendarsLimits`] with the single cap field
+    /// specified.
+    ///
+    /// The struct is `#[non_exhaustive]` so external callers (tests,
+    /// production backends overriding [`CalendarsBackend::limits`])
+    /// need a constructor to build one. Future cap-field additions to
+    /// [`CalendarsLimits`] are an additive non-breaking change because
+    /// the constructor stays stable; callers wanting to override a new
+    /// field combine `CalendarsLimits::new(..)` with
+    /// [`Self::with_max_expanded_query_duration_seconds`] and a future
+    /// analogous setter.
+    #[must_use]
+    pub fn new(max_expanded_query_duration_seconds: u64) -> Self {
+        Self {
+            max_expanded_query_duration_seconds,
+        }
+    }
+
+    /// Builder-style setter for [`Self::max_expanded_query_duration_seconds`].
+    #[must_use]
+    pub fn with_max_expanded_query_duration_seconds(mut self, max: u64) -> Self {
+        self.max_expanded_query_duration_seconds = max;
+        self
+    }
+}
 
 /// Result of a `CalendarEvent/parse` operation (draft-ietf-jmap-calendars-26 §5.13).
 ///
@@ -754,4 +880,64 @@ pub struct CalendarEventSetArgs {
     /// `noSupportedScheduleMethods` SetError when at least one recipient has
     /// no `calendarAddress` URI the server can deliver to (§10.7.2).
     pub send_scheduling_messages: bool,
+}
+
+// ---------------------------------------------------------------------------
+// Tests (bd:JMAP-ic0j.31)
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Oracle: [`CalendarsLimits::default`] sets the reference-impl one-year
+    /// `max_expanded_query_duration_seconds` (31_536_000) documented in the
+    /// struct's rustdoc. Hand-computed: 365 * 24 * 60 * 60 = 31_536_000.
+    /// Independent of the code under test (the formula here is the oracle,
+    /// not the constant in the struct's Default impl).
+    #[test]
+    fn calendars_limits_default_is_one_year_in_seconds() {
+        const SECONDS_PER_DAY: u64 = 24 * 60 * 60;
+        const DAYS_PER_YEAR: u64 = 365;
+        let expected = DAYS_PER_YEAR * SECONDS_PER_DAY;
+        assert_eq!(expected, 31_536_000, "oracle sanity");
+        let limits = CalendarsLimits::default();
+        assert_eq!(
+            limits.max_expanded_query_duration_seconds, expected,
+            "CalendarsLimits::default must advertise one year (in seconds)"
+        );
+    }
+
+    /// Oracle: [`CalendarsLimits::new`] threads the provided value through to
+    /// the field. A small enough custom value exercises the
+    /// production-backend pattern of overriding per-account.
+    #[test]
+    fn calendars_limits_new_sets_max_expanded_query_duration_seconds() {
+        let limits = CalendarsLimits::new(60);
+        assert_eq!(limits.max_expanded_query_duration_seconds, 60);
+    }
+
+    /// Oracle: [`CalendarsLimits::with_max_expanded_query_duration_seconds`]
+    /// returns a new struct with the field replaced.
+    #[test]
+    fn calendars_limits_builder_overrides_field() {
+        let limits =
+            CalendarsLimits::default().with_max_expanded_query_duration_seconds(7 * 24 * 60 * 60);
+        assert_eq!(
+            limits.max_expanded_query_duration_seconds,
+            7 * 24 * 60 * 60,
+            "builder must overwrite the default with the supplied value"
+        );
+    }
+
+    /// Oracle: [`CalendarsLimits`] is `#[non_exhaustive]`, so the only
+    /// stable way to construct one externally is via
+    /// [`CalendarsLimits::new`] / [`CalendarsLimits::default`].
+    /// This test merely compile-checks the trait derives (`Debug`,
+    /// `Clone`, `Copy`, `PartialEq`, `Eq`) the rustdoc claims.
+    #[test]
+    fn calendars_limits_derives_compile() {
+        fn assert_traits<T: std::fmt::Debug + Clone + Copy + PartialEq + Eq>() {}
+        assert_traits::<CalendarsLimits>();
+    }
 }
