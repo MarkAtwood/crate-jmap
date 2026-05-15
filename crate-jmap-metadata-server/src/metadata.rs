@@ -619,6 +619,26 @@ const KNOWN_CONDITION_KEYS: &[&str] = &[
 /// detect (e.g. a numeric where a string is expected) falls through to
 /// the generic handler, which surfaces the deserialize failure as
 /// `unsupportedFilter` via `optional_arg`.
+///
+/// # Recursion depth
+///
+/// Both walkers recurse without an internal cap. Depth is bounded by
+/// upstream layers:
+///
+/// 1. `serde_json`'s default deserializer recursion limit (128 levels)
+///    bounds the worst-case raw JSON tree depth.
+/// 2. `jmap-server` documents in `parse::*` rustdoc that HTTP
+///    integrators SHOULD reject request bodies with more than ~32
+///    levels of JSON nesting before handing them to `Dispatcher`.
+///
+/// Consumers that skip step 2 and run with a small tokio worker stack
+/// (`Runtime::worker_stack_size` tuned down) may trigger stack-overflow
+/// on adversarial filter trees up to the serde_json 128-level cap.
+/// Defense-in-depth depth-capping at this layer is tracked by
+/// bd:JMAP-826m.52 — the canonical resolution is a foundation-level
+/// helper in `jmap-server`, propagated to every extension-server's
+/// filter walker. Until then this walker relies on the consumer
+/// contract above.
 fn validate_metadata_filter(args: &serde_json::Map<String, Value>) -> Result<(), JmapError> {
     let Some(filter_val) = args.get("filter") else {
         return Ok(());
