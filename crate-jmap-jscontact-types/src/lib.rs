@@ -24,11 +24,16 @@
 //!
 //! ## Design: `@type` discriminator
 //!
-//! Every RFC 9553 sub-object carries an `@type` discriminator on the
-//! wire. The Rust field is named `at_type: String` and renamed to
-//! `"@type"` via serde attributes. The field is mandatory per spec but
-//! modelled as `String` (not an enum) to preserve forward-compatibility
-//! with new sub-object types.
+//! Every RFC 9553 sub-object has an `@type` discriminator on the wire.
+//! The Rust field is named `at_type: Option<String>` and renamed to
+//! `"@type"` via serde attributes, with `default` and
+//! `skip_serializing_if = "Option::is_none"`. The field is modelled as
+//! `Option<String>` (not bare `String`) because RFC 9553 §1.3.4 permits
+//! omitting `@type` whenever the type is implied by context — most
+//! notably when the value is in a `defaultType` position (see
+//! [`Anniversary::date`] / [`AnniversaryDate`] for the worked example).
+//! The value type is `String` (not an enum) to preserve forward-
+//! compatibility with new sub-object types.
 //!
 //! ## Design: `Resource`-derived types
 //!
@@ -90,7 +95,7 @@ impl AsRef<str> for JsContactId {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Name {
-    /// Object type discriminator; always `"Name"` on the wire.
+    /// Object type discriminator; SHOULD be `"Name"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -137,7 +142,7 @@ pub struct Name {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NameComponent {
-    /// Object type discriminator; always `"NameComponent"` on the wire.
+    /// Object type discriminator; SHOULD be `"NameComponent"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -169,7 +174,7 @@ pub struct NameComponent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Nickname {
-    /// Object type discriminator; always `"Nickname"` on the wire.
+    /// Object type discriminator; SHOULD be `"Nickname"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -202,7 +207,7 @@ pub struct Nickname {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Organization {
-    /// Object type discriminator; always `"Organization"` on the wire.
+    /// Object type discriminator; SHOULD be `"Organization"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -236,7 +241,7 @@ pub struct Organization {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OrgUnit {
-    /// Object type discriminator; always `"OrgUnit"` on the wire.
+    /// Object type discriminator; SHOULD be `"OrgUnit"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -266,7 +271,7 @@ pub struct OrgUnit {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SpeakToAs {
-    /// Object type discriminator; always `"SpeakToAs"` on the wire.
+    /// Object type discriminator; SHOULD be `"SpeakToAs"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -292,7 +297,7 @@ pub struct SpeakToAs {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Pronouns {
-    /// Object type discriminator; always `"Pronouns"` on the wire.
+    /// Object type discriminator; SHOULD be `"Pronouns"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -322,7 +327,7 @@ pub struct Pronouns {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Title {
-    /// Object type discriminator; always `"Title"` on the wire.
+    /// Object type discriminator; SHOULD be `"Title"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -352,7 +357,7 @@ pub struct Title {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailAddress {
-    /// Object type discriminator; always `"EmailAddress"` on the wire.
+    /// Object type discriminator; SHOULD be `"EmailAddress"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -389,7 +394,7 @@ pub struct EmailAddress {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct OnlineService {
-    /// Object type discriminator; always `"OnlineService"` on the wire.
+    /// Object type discriminator; SHOULD be `"OnlineService"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -432,7 +437,7 @@ pub struct OnlineService {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Phone {
-    /// Object type discriminator; always `"Phone"` on the wire.
+    /// Object type discriminator; SHOULD be `"Phone"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -472,7 +477,7 @@ pub struct Phone {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LanguagePref {
-    /// Object type discriminator; always `"LanguagePref"` on the wire.
+    /// Object type discriminator; SHOULD be `"LanguagePref"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -505,7 +510,7 @@ pub struct LanguagePref {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Calendar {
-    /// Object type discriminator; always `"Calendar"` on the wire.
+    /// Object type discriminator; SHOULD be `"Calendar"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -551,7 +556,7 @@ pub struct Calendar {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SchedulingAddress {
-    /// Object type discriminator; always `"SchedulingAddress"` on the wire.
+    /// Object type discriminator; SHOULD be `"SchedulingAddress"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -589,7 +594,7 @@ pub struct SchedulingAddress {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Address {
-    /// Object type discriminator; always `"Address"` on the wire.
+    /// Object type discriminator; SHOULD be `"Address"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -656,7 +661,7 @@ pub struct Address {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressComponent {
-    /// Object type discriminator; always `"AddressComponent"` on the wire.
+    /// Object type discriminator; SHOULD be `"AddressComponent"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -687,7 +692,7 @@ pub struct AddressComponent {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CryptoKey {
-    /// Object type discriminator; always `"CryptoKey"` on the wire.
+    /// Object type discriminator; SHOULD be `"CryptoKey"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -734,7 +739,7 @@ pub struct CryptoKey {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Directory {
-    /// Object type discriminator; always `"Directory"` on the wire.
+    /// Object type discriminator; SHOULD be `"Directory"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -790,7 +795,7 @@ pub struct Directory {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Link {
-    /// Object type discriminator; always `"Link"` on the wire.
+    /// Object type discriminator; SHOULD be `"Link"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -837,7 +842,7 @@ pub struct Link {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Media {
-    /// Object type discriminator; always `"Media"` on the wire.
+    /// Object type discriminator; SHOULD be `"Media"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -886,7 +891,7 @@ pub struct Media {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PartialDate {
-    /// Object type discriminator; always `"PartialDate"` on the wire.
+    /// Object type discriminator; SHOULD be `"PartialDate"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -1001,7 +1006,7 @@ impl<'de> Deserialize<'de> for AnniversaryDate {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Anniversary {
-    /// Object type discriminator; always `"Anniversary"` on the wire.
+    /// Object type discriminator; SHOULD be `"Anniversary"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -1031,7 +1036,7 @@ pub struct Anniversary {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Note {
-    /// Object type discriminator; always `"Note"` on the wire.
+    /// Object type discriminator; SHOULD be `"Note"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -1062,7 +1067,7 @@ pub struct Note {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Author {
-    /// Object type discriminator; always `"Author"` on the wire.
+    /// Object type discriminator; SHOULD be `"Author"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -1090,7 +1095,7 @@ pub struct Author {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PersonalInfo {
-    /// Object type discriminator; always `"PersonalInfo"` on the wire.
+    /// Object type discriminator; SHOULD be `"PersonalInfo"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
@@ -1132,7 +1137,7 @@ pub struct PersonalInfo {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Relation {
-    /// Object type discriminator; always `"Relation"` on the wire.
+    /// Object type discriminator; SHOULD be `"Relation"` when present per RFC 9553 §1.3.4 (may be omitted in defaultType positions).
     #[serde(rename = "@type", default, skip_serializing_if = "Option::is_none")]
     pub at_type: Option<String>,
 
