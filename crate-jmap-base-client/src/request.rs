@@ -194,10 +194,7 @@ impl Session {
     ///
     /// The function only inspects the value when the key is present; an
     /// absent key always returns `Ok(None)` regardless of `T`.
-    pub fn extension_capability<T>(
-        &self,
-        capability_uri: &str,
-    ) -> Result<Option<T>, ClientError>
+    pub fn extension_capability<T>(&self, capability_uri: &str) -> Result<Option<T>, ClientError>
     where
         T: serde::de::DeserializeOwned,
     {
@@ -1071,8 +1068,7 @@ mod tests {
             "isReadOnly": false,
             "accountCapabilities": {},
         });
-        let acct: AccountInfo =
-            serde_json::from_value(raw).expect("AccountInfo must deserialize");
+        let acct: AccountInfo = serde_json::from_value(raw).expect("AccountInfo must deserialize");
         let result: Result<Option<FakeMailCapability>, _> =
             acct.account_extension_capability("urn:ietf:params:jmap:mail");
         assert!(
@@ -1096,8 +1092,7 @@ mod tests {
                 },
             },
         });
-        let acct: AccountInfo =
-            serde_json::from_value(raw).expect("AccountInfo must deserialize");
+        let acct: AccountInfo = serde_json::from_value(raw).expect("AccountInfo must deserialize");
         let cap: FakeMailCapability = acct
             .account_extension_capability("urn:ietf:params:jmap:mail")
             .expect("must not error")
