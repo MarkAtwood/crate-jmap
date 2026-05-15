@@ -1176,14 +1176,27 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
         is_subscribed,
     );
 
-    if let Some(parent_id_val) = props.get("parentId") {
-        if let Some(s) = parent_id_val.as_str() {
-            mailbox.parent_id = Some(Id::from(s));
+    // RFC 8621 §2: parentId is Id|null. Per RFC 8620 §5.3, a malformed
+    // value (e.g. integer, boolean, object) MUST produce invalidProperties
+    // rather than be silently dropped.
+    match props.get("parentId") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(s)) => mailbox.parent_id = Some(Id::from(s.as_str())),
+        Some(_) => {
+            return Err(set_error_value(
+                &SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["parentId"])
+                    .with_description("parentId must be a String (Id) or null"),
+            ));
         }
     }
 
-    if let Some(role_val) = props.get("role") {
-        if let Some(s) = role_val.as_str() {
+    // RFC 8621 §2: role is String|null. Per RFC 8620 §5.3, a malformed
+    // value (e.g. integer, boolean, object) MUST produce invalidProperties
+    // rather than be silently dropped.
+    match props.get("role") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(s)) => {
             let role: jmap_mail_types::MailboxRole =
                 serde_json::from_value(Value::String(s.to_owned())).map_err(|_| {
                     set_error_value(
@@ -1191,6 +1204,13 @@ fn build_mailbox_from_props(props: &Value) -> Result<Mailbox, Value> {
                     )
                 })?;
             mailbox.role = Some(role);
+        }
+        Some(_) => {
+            return Err(set_error_value(
+                &SetError::new(SetErrorType::InvalidProperties)
+                    .with_properties(["role"])
+                    .with_description("role must be a String or null"),
+            ));
         }
     }
 

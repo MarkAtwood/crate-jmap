@@ -1169,6 +1169,135 @@ async fn mailbox_role_uniqueness_enforced() {
     );
 }
 
+/// Oracle: Mailbox/set create with role of a non-String non-null value
+/// (here an integer) MUST be rejected with invalidProperties: ["role"]
+/// (RFC 8620 §5.3 — malformed property values yield invalidProperties).
+///
+/// Regression: bd:JMAP-q2wa.2. Previous behaviour was a silent drop —
+/// the create succeeded with no role set and no client signal.
+#[tokio::test]
+async fn mailbox_set_create_rejects_non_string_role() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "c0": { "name": "foo", "role": 42 }
+        }
+    });
+    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+        .await
+        .expect("Mailbox/set must not error");
+
+    // The create must NOT appear in created.
+    if let Some(created) = resp.get("created").and_then(|v| v.as_object()) {
+        assert!(
+            !created.contains_key("c0"),
+            "create with non-string role must not succeed; created={:?}",
+            created
+        );
+    }
+
+    // The create MUST appear in notCreated with invalidProperties on "role".
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be present for malformed role");
+    let entry = &not_created["c0"];
+    assert_eq!(
+        entry["type"].as_str(),
+        Some("invalidProperties"),
+        "error type must be invalidProperties; got: {:?}",
+        entry["type"]
+    );
+    let props = entry["properties"]
+        .as_array()
+        .expect("properties must be an array");
+    assert!(
+        props.iter().any(|v| v.as_str() == Some("role")),
+        "properties must include 'role'; got: {:?}",
+        props
+    );
+}
+
+/// Oracle: Mailbox/set create with parentId of a non-String non-null value
+/// (here an integer) MUST be rejected with invalidProperties: ["parentId"]
+/// (RFC 8620 §5.3).
+///
+/// Regression: bd:JMAP-q2wa.2.
+#[tokio::test]
+async fn mailbox_set_create_rejects_non_string_parent_id() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "c0": { "name": "foo", "parentId": 42 }
+        }
+    });
+    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+        .await
+        .expect("Mailbox/set must not error");
+
+    if let Some(created) = resp.get("created").and_then(|v| v.as_object()) {
+        assert!(
+            !created.contains_key("c0"),
+            "create with non-string parentId must not succeed; created={:?}",
+            created
+        );
+    }
+
+    let not_created = resp["notCreated"]
+        .as_object()
+        .expect("notCreated must be present for malformed parentId");
+    let entry = &not_created["c0"];
+    assert_eq!(
+        entry["type"].as_str(),
+        Some("invalidProperties"),
+        "error type must be invalidProperties; got: {:?}",
+        entry["type"]
+    );
+    let props = entry["properties"]
+        .as_array()
+        .expect("properties must be an array");
+    assert!(
+        props.iter().any(|v| v.as_str() == Some("parentId")),
+        "properties must include 'parentId'; got: {:?}",
+        props
+    );
+}
+
+/// Oracle: Mailbox/set create with role=null and parentId=null is valid
+/// (RFC 8621 §2: both fields are nullable). A trivial happy-path guard
+/// against an over-eager fix to the non-string rejections above.
+///
+/// Regression: bd:JMAP-q2wa.2.
+#[tokio::test]
+async fn mailbox_set_create_accepts_null_role_and_parent_id() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "create": {
+            "c0": { "name": "foo", "role": serde_json::Value::Null, "parentId": serde_json::Value::Null }
+        }
+    });
+    let (resp, _) = handle_mailbox_set(&backend, &(), args)
+        .await
+        .expect("Mailbox/set must not error");
+
+    let created = resp["created"]
+        .as_object()
+        .expect("created must be present for valid create with null role/parentId");
+    assert!(
+        created.contains_key("c0"),
+        "create with null role and null parentId must succeed; resp={:?}",
+        resp
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Identity/get, Identity/changes, Identity/set handler tests
 // ---------------------------------------------------------------------------
