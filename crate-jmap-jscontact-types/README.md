@@ -113,6 +113,17 @@ The same pattern works for `EmailAddress`, `Phone`, `Address`,
   validate the RFC 9553 §1.4.1 character set (`A-Z`, `a-z`, `0-9`,
   `-`, `_`, length 1–255). Validation is left to the caller because
   this crate has no JMAP dependency.
+- Six structs carry a cross-field "at least one of X, Y" RFC 9553
+  constraint that the Rust type system does NOT enforce: `Name`
+  (`components` or `full`), `Organization` (`name` or `units`),
+  `SpeakToAs` (`grammatical_gender` or `pronouns`), `OnlineService`
+  (`uri` or `user`), `Address` (`components`, `coordinates`,
+  `country_code`, `full`, or `time_zone`), and `Author` (at least
+  one property other than `@type`). Deserialize does not reject
+  partial-response inputs that omit these fields; the constraints
+  apply only when emitting a fresh value. Callers MUST validate
+  before serializing. See the crate-level rustdoc "Cross-field
+  invariants" section for the table.
 - The Sloppy-Value pattern in `jmap-contacts-types` (per the workspace
   `AGENTS.md`) means consumers see some contact-card fields as
   `serde_json::Value` rather than typed sub-types from this crate. To
