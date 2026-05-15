@@ -65,6 +65,7 @@ use crate::{
 // canonical RFC 7396 tests live with the function there (including the
 // bd:JMAP-sc1b.97 depth-cap and bd:JMAP-sc1b.87 absent-field regression
 // tests).
+use jmap_contacts_types::ContactCardFilterCondition;
 use jmap_server::{json_merge_patch, MergePatchError};
 use jmap_types::{Id, State};
 
@@ -469,46 +470,108 @@ impl JmapBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
         filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
+        sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
     ) -> Result<QueryResult, Self::Error> {
         let inner = self.inner.lock().unwrap();
 
-        // For ContactCard, support the `inAddressBook` filter used by
-        // `AddressBook/set` cleanup when `onDestroyRemoveContents: true`.
-        // Other filters fall through to "match all".
-        let in_address_book: Option<String> = if O::TYPE_NAME == "ContactCard" {
-            filter
-                .and_then(|f| serde_json::to_value(f).ok())
-                .and_then(|v| {
-                    v.get("inAddressBook")
-                        .and_then(|c| c.as_str())
-                        .map(String::from)
-                })
-        } else {
-            None
-        };
+        // Filter + sort dispatch.
+        //
+        // For ContactCard (the only type with a registered `*/query` handler
+        // per RFC 9610), decode the typed filter and comparator list via the
+        // canonical Pattern G type-identity roundtrip (`expect()` per
+        // bc79c70 — silent drop would return ALL cards, a query-correctness
+        // bug), then apply `contact_card_matches_filter` and
+        // `compare_contact_cards_by_property` from this module.
+        //
+        // For any other type the result is the (id-sorted) set of all
+        // objects in the store; RFC 9610 does not define a queryable
+        // AddressBook, so this branch is defensive only.
+        let mut ids: Vec<Id> = if O::TYPE_NAME == "ContactCard" {
+            // Pattern G: type-identity roundtrip. When O::TYPE_NAME ==
+            // "ContactCard" the generic O::Filter is necessarily
+            // ContactCardFilterCondition (see
+            // jmap_contacts_types::backend::QueryObject impl), so both
+            // halves of this serde roundtrip are infallible. `.expect()`
+            // surfaces a future custom-serde regression instead of
+            // silently dropping the filter (which would return ALL cards
+            // when the client expected a filtered subset — bd:JMAP-qz9v.3).
+            let card_filter: Option<ContactCardFilterCondition> = filter.map(|f| {
+                let v =
+                    serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+                serde_json::from_value(v).expect(
+                    "type-identity roundtrip on ContactCardFilterCondition is infallible: \
+                     the JSON came from Serialize on the same concrete type",
+                )
+            });
 
-        let mut ids: Vec<Id> = inner
-            .objects_ref(O::TYPE_NAME, account_id.as_ref())
-            .map(|m| {
-                let mut keys: Vec<(Id, &serde_json::Value)> =
-                    m.iter().map(|(k, v)| (k.clone(), v)).collect();
-                keys.sort_by(|a, b| a.0.as_ref().cmp(b.0.as_ref()));
-                keys.into_iter()
-                    .filter(|(_, v)| match &in_address_book {
-                        None => true,
-                        Some(target) => v
-                            .get("addressBookIds")
-                            .and_then(|c| c.as_object())
-                            .map(|map| map.contains_key(target))
-                            .unwrap_or(false),
-                    })
-                    .map(|(id, _)| id)
-                    .collect()
-            })
-            .unwrap_or_default();
+            // Decode each comparator into (property, isAscending) via JSON
+            // roundtrip. Unknown properties produce Ordering::Equal in the
+            // comparator (= no constraint, fall through to next), matching
+            // the canonical Mailbox pattern in `crate-jmap-mail-server`.
+            let comparators: Vec<(String, bool)> = sort
+                .map(|s| {
+                    s.iter()
+                        .filter_map(|c| {
+                            let v = serde_json::to_value(c).ok()?;
+                            let prop = v.get("property")?.as_str()?.to_owned();
+                            let asc = v
+                                .get("isAscending")
+                                .and_then(|x| x.as_bool())
+                                .unwrap_or(true);
+                            Some((prop, asc))
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let mut matching: Vec<(Id, serde_json::Value)> = inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .map(|m| {
+                    m.iter()
+                        .filter(|(_, v)| {
+                            card_filter
+                                .as_ref()
+                                .is_none_or(|f| contact_card_matches_filter(v, f))
+                        })
+                        .map(|(k, v)| (k.clone(), v.clone()))
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            // Sort by comparators in order, with Id-string tiebreak for
+            // deterministic pagination.
+            matching.sort_by(|a, b| {
+                let mut ord = std::cmp::Ordering::Equal;
+                for (prop, asc) in &comparators {
+                    if ord != std::cmp::Ordering::Equal {
+                        break;
+                    }
+                    let cmp = compare_contact_cards_by_property(&a.1, &b.1, prop);
+                    ord = if *asc { cmp } else { cmp.reverse() };
+                }
+                if ord == std::cmp::Ordering::Equal {
+                    a.0.as_ref().cmp(b.0.as_ref())
+                } else {
+                    ord
+                }
+            });
+
+            matching.into_iter().map(|(id, _)| id).collect()
+        } else {
+            // Defensive: no registered handler reaches this branch via the
+            // dispatcher, but if a future caller does we want deterministic
+            // id-sorted output rather than HashMap iteration order.
+            inner
+                .objects_ref(O::TYPE_NAME, account_id.as_ref())
+                .map(|m| {
+                    let mut keys: Vec<Id> = m.keys().cloned().collect();
+                    keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+                    keys
+                })
+                .unwrap_or_default()
+        };
 
         let total = ids.len() as u64;
         let query_state = State::from(
@@ -802,5 +865,786 @@ impl ContactsBackend for MemoryBackend {
             .aux_ref(account_id.as_ref())
             .map(|a| a.address_books_with_contents.contains(address_book_id))
             .unwrap_or(false)
+    }
+}
+
+// ---------------------------------------------------------------------------
+// ContactCard filter and sort helpers (RFC 9610 §3.3)
+//
+// Used by `MemoryBackend::query_objects` to honor the full
+// `ContactCardFilterCondition` (RFC 9610 §3.3.1) and
+// `ContactCardComparator` (RFC 9610 §3.3.2) surface. Previous behaviour
+// silently match-all'd every field except `inAddressBook` and ignored
+// sort entirely (bd:JMAP-qz9v.3 — fixed).
+//
+// The matcher walks the stored `serde_json::Value` directly rather than
+// deserializing into a typed `ContactCard` per call: contacts' wire
+// shape is largely `Option<serde_json::Value>` (the workspace sloppy-
+// value pattern for RFC 9553 sub-objects), so direct JSON traversal
+// avoids a round-trip allocation per match.
+// ---------------------------------------------------------------------------
+
+/// Apply a `ContactCardFilterCondition` (RFC 9610 §3.3.1) to a stored
+/// ContactCard JSON value.
+///
+/// Returns `true` if the card passes the filter. Unset condition fields
+/// are treated as "no constraint" per §3.3.1.
+///
+/// The matcher honors every field of the current
+/// [`ContactCardFilterCondition`] surface; the type carries
+/// `#[non_exhaustive]` so a future field addition will not silently fall
+/// through to "match all" — instead, the matcher will continue to honor
+/// the existing fields and the new field will need to be added here
+/// explicitly. Failure to do so is a regression of the
+/// silently-ignored-filter bug class.
+fn contact_card_matches_filter(card: &serde_json::Value, f: &ContactCardFilterCondition) -> bool {
+    // inAddressBook: card.addressBookIds[<id>] must be present.
+    if let Some(ref book_id) = f.in_address_book {
+        let matches = card
+            .get("addressBookIds")
+            .and_then(|v| v.as_object())
+            .is_some_and(|m| m.contains_key(book_id.as_ref()));
+        if !matches {
+            return false;
+        }
+    }
+
+    // uid: exact match on the top-level uid string.
+    if let Some(ref want_uid) = f.uid {
+        if card.get("uid").and_then(|v| v.as_str()) != Some(want_uid.as_str()) {
+            return false;
+        }
+    }
+
+    // hasMember: card.members map must contain the requested uid as a key.
+    if let Some(ref want_member) = f.has_member {
+        let matches = card
+            .get("members")
+            .and_then(|v| v.as_object())
+            .is_some_and(|m| m.contains_key(want_member));
+        if !matches {
+            return false;
+        }
+    }
+
+    // kind: exact match on the top-level kind string.
+    if let Some(ref want_kind) = f.kind {
+        if card.get("kind").and_then(|v| v.as_str()) != Some(want_kind.as_str()) {
+            return false;
+        }
+    }
+
+    // createdBefore / createdAfter: lexicographic string comparison on
+    // `card.created`. UTCDate's fixed `YYYY-MM-DDTHH:MM:SSZ` format makes
+    // lexicographic ordering equivalent to chronological ordering, so a
+    // plain `<` / `>=` on `&str` is correct per RFC 8620 §1.4.
+    if let Some(ref before) = f.created_before {
+        match card.get("created").and_then(|v| v.as_str()) {
+            Some(s) if s < before.as_ref() => {}
+            _ => return false,
+        }
+    }
+    if let Some(ref after) = f.created_after {
+        match card.get("created").and_then(|v| v.as_str()) {
+            Some(s) if s >= after.as_ref() => {}
+            _ => return false,
+        }
+    }
+
+    // updatedBefore / updatedAfter: same pattern on `card.updated`.
+    if let Some(ref before) = f.updated_before {
+        match card.get("updated").and_then(|v| v.as_str()) {
+            Some(s) if s < before.as_ref() => {}
+            _ => return false,
+        }
+    }
+    if let Some(ref after) = f.updated_after {
+        match card.get("updated").and_then(|v| v.as_str()) {
+            Some(s) if s >= after.as_ref() => {}
+            _ => return false,
+        }
+    }
+
+    // text: case-sensitive substring across every string leaf in the
+    // card. The exact field set is implementation-defined per §3.3.1; a
+    // recursive scan covers all current and future typed fields without
+    // requiring updates as the JSContact surface grows.
+    if let Some(ref needle) = f.text {
+        if !json_contains_substring_recursive(card, needle) {
+            return false;
+        }
+    }
+
+    // name: substring match on card.name.full OR any NameComponent.value.
+    if let Some(ref needle) = f.name {
+        let name = card.get("name");
+        let full_match = name
+            .and_then(|n| n.get("full"))
+            .and_then(|v| v.as_str())
+            .is_some_and(|s| s.contains(needle.as_str()));
+        let comp_match = name
+            .and_then(|n| n.get("components"))
+            .and_then(|v| v.as_array())
+            .is_some_and(|arr| {
+                arr.iter().any(|c| {
+                    c.get("value")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|s| s.contains(needle.as_str()))
+                })
+            });
+        if !(full_match || comp_match) {
+            return false;
+        }
+    }
+
+    // name/given, name/surname, name/surname2: substring match on
+    // NameComponent.value where component.kind == this kind.
+    for (needle_opt, kind_str) in [
+        (&f.name_given, "given"),
+        (&f.name_surname, "surname"),
+        (&f.name_surname2, "surname2"),
+    ] {
+        if let Some(needle) = needle_opt {
+            let matches = card
+                .get("name")
+                .and_then(|n| n.get("components"))
+                .and_then(|v| v.as_array())
+                .is_some_and(|arr| {
+                    arr.iter().any(|c| {
+                        c.get("kind").and_then(|v| v.as_str()) == Some(kind_str)
+                            && c.get("value")
+                                .and_then(|v| v.as_str())
+                                .is_some_and(|s| s.contains(needle.as_str()))
+                    })
+                });
+            if !matches {
+                return false;
+            }
+        }
+    }
+
+    // nickname: substring match on any nicknames.values()[].name.
+    if let Some(ref needle) = f.nickname {
+        let matches = card
+            .get("nicknames")
+            .and_then(|v| v.as_object())
+            .is_some_and(|m| {
+                m.values().any(|nick| {
+                    nick.get("name")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|s| s.contains(needle.as_str()))
+                })
+            });
+        if !matches {
+            return false;
+        }
+    }
+
+    // organization: substring match on any organizations.values()[].name.
+    if let Some(ref needle) = f.organization {
+        let matches = card
+            .get("organizations")
+            .and_then(|v| v.as_object())
+            .is_some_and(|m| {
+                m.values().any(|org| {
+                    org.get("name")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|s| s.contains(needle.as_str()))
+                })
+            });
+        if !matches {
+            return false;
+        }
+    }
+
+    // email: substring match on any emails.values()[].address OR .label.
+    if let Some(ref needle) = f.email {
+        let matches = card
+            .get("emails")
+            .and_then(|v| v.as_object())
+            .is_some_and(|m| {
+                m.values().any(|e| {
+                    field_contains(e, "address", needle) || field_contains(e, "label", needle)
+                })
+            });
+        if !matches {
+            return false;
+        }
+    }
+
+    // phone: substring match on any phones.values()[].number OR .label.
+    if let Some(ref needle) = f.phone {
+        let matches = card
+            .get("phones")
+            .and_then(|v| v.as_object())
+            .is_some_and(|m| {
+                m.values().any(|p| {
+                    field_contains(p, "number", needle) || field_contains(p, "label", needle)
+                })
+            });
+        if !matches {
+            return false;
+        }
+    }
+
+    // onlineService: substring match on any onlineServices.values()[]
+    // .service, .uri, .user, OR .label.
+    if let Some(ref needle) = f.online_service {
+        let matches = card
+            .get("onlineServices")
+            .and_then(|v| v.as_object())
+            .is_some_and(|m| {
+                m.values().any(|svc| {
+                    ["service", "uri", "user", "label"]
+                        .iter()
+                        .any(|k| field_contains(svc, k, needle))
+                })
+            });
+        if !matches {
+            return false;
+        }
+    }
+
+    // address: substring match on any addresses.values()[].full OR any
+    // AddressComponent.value.
+    if let Some(ref needle) = f.address {
+        let matches = card
+            .get("addresses")
+            .and_then(|v| v.as_object())
+            .is_some_and(|m| {
+                m.values().any(|addr| {
+                    let full_match = field_contains(addr, "full", needle);
+                    let comp_match = addr
+                        .get("components")
+                        .and_then(|v| v.as_array())
+                        .is_some_and(|arr| {
+                            arr.iter().any(|c| {
+                                c.get("value")
+                                    .and_then(|v| v.as_str())
+                                    .is_some_and(|s| s.contains(needle.as_str()))
+                            })
+                        });
+                    full_match || comp_match
+                })
+            });
+        if !matches {
+            return false;
+        }
+    }
+
+    // note: substring match on any notes.values()[].note.
+    if let Some(ref needle) = f.note {
+        let matches = card
+            .get("notes")
+            .and_then(|v| v.as_object())
+            .is_some_and(|m| {
+                m.values().any(|n| {
+                    n.get("note")
+                        .and_then(|v| v.as_str())
+                        .is_some_and(|s| s.contains(needle.as_str()))
+                })
+            });
+        if !matches {
+            return false;
+        }
+    }
+
+    true
+}
+
+/// Substring-match a string field of a JSON object.
+///
+/// Returns `false` when the field is absent, non-string, or does not
+/// contain `needle`.
+fn field_contains(obj: &serde_json::Value, field: &str, needle: &str) -> bool {
+    obj.get(field)
+        .and_then(|v| v.as_str())
+        .is_some_and(|s| s.contains(needle))
+}
+
+/// Recursively scan a JSON value for any string leaf containing `needle`.
+///
+/// Used for the `text` filter (§3.3.1) — the exact field set is
+/// implementation-defined and a recursive scan covers every JSContact
+/// sub-object without requiring updates as new typed fields are added
+/// to [`ContactCard`].
+fn json_contains_substring_recursive(v: &serde_json::Value, needle: &str) -> bool {
+    match v {
+        serde_json::Value::String(s) => s.contains(needle),
+        serde_json::Value::Array(arr) => arr
+            .iter()
+            .any(|x| json_contains_substring_recursive(x, needle)),
+        serde_json::Value::Object(m) => m
+            .values()
+            .any(|x| json_contains_substring_recursive(x, needle)),
+        _ => false,
+    }
+}
+
+/// Compare two ContactCard JSON values for sort by RFC 9610 §3.3.2
+/// property name.
+///
+/// Honored properties: `"created"`, `"updated"`, `"uid"`, `"kind"`.
+/// Unknown properties produce `Ordering::Equal` (= no constraint), so
+/// the caller's tiebreak (Id-string) takes effect — matching the
+/// canonical Mailbox pattern in `crate-jmap-mail-server` and avoiding
+/// panics on a malformed comparator slipping through validation.
+fn compare_contact_cards_by_property(
+    a: &serde_json::Value,
+    b: &serde_json::Value,
+    property: &str,
+) -> std::cmp::Ordering {
+    use std::cmp::Ordering;
+    let av = a.get(property).and_then(|v| v.as_str());
+    let bv = b.get(property).and_then(|v| v.as_str());
+    match (av, bv) {
+        (Some(a), Some(b)) => a.cmp(b),
+        // Absent value sorts before present value in ascending order.
+        (Some(_), None) => Ordering::Greater,
+        (None, Some(_)) => Ordering::Less,
+        (None, None) => Ordering::Equal,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests for `contact_card_matches_filter` and
+// `compare_contact_cards_by_property` (bd:JMAP-qz9v.3).
+//
+// Each test seeds a single ContactCard JSON value, constructs a
+// `ContactCardFilterCondition` exercising one field, and asserts the
+// expected pass/fail result. The previous implementation silently
+// match-all'd every field except `inAddressBook` and ignored sort
+// entirely; these tests pin the now-honoring behavior so a future
+// regression does not silently reintroduce the bug.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod query_filter_tests {
+    use super::*;
+    use jmap_types::UTCDate;
+    use serde_json::json;
+
+    fn empty_filter() -> ContactCardFilterCondition {
+        ContactCardFilterCondition::default()
+    }
+
+    // ── inAddressBook ────────────────────────────────────────────────────
+
+    #[test]
+    fn in_address_book_matches() {
+        let card = json!({"addressBookIds": {"ab1": true, "ab2": true}});
+        let mut f = empty_filter();
+        f.in_address_book = Some(Id::from("ab1"));
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn in_address_book_no_match() {
+        let card = json!({"addressBookIds": {"ab1": true}});
+        let mut f = empty_filter();
+        f.in_address_book = Some(Id::from("ab2"));
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    // ── uid ──────────────────────────────────────────────────────────────
+
+    #[test]
+    fn uid_exact_match() {
+        let card = json!({"uid": "urn:uuid:abc"});
+        let mut f = empty_filter();
+        f.uid = Some("urn:uuid:abc".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn uid_no_match() {
+        let card = json!({"uid": "urn:uuid:abc"});
+        let mut f = empty_filter();
+        f.uid = Some("urn:uuid:xyz".to_owned());
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    // ── hasMember ────────────────────────────────────────────────────────
+
+    #[test]
+    fn has_member_matches_key() {
+        let card = json!({"members": {"urn:uuid:m1": true}});
+        let mut f = empty_filter();
+        f.has_member = Some("urn:uuid:m1".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn has_member_no_match() {
+        let card = json!({"members": {"urn:uuid:m1": true}});
+        let mut f = empty_filter();
+        f.has_member = Some("urn:uuid:m2".to_owned());
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    // ── kind ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn kind_exact_match() {
+        let card = json!({"kind": "individual"});
+        let mut f = empty_filter();
+        f.kind = Some("individual".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn kind_no_match() {
+        let card = json!({"kind": "individual"});
+        let mut f = empty_filter();
+        f.kind = Some("group".to_owned());
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    // ── createdBefore / createdAfter ─────────────────────────────────────
+
+    #[test]
+    fn created_before_matches() {
+        let card = json!({"created": "2020-01-01T00:00:00Z"});
+        let mut f = empty_filter();
+        f.created_before = Some(UTCDate::from("2021-01-01T00:00:00Z"));
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn created_before_excludes_equal_and_later() {
+        let card = json!({"created": "2021-01-01T00:00:00Z"});
+        let mut f = empty_filter();
+        f.created_before = Some(UTCDate::from("2021-01-01T00:00:00Z"));
+        // RFC 9610 §3.3.1 createdBefore is strict less-than.
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn created_after_matches_at_boundary() {
+        let card = json!({"created": "2021-01-01T00:00:00Z"});
+        let mut f = empty_filter();
+        f.created_after = Some(UTCDate::from("2021-01-01T00:00:00Z"));
+        // createdAfter is inclusive at the boundary (`>=`).
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn created_after_excludes_earlier() {
+        let card = json!({"created": "2020-06-01T00:00:00Z"});
+        let mut f = empty_filter();
+        f.created_after = Some(UTCDate::from("2021-01-01T00:00:00Z"));
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn created_before_with_absent_created_excludes() {
+        let card = json!({"uid": "no-created"});
+        let mut f = empty_filter();
+        f.created_before = Some(UTCDate::from("2021-01-01T00:00:00Z"));
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    // ── updatedBefore / updatedAfter ─────────────────────────────────────
+
+    #[test]
+    fn updated_before_matches() {
+        let card = json!({"updated": "2019-06-01T00:00:00Z"});
+        let mut f = empty_filter();
+        f.updated_before = Some(UTCDate::from("2020-01-01T00:00:00Z"));
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn updated_after_matches() {
+        let card = json!({"updated": "2022-06-01T00:00:00Z"});
+        let mut f = empty_filter();
+        f.updated_after = Some(UTCDate::from("2022-01-01T00:00:00Z"));
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    // ── text (recursive substring) ───────────────────────────────────────
+
+    #[test]
+    fn text_substring_in_nested_field() {
+        let card = json!({
+            "notes": {"n1": {"note": "Met at OSCON 2022"}}
+        });
+        let mut f = empty_filter();
+        f.text = Some("OSCON".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn text_no_match_anywhere() {
+        let card = json!({
+            "notes": {"n1": {"note": "Met at OSCON 2022"}}
+        });
+        let mut f = empty_filter();
+        f.text = Some("NotInCard".to_owned());
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    // ── name (full or any component) ─────────────────────────────────────
+
+    #[test]
+    fn name_substring_matches_full() {
+        let card = json!({"name": {"full": "Jane Doe"}});
+        let mut f = empty_filter();
+        f.name = Some("Jane".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn name_substring_matches_any_component_value() {
+        let card = json!({
+            "name": {"components": [{"kind": "given", "value": "Jane"},
+                                    {"kind": "surname", "value": "Doe"}]}
+        });
+        let mut f = empty_filter();
+        f.name = Some("Doe".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn name_no_match() {
+        let card = json!({"name": {"full": "Jane Doe"}});
+        let mut f = empty_filter();
+        f.name = Some("Smith".to_owned());
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    // ── name/given, name/surname, name/surname2 ──────────────────────────
+
+    #[test]
+    fn name_given_matches_only_given_kind() {
+        let card = json!({
+            "name": {"components": [{"kind": "given", "value": "Jane"},
+                                    {"kind": "surname", "value": "Doe"}]}
+        });
+        let mut f = empty_filter();
+        f.name_given = Some("Jane".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+
+        // Surname value with name/given filter must NOT match.
+        let mut f = empty_filter();
+        f.name_given = Some("Doe".to_owned());
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn name_surname_kind_specificity() {
+        let card = json!({
+            "name": {"components": [{"kind": "surname", "value": "Doe"}]}
+        });
+        let mut f = empty_filter();
+        f.name_surname = Some("Doe".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn name_surname2_kind_specificity() {
+        let card = json!({
+            "name": {"components": [{"kind": "surname2", "value": "Garcia"}]}
+        });
+        let mut f = empty_filter();
+        f.name_surname2 = Some("Garcia".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    // ── nickname ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn nickname_matches_any_nickname_name() {
+        let card = json!({
+            "nicknames": {
+                "n1": {"name": "Janie"},
+                "n2": {"name": "JD"}
+            }
+        });
+        let mut f = empty_filter();
+        f.nickname = Some("JD".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    // ── organization ─────────────────────────────────────────────────────
+
+    #[test]
+    fn organization_matches_any_name() {
+        let card = json!({
+            "organizations": {"o1": {"name": "Acme Corp"}}
+        });
+        let mut f = empty_filter();
+        f.organization = Some("Acme".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    // ── email ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn email_matches_address() {
+        let card = json!({
+            "emails": {"e1": {"address": "jane@example.com"}}
+        });
+        let mut f = empty_filter();
+        f.email = Some("example.com".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn email_matches_label() {
+        let card = json!({
+            "emails": {"e1": {"address": "jane@example.com", "label": "Personal"}}
+        });
+        let mut f = empty_filter();
+        f.email = Some("Personal".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    // ── phone ────────────────────────────────────────────────────────────
+
+    #[test]
+    fn phone_matches_number() {
+        let card = json!({"phones": {"p1": {"number": "tel:+1-555-0100"}}});
+        let mut f = empty_filter();
+        f.phone = Some("555".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    // ── onlineService ────────────────────────────────────────────────────
+
+    #[test]
+    fn online_service_matches_uri() {
+        let card = json!({
+            "onlineServices": {
+                "s1": {"service": "GitHub", "uri": "https://github.com/jdoe", "user": "jdoe"}
+            }
+        });
+        let mut f = empty_filter();
+        f.online_service = Some("github.com".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn online_service_matches_user() {
+        let card = json!({
+            "onlineServices": {"s1": {"service": "GitHub", "user": "jdoe"}}
+        });
+        let mut f = empty_filter();
+        f.online_service = Some("jdoe".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    // ── address ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn address_matches_full() {
+        let card = json!({
+            "addresses": {"a1": {"full": "123 Main St, Springfield"}}
+        });
+        let mut f = empty_filter();
+        f.address = Some("Springfield".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn address_matches_component_value() {
+        let card = json!({
+            "addresses": {"a1": {
+                "components": [
+                    {"kind": "locality", "value": "Springfield"},
+                    {"kind": "country", "value": "USA"}
+                ]
+            }}
+        });
+        let mut f = empty_filter();
+        f.address = Some("Springfield".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    // ── note ─────────────────────────────────────────────────────────────
+
+    #[test]
+    fn note_matches_any_note_text() {
+        let card = json!({
+            "notes": {"n1": {"note": "Met at conference"}}
+        });
+        let mut f = empty_filter();
+        f.note = Some("conference".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    // ── empty filter, conjunctive composition ────────────────────────────
+
+    #[test]
+    fn empty_condition_matches_all() {
+        let card = json!({"uid": "anything"});
+        let f = empty_filter();
+        assert!(contact_card_matches_filter(&card, &f));
+    }
+
+    #[test]
+    fn multiple_fields_are_conjunctive() {
+        // RFC 9610 §3.3.1: all set fields must match (AND).
+        let card = json!({"kind": "individual", "uid": "x"});
+        let mut f = empty_filter();
+        f.kind = Some("individual".to_owned());
+        f.uid = Some("x".to_owned());
+        assert!(contact_card_matches_filter(&card, &f));
+
+        // Mismatch on one field → whole filter fails.
+        f.kind = Some("group".to_owned());
+        assert!(!contact_card_matches_filter(&card, &f));
+    }
+
+    // ── compare_contact_cards_by_property ────────────────────────────────
+
+    #[test]
+    fn compare_by_created_ascending() {
+        use std::cmp::Ordering;
+        let a = json!({"created": "2020-01-01T00:00:00Z"});
+        let b = json!({"created": "2021-01-01T00:00:00Z"});
+        assert_eq!(
+            compare_contact_cards_by_property(&a, &b, "created"),
+            Ordering::Less
+        );
+    }
+
+    #[test]
+    fn compare_by_uid_lexicographic() {
+        use std::cmp::Ordering;
+        let a = json!({"uid": "alpha"});
+        let b = json!({"uid": "beta"});
+        assert_eq!(
+            compare_contact_cards_by_property(&a, &b, "uid"),
+            Ordering::Less
+        );
+    }
+
+    #[test]
+    fn compare_by_unknown_property_returns_equal() {
+        use std::cmp::Ordering;
+        let a = json!({"uid": "a"});
+        let b = json!({"uid": "b"});
+        // "vendorProperty" is not honored — fall through to next comparator
+        // (Equal means "no constraint" in the chained sort_by).
+        assert_eq!(
+            compare_contact_cards_by_property(&a, &b, "vendorProperty"),
+            Ordering::Equal
+        );
+    }
+
+    #[test]
+    fn compare_absent_value_orders_before_present_in_ascending() {
+        use std::cmp::Ordering;
+        let absent = json!({});
+        let present = json!({"created": "2020-01-01T00:00:00Z"});
+        assert_eq!(
+            compare_contact_cards_by_property(&absent, &present, "created"),
+            Ordering::Less
+        );
+        assert_eq!(
+            compare_contact_cards_by_property(&present, &absent, "created"),
+            Ordering::Greater
+        );
     }
 }

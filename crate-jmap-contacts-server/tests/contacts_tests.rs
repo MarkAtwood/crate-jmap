@@ -354,3 +354,140 @@ async fn contact_card_set_create_with_client_id_rejected() {
         "client-supplied id must be rejected: {resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Test 13: ContactCard/query honors typed filter fields end-to-end (bd:JMAP-qz9v.3)
+// Oracle: RFC 9610 §3.3.1. Previously every filter field except
+// inAddressBook was silently dropped and all cards were returned.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn contact_card_query_filter_by_kind_excludes_non_matches() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Contacts"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-person",
+        json!({
+            "id": "card-person",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "u-person",
+            "kind": "individual",
+            "addressBookIds": { "ab1": true },
+            "name": { "@type": "Name", "full": "Alice" }
+        }),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-group",
+        json!({
+            "id": "card-group",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "u-group",
+            "kind": "group",
+            "addressBookIds": { "ab1": true },
+            "name": { "@type": "Name", "full": "Beta Team" }
+        }),
+    );
+
+    // Query for kind = "individual" — must exclude the group card.
+    let args = json!({
+        "accountId": "acc1",
+        "filter": { "kind": "individual" }
+    });
+    let (resp, _) = handle_contact_card_query(&backend, &(), args)
+        .await
+        .expect("/query must succeed");
+
+    let ids = resp["ids"].as_array().expect("ids must be array");
+    assert_eq!(ids.len(), 1, "kind filter must exclude group: {resp}");
+    assert_eq!(ids[0], "card-person");
+}
+
+// ---------------------------------------------------------------------------
+// Test 14: ContactCard/query honors sort comparators (bd:JMAP-qz9v.3)
+// Oracle: RFC 9610 §3.3.2. Previously the sort argument was silently
+// ignored; ids came back in HashMap iteration order or Id-string order.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn contact_card_query_sort_by_created_descending() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Contacts"),
+    );
+    // Seed three cards with chronologically-ordered `created` timestamps
+    // but lexicographically-disordered ids (so Id-sort and created-sort
+    // produce different orderings — the test fails if sort is ignored).
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "c-zulu",
+        json!({
+            "id": "c-zulu",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "u-z",
+            "created": "2020-01-01T00:00:00Z",
+            "addressBookIds": { "ab1": true }
+        }),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "c-alpha",
+        json!({
+            "id": "c-alpha",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "u-a",
+            "created": "2022-01-01T00:00:00Z",
+            "addressBookIds": { "ab1": true }
+        }),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "c-mike",
+        json!({
+            "id": "c-mike",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "u-m",
+            "created": "2021-01-01T00:00:00Z",
+            "addressBookIds": { "ab1": true }
+        }),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "sort": [ { "property": "created", "isAscending": false } ]
+    });
+    let (resp, _) = handle_contact_card_query(&backend, &(), args)
+        .await
+        .expect("/query must succeed");
+
+    let ids: Vec<&str> = resp["ids"]
+        .as_array()
+        .expect("ids must be array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(
+        ids,
+        vec!["c-alpha", "c-mike", "c-zulu"],
+        "sort by created descending must be newest first: {resp}"
+    );
+}
