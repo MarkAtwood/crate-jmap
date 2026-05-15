@@ -383,11 +383,12 @@ fn is_valid_sha256_hex(s: &str) -> bool {
 /// Compute SHA-256 of `data` and return as 64-char lowercase hex string.
 fn compute_sha256_hex(data: &[u8]) -> String {
     let hash = Sha256::digest(data);
-    hash.iter().fold(String::with_capacity(64), |mut s, b| {
+    let mut s = String::with_capacity(64);
+    for b in hash.iter() {
         s.push(hex_nibble_lower(*b >> 4));
         s.push(hex_nibble_lower(*b & 0x0f));
-        s
-    })
+    }
+    s
 }
 
 #[cfg(test)]
