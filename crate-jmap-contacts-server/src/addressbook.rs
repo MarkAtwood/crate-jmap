@@ -568,10 +568,24 @@ mod tests {
         );
     }
 
-    /// Oracle: RFC 9610 §2.3 — destroy with onDestroyRemoveContents=true
-    /// bypasses the contents check and delegates to the backend.
+    /// Oracle: RFC 9610 §2.3 — destroy with `onDestroyRemoveContents=true`
+    /// MUST NOT short-circuit with `addressBookHasContents`.
+    ///
+    /// **Scope:** this test exercises the gate logic only. The mock
+    /// backend reports `address_book_has_contents` true for the
+    /// `ab-nonempty` id and `destroy_object` returns `notFound` for
+    /// every id — so the post-cascade book destroy ends up in
+    /// `notDestroyed["ab-nonempty"]["type"]: "notFound"`. The
+    /// assertion verifies the gate routes around the
+    /// `addressBookHasContents` branch.
+    ///
+    /// The cascade itself (destroy exclusive cards, patch shared cards)
+    /// requires a real backend and is verified in the integration tests
+    /// `address_book_set_destroy_cascade_*` in
+    /// `tests/contacts_tests.rs` under `MemoryBackend`. See
+    /// bd:JMAP-qz9v.1 / bd:JMAP-qz9v.9 for the history.
     #[tokio::test]
-    async fn set_destroy_with_on_destroy_remove_contents_true_proceeds() {
+    async fn set_destroy_with_on_destroy_remove_contents_true_skips_contents_check() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({
             "accountId": "acc1",
