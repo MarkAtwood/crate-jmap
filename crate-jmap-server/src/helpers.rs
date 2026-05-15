@@ -225,6 +225,24 @@ pub fn now_utc_string() -> UTCDate {
 /// - `civil_from_days` reports a year outside `i32`
 ///   (bd:JMAP-jfia.2 — between the i32-year boundary and the
 ///   i64::MAX-secs cap).
+///
+/// # Why `Option<UTCDate>` and not `Result<UTCDate, ClockError>` (bd:JMAP-jfia.38)
+///
+/// The three failure modes are all "corrupted clock" — each one is
+/// physically unreachable on a sane host (years 5.7M-to-292B,
+/// `try_from`-impossible negation, `i32`-overflowing year). A caller
+/// that wants to branch on which physical mechanism fired would be
+/// branching on states that don't happen. The shapes the workspace
+/// uses elsewhere for typed-variant-per-mode (`SetError`,
+/// `BackendChangesError`, `BackendSetError`, `MergePatchError`) all
+/// carry failure modes that DO occur in normal operation —
+/// `notFound`, `tooManyChanges`, `invalidPatch`, `depthExceeded`.
+/// The clock-corruption modes are different in kind. Erasing the
+/// discriminator here trades a hypothetical observability win for a
+/// cleaner contract: "the clock is unusable for RFC 3339, abandon
+/// timestamping." A future need for per-mode telemetry can be added
+/// non-breakingly as a parallel helper (e.g. `now_utc_string_diagnose
+/// -> Result<UTCDate, ClockError>`) without disturbing this shape.
 pub fn now_utc_string_checked() -> Option<UTCDate> {
     use std::time::SystemTime;
 
