@@ -38,6 +38,29 @@ use jmap_mail_types::email::{EmailBodyPart, EmailBodyValue};
 use jmap_types::Id;
 use mime_tree::{DecodedBodyValue, ParsedMessage, ParsedPart};
 
+/// Maximum multipart nesting depth this adapter will recurse into.
+///
+/// A multipart part whose depth in the tree (root = 0) exceeds this bound
+/// is converted as an opaque leaf: its [`EmailBodyPart`] is emitted with
+/// the same type / disposition / cid / charset / name as the multipart,
+/// but `sub_parts` is set to `None` instead of recursing further. The
+/// resulting JMAP wire response is a structurally well-formed truncation
+/// rather than a stack-overflow crash.
+///
+/// The bound exists as defense-in-depth against deeply-nested
+/// `multipart/*` framing supplied by a hostile SMTP sender. Mainstream
+/// MIME parsers cap recursion at roughly the same depth (64 is the
+/// commonly-cited industry value). The bound is intentionally far below
+/// the system thread stack frame limit so that a few thousand bytes of
+/// per-frame state stays well clear of overflow.
+///
+/// Note: this constant bounds only `jmap-mime`'s own walk. The upstream
+/// [`mime_tree::parse`] / [`mime_tree::ParsedPart::find_by_id`] paths
+/// have their own (currently unbounded — see crate `Gotchas`) recursion
+/// posture. Consumers MUST also bound raw message size upstream of
+/// `mime_tree::parse` to obtain total-message safety.
+pub const MAX_PART_DEPTH: usize = 64;
+
 /// The JMAP body fields derived from a parsed MIME message.
 ///
 /// Returned by [`message_to_jmap_body`]. Each list mirrors the RFC 8621
@@ -70,18 +93,33 @@ pub struct JmapBodyFields {
 /// because they require access to the raw message bytes. Callers that need
 /// per-part raw headers can extract them from `part.header_range` and the
 /// original `&[u8]`.
+///
+/// # Depth bound
+///
+/// The recursion is bounded by [`MAX_PART_DEPTH`]. A multipart subtree
+/// nested deeper than the bound is converted as an opaque leaf with
+/// `sub_parts = None`. See the [`MAX_PART_DEPTH`] doc for rationale.
 pub fn part_to_jmap(part: &ParsedPart, blob_id_for: impl Fn(&ParsedPart) -> Id) -> EmailBodyPart {
-    part_to_jmap_inner(part, &blob_id_for)
+    part_to_jmap_inner(part, &blob_id_for, 0)
 }
 
-fn part_to_jmap_inner(part: &ParsedPart, blob_id_for: &dyn Fn(&ParsedPart) -> Id) -> EmailBodyPart {
+fn part_to_jmap_inner(
+    part: &ParsedPart,
+    blob_id_for: &dyn Fn(&ParsedPart) -> Id,
+    depth: usize,
+) -> EmailBodyPart {
     let is_multipart = !part.children.is_empty();
 
-    let sub_parts = if is_multipart {
+    // Defense-in-depth: stop recursing once the multipart nesting exceeds
+    // MAX_PART_DEPTH. The over-deep subtree is emitted as a structurally
+    // typed-but-leaf EmailBodyPart so the JMAP wire response stays valid.
+    let truncate_here = is_multipart && depth >= MAX_PART_DEPTH;
+
+    let sub_parts = if is_multipart && !truncate_here {
         Some(
             part.children
                 .iter()
-                .map(|c| part_to_jmap_inner(c, blob_id_for))
+                .map(|c| part_to_jmap_inner(c, blob_id_for, depth + 1))
                 .collect(),
         )
     } else {
@@ -124,33 +162,39 @@ pub fn body_value_to_jmap(val: DecodedBodyValue) -> EmailBodyValue {
 /// The returned [`JmapBodyFields::body_value_part_ids`] lists the part IDs
 /// the caller must decode via [`mime_tree::decode_body_value`] to populate
 /// `bodyValues` in the JMAP response.
+///
+/// # Depth bound
+///
+/// The recursion is bounded by [`MAX_PART_DEPTH`]. The bound applies to
+/// `body_structure` and to each entry in `text_body` / `html_body` /
+/// `attachments`. See the [`MAX_PART_DEPTH`] doc for rationale.
 pub fn message_to_jmap_body(
     msg: &ParsedMessage,
     blob_id_for: impl Fn(&ParsedPart) -> Id,
 ) -> JmapBodyFields {
     let blob_id_for = &blob_id_for;
 
-    let body_structure = part_to_jmap_inner(&msg.part_index, blob_id_for);
+    let body_structure = part_to_jmap_inner(&msg.part_index, blob_id_for, 0);
 
     let text_body = msg
         .text_body
         .iter()
         .filter_map(|id| msg.part_index.find_by_id(id))
-        .map(|p| part_to_jmap_inner(p, blob_id_for))
+        .map(|p| part_to_jmap_inner(p, blob_id_for, 0))
         .collect();
 
     let html_body = msg
         .html_body
         .iter()
         .filter_map(|id| msg.part_index.find_by_id(id))
-        .map(|p| part_to_jmap_inner(p, blob_id_for))
+        .map(|p| part_to_jmap_inner(p, blob_id_for, 0))
         .collect();
 
     let attachments = msg
         .attachments
         .iter()
         .filter_map(|id| msg.part_index.find_by_id(id))
-        .map(|p| part_to_jmap_inner(p, blob_id_for))
+        .map(|p| part_to_jmap_inner(p, blob_id_for, 0))
         .collect();
 
     let mut body_value_part_ids = Vec::with_capacity(msg.text_body.len() + msg.html_body.len());
@@ -454,5 +498,137 @@ mod tests {
                 );
             }
         }
+    }
+
+    // --- depth-bound (DoS defense) tests ---
+
+    use mime_tree::TransferEncoding;
+
+    // Build a deeply-nested multipart `ParsedPart` chain of length `depth`,
+    // terminated by a single text/plain leaf at the bottom. This bypasses
+    // `mime_tree::parse` so the test can exercise depths that the upstream
+    // parser cannot itself handle (its recursion is currently unbounded).
+    fn make_deep_multipart_chain(depth: usize) -> ParsedPart {
+        // Innermost leaf.
+        let mut node = ParsedPart {
+            part_id: "1".to_owned(),
+            content_type: "text/plain".to_owned(),
+            charset: Some("utf-8".to_owned()),
+            transfer_encoding: TransferEncoding::Identity,
+            disposition: None,
+            filename: None,
+            cid: None,
+            header_range: (0, 0),
+            body_range: (0, 0),
+            children: Vec::new(),
+            is_encoding_problem: false,
+        };
+        for level in (0..depth).rev() {
+            node = ParsedPart {
+                part_id: format!("L{level}"),
+                content_type: "multipart/mixed".to_owned(),
+                charset: None,
+                transfer_encoding: TransferEncoding::Identity,
+                disposition: None,
+                filename: None,
+                cid: None,
+                header_range: (0, 0),
+                body_range: (0, 0),
+                children: vec![node],
+                is_encoding_problem: false,
+            };
+        }
+        node
+    }
+
+    // Walk an EmailBodyPart sub_parts chain and return its depth, counting
+    // multipart wrappers. Stops when sub_parts is None or empty.
+    fn email_body_chain_depth(root: &EmailBodyPart) -> usize {
+        let mut depth = 0usize;
+        let mut cur = root;
+        while let Some(subs) = cur.sub_parts.as_ref().filter(|s| !s.is_empty()) {
+            depth += 1;
+            cur = &subs[0];
+        }
+        depth
+    }
+
+    #[test]
+    fn part_to_jmap_truncates_over_deep_multipart() {
+        // Build a chain MAX_PART_DEPTH + 4 multiparts deep. The adapter
+        // must convert it without recursing past MAX_PART_DEPTH and must
+        // not stack-overflow.
+        let part = make_deep_multipart_chain(MAX_PART_DEPTH + 4);
+        let jpart = part_to_jmap(&part, |p| Id::from(p.part_id.clone()));
+        // The emitted EmailBodyPart chain reflects the multipart wrappers
+        // walked before the bound kicks in. The wrapper at depth
+        // MAX_PART_DEPTH is emitted as an opaque leaf (sub_parts = None),
+        // so the visible chain length is exactly MAX_PART_DEPTH.
+        let observed = email_body_chain_depth(&jpart);
+        assert_eq!(
+            observed, MAX_PART_DEPTH,
+            "adapter should stop recursing at MAX_PART_DEPTH",
+        );
+    }
+
+    #[test]
+    fn part_to_jmap_preserves_full_tree_below_bound() {
+        // A chain shallower than the bound must round-trip without
+        // truncation.
+        let depth = 5usize;
+        assert!(depth < MAX_PART_DEPTH);
+        let part = make_deep_multipart_chain(depth);
+        let jpart = part_to_jmap(&part, |p| Id::from(p.part_id.clone()));
+        let observed = email_body_chain_depth(&jpart);
+        assert_eq!(
+            observed, depth,
+            "shallow trees must be preserved without truncation",
+        );
+    }
+
+    #[test]
+    fn part_to_jmap_handles_one_thousand_levels_without_panic() {
+        // Worst-case adversary: 1000-level-deep tree. Adapter must return
+        // in bounded stack regardless. The visible-chain length is
+        // MAX_PART_DEPTH; depths beyond that are collapsed to an opaque
+        // leaf.
+        let part = make_deep_multipart_chain(1000);
+        let jpart = part_to_jmap(&part, |p| Id::from(p.part_id.clone()));
+        assert_eq!(email_body_chain_depth(&jpart), MAX_PART_DEPTH);
+    }
+
+    #[test]
+    fn truncated_multipart_emits_opaque_leaf() {
+        // The first part whose depth equals MAX_PART_DEPTH must come back
+        // as a multipart-typed EmailBodyPart with sub_parts == None — the
+        // structural signal that the tree was truncated.
+        let part = make_deep_multipart_chain(MAX_PART_DEPTH + 2);
+        let jpart = part_to_jmap(&part, |p| Id::from(p.part_id.clone()));
+
+        // Walk down to the deepest emitted level.
+        let mut cur = &jpart;
+        for _ in 0..MAX_PART_DEPTH - 1 {
+            cur = &cur
+                .sub_parts
+                .as_ref()
+                .expect("interior nodes must have sub_parts")[0];
+        }
+        // `cur` is the multipart at depth MAX_PART_DEPTH - 1. Its single
+        // child is the one at depth MAX_PART_DEPTH, which should be the
+        // truncation marker: multipart type, sub_parts None.
+        let truncated = &cur
+            .sub_parts
+            .as_ref()
+            .expect("level MAX_PART_DEPTH - 1 still has sub_parts")[0];
+        assert_eq!(truncated.type_.as_deref(), Some("multipart/mixed"));
+        assert!(
+            truncated.sub_parts.is_none(),
+            "over-depth multipart must be emitted as opaque leaf (sub_parts = None)",
+        );
+        // Multipart parts carry no partId / blobId / size, even when
+        // they are the truncation marker.
+        assert!(truncated.part_id.is_none());
+        assert!(truncated.blob_id.is_none());
+        assert!(truncated.size.is_none());
     }
 }

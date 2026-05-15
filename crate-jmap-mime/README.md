@@ -144,6 +144,25 @@ shape plus a decoded `bodyValues` entry for the first text part.
   multipart types (`multipart/signed`, `multipart/encrypted`) are treated as
   ordinary multipart containers. Signature verification and decryption are out
   of scope for this crate.
+- **Recursion in this adapter is bounded by `jmap_mime::MAX_PART_DEPTH`.**
+  A multipart subtree deeper than the bound is emitted as an opaque leaf
+  (a multipart-typed `EmailBodyPart` with `sub_parts = None`). This is
+  defense-in-depth against deeply-nested `multipart/*` framing supplied by
+  hostile senders. The bound applies to `part_to_jmap` and to every entry
+  point in `message_to_jmap_body` (`bodyStructure`, `textBody`, `htmlBody`,
+  `attachments`).
+- **Upstream MIME parsing (`mime_tree::parse`) is currently unbounded.**
+  The adapter's own depth bound (above) does NOT protect the upstream
+  parser from running first on the same hostile input. Consumers MUST
+  bound raw message size upstream — typical SMTP MaxMessageSize caps
+  (25–50 MB) are not sufficient on their own, because a deeply-nested
+  multipart message can pack tens of thousands of nesting levels into
+  well under 1 MB. Consumers that accept arbitrary RFC 5322 bytes from
+  the public internet should either (a) cap message size below the depth
+  at which `mime_tree::parse` stack-overflows on their platform,
+  (b) parse on a worker thread with a controlled stack size and a
+  supervisor that restarts on overflow, or (c) wait for `mime_tree` to
+  add its own recursion bound.
 
 ## Crate family
 

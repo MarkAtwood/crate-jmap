@@ -177,6 +177,23 @@ yield shorter-than-expected body lists with no error signal.
 disjoint. If they are not, a part ID would appear twice in `body_value_part_ids`. No assert
 guards this invariant.
 
+### 7. Recursion depth bound (JMAP-t307.15)
+
+`part_to_jmap_inner` recursion is bounded by the public constant `MAX_PART_DEPTH = 64`. A
+multipart part nested deeper than the bound is emitted as an opaque leaf (a multipart-typed
+`EmailBodyPart` with `sub_parts = None`) rather than recursing further. This is
+defense-in-depth against deeply-nested `multipart/*` framing from hostile SMTP senders;
+without the bound the adapter would stack-overflow on inputs with thousands of nesting
+levels.
+
+The bound applies to every entry into the recursion: `part_to_jmap` and each list walked by
+`message_to_jmap_body` (`bodyStructure`, `text_body`, `html_body`, `attachments`).
+
+Note: `mime_tree::parse` and `mime_tree::ParsedPart::find_by_id` are themselves unbounded
+in `mime-tree 0.3.0`. The adapter's bound protects the adapter's own recursion; consumers
+must still bound raw message size upstream to obtain total-message safety. README "Gotchas"
+documents this.
+
 ## Test Coverage
 
 16 unit tests + 1 doc-test in `src/lib.rs`. All tests use RFC 5322 byte literals as
