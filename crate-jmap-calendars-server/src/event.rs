@@ -832,12 +832,25 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
 
     // Filter deserialization: a wire FilterOperator cannot decode into the
     // typed CalendarEventFilterCondition struct, so any non-FilterCondition
-    // input falls through to unsupportedFilter — which simultaneously
-    // satisfies the §5.11 "MUST be FilterCondition" rule.
+    // input fails to deserialize and simultaneously satisfies the §5.11
+    // "MUST be FilterCondition" rule.
+    //
+    // bd:JMAP-ic0j.45 — preserve the serde error description so a client
+    // sending a malformed filter learns *which* field was wrong rather
+    // than receiving a bare error code. The error_type is
+    // `invalidArguments` (not `unsupportedFilter`) because a syntactic
+    // parse failure is a malformed argument per RFC 8620 §3.6.1;
+    // `unsupportedFilter` per §5.5 is reserved for syntactically-valid
+    // FilterCondition shapes with a clause the backend cannot honor
+    // (the typed struct here accepts every spec-defined clause, so any
+    // failure is structural).
     let filter: Option<jmap_calendars_types::CalendarEventFilterCondition> =
         match args.remove("filter").unwrap_or(Value::Null) {
             Value::Null => None,
-            v => Some(serde_json::from_value(v).map_err(|_| JmapError::unsupported_filter())?),
+            v => Some(
+                serde_json::from_value(v)
+                    .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
+            ),
         };
 
     let sort: Option<Vec<jmap_calendars_types::CalendarEventComparator>> =

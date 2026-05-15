@@ -1808,6 +1808,50 @@ mod tests {
         );
     }
 
+    /// Regression for bd:JMAP-ic0j.45: a malformed filter argument must
+    /// produce `invalidArguments` with a description carrying the
+    /// underlying serde parse error, not a bare `unsupportedFilter`
+    /// with no context. Pre-fix the handler mapped any serde failure
+    /// (including pure-syntactic ones like `"filter": "garbage"`) to
+    /// `unsupportedFilter` with no description, hiding which field
+    /// was malformed from the client.
+    ///
+    /// Oracle: RFC 8620 §3.6.1 — `invalidArguments` is the method-level
+    /// error for malformed argument syntax; §5.5 `unsupportedFilter` is
+    /// reserved for syntactically-valid FilterCondition shapes with a
+    /// clause the server cannot honor.
+    #[tokio::test]
+    async fn calendar_event_query_malformed_filter_returns_invalid_arguments() {
+        let backend = Arc::new(MockBackend::new_with_account("acc1"));
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_calendars_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "CalendarEvent/query",
+            json!({
+                "accountId": "acc1",
+                "filter": "not-an-object"
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert_eq!(
+            args["type"], "invalidArguments",
+            "malformed filter must be invalidArguments, not unsupportedFilter: {args}"
+        );
+        // Description must mention "filter" so the client can identify
+        // which argument was wrong. The exact serde error wording is
+        // brittle, so we only assert the field-name prefix.
+        let desc = args["description"]
+            .as_str()
+            .expect("invalidArguments must carry a description");
+        assert!(
+            desc.starts_with("filter: "),
+            "description must begin with 'filter: ' so the client knows the malformed field: {desc:?}"
+        );
+    }
+
     /// Oracle: §10.7.3 — when the backend signals `ExpandDurationTooLarge`,
     /// the handler MUST return a method-level `expandDurationTooLarge` error
     /// (not `serverFail`).
