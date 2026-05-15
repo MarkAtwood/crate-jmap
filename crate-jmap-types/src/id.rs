@@ -235,6 +235,120 @@ impl UTCDate {
         validate_utcdate(&s)?;
         Ok(Self(s))
     }
+
+    /// Convert this [`UTCDate`] to seconds since the Unix epoch
+    /// (`1970-01-01T00:00:00Z`).
+    ///
+    /// Re-validates the structural RFC 8620 §1.4 format (the value may have
+    /// been constructed via [`UTCDate::from`] without validation) and also
+    /// validates semantic ranges: month `1..=12`, day `1..=days_in_month`,
+    /// hour `0..=23`, minute `0..=59`, second `0..=59` (no leap seconds).
+    /// Returns [`ValidationError`] on any validation failure.
+    ///
+    /// Negative values are returned for dates before `1970-01-01T00:00:00Z`.
+    ///
+    /// Uses the proleptic Gregorian calendar via Hinnant's `days_from_civil`
+    /// algorithm, which is exact-integer and handles leap years and century
+    /// rules correctly. No external dependencies.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use jmap_types::UTCDate;
+    /// let d = UTCDate::new_validated("1970-01-01T00:00:00Z").unwrap();
+    /// assert_eq!(d.to_epoch_seconds().unwrap(), 0);
+    /// let rfc = UTCDate::new_validated("2014-10-30T06:12:00Z").unwrap();
+    /// assert_eq!(rfc.to_epoch_seconds().unwrap(), 1_414_649_520);
+    /// ```
+    pub fn to_epoch_seconds(&self) -> Result<i64, ValidationError> {
+        utcdate_to_epoch_seconds(&self.0)
+    }
+}
+
+/// Number of days in `month` of `year`, accounting for proleptic Gregorian
+/// leap-year rules (year divisible by 4, except centuries not divisible by 400).
+fn days_in_month(year: i64, month: u32) -> u32 {
+    match month {
+        1 | 3 | 5 | 7 | 8 | 10 | 12 => 31,
+        4 | 6 | 9 | 11 => 30,
+        2 => {
+            if (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 {
+                29
+            } else {
+                28
+            }
+        }
+        _ => 0, // unreachable when month range is validated by caller
+    }
+}
+
+/// Hinnant's `days_from_civil` algorithm: number of days from
+/// `1970-01-01` (positive) or to `1970-01-01` (negative) for the proleptic
+/// Gregorian date `(y, m, d)`. Source: Howard Hinnant, "chrono-Compatible
+/// Low-Level Date Algorithms", §6.
+///
+/// Preconditions (caller-validated): `m` in `1..=12`, `d` in
+/// `1..=days_in_month(y, m)`. Years are unbounded `i64`.
+fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
+    let y = if m <= 2 { y - 1 } else { y };
+    let era = if y >= 0 { y } else { y - 399 } / 400;
+    let yoe = y - era * 400; // [0, 399]
+    let m = m as i64;
+    let d = d as i64;
+    let mp = if m > 2 { m - 3 } else { m + 9 }; // [0, 11]
+    let doy = (153 * mp + 2) / 5 + d - 1; // [0, 365]
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy; // [0, 146096]
+    era * 146097 + doe - 719_468
+}
+
+/// Internal helper: convert a `YYYY-MM-DDTHH:MM:SSZ` string to epoch seconds.
+fn utcdate_to_epoch_seconds(s: &str) -> Result<i64, ValidationError> {
+    validate_utcdate(s)?;
+    // validate_utcdate guarantees ASCII-digit positions; direct parse is safe.
+    let parse = |start: usize, end: usize| -> i64 {
+        let mut n: i64 = 0;
+        for &b in &s.as_bytes()[start..end] {
+            n = n * 10 + (b - b'0') as i64;
+        }
+        n
+    };
+    let year = parse(0, 4);
+    let month = parse(5, 7) as u32;
+    let day = parse(8, 10) as u32;
+    let hour = parse(11, 13) as u32;
+    let minute = parse(14, 16) as u32;
+    let second = parse(17, 19) as u32;
+
+    if !(1..=12).contains(&month) {
+        return Err(ValidationError(format!(
+            "UTCDate month must be 1..=12, got {month} in {s:?}"
+        )));
+    }
+    let max_day = days_in_month(year, month);
+    if !(1..=max_day).contains(&day) {
+        return Err(ValidationError(format!(
+            "UTCDate day must be 1..={max_day} for {year:04}-{month:02}, got {day} in {s:?}"
+        )));
+    }
+    if hour > 23 {
+        return Err(ValidationError(format!(
+            "UTCDate hour must be 0..=23, got {hour} in {s:?}"
+        )));
+    }
+    if minute > 59 {
+        return Err(ValidationError(format!(
+            "UTCDate minute must be 0..=59, got {minute} in {s:?}"
+        )));
+    }
+    // No leap seconds in RFC 8620 §1.4 (it specifies seconds 0..=59).
+    if second > 59 {
+        return Err(ValidationError(format!(
+            "UTCDate second must be 0..=59, got {second} in {s:?}"
+        )));
+    }
+
+    let days = days_from_civil(year, month, day);
+    Ok(days * 86_400 + hour as i64 * 3_600 + minute as i64 * 60 + second as i64)
 }
 
 impl State {
@@ -434,5 +548,222 @@ mod tests {
         let _: &dyn std::error::Error = &e;
         assert!(!e.to_string().is_empty(), "error message must not be empty");
         assert_eq!(format!("{e}"), e.0, "Display must show the inner message");
+    }
+
+    // -----------------------------------------------------------------------
+    // UTCDate::to_epoch_seconds tests
+    //
+    // Oracle for all numeric vectors: Python 3 `datetime.datetime(...).
+    // replace(tzinfo=timezone.utc).timestamp()`, computed independently and
+    // hardcoded as integer literals per workspace AGENTS.md "Test vector
+    // discipline". The oracle is independent of the code under test — these
+    // are NOT round-trip self-tests.
+    // -----------------------------------------------------------------------
+
+    /// Oracle (Python): `1970-01-01T00:00:00Z` → 0.
+    #[test]
+    fn utcdate_to_epoch_seconds_unix_epoch() {
+        let d = UTCDate::new_validated("1970-01-01T00:00:00Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 0);
+    }
+
+    /// Oracle (Python): RFC 8620 §1.4 example `2014-10-30T06:12:00Z` →
+    /// 1_414_649_520.
+    #[test]
+    fn utcdate_to_epoch_seconds_rfc8620_example() {
+        let d = UTCDate::new_validated("2014-10-30T06:12:00Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 1_414_649_520);
+    }
+
+    /// Oracle (Python): `2000-01-01T00:00:00Z` (Y2K, century-leap year) →
+    /// 946_684_800.
+    #[test]
+    fn utcdate_to_epoch_seconds_y2k() {
+        let d = UTCDate::new_validated("2000-01-01T00:00:00Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 946_684_800);
+    }
+
+    /// Oracle (Python): `1999-12-31T23:59:59Z` (one second before Y2K) →
+    /// 946_684_799.
+    #[test]
+    fn utcdate_to_epoch_seconds_pre_y2k() {
+        let d = UTCDate::new_validated("1999-12-31T23:59:59Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 946_684_799);
+    }
+
+    /// Oracle (Python): `2024-02-29T00:00:00Z` (leap year, leap day start) →
+    /// 1_709_164_800.
+    #[test]
+    fn utcdate_to_epoch_seconds_leap_day_2024() {
+        let d = UTCDate::new_validated("2024-02-29T00:00:00Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 1_709_164_800);
+    }
+
+    /// Oracle (Python): `2024-02-29T23:59:59Z` (leap day end) →
+    /// 1_709_251_199.
+    #[test]
+    fn utcdate_to_epoch_seconds_leap_day_2024_end() {
+        let d = UTCDate::new_validated("2024-02-29T23:59:59Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 1_709_251_199);
+    }
+
+    /// Oracle (Python): `2100-03-01T00:00:00Z` exercises the
+    /// century-non-leap-year rule (2100 is not a leap year, divisible by 100
+    /// but not 400).
+    #[test]
+    fn utcdate_to_epoch_seconds_2100_non_leap_century() {
+        let d = UTCDate::new_validated("2100-03-01T00:00:00Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 4_107_542_400);
+    }
+
+    /// Oracle (Python): `1969-12-31T23:59:59Z` (one second before epoch) → -1.
+    /// Verifies negative-epoch handling.
+    #[test]
+    fn utcdate_to_epoch_seconds_one_before_epoch() {
+        let d = UTCDate::new_validated("1969-12-31T23:59:59Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), -1);
+    }
+
+    /// Oracle (Python): `1900-01-01T00:00:00Z` → -2_208_988_800.
+    /// 1900 is divisible by 100 but not 400, so NOT a leap year — exercises
+    /// the same century rule as 2100 but well before the epoch.
+    #[test]
+    fn utcdate_to_epoch_seconds_1900() {
+        let d = UTCDate::new_validated("1900-01-01T00:00:00Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), -2_208_988_800);
+    }
+
+    /// Oracle (Python): `0001-01-01T00:00:00Z` → -62_135_596_800.
+    /// Far-past boundary; verifies the proleptic Gregorian algorithm
+    /// extrapolates correctly to year 1.
+    #[test]
+    fn utcdate_to_epoch_seconds_year_one() {
+        let d = UTCDate::new_validated("0001-01-01T00:00:00Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), -62_135_596_800);
+    }
+
+    /// Oracle (Python): `9999-12-31T23:59:59Z` (UTCDate max year) →
+    /// 253_402_300_799.
+    /// Far-future boundary within `i64` range.
+    #[test]
+    fn utcdate_to_epoch_seconds_year_9999() {
+        let d = UTCDate::new_validated("9999-12-31T23:59:59Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 253_402_300_799);
+    }
+
+    /// Oracle (Python): `2038-01-19T03:14:07Z` = i32::MAX = 2_147_483_647
+    /// (the "Year 2038 problem" boundary).
+    #[test]
+    fn utcdate_to_epoch_seconds_y2038_boundary() {
+        let d = UTCDate::new_validated("2038-01-19T03:14:07Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 2_147_483_647);
+    }
+
+    /// Oracle (Python): `2038-01-19T03:14:08Z` = i32::MAX + 1.
+    /// Verifies `i64` handles the i32 overflow point that 32-bit time_t
+    /// implementations would wrap at.
+    #[test]
+    fn utcdate_to_epoch_seconds_post_y2038() {
+        let d = UTCDate::new_validated("2038-01-19T03:14:08Z").unwrap();
+        assert_eq!(d.to_epoch_seconds().unwrap(), 2_147_483_648);
+    }
+
+    /// Oracle: `validate_utcdate` accepts month 13 structurally; semantic
+    /// validation in `to_epoch_seconds` must reject it.
+    #[test]
+    fn utcdate_to_epoch_seconds_rejects_month_13() {
+        let d = UTCDate::from("2024-13-01T00:00:00Z");
+        let err = d.to_epoch_seconds().unwrap_err();
+        assert!(err.0.contains("month"), "error must mention month: {err}");
+    }
+
+    /// Oracle: `validate_utcdate` accepts day 32 structurally; semantic
+    /// validation in `to_epoch_seconds` must reject it.
+    #[test]
+    fn utcdate_to_epoch_seconds_rejects_day_32() {
+        let d = UTCDate::from("2024-01-32T00:00:00Z");
+        let err = d.to_epoch_seconds().unwrap_err();
+        assert!(err.0.contains("day"), "error must mention day: {err}");
+    }
+
+    /// Oracle: 2023 is NOT a leap year; Feb 29 must be rejected as
+    /// out-of-range for that month.
+    #[test]
+    fn utcdate_to_epoch_seconds_rejects_feb_29_non_leap() {
+        let d = UTCDate::from("2023-02-29T00:00:00Z");
+        let err = d.to_epoch_seconds().unwrap_err();
+        assert!(err.0.contains("day"), "error must mention day: {err}");
+    }
+
+    /// Oracle: hour 24 is out of range per RFC 8620 §1.4 (no end-of-day
+    /// convention) — `to_epoch_seconds` must reject it.
+    #[test]
+    fn utcdate_to_epoch_seconds_rejects_hour_24() {
+        let d = UTCDate::from("2024-01-01T24:00:00Z");
+        let err = d.to_epoch_seconds().unwrap_err();
+        assert!(err.0.contains("hour"), "error must mention hour: {err}");
+    }
+
+    /// Oracle: minute 60 out of range.
+    #[test]
+    fn utcdate_to_epoch_seconds_rejects_minute_60() {
+        let d = UTCDate::from("2024-01-01T00:60:00Z");
+        let err = d.to_epoch_seconds().unwrap_err();
+        assert!(err.0.contains("minute"), "error must mention minute: {err}");
+    }
+
+    /// Oracle: second 60 (leap second) is not permitted by RFC 8620 §1.4 —
+    /// `to_epoch_seconds` must reject it.
+    #[test]
+    fn utcdate_to_epoch_seconds_rejects_leap_second() {
+        let d = UTCDate::from("2016-12-31T23:59:60Z");
+        let err = d.to_epoch_seconds().unwrap_err();
+        assert!(err.0.contains("second"), "error must mention second: {err}");
+    }
+
+    /// Oracle: a value constructed via `UTCDate::from` with wrong structure
+    /// must surface a structural ValidationError (re-validation in
+    /// `to_epoch_seconds`).
+    #[test]
+    fn utcdate_to_epoch_seconds_rejects_invalid_structure() {
+        let d = UTCDate::from("not-a-date");
+        assert!(d.to_epoch_seconds().is_err());
+    }
+
+    /// Oracle (Python): `2024-02-28T23:59:59Z` → `2024-02-29T00:00:00Z` is
+    /// exactly one second forward. Verifies leap-day arithmetic is
+    /// internally consistent.
+    #[test]
+    fn utcdate_to_epoch_seconds_leap_day_boundary_one_sec() {
+        let a = UTCDate::new_validated("2024-02-28T23:59:59Z").unwrap();
+        let b = UTCDate::new_validated("2024-02-29T00:00:00Z").unwrap();
+        let diff = b.to_epoch_seconds().unwrap() - a.to_epoch_seconds().unwrap();
+        assert_eq!(
+            diff, 1,
+            "Feb 28 23:59:59 → Feb 29 00:00:00 must be 1 second"
+        );
+    }
+
+    /// Oracle (Python): a 365-day duration `2023-01-01T00:00:00Z` to
+    /// `2024-01-01T00:00:00Z` is exactly `365 * 86_400 = 31_536_000` seconds
+    /// (2023 is not a leap year). Anchors the `CalendarsLimits::default()
+    /// .max_expanded_query_duration_seconds` value (`31_536_000`).
+    #[test]
+    fn utcdate_to_epoch_seconds_365_day_year_duration() {
+        let a = UTCDate::new_validated("2023-01-01T00:00:00Z").unwrap();
+        let b = UTCDate::new_validated("2024-01-01T00:00:00Z").unwrap();
+        let diff = b.to_epoch_seconds().unwrap() - a.to_epoch_seconds().unwrap();
+        assert_eq!(diff, 31_536_000);
+    }
+
+    /// Oracle (Python): a 366-day duration `2024-01-01T00:00:00Z` to
+    /// `2025-01-01T00:00:00Z` is `366 * 86_400 = 31_622_400` seconds (2024 is
+    /// a leap year).
+    #[test]
+    fn utcdate_to_epoch_seconds_366_day_leap_year_duration() {
+        let a = UTCDate::new_validated("2024-01-01T00:00:00Z").unwrap();
+        let b = UTCDate::new_validated("2025-01-01T00:00:00Z").unwrap();
+        let diff = b.to_epoch_seconds().unwrap() - a.to_epoch_seconds().unwrap();
+        assert_eq!(diff, 31_622_400);
     }
 }
