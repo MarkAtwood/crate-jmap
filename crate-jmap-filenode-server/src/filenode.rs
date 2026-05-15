@@ -1644,6 +1644,7 @@ mod tests {
     use super::*;
     use serde_json::json;
 
+    use crate::memory::MemoryBackend;
     use crate::test_support::MockBackend;
 
     // -----------------------------------------------------------------------
@@ -1654,7 +1655,7 @@ mod tests {
     /// Source: RFC 8620 §3.6.2.
     #[tokio::test]
     async fn get_unknown_account_returns_account_not_found() {
-        let backend = MockBackend::new();
+        let backend = MemoryBackend::new();
         let args = json!({ "accountId": "unknown", "ids": null });
         let err = handle_filenode_get(&backend, &(), args)
             .await
@@ -1670,7 +1671,7 @@ mod tests {
     /// Oracle: FileNode/get with known account returns empty list (no nodes seeded).
     #[tokio::test]
     async fn get_known_account_returns_empty_list() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "ids": null });
         let (resp, _) = handle_filenode_get(&backend, &(), args)
             .await
@@ -1687,7 +1688,7 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.2.1.
     #[tokio::test]
     async fn get_fetch_parents_false_unchanged() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": false });
         let (resp, _) = handle_filenode_get(&backend, &(), args)
             .await
@@ -1700,7 +1701,7 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.2.1.
     #[tokio::test]
     async fn get_fetch_parents_true_no_nodes() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "ids": null, "fetchParents": true });
         let (resp, _) = handle_filenode_get(&backend, &(), args)
             .await
@@ -1801,7 +1802,7 @@ mod tests {
     /// Oracle: FileNode/changes returns the standard changes response shape.
     #[tokio::test]
     async fn changes_returns_standard_shape() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "sinceState": "0" });
         let (resp, _) = handle_filenode_changes(&backend, &(), args)
             .await
@@ -1819,7 +1820,7 @@ mod tests {
     /// Oracle: FileNode/query returns standard query response shape.
     #[tokio::test]
     async fn query_returns_standard_shape() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
         let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
@@ -1833,7 +1834,7 @@ mod tests {
     /// Oracle: depth absent → flat query, same result as before.
     #[tokio::test]
     async fn query_depth_absent_flat_query() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "filter": null, "sort": null });
         let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
@@ -1844,7 +1845,7 @@ mod tests {
     /// Oracle: depth=0 → same as absent, no recursion.
     #[tokio::test]
     async fn query_depth_zero_flat_query() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({ "accountId": "acc1", "depth": 0, "filter": null, "sort": null });
         let (resp, _) = handle_filenode_query(&backend, &(), args)
             .await
@@ -2201,7 +2202,7 @@ mod tests {
     /// excludes the node itself by contract (backend.rs §76).
     #[tokio::test]
     async fn set_update_self_parent_returns_invalid_properties() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         // No descendants seeded: the only thing the check has to fall
         // back on is the explicit self-parent guard.
         let args = json!({
@@ -2276,7 +2277,7 @@ mod tests {
     /// Oracle: create with missing `name` returns invalidProperties.
     #[tokio::test]
     async fn set_create_missing_name_returns_invalid_properties() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -2313,7 +2314,7 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.1.
     #[tokio::test]
     async fn set_create_directory_without_blobid_infers_directory_type() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -2339,7 +2340,7 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.1.
     #[tokio::test]
     async fn set_create_file_without_blobid_returns_invalid_properties() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -2377,7 +2378,7 @@ mod tests {
     /// Regression for bd JMAP-510h.7.
     #[tokio::test]
     async fn set_create_file_with_blob_and_target_returns_invalid_properties() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({
             "accountId": "acc1",
             "create": {
@@ -2416,7 +2417,7 @@ mod tests {
     /// Source: draft-ietf-jmap-filenode-13 §3.1.
     #[tokio::test]
     async fn set_create_symlink_without_target_returns_invalid_properties() {
-        let backend = MockBackend::new_with_account("acc1");
+        let backend = MemoryBackend::new().with_account("acc1");
         let args = json!({
             "accountId": "acc1",
             "create": {
