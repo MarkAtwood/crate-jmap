@@ -159,6 +159,37 @@ the figure number cited in the doc comment.
 
 ## Type-design constraints
 
+### Integer width policy (`UnsignedInt` fields)
+
+RFC 9553 §1.4.2 defines `UnsignedInt` as the integer range `0..=2^53-1`
+(JSON safe-integer range). Workspace convention (per the canonical
+extension-types template `jmap-mail-types`) is to choose the Rust
+integer width by realistic value range, not by lifting the RFC floor:
+
+| Realistic range | Rust type | Examples |
+|---|---|---|
+| Counters, byte sizes potentially > 2^32 | `u64` | `Email.size`, `min_size`, `max_size` |
+| Bounded small integers, ordering, counts | `u32` | `Mailbox.sort_order`, `total_emails`, JSContact `pref` |
+
+Concrete choices in this crate:
+
+- `pref` (Nickname, Pronouns, EmailAddress, OnlineService, Phone,
+  LanguagePref, Calendar, SchedulingAddress, Address, CryptoKey,
+  Directory, Link, Media): `u32`. RFC 9553 §1.5.3 bounds `pref` to
+  `1..=100`; `u8` would suffice but `u32` matches the workspace pattern
+  for small bounded unsigned counters.
+- `list_as` (Directory, PersonalInfo): `u32`. Positional ordering;
+  realistic values are tiny.
+- `year`, `month`, `day` (PartialDate): `u32`. Gregorian dates fit
+  trivially; the highest representable year is ~4.29 billion, far
+  above any realistic JSContact use.
+
+A spec-conformant peer sending a `UnsignedInt` value in `2^32..=2^53-1`
+into one of these fields will fail to deserialize. The fields above
+have no realistic trigger today, but the constraint is documented here
+so a future contributor adding a new `UnsignedInt` field with a
+larger realistic range knows to choose `u64`.
+
 ### Extras-preservation policy (JMAP-lbdy)
 
 Every public `Deserialize` struct that appears on the JMAP wire carries
