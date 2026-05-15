@@ -279,6 +279,32 @@ pub(crate) fn resolve_client_id(id: Option<&str>) -> String {
 /// already implements `Clone` and `with_chat_session` clones one
 /// internally), enabling parallel-task fan-out with one bound session.
 ///
+/// # Concurrency
+///
+/// `SessionClient` is `Send + Sync` and may be used from any tokio
+/// task. Cloning is cheap: the underlying `JmapClient` wraps a
+/// `reqwest::Client` that is itself `Clone` over an internal `Arc`,
+/// so every clone shares the same HTTP connection pool. There is no
+/// benefit to constructing independent `SessionClient`s for
+/// per-worker fan-out — clone the existing one.
+///
+/// Concurrent calls on a single `SessionClient` (or on clones) are
+/// safe but **unordered**: `reqwest` does not guarantee that
+/// responses arrive in request order across concurrent
+/// in-flight calls. When ordering matters between method calls (e.g.
+/// a `Foo/set` followed by a `Foo/changes` that must observe the new
+/// state), use a single JMAP batch request with `ResultReference`s
+/// rather than two separate `SessionClient` calls.
+///
+/// All public async methods on `SessionClient` are cancel-safe at
+/// each `.await` point: dropping the future before completion
+/// releases the underlying `reqwest` request without poisoning the
+/// connection pool. The server may still process the request (HTTP
+/// is fire-and-forget on the wire); callers that care about
+/// at-most-once semantics must enforce idempotency at the JMAP layer
+/// (e.g. by sending a stable client-assigned creation key for
+/// `/set` create operations).
+///
 /// `Debug` is implemented manually to redact the inner `JmapClient` (which
 /// holds an HTTP client and is intentionally not `Debug` in
 /// `jmap-base-client`); only the `Session` is shown. This lets callers
@@ -1328,6 +1354,16 @@ pub fn server_retry_after(err: &SetError) -> Option<jmap_types::UTCDate> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Compile-time assertion that `SessionClient: Send + Sync`, matching
+    /// the contract documented on the `SessionClient` rustdoc
+    /// (bd:JMAP-26di.41). If `JmapClient` or `Session` ever loses
+    /// `Send` / `Sync` upstream, this stops the build instead of
+    /// silently breaking the contract at consumer-build time.
+    const _: fn() = || {
+        fn _assert_send_sync<T: Send + Sync>() {}
+        _assert_send_sync::<SessionClient>();
+    };
 
     /// Oracle: `Patch::Keep` via `map_entry()` returns `None` (key omitted from patch).
     /// This is the canonical pattern used by all patch methods in this crate.
