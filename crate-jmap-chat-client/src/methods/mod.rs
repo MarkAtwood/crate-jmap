@@ -1223,15 +1223,23 @@ impl<'a> PushSubscriptionCreateInput<'a> {
 /// a new one. `device_client_id` is also stable for the lifetime of the
 /// subscription.
 ///
-/// Fields left as their default (`None` / [`Patch::Keep`]) are omitted from
-/// the wire patch and the server leaves the corresponding property unchanged.
+/// Fields left as their default ([`Patch::Keep`] / `None` for
+/// `verification_code`) are omitted from the wire patch and the server leaves
+/// the corresponding property unchanged.
 ///
-/// The `chat_push` patch follows the JMAP Chat Push extension
-/// (draft-atwood-jmap-chat-push-00 §3.1): callers pass `Some(slice)` to
-/// replace the full `chatPush` property, or [`Patch::Clear`] semantics via
-/// the dedicated `clear_chat_push` flag to set it to JSON `null`. The
-/// extension does not define per-key patching, so the value is set
-/// wholesale.
+/// The `types` and `chat_push` fields use the three-way [`Patch<T>`] shape
+/// so the (set + clear) conflict is unrepresentable at the type level:
+///   - [`Patch::Set`] replaces the property wholesale (an array of type
+///     names for `types`; a `chatPush` object built from the supplied
+///     `(accountId, config)` pairs for `chat_push`).
+///   - [`Patch::Clear`] sends JSON `null`, removing the property
+///     server-side. For `types`, `null` means "deliver all types"
+///     (RFC 8620 §7.2). For `chat_push`, `null` removes all inline-push
+///     configuration (draft-atwood-jmap-chat-push-00 §3.1).
+///   - [`Patch::Keep`] (default) omits the key from the patch.
+///
+/// The JMAP Chat Push extension does not define per-key patching of
+/// `chatPush`, so [`Patch::Set`] replaces the full map.
 ///
 /// # Debug redaction
 ///
@@ -1253,18 +1261,18 @@ pub struct PushSubscriptionPatch<'a> {
     /// Set or clear the expiry timestamp. [`Patch::Clear`] sets `expires` to
     /// `null`; the server SHOULD then choose a default expiry per RFC 8620 §7.2.
     pub expires: Patch<&'a jmap_types::UTCDate>,
-    /// Replace the `types` filter. `None` = no change. To set the property
-    /// to `null` (deliver all types), use `clear_types: true`.
-    pub types: Option<&'a [&'a str]>,
-    /// When `true`, set `types` to JSON `null` (deliver all types). Mutually
-    /// exclusive with `types: Some(_)` — providing both is rejected as
-    /// `InvalidArgument`.
-    pub clear_types: bool,
-    /// Replace the `chatPush` extension property wholesale. `None` = no change.
-    pub chat_push: Option<&'a [(&'a Id, jmap_chat_types::ChatPushConfig)]>,
-    /// When `true`, set `chatPush` to JSON `null` (remove all inline push).
-    /// Mutually exclusive with `chat_push: Some(_)`.
-    pub clear_chat_push: bool,
+    /// Replace or clear the `types` filter (RFC 8620 §7.2). [`Patch::Set`]
+    /// installs the array of type names; [`Patch::Clear`] sends JSON `null`
+    /// so the server delivers all types; [`Patch::Keep`] (default) leaves
+    /// the property unchanged.
+    pub types: Patch<&'a [&'a str]>,
+    /// Replace or clear the `chatPush` extension property
+    /// (draft-atwood-jmap-chat-push-00 §3.1). [`Patch::Set`] installs the
+    /// `chatPush` map from the supplied `(accountId, config)` pairs;
+    /// [`Patch::Clear`] sends JSON `null` so the server removes all inline
+    /// push config; [`Patch::Keep`] (default) leaves the property
+    /// unchanged.
+    pub chat_push: Patch<&'a [(&'a Id, jmap_chat_types::ChatPushConfig)]>,
 }
 
 impl<'a> std::fmt::Debug for PushSubscriptionPatch<'a> {
@@ -1275,9 +1283,7 @@ impl<'a> std::fmt::Debug for PushSubscriptionPatch<'a> {
             .field("verification_code", &redacted_verification_code)
             .field("expires", &self.expires)
             .field("types", &self.types)
-            .field("clear_types", &self.clear_types)
             .field("chat_push", &self.chat_push)
-            .field("clear_chat_push", &self.clear_chat_push)
             .finish()
     }
 }

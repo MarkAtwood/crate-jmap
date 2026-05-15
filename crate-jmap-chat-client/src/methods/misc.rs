@@ -7,7 +7,7 @@
 use jmap_types::{Id, PatchObject, State};
 
 use super::{
-    ChangesResponse, GetResponse, PresenceStatusPatch, PushSubscriptionCreateInput,
+    ChangesResponse, GetResponse, Patch, PresenceStatusPatch, PushSubscriptionCreateInput,
     PushSubscriptionCreateResponse, PushSubscriptionPatch, SetResponse,
 };
 
@@ -271,14 +271,16 @@ impl super::SessionClient {
     /// extension's `chatPush`.
     ///
     /// PushSubscriptions are not account-scoped (RFC 8620 §7.2): no
-    /// `accountId` is sent. When the patch touches `chat_push` or
-    /// `clear_chat_push`, the `using` array includes
+    /// `accountId` is sent. When the patch touches `chat_push` at all
+    /// (any non-[`Patch::Keep`] value), the `using` array includes
     /// `urn:ietf:params:jmap:chat:push`; otherwise only
     /// `urn:ietf:params:jmap:core` is declared (RFC 8620 §3.3).
     ///
+    /// # Errors
+    ///
     /// Returns [`jmap_base_client::ClientError::InvalidArgument`] if `id` is
-    /// empty, if both `patch.types` and `patch.clear_types` are set, or if
-    /// both `patch.chat_push` and `patch.clear_chat_push` are set.
+    /// empty or if `patch.chat_push` is [`Patch::Set`] and the slice
+    /// contains duplicate `accountId` keys.
     pub async fn push_subscription_update(
         &self,
         id: &Id,
@@ -288,17 +290,6 @@ impl super::SessionClient {
         if id.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
                 "push_subscription_update: id may not be empty".into(),
-            ));
-        }
-        if patch.types.is_some() && patch.clear_types {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "push_subscription_update: types and clear_types are mutually exclusive".into(),
-            ));
-        }
-        if patch.chat_push.is_some() && patch.clear_chat_push {
-            return Err(jmap_base_client::ClientError::InvalidArgument(
-                "push_subscription_update: chat_push and clear_chat_push are mutually exclusive"
-                    .into(),
             ));
         }
 
@@ -314,46 +305,55 @@ impl super::SessionClient {
         {
             patch_map.insert("expires".into(), entry);
         }
-        if let Some(types) = patch.types {
-            patch_map.insert(
-                "types".into(),
-                serde_json::Value::Array(
-                    types.iter().copied().map(serde_json::Value::from).collect(),
-                ),
-            );
-        } else if patch.clear_types {
-            patch_map.insert("types".into(), serde_json::Value::Null);
-        }
-        if let Some(cp) = patch.chat_push {
-            let mut seen = std::collections::HashSet::new();
-            for (account_id, _) in cp {
-                if !seen.insert(account_id) {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(format!(
-                        "push_subscription_update: duplicate accountId '{}' in chat_push",
-                        account_id
-                    )));
-                }
+        match &patch.types {
+            Patch::Keep => {}
+            Patch::Clear => {
+                patch_map.insert("types".into(), serde_json::Value::Null);
             }
-            let mut chat_push_map = serde_json::Map::new();
-            for (account_id, config) in cp {
-                chat_push_map.insert(
-                    account_id.as_ref().to_owned(),
-                    serde_json::to_value(config).map_err(jmap_base_client::ClientError::Parse)?,
+            Patch::Set(types) => {
+                patch_map.insert(
+                    "types".into(),
+                    serde_json::Value::Array(
+                        types.iter().copied().map(serde_json::Value::from).collect(),
+                    ),
                 );
             }
-            patch_map.insert("chatPush".into(), serde_json::Value::Object(chat_push_map));
-        } else if patch.clear_chat_push {
-            patch_map.insert("chatPush".into(), serde_json::Value::Null);
+        }
+        match &patch.chat_push {
+            Patch::Keep => {}
+            Patch::Clear => {
+                patch_map.insert("chatPush".into(), serde_json::Value::Null);
+            }
+            Patch::Set(cp) => {
+                let mut seen = std::collections::HashSet::new();
+                for (account_id, _) in *cp {
+                    if !seen.insert(account_id) {
+                        return Err(jmap_base_client::ClientError::InvalidArgument(format!(
+                            "push_subscription_update: duplicate accountId '{}' in chat_push",
+                            account_id
+                        )));
+                    }
+                }
+                let mut chat_push_map = serde_json::Map::new();
+                for (account_id, config) in *cp {
+                    chat_push_map.insert(
+                        account_id.as_ref().to_owned(),
+                        serde_json::to_value(config)
+                            .map_err(jmap_base_client::ClientError::Parse)?,
+                    );
+                }
+                patch_map.insert("chatPush".into(), serde_json::Value::Object(chat_push_map));
+            }
         }
 
         let patch_value = serde_json::Value::Object(PatchObject::from_map(patch_map).into_inner());
         let args = serde_json::json!({
             "update": { id.as_ref(): patch_value }
         });
-        let using = if patch.chat_push.is_some() || patch.clear_chat_push {
-            super::USING_CHAT_PUSH
-        } else {
+        let using = if patch.chat_push.is_keep() {
             super::USING_CORE
+        } else {
+            super::USING_CHAT_PUSH
         };
         let req = super::build_request("PushSubscription/set", args, using);
         let resp = self.call_internal(api_url, &req).await?;
