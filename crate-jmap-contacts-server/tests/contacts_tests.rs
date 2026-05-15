@@ -356,6 +356,221 @@ async fn contact_card_set_create_with_client_id_rejected() {
 }
 
 // ---------------------------------------------------------------------------
+// AddressBook/set onDestroyRemoveContents cascade tests (bd:JMAP-qz9v.1)
+//
+// RFC 9610 §2.3: when onDestroyRemoveContents is true, the destroy must
+// remove this book's addressBookIds entry from every ContactCard. Cards
+// left with zero books must be destroyed; cards still attached to other
+// books must persist with the remaining addressBookIds.
+// ---------------------------------------------------------------------------
+
+/// Oracle: a card whose only AddressBook is the one being destroyed
+/// must be destroyed by the cascade (the alternative is leaving an
+/// orphan card with a now-dangling addressBookIds entry — a ContactCard
+/// is required to belong to at least one AddressBook per RFC 9610 §3).
+#[tokio::test]
+async fn address_book_set_destroy_cascade_destroys_exclusive_card() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Only Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-exclusive",
+        contact_card_fixture("card-exclusive", "ab1", "Alice"),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "onDestroyRemoveContents": true,
+        "destroy": ["ab1"]
+    });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    // Book is destroyed.
+    let destroyed = resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array");
+    assert_eq!(destroyed.len(), 1);
+    assert_eq!(destroyed[0], "ab1");
+
+    // The exclusive card is gone from the store.
+    let args = json!({ "accountId": "acc1", "ids": ["card-exclusive"] });
+    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let not_found = get_resp["notFound"]
+        .as_array()
+        .expect("notFound must be array");
+    assert_eq!(
+        not_found.len(),
+        1,
+        "exclusive card must be destroyed by cascade: {get_resp}"
+    );
+    assert_eq!(not_found[0], "card-exclusive");
+}
+
+/// Oracle: a card belonging to multiple AddressBooks must be patched —
+/// the destroyed book's id is removed from `addressBookIds`, the card
+/// itself persists with the remaining books.
+#[tokio::test]
+async fn address_book_set_destroy_cascade_patches_shared_card() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Book One"),
+    );
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab2",
+        address_book_fixture("ab2", "Book Two"),
+    );
+    // Card belongs to BOTH ab1 and ab2.
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-shared",
+        json!({
+            "id": "card-shared",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "u-shared",
+            "addressBookIds": { "ab1": true, "ab2": true },
+            "name": { "@type": "Name", "full": "Bob" }
+        }),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "onDestroyRemoveContents": true,
+        "destroy": ["ab1"]
+    });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+    let destroyed = resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array");
+    assert_eq!(destroyed[0], "ab1");
+
+    // The shared card still exists, with addressBookIds={ab2: true}.
+    let args = json!({ "accountId": "acc1", "ids": ["card-shared"] });
+    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let list = get_resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1, "shared card must persist: {get_resp}");
+    assert_eq!(
+        list[0]["addressBookIds"],
+        json!({ "ab2": true }),
+        "removed book id must be patched out of addressBookIds: {get_resp}"
+    );
+}
+
+/// Oracle: mixed scenario — some cards are exclusive (destroyed), some
+/// shared (patched). All happen in a single cascade.
+#[tokio::test]
+async fn address_book_set_destroy_cascade_mixed_exclusive_and_shared() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Doomed Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab2",
+        address_book_fixture("ab2", "Other Book"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-exclusive",
+        contact_card_fixture("card-exclusive", "ab1", "Alice"),
+    );
+    backend.seed_object(
+        "acc1",
+        "ContactCard",
+        "card-shared",
+        json!({
+            "id": "card-shared",
+            "@type": "Card",
+            "version": "1.0",
+            "uid": "u-shared",
+            "addressBookIds": { "ab1": true, "ab2": true },
+            "name": { "@type": "Name", "full": "Bob" }
+        }),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "onDestroyRemoveContents": true,
+        "destroy": ["ab1"]
+    });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+    assert_eq!(resp["destroyed"][0], "ab1");
+
+    // card-exclusive is gone.
+    let args = json!({ "accountId": "acc1", "ids": ["card-exclusive", "card-shared"] });
+    let (get_resp, _) = handle_contact_card_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let not_found: Vec<&str> = get_resp["notFound"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(
+        not_found,
+        vec!["card-exclusive"],
+        "exclusive card destroyed"
+    );
+
+    // card-shared survives, patched.
+    let list = get_resp["list"].as_array().unwrap();
+    assert_eq!(list.len(), 1);
+    assert_eq!(list[0]["id"], "card-shared");
+    assert_eq!(list[0]["addressBookIds"], json!({ "ab2": true }));
+}
+
+/// Oracle: an empty AddressBook with onDestroyRemoveContents=true still
+/// destroys cleanly (the cascade is a no-op when no cards reference it).
+#[tokio::test]
+async fn address_book_set_destroy_cascade_empty_book_proceeds() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture("ab1", "Empty Book"),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "onDestroyRemoveContents": true,
+        "destroy": ["ab1"]
+    });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+    assert_eq!(resp["destroyed"][0], "ab1");
+}
+
+// ---------------------------------------------------------------------------
 // Test 13: ContactCard/query honors typed filter fields end-to-end (bd:JMAP-qz9v.3)
 // Oracle: RFC 9610 §3.3.1. Previously every filter field except
 // inAddressBook was silently dropped and all cards were returned.

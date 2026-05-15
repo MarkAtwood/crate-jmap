@@ -8,7 +8,7 @@
 //! **No `AddressBook/query` or `AddressBook/queryChanges`** — the spec does
 //! not define these methods for AddressBook.
 
-use jmap_contacts_types::AddressBook;
+use jmap_contacts_types::{AddressBook, ContactCard, ContactCardFilterCondition};
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
@@ -260,12 +260,23 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
             };
             let id = Id::from(id_str.as_str());
 
-            // RFC 9610 §2.3: if onDestroyRemoveContents is false and the
-            // address book has contents, reject with addressBookHasContents.
-            if !on_destroy_remove_contents
-                && backend
-                    .address_book_has_contents(caller, &account_id, &id)
-                    .await
+            // RFC 9610 §2.3 onDestroyRemoveContents:
+            // - `true`: cascade — for every ContactCard belonging to this
+            //   book, either destroy the card (if this is its only book)
+            //   or patch its addressBookIds to remove this book entry. If
+            //   any cascade step fails, reject the book destroy.
+            // - `false` (default): if the book has contents, reject with
+            //   addressBookHasContents; otherwise proceed.
+            if on_destroy_remove_contents {
+                if let Err(cascade_err) =
+                    cascade_address_book_contents(backend, caller, &account_id, &id).await
+                {
+                    not_destroyed.insert(id_str, cascade_err);
+                    continue;
+                }
+            } else if backend
+                .address_book_has_contents(caller, &account_id, &id)
+                .await
             {
                 not_destroyed.insert(
                     id_str,
@@ -402,6 +413,117 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
         },
     )
     .await
+}
+
+// ---------------------------------------------------------------------------
+// AddressBook/set destroy cascade (RFC 9610 §2.3 onDestroyRemoveContents)
+// ---------------------------------------------------------------------------
+
+/// Cascade-clean the ContactCards belonging to an AddressBook before
+/// destroying the book itself (bd:JMAP-qz9v.1).
+///
+/// For every ContactCard whose `addressBookIds` set contains `book_id`:
+/// - If `book_id` is the card's only entry, destroy the card.
+/// - Otherwise, patch the card to remove the entry from
+///   `addressBookIds` (RFC 7396 merge patch via the workspace's standard
+///   `update_object` path).
+///
+/// Returns `Ok(())` if every affected card was successfully handled. On
+/// any error, returns a `serverFail` SetError-shaped JSON value the
+/// caller surfaces in the AddressBook/set `notDestroyed` map; the book
+/// itself is then NOT destroyed.
+///
+/// Note: this is sequenced per-card and not transactional. A real
+/// database-backed backend should override the workflow to perform the
+/// cascade and the book destroy atomically.
+async fn cascade_address_book_contents<B: ContactsBackend>(
+    backend: &B,
+    caller: &B::CallerCtx,
+    account_id: &Id,
+    book_id: &Id,
+) -> Result<(), Value> {
+    // Query for affected card ids using the inAddressBook filter
+    // (RFC 9610 §3.3.1). ContactCardFilterCondition is #[non_exhaustive],
+    // so build via default + field assignment.
+    let mut filter = ContactCardFilterCondition::default();
+    filter.in_address_book = Some(book_id.clone());
+    let query_result = backend
+        .query_objects::<ContactCard>(caller, account_id, Some(&filter), None, None, 0)
+        .await
+        .map_err(|e| {
+            json!({
+                "type": "serverFail",
+                "description": format!("cascade query failed: {e}")
+            })
+        })?;
+
+    if query_result.ids.is_empty() {
+        return Ok(());
+    }
+
+    // Fetch full card records to inspect each card's addressBookIds set.
+    let (cards, _not_found) = backend
+        .get_objects::<ContactCard>(caller, account_id, Some(&query_result.ids), None)
+        .await
+        .map_err(|e| {
+            json!({
+                "type": "serverFail",
+                "description": format!("cascade fetch failed: {e}")
+            })
+        })?;
+
+    for card in cards {
+        let Some(card_id) = card.id.as_ref() else {
+            return Err(json!({
+                "type": "serverFail",
+                "description": "cascade encountered stored card with missing id"
+            }));
+        };
+
+        let book_count = card.address_book_ids.as_ref().map(|m| m.len()).unwrap_or(0);
+
+        if book_count <= 1 {
+            // Card belongs only to this book (or has no books): destroy.
+            backend
+                .destroy_object::<ContactCard>(caller, account_id, card_id)
+                .await
+                .map_err(|e| {
+                    json!({
+                        "type": "serverFail",
+                        "description":
+                            format!("cascade destroy of card {card_id} failed: {e:?}")
+                    })
+                })?;
+        } else {
+            // Card is shared with other books: patch addressBookIds to
+            // null out only this entry. RFC 7396 merge patch semantics
+            // (the workspace /set update model): `{"addressBookIds":
+            // {"<book>": null}}` removes the key from the nested map
+            // while leaving sibling entries intact.
+            let mut patch_map = serde_json::Map::new();
+            patch_map.insert(
+                "addressBookIds".to_owned(),
+                json!({ book_id.as_ref(): Value::Null }),
+            );
+            backend
+                .update_object::<ContactCard>(
+                    caller,
+                    account_id,
+                    card_id,
+                    PatchObject::from_map(patch_map),
+                )
+                .await
+                .map_err(|e| {
+                    json!({
+                        "type": "serverFail",
+                        "description":
+                            format!("cascade update of card {card_id} failed: {e:?}")
+                    })
+                })?;
+        }
+    }
+
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
