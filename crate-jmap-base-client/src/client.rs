@@ -638,6 +638,33 @@ impl JmapClient {
 ///    invocations are successes; the first is the primary response and
 ///    is what the caller wants.
 ///
+/// # Contract: `call_id` is the only matcher (bd:JMAP-6r7c.23)
+///
+/// The method-name field of the matching invocation is **not** checked
+/// against `T`. The function trusts the caller's choice of `call_id` to
+/// identify the invocation and trusts the server's choice of method name
+/// to be consistent with the request it was answering. Two consequences
+/// callers should be aware of:
+///
+/// - **Wrong `T` may still parse.** If a caller asks for
+///   `extract_response::<EmailGetResponse>(&resp, "r1")` but the matching
+///   invocation is actually a `Mailbox/get` response, `serde_json::from_value`
+///   will succeed on any structural overlap between the two shapes (both
+///   carry `accountId`, an `ids`/`list` field, etc.) and return a
+///   default-shaped `EmailGetResponse`. The function cannot detect this
+///   because it has no view of what method name the caller expected.
+/// - **Server ordering is trusted.** When multiple non-error invocations
+///   share a `call_id`, the function returns the first one in
+///   `resp.method_responses` order. RFC 8620 §5.8 implies the primary
+///   response is first, but the spec does not normatively require it; a
+///   non-conformant server that returns the implicit method first would
+///   silently get the wrong invocation deserialized as `T`.
+///
+/// Callers that need method-name verification or want to disambiguate
+/// among multiple non-error matches should iterate
+/// `resp.method_responses` directly. The field is public and the
+/// [`jmap_types::Invocation`] type is `(method, args, call_id)`.
+///
 /// This function is `pub` so extension crates (`jmap-chat-client`,
 /// `jmap-mail-client`) can use it to extract typed results from a
 /// [`jmap_types::JmapResponse`] without depending on internal details.
