@@ -112,8 +112,14 @@ impl std::error::Error for MemoryError {}
 // ---------------------------------------------------------------------------
 
 /// Type of a change recorded in the in-memory change log.
+///
+/// Internal-only — the canonical jmap-mail-server has no equivalent
+/// public type (changes are tracked via private internals there). Per
+/// workspace AGENTS.md "Canonical Templates" rule, this stays
+/// `pub(crate)` so filenode-server matches the canonical shape.
+/// Tests do not reference this enum directly (bd:JMAP-510h.35).
 #[derive(Clone, Debug)]
-pub enum ChangeType {
+pub(crate) enum ChangeType {
     /// Object was created.
     Created,
     /// Object was updated.
