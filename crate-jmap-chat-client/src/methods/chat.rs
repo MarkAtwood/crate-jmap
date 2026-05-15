@@ -278,8 +278,12 @@ impl super::SessionClient {
                 serde_json::to_value(ids).expect("Id slice Serialize is infallible"),
             );
         }
-        if let Some(s) = patch.message_expiry_seconds {
-            patch_map.insert("messageExpirySeconds".into(), s.into());
+        if let Some(entry) = patch
+            .message_expiry_seconds
+            .map_entry()
+            .map_err(jmap_base_client::ClientError::Parse)?
+        {
+            patch_map.insert("messageExpirySeconds".into(), entry);
         }
         if let Some(rs) = patch.receipt_sharing {
             patch_map.insert("receiptSharing".into(), rs.into());
