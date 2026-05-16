@@ -579,7 +579,7 @@ pub trait ChatBackend: JmapBackend {
     /// |---|---|---|
     /// | Any op, caller lacks the spec-mandated permission | `Forbidden` | the permission identifier as a substring (`"manage_space"`, `"manage_channels"`, `"manage_members"`, `"manage_roles"`, or a deployment-specific permission name) |
     /// | `AddRole` / `UpdateRole` at or above caller's highest role `position` | `Forbidden` | `"hierarchy"` or `"position"` |
-    /// | `RemoveMember` that would leave the Space with zero `manage_members`-holding members (when [`Self::protect_last_admin`] returns `true`) | `Forbidden` | `"last-admin"` or `"manage_members"` |
+    /// | Any op or combination of ops whose post-patch projection leaves the Space with zero `manage_members`-holding members (when [`Self::protect_last_admin`] returns `true`) | `Forbidden` | `"last-admin"` or `"manage_members"` |
     /// | `AddMember` with `userId` already a member | `InvalidProperties` (`properties: ["userId"]`) | implementation-defined; the reference impl names the duplicate userId |
     /// | `AddMember` with a `roleId` that does not name a role on this Space | `InvalidProperties` (`properties: ["roleIds"]`) | implementation-defined; the reference impl names the unknown roleId |
     /// | `RemoveRole` / `RemoveChannel` / `RemoveCategory` with an id that does not exist on this Space | `NotFound` | implementation-defined; the reference impl names the missing id |
@@ -720,9 +720,32 @@ pub trait ChatBackend: JmapBackend {
         Output = Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>>,
     > + Send;
 
-    /// Whether the backend should reject `RemoveMember` ops that would
-    /// leave the target Space with zero members holding either
-    /// `manage_members` or `manage_space` permission.
+    /// Whether the backend should reject any [`Self::apply_space_patch`]
+    /// that would leave the target Space with zero members holding
+    /// either `manage_members` or `manage_space` permission.
+    ///
+    /// # Invariant (by outcome, not by op type)
+    ///
+    /// The protection is invariant on the *post-patch* state of the
+    /// (member, role, permission) graph, not on any single op variant.
+    /// A backend that returns `true` from this method MUST reject every
+    /// patch whose post-application projection has zero members holding
+    /// `manage_members` or `manage_space`, including (non-exhaustively):
+    ///
+    /// - `RemoveMember` that removes the last admin member.
+    /// - `UpdateMember` that strips a role granting `manage_members` or
+    ///   `manage_space` from a member who holds no other such role.
+    /// - `UpdateRole` that removes `manage_members` or `manage_space`
+    ///   permission from a role currently held by the last admin.
+    /// - `RemoveRole` that drops a permission-granting role from the
+    ///   graph when no other role grants the same permission to a
+    ///   remaining member.
+    /// - Any combination of the above within a single `ops` vector
+    ///   whose cumulative effect is zero admins.
+    ///
+    /// Production backends should project the post-patch graph and
+    /// reject when the admin count would reach zero, regardless of
+    /// which op caused the transition.
     ///
     /// # Why this exists
     ///
@@ -751,13 +774,22 @@ pub trait ChatBackend: JmapBackend {
     /// `MemoryBackend::set_protect_last_admin_for_test(true)`. See
     /// `bd:JMAP-g7wu.2.4.3`.
     ///
+    /// The reference impl's projection is intentionally narrow: it
+    /// covers `RemoveMember` only, and does NOT model `UpdateMember`
+    /// role-strip, `UpdateRole` permission-strip, or `RemoveRole`
+    /// paths to zero-admin state. Production backends with the full
+    /// invariant requirement MUST extend the projection. See
+    /// `crate-jmap-chat-server/src/memory.rs:2838-2845` for the
+    /// reference-impl scoping note.
+    ///
     /// # Atomicity
     ///
     /// The check fires inside [`Self::apply_space_patch`] atomically
-    /// with the candidate `RemoveMember` mutation: the backend
-    /// snapshots the Space's member/role state, projects the post-
-    /// removal admin count, and rejects the whole update target with
-    /// a `forbidden` SetError if zero admins would remain.
+    /// with the candidate mutation: the backend snapshots the Space's
+    /// member/role state, projects the post-patch admin count across
+    /// all ops in the patch (member adds/removes, role-id changes,
+    /// permission edits), and rejects the whole update target with a
+    /// `Forbidden` SetError if zero admins would remain.
     fn protect_last_admin(&self, caller: &Self::CallerCtx, account_id: &jmap_types::Id) -> bool {
         let _ = (caller, account_id);
         true
