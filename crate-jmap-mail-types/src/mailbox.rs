@@ -262,13 +262,8 @@ pub struct MailboxFilterCondition {
 /// list matches every field actually serialised by the struct, so a
 /// new field on `MailboxFilterCondition` cannot quietly diverge from
 /// this list — `cargo test -p jmap-mail-types` will fail.
-pub const MAILBOX_FILTER_CONDITION_KEYS: &[&str] = &[
-    "parentId",
-    "name",
-    "role",
-    "hasAnyRole",
-    "isSubscribed",
-];
+pub const MAILBOX_FILTER_CONDITION_KEYS: &[&str] =
+    &["parentId", "name", "role", "hasAnyRole", "isSubscribed"];
 
 #[cfg(test)]
 mod tests {
@@ -422,8 +417,7 @@ mod tests {
             .map(String::as_str)
             .collect();
 
-        let declared_keys: BTreeSet<&str> =
-            MAILBOX_FILTER_CONDITION_KEYS.iter().copied().collect();
+        let declared_keys: BTreeSet<&str> = MAILBOX_FILTER_CONDITION_KEYS.iter().copied().collect();
 
         assert_eq!(
             declared_keys, serialised_keys,
