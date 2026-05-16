@@ -497,11 +497,95 @@ fn json_merge_patch_inner(
     Ok(())
 }
 
+/// Enforce RFC 8620 §5.3 `maxObjectsInSet` cap at the top of a `/set`
+/// handler (bd:JMAP-ayoz.41.1).
+///
+/// Counts entries in the wire `create` (object), `update` (object), and
+/// `destroy` (array) arguments. Returns
+/// [`JmapError::limit("maxObjectsInSet")`][JmapError::limit] — which maps
+/// to HTTP 400 + wire `type: "limit"` via [`crate::response::error_status`]
+/// — when the sum exceeds `max`.
+///
+/// Call at the top of every `handle_*_set` after the `account_exists`
+/// gate and before any per-entry processing. A request carrying
+/// megabytes of `/set` ops is rejected before the handler touches the
+/// storage layer:
+///
+/// ```ignore
+/// let (account_id, args) = extract_account_id(args)?;
+/// if !backend.account_exists(caller, &account_id).await
+///     .map_err(|e| server_fail_from_backend(&e))?
+/// {
+///     return Err(JmapError::account_not_found());
+/// }
+/// jmap_server::helpers::enforce_max_objects_in_set(
+///     &args,
+///     backend.max_objects_in_set(caller, &account_id),
+/// )?;
+/// ```
+///
+/// # Why this lives in the foundation
+///
+/// `maxObjectsInSet` is a RFC 8620 §5.3 base-protocol cap, not an
+/// extension concept. Every `jmap-*-server` extension's `handle_*_set`
+/// needs the same check; the helper is the single source of truth so a
+/// future revision (different error shape, additional counting rule,
+/// alternate semantics for non-object `create` / `update`) lands in one
+/// place instead of being propagated through 28 handler sites.
+///
+/// # Counting rules
+///
+/// - `create` is counted as `args["create"].as_object()?.len()` —
+///   missing key, `null`, or non-object types count as 0.
+/// - `update` is counted the same way (RFC 8620 §5.3 `update` is
+///   `Id[PatchObject]`).
+/// - `destroy` is counted as `args["destroy"].as_array()?.len()` —
+///   missing key, `null`, or non-array types count as 0.
+///
+/// Wire-shape validation of the individual `create` / `update` /
+/// `destroy` arguments belongs to the per-handler argument parsing,
+/// not to this cap-enforcement helper. A non-object `create` survives
+/// the cap check (counts as 0) and is rejected by the handler's
+/// downstream `args.remove("create")` match arm. Conversely, a
+/// well-formed but over-limit `create` is rejected here before the
+/// handler runs.
+///
+/// # Errors
+///
+/// Returns `JmapError::limit("maxObjectsInSet")` when the sum exceeds
+/// `max`. The HTTP layer maps this to a 400 response with the limit
+/// name in the RFC 7807 `"limit"` field.
+pub fn enforce_max_objects_in_set(args: &Map<String, Value>, max: u64) -> Result<(), JmapError> {
+    let create_count = args
+        .get("create")
+        .and_then(|v| v.as_object())
+        .map_or(0u64, |m| m.len() as u64);
+    let update_count = args
+        .get("update")
+        .and_then(|v| v.as_object())
+        .map_or(0u64, |m| m.len() as u64);
+    let destroy_count = args
+        .get("destroy")
+        .and_then(|v| v.as_array())
+        .map_or(0u64, |a| a.len() as u64);
+    // u64 saturation: each count is bounded by serde_json's body parse
+    // (Map::len / Vec::len are usize; on 64-bit targets usize == u64,
+    // on 32-bit targets usize < u64). The sum cannot exceed
+    // 3 * u32::MAX even on 32-bit hosts, well within u64 range.
+    let count = create_count
+        .saturating_add(update_count)
+        .saturating_add(destroy_count);
+    if count > max {
+        return Err(JmapError::limit("maxObjectsInSet"));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::{
-        civil_from_days, extract_account_id, json_merge_patch, now_utc_string, MergePatchError,
-        MAX_MERGE_PATCH_DEPTH,
+        civil_from_days, enforce_max_objects_in_set, extract_account_id, json_merge_patch,
+        now_utc_string, MergePatchError, MAX_MERGE_PATCH_DEPTH,
     };
     use serde_json::json;
 
@@ -838,5 +922,143 @@ mod tests {
             s.contains("merge patch"),
             "Display must identify the error source; got {s:?}"
         );
+    }
+
+    // ------------------------------------------------------------------
+    // enforce_max_objects_in_set (bd:JMAP-ayoz.41.1) — RFC 8620 §5.3
+    //
+    // Oracles for all tests below are hand-built JmapError comparisons
+    // and hand-built JSON args; the helper itself is never the oracle.
+    // ------------------------------------------------------------------
+
+    /// Oracle (RFC 8620 §5.3): an empty `/set` args envelope (no
+    /// `create` / `update` / `destroy` keys) MUST pass any positive cap.
+    #[test]
+    fn enforce_max_objects_in_set_empty_args_is_ok() {
+        let args = json!({}).as_object().unwrap().clone();
+        enforce_max_objects_in_set(&args, 500).expect("empty args must be under any positive cap");
+    }
+
+    /// Oracle (RFC 8620 §5.3): at the exact boundary count == max, the
+    /// helper MUST return Ok. The cap is enforced as strictly-greater
+    /// (`count > max`), not greater-or-equal.
+    #[test]
+    fn enforce_max_objects_in_set_at_limit_is_ok() {
+        // 5 + 5 + 5 = 15 entries against max=15 must pass.
+        let mut create = serde_json::Map::new();
+        let mut update = serde_json::Map::new();
+        let mut destroy = Vec::new();
+        for i in 0..5 {
+            create.insert(format!("c{i}"), json!({}));
+            update.insert(format!("u{i}"), json!({}));
+            destroy.push(json!(format!("d{i}")));
+        }
+        let args = json!({
+            "create": create,
+            "update": update,
+            "destroy": destroy,
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        enforce_max_objects_in_set(&args, 15).expect("exact-boundary count must be allowed");
+    }
+
+    /// Oracle (RFC 8620 §5.3 + §3.6.1): one entry over the cap MUST
+    /// return JmapError of type "limit" with description "maxObjectsInSet".
+    /// The wire shape is verified by hand-building the expected
+    /// JmapError independently of the helper.
+    #[test]
+    fn enforce_max_objects_in_set_over_limit_returns_limit_error() {
+        // 5 + 5 + 6 = 16 entries against max=15 must fail.
+        let mut create = serde_json::Map::new();
+        let mut update = serde_json::Map::new();
+        let mut destroy = Vec::new();
+        for i in 0..5 {
+            create.insert(format!("c{i}"), json!({}));
+            update.insert(format!("u{i}"), json!({}));
+        }
+        for i in 0..6 {
+            destroy.push(json!(format!("d{i}")));
+        }
+        let args = json!({
+            "create": create,
+            "update": update,
+            "destroy": destroy,
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        let err = enforce_max_objects_in_set(&args, 15)
+            .expect_err("16-entry args against max=15 must fail");
+        // Independent oracle — hand-built JmapError, not derived from
+        // the function under test.
+        let expected = jmap_types::JmapError::limit("maxObjectsInSet");
+        assert_eq!(
+            err.error_type.as_str(),
+            expected.error_type.as_str(),
+            "type must be \"limit\""
+        );
+        assert_eq!(
+            err.description.as_deref(),
+            Some("maxObjectsInSet"),
+            "description must name the exceeded cap"
+        );
+    }
+
+    /// Oracle (RFC 8620 §5.3): a non-object `create` argument (e.g.
+    /// `null` or a string) counts as 0 — wire-shape validation belongs
+    /// to the per-handler argument parsing, not this cap helper. The
+    /// handler will reject the malformed `create` downstream; this
+    /// helper only counts well-formed entries.
+    #[test]
+    fn enforce_max_objects_in_set_ignores_non_object_create() {
+        let args = json!({
+            "create": null,
+            "update": null,
+            "destroy": ["id1"],
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        // Only the 1 destroy entry counts.
+        enforce_max_objects_in_set(&args, 1).expect("non-object create/update count as 0");
+    }
+
+    /// Oracle (RFC 8620 §5.3): a non-array `destroy` argument counts
+    /// as 0. Same rationale as the create/update test above.
+    #[test]
+    fn enforce_max_objects_in_set_ignores_non_array_destroy() {
+        let args = json!({
+            "create": { "c0": {} },
+            "destroy": "not-an-array",
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        // Only the 1 create entry counts.
+        enforce_max_objects_in_set(&args, 1).expect("non-array destroy counts as 0");
+    }
+
+    /// Oracle (RFC 8620 §5.3): the cap counts the SUM of all three
+    /// sources. A request whose individual create/update/destroy
+    /// counts are each below the cap can still trip the cap when
+    /// summed.
+    #[test]
+    fn enforce_max_objects_in_set_sums_all_three() {
+        // 3 + 3 + 3 = 9; against max=5, must fail because the SUM > max
+        // even though each individual count <= max.
+        let args = json!({
+            "create": { "c0": {}, "c1": {}, "c2": {} },
+            "update": { "u0": {}, "u1": {}, "u2": {} },
+            "destroy": ["d0", "d1", "d2"],
+        })
+        .as_object()
+        .unwrap()
+        .clone();
+        let err =
+            enforce_max_objects_in_set(&args, 5).expect_err("sum-of-all-three must trip the cap");
+        assert_eq!(err.error_type.as_str(), "limit");
+        assert_eq!(err.description.as_deref(), Some("maxObjectsInSet"));
     }
 }
