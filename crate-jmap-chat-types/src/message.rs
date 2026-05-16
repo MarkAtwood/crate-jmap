@@ -178,11 +178,26 @@ pub struct Attachment {
     pub size: u64,
     /// SHA-256 digest of the attachment content, hex-encoded: exactly 64 lowercase hex characters.
     ///
-    /// Kept as `String` rather than a validated newtype because this crate is wire-format only —
-    /// it does not validate field values, consistent with how `Id`, `UTCDate`, and `body_type`
-    /// are handled. A newtype with `TryFrom` validation would be inconsistent with that boundary.
-    /// A newtype without validation would add type-tagging overhead for a field that already has
-    /// a distinct name; mixing it with `blob_id` is not a realistic mistake.
+    /// Kept as `String` rather than `jmap_cid_types::Sha256` for
+    /// canonical-template parity with `jmap-mail-types`, the
+    /// workspace-canonical extension-types crate, whose
+    /// dependency set is the same three crates (jmap-types, serde,
+    /// serde_json) as this one. Adopting `jmap_cid_types::Sha256`
+    /// here without first propagating the dep into the canonical
+    /// would diverge from the canonical-template rule documented
+    /// in the per-crate AGENTS.md ("Do not introduce a dependency
+    /// that `jmap-mail-types` does not also have, without explicit
+    /// user approval.").
+    ///
+    /// The workspace-architectural question of whether to take a
+    /// hard dep on `jmap-cid-types` from every extension-types crate
+    /// that carries a content hash on the wire is tracked
+    /// separately. Until that lands, consumers MUST validate this
+    /// field's shape themselves: exactly 64 lowercase hex
+    /// characters (`[0-9a-f]{64}`) per the spec. A `String`
+    /// without validation is a known trust-the-wire posture; the
+    /// failure mode is a silent-acceptance bug if a consumer
+    /// forgets the validation step.
     pub sha256: String,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
