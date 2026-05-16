@@ -7448,6 +7448,28 @@ async fn mailbox_set_destroy_non_string_returns_invalid_arguments() {
     );
 }
 
+/// Oracle: VacationResponse/set with a non-string element in `destroy` returns
+/// `invalidArguments` for the whole method call (RFC 8620 §5.3).
+#[tokio::test]
+async fn vacation_set_destroy_non_string_returns_invalid_arguments() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("acct1"));
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "destroy": [{}, 1, null],
+    });
+    let result = handle_vacation_set(&backend, &(), args).await;
+    assert!(
+        result.is_err(),
+        "non-string destroy element must return an error; got Ok"
+    );
+    let err = result.unwrap_err();
+    assert_eq!(
+        err.error_type, "invalidArguments",
+        "error type must be invalidArguments; got: {err:?}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // JMAP-yqo.1 — Email/parse must honour header: dynamic properties
 // ---------------------------------------------------------------------------
