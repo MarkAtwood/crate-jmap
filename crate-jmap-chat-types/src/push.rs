@@ -3,7 +3,8 @@
 use crate::chat::ChatKind;
 use crate::message::SenderId;
 use jmap_types::{Id, State, UTCDate};
-use serde::{Deserialize, Serialize};
+use serde::de::Error as _;
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 /// Client-supplied filter controlling which push notifications are delivered.
 ///
@@ -112,10 +113,20 @@ pub struct ChatMessageEntry {
 ///
 /// The wire format includes `"@type": "ChatMessagePush"` as a discriminant.
 /// `state` is a JMAP state token ([`State`]) — an opaque, comparable string token.
+///
+/// # Serialize / Deserialize
+///
+/// The `@type` discriminant is emitted on serialize and consumed on
+/// deserialize via a hand-rolled (De)Serialize pair rather than
+/// `#[serde(tag = "...")]`. The derive-based approach interacts
+/// pathologically with `#[serde(flatten)]` on the
+/// [`extra`](Self::extra) catch-all: the tag string ends up in
+/// both the tag slot AND the flatten map, producing duplicate
+/// `@type` keys on re-serialise. The hand-rolled impl strips
+/// `@type` from the deserialised map before populating `extra` so
+/// the catch-all does not capture the discriminant.
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(tag = "@type", rename = "ChatMessagePush")]
-#[serde(rename_all = "camelCase")]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ChatMessagePush {
     /// The `accountId` property (draft-atwood-jmap-chat-push-00 §5.1).
     pub account_id: Id,
@@ -126,9 +137,85 @@ pub struct ChatMessagePush {
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
-    /// policy (see workspace AGENTS.md).
-    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    /// policy (see workspace AGENTS.md). The `@type` discriminant is
+    /// stripped before population so callers can rely on
+    /// `extras.get("@type").is_none()`.
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Wire-tag value for [`ChatMessagePush`]. Used by both
+/// (De)Serialize impls; the single source of truth for the
+/// `@type` discriminant.
+const CHAT_MESSAGE_PUSH_TYPE: &str = "ChatMessagePush";
+
+/// Helper: derive-shaped twin of [`ChatMessagePush`] without the
+/// `@type` machinery. Used as an internal serde target so the
+/// hand-rolled (De)Serialize impls can defer to derived
+/// (de)serialise for the typed fields and only handle the
+/// `@type` injection / stripping themselves.
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ChatMessagePushFields {
+    account_id: Id,
+    state: State,
+    messages: Vec<ChatMessageEntry>,
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl Serialize for ChatMessagePush {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let twin = ChatMessagePushFields {
+            account_id: self.account_id.clone(),
+            state: self.state.clone(),
+            messages: self.messages.clone(),
+            extra: self.extra.clone(),
+        };
+        let mut value = serde_json::to_value(&twin).map_err(serde::ser::Error::custom)?;
+        if let serde_json::Value::Object(ref mut map) = value {
+            map.insert(
+                "@type".to_owned(),
+                serde_json::Value::String(CHAT_MESSAGE_PUSH_TYPE.to_owned()),
+            );
+        }
+        value.serialize(s)
+    }
+}
+
+impl<'de> Deserialize<'de> for ChatMessagePush {
+    fn deserialize<D: Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
+        let mut map = serde_json::Map::<String, serde_json::Value>::deserialize(d)?;
+        // Strip and verify @type before deserialising the typed
+        // fields. If @type is present it MUST equal "ChatMessagePush";
+        // a mismatch is a wire-protocol error.
+        match map.remove("@type") {
+            Some(serde_json::Value::String(s)) if s == CHAT_MESSAGE_PUSH_TYPE => {}
+            Some(serde_json::Value::String(s)) => {
+                return Err(D::Error::custom(format!(
+                    "@type must be \"{CHAT_MESSAGE_PUSH_TYPE}\", found \"{s}\""
+                )));
+            }
+            Some(other) => {
+                return Err(D::Error::custom(format!(
+                    "@type must be a string, found {other}"
+                )));
+            }
+            None => {
+                // @type absent — accept for backwards-compat with
+                // deserialisers that already routed the value
+                // here via outer dispatch. The derive-shaped
+                // serialise always emits it on the way out.
+            }
+        }
+        let twin: ChatMessagePushFields =
+            serde_json::from_value(serde_json::Value::Object(map)).map_err(D::Error::custom)?;
+        Ok(ChatMessagePush {
+            account_id: twin.account_id,
+            state: twin.state,
+            messages: twin.messages,
+            extra: twin.extra,
+        })
+    }
 }
 
 impl ChatMessagePush {
@@ -428,8 +515,13 @@ mod tests {
     }
 
     /// `ChatMessagePush.extra` captures vendor fields and preserves them.
-    /// Note: the `@type` tag is consumed by the struct's `#[serde(tag)]`
-    /// directive and not captured by `extra`.
+    /// The `@type` tag is consumed by the struct's `#[serde(tag)]`
+    /// directive; the test below ASSERTS @type is NOT captured by
+    /// extra (which would otherwise cause duplicate keys on
+    /// re-serialise). Without that negative assertion, a future
+    /// serde regression on the tag-vs-flatten interaction would
+    /// pass the old "vendor field round-trips" check but corrupt
+    /// the wire payload.
     #[test]
     fn chat_message_push_preserves_vendor_extras() {
         let raw = serde_json::json!({
@@ -440,11 +532,37 @@ mod tests {
             "acmeCorpBatchId": "batch-7"
         });
         let push: ChatMessagePush = serde_json::from_value(raw).unwrap();
+
+        // Positive: vendor field is captured.
         assert_eq!(
             push.extra.get("acmeCorpBatchId").and_then(|v| v.as_str()),
             Some("batch-7")
         );
+
+        // Negative: the tag-vs-flatten interaction excludes @type
+        // from extras. A regression here would emit duplicate @type
+        // keys on re-serialise.
+        assert!(
+            push.extra.get("@type").is_none(),
+            "@type must not leak into extras; got: {:?}",
+            push.extra
+        );
+
+        // Round-trip preserves the vendor field AND emits @type
+        // exactly once at the top level.
         let back = serde_json::to_value(&push).unwrap();
         assert_eq!(back["acmeCorpBatchId"], "batch-7");
+        assert_eq!(back["@type"], "ChatMessagePush");
+
+        // Serialise to a string and verify @type appears exactly
+        // once. JSON forbids duplicate keys at the parser level,
+        // but serializers MAY emit duplicates; this asserts the
+        // emitted bytes are well-formed.
+        let json = serde_json::to_string(&push).unwrap();
+        let occurrences = json.matches(r#""@type":"#).count();
+        assert_eq!(
+            occurrences, 1,
+            "@type must appear exactly once in serialised output; got {occurrences} in {json}"
+        );
     }
 }
