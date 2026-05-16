@@ -260,6 +260,20 @@ pub struct MessageAction {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub expires_at: Option<UTCDate>,
     /// The `metadata` property (draft-atwood-jmap-chat-00 §4.3).
+    ///
+    /// Type-specific key-value pairs whose shape is keyed by the
+    /// [`action_type`](Self::action_type) discriminant. The draft
+    /// (§4.3) deliberately leaves the per-type value shape open
+    /// and requires that "Clients MUST ignore unknown keys".
+    /// Consumers that need typed access for a known
+    /// `action_type` value MUST cast via
+    /// `serde_json::from_value::<MyTypedShape>(metadata.clone())`
+    /// at their boundary; this crate does not enforce a schema and
+    /// will not in future revisions, because the draft is the
+    /// schema authority and explicitly keeps the value shape
+    /// extensible per type.
+    ///
+    /// The value is a JSON Object on the wire per the draft.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
     /// Catch-all for vendor / site / private extension fields not covered
