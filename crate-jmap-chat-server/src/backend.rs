@@ -277,6 +277,18 @@ impl SlowModeError {
     }
 }
 
+impl std::fmt::Display for SlowModeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "slow-mode rate limit; retry after {}",
+            self.retry_after.as_ref()
+        )
+    }
+}
+
+impl std::error::Error for SlowModeError {}
+
 // ---------------------------------------------------------------------------
 // ChatBackend trait
 // ---------------------------------------------------------------------------
@@ -1060,5 +1072,44 @@ pub trait ChatBackend: JmapBackend {
         _message_id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send {
         async { Ok(()) }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::SlowModeError;
+    use jmap_types::UTCDate;
+
+    #[test]
+    fn slow_mode_error_display_contains_retry_after() {
+        let err = SlowModeError::new(UTCDate::from("2026-05-16T12:34:56Z"));
+        let rendered = format!("{err}");
+        assert!(
+            rendered.contains("slow-mode rate limit"),
+            "Display missing prefix: {rendered}"
+        );
+        assert!(
+            rendered.contains("2026-05-16T12:34:56Z"),
+            "Display missing retry_after timestamp: {rendered}"
+        );
+    }
+
+    #[test]
+    fn slow_mode_error_is_std_error() {
+        // Compile-time check that SlowModeError implements std::error::Error.
+        // If this fails to compile, the trait impl regressed.
+        fn assert_is_error<E: std::error::Error>(_: &E) {}
+        let err = SlowModeError::new(UTCDate::from("2026-05-16T12:34:56Z"));
+        assert_is_error(&err);
+    }
+
+    #[test]
+    fn slow_mode_error_boxes_as_dyn_error() {
+        // Independent oracle: the std error machinery itself. If
+        // SlowModeError does not implement std::error::Error this
+        // conversion does not compile.
+        let err = SlowModeError::new(UTCDate::from("2026-05-16T12:34:56Z"));
+        let boxed: Box<dyn std::error::Error> = Box::new(err);
+        assert!(boxed.to_string().contains("slow-mode rate limit"));
     }
 }
