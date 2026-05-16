@@ -110,6 +110,24 @@ impl std::error::Error for Sha256DigestError {}
 /// SHA-256 digest carried on the JMAP wire as a 64-character
 /// lowercase hex string (draft-atwood-jmap-cid-00 §2).
 ///
+/// # Example
+///
+/// ```
+/// use jmap_cid_types::Sha256;
+///
+/// // The SHA-256 of the empty string (FIPS 180-4 published vector).
+/// let hex = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+/// let d: Sha256 = hex.parse()?;
+/// assert_eq!(d.as_str(), hex);
+///
+/// // Round-trips bit-for-bit through serde as a bare JSON string.
+/// let json = serde_json::to_string(&d)?;
+/// assert_eq!(json, format!("\"{hex}\""));
+/// let d2: Sha256 = serde_json::from_str(&json)?;
+/// assert_eq!(d, d2);
+/// # Ok::<(), Box<dyn std::error::Error>>(())
+/// ```
+///
 /// # Construction
 ///
 /// All four ABNF-validating paths share the same parse logic from
@@ -311,6 +329,32 @@ impl From<Sha256> for String {
     }
 }
 
+// Sibling-of-Id newtype: matches the impl_string_newtype! macro
+// surface from `jmap-types/src/id.rs` (PartialEq<str>,
+// PartialEq<&str>, Borrow<str>) so `Sha256` reads like every other
+// wire-format newtype in the workspace. The infallible From<String>
+// / From<&str> impls are deliberately omitted — `Sha256`'s ABNF
+// is closed (exactly 64 lowercase hex chars), unlike Id's open
+// SAFE-CHAR set, so construction is strictly fallible. See
+// bd:JMAP-sf5h.7 for the decision record.
+impl PartialEq<str> for Sha256 {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl PartialEq<&str> for Sha256 {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl std::borrow::Borrow<str> for Sha256 {
+    fn borrow(&self) -> &str {
+        &self.0
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -391,8 +435,13 @@ mod tests {
     #[test]
     fn from_raw_digest_formats_canonical_lowercase_hex() {
         // SHA-256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
-        // (NIST FIPS 180-4 published vector — independent oracle, not
-        // derived from this crate).
+        // (NIST FIPS 180-4 published vector — independent oracle, NOT
+        // derived from this crate). The vector is hand-copied into the
+        // test rather than computed via sha2::Sha256::digest() at test
+        // time, because the latter would close the oracle loop: any
+        // nibble-ordering or character-table bug in from_raw_digest
+        // would emit the same wrong digest the test expects. See
+        // bd:JMAP-sf5h.8 for the decision record.
         let bytes: [u8; 32] = [
             0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f,
             0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b,
@@ -514,6 +563,43 @@ mod tests {
         assert_eq!(d.as_str(), VALID);
         let err: Result<Sha256, _> = "bogus".to_string().try_into();
         assert!(err.is_err());
+    }
+
+    #[test]
+    fn partial_eq_str_compares_against_string_slice() {
+        // Sibling-of-Id pattern (crate-jmap-types/src/id.rs): a wire
+        // newtype compares directly against &str without forcing the
+        // caller to write .as_str() at the call site.
+        let d = Sha256::from_hex(VALID).unwrap();
+        assert!(d == *VALID);
+        assert!(d != *"deadbeef");
+    }
+
+    #[test]
+    fn partial_eq_ref_str_compares_against_borrowed_slice() {
+        let d = Sha256::from_hex(VALID).unwrap();
+        let s: &str = VALID;
+        assert!(d == s);
+        let other: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+        assert!(d != other);
+    }
+
+    #[test]
+    fn borrow_str_enables_hashmap_lookup_by_str_key() {
+        // Without `impl Borrow<str> for Sha256`, HashMap<Sha256, _>::get(&str)
+        // does not compile. This test demonstrates the lookup pattern works.
+        use std::borrow::Borrow;
+        use std::collections::HashMap;
+
+        let d = Sha256::from_hex(VALID).unwrap();
+        // Sanity: Borrow<str> yields the same bytes as as_str().
+        let borrowed: &str = d.borrow();
+        assert_eq!(borrowed, VALID);
+
+        let mut m: HashMap<Sha256, &'static str> = HashMap::new();
+        m.insert(d, "value");
+        // Look up by &str — this compiles only when Borrow<str> exists.
+        assert_eq!(m.get(VALID), Some(&"value"));
     }
 
     #[test]
