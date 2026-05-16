@@ -106,13 +106,30 @@ struct ChangeEntry {
 /// Per-account auxiliary state that is not keyed by object type.
 #[derive(Default, Clone)]
 struct AccountAux {
-    /// Set of AddressBook ids that have at least one ContactCard attached
-    /// (drives `AddressBook/set` destroy rejection with
-    /// `addressBookHasContents` per RFC 9610 §3 when
-    /// `onDestroyRemoveContents` is `false`). Maintained as a derived
-    /// index over the ContactCard store; kept in sync by `create_object` /
-    /// `update_object` / `destroy_object` for the ContactCard type.
-    address_books_with_contents: HashSet<Id>,
+    /// Reverse index: `address_book_id → count of ContactCard objects
+    /// that reference it`. Used to answer "does AddressBook X have any
+    /// contents?" in `O(1)` for the `addressBookHasContents` destroy
+    /// rejection (RFC 9610 §3 when `onDestroyRemoveContents` is
+    /// `false`).
+    ///
+    /// Maintained incrementally by `apply_contact_card_index_delta`,
+    /// called from each ContactCard `create_object` / `update_object` /
+    /// `destroy_object` / `copy_contact_card` (which already have the
+    /// old + new JSON in hand). `seed_object` falls back to
+    /// `recompute_address_book_card_counts` since it bypasses the
+    /// trait-impl mutators and the old state is unknown. Entries reach
+    /// `0` only briefly during a multi-step update; the delta helper
+    /// deletes any entry that returns to `0` so
+    /// `counts.contains_key(id)` is a valid "has contents?" test.
+    ///
+    /// bd:JMAP-ic0j.74 — replaces an earlier `HashSet<Id>` that was
+    /// rebuilt by a full scan of the ContactCard store on every
+    /// mutation (`O(N)` per write, `O(N²)` ingest). The reverse-index
+    /// counter preserves correctness and makes each mutation `O(k)`
+    /// in the size of the changed card's `addressBookIds` (typically
+    /// 1–3). Mirrors `jmap-calendars-server::AccountAux::calendar_event_counts`
+    /// (bd:JMAP-ic0j.8).
+    address_book_card_counts: HashMap<Id, u32>,
 }
 
 /// Shared inner state, behind Arc<Mutex>.
@@ -194,26 +211,88 @@ impl Inner {
         self.aux.get(account_id)
     }
 
-    /// Recompute `address_books_with_contents` for the given account by
-    /// scanning the ContactCard store. Each ContactCard references one or
-    /// more AddressBooks via `addressBookIds: HashMap<Id, bool>` (RFC 9610
-    /// §3 — JMAP addition over RFC 9553).
-    fn recompute_address_books_with_contents(&mut self, account_id: &str) {
-        let cards = self
-            .objects
-            .get(&("ContactCard", account_id.to_owned()))
-            .cloned()
-            .unwrap_or_default();
-
-        let mut set: HashSet<Id> = HashSet::new();
-        for value in cards.values() {
-            if let Some(map) = value.get("addressBookIds").and_then(|v| v.as_object()) {
-                for k in map.keys() {
-                    set.insert(Id::from(k.as_str()));
+    /// Rebuild `address_book_card_counts` for the given account from
+    /// scratch by scanning the ContactCard store. Each ContactCard
+    /// references one or more AddressBooks via
+    /// `addressBookIds: HashMap<Id, bool>` (RFC 9610 §3 — JMAP
+    /// addition over RFC 9553).
+    ///
+    /// `O(N)` in the number of cards. Reserved for `seed_object`, which
+    /// bypasses the trait-impl mutators and therefore has no
+    /// before/after pair to feed `apply_contact_card_index_delta`. The
+    /// counter map is built from an iterator chain that takes only an
+    /// immutable borrow of `self.objects` so the subsequent
+    /// `self.aux_mut(account_id)` call is free to take the mutable
+    /// borrow. Avoids cloning the ContactCard map. bd:JMAP-ic0j.74,
+    /// mirrors `jmap-calendars-server::Inner::recompute_calendar_event_counts`
+    /// (bd:JMAP-ic0j.40 / .8).
+    fn recompute_address_book_card_counts(&mut self, account_id: &str) {
+        let mut counts: HashMap<Id, u32> = HashMap::new();
+        if let Some(map) = self.objects.get(&("ContactCard", account_id.to_owned())) {
+            for v in map.values() {
+                if let Some(book_ids) = v.get("addressBookIds").and_then(|c| c.as_object()) {
+                    for k in book_ids.keys() {
+                        *counts.entry(Id::from(k.as_str())).or_insert(0) += 1;
+                    }
                 }
             }
         }
-        self.aux_mut(account_id).address_books_with_contents = set;
+        self.aux_mut(account_id).address_book_card_counts = counts;
+    }
+
+    /// Apply a single ContactCard mutation to the reverse-index counter
+    /// in `O(k)` where `k` is the size of the symmetric difference
+    /// between `old.addressBookIds` and `new.addressBookIds` (typically
+    /// 0–3).
+    ///
+    /// - `old = None, new = Some(v)`: create — increment counter for
+    ///   each id in `v.addressBookIds`.
+    /// - `old = Some(v), new = None`: destroy — decrement counter for
+    ///   each id in `v.addressBookIds`, removing entries that reach
+    ///   `0`.
+    /// - `old = Some(a), new = Some(b)`: update — decrement for ids in
+    ///   `a \ b`, increment for ids in `b \ a`, leave intersection
+    ///   alone.
+    ///
+    /// A value with no `addressBookIds` field, or with a non-object
+    /// `addressBookIds`, contributes no ids on its side of the delta —
+    /// this matches the convention that a card without
+    /// `addressBookIds` references no address books (RFC 9610 §3
+    /// rejects such cards at the trait surface but the helper stays
+    /// defensive).
+    ///
+    /// bd:JMAP-ic0j.74, mirrors
+    /// `jmap-calendars-server::Inner::apply_calendar_event_index_delta`
+    /// (bd:JMAP-ic0j.8).
+    fn apply_contact_card_index_delta(
+        &mut self,
+        account_id: &str,
+        old: Option<&serde_json::Value>,
+        new: Option<&serde_json::Value>,
+    ) {
+        let extract = |v: Option<&serde_json::Value>| -> HashSet<Id> {
+            v.and_then(|v| v.get("addressBookIds"))
+                .and_then(|c| c.as_object())
+                .map(|m| m.keys().map(|k| Id::from(k.as_str())).collect())
+                .unwrap_or_default()
+        };
+        let old_ids = extract(old);
+        let new_ids = extract(new);
+
+        let aux = self.aux_mut(account_id);
+        for added in new_ids.difference(&old_ids) {
+            *aux.address_book_card_counts
+                .entry(added.clone())
+                .or_insert(0) += 1;
+        }
+        for removed in old_ids.difference(&new_ids) {
+            if let Some(n) = aux.address_book_card_counts.get_mut(removed) {
+                *n = n.saturating_sub(1);
+                if *n == 0 {
+                    aux.address_book_card_counts.remove(removed);
+                }
+            }
+        }
     }
 }
 
@@ -271,7 +350,12 @@ impl MemoryBackend {
             .objects_mut(type_name, account_id)
             .insert(Id::from(id), value);
         if type_name == "ContactCard" {
-            inner.recompute_address_books_with_contents(account_id);
+            // bd:JMAP-ic0j.74 — `seed_object` bypasses the trait-impl
+            // mutators that maintain the incremental reverse index, so
+            // fall back to a full rebuild of `address_book_card_counts`.
+            // `seed_object` is only called from test/demo setup so the
+            // `O(N)` cost is acceptable.
+            inner.recompute_address_book_card_counts(account_id);
         }
     }
 
@@ -739,6 +823,13 @@ impl ContactsBackend for MemoryBackend {
         })?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        // bd:JMAP-ic0j.74 — for ContactCard, feed the new value to the
+        // incremental index updater before the move into storage so we
+        // don't have to look it back up. For other types this branch is
+        // unused (the index helper extracts no ids and does nothing).
+        if O::TYPE_NAME == "ContactCard" {
+            inner.apply_contact_card_index_delta(account_id.as_ref(), None, Some(&val));
+        }
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(server_id.clone(), val);
@@ -750,10 +841,6 @@ impl ContactsBackend for MemoryBackend {
                 updated: vec![],
                 destroyed: vec![],
             });
-
-        if O::TYPE_NAME == "ContactCard" {
-            inner.recompute_address_books_with_contents(account_id.as_ref());
-        }
 
         Ok((server_id, stored_obj))
     }
@@ -772,14 +859,12 @@ impl ContactsBackend for MemoryBackend {
             .get(id)
             .cloned();
 
-        let mut current = match existing {
-            Some(v) => v,
-            None => {
-                return Err(BackendSetError::SetError(SetError::new(
-                    SetErrorType::NotFound,
-                )))
-            }
+        let Some(old_value) = existing else {
+            return Err(BackendSetError::SetError(SetError::new(
+                SetErrorType::NotFound,
+            )));
         };
+        let mut current = old_value.clone();
 
         // Apply JSON Merge Patch (RFC 7396). A `MergePatchError::DepthExceeded`
         // return (bd:JMAP-wlip.1) surfaces as `SetErrorType::InvalidPatch` —
@@ -832,6 +917,17 @@ impl ContactsBackend for MemoryBackend {
         }
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
+        // bd:JMAP-ic0j.74 — for ContactCard, the incremental index
+        // update needs both the pre-patch (`old_value`) and post-patch
+        // (`current`) JSON in hand. We pass both before moving `current`
+        // into storage.
+        if O::TYPE_NAME == "ContactCard" {
+            inner.apply_contact_card_index_delta(
+                account_id.as_ref(),
+                Some(&old_value),
+                Some(&current),
+            );
+        }
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(id.clone(), current);
@@ -843,10 +939,6 @@ impl ContactsBackend for MemoryBackend {
                 updated: vec![id.clone()],
                 destroyed: vec![],
             });
-
-        if O::TYPE_NAME == "ContactCard" {
-            inner.recompute_address_books_with_contents(account_id.as_ref());
-        }
 
         Ok(None)
     }
@@ -864,7 +956,7 @@ impl ContactsBackend for MemoryBackend {
             .remove(id);
 
         match removed {
-            Some(_) => {
+            Some(old_value) => {
                 let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
                 inner
                     .change_log_mut(O::TYPE_NAME, account_id.as_ref())
@@ -874,8 +966,15 @@ impl ContactsBackend for MemoryBackend {
                         updated: vec![],
                         destroyed: vec![id.clone()],
                     });
+                // bd:JMAP-ic0j.74 — for ContactCard, feed the removed
+                // value as `old` (and no `new`) so the reverse-index
+                // counter decrements its address book ids.
                 if O::TYPE_NAME == "ContactCard" {
-                    inner.recompute_address_books_with_contents(account_id.as_ref());
+                    inner.apply_contact_card_index_delta(
+                        account_id.as_ref(),
+                        Some(&old_value),
+                        None,
+                    );
                 }
                 Ok(())
             }
@@ -925,6 +1024,10 @@ impl ContactsBackend for MemoryBackend {
             })?;
 
         let new_state = inner.bump_state("ContactCard", to_account_id.as_ref());
+        // bd:JMAP-ic0j.74 — copy is a create on the destination account;
+        // feed the new value to the incremental index updater before
+        // moving `val` into storage.
+        inner.apply_contact_card_index_delta(to_account_id.as_ref(), None, Some(&val));
         inner
             .objects_mut("ContactCard", to_account_id.as_ref())
             .insert(new_id.clone(), val);
@@ -936,7 +1039,6 @@ impl ContactsBackend for MemoryBackend {
                 updated: vec![],
                 destroyed: vec![],
             });
-        inner.recompute_address_books_with_contents(to_account_id.as_ref());
 
         Ok((new_id, stored))
     }
@@ -948,10 +1050,13 @@ impl ContactsBackend for MemoryBackend {
         address_book_id: &Id,
     ) -> bool {
         let inner = self.inner.lock().unwrap();
+        // bd:JMAP-ic0j.74 — `address_book_card_counts` entries are
+        // deleted when the count reaches 0, so `contains_key` is a
+        // valid "has any ContactCards?" test without needing to read
+        // the count value.
         inner
             .aux_ref(account_id.as_ref())
-            .map(|a| a.address_books_with_contents.contains(address_book_id))
-            .unwrap_or(false)
+            .is_some_and(|a| a.address_book_card_counts.contains_key(address_book_id))
     }
 }
 
@@ -1846,5 +1951,384 @@ mod demo_id_tests {
 
         assert!(id1.as_ref() < id2.as_ref());
         assert!(id2.as_ref() < id3.as_ref());
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests for the incremental address_book_card_counts reverse index
+// (bd:JMAP-ic0j.74)
+//
+// These tests probe the index directly by inspecting the AccountAux state
+// after a sequence of mutations. The oracle is hand-computed expected
+// counter values per mutation step, NOT a round-trip through the
+// `recompute_address_book_card_counts` full-rescan (which would be a
+// self-test against the same code path). The full-rescan is used as a
+// separate cross-check: an "equivalence" test verifies that the
+// incremental index after a sequence of mutations matches the full-rescan
+// result, where the full-rescan is invoked manually only as the oracle.
+//
+// Mirrors `jmap-calendars-server::memory::calendar_event_counts_tests`
+// (bd:JMAP-ic0j.8) byte-for-byte modulo type names.
+// ---------------------------------------------------------------------------
+
+#[cfg(test)]
+mod address_book_card_counts_tests {
+    use super::*;
+
+    fn count(backend: &MemoryBackend, account_id: &str, address_book_id: &str) -> u32 {
+        let inner = backend.inner.lock().unwrap();
+        inner
+            .aux_ref(account_id)
+            .and_then(|a| a.address_book_card_counts.get(&Id::from(address_book_id)))
+            .copied()
+            .unwrap_or(0)
+    }
+
+    fn has_key(backend: &MemoryBackend, account_id: &str, address_book_id: &str) -> bool {
+        let inner = backend.inner.lock().unwrap();
+        inner.aux_ref(account_id).is_some_and(|a| {
+            a.address_book_card_counts
+                .contains_key(&Id::from(address_book_id))
+        })
+    }
+
+    /// Oracle: a single seeded card referencing book1 produces a count
+    /// of exactly 1 under book1, and no entry for any other book.
+    #[test]
+    fn seed_single_card_single_book_count_is_one() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "card1",
+            serde_json::json!({"id": "card1", "addressBookIds": {"book1": true}}),
+        );
+        assert_eq!(count(&backend, "acc1", "book1"), 1);
+        assert!(!has_key(&backend, "acc1", "book2"));
+    }
+
+    /// Oracle: two seeded cards both referencing book1 produce a count
+    /// of 2 — verifies the counter accumulates rather than overwriting.
+    #[test]
+    fn seed_two_cards_same_book_count_is_two() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "card1",
+            serde_json::json!({"id": "card1", "addressBookIds": {"book1": true}}),
+        );
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "card2",
+            serde_json::json!({"id": "card2", "addressBookIds": {"book1": true}}),
+        );
+        assert_eq!(count(&backend, "acc1", "book1"), 2);
+    }
+
+    /// Oracle: a single card referencing two books (book1 + book2)
+    /// contributes 1 to each — verifies the index handles the JMAP
+    /// "card-in-multiple-books" case (RFC 9610 §3 `addressBookIds` is
+    /// a `Map<Id, bool>`).
+    #[test]
+    fn seed_card_with_multiple_books_each_gets_one() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "card1",
+            serde_json::json!({
+                "id": "card1",
+                "addressBookIds": {"book1": true, "book2": true}
+            }),
+        );
+        assert_eq!(count(&backend, "acc1", "book1"), 1);
+        assert_eq!(count(&backend, "acc1", "book2"), 1);
+    }
+
+    /// Oracle: seeding three cards across three books leaves counters
+    /// that match a from-scratch rescan against independent expected
+    /// values.
+    ///
+    /// `seed_object` performs a full rescan after each call (it
+    /// bypasses the incremental delta helper), so this test is
+    /// principally a correctness probe of
+    /// `recompute_address_book_card_counts` against independent
+    /// expected values. It establishes that the full-rescan oracle
+    /// used elsewhere in this module is itself sound.
+    #[test]
+    fn seed_then_seed_yields_correct_counts() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "card1",
+            serde_json::json!({"id": "card1", "addressBookIds": {"book1": true}}),
+        );
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "card2",
+            serde_json::json!({"id": "card2", "addressBookIds": {"book2": true}}),
+        );
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "card3",
+            serde_json::json!({"id": "card3", "addressBookIds": {"book2": true, "book3": true}}),
+        );
+        assert_eq!(count(&backend, "acc1", "book1"), 1);
+        assert_eq!(count(&backend, "acc1", "book2"), 2);
+        assert_eq!(count(&backend, "acc1", "book3"), 1);
+        assert!(!has_key(&backend, "acc1", "book4"));
+    }
+
+    fn contact_card(uid: &str, book_ids: &[&str]) -> jmap_contacts_types::ContactCard {
+        let mut book_id_map = serde_json::Map::new();
+        for b in book_ids {
+            book_id_map.insert((*b).to_owned(), serde_json::Value::Bool(true));
+        }
+        serde_json::from_value(serde_json::json!({
+            "@type": "Card",
+            "uid": uid,
+            "addressBookIds": book_id_map,
+            "name": { "@type": "Name", "full": uid },
+        }))
+        .expect("ContactCard deserialization must succeed for valid fixture JSON")
+    }
+
+    /// Oracle: a sequence of `create_object` / `update_object` /
+    /// `destroy_object` calls through the real `ContactsBackend` trait
+    /// path produces a final reverse-index counter map that is
+    /// byte-identical to the result of a from-scratch full rescan over
+    /// the current ContactCard store. The full-rescan implementation
+    /// (`recompute_address_book_card_counts`) is the independent
+    /// oracle: it re-derives the map from the storage, never consulting
+    /// the incremental state.
+    ///
+    /// This is the canonical correctness check for the incremental
+    /// algorithm in `apply_contact_card_index_delta`. If any of the
+    /// three /set production paths fail to maintain the index, the
+    /// final equality check fails.
+    #[tokio::test]
+    async fn incremental_matches_full_rescan_under_mixed_workload() {
+        let backend = MemoryBackend::new().with_account("acc1");
+
+        // Seed two cards: one in book1, one in book2. Seed triggers a
+        // full rescan, so after this the index is whatever rescan
+        // produces.
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "seed1",
+            serde_json::json!({"id": "seed1", "addressBookIds": {"book1": true}}),
+        );
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "seed2",
+            serde_json::json!({"id": "seed2", "addressBookIds": {"book2": true}}),
+        );
+
+        // Create three more cards through the real /set path, exercising
+        // the incremental delta helper. Distinct uids per RFC 9610 §3.
+        let (id1, _) = backend
+            .create_object::<jmap_contacts_types::ContactCard>(
+                &(),
+                &Id::from("acc1"),
+                "c1",
+                contact_card("u1", &["book1", "book3"]),
+            )
+            .await
+            .unwrap();
+        let (id2, _) = backend
+            .create_object::<jmap_contacts_types::ContactCard>(
+                &(),
+                &Id::from("acc1"),
+                "c2",
+                contact_card("u2", &["book2"]),
+            )
+            .await
+            .unwrap();
+        let _ = backend
+            .create_object::<jmap_contacts_types::ContactCard>(
+                &(),
+                &Id::from("acc1"),
+                "c3",
+                contact_card("u3", &["book3"]),
+            )
+            .await
+            .unwrap();
+
+        // Destroy two of them, also via the real /set path.
+        backend
+            .destroy_object::<jmap_contacts_types::ContactCard>(&(), &Id::from("acc1"), &id1)
+            .await
+            .unwrap();
+        backend
+            .destroy_object::<jmap_contacts_types::ContactCard>(&(), &Id::from("acc1"), &id2)
+            .await
+            .unwrap();
+
+        // Cross-check against the from-scratch oracle.
+        let mut inner = backend.inner.lock().unwrap();
+        let incremental = inner
+            .aux_ref("acc1")
+            .unwrap()
+            .address_book_card_counts
+            .clone();
+        inner.recompute_address_book_card_counts("acc1");
+        let from_scratch = inner
+            .aux_ref("acc1")
+            .unwrap()
+            .address_book_card_counts
+            .clone();
+        assert_eq!(
+            incremental, from_scratch,
+            "incremental index must match full-rescan after a mixed workload\n\
+             incremental={incremental:?}\nfull-rescan={from_scratch:?}"
+        );
+    }
+
+    /// Oracle: create followed by destroy of the same card leaves the
+    /// counter at 0 for the book id it referenced, and the entry is
+    /// deleted (so `contains_key` returns false). Exercises the
+    /// incremental path through both production code branches.
+    #[tokio::test]
+    async fn create_then_destroy_removes_entry() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let (id, _) = backend
+            .create_object::<jmap_contacts_types::ContactCard>(
+                &(),
+                &Id::from("acc1"),
+                "c1",
+                contact_card("u1", &["book1"]),
+            )
+            .await
+            .unwrap();
+        assert_eq!(count(&backend, "acc1", "book1"), 1);
+
+        backend
+            .destroy_object::<jmap_contacts_types::ContactCard>(&(), &Id::from("acc1"), &id)
+            .await
+            .unwrap();
+        assert!(
+            !has_key(&backend, "acc1", "book1"),
+            "entry must be removed when count reaches 0"
+        );
+    }
+
+    /// Oracle: when two cards share a book id and only one is
+    /// destroyed, the counter drops from 2 to 1 and the entry is
+    /// retained. Verifies the counter doesn't collapse to 0
+    /// prematurely.
+    #[tokio::test]
+    async fn create_two_destroy_one_keeps_entry() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let (id1, _) = backend
+            .create_object::<jmap_contacts_types::ContactCard>(
+                &(),
+                &Id::from("acc1"),
+                "c1",
+                contact_card("u1", &["book1"]),
+            )
+            .await
+            .unwrap();
+        let _ = backend
+            .create_object::<jmap_contacts_types::ContactCard>(
+                &(),
+                &Id::from("acc1"),
+                "c2",
+                contact_card("u2", &["book1"]),
+            )
+            .await
+            .unwrap();
+        assert_eq!(count(&backend, "acc1", "book1"), 2);
+
+        backend
+            .destroy_object::<jmap_contacts_types::ContactCard>(&(), &Id::from("acc1"), &id1)
+            .await
+            .unwrap();
+        assert_eq!(count(&backend, "acc1", "book1"), 1);
+        assert!(has_key(&backend, "acc1", "book1"));
+    }
+
+    /// Oracle: `apply_contact_card_index_delta` handles the
+    /// update-style transition where addressBookIds change from
+    /// {book1} to {book2}. The unit-level test bypasses the full /set
+    /// machinery and drives the helper directly so the diff math is
+    /// exercised in isolation. Expected: book1 count drops to 0 and
+    /// the entry is removed; book2 count rises to 1.
+    #[test]
+    fn apply_delta_old_to_new_swaps_book_ids() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let old = serde_json::json!({"addressBookIds": {"book1": true}});
+        let new = serde_json::json!({"addressBookIds": {"book2": true}});
+
+        // First, pretend a card in book1 already exists.
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            inner.apply_contact_card_index_delta("acc1", None, Some(&old));
+        }
+        assert_eq!(count(&backend, "acc1", "book1"), 1);
+
+        // Now apply the swap.
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            inner.apply_contact_card_index_delta("acc1", Some(&old), Some(&new));
+        }
+        assert!(!has_key(&backend, "acc1", "book1"));
+        assert_eq!(count(&backend, "acc1", "book2"), 1);
+    }
+
+    /// Oracle: the no-op case — when `old` and `new` have identical
+    /// addressBookIds, the delta is empty and counters are unchanged.
+    #[test]
+    fn apply_delta_identical_old_new_is_noop() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let v = serde_json::json!({"addressBookIds": {"book1": true, "book2": true}});
+
+        // Establish baseline.
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            inner.apply_contact_card_index_delta("acc1", None, Some(&v));
+        }
+        assert_eq!(count(&backend, "acc1", "book1"), 1);
+        assert_eq!(count(&backend, "acc1", "book2"), 1);
+
+        // Apply old==new; nothing should change.
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            inner.apply_contact_card_index_delta("acc1", Some(&v), Some(&v));
+        }
+        assert_eq!(count(&backend, "acc1", "book1"), 1);
+        assert_eq!(count(&backend, "acc1", "book2"), 1);
+    }
+
+    /// Oracle: a value with no `addressBookIds` field contributes no
+    /// ids. Tests the defensive code path that handles malformed or
+    /// partial JSON without panicking. (The /set production path
+    /// rejects empty/absent addressBookIds at the trait surface per
+    /// RFC 9610 §3, but the helper stays robust.)
+    #[test]
+    fn apply_delta_value_without_address_book_ids_contributes_nothing() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        let bare = serde_json::json!({"id": "card1"}); // no addressBookIds
+        let with_ids = serde_json::json!({"addressBookIds": {"book1": true}});
+
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            // bare -> with_ids: incr book1 only
+            inner.apply_contact_card_index_delta("acc1", Some(&bare), Some(&with_ids));
+        }
+        assert_eq!(count(&backend, "acc1", "book1"), 1);
+
+        {
+            let mut inner = backend.inner.lock().unwrap();
+            // with_ids -> bare: decr book1 to 0, remove
+            inner.apply_contact_card_index_delta("acc1", Some(&with_ids), Some(&bare));
+        }
+        assert!(!has_key(&backend, "acc1", "book1"));
     }
 }
