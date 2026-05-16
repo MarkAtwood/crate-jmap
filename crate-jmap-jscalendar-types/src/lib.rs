@@ -60,6 +60,12 @@ impl AsRef<str> for LocalDateTime {
     }
 }
 
+impl std::fmt::Display for LocalDateTime {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 /// An ISO 8601 duration string (RFC 8984 §1.4.6).
 ///
 /// Example: `"PT1H"`, `"P1DT2H"`.
@@ -82,6 +88,12 @@ impl From<&str> for Duration {
 impl AsRef<str> for Duration {
     fn as_ref(&self) -> &str {
         &self.0
+    }
+}
+
+impl std::fmt::Display for Duration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
     }
 }
 
@@ -111,6 +123,12 @@ impl AsRef<str> for SignedDuration {
     }
 }
 
+impl std::fmt::Display for SignedDuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
 // ── RecurrenceRule ────────────────────────────────────────────────────────────
 
 /// The `nthOfPeriod` field of an [`NDay`] entry (RFC 8984 §4.3.3).
@@ -135,6 +153,20 @@ pub struct NDay {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl NDay {
+    /// Construct a new `NDay` with the mandatory `day` value
+    /// (RFC 8984 §4.3.3).  `at_type` is set to `"NDay"`; all optional
+    /// fields default to `None` / empty.
+    pub fn new(day: impl Into<String>) -> Self {
+        Self {
+            at_type: "NDay".to_owned(),
+            day: day.into(),
+            nth_of_period: None,
+            extra: serde_json::Map::new(),
+        }
+    }
 }
 
 /// A recurrence rule as defined in RFC 8984 §4.3.3.
@@ -222,6 +254,38 @@ pub struct RecurrenceRule {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl RecurrenceRule {
+    /// Construct a new `RecurrenceRule` with the mandatory `frequency`
+    /// value (RFC 8984 §4.3.3).  `at_type` is set to `"RecurrenceRule"`;
+    /// all optional fields default to `None`.
+    ///
+    /// `frequency` MUST be one of `"yearly"`, `"monthly"`, `"weekly"`,
+    /// `"daily"`, `"hourly"`, `"minutely"`, `"secondly"` per the spec —
+    /// not enforced at construction time.
+    pub fn new(frequency: impl Into<String>) -> Self {
+        Self {
+            at_type: "RecurrenceRule".to_owned(),
+            frequency: frequency.into(),
+            interval: None,
+            rscale: None,
+            skip: None,
+            first_day_of_week: None,
+            by_day: None,
+            by_month_day: None,
+            by_month: None,
+            by_year_day: None,
+            by_week_no: None,
+            by_hour: None,
+            by_minute: None,
+            by_second: None,
+            by_set_position: None,
+            count: None,
+            until: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 // ── Location and VirtualLocation ─────────────────────────────────────────────
 
 /// A physical or virtual location associated with an event (RFC 8984 §4.2.5).
@@ -269,6 +333,30 @@ pub struct Location {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl Location {
+    /// Construct a new `Location` (RFC 8984 §4.2.5) with `at_type` set to
+    /// `"Location"` and all optional fields defaulted to `None`.
+    pub fn new() -> Self {
+        Self {
+            at_type: "Location".to_owned(),
+            name: None,
+            description: None,
+            location_types: None,
+            relative_to: None,
+            time_zone: None,
+            coordinates: None,
+            links: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
+impl Default for Location {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// An online meeting or virtual location (RFC 8984 §4.2.6).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -304,6 +392,22 @@ pub struct VirtualLocation {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl VirtualLocation {
+    /// Construct a new `VirtualLocation` with the mandatory `uri` value
+    /// (RFC 8984 §4.2.6).  `at_type` is set to `"VirtualLocation"`; all
+    /// optional fields default to `None`.
+    pub fn new(uri: impl Into<String>) -> Self {
+        Self {
+            at_type: "VirtualLocation".to_owned(),
+            name: None,
+            description: None,
+            uri: uri.into(),
+            features: None,
+            extra: serde_json::Map::new(),
+        }
+    }
 }
 
 // ── Link ─────────────────────────────────────────────────────────────────────
@@ -431,6 +535,46 @@ impl std::fmt::Display for LinkSourceError {
 impl std::error::Error for LinkSourceError {}
 
 impl Link {
+    /// Construct an empty `Link` (RFC 8984 §1.4.11) with `at_type` set
+    /// to `"Link"` and all optional fields defaulted to `None`.
+    ///
+    /// Note: the returned `Link` does NOT satisfy the source invariant
+    /// (at least one of `href`/`blob_id` MUST be set); callers are
+    /// expected to set one of them before serializing.  Use
+    /// [`Link::validate_source`] to check.
+    pub fn new() -> Self {
+        Self {
+            at_type: "Link".to_owned(),
+            href: None,
+            content_type: None,
+            size: None,
+            rel: None,
+            display: None,
+            cid: None,
+            title: None,
+            blob_id: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+
+    /// Construct a `Link` from an `href` URI string (the RFC 8984 §1.4.11
+    /// happy path).
+    pub fn with_href(href: impl Into<String>) -> Self {
+        Self {
+            href: Some(href.into()),
+            ..Self::new()
+        }
+    }
+
+    /// Construct a `Link` referencing a JMAP blob by id (JMAP Calendars
+    /// draft §5.3).
+    pub fn with_blob_id(blob_id: Id) -> Self {
+        Self {
+            blob_id: Some(blob_id),
+            ..Self::new()
+        }
+    }
+
     /// Validate the source invariant: at least one of `href` or
     /// `blob_id` MUST be present.
     ///
@@ -450,6 +594,12 @@ impl Link {
         } else {
             Ok(())
         }
+    }
+}
+
+impl Default for Link {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -475,6 +625,24 @@ pub struct Relation {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl Relation {
+    /// Construct an empty `Relation` (RFC 8984 §1.4.10) with `at_type`
+    /// set to `"Relation"` and all optional fields defaulted to `None`.
+    pub fn new() -> Self {
+        Self {
+            at_type: "Relation".to_owned(),
+            relation: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
+impl Default for Relation {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 // ── Participant ───────────────────────────────────────────────────────────────
@@ -640,6 +808,51 @@ pub struct Participant {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl Participant {
+    /// Construct a new `Participant` with the mandatory `roles` map
+    /// (RFC 8984 §4.4.6).  `at_type` is set to `"Participant"`; all
+    /// optional fields default to `None`.
+    ///
+    /// Per RFC 8984 §4.4.6 the `roles` map MUST be non-empty: "At least
+    /// one role MUST be specified for the participant".  This
+    /// constructor accepts any `HashMap`, including an empty one — the
+    /// non-empty mandate is not enforced at construction time so that
+    /// partial in-flight values round-trip cleanly.  Callers SHOULD
+    /// populate at least one role entry before serializing.
+    pub fn new(roles: HashMap<String, bool>) -> Self {
+        Self {
+            at_type: "Participant".to_owned(),
+            name: None,
+            email: None,
+            description: None,
+            send_to: None,
+            kind: None,
+            roles,
+            location_id: None,
+            language: None,
+            participation_status: None,
+            participation_comment: None,
+            expect_reply: None,
+            schedule_agent: None,
+            calendar_address: None,
+            invited_by: None,
+            delegated_to: None,
+            delegated_from: None,
+            member_of: None,
+            links: None,
+            schedule_sequence: None,
+            schedule_updated: None,
+            schedule_status: None,
+            schedule_force_send: None,
+            sent_by: None,
+            progress: None,
+            progress_updated: None,
+            percent_complete: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 // ── Alert ─────────────────────────────────────────────────────────────────────
 
 /// A trigger time given as an offset from the event start or end
@@ -668,6 +881,20 @@ pub struct OffsetTrigger {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl OffsetTrigger {
+    /// Construct a new `OffsetTrigger` with the mandatory `offset` value
+    /// (RFC 8984 §4.5.2).  `at_type` is set to `"OffsetTrigger"`;
+    /// `relative_to` defaults to `None` (the spec default is `"start"`).
+    pub fn new(offset: SignedDuration) -> Self {
+        Self {
+            at_type: "OffsetTrigger".to_owned(),
+            offset,
+            relative_to: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// A trigger time given as an absolute UTC date-time (RFC 8984 §4.5.2).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -688,6 +915,18 @@ pub struct AbsoluteTrigger {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl AbsoluteTrigger {
+    /// Construct a new `AbsoluteTrigger` with the mandatory `when` value
+    /// (RFC 8984 §4.5.2).  `at_type` is set to `"AbsoluteTrigger"`.
+    pub fn new(when: UTCDate) -> Self {
+        Self {
+            at_type: "AbsoluteTrigger".to_owned(),
+            when,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// Alert trigger — either offset-based, absolute, or an unknown future type
 /// (RFC 8984 §4.5.2).
 ///
@@ -699,6 +938,28 @@ pub struct AbsoluteTrigger {
 /// Serde is implemented manually because `#[serde(tag = "@type", other)]`
 /// with a tuple variant is not supported by serde's derive macros; `other`
 /// only works with unit variants in internally-tagged enums.
+///
+/// # Deserialization behaviour on malformed input
+///
+/// The custom `Deserialize` impl is deliberately permissive about the JSON
+/// *shape* of the input — only the `@type` tag drives the dispatch.  Any
+/// input whose `@type` is missing, is not a string, or names a tag other
+/// than `"OffsetTrigger"` / `"AbsoluteTrigger"` is captured as
+/// [`AlertTrigger::Unknown`] carrying the original `serde_json::Value`
+/// unchanged.  This includes:
+///
+/// - top-level non-objects: `null`, arrays, numbers, strings, booleans
+/// - objects without an `@type` key
+/// - objects whose `@type` is a non-string value (`null`, `42`, `[]`)
+/// - objects whose `@type` is a string outside the known set
+///
+/// The rationale is round-trip fidelity per the spec's preserve-mandate:
+/// rejecting at deserialize time would force consumers to drop data they
+/// are supposed to preserve.  Consumers that need a stricter check should
+/// pattern-match on the variant and inspect the carried `Value`.  A future
+/// well-typed `AlertTrigger` variant only ever displaces input that
+/// previously matched on `@type` exactly, so this permissive behaviour is
+/// forward-compatible with the spec's evolution.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum AlertTrigger {
@@ -777,6 +1038,22 @@ pub struct Alert {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl Alert {
+    /// Construct a new `Alert` with the mandatory `trigger` value
+    /// (RFC 8984 §4.5.2).  `at_type` is set to `"Alert"`; all optional
+    /// fields default to `None`.
+    pub fn new(trigger: AlertTrigger) -> Self {
+        Self {
+            at_type: "Alert".to_owned(),
+            trigger,
+            acknowledged: None,
+            related_to: None,
+            action: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 // ── TimeZone / TimeZoneRule ───────────────────────────────────────────────────
 
 /// A STANDARD or DAYLIGHT sub-component of a [`TimeZone`] (RFC 8984 §4.7.2).
@@ -831,6 +1108,33 @@ pub struct TimeZoneRule {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl TimeZoneRule {
+    /// Construct a new `TimeZoneRule` with the three mandatory fields
+    /// (RFC 8984 §4.7.2).  `at_type` is set to `"TimeZoneRule"`; all
+    /// optional fields default to `None`.
+    ///
+    /// `offset_from` / `offset_to` MUST be a valid signed offset string
+    /// (`±HHMM` or `±HHMMSS`) per the spec — not enforced at
+    /// construction time.
+    pub fn new(
+        start: LocalDateTime,
+        offset_from: impl Into<String>,
+        offset_to: impl Into<String>,
+    ) -> Self {
+        Self {
+            at_type: "TimeZoneRule".to_owned(),
+            start,
+            offset_from: offset_from.into(),
+            offset_to: offset_to.into(),
+            recurrence_rules: None,
+            recurrence_overrides: None,
+            names: None,
+            comments: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// A time-zone definition embedded in `CalendarEvent.timeZones` or
 /// `Task.timeZones` (RFC 8984 §4.7.2).
 ///
@@ -882,6 +1186,30 @@ pub struct TimeZone {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl TimeZone {
+    /// Construct a new `TimeZone` with the mandatory `tz_id` value
+    /// (RFC 8984 §4.7.2).  `at_type` is set to `"TimeZone"`; all
+    /// optional fields default to `None`.
+    ///
+    /// Per RFC 8984 §4.7.2 a valid TimeZone MUST define at least one
+    /// transition rule in `standard` or `daylight`; this constructor
+    /// does not enforce that — callers are expected to populate at
+    /// least one of them before serializing.
+    pub fn new(tz_id: impl Into<String>) -> Self {
+        Self {
+            at_type: "TimeZone".to_owned(),
+            tz_id: tz_id.into(),
+            updated: None,
+            url: None,
+            valid_until: None,
+            aliases: None,
+            standard: None,
+            daylight: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! Wire-format regression tests for the newtype-typed temporal fields
@@ -895,6 +1223,80 @@ mod tests {
     //! `{"0": …}` on the wire.
     use super::*;
     use serde_json::json;
+
+    /// Oracle: every `new` constructor sets `at_type` to the wire
+    /// discriminator literal mandated by RFC 8984.  Round-trips through
+    /// serde_json::to_value reproduces the discriminator on the wire as
+    /// `"@type": "<TypeName>"`, matching the spec text verbatim.
+    /// (bd:JMAP-mno4.10)
+    #[test]
+    fn constructors_set_at_type_to_wire_discriminator() {
+        // Cases (constructed_value, expected_wire_discriminator).
+        let nday = NDay::new("mo");
+        let rule = RecurrenceRule::new("weekly");
+        let loc = Location::new();
+        let vloc = VirtualLocation::new("https://example.com/m");
+        let link = Link::with_href("https://example.com/x");
+        let rel = Relation::new();
+        let mut roles = HashMap::new();
+        roles.insert("attendee".to_owned(), true);
+        let part = Participant::new(roles);
+        let off = OffsetTrigger::new(SignedDuration::from("-PT15M"));
+        let abs = AbsoluteTrigger::new(UTCDate::from("2024-06-15T08:45:00Z"));
+        let alert = Alert::new(AlertTrigger::OffsetTrigger(off.clone()));
+        let rule_in_tz = TimeZoneRule::new(
+            LocalDateTime::from("1970-01-01T00:00:00"),
+            "+0000",
+            "+0000",
+        );
+        let tz = TimeZone::new("Etc/UTC");
+
+        for (val, expected_tag) in [
+            (serde_json::to_value(&nday).unwrap(), "NDay"),
+            (serde_json::to_value(&rule).unwrap(), "RecurrenceRule"),
+            (serde_json::to_value(&loc).unwrap(), "Location"),
+            (serde_json::to_value(&vloc).unwrap(), "VirtualLocation"),
+            (serde_json::to_value(&link).unwrap(), "Link"),
+            (serde_json::to_value(&rel).unwrap(), "Relation"),
+            (serde_json::to_value(&part).unwrap(), "Participant"),
+            (serde_json::to_value(&off).unwrap(), "OffsetTrigger"),
+            (serde_json::to_value(&abs).unwrap(), "AbsoluteTrigger"),
+            (serde_json::to_value(&alert).unwrap(), "Alert"),
+            (serde_json::to_value(&rule_in_tz).unwrap(), "TimeZoneRule"),
+            (serde_json::to_value(&tz).unwrap(), "TimeZone"),
+        ] {
+            assert_eq!(
+                val["@type"], expected_tag,
+                "constructor must set @type to {expected_tag}; got {val:?}"
+            );
+        }
+    }
+
+    /// Oracle: `Link::with_blob_id` and `Link::with_href` both satisfy
+    /// the source invariant.
+    #[test]
+    fn link_constructors_satisfy_source_invariant() {
+        let with_href = Link::with_href("https://example.com");
+        let with_blob = Link::with_blob_id(Id::from("Ge682d5d7aad50b3a4f"));
+        let empty = Link::new();
+        assert!(with_href.validate_source().is_ok());
+        assert!(with_blob.validate_source().is_ok());
+        assert_eq!(empty.validate_source(), Err(LinkSourceError::Missing));
+    }
+
+    /// Oracle: the three scalar newtypes (`LocalDateTime`, `Duration`,
+    /// `SignedDuration`) format via `std::fmt::Display` as the bare wire
+    /// string, matching the wire format defined in RFC 8984 §1.4.5/.6/.7.
+    /// Without `Display`, `format!("at {dt}")` would not compile.
+    #[test]
+    fn scalar_newtypes_display_as_wire_string() {
+        let dt = LocalDateTime::from("2024-06-15T09:00:00");
+        let dur = Duration::from("PT1H");
+        let sdur = SignedDuration::from("-PT15M");
+        assert_eq!(format!("{dt}"), "2024-06-15T09:00:00");
+        assert_eq!(format!("{dur}"), "PT1H");
+        assert_eq!(format!("{sdur}"), "-PT15M");
+    }
 
     /// Oracle: `RecurrenceRule.until` serializes as a bare LocalDateTime
     /// string (RFC 8984 §4.3.3 example shape), not a wrapped array or
@@ -945,6 +1347,54 @@ mod tests {
             json!("-PT15M"),
             "offset must serialize as a bare string; got {round_tripped:?}"
         );
+    }
+
+    /// Oracle: `AlertTrigger::deserialize` accepts all malformed/hostile
+    /// JSON shapes and routes them to `Unknown(Value)` per the documented
+    /// permissive policy (RFC 8984 §4.5.2 preserve-mandate).  Verifies
+    /// the bd:JMAP-mno4.19 docstring claim with a probe — none of these
+    /// inputs panic, error, or get reshaped; all land in `Unknown` with
+    /// the input `Value` intact.
+    #[test]
+    fn alert_trigger_unknown_dispatch_on_hostile_input() {
+        let hostile_values = [
+            ("null", json!(null)),
+            ("empty_array", json!([])),
+            ("integer", json!(42)),
+            ("bare_string", json!("hello")),
+            ("boolean", json!(true)),
+            ("object_without_at_type", json!({"offset": "-PT15M"})),
+            ("object_with_int_at_type", json!({"@type": 42})),
+            ("object_with_null_at_type", json!({"@type": null})),
+            ("object_with_array_at_type", json!({"@type": []})),
+            (
+                "object_with_unknown_tag",
+                json!({"@type": "FuturisticTrigger", "futuristicArg": 1}),
+            ),
+        ];
+        for (label, v) in hostile_values {
+            let parsed: AlertTrigger = serde_json::from_value(v.clone())
+                .unwrap_or_else(|e| panic!("{label}: must not error, got {e}"));
+            match parsed {
+                AlertTrigger::Unknown(round) => assert_eq!(
+                    round, v,
+                    "{label}: Unknown must preserve the input Value bit-exactly"
+                ),
+                other => panic!("{label}: expected Unknown variant, got {other:?}"),
+            }
+        }
+    }
+
+    /// Oracle: `AlertTrigger::Unknown(Value)` round-trips through serialize
+    /// → deserialize unchanged, including a non-object payload.  The
+    /// Serialize impl just delegates to the inner Value, so a non-object
+    /// stored in `Unknown` round-trips verbatim.
+    #[test]
+    fn alert_trigger_unknown_round_trips_through_serialize() {
+        let original = AlertTrigger::Unknown(json!({"@type": "X", "k": 1}));
+        let wire = serde_json::to_value(&original).unwrap();
+        let back: AlertTrigger = serde_json::from_value(wire).unwrap();
+        assert_eq!(original, back);
     }
 
     /// Oracle: `AbsoluteTrigger.when` serializes as a bare UTC date-time
