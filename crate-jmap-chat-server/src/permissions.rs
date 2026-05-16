@@ -117,7 +117,7 @@ pub fn required_permissions_for_op(op: &SpacePatchOp) -> RequiredPermissions {
         | SpacePatchOp::UpdateRole { .. } => RequiredPermissions::Known(&[MANAGE_ROLES]),
 
         // Member add/remove — draft §Space/set lines 1111, 1114.
-        SpacePatchOp::AddMember { .. } | SpacePatchOp::RemoveMember(_) => {
+        SpacePatchOp::AddMember(_) | SpacePatchOp::RemoveMember(_) => {
             RequiredPermissions::Known(&[MANAGE_MEMBERS])
         }
 
@@ -237,10 +237,10 @@ mod tests {
 
     #[test]
     fn add_member_requires_manage_members_only() {
-        let op = SpacePatchOp::AddMember {
-            user_id: Id::from("u1"),
-            role_ids: vec![Id::from("r1"), Id::from("r2")],
-        };
+        let op = SpacePatchOp::AddMember(jmap_chat_types::MemberCreate::new(
+            Id::from("u1"),
+            vec![Id::from("r1"), Id::from("r2")],
+        ));
         // Spec table: `addMembers` is `manage_members`. The role_ids field on
         // AddMember does NOT additionally require `manage_roles` — only
         // `updateMembers` with a roleIds change does.

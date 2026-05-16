@@ -1165,7 +1165,7 @@ fn apply_space_patch_impl(
             SpacePatchOp::UpdateRole { .. } => {
                 apply_update_role(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
             }
-            SpacePatchOp::AddMember { .. } => {
+            SpacePatchOp::AddMember(_) => {
                 apply_add_member(inner, account_id.as_ref(), space_id, op, &mut space_mutated)
             }
             SpacePatchOp::RemoveMember(_) => {
@@ -2388,7 +2388,7 @@ fn apply_add_member(
     space_mutated: &mut bool,
 ) -> Result<Option<Id>, SetError> {
     let (user_id, role_ids) = match op {
-        SpacePatchOp::AddMember { user_id, role_ids } => (user_id, role_ids),
+        SpacePatchOp::AddMember(create) => (create.user_id, create.role_ids),
         _ => unreachable!("apply_add_member called with non-AddMember variant"),
     };
 
@@ -2785,8 +2785,8 @@ fn validate_space_patch_ops(
                         }
                     }
                 }
-                SpacePatchOp::AddMember { role_ids, .. } => {
-                    for rid in role_ids {
+                SpacePatchOp::AddMember(create) => {
+                    for rid in &create.role_ids {
                         if let Some(pos) = role_position(space_val, rid.as_ref()) {
                             if pos >= caller_highest {
                                 return Err(hierarchy_error(pos, caller_highest, "AddMember"));
@@ -3075,7 +3075,7 @@ fn variant_name(op: &SpacePatchOp) -> &'static str {
         SpacePatchOp::AddRole(_) => "AddRole",
         SpacePatchOp::RemoveRole(_) => "RemoveRole",
         SpacePatchOp::UpdateRole { .. } => "UpdateRole",
-        SpacePatchOp::AddMember { .. } => "AddMember",
+        SpacePatchOp::AddMember(_) => "AddMember",
         SpacePatchOp::RemoveMember(_) => "RemoveMember",
         SpacePatchOp::UpdateMember { .. } => "UpdateMember",
         SpacePatchOp::AddChannel(_) => "AddChannel",
