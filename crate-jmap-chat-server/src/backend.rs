@@ -848,16 +848,44 @@ pub trait ChatBackend: JmapBackend {
     }
 
     /// Predicate consulted by typing/presence fan-out paths: is the
-    /// requesting caller blocked by the given contact?
+    /// caller (the sender of the ephemeral event) blocked by the
+    /// recipient who owns `account_id`'s contact list?
     ///
     /// Per draft-atwood-jmap-chat-00 commit `d68b4e3` (2026-05-11,
     /// "close blocked-sender suppression gaps for typing/presence"):
-    /// when the requesting account corresponds to a [`ChatContact`]
-    /// whose `blocked` is `true` on the recipient's contact list, the
+    /// when the sender corresponds to a [`ChatContact`] whose
+    /// `blocked` is `true` on the recipient's contact list, the
     /// server MUST silently suppress the ephemeral event for that
     /// recipient. The sender is NOT informed.
     ///
     /// [`ChatContact`]: jmap_chat_types::ChatContact
+    ///
+    /// # Argument semantics
+    ///
+    /// - `caller`: identity of the sender. Backends with identity
+    ///   wired resolve this via
+    ///   [`JmapBackend::principal_id`];
+    ///   the resolved principal is matched against the
+    ///   [`ChatContact`]'s implementation-defined principal binding
+    ///   to determine which `ChatContact` (if any) in the recipient's
+    ///   list represents the sender.
+    /// - `account_id`: the **recipient's** account, i.e. the account
+    ///   that owns the [`ChatContact`] list to consult. NOT the
+    ///   sender's account.
+    /// - `contact_id`: the candidate [`ChatContact`] id within the
+    ///   recipient's account. The backend checks whether THIS
+    ///   contact's `blocked` field is `true` AND whether THIS
+    ///   contact corresponds to the sender (via the principal
+    ///   binding resolved from `caller`).
+    ///
+    /// # Single-user mode (principal_id returns None)
+    ///
+    /// Backends that have not wired identity cannot match the sender
+    /// against a `ChatContact` principal binding. Such backends
+    /// SHOULD fail-safe by returning `Ok(false)` (the default impl
+    /// does this), which preserves visibility — under-suppression in
+    /// a single-user dev deployment is preferable to
+    /// over-suppression that would mask a misconfigured backend.
     ///
     /// # When the handler calls this
     ///
@@ -874,7 +902,8 @@ pub trait ChatBackend: JmapBackend {
     /// Group / channel chats are skipped on the kit side. The kit
     /// handler has no way to enumerate fan-out recipients; that work
     /// belongs to the consumer's transport layer, which must call
-    /// this predicate per recipient.
+    /// this predicate per recipient with that recipient's
+    /// `account_id`.
     ///
     /// # Default implementation
     ///
