@@ -135,7 +135,7 @@ diff <(cd ../crate-jmap-types && cargo metadata --no-deps --format-version 1 | j
 | Field names | Must match spec drafts exactly |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | Test oracle | Hand-written JSON from spec examples — never from code under test |
-| Constructors | **None.** No `::new()` methods in this crate. Construction is the consumer's responsibility. Downstream crates use `serde_json` deserialization to create instances. |
+| Constructors | **Minimal** `::new()` and named alternates where they enforce a type invariant (e.g. `ChatMessageEntry::encrypted` enforces "no `body_snippet` when `encrypted = true`" per spec §5.2) or absorb required-field boilerplate that callers would otherwise repeat for every struct (the workspace extras-preservation policy adds a public `extra: serde_json::Map<...>` field to every wire struct; thin `::new()` wrappers exist to insulate callers from initialising that field themselves). Otherwise prefer struct-literal construction. The earlier "no `::new()` methods" wording predated the extras-preservation policy (commit 2957e6e) and was retired by bd:JMAP-ly0n.7. |
 | Attribute order | `#[non_exhaustive]` → `#[derive(...)]` → `#[serde(...)]` on every type |
 
 ## Subagent Guidance
