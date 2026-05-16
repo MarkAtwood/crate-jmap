@@ -874,3 +874,128 @@ async fn message_update_without_read_disposition_omits_field() {
         patch_obj.get("readDisposition")
     );
 }
+
+/// `Message/queryChanges` must thread `since_query_state` to
+/// `sinceQueryState` and reject the empty token client-side
+/// (message.rs:341-362, RFC 8620 §5.6).
+#[tokio::test]
+async fn message_query_changes_passthrough_and_empty_state_rejected() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Message/queryChanges",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "oldQueryState": "mqc-old",
+            "newQueryState": "mqc-new",
+            "total": null,
+            "removed": [],
+            "added": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let since = State::from("mqc-old");
+    let _ = sc
+        .message_query_changes(&since, Some(25))
+        .await
+        .expect("message_query_changes: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["sinceQueryState"],
+        json!("mqc-old"),
+        "sinceQueryState mismatch"
+    );
+    assert_eq!(args["maxChanges"], json!(25), "maxChanges mismatch");
+
+    let empty = State::from("");
+    let err = sc
+        .message_query_changes(&empty, None)
+        .await
+        .expect_err("must reject empty since_query_state");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(
+                msg.contains("since_query_state may not be empty"),
+                "got: {msg:?}"
+            );
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+}
+
+/// `Message/set` create with `BodyType::Rich` must serialise the
+/// canonical wire string `"application/jmap-chat-rich"` per
+/// `BodyType::as_str` (crate-jmap-chat-client::types::BodyType lines
+/// 192-200). The existing message_create_serializes_create_object test
+/// covers `BodyType::Plain` ("text/plain"); the
+/// message_update_body_patch_serializes test covers
+/// `BodyType::Markdown` ("text/markdown"). This test fills the missing
+/// third variant.
+#[tokio::test]
+async fn message_create_with_body_type_rich_serialises_correct_wire_string() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Message/set",
+        MESSAGE_STATE_OLD,
+        MESSAGE_STATE_NEW,
+        json!({ "created": { "client-msg-rich": { "id": "server-msg-rich" } } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let sent_at = UTCDate::from("2024-06-15T09:00:00Z");
+    let input = jmap_chat_client::methods::MessageCreateInput::new(
+        &chat_id,
+        "[{\"type\":\"text\",\"value\":\"hi\"}]",
+        jmap_chat_client::types::BodyType::Rich,
+        &sent_at,
+    )
+    .with_client_id("client-msg-rich");
+    let _ = sc
+        .message_create(&input)
+        .await
+        .expect("message_create: must succeed");
+
+    let args = recorded_args(&server).await;
+    let create = &args["create"]["client-msg-rich"];
+    assert_eq!(
+        create["bodyType"],
+        json!("application/jmap-chat-rich"),
+        "BodyType::Rich must serialise as 'application/jmap-chat-rich'"
+    );
+}
+
+/// `Message/set` update with `body_type: BodyType::Unknown(s)` must
+/// serialise the literal wire string supplied by the caller
+/// (workspace `Unknown(String)` round-trip policy + BodyType::as_str
+/// lines 192-200). The vendor-defined wire string here cannot collide
+/// with any spec-defined value.
+#[tokio::test]
+async fn message_update_with_body_type_unknown_round_trips_wire_string() {
+    let server = MockServer::start().await;
+    let resp_body =
+        set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let msg_id = Id::from("msg-1");
+    let mut patch = jmap_chat_client::methods::MessagePatch::default();
+    patch.body = Some("vendor-encoded body");
+    patch.body_type = Some(jmap_chat_client::types::BodyType::Unknown(
+        "application/x-acme-rich".into(),
+    ));
+    let _ = sc
+        .message_update(&msg_id, &patch)
+        .await
+        .expect("message_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"]["msg-1"]["bodyType"],
+        json!("application/x-acme-rich"),
+        "BodyType::Unknown must serialise the caller-supplied wire string verbatim"
+    );
+}
