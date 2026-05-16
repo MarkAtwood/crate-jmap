@@ -7113,6 +7113,78 @@ async fn email_get_header_empty_name_rejected() {
     );
 }
 
+/// Oracle: MemoryBackend's Email/get `from` property and Email/get
+/// `header:From:asAddresses` must produce equivalent parsed addresses
+/// on the same input, because both go through mime-tree.
+///
+/// Pre-`bd:JMAP-j7pa.10`, MemoryBackend used a hand-rolled split-on-
+/// comma parser for the stored Email.from property while
+/// `header:<name>:asAddresses` went through mime-tree, so an
+/// encoded-word in the display name or a quoted-string with an embedded
+/// comma would parse differently between the two views of the same
+/// email.
+#[tokio::test]
+async fn email_get_from_property_matches_as_addresses() {
+    let backend = MemoryBackend::new();
+
+    // Input exercises (a) RFC 2047 encoded-word `=?UTF-8?Q?John_Sm=C3=AEth?=`
+    // and (b) a quoted-string display name containing a comma —
+    // `"Smith, John"` — that the old split-on-comma parser would mangle.
+    let raw = b"From: \"Smith, John\" <john@example.com>, \
+=?UTF-8?Q?Jane_Sm=C3=AEth?= <jane@example.com>\r\n\
+Subject: Equivalence test\r\n\
+\r\n\
+Body.";
+    let email_id = import_msg_with_headers(&backend, raw).await;
+
+    let args = serde_json::json!({
+        "accountId": "acct1",
+        "ids": [email_id.as_ref()],
+        "properties": ["from", "header:From:asAddresses"],
+    });
+    let (resp, _) = handle_email_get(&backend, &(), args)
+        .await
+        .expect("Email/get must succeed");
+
+    let list = resp["list"].as_array().expect("list must be array");
+    assert_eq!(list.len(), 1, "must find exactly one email");
+    let obj = &list[0];
+
+    let from = obj["from"]
+        .as_array()
+        .expect("from must be an array of EmailAddress");
+    let as_addrs = obj["header:From:asAddresses"]
+        .as_array()
+        .expect("header:From:asAddresses must be an array");
+
+    assert_eq!(
+        from.len(),
+        as_addrs.len(),
+        "from and asAddresses must have the same count; from={from:?}, as_addrs={as_addrs:?}"
+    );
+    for (i, (a, b)) in from.iter().zip(as_addrs.iter()).enumerate() {
+        // Both views must agree on email and name for every entry.
+        assert_eq!(
+            a["email"], b["email"],
+            "entry {i}: email mismatch between from and asAddresses"
+        );
+        let a_name = a.get("name");
+        let b_name = b.get("name");
+        assert_eq!(
+            a_name, b_name,
+            "entry {i}: name mismatch — from={a_name:?}, asAddresses={b_name:?}"
+        );
+    }
+
+    // Also assert specific values so the test fails loudly if mime-tree
+    // ever stops decoding encoded-words or stops respecting quoted-strings.
+    assert_eq!(from.len(), 2, "expected 2 addresses; got: {from:?}");
+    assert_eq!(from[0]["name"], "Smith, John");
+    assert_eq!(from[0]["email"], "john@example.com");
+    assert_eq!(from[1]["name"], "Jane Smîth");
+    assert_eq!(from[1]["email"], "jane@example.com");
+}
+
 /// Oracle: RFC 8621 §4.1.2.3 / §4.1.2.4 worked example — `asAddresses` and
 /// `asGroupedAddresses` against the spec's "James Smythe" address-list.
 ///
