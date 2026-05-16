@@ -329,15 +329,14 @@ pub async fn handle_chat_set<B: ChatBackend>(
                                     // live. Return a retryable server error
                                     // rather than alreadyExists with a
                                     // potentially inconsistent state.
+                                    //
+                                    // Route through server_fail_value_from_backend
+                                    // to redact backend Display text from the
+                                    // wire description per workspace redaction
+                                    // discipline.
                                     not_created.insert(
                                         create_id.clone(),
-                                        json!({
-                                            "type": "serverFail",
-                                            "description": format!(
-                                                "failed to clean up duplicate Direct chat; retry ({})",
-                                                e
-                                            )
-                                        }),
+                                        server_fail_value_from_backend(&e),
                                     );
                                     continue;
                                 }
