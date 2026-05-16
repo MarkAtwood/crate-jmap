@@ -137,6 +137,14 @@ impl Sha256 {
     /// lowercase-hex set `[0-9 a-f]`. Errors report position so a
     /// caller can surface a precise diagnostic.
     pub fn from_hex(s: &str) -> Result<Self, Sha256DigestError> {
+        Self::validate(s)?;
+        Ok(Self(s.to_owned()))
+    }
+
+    /// ABNF check (`64( %x30-39 / %x61-66 )`) shared by every
+    /// construction path. Returns `Ok(())` if `s` is exactly 64
+    /// bytes of lowercase hex.
+    fn validate(s: &str) -> Result<(), Sha256DigestError> {
         let bytes = s.as_bytes();
         if bytes.len() != 64 {
             return Err(Sha256DigestError {
@@ -152,7 +160,7 @@ impl Sha256 {
                 });
             }
         }
-        Ok(Self(s.to_owned()))
+        Ok(())
     }
 
     /// Format 32 raw digest bytes as a canonical lowercase-hex
@@ -215,8 +223,14 @@ impl AsRef<str> for Sha256 {
 
 impl TryFrom<String> for Sha256 {
     type Error = Sha256DigestError;
+    /// Validate the owned `String` against the ABNF and **move** it
+    /// into the [`Sha256`] on success — no second allocation. This
+    /// is the path `#[serde(try_from = "String")]` takes, so every
+    /// `serde_json::from_str::<Sha256>(...)` deserialize avoids the
+    /// double-alloc that `from_hex(&s)` would incur.
     fn try_from(s: String) -> Result<Self, Self::Error> {
-        Self::from_hex(&s)
+        Self::validate(&s)?;
+        Ok(Self(s))
     }
 }
 
@@ -411,6 +425,24 @@ mod tests {
     fn from_str_works() {
         let d: Sha256 = VALID.parse().unwrap();
         assert_eq!(d.as_str(), VALID);
+    }
+
+    #[test]
+    fn try_from_string_moves_buffer_not_clones() {
+        // TryFrom<String> should MOVE the owned String into the
+        // Sha256, not validate then clone. Verify by checking that
+        // the resulting Sha256's underlying byte buffer has the
+        // same address as the input String's buffer — pointer
+        // identity proves no second allocation occurred.
+        let input = VALID.to_owned();
+        let input_ptr = input.as_ptr();
+        let d: Sha256 = input.try_into().expect("valid digest");
+        assert_eq!(
+            d.as_str().as_ptr(),
+            input_ptr,
+            "TryFrom<String> must move the owned buffer; pointer mismatch \
+             indicates a re-allocation"
+        );
     }
 
     #[test]
