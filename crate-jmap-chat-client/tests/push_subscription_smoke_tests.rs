@@ -110,7 +110,10 @@ async fn push_subscription_create_with_chat_push_declares_extension() {
     let sc = helpers::make_client(&server);
     let account_a = Id::from("acct-a");
     let mut cp_a = jmap_chat_types::ChatPushConfig::default();
-    cp_a.kinds = Some(vec!["direct".into(), "group".into()]);
+    cp_a.kinds = Some(vec![
+        jmap_chat_types::ChatKind::Direct,
+        jmap_chat_types::ChatKind::Group,
+    ]);
     let chat_push_entries = [(&account_a, cp_a)];
     let input = jmap_chat_client::methods::PushSubscriptionCreateInput::new(
         "device-abc",
