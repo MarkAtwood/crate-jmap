@@ -14,7 +14,14 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatStreamEnable {
-    /// Data-type tags to stream (e.g. `"typing"`, `"presence"`).
+    /// Data-type tags to stream (draft-atwood-jmap-chat-wss-00 §7.1).
+    ///
+    /// Spec-enumerated values: `"typing"` and `"presence"`. Full
+    /// list exported as
+    /// [`crate::vocabulary::SPEC_EPHEMERAL_DATA_TYPES`]. A request
+    /// containing ONLY unrecognized values MUST be rejected by the
+    /// server with a `RequestError`. Unrecognized values appearing
+    /// alongside recognized values MUST be silently ignored.
     pub data_types: Vec<String>,
     /// Chats to filter on; `None` (or JSON `null`) means all chats.
     #[serde(skip_serializing_if = "Option::is_none")]

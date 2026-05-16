@@ -47,6 +47,7 @@ pub mod presence;
 pub mod push;
 pub mod space;
 pub mod space_set;
+pub mod vocabulary;
 
 pub use backend::{
     ChatContactProperty, ChatProperty, CustomEmojiProperty, MessageProperty,

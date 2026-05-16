@@ -16,6 +16,13 @@ pub struct SpaceRole {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
     /// The `permissions` property (draft-atwood-jmap-chat-00 §4.12).
+    ///
+    /// Named permissions this role grants. Drawn from the
+    /// spec-enumerated permission vocabulary exported as
+    /// [`crate::vocabulary::SPEC_PERMISSION_NAMES`]. Servers MUST
+    /// ignore unrecognized names per the draft; consumers SHOULD
+    /// validate caller-supplied input against the const list to
+    /// surface typos at the boundary.
     pub permissions: Vec<String>,
     /// The `position` property (draft-atwood-jmap-chat-00 §4.12).
     pub position: u64,
