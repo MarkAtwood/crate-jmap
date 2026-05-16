@@ -61,12 +61,25 @@ impl Metadata {
         }
     }
 
-    /// Return the `relatedType` property common to every Metadata variant.
-    pub fn related_type(&self) -> &str {
+    /// Return the `relatedType` property common to every Metadata variant,
+    /// or `None` if the wire input omitted it.
+    ///
+    /// The spec marks `relatedType` mandatory for full Metadata objects per
+    /// §2.2.1.3, but the `/get` partial-response shape defined by §4.1
+    /// legitimately omits it: §4.1 lists only `@type` and `relatedId` as
+    /// the properties a server MUST always include, regardless of the
+    /// caller's `metadataProperties` filter. The §7.2 example response
+    /// demonstrates this wire shape. This accessor therefore returns
+    /// `Option<&str>`. Callers that have a complete Metadata record
+    /// (created via `Metadata/set`) can `.expect()` here; callers
+    /// consuming partial responses from extended-`/get` should handle
+    /// the `None` arm — typically by inferring the type from the
+    /// related-object context.
+    pub fn related_type(&self) -> Option<&str> {
         match self {
-            Self::Annotation(a) => a.related_type.as_str(),
-            Self::ImapMetadata(m) => m.related_type.as_str(),
-            Self::WebDavMetadata(m) => m.related_type.as_str(),
+            Self::Annotation(a) => a.related_type.as_deref(),
+            Self::ImapMetadata(m) => m.related_type.as_deref(),
+            Self::WebDavMetadata(m) => m.related_type.as_deref(),
         }
     }
 
@@ -127,6 +140,18 @@ impl Metadata {
 /// Per §2.2.1.5 the default is `false`. The field is `Option<bool>` so
 /// callers can distinguish "explicitly false on the wire" from "absent".
 /// Wire-omitted defaults to shared.
+///
+/// ## `relatedType` is optional on the wire
+///
+/// Per §2.2.1.3 `relatedType` is mandatory on full Metadata objects, but
+/// the extended-`/get` partial-response shape defined by §4.1 omits it
+/// when the caller filtered it out via `metadataProperties`. §4.1 lists
+/// only `@type` and `relatedId` as always-included; everything else
+/// (including `relatedType`) is omittable. The §7.2 example response
+/// demonstrates this shape. To round-trip the wire format faithfully
+/// the field is `Option<String>`. Callers constructing a Metadata
+/// object for `Metadata/set` MUST populate `relatedType` (otherwise
+/// the server will reject with `invalidProperties`).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -136,8 +161,16 @@ pub struct Annotation {
     pub id: Option<Id>,
 
     /// JMAP type name of the related object (e.g. `"Email"`, `"Mailbox"`).
-    /// Mandatory per §2.2.1.3.
-    pub related_type: String,
+    ///
+    /// Mandatory per §2.2.1.3 on full Metadata objects, but omittable in
+    /// the §4.1 extended-`/get` partial-response shape (the §7.2 example
+    /// demonstrates this). `None` indicates the wire input omitted the
+    /// field; callers consuming partial responses can infer the type
+    /// from context (e.g. the data type whose `/get` produced the
+    /// response). Callers constructing a Metadata object for
+    /// `Metadata/set` MUST populate this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub related_type: Option<String>,
 
     /// Identifier of the related JMAP object. Mandatory per §2.2.1.4.
     pub related_id: Id,
@@ -195,7 +228,15 @@ pub struct ImapMetadata {
     pub id: Option<Id>,
 
     /// JMAP type name of the related object. MUST be `"Mailbox"` per §2.1.2.
-    pub related_type: String,
+    ///
+    /// Mandatory per §2.2.1.3 on full Metadata objects, but omittable in
+    /// the §4.1 extended-`/get` partial-response shape. `None` indicates
+    /// the wire input omitted the field; consumers MAY infer
+    /// `"Mailbox"` from the variant (the spec fixes this association).
+    /// Callers constructing an `ImapMetadata` for `Metadata/set` MUST
+    /// populate this field with `"Mailbox"`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub related_type: Option<String>,
 
     /// Identifier of the related JMAP `Mailbox` object.
     pub related_id: Id,
@@ -258,7 +299,15 @@ pub struct WebDavMetadata {
 
     /// JMAP type name of the related object (e.g. `"FileNode"`,
     /// `"Calendar"`, `"CalendarEvent"`, `"AddressBook"`, `"ContactCard"`).
-    pub related_type: String,
+    ///
+    /// Mandatory per §2.2.1.3 on full Metadata objects, but omittable in
+    /// the §4.1 extended-`/get` partial-response shape. `None` indicates
+    /// the wire input omitted the field; consumers consuming partial
+    /// responses MAY infer the value from the request context.
+    /// Callers constructing a `WebDavMetadata` for `Metadata/set` MUST
+    /// populate this field.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub related_type: Option<String>,
 
     /// Identifier of the related JMAP object.
     pub related_id: Id,

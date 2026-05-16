@@ -61,7 +61,11 @@ async fn metadata_get_round_trip() {
         Some("MD1"),
         "id mismatch"
     );
-    assert_eq!(resp.list[0].related_type(), "Email", "relatedType mismatch");
+    assert_eq!(
+        resp.list[0].related_type(),
+        Some("Email"),
+        "relatedType mismatch"
+    );
     assert!(!resp.list[0].is_private(), "isPrivate must be false");
 }
 

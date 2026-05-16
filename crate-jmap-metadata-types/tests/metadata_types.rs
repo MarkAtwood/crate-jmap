@@ -128,7 +128,7 @@ fn annotation_draft_01_section_7_1_create_with_vendor_props() {
         _ => panic!("expected Annotation variant; got {}", meta.type_name()),
     };
     assert_eq!(ann.id, None);
-    assert_eq!(ann.related_type, "Mailbox");
+    assert_eq!(ann.related_type.as_deref(), Some("Mailbox"));
     // relatedId on create may carry a "#" creation reference; the wire
     // type is still Id (string), so the JMAP Id newtype accepts it.
     assert!(ann.related_id == *"#new-mailbox");
@@ -158,34 +158,44 @@ fn annotation_draft_01_section_7_1_create_with_vendor_props() {
 }
 
 #[test]
-fn annotation_draft_01_section_7_2_partial_response_requires_related_type() {
+fn annotation_draft_01_section_7_2_partial_response_deserialises() {
     // Oracle: §7.2 example response demonstrates `metadataProperties`
-    // filtering — the response omits `relatedType` because the
-    // request did not list it. The `Annotation` struct treats
-    // `relatedType` as mandatory per §2.2.1.3 ("Type: String
-    // (mandatory)"), so the partial response cannot deserialise into
-    // a `Metadata::Annotation` directly. This test pins that
-    // behaviour: when the field is missing, deserialise MUST fail.
-    //
-    // Clients that issue queries with `metadataProperties` and need
-    // to consume partial responses must use `serde_json::Value` or
-    // a custom partial-Annotation struct — not this crate's
-    // spec-faithful type.
+    // filtering — the response omits `relatedType` because the request
+    // did not list it. §4.1 lines 922-926 of the draft list only
+    // `@type` and `relatedId` as always-included; `relatedType` is
+    // omittable in the partial-response shape. The `Annotation` type
+    // therefore models `relatedType` as `Option<String>` so the spec's
+    // own §7.2 example deserialises losslessly.
     let json = r#"{
         "relatedId": "MB789",
         "@type": "Annotation",
         "acme.example.com:color": "blue",
         "acme.example.com:priority": "high"
     }"#;
-    let r: Result<Metadata, _> = serde_json::from_str(json);
-    assert!(
-        r.is_err(),
-        "partial §7.2 response missing relatedType must fail to deserialise into the spec-faithful type"
+    let meta: Metadata = serde_json::from_str(json)
+        .expect("§7.2 partial response must deserialise into Metadata::Annotation");
+    let ann = match meta {
+        Metadata::Annotation(a) => a,
+        _ => panic!("expected Annotation variant"),
+    };
+    assert_eq!(ann.related_type, None, "partial response omits relatedType");
+    assert_eq!(ann.related_id.as_ref(), "MB789");
+    assert_eq!(ann.id, None);
+    assert_eq!(ann.is_private, None);
+    assert_eq!(
+        ann.extra.get("acme.example.com:color"),
+        Some(&serde_json::Value::String("blue".into())),
     );
-    let err = r.unwrap_err().to_string();
+    assert_eq!(
+        ann.extra.get("acme.example.com:priority"),
+        Some(&serde_json::Value::String("high".into())),
+    );
+
+    // Round-trip: omitted `relatedType` stays omitted on serialise.
+    let round_trip = serde_json::to_value(&Metadata::Annotation(ann)).unwrap();
     assert!(
-        err.contains("relatedType"),
-        "error should mention the missing field; got: {err}"
+        round_trip.get("relatedType").is_none(),
+        "None relatedType must not serialise back as null or empty string"
     );
 }
 
@@ -204,7 +214,7 @@ fn annotation_draft_01_section_7_5_atomic_create_response() {
         _ => panic!("expected Annotation variant"),
     };
     assert_eq!(ann.id.as_ref().map(AsRef::as_ref), Some("MD789"));
-    assert_eq!(ann.related_type, "Email");
+    assert_eq!(ann.related_type.as_deref(), Some("Email"));
     assert!(ann.related_id == *"EM456");
     assert_eq!(ann.is_private, None);
     assert!(ann.extra.is_empty());
@@ -294,7 +304,7 @@ fn imap_metadata_draft_01_section_2_2_2_private_namespace() {
         _ => panic!("expected ImapMetadata variant"),
     };
     assert_eq!(imap.id.as_ref().map(AsRef::as_ref), Some("MD100"));
-    assert_eq!(imap.related_type, "Mailbox");
+    assert_eq!(imap.related_type.as_deref(), Some("Mailbox"));
     assert_eq!(imap.is_private, Some(true));
     assert_eq!(imap.metadata.get("comment"), Some(&"My notes".to_owned()));
     assert_eq!(
@@ -407,7 +417,7 @@ fn webdav_metadata_draft_01_section_2_2_3_expanded_name_keys() {
         Metadata::WebDavMetadata(w) => w,
         _ => panic!("expected WebDavMetadata variant"),
     };
-    assert_eq!(webdav.related_type, "FileNode");
+    assert_eq!(webdav.related_type.as_deref(), Some("FileNode"));
     assert_eq!(
         webdav.metadata.get("{http://example.com/ns}priority"),
         Some(&"high".to_owned()),
@@ -497,7 +507,7 @@ fn metadata_common_accessors() {
     }"#;
     let meta: Metadata = serde_json::from_str(json).unwrap();
     assert_eq!(meta.id().map(AsRef::as_ref), Some("MDA"));
-    assert_eq!(meta.related_type(), "Email");
+    assert_eq!(meta.related_type(), Some("Email"));
     assert!(meta.related_id() == &Into::<jmap_types::Id>::into("EM1"));
     assert!(meta.is_private());
 
@@ -638,7 +648,7 @@ fn imap_metadata_struct_round_trips_via_metadata_enum() {
         _ => panic!("expected ImapMetadata variant"),
     };
     assert_eq!(inner.id.as_ref().map(AsRef::as_ref), Some("MD-IMAP-1"));
-    assert_eq!(inner.related_type, "Mailbox");
+    assert_eq!(inner.related_type.as_deref(), Some("Mailbox"));
     assert!(inner.related_id == *"MB-99");
     assert!(inner.metadata.is_empty());
 
@@ -665,7 +675,7 @@ fn webdav_metadata_struct_round_trips_via_metadata_enum() {
         _ => panic!("expected WebDavMetadata variant"),
     };
     assert_eq!(inner.id.as_ref().map(AsRef::as_ref), Some("MD-DAV-1"));
-    assert_eq!(inner.related_type, "FileNode");
+    assert_eq!(inner.related_type.as_deref(), Some("FileNode"));
     assert!(inner.metadata.is_empty());
 
     let again = serde_json::to_value(&meta).unwrap();

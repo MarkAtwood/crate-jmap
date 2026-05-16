@@ -297,7 +297,11 @@ async fn filter_changes_array<B: MetadataBackend>(
                 return true;
             };
             if let Some(rt) = filter_related_type {
-                if meta.related_type() != rt {
+                // Records whose wire input omitted `relatedType` (draft
+                // §4.1 partial-response shape) cannot satisfy a
+                // relatedType clause — the clause requires equality
+                // against a value that does not exist.
+                if meta.related_type() != Some(rt) {
                     return false;
                 }
             }
@@ -400,6 +404,29 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
                     continue;
                 }
             };
+
+            // The Annotation/ImapMetadata/WebDavMetadata struct fields model
+            // `relatedType` as `Option<String>` so the §4.1 extended-`/get`
+            // partial-response shape (which legitimately omits the field
+            // per §7.2 example) deserialises losslessly. On `Metadata/set`
+            // create, however, the spec at §2.2.1.3 makes the field
+            // mandatory; reject with `invalidProperties` if absent so the
+            // client gets a precise error name rather than the
+            // generic backend-invariant message later in the pipeline.
+            if metadata.related_type().is_none() {
+                not_created.insert(
+                    create_id,
+                    set_error_value(
+                        &SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties(vec!["relatedType".to_owned()])
+                            .with_description(
+                                "Metadata/set create requires `relatedType` per draft-ietf-jmap-metadata-01 §2.2.1.3"
+                                    .to_owned(),
+                            ),
+                    ),
+                );
+                continue;
+            }
 
             match backend
                 .create_object::<Metadata>(caller, &account_id, &create_id, metadata)
@@ -1031,17 +1058,24 @@ mod tests {
             "missing relatedType must produce invalidProperties: {resp}",
         );
         // Description is present and non-empty (RFC 8620 §5.3 description
-        // field — non-localised, includes the underlying serde error).
+        // field — non-localised).
         let desc = err["description"]
             .as_str()
             .expect("description must be a string");
         assert!(!desc.is_empty(), "description must be non-empty: {resp}",);
-        // `properties` MUST be absent or null. Asserting absence guards
-        // against a future change that fabricates an inaccurate property
-        // list from the serde error text.
-        assert!(
-            err.get("properties").is_none_or(Value::is_null),
-            "properties must be absent or null for whole-struct deserialize failure: {resp}",
+        // The `Annotation` struct models `relatedType` as `Option<String>`
+        // so that §4.1 extended-`/get` partial-response shapes deserialise
+        // losslessly (the §7.2 example omits `relatedType`). On
+        // `Metadata/set` create the handler enforces the §2.2.1.3
+        // "mandatory" requirement explicitly, naming the offending
+        // property in the SetError per RFC 8620 §5.3.
+        let props = err["properties"]
+            .as_array()
+            .expect("invalidProperties on missing relatedType must carry a properties array");
+        assert_eq!(props.len(), 1, "exactly one property name expected: {resp}");
+        assert_eq!(
+            props[0], "relatedType",
+            "properties must name the missing field: {resp}",
         );
     }
 

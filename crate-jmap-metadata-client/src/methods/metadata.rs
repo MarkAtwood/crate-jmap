@@ -392,7 +392,7 @@ mod tests {
         let jmap_metadata_types::Metadata::Annotation(a) = meta else {
             panic!("expected Annotation variant");
         };
-        assert_eq!(a.related_type, "Email");
+        assert_eq!(a.related_type.as_deref(), Some("Email"));
         assert_eq!(a.related_id.as_ref(), "EM456");
         assert_eq!(a.is_private, Some(true));
         assert_eq!(
@@ -428,7 +428,7 @@ mod tests {
         assert_eq!(resp.account_id, "acc1");
         assert_eq!(resp.state, "s42");
         assert_eq!(resp.list.len(), 1);
-        assert_eq!(resp.list[0].related_type(), "Mailbox");
+        assert_eq!(resp.list[0].related_type(), Some("Mailbox"));
     }
 
     /// Oracle: SetResponse<Metadata> deserializes with a created entry.
@@ -466,6 +466,6 @@ mod tests {
         );
         let meta = &created["newMeta"];
         assert_eq!(meta.id().map(|id| id.as_ref()), Some("server-md-id"));
-        assert_eq!(meta.related_type(), "Email");
+        assert_eq!(meta.related_type(), Some("Email"));
     }
 }

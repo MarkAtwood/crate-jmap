@@ -327,14 +327,22 @@ impl UniquenessKey {
         })
     }
 
-    /// Compute the uniqueness key from a typed `Metadata`.
-    fn from_metadata(m: &Metadata) -> Self {
-        Self {
-            related_type: m.related_type().to_owned(),
+    /// Compute the uniqueness key from a typed `Metadata`. Returns `None`
+    /// if `relatedType` is absent on the typed value — partial-response
+    /// shapes that omit the field per draft §4.1 cannot participate in
+    /// the §3.1 uniqueness constraint because the constraint key is
+    /// undefined. Server-side create/update handlers are responsible for
+    /// rejecting incoming Metadata that lacks `relatedType` (the spec
+    /// mandates it for full objects per §2.2.1.3); this method is
+    /// defensive against a post-patch state where the field somehow ends
+    /// up cleared.
+    fn from_metadata(m: &Metadata) -> Option<Self> {
+        Some(Self {
+            related_type: m.related_type()?.to_owned(),
             related_id: m.related_id().as_ref().to_owned(),
             type_name: m.type_name().to_owned(),
             is_private: m.is_private(),
-        }
+        })
     }
 }
 
@@ -1056,6 +1064,9 @@ impl MetadataBackend for MemoryBackend {
 
         // §3.1 uniqueness re-check — only when the type is Metadata and
         // the patch could have moved a key into a colliding position.
+        // If the post-patch value lacks `relatedType` (the field is
+        // optional on the wire per draft §4.1 partial-response shape),
+        // the uniqueness key is undefined and the constraint is skipped.
         if O::TYPE_NAME == Metadata::TYPE_NAME {
             let typed: Metadata = serde_json::from_value(current.clone()).map_err(|e| {
                 BackendSetError::SetError(
@@ -1063,17 +1074,18 @@ impl MetadataBackend for MemoryBackend {
                         .with_description(format!("post-patch Metadata deserialize: {e}")),
                 )
             })?;
-            let key = UniquenessKey::from_metadata(&typed);
-            if let Some(existing_id) =
-                Self::find_uniqueness_conflict(&inner, account_id.as_ref(), &key, Some(id))
-            {
-                return Err(BackendSetError::SetError(
-                    SetError::new(SetErrorType::AlreadyExists)
-                        .with_description(
-                            "Update would violate Metadata uniqueness constraint".to_owned(),
-                        )
-                        .with_existing_id(existing_id),
-                ));
+            if let Some(key) = UniquenessKey::from_metadata(&typed) {
+                if let Some(existing_id) =
+                    Self::find_uniqueness_conflict(&inner, account_id.as_ref(), &key, Some(id))
+                {
+                    return Err(BackendSetError::SetError(
+                        SetError::new(SetErrorType::AlreadyExists)
+                            .with_description(
+                                "Update would violate Metadata uniqueness constraint".to_owned(),
+                            )
+                            .with_existing_id(existing_id),
+                    ));
+                }
             }
         }
 
@@ -1319,7 +1331,11 @@ fn metadata_matches_condition(meta: &Metadata, cond: &MetadataFilterCondition) -
         }
     }
     if let Some(ref rt) = cond.related_type {
-        if meta.related_type() != rt.as_str() {
+        // Records whose wire input omitted `relatedType` (draft §4.1
+        // partial-response shape) cannot satisfy a relatedType clause —
+        // the clause requires an equality match against a value that
+        // does not exist.
+        if meta.related_type() != Some(rt.as_str()) {
             return false;
         }
     }
@@ -1415,7 +1431,11 @@ fn compare_metadata_sort(
         let ord = match property.as_str() {
             "id" => a_id.as_ref().cmp(b_id.as_ref()),
             "@type" => a_m.type_name().cmp(b_m.type_name()),
-            "relatedType" => a_m.related_type().cmp(b_m.related_type()),
+            // Option<&str>::cmp orders None < Some(_) (Rust default
+            // Option Ord), so records with omitted relatedType (draft
+            // §4.1 partial-response shape) sort before records with a
+            // relatedType present — acceptable as a tie-breaker.
+            "relatedType" => a_m.related_type().cmp(&b_m.related_type()),
             "relatedId" => a_m.related_id().as_ref().cmp(b_m.related_id().as_ref()),
             "isPrivate" => a_m.is_private().cmp(&b_m.is_private()),
             // Unknown sort property — defer to the next comparator.
@@ -1476,7 +1496,7 @@ mod tests {
         match &found[0] {
             Metadata::Annotation(a) => {
                 assert_eq!(a.id.as_ref(), Some(&new_id));
-                assert_eq!(a.related_type, "Email");
+                assert_eq!(a.related_type.as_deref(), Some("Email"));
                 assert_eq!(a.is_private, Some(true));
                 assert_eq!(
                     a.extra.get("acme.example.com:color"),

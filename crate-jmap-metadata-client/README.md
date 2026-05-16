@@ -37,10 +37,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // 4. Fetch all Metadata in the account.
     let response = metadata.metadata_get(None, None).await?;
     for m in &response.list {
+        // `related_type()` returns `Option<&str>` because the §4.1
+        // extended-`/get` partial-response shape can omit it; for full
+        // Metadata records from a plain `Metadata/get` the value is
+        // always present.
         println!(
             "{} on {} {}",
             m.type_name(),
-            m.related_type(),
+            m.related_type().unwrap_or("<unspecified>"),
             m.related_id(),
         );
     }
