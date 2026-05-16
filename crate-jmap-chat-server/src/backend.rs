@@ -411,7 +411,7 @@ pub trait ChatBackend: JmapBackend {
     /// this; backends that build their own invite-redemption paths must
     /// preserve the invariant. A plain `String == String` short-circuits
     /// at the first mismatched byte and exposes a byte-by-byte timing
-    /// oracle for credential recovery. See bd:JMAP-sc1b.89.
+    /// oracle for credential recovery.
     ///
     /// # Fallibility and async — known limitations
     ///
@@ -422,8 +422,8 @@ pub trait ChatBackend: JmapBackend {
     /// must pre-fetch a buffer of codes at startup and serve from it,
     /// or panic on entropy starvation. A future revision MAY change
     /// the signature to `async fn generate_invite_code(&self) ->
-    /// Result<String, Self::Error>`; see bd:JMAP-x2gd.36 follow-ups
-    /// for the workspace decision tracking.
+    /// Result<String, Self::Error>` to support remote / fallible
+    /// entropy sources without forcing the pre-fetch workaround.
     ///
     /// [`rand::rngs::OsRng`]: https://docs.rs/rand/latest/rand/rngs/struct.OsRng.html
     /// [`getrandom`]: https://docs.rs/getrandom
@@ -475,15 +475,16 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// # Permission and limit checks
     ///
-    /// Handler-side permission gates (`manage_space`, `manage_roles`,
-    /// `manage_members`, `manage_channels`) are tracked in
-    /// `bd:JMAP-g7wu.2.4.7` and are NOT yet applied by the reference
-    /// handler; the backend is responsible for rejecting any op the
+    /// Permission gates (`manage_space`, `manage_roles`,
+    /// `manage_members`, `manage_channels`) are backend-canonical per
+    /// workspace AGENTS.md "Caller identity (foundation seam)": the
+    /// reference handler does NOT apply gates before calling this
+    /// method, and the backend is responsible for rejecting any op the
     /// caller is not authorized to perform.
     ///
     /// Per-aggregate count limits on roles, members, channels, and
     /// categories per Space are applied by `handle_space_set` *before*
-    /// it calls this method (bd:JMAP-g7wu.2.4.8). The handler queries
+    /// it calls this method. The handler queries
     /// the backend's [`ChatBackend::limits`] once per request,
     /// fetches the current Space, and rejects the whole update target
     /// with an `overQuota` SetError (RFC 8620 §5.3) if any aggregate
@@ -499,8 +500,7 @@ pub trait ChatBackend: JmapBackend {
     /// roles whose `position` is strictly less than their own
     /// highest-position role — draft §Space/set lines 1096, 1102) MUST
     /// be enforced by the backend because it is atomic with the
-    /// mutation and depends on the current Space state. See
-    /// `bd:JMAP-g7wu.2.4.3`.
+    /// mutation and depends on the current Space state.
     ///
     /// # Cross-type cascade contract
     ///
@@ -534,10 +534,11 @@ pub trait ChatBackend: JmapBackend {
     ///   (relocating it from its previous category or from
     ///   uncategorized). The `Chat` type state token MUST bump and
     ///   the relocated channel ids MUST appear in `Chat/changes`
-    ///   `updated`. This pins a regression that was historically
-    ///   present in the reference impl — see
-    ///   `bd:JMAP-g7wu.2.4.9` — where the channel-categoryId mutation
-    ///   silently bypassed the `Chat/changes` log.
+    ///   `updated`. This pins a regression class where channel
+    ///   relocations silently bypass the `Chat/changes` log; a
+    ///   backend that mutates `Chat.categoryId` without bumping the
+    ///   `Chat` state token desynchronises every multi-client
+    ///   subscriber.
     ///
     /// * `RemoveRole` — MUST strip the removed role id from
     ///   `roleIds` on every `SpaceMember` of this Space (draft
@@ -703,13 +704,14 @@ pub trait ChatBackend: JmapBackend {
     /// the offending blob id. The reference impl does not validate
     /// blobs today; production backends with a blob store SHOULD.
     ///
-    /// History: this method landed in bd:JMAP-g7wu.2.4.13 to close the
-    /// gate gap on the top-level metadata path. Before this method
-    /// existed, `Space/set` `update` routed top-level metadata
-    /// through the generic `update_object::<Space>`, which has no
-    /// permission gate. A caller without `manage_space` could
-    /// successfully mutate a Space's `name` / `description` /
-    /// `isPublic` / etc.
+    /// Rationale for the separate metadata patch method: routing
+    /// top-level metadata through the generic `update_object::<Space>`
+    /// would bypass the permission gate, since the generic path is
+    /// not permission-aware. This method exists so that top-level
+    /// `Space/set` `update` requests carrying only metadata fields
+    /// (`name` / `description` / `iconBlobId` / `isPublic` /
+    /// `isPubliclyPreviewable`) route through a `manage_space`-gated
+    /// path instead.
     fn apply_space_metadata_patch(
         &self,
         caller: &Self::CallerCtx,
@@ -749,9 +751,9 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// # Why this exists
     ///
-    /// The 2026-05-12 design reversal dropped the `Space.ownerId` field
-    /// (bd:JMAP-g7wu.2.4.12): "who controls a Space" is now fully
-    /// implementation-defined / out-of-band per draft-atwood-jmap-chat-00.
+    /// The 2026-05-12 design reversal dropped the `Space.ownerId` field:
+    /// "who controls a Space" is now fully implementation-defined /
+    /// out-of-band per draft-atwood-jmap-chat-00.
     /// Without a normative owner identity, the kit cannot enforce the
     /// previous "owner cannot be removed" rule. Instead the kit exposes
     /// this purely permission-graph-based knob: production backends that
@@ -771,16 +773,13 @@ pub trait ChatBackend: JmapBackend {
     /// The reference impl flips the default to keep existing
     /// integration tests (which do not seed admin memberships) passing
     /// unchanged. Tests that exercise the protection path opt in via
-    /// `MemoryBackend::set_protect_last_admin_for_test(true)`. See
-    /// `bd:JMAP-g7wu.2.4.3`.
+    /// `MemoryBackend::set_protect_last_admin_for_test(true)`.
     ///
     /// The reference impl's projection is intentionally narrow: it
     /// covers `RemoveMember` only, and does NOT model `UpdateMember`
     /// role-strip, `UpdateRole` permission-strip, or `RemoveRole`
     /// paths to zero-admin state. Production backends with the full
-    /// invariant requirement MUST extend the projection. See
-    /// `crate-jmap-chat-server/src/memory.rs:2838-2845` for the
-    /// reference-impl scoping note.
+    /// invariant requirement MUST extend the projection.
     ///
     /// # Atomicity
     ///
