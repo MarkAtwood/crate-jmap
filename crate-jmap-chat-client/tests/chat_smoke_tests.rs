@@ -669,3 +669,152 @@ async fn chat_destroy_threads_ids_and_rejects_empty() {
         other => panic!("expected InvalidArgument, got {other:?}"),
     }
 }
+
+/// `Chat/set` update with `name`, `description: Patch::Set`, and
+/// `avatar_blob_id: Patch::Clear` must thread all three through the
+/// per-id patch object with camelCase wire keys
+/// (chat.rs:236-279, RFC 8620 §5.3).
+#[tokio::test]
+async fn chat_update_patch_name_description_avatar_serialises() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let mut patch = jmap_chat_client::methods::ChatPatch::default();
+    patch.name = Some("Renamed Group");
+    patch.description = jmap_chat_client::methods::Patch::Set("New topic for the group");
+    patch.avatar_blob_id = jmap_chat_client::methods::Patch::Clear;
+    let _ = sc
+        .chat_update(&chat_id, &patch)
+        .await
+        .expect("chat_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    let patch_obj = &args["update"]["chat-1"];
+    assert_eq!(patch_obj["name"], json!("Renamed Group"), "name mismatch");
+    assert_eq!(
+        patch_obj["description"],
+        json!("New topic for the group"),
+        "description Patch::Set must thread verbatim"
+    );
+    assert_eq!(
+        patch_obj["avatarBlobId"],
+        json!(null),
+        "avatarBlobId Patch::Clear must serialise as JSON null"
+    );
+    // muted left at None must be absent.
+    assert!(
+        patch_obj.get("muted").is_none(),
+        "muted must be absent when None"
+    );
+}
+
+/// `Chat/set` update with `add_members` (with role) and `remove_members`
+/// must serialise both arrays under camelCase keys, with each
+/// `AddMemberInput` carrying `id` + optional `role` (chat.rs add_members
+/// branch). Confirms the Admin vs Member wire-string serialisation
+/// via the typed ChatMemberRole enum.
+#[tokio::test]
+async fn chat_update_patch_add_and_remove_members_serialises() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let alice_id = Id::from("u-alice");
+    let bob_id = Id::from("u-bob");
+    let add_alice = jmap_chat_client::methods::AddMemberInput::new(&alice_id)
+        .with_role(jmap_chat_client::types::ChatMemberRole::Admin);
+    let add_bob = jmap_chat_client::methods::AddMemberInput::new(&bob_id);
+    let add_members = [add_alice, add_bob];
+    let removed_id = Id::from("u-malice");
+    let remove_members = [removed_id];
+
+    let mut patch = jmap_chat_client::methods::ChatPatch::default();
+    patch.add_members = Some(&add_members);
+    patch.remove_members = Some(&remove_members);
+    let _ = sc
+        .chat_update(&chat_id, &patch)
+        .await
+        .expect("chat_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    let patch_obj = &args["update"]["chat-1"];
+    assert_eq!(
+        patch_obj["addMembers"],
+        json!([
+            { "id": "u-alice", "role": "admin" },
+            { "id": "u-bob" }
+        ]),
+        "addMembers must thread id + optional role with lowercase wire strings"
+    );
+    assert_eq!(
+        patch_obj["removeMembers"],
+        json!(["u-malice"]),
+        "removeMembers must thread the id slice"
+    );
+}
+
+/// `Chat/set` update with `update_member_roles` must serialise an array
+/// of `{id, role}` objects. Confirms the `Member` wire string and the
+/// `Unknown(String)` round-trip (vendor-defined wire string is
+/// preserved verbatim per workspace `Unknown(String)` policy).
+#[tokio::test]
+async fn chat_update_patch_update_member_roles_serialises() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let chat_id = Id::from("chat-1");
+    let alice_id = Id::from("u-alice");
+    let bob_id = Id::from("u-bob");
+    let role_changes = [
+        jmap_chat_client::methods::UpdateMemberRoleInput::new(
+            &alice_id,
+            jmap_chat_client::types::ChatMemberRole::Member,
+        ),
+        // Vendor-defined role survives via Unknown(String) at the
+        // serialize boundary; the wire string is whatever the caller
+        // supplied (workspace policy on Unknown(String) preservation
+        // for round-trip).
+        jmap_chat_client::methods::UpdateMemberRoleInput::new(
+            &bob_id,
+            jmap_chat_client::types::ChatMemberRole::Unknown("moderator".into()),
+        ),
+    ];
+    let mut patch = jmap_chat_client::methods::ChatPatch::default();
+    patch.update_member_roles = Some(&role_changes);
+    let _ = sc
+        .chat_update(&chat_id, &patch)
+        .await
+        .expect("chat_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["update"]["chat-1"]["updateMemberRoles"],
+        json!([
+            { "id": "u-alice", "role": "member" },
+            { "id": "u-bob", "role": "moderator" }
+        ]),
+        "updateMemberRoles must thread well-known + Unknown(String) wire strings"
+    );
+}

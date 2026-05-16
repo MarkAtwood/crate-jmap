@@ -459,3 +459,211 @@ async fn space_create_serializes_create_object_and_rejects_empty_name() {
         other => panic!("expected InvalidArgument, got {other:?}"),
     }
 }
+
+/// `Space/join` with `SpaceJoinInput::InviteCode` must serialise the
+/// invite code under the `inviteCode` wire key (space.rs:206-214) and
+/// reject the empty code client-side. The accountId travels in the
+/// args.
+#[tokio::test]
+async fn space_join_via_invite_code_serialises_and_rejects_empty() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Space/join",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "spaceId": "space-joined"
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let input = jmap_chat_client::methods::SpaceJoinInput::InviteCode(
+        "INVITE-CANARY-TEST-NOT-A-REAL-SECRET",
+    );
+    let resp = sc
+        .space_join(&input)
+        .await
+        .expect("space_join: must succeed");
+    assert_eq!(resp.space_id.as_ref(), "space-joined", "space_id mismatch");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["accountId"],
+        json!(TEST_ACCOUNT_ID),
+        "accountId mismatch"
+    );
+    assert_eq!(
+        args["inviteCode"],
+        json!("INVITE-CANARY-TEST-NOT-A-REAL-SECRET"),
+        "inviteCode must thread verbatim"
+    );
+    assert!(
+        args.get("spaceId").is_none(),
+        "spaceId must be absent in invite-code path"
+    );
+
+    // Empty invite code rejected.
+    let bad = jmap_chat_client::methods::SpaceJoinInput::InviteCode("");
+    let err = sc
+        .space_join(&bad)
+        .await
+        .expect_err("space_join must reject empty invite_code");
+    match err {
+        jmap_base_client::ClientError::InvalidArgument(msg) => {
+            assert!(msg.contains("invite_code may not be empty"), "got: {msg:?}");
+        }
+        other => panic!("expected InvalidArgument, got {other:?}"),
+    }
+}
+
+/// `Space/join` with `SpaceJoinInput::SpaceId` must serialise the
+/// space id under the `spaceId` wire key (space.rs:215-218) — the
+/// direct-join path used for public Spaces.
+#[tokio::test]
+async fn space_join_via_space_id_serialises() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Space/join",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "spaceId": "space-public"
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let space_id = Id::from("space-public");
+    let input = jmap_chat_client::methods::SpaceJoinInput::SpaceId(&space_id);
+    let _ = sc
+        .space_join(&input)
+        .await
+        .expect("space_join: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["spaceId"],
+        json!("space-public"),
+        "spaceId must thread verbatim"
+    );
+    assert!(
+        args.get("inviteCode").is_none(),
+        "inviteCode must be absent in space-id path"
+    );
+}
+
+/// `Space/set` update with a non-trivial patch — `name`, `description`
+/// `Patch::Clear`, `is_public`, `add_members`, `remove_members`,
+/// `update_members` with a per-member nick `Patch::Set` — must thread
+/// every field through the per-id patch object with camelCase wire
+/// keys (space.rs:243-325).
+#[tokio::test]
+async fn space_update_patch_full_member_management_serialises() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Space/set",
+        SPACE_STATE_OLD,
+        SPACE_STATE_NEW,
+        json!({ "updated": { "space-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let space_id = Id::from("space-1");
+    let new_member_id = Id::from("u-alice");
+    let new_member_role = Id::from("role-admin");
+    let role_ids = [new_member_role.clone()];
+    let mut new_member = jmap_chat_client::methods::SpaceAddMemberInput::new(&new_member_id);
+    new_member.role_ids = Some(&role_ids);
+    let add_members = [new_member];
+    let removed_id = Id::from("u-malice");
+    let remove_members = [removed_id];
+    let updated_member_id = Id::from("u-bob");
+    let mut updated_member =
+        jmap_chat_client::methods::SpaceUpdateMemberInput::new(&updated_member_id);
+    updated_member.nick = jmap_chat_client::methods::Patch::Set("Bob the Brave");
+    let update_members = [updated_member];
+
+    let mut patch = jmap_chat_client::methods::SpacePatch::default();
+    patch.name = Some("Engineering");
+    patch.description = jmap_chat_client::methods::Patch::Clear;
+    patch.is_public = Some(true);
+    patch.add_members = Some(&add_members);
+    patch.remove_members = Some(&remove_members);
+    patch.update_members = Some(&update_members);
+
+    let _ = sc
+        .space_update(&space_id, &patch)
+        .await
+        .expect("space_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    let patch_obj = &args["update"]["space-1"];
+    assert_eq!(patch_obj["name"], json!("Engineering"), "name mismatch");
+    assert_eq!(
+        patch_obj["description"],
+        json!(null),
+        "description Patch::Clear must serialise as null"
+    );
+    assert_eq!(patch_obj["isPublic"], json!(true), "isPublic mismatch");
+    assert_eq!(
+        patch_obj["addMembers"],
+        json!([{ "id": "u-alice", "roleIds": ["role-admin"] }]),
+        "addMembers must thread id + roleIds"
+    );
+    assert_eq!(
+        patch_obj["removeMembers"],
+        json!(["u-malice"]),
+        "removeMembers must thread the id slice"
+    );
+    assert_eq!(
+        patch_obj["updateMembers"],
+        json!([{ "id": "u-bob", "nick": "Bob the Brave" }]),
+        "updateMembers must thread id + nick"
+    );
+    assert!(
+        patch_obj.get("iconBlobId").is_none(),
+        "iconBlobId must be absent when Patch::Keep"
+    );
+}
+
+/// `Space/set` update with `add_members: Some(&[])` and
+/// `remove_members: Some(&[])` must omit BOTH keys from the wire patch
+/// (space.rs:270-289, 291-298 — empty-slice guard skips the insert).
+/// Confirms the "empty slice = no-change" semantic that mirrors the
+/// `None` case but is reached via a different control-flow branch.
+#[tokio::test]
+async fn space_update_empty_member_slices_omit_keys() {
+    let server = MockServer::start().await;
+    let resp_body = set_response(
+        "Space/set",
+        SPACE_STATE_OLD,
+        SPACE_STATE_NEW,
+        json!({ "updated": { "space-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let space_id = Id::from("space-1");
+    let empty_add: [jmap_chat_client::methods::SpaceAddMemberInput<'_>; 0] = [];
+    let empty_remove: [Id; 0] = [];
+    let mut patch = jmap_chat_client::methods::SpacePatch::default();
+    patch.name = Some("Just renaming");
+    patch.add_members = Some(&empty_add);
+    patch.remove_members = Some(&empty_remove);
+    let _ = sc
+        .space_update(&space_id, &patch)
+        .await
+        .expect("space_update: must succeed");
+
+    let args = recorded_args(&server).await;
+    let patch_obj = &args["update"]["space-1"];
+    assert_eq!(patch_obj["name"], json!("Just renaming"));
+    assert!(
+        patch_obj.get("addMembers").is_none(),
+        "empty addMembers slice must be omitted (no-change semantic)"
+    );
+    assert!(
+        patch_obj.get("removeMembers").is_none(),
+        "empty removeMembers slice must be omitted (no-change semantic)"
+    );
+}
