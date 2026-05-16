@@ -193,6 +193,11 @@ impl Inner {
         }
 
         // Look up receivedAt for each email id from the Email store.
+        // bd:JMAP-ic0j.72 — `Email.receivedAt` is wire-typed as `UTCDate`
+        // (RFC 8621 §4.1, strict UTC), so parse via the foundation
+        // `UTCDate::to_epoch_seconds` helper from `jmap-types` rather
+        // than the local offset-tolerant parser. Malformed seeds still
+        // sort to epoch 0.
         let mut id_and_date: Vec<(String, i64)> = email_ids
             .into_iter()
             .map(|eid| {
@@ -200,7 +205,7 @@ impl Inner {
                     .objects_ref("Email", account_id)
                     .and_then(|s| s.get(eid.as_str()))
                     .and_then(|v| v["receivedAt"].as_str())
-                    .map(rfc3339_to_epoch_secs)
+                    .map(utcdate_str_to_epoch_secs)
                     .unwrap_or(0);
                 (eid, epoch)
             })
@@ -919,9 +924,13 @@ impl JmapBackend for MemoryBackend {
         });
         if let Some(cmp) = received_at_sort {
             let ascending = cmp.is_ascending;
+            // bd:JMAP-ic0j.72 — `date_a` / `date_b` were extracted from
+            // the typed `Email.receivedAt` field (RFC 8621 §4.1 strict
+            // UTC), so parse via the foundation `UTCDate::to_epoch_seconds`
+            // helper rather than the local offset-tolerant parser.
             id_date_pairs.sort_by(|(id_a, date_a), (id_b, date_b)| {
-                let epoch_a = rfc3339_to_epoch_secs(date_a);
-                let epoch_b = rfc3339_to_epoch_secs(date_b);
+                let epoch_a = utcdate_str_to_epoch_secs(date_a);
+                let epoch_b = utcdate_str_to_epoch_secs(date_b);
                 let ord = epoch_a.cmp(&epoch_b);
                 let ord = if ascending { ord } else { ord.reverse() };
                 ord.then_with(|| id_a.as_ref().cmp(id_b.as_ref()))
@@ -2096,23 +2105,51 @@ fn apply_jmap_patch(
     }
 }
 
-/// Parse an RFC 3339 timestamp string to seconds since the Unix epoch (UTC).
+/// Parse a strict RFC 8620 §1.4 `UTCDate` string
+/// (`YYYY-MM-DDTHH:MM:SSZ`) to seconds since the Unix epoch. Returns `0`
+/// on any parse / validation failure (the sort-stable fallback policy
+/// also used by [`try_rfc3339_to_epoch_secs`]).
 ///
-/// Handles both `Z` suffix and `+HH:MM` / `-HH:MM` offsets so that timestamps
-/// with non-UTC offsets sort correctly by absolute UTC time.
+/// bd:JMAP-ic0j.72 — Thin wrapper around the foundation
+/// [`jmap_types::UTCDate::to_epoch_seconds`] helper. Used by call sites
+/// whose JSON-resident `&str` originated as a typed `UTCDate` field
+/// (notably `Email.receivedAt` per RFC 8621 §4.1). Does NOT accept
+/// `+HH:MM` / `-HH:MM` offsets or fractional seconds — use
+/// [`try_rfc3339_to_epoch_secs`] for those (currently only filter
+/// `before` / `after` per RFC 8620 §1.4 `Date`).
+fn utcdate_str_to_epoch_secs(s: &str) -> i64 {
+    UTCDate::new_validated(s)
+        .ok()
+        .and_then(|d| d.to_epoch_seconds().ok())
+        .unwrap_or(0)
+}
+
+/// Parse an RFC 3339 / RFC 8620 §1.4 `Date` timestamp string to seconds
+/// since the Unix epoch (UTC), returning `None` on any parse failure.
 ///
-/// Returns `0` for any string that cannot be parsed (treated as epoch origin
-/// for sorting purposes — keeps the sort stable for malformed inputs).
+/// Handles both `Z` suffix and `+HH:MM` / `-HH:MM` offsets so that
+/// timestamps with non-UTC offsets compare correctly by absolute UTC
+/// time. Also accepts optional fractional seconds before the offset.
 ///
 /// Limitations (acceptable for test code):
 /// - Does not validate calendar date/time fields (e.g. month 13 is accepted).
 /// - Does not handle leap seconds.
 /// - Year must be in the range 1970–9999.
-fn rfc3339_to_epoch_secs(s: &str) -> i64 {
-    try_rfc3339_to_epoch_secs(s).unwrap_or(0)
-}
-
-/// Inner fallible parser; returns `None` on any parse error.
+///
+/// # When to use vs `UTCDate::to_epoch_seconds`
+///
+/// bd:JMAP-ic0j.72 — call sites whose input is typed `UTCDate` (RFC 8620
+/// §1.4 strict UTC, the wire shape of `Email.receivedAt`) SHOULD use
+/// [`jmap_types::UTCDate::to_epoch_seconds`] directly, or
+/// [`utcdate_str_to_epoch_secs`] when the value is a `&str` from JSON.
+/// Use this helper only when the input is a `Date` (RFC 8620 §1.4)
+/// which permits non-UTC offsets — currently
+/// `EmailFilterCondition.before` / `.after`, where the client may
+/// legitimately send `+05:30` etc.
+///
+/// A future `jmap-types::Date::to_epoch_seconds` would let the `Date`
+/// sites also migrate to the foundation helper; until then this
+/// offset-tolerant parser stays.
 fn try_rfc3339_to_epoch_secs(s: &str) -> Option<i64> {
     // Expected format: YYYY-MM-DDTHH:MM:SS[.fff](Z|+HH:MM|-HH:MM)
     // Length with Z offset: 20 chars; with millis+Z: 24 chars; with ±HH:MM: 25 chars.
@@ -2256,15 +2293,22 @@ fn email_matches_condition(
     if let Some(ref before) = cond.before {
         // receivedAt must be strictly before `before` (epoch-seconds comparison avoids
         // the lexicographic trap where "T00:00:00.123Z" < "T00:00:00Z" despite .123 being later).
-        let recv_epoch = rfc3339_to_epoch_secs(email.received_at.as_ref());
+        // bd:JMAP-ic0j.72 — `email.received_at` is typed `UTCDate` (RFC 8621 §4.1
+        // strict UTC), so use the foundation `UTCDate::to_epoch_seconds`
+        // helper from `jmap-types` rather than the local offset-tolerant
+        // parser. Filter `before` / `after` remain on the local parser
+        // because RFC 8620 §1.4 `Date` (the filter input type) permits
+        // non-UTC offsets.
+        let recv_epoch = email.received_at.to_epoch_seconds().unwrap_or(0);
         let before_epoch = try_rfc3339_to_epoch_secs(before.as_ref()).unwrap_or(i64::MAX);
         if recv_epoch >= before_epoch {
             return false;
         }
     }
     if let Some(ref after) = cond.after {
-        // receivedAt must be strictly after `after`.
-        let recv_epoch = rfc3339_to_epoch_secs(email.received_at.as_ref());
+        // receivedAt must be strictly after `after`. bd:JMAP-ic0j.72 — see
+        // the `before` arm above for the typed-vs-string parser split.
+        let recv_epoch = email.received_at.to_epoch_seconds().unwrap_or(0);
         let after_epoch = try_rfc3339_to_epoch_secs(after.as_ref()).unwrap_or(i64::MIN);
         if recv_epoch <= after_epoch {
             return false;
