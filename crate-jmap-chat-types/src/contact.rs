@@ -4,20 +4,62 @@ use crate::presence::Presence;
 use jmap_types::{Id, UTCDate};
 use serde::{Deserialize, Serialize};
 
-/// A reachable endpoint for a contact (e.g. XMPP, SIP, email).
+/// An out-of-band capability endpoint advertised on a contact or
+/// session object (draft-atwood-jmap-chat-00 §4.4).
+///
+/// Examples per the draft: `urn:jmap:chat:cap:vtc` (video/voice
+/// teleconference), `urn:jmap:chat:cap:payment`,
+/// `urn:jmap:chat:cap:blob`, etc. The
+/// [`endpoint_type`](Self::endpoint_type) field is the discriminant
+/// for the [`metadata`](Self::metadata) value shape.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Endpoint {
+    /// The `type` property (draft-atwood-jmap-chat-00 §4.4).
+    ///
+    /// URI namespace per the draft. Well-known values include
+    /// `urn:jmap:chat:cap:vtc`, `urn:jmap:chat:cap:payment`,
+    /// `urn:jmap:chat:cap:blob`, `urn:jmap:chat:cap:calendar-event`,
+    /// `urn:jmap:chat:cap:availability`, `urn:jmap:chat:cap:task`,
+    /// `urn:jmap:chat:cap:filenode`. Deployments and future drafts
+    /// MAY define additional values. Clients MUST silently ignore
+    /// Endpoint records whose `type` they do not recognize.
+    ///
     /// Wire name is "type" — camelCase expansion would give "endpointType".
     #[serde(rename = "type")]
     pub endpoint_type: String,
-    /// URI identifying the endpoint.
+    /// The `uri` property (draft-atwood-jmap-chat-00 §4.4).
+    ///
+    /// Format is type-specific (per `endpoint_type`). Peer-supplied;
+    /// MUST be treated as untrusted by consumers.
     pub uri: String,
-    /// Human-readable label for this endpoint.
+    /// The `label` property (draft-atwood-jmap-chat-00 §4.4).
+    ///
+    /// Human-readable label for this endpoint (e.g.
+    /// `"Personal Jitsi"`, `"Zcash address"`).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub label: Option<String>,
-    /// Arbitrary provider-defined metadata.
+    /// The `metadata` property (draft-atwood-jmap-chat-00 §4.4).
+    ///
+    /// Type-specific key-value pairs whose shape is keyed by the
+    /// [`endpoint_type`](Self::endpoint_type) discriminant. The
+    /// draft (§4.4) gives illustrative per-type examples (`vtc`:
+    /// `{"protocol": "webrtc", "roomName": "...", "password": "..."}`;
+    /// `payment`: `{"network": "lightning", "currency": "BTC"}`;
+    /// `blob`: `{"maxBytes": 10485760}`; etc.) but deliberately
+    /// leaves the per-type value shape open and requires that
+    /// "Clients MUST ignore unknown keys".
+    ///
+    /// Consumers that need typed access for a known
+    /// `endpoint_type` value MUST cast via
+    /// `serde_json::from_value::<MyTypedShape>(metadata.clone())`
+    /// at their boundary; this crate does not enforce a schema and
+    /// will not in future revisions, because the draft is the
+    /// schema authority and explicitly keeps the value shape
+    /// extensible per type.
+    ///
+    /// The value is a JSON Object on the wire per the draft.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub metadata: Option<serde_json::Value>,
     /// Catch-all for vendor / site / private extension fields not covered
