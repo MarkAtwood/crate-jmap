@@ -20,7 +20,8 @@ use std::collections::{HashMap, HashSet};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
-    extract_account_id, filter_properties, finalize_set_response, set_error_value, SetAccumulators,
+    enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
+    set_error_value, SetAccumulators,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, take_bool_arg};
 
@@ -295,6 +296,10 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.2). Reject
+    // unbounded /set batches before touching the storage layer.
+    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
     // Fetch VacationResponse-backed script id once for the lifetime of this call
     // (RFC 9661 §4). The default impl returns Ok(None).

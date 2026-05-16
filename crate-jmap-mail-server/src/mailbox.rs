@@ -8,8 +8,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MailBackend, SetError, SetErrorType};
 use crate::helpers::{
-    extract_account_id, filter_properties, finalize_set_response, not_found_json, serialize_value,
-    set_error_value, SetAccumulators,
+    enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
+    not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -432,6 +432,10 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.2). Reject
+    // unbounded /set batches before touching the storage layer.
+    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
     // Check ifInState.
     let current_state = backend
