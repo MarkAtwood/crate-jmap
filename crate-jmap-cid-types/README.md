@@ -33,7 +33,7 @@ identifiers.
 
 The typed wire shape here is consumed by `jmap-base-client` for the
 `BlobUploadResponse.sha256` field and the `Session::supports_cid()`
-helper (per the per-bead plan in `PLAN.md`), and by a future
+helper (both landed in `jmap-base-client`), and by a future
 `jmap-filenode-types` revision for the FileNode `sha256` property.
 The CID document — capability URI `urn:ietf:params:jmap:cid`, draft
 owned by Mark Atwood — is deliberately independent of any single
@@ -91,17 +91,18 @@ map in `jmap-base-client`.
 
 ## Gotchas
 
-- This crate is a skeleton at the current draft revision
-  (draft-atwood-jmap-cid-00; bd:JMAP-v9py.11). Today it exports only
-  the [`Sha256`] type and its error machinery. The `CidCapability`
-  marker struct and the wiring into Blob upload responses /
-  `Session::supports_cid()` land in follow-up beads (bd:JMAP-v9py.13
-  and bd:JMAP-v9py.14) — see `PLAN.md`.
-- The `sha256` typed wire shape is NOT yet plumbed through every
-  blob-response shape across the workspace. The integration point
-  is `jmap-base-client`; check there for the actual round-trip
-  binding before relying on a typed `sha256` field in a JMAP
-  response.
+- The `CidCapability` value-object shape (draft §3) does not yet
+  ship from this crate. The capability URI string ([`JMAP_CID_URI`])
+  and the [`Sha256`] typed wire shape are present; the empty-object
+  value type that mirrors the capability advertisement is tracked
+  under bd:JMAP-sf5h.6.
+- Blob upload-response and Session-capability wiring live in
+  `jmap-base-client`, not here.
+  `jmap_base_client::blob::BlobUploadResponse.sha256:
+  Option<jmap_cid_types::Sha256>` is the typed binding for the
+  upload-response `sha256` field; `Session::supports_cid()` is the
+  helper that checks the capability map. This crate is the
+  wire-shape source of truth; the binding lives one layer up.
 - CID and the RFC 9404 BLOBEXT `Blob/get` `digest:sha-256` request
   are deliberately separate mechanisms with different encodings
   (lowercase hex vs base64) and different access patterns
