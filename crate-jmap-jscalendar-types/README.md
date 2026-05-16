@@ -52,12 +52,15 @@ Transitively pulls in `jmap-types`, `serde`, `serde_json`. Parse a
 use jmap_jscalendar_types::RecurrenceRule;
 use serde_json::json;
 
-let rule: RecurrenceRule = serde_json::from_value(json!({
-    "@type": "RecurrenceRule",
-    "frequency": "weekly",
-    "count": 10
-}))?;
-# Ok::<(), serde_json::Error>(())
+fn main() -> Result<(), serde_json::Error> {
+    let rule: RecurrenceRule = serde_json::from_value(json!({
+        "@type": "RecurrenceRule",
+        "frequency": "weekly",
+        "count": 10
+    }))?;
+    println!("frequency = {}", rule.frequency);
+    Ok(())
+}
 ```
 
 The same pattern works for `Participant`, `Location`, `Alert`, `Link`,

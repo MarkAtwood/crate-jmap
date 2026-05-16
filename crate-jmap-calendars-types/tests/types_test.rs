@@ -419,8 +419,8 @@ fn calendar_event_time_zones_value_and_typed_roundtrip() {
     let standard = tz.standard.as_ref().expect("standard rule present");
     assert_eq!(standard.len(), 1);
     assert_eq!(standard[0].at_type, "TimeZoneRule");
-    assert_eq!(standard[0].offset_from, "+0530");
-    assert_eq!(standard[0].offset_to, "+0530");
+    assert_eq!(standard[0].offset_from.as_ref(), "+0530");
+    assert_eq!(standard[0].offset_to.as_ref(), "+0530");
 
     // Wire round-trip: serialize the CalendarEvent back and verify the
     // `timeZones` field is byte-identical to the input.
