@@ -297,6 +297,22 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
+    ///
+    /// # Sentinel fields the backend MUST replace
+    ///
+    /// The method handlers in this crate pass partially-constructed objects
+    /// with sentinel values that the backend MUST replace with real values
+    /// before storing:
+    ///
+    /// - **`id`**: The `id` field in the input object is always set to
+    ///   `"placeholder"`. The backend MUST replace it with a real, unique,
+    ///   account-scoped ID and return that ID as the first element of the
+    ///   result tuple.
+    ///
+    /// Failing to replace this sentinel will cause the client to receive an
+    /// invalid wire value (`"placeholder"`) as the assigned id of every
+    /// created `Space`, `Chat`, `Message`, `SpaceInvite`, `SpaceBan`,
+    /// `CustomEmoji`, and `ReadPosition`.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
