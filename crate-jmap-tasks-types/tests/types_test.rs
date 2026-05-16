@@ -1145,8 +1145,8 @@ mod jscalendar_roundtrip {
         assert_eq!(tz.tz_id, "/example/custom/UTC+05:30:00");
         let standard = tz.standard.as_ref().expect("standard rule present");
         assert_eq!(standard.len(), 1);
-        assert_eq!(standard[0].offset_from, "+0530");
-        assert_eq!(standard[0].offset_to, "+0530");
+        assert_eq!(standard[0].offset_from.as_ref(), "+0530");
+        assert_eq!(standard[0].offset_to.as_ref(), "+0530");
         assert_eq!(standard[0].at_type, "TimeZoneRule");
 
         // Typed re-encode matches the original Value.

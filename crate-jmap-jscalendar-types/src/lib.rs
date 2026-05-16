@@ -25,6 +25,50 @@
 //! These are modelled as newtype wrappers around `String` to document intent
 //! at the type level without pulling in a heavy parser dependency.  Validation
 //! of internal format is left to the backend.
+//!
+//! ## Spec-driven divergences (deliberate, do not "fix")
+//!
+//! Three design choices in this crate look like inconsistency at a glance but
+//! are deliberate spec-compliance decisions; preserve them against future
+//! "consistency" or "simplification" PRs.
+//!
+//! 1. **Bare `String` `at_type` (not `Option<String>`).**  Diverges from the
+//!    sibling `jmap-jscontact-types` which uses `Option<String>`.  Spec
+//!    authority: RFC 8984 marks every `@type` discriminator as
+//!    `(mandatory)` with zero `defaultType` annotations; RFC 9553 §1.3.4
+//!    introduces `defaultType` and permits omitting `@type` in
+//!    implied-type positions.  Workspace canonical-templates rule
+//!    explicitly permits "differences mandated by the relevant RFC or
+//!    draft".  See `PLAN.md` and `bd:JMAP-sgrr.3`.
+//!
+//! 2. **`AlertTrigger::Unknown(serde_json::Value)`.**  Holds an opaque
+//!    `Value` rather than a typed struct or a `String`.  Spec authority:
+//!    RFC 8984 §4.5.2 "Implementations MUST NOT trigger for trigger types
+//!    they do not understand but MUST preserve them."  A typed
+//!    `Unknown(String)` would discard the inner fields; a typed
+//!    `Unknown { at_type, fields }` would force a schema on what is
+//!    explicitly unschema'd.  The manual `Deserialize` impl is required
+//!    because serde does not support `#[serde(tag = "@type", other)]`
+//!    with non-unit tuple variants.  See [`AlertTrigger`] rustdoc.
+//!
+//! 3. **`serde_json::{Map, Value}` in the public API surface.**  The
+//!    workspace extras-preservation policy mandates a
+//!    `pub extra: serde_json::Map<String, serde_json::Value>` field on
+//!    every wire-format struct, and `AlertTrigger::Unknown` carries a
+//!    raw `Value`.  This locks the crate's major version to
+//!    `serde_json`'s, which is the explicit trade-off: round-trip
+//!    fidelity for vendor / site / private fields outweighs the
+//!    coupling cost.  See `PLAN.md` "Extras-preservation policy" and
+//!    workspace `AGENTS.md`.
+//!
+//! ## Test-oracle discipline
+//!
+//! Test fixtures are constructed from `serde_json::json!({...})` literals
+//! whose shape comes directly from RFC 8984 example text.  Per workspace
+//! test-integrity rules, the oracle MUST be the spec example, NOT the code
+//! under test.  Do NOT replace fixture construction with "build a typed
+//! struct, serialize, deserialize, compare" — that pattern uses the code
+//! under test as its own oracle.
 
 #![forbid(unsafe_code)]
 
@@ -232,6 +276,47 @@ impl AsRef<str> for SignedDuration {
 }
 
 impl std::fmt::Display for SignedDuration {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+/// A UTC offset string (RFC 5545 / RFC 8984 §4.7.2 — the TZOFFSETFROM /
+/// TZOFFSETTO format).
+///
+/// Format: `±HHMM` or `±HHMMSS`.  Examples: `"+0100"`, `"-0500"`,
+/// `"+053000"`.  Used by `TimeZoneRule.offset_from` / `offset_to`.
+///
+/// # Validation
+///
+/// The `From<String>` and `From<&str>` constructors accept **any** string
+/// without validating against the format.  This is deliberate: parsing
+/// is left to the backend (per `PLAN.md`).  Callers MUST treat the inner
+/// string as opaque-but-presumed-well-formed and validate at the system
+/// boundary.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct UTCOffset(String);
+
+impl From<String> for UTCOffset {
+    fn from(s: String) -> Self {
+        Self(s)
+    }
+}
+
+impl From<&str> for UTCOffset {
+    fn from(s: &str) -> Self {
+        Self(s.to_owned())
+    }
+}
+
+impl AsRef<str> for UTCOffset {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for UTCOffset {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.0)
     }
@@ -827,6 +912,11 @@ pub struct Participant {
     pub kind: Option<String>,
 
     /// Map of role URIs → `true` (e.g. `"owner"`, `"attendee"`, `"chair"`).
+    ///
+    /// RFC 8984 §4.4.6: "At least one role MUST be specified for the
+    /// participant".  The non-empty mandate is NOT enforced by the type
+    /// system or by deserialize; use [`Participant::validate_roles`]
+    /// for an opt-in check.
     pub roles: HashMap<String, bool>,
 
     /// Id of the location this participant is associated with.
@@ -958,6 +1048,29 @@ pub struct Participant {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+/// Error returned by [`Participant::validate_roles`] when the
+/// RFC 8984 §4.4.6 non-empty-roles invariant is violated.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParticipantRolesError {
+    /// The `roles` map is empty.  RFC 8984 §4.4.6 says
+    /// "At least one role MUST be specified for the participant".
+    Empty,
+}
+
+impl std::fmt::Display for ParticipantRolesError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParticipantRolesError::Empty => f.write_str(
+                "Participant.roles is empty; RFC 8984 §4.4.6 requires at \
+                 least one role",
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ParticipantRolesError {}
+
 impl Participant {
     /// Construct a new `Participant` with the mandatory `roles` map
     /// (RFC 8984 §4.4.6).  `at_type` is set to `"Participant"`; all
@@ -968,7 +1081,8 @@ impl Participant {
     /// constructor accepts any `HashMap`, including an empty one — the
     /// non-empty mandate is not enforced at construction time so that
     /// partial in-flight values round-trip cleanly.  Callers SHOULD
-    /// populate at least one role entry before serializing.
+    /// populate at least one role entry before serializing.  Use
+    /// [`Participant::validate_roles`] to check.
     pub fn new(roles: HashMap<String, bool>) -> Self {
         Self {
             at_type: "Participant".to_owned(),
@@ -999,6 +1113,22 @@ impl Participant {
             progress_updated: None,
             percent_complete: None,
             extra: serde_json::Map::new(),
+        }
+    }
+}
+
+impl Participant {
+    /// Validate the RFC 8984 §4.4.6 non-empty-roles invariant.
+    ///
+    /// Returns `Err(ParticipantRolesError::Empty)` when `roles` is
+    /// empty; `Ok(())` otherwise.  Opt-in check — deserialize does NOT
+    /// enforce the mandate so that partial in-flight Participant values
+    /// round-trip cleanly.
+    pub fn validate_roles(&self) -> Result<(), ParticipantRolesError> {
+        if self.roles.is_empty() {
+            Err(ParticipantRolesError::Empty)
+        } else {
+            Ok(())
         }
     }
 }
@@ -1250,12 +1380,16 @@ pub struct TimeZoneRule {
     pub start: LocalDateTime,
 
     /// TZOFFSETFROM from iCalendar — the UTC offset in effect before the
-    /// transition (format `±HHMM` or `±HHMMSS`).
-    pub offset_from: String,
+    /// transition (format `±HHMM` or `±HHMMSS`).  Typed as
+    /// [`UTCOffset`] for consistency with the other temporal newtypes;
+    /// the inner string is opaque to this crate (validation deferred to
+    /// the backend per `PLAN.md`).
+    pub offset_from: UTCOffset,
 
     /// TZOFFSETTO from iCalendar — the UTC offset in effect after the
-    /// transition (format `±HHMM` or `±HHMMSS`).
-    pub offset_to: String,
+    /// transition (format `±HHMM` or `±HHMMSS`).  Typed as
+    /// [`UTCOffset`] for consistency with the other temporal newtypes.
+    pub offset_to: UTCOffset,
 
     /// RRULE from iCalendar — recurrence rules for the transition.
     /// Per RFC 8984 §4.7.2 the `until` value MUST be interpreted as a
@@ -1266,6 +1400,12 @@ pub struct TimeZoneRule {
     /// RDATE properties from iCalendar — additional explicit transition
     /// dates. Keys are LocalDateTime strings; the PatchObject value MUST
     /// be the empty JSON object (`{}`) per RFC 8984 §4.7.2.
+    ///
+    /// The type permits non-empty PatchObject values that the wire spec
+    /// forbids — this is deliberate for round-trip preservation of
+    /// in-flight data.  Use
+    /// [`TimeZoneRule::validate_recurrence_overrides_empty`] for an
+    /// opt-in check that every value is the empty patch.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_overrides: Option<HashMap<LocalDateTime, PatchObject>>,
 
@@ -1293,11 +1433,12 @@ impl TimeZoneRule {
     ///
     /// `offset_from` / `offset_to` MUST be a valid signed offset string
     /// (`±HHMM` or `±HHMMSS`) per the spec — not enforced at
-    /// construction time.
+    /// construction time.  Accepts anything `Into<UTCOffset>`, which
+    /// includes `&str` and `String` via the newtype's `From` impls.
     pub fn new(
         start: LocalDateTime,
-        offset_from: impl Into<String>,
-        offset_to: impl Into<String>,
+        offset_from: impl Into<UTCOffset>,
+        offset_to: impl Into<UTCOffset>,
     ) -> Self {
         Self {
             at_type: "TimeZoneRule".to_owned(),
@@ -1310,6 +1451,60 @@ impl TimeZoneRule {
             comments: None,
             extra: serde_json::Map::new(),
         }
+    }
+}
+
+/// Error returned by [`TimeZoneRule::validate_recurrence_overrides_empty`]
+/// when the RFC 8984 §4.7.2 "PatchObject value MUST be the empty patch"
+/// constraint is violated.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum RecurrenceOverridesError {
+    /// At least one entry in `recurrence_overrides` carries a
+    /// non-empty PatchObject value.  RFC 8984 §4.7.2 requires every
+    /// value to be the empty patch (`{}`).
+    NonEmptyPatch {
+        /// The wire-format key (LocalDateTime string) of the offending
+        /// entry.
+        key: String,
+    },
+}
+
+impl std::fmt::Display for RecurrenceOverridesError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RecurrenceOverridesError::NonEmptyPatch { key } => write!(
+                f,
+                "TimeZoneRule.recurrenceOverrides[{key:?}] carries a non-empty \
+                 PatchObject; RFC 8984 §4.7.2 requires the empty patch"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for RecurrenceOverridesError {}
+
+impl TimeZoneRule {
+    /// Validate the RFC 8984 §4.7.2 constraint on
+    /// `recurrence_overrides`: every PatchObject value MUST be the
+    /// empty patch (`{}`).
+    ///
+    /// Returns `Ok(())` if `recurrence_overrides` is `None`, an empty
+    /// map, or contains only empty-patch values.  Returns
+    /// `Err(RecurrenceOverridesError::NonEmptyPatch { key })` naming
+    /// the first offending entry's wire key.  Opt-in check —
+    /// deserialize itself does NOT enforce the constraint.
+    pub fn validate_recurrence_overrides_empty(&self) -> Result<(), RecurrenceOverridesError> {
+        if let Some(map) = &self.recurrence_overrides {
+            for (k, v) in map {
+                if !v.as_map().is_empty() {
+                    return Err(RecurrenceOverridesError::NonEmptyPatch {
+                        key: k.as_ref().to_owned(),
+                    });
+                }
+            }
+        }
+        Ok(())
     }
 }
 
@@ -1441,10 +1636,7 @@ mod tests {
         // wrong-tag input fails.
         let bad_loc: Location =
             serde_json::from_value(json!({"@type": "Place", "name": "HQ"})).unwrap();
-        assert_eq!(
-            bad_loc.validate_at_type().unwrap_err().expected,
-            "Location"
-        );
+        assert_eq!(bad_loc.validate_at_type().unwrap_err().expected, "Location");
         assert!(Location::new().validate_at_type().is_ok());
 
         let bad_alert: Alert = serde_json::from_value(json!({
@@ -1475,11 +1667,8 @@ mod tests {
         let off = OffsetTrigger::new(SignedDuration::from("-PT15M"));
         let abs = AbsoluteTrigger::new(UTCDate::from("2024-06-15T08:45:00Z"));
         let alert = Alert::new(AlertTrigger::OffsetTrigger(off.clone()));
-        let rule_in_tz = TimeZoneRule::new(
-            LocalDateTime::from("1970-01-01T00:00:00"),
-            "+0000",
-            "+0000",
-        );
+        let rule_in_tz =
+            TimeZoneRule::new(LocalDateTime::from("1970-01-01T00:00:00"), "+0000", "+0000");
         let tz = TimeZone::new("Etc/UTC");
 
         for (val, expected_tag) in [
@@ -1797,6 +1986,24 @@ mod tests {
         assert_eq!(back["acmeCorpDirection"], "outbound");
     }
 
+    /// Oracle: `Participant::validate_roles` enforces the RFC 8984
+    /// §4.4.6 non-empty-roles mandate.  Empty `roles` deserializes
+    /// cleanly (for round-trip preservation) but `validate_roles`
+    /// rejects.  (bd:JMAP-mno4.16)
+    #[test]
+    fn participant_validate_roles_rejects_empty() {
+        // Empty roles — deserialize succeeds, validate rejects.
+        let raw_empty = json!({"@type": "Participant", "roles": {}});
+        let p_empty: Participant = serde_json::from_value(raw_empty).unwrap();
+        assert_eq!(p_empty.validate_roles(), Err(ParticipantRolesError::Empty));
+
+        // Non-empty roles — validate accepts.
+        let mut roles = HashMap::new();
+        roles.insert("attendee".to_owned(), true);
+        let p_good = Participant::new(roles);
+        assert!(p_good.validate_roles().is_ok());
+    }
+
     /// Oracle: the five RFC 8984 §4.4.6 fields that bd:JMAP-mno4.1 added
     /// (`scheduleForceSend`, `sentBy`, `progress`, `progressUpdated`,
     /// `percentComplete`) deserialize into their typed fields and round-trip
@@ -1986,8 +2193,8 @@ mod tests {
         assert_eq!(tz.standard.as_ref().map(Vec::len), Some(1));
         assert_eq!(tz.daylight.as_ref().map(Vec::len), Some(1));
         let standard = &tz.standard.as_ref().unwrap()[0];
-        assert_eq!(standard.offset_from, "+0200");
-        assert_eq!(standard.offset_to, "+0100");
+        assert_eq!(standard.offset_from.as_ref(), "+0200");
+        assert_eq!(standard.offset_to.as_ref(), "+0100");
         assert_eq!(
             standard.recurrence_rules.as_ref().map(Vec::len),
             Some(1),
@@ -1996,6 +2203,52 @@ mod tests {
 
         let back = serde_json::to_value(&tz).expect("serialize must succeed");
         assert_eq!(back, raw, "round-trip must preserve wire shape");
+    }
+
+    /// Oracle: `TimeZoneRule::validate_recurrence_overrides_empty`
+    /// enforces the RFC 8984 §4.7.2 empty-patch constraint.  A
+    /// non-empty PatchObject value deserializes cleanly (for
+    /// round-trip preservation) but the validator names the offending
+    /// key.  (bd:JMAP-mno4.18)
+    #[test]
+    fn time_zone_rule_validate_recurrence_overrides_rejects_non_empty() {
+        // None: validate passes trivially.
+        let none_rule =
+            TimeZoneRule::new(LocalDateTime::from("1970-01-01T00:00:00"), "+0000", "+0000");
+        assert!(none_rule.validate_recurrence_overrides_empty().is_ok());
+
+        // All empty: validate passes.
+        let raw_ok = json!({
+            "@type": "TimeZoneRule",
+            "start": "1970-01-01T00:00:00",
+            "offsetFrom": "+0000",
+            "offsetTo": "+0000",
+            "recurrenceOverrides": {
+                "1990-04-01T02:00:00": {},
+                "1991-04-07T02:00:00": {}
+            }
+        });
+        let ok_rule: TimeZoneRule = serde_json::from_value(raw_ok).unwrap();
+        assert!(ok_rule.validate_recurrence_overrides_empty().is_ok());
+
+        // One non-empty: validate names the offender.
+        let raw_bad = json!({
+            "@type": "TimeZoneRule",
+            "start": "1970-01-01T00:00:00",
+            "offsetFrom": "+0000",
+            "offsetTo": "+0000",
+            "recurrenceOverrides": {
+                "1990-04-01T02:00:00": {},
+                "1991-04-07T02:00:00": {"acmeCorp": "shouldnt-be-here"}
+            }
+        });
+        let bad_rule: TimeZoneRule = serde_json::from_value(raw_bad).unwrap();
+        let err = bad_rule.validate_recurrence_overrides_empty().unwrap_err();
+        match err {
+            RecurrenceOverridesError::NonEmptyPatch { key } => {
+                assert_eq!(key, "1991-04-07T02:00:00");
+            }
+        }
     }
 
     /// Oracle: `TimeZoneRule.recurrenceOverrides` is a `LocalDateTime[PatchObject]`
