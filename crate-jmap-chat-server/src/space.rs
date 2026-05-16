@@ -286,8 +286,8 @@ pub async fn handle_space_get<B: ChatBackend>(
 /// Returns `true` when the caller is a non-member of `space` AND the
 /// Space is not publicly previewable.
 ///
-/// Per draft-atwood-jmap-chat-00 §Space/get (bd:JMAP-v9py.20), such
-/// Spaces MUST be classified as `notFound` for the caller — the
+/// Per draft-atwood-jmap-chat-00 §Space/get, such Spaces MUST be
+/// classified as `notFound` for the caller — the
 /// kit's `handle_space_get` lifts them out of `list` and into
 /// `not_found` before the response is shaped. The response is then
 /// indistinguishable from the "Space does not exist" outcome, so a
@@ -310,7 +310,7 @@ fn non_member_non_previewable(space: &Space, caller_principal: Option<&Id>) -> b
 }
 
 /// Fields a non-member caller may see on a publicly-previewable Space,
-/// per draft-atwood-jmap-chat-00 §Space/get (bd:JMAP-v9py.4).
+/// per draft-atwood-jmap-chat-00 §Space/get.
 ///
 /// The list is exhaustive — any field NOT named here MUST be omitted
 /// from the returned object even when the caller explicitly requests
@@ -331,8 +331,7 @@ const NON_MEMBER_PREVIEWABLE_FIELDS: &[&str] = &[
 /// non-member-previewable field trim to a single Space object before
 /// it lands in the response `list`.
 ///
-/// Three cases (draft-atwood-jmap-chat-00 §Space/get +
-/// bd:JMAP-v9py.4):
+/// Three cases (draft-atwood-jmap-chat-00 §Space/get):
 ///
 /// 1. **Member caller** (the caller's principal id matches a
 ///    `members[i].id`) → return the full Space, intersected with
@@ -350,7 +349,7 @@ const NON_MEMBER_PREVIEWABLE_FIELDS: &[&str] = &[
 /// 4. **Non-member caller AND `isPubliclyPreviewable: false`** —
 ///    handled BEFORE this function: `handle_space_get` lifts the
 ///    Space out of `list` and into `not_found` via
-///    [`non_member_non_previewable`] (bd:JMAP-v9py.20). By the time
+///    [`non_member_non_previewable`]. By the time
 ///    a Space reaches this projection function, it has already
 ///    been confirmed visible to the caller. This match arm is
 ///    therefore unreachable in normal flow; if it WERE reached
@@ -607,12 +606,12 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 /// in a parsed `Vec<SpacePatchOp>`.
 ///
 /// Returns a tuple of `(add_roles, add_members, add_channels, add_categories)`.
-/// `Remove*` and `Update*` ops are not counted — per the bd:JMAP-g7wu.2.4.8
-/// design, the conservative `existing + add` check ignores in-flight removes
-/// so the resulting count is bounded even if ops are reordered by the
-/// backend. The check rejects strictly more patches than strict
-/// "final-count" enforcement; both are spec-conformant (the spec only
-/// requires that the resulting count not exceed the cap).
+/// `Remove*` and `Update*` ops are not counted: the conservative
+/// `existing + add` check ignores in-flight removes so the resulting
+/// count is bounded even if ops are reordered by the backend. The
+/// check rejects strictly more patches than strict "final-count"
+/// enforcement; both are spec-conformant (the spec only requires that
+/// the resulting count not exceed the cap).
 fn count_add_ops(ops: &[SpacePatchOp]) -> (u32, u32, u32, u32) {
     let mut add_roles: u32 = 0;
     let mut add_members: u32 = 0;
@@ -631,7 +630,7 @@ fn count_add_ops(ops: &[SpacePatchOp]) -> (u32, u32, u32, u32) {
 }
 
 /// Enforce per-Space count limits before dispatching structural ops to
-/// [`ChatBackend::apply_space_patch`] (bd:JMAP-g7wu.2.4.8).
+/// [`ChatBackend::apply_space_patch`].
 ///
 /// Per draft-atwood-jmap-chat-00 §Space/set (spec commit `80d5e11`,
 /// 2026-05-11), each of the four `add*` ops MUST return an `overQuota`
