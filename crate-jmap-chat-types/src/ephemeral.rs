@@ -2,6 +2,7 @@
 
 use crate::clearable::{some_clearable, Clearable};
 use crate::message::SenderId;
+use crate::presence::Presence;
 use jmap_types::{Id, UTCDate};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -75,8 +76,11 @@ pub struct ChatTypingEvent {
 pub struct ChatPresenceEvent {
     /// The contact whose presence changed.
     pub contact_id: Id,
-    /// Presence state string (e.g. `"online"`, `"away"`, `"busy"`).
-    pub presence: String,
+    /// New presence state. Typed identically to the [`Presence`]
+    /// field on `ChatContact` and `PresenceStatus`; the
+    /// `Presence::Other(String)` arm preserves any future wire
+    /// vocabulary verbatim for round-trip fidelity.
+    pub presence: Presence,
     /// When the contact was last active.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_active_at: Option<UTCDate>,
@@ -309,8 +313,48 @@ mod tests {
         let msg: EphemeralMessage = serde_json::from_str(json).unwrap();
         match msg {
             EphemeralMessage::Presence(e) => {
+                assert_eq!(e.presence, Presence::Away);
                 assert_eq!(e.status_text, Some(Clearable::Clear));
                 assert_eq!(e.status_emoji, None); // absent
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    /// Oracle: known spec-defined wire values for `presence` route to
+    /// the corresponding `Presence` variant, in parity with
+    /// `ChatContact.presence` and `PresenceStatus.presence`. An
+    /// unknown wire value preserves the original string via
+    /// `Presence::Other(_)` for round-trip fidelity.
+    #[test]
+    fn presence_event_typed_presence() {
+        let known = [
+            ("online", Presence::Online),
+            ("away", Presence::Away),
+            ("busy", Presence::Busy),
+            ("invisible", Presence::Invisible),
+            ("offline", Presence::Offline),
+        ];
+        for (wire, expected) in known {
+            let json =
+                format!(r#"{{"@type":"ChatPresenceEvent","contactId":"u1","presence":"{wire}"}}"#);
+            let msg: EphemeralMessage = serde_json::from_str(&json).unwrap();
+            match msg {
+                EphemeralMessage::Presence(e) => {
+                    assert_eq!(e.presence, expected, "wire value {wire:?}");
+                }
+                _ => panic!("wrong variant for wire value {wire:?}"),
+            }
+        }
+
+        // Unknown wire value preserved verbatim via Other(_).
+        let json = r#"{"@type":"ChatPresenceEvent","contactId":"u1","presence":"do-not-disturb"}"#;
+        let msg: EphemeralMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            EphemeralMessage::Presence(e) => {
+                assert_eq!(e.presence, Presence::Other("do-not-disturb".to_owned()));
+                let back = serde_json::to_value(&e).unwrap();
+                assert_eq!(back["presence"], "do-not-disturb");
             }
             _ => panic!("wrong variant"),
         }

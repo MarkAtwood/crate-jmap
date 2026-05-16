@@ -170,7 +170,7 @@ impl ChatWsExt for WsSession {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use jmap_chat_types::SenderId;
+    use jmap_chat_types::{Presence, SenderId};
     use jmap_types::Id;
 
     /// Helper: build a WsFrame::Unknown with the given type_name and raw JSON.
@@ -236,7 +236,7 @@ mod tests {
         match got {
             ChatWsFrame::ChatPresence(evt) => {
                 assert_eq!(evt.contact_id.as_ref(), "u2");
-                assert_eq!(evt.presence, "away");
+                assert_eq!(evt.presence, Presence::Away);
             }
             other => panic!("expected ChatPresence, got {other:?}"),
         }
