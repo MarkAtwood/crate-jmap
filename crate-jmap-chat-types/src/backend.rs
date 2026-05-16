@@ -11,6 +11,7 @@ use jmap_types::{GetObject, JmapObject, PatchObject, QueryObject, SetObject};
 // ---------------------------------------------------------------------------
 
 /// Property selector for [`crate::Chat`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ChatProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.10).
@@ -60,6 +61,7 @@ pub enum ChatProperty {
 }
 
 /// Property selector for [`crate::Message`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum MessageProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.11).
@@ -119,6 +121,7 @@ pub enum MessageProperty {
 }
 
 /// Property selector for [`crate::Space`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SpaceProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.16).
@@ -148,6 +151,7 @@ pub enum SpaceProperty {
 }
 
 /// Property selector for [`crate::ChatContact`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ChatContactProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.8).
@@ -175,6 +179,7 @@ pub enum ChatContactProperty {
 }
 
 /// Property selector for [`crate::ReadPosition`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ReadPositionProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.20).
@@ -188,6 +193,7 @@ pub enum ReadPositionProperty {
 }
 
 /// Property selector for [`crate::CustomEmoji`] `/get`, `/set`, and `/query`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum CustomEmojiProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.17).
@@ -205,6 +211,7 @@ pub enum CustomEmojiProperty {
 }
 
 /// Property selector for [`crate::SpaceInvite`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SpaceInviteProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.18).
@@ -228,6 +235,7 @@ pub enum SpaceInviteProperty {
 }
 
 /// Property selector for [`crate::SpaceBan`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SpaceBanProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.19).
@@ -247,6 +255,7 @@ pub enum SpaceBanProperty {
 }
 
 /// Property selector for [`crate::PresenceStatus`] `/get` and `/set`.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum PresenceStatusProperty {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.21).
