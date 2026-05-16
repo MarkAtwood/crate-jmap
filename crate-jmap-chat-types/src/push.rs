@@ -13,12 +13,29 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct ChatPushConfig {
     /// The `kinds` property (draft-atwood-jmap-chat-push-00 §4.1).
+    ///
+    /// Typed against [`ChatKind`] so consumers can dispatch on the
+    /// known kinds without re-parsing wire strings. Unknown wire
+    /// values land in `ChatKind::Other(_)` for forward-compat and
+    /// round-trip verbatim.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub kinds: Option<Vec<String>>,
+    pub kinds: Option<Vec<ChatKind>>,
     /// The `chatIds` property (draft-atwood-jmap-chat-push-00 §4.1).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub chat_ids: Option<Vec<Id>>,
     /// The `properties` property (draft-atwood-jmap-chat-push-00 §4.1).
+    ///
+    /// Left as `Vec<String>` rather than retyped to one of the
+    /// per-object `*Property` enums in `backend.rs`. Three reasons:
+    /// (1) the same field admits both `Chat`-level and
+    /// `Message`-level property names in the same list, so it has
+    /// no single typed home; (2) the property-selector enums lack
+    /// an `Other(String)` forward-compat arm, so retyping would
+    /// turn unknown property names into a deserialize failure
+    /// rather than the current preserve-and-forward behaviour;
+    /// (3) the field is consumed by the server as a projection
+    /// hint, not as authorisation-grade input, so primitive
+    /// obsession is bounded here.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<Vec<String>>,
     /// The `urgency` property (draft-atwood-jmap-chat-push-00 §4.1).
@@ -331,6 +348,27 @@ mod tests {
             serde_json::from_str(json).expect("deserialize ChatMessageEntry");
         assert_eq!(entry.chat_kind, ChatKind::Direct);
         assert!(entry.chat_name.is_none());
+    }
+
+    /// Oracle: a ChatPushConfig with typed `kinds` round-trips
+    /// byte-equivalently against the wire form a JMAP client would
+    /// emit before this retype. Asserts that wire-format compatibility
+    /// is preserved when the field shape moves from `Vec<String>` to
+    /// `Vec<ChatKind>`.
+    #[test]
+    fn push_config_kinds_typed_round_trip() {
+        let wire = r#"{"kinds":["direct","channel","custom-vendor-kind"]}"#;
+        let cfg: ChatPushConfig = serde_json::from_str(wire).expect("deserialize ChatPushConfig");
+        assert_eq!(
+            cfg.kinds,
+            Some(vec![
+                ChatKind::Direct,
+                ChatKind::Channel,
+                ChatKind::Other("custom-vendor-kind".to_owned()),
+            ])
+        );
+        let back = serde_json::to_string(&cfg).expect("serialize ChatPushConfig");
+        assert_eq!(back, wire);
     }
 
     // Oracle: ChatPushConfig with all fields None must serialize to `{}`.
