@@ -99,7 +99,7 @@ pub enum RequiredPermissions {
 /// replaced an earlier `&'static [&'static str]` shape that used a
 /// magic sentinel string `"__unknown_space_patch_op__"` to signal
 /// the unknown case; that contract was load-bearing on a name no
-/// public API exposed, see bd:JMAP-x2gd.37.
+/// public API exposed.
 ///
 /// This helper is pure and has no side effects. Backends consume it
 /// inside [`ChatBackend::apply_space_patch`] after resolving the

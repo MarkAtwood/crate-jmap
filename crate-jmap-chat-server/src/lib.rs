@@ -41,7 +41,7 @@
 //! Handlers MUST NOT consume the helper for gating — backends are the
 //! single source of truth. This mirrors the workspace-wide rule
 //! documented in workspace AGENTS.md "Caller identity (foundation
-//! seam)" (bd:JMAP-ga0q):
+//! seam)":
 //!
 //! - Handlers do NO permission checking.
 //! - Defense-in-depth handler pre-checks are allowed but the backend
