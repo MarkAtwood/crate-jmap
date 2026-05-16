@@ -43,11 +43,21 @@
 //! - [`JMAP_CID_URI`] — the `urn:ietf:params:jmap:cid` capability
 //!   URI constant (draft §3).
 //!
-//! ## What this crate is not (yet)
+//! ## Wiring into the rest of the kit
 //!
-//! Blob upload-response wiring and the `supports_cid()` Session
-//! advertisement detection are tracked separately as follow-up beads
-//! (bd:JMAP-v9py.13 and bd:JMAP-v9py.14 — see `PLAN.md`).
+//! The Blob upload-response binding and `Session::supports_cid()`
+//! advertisement check live in `jmap-base-client` (landed under
+//! closed beads bd:JMAP-v9py.13 and bd:JMAP-v9py.14):
+//!
+//! - `jmap_base_client::blob::BlobUploadResponse.sha256:
+//!   Option<jmap_cid_types::Sha256>` — typed digest carried on the
+//!   blob upload response when the server advertises CID.
+//! - `jmap_base_client::Session::supports_cid() -> bool` — checks
+//!   the session-level capability map for `urn:ietf:params:jmap:cid`.
+//!
+//! The `CidCapability` value-object shape (per draft §3) does not
+//! yet ship in this crate; it is tracked under bd:JMAP-sf5h.6 and
+//! will land in [`capability`] alongside [`JMAP_CID_URI`].
 
 #![forbid(unsafe_code)]
 

@@ -10,14 +10,17 @@ jmap-types
     └── jmap-cid-types  ← this crate
 ```
 
-Future consumers (under follow-up beads in epic bd:JMAP-v9py):
+Consumers (status as of bd:JMAP-sf5h close-out):
 
-- `jmap-base-client` — Blob upload response gains a typed `sha256`
-  field; `Session::supports_cid()` is added alongside the existing
-  capability accessors.
+- `jmap-base-client` (**landed** under bd:JMAP-v9py.13 / .14) —
+  Blob upload response carries a typed `sha256:
+  Option<jmap_cid_types::Sha256>` field
+  (`crate-jmap-base-client/src/blob.rs:83`); `Session::supports_cid()`
+  is the capability advertisement check
+  (`crate-jmap-base-client/src/request.rs:226`).
 - A future `jmap-filenode-types` revision — FileNode object gains
   a typed `sha256: Option<Sha256>` property when both CID and
-  FileNode capabilities are advertised.
+  FileNode capabilities are advertised. Not yet scheduled.
 
 ## What this crate is
 
@@ -79,7 +82,7 @@ After bd:JMAP-v9py.12:
   — both `#[non_exhaustive]`, position-tracking diagnostic for
   failed parses.
 
-Still to come in a follow-up bead (bd:JMAP-v9py post-.14):
+Still to come in a follow-up bead (bd:JMAP-sf5h.6):
 
 - `pub struct CidCapability { /* empty, #[non_exhaustive] */ }` —
   the JMAP Session capability marker for
@@ -87,8 +90,9 @@ Still to come in a follow-up bead (bd:JMAP-v9py post-.14):
   `extra` field per the extras-preservation policy.
 
 Module layout mirrors `jmap-metadata-types`: `digest.rs` for the
-`Sha256` type, a future `capability.rs` for the capability marker,
-and `lib.rs` re-exports.
+`Sha256` type, `capability.rs` for the capability URI constant
+(`JMAP_CID_URI`, landed under bd:JMAP-sf5h.11) and the future
+`CidCapability` marker, and `lib.rs` re-exports.
 
 ## Spec reference
 
@@ -156,7 +160,15 @@ wrapping a single value").
 - bd:JMAP-v9py.11 created the crate scaffolding.
 - bd:JMAP-v9py.12 added the `Sha256` typed shape with parse-time
   ABNF validation.
-- bd:JMAP-v9py.13 (open) wires the `Sha256` field into the Blob
-  upload response surface in `jmap-base-client`.
-- bd:JMAP-v9py.14 (open) adds the `supports_cid()` Session
-  advertisement detection in `jmap-base-client`.
+- bd:JMAP-v9py.13 (closed 2026-05-13) wired the `Sha256` field
+  into the Blob upload response surface in `jmap-base-client`
+  (`crate-jmap-base-client/src/blob.rs:83`).
+- bd:JMAP-v9py.14 (closed 2026-05-13) added the `supports_cid()`
+  Session advertisement detection in `jmap-base-client`
+  (`crate-jmap-base-client/src/request.rs:226`).
+- bd:JMAP-sf5h is the post-landing review epic. Findings .11
+  (JMAP_CID_URI constant), .10 (per-variant non_exhaustive on
+  Sha256DigestErrorKind), .4 (from_bytes → from_raw_digest rename),
+  .3 (serde_json → dev-dependencies), and .1 (this docs sweep)
+  closed in the same pass; remaining children track API-contract
+  forward-compat and idiom-pass findings.
