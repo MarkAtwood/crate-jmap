@@ -867,8 +867,12 @@ pub enum AvailabilityError<E: std::error::Error + 'static> {
     #[error("rate limit exceeded")]
     RateLimit,
     /// An unexpected backend error.
+    ///
+    /// bd:JMAP-ic0j.59 — `#[from]` implies `#[source]`, so the
+    /// `?` operator lifts `E` into `AvailabilityError<E>` automatically
+    /// without explicit `.map_err(AvailabilityError::Other)`.
     #[error("backend error: {0}")]
-    Other(#[source] E),
+    Other(#[from] E),
 }
 
 /// Per-call arguments for `CalendarEvent/get` operations
@@ -950,8 +954,13 @@ pub enum QueryCalendarEventsError<E: std::error::Error + 'static> {
     #[error("server cannot expand a recurrence required by the query")]
     CannotCalculateOccurrences,
     /// An unexpected backend error.
+    ///
+    /// bd:JMAP-ic0j.59 — `#[from]` implies `#[source]`, so the
+    /// `?` operator lifts `E` into `QueryCalendarEventsError<E>`
+    /// automatically without explicit
+    /// `.map_err(QueryCalendarEventsError::Other)`.
     #[error("backend error: {0}")]
-    Other(#[source] E),
+    Other(#[from] E),
 }
 
 /// Per-call arguments for `CalendarEvent/set` operations
