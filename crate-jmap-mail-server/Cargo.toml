@@ -37,7 +37,7 @@ jmap-mime = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-# Tests use the public MemoryBackend reference impl from `src/memory.rs`.
+# Tests use the public MemoryBackend reference impl from `src/memory/`.
 # Self-dep with feature flags ensures the `memory`, `mdn`, and `sieve`
 # features are active when compiling integration tests, without exposing
 # them to downstream users by default.

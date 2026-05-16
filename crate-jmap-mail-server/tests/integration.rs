@@ -12694,7 +12694,7 @@ async fn query_changes_max_changes_returns_cannot_calculate() {
 // ---------------------------------------------------------------------------
 // Filter/Comparator type-identity roundtrip probes
 //
-// memory.rs:query_objects re-decodes the generic O::Filter / O::Comparator
+// memory/mod.rs:query_objects re-decodes the generic O::Filter / O::Comparator
 // values via a serde_json::to_value -> from_value roundtrip back to the
 // concrete extension type (MailboxFilterCondition, EmailFilter,
 // EmailSubmissionFilter, EmailComparator). bd:JMAP-q2wa.3 replaced the
