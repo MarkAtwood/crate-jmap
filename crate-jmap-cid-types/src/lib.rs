@@ -42,6 +42,10 @@
 //!   `Deserialize` impl.
 //! - [`JMAP_CID_URI`] — the `urn:ietf:params:jmap:cid` capability
 //!   URI constant (draft §3).
+//! - [`CidCapability`] — the value object of the
+//!   `urn:ietf:params:jmap:cid` capability (draft §3). Currently
+//!   empty per the draft; `#[non_exhaustive]` with an `extra`
+//!   field per workspace extras-preservation policy.
 //!
 //! ## Wiring into the rest of the kit
 //!
@@ -55,14 +59,13 @@
 //! - `jmap_base_client::Session::supports_cid() -> bool` — checks
 //!   the session-level capability map for `urn:ietf:params:jmap:cid`.
 //!
-//! The `CidCapability` value-object shape (per draft §3) does not
-//! yet ship in this crate; it is tracked under bd:JMAP-sf5h.6 and
-//! will land in [`capability`] alongside [`JMAP_CID_URI`].
+//! The [`CidCapability`] value-object shape (draft §3) lives in
+//! the [`capability`] module alongside [`JMAP_CID_URI`].
 
 #![forbid(unsafe_code)]
 
 pub mod capability;
 pub mod digest;
 
-pub use capability::JMAP_CID_URI;
+pub use capability::{CidCapability, JMAP_CID_URI};
 pub use digest::{Sha256, Sha256DigestError, Sha256DigestErrorKind};
