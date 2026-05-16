@@ -82,7 +82,7 @@ All three variants carry the same five common properties:
 |---|---|---|---|
 | `@type` | (enum tag) | mandatory String | per §2.2.1.1 |
 | `id` | `id: Option<Id>` | server-set Id | absent on create requests; present in responses |
-| `relatedType` | `related_type: String` | mandatory String | type name of the related object |
+| `relatedType` | `related_type: Option<String>` | mandatory String on full objects (§2.2.1.3); omittable in the §4.1 extended-`/get` partial-response shape (§7.2 example) | type name of the related object |
 | `relatedId` | `related_id: Id` | mandatory Id | id of the related object |
 | `isPrivate` | `is_private: Option<bool>` | optional bool, default false | absent when false (§2.2.1.5) |
 
@@ -171,15 +171,31 @@ were considered:
 
 The tagged enum is the better fit and matches the bead description.
 
-### `Annotation` is Deserialize-fail-on-missing-relatedType
+### `relatedType` is `Option<String>`, not `String`
 
-§2.2.1.3 lists `relatedType` as mandatory. The struct enforces this
-at the type level. The §7.2 spec example demonstrates that
-`metadataProperties` filtering can omit `relatedType` from a
-response — that response does NOT deserialise into a
-spec-faithful `Annotation`. The crate documents this; clients
-consuming partial responses must use `serde_json::Value` or a
-project-local partial struct.
+§2.2.1.3 lists `relatedType` as mandatory for full Metadata objects,
+but the extended-`/get` partial-response shape defined by §4.1 omits
+it whenever the caller's `metadataProperties` filter does not include
+it. §4.1 lines 922-926 of the draft explicitly list only `@type` and
+`relatedId` as the properties a server MUST always include — the
+spec authors chose those two as the always-required correlation keys
+and treated `relatedType` as omittable. The §7.2 example response
+demonstrates this wire shape.
+
+To round-trip the spec's own example wire format losslessly, the
+field is `Option<String>` on all three variants (`Annotation`,
+`ImapMetadata`, `WebDavMetadata`). `None` indicates the wire input
+omitted the field. Callers consuming partial responses can infer
+the value from request context (the data type whose `/get` produced
+the response, or the variant: `ImapMetadata` always corresponds to
+`"Mailbox"`).
+
+Spec enforcement of "`relatedType` is mandatory on `Metadata/set`
+create" is the server's job, not the type's. The
+`jmap-metadata-server` handler rejects creates with absent
+`relatedType` via `invalidProperties` (`properties: ["relatedType"]`)
+so clients get a precise error name rather than a generic
+deserialise failure.
 
 ### `BTreeMap` for `metadata` field
 

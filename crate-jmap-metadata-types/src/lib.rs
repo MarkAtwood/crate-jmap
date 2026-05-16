@@ -31,7 +31,11 @@
 //! let meta: Metadata = serde_json::from_str(json).unwrap();
 //! match meta {
 //!     Metadata::Annotation(Annotation { ref related_type, ref extra, .. }) => {
-//!         assert_eq!(related_type, "Email");
+//!         // `related_type` is `Option<String>` so the §4.1 extended-`/get`
+//!         // partial-response shape (which can omit it, per the §7.2
+//!         // example) round-trips losslessly. Full `Metadata/get` and
+//!         // `Metadata/set` responses always populate it.
+//!         assert_eq!(related_type.as_deref(), Some("Email"));
 //!         assert_eq!(
 //!             extra.get("acme.example.com:workflowState"),
 //!             Some(&serde_json::Value::String("pending-review".into())),
