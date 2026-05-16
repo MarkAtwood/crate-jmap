@@ -170,6 +170,7 @@ impl ChatWsExt for WsSession {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use jmap_chat_types::SenderId;
     use jmap_types::Id;
 
     /// Helper: build a WsFrame::Unknown with the given type_name and raw JSON.
@@ -216,7 +217,7 @@ mod tests {
         match got {
             ChatWsFrame::ChatTyping(evt) => {
                 assert_eq!(evt.chat_id.as_ref(), "c1");
-                assert_eq!(evt.sender_id, "u1");
+                assert_eq!(evt.sender_id, SenderId::Contact("u1".to_owned()));
                 assert!(evt.typing);
             }
             other => panic!("expected ChatTyping, got {other:?}"),

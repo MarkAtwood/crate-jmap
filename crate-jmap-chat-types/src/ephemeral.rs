@@ -1,6 +1,7 @@
 //! WebSocket ephemeral message types for real-time events.
 
 use crate::clearable::{some_clearable, Clearable};
+use crate::message::SenderId;
 use jmap_types::{Id, UTCDate};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
@@ -47,8 +48,11 @@ pub struct ChatStreamDisable {
 pub struct ChatTypingEvent {
     /// The chat in which typing is occurring.
     pub chat_id: Id,
-    /// The `ChatContact.id` of the sender (not necessarily a JMAP `Id`).
-    pub sender_id: String,
+    /// Sender identity. `SenderId::Owner` for echo-suppression of
+    /// the account owner's own typing indicator; otherwise
+    /// `SenderId::Contact(<ChatContact.id>)`. See [`SenderId`] for
+    /// the wire-format sentinel and its collision caveat.
+    pub sender_id: SenderId,
     /// `true` if the contact started typing; `false` if they stopped.
     pub typing: bool,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -273,8 +277,25 @@ mod tests {
         match msg {
             EphemeralMessage::Typing(e) => {
                 assert_eq!(e.chat_id, Id::from("c1"));
-                assert_eq!(e.sender_id, "alice");
+                assert_eq!(e.sender_id, SenderId::Contact("alice".to_owned()));
                 assert!(e.typing);
+            }
+            _ => panic!("wrong variant"),
+        }
+    }
+
+    /// Oracle: an inbound typing event whose `senderId` wire value is
+    /// the literal sentinel `"self"` decodes to `SenderId::Owner`, in
+    /// parity with `Message.senderId` and `Reaction.senderId`. This is
+    /// what enables echo-suppression of the account owner's own
+    /// typing indicator in a multi-tab/multi-device deployment.
+    #[test]
+    fn typing_event_self_sentinel_routes_to_owner() {
+        let json = r#"{"@type":"ChatTypingEvent","chatId":"c1","senderId":"self","typing":true}"#;
+        let msg: EphemeralMessage = serde_json::from_str(json).unwrap();
+        match msg {
+            EphemeralMessage::Typing(e) => {
+                assert_eq!(e.sender_id, SenderId::Owner);
             }
             _ => panic!("wrong variant"),
         }
