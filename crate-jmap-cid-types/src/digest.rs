@@ -138,6 +138,35 @@ impl std::error::Error for Sha256DigestError {}
 /// drives serialization through the validating `TryFrom<String>` /
 /// `From<Sha256> for String` adapters so every deserialize path
 /// applies the same ABNF check `Sha256::from_hex` does.
+///
+/// # Equality and threat model
+///
+/// `PartialEq` and `Eq` on `Sha256` inherit the standard
+/// **variable-time** `String` compare — short-circuits on the
+/// first byte mismatch. This is appropriate for the in-scope
+/// JMAP CID use case (`draft-atwood-jmap-cid-00`): the digest is
+/// the SHA-256 of a **public blob** broadcast to every party
+/// with read access, so there is no secret comparison and the
+/// timing channel reveals nothing an attacker does not already
+/// have.
+///
+/// Consumers repurposing `Sha256` for **secret-derived
+/// comparisons** — MAC-style verification, commitment opening,
+/// capability tokens — MUST use a constant-time compare via
+/// [`subtle::ConstantTimeEq`] on the underlying bytes. Extract
+/// via [`Sha256::as_str`]`().as_bytes()`. The variable-time
+/// short-circuit otherwise leaks the prefix length of a matching
+/// digest to a remote attacker on the classic Bleichenbacher-class
+/// timing pattern.
+///
+/// This crate intentionally does not ship a constant-time
+/// comparison helper because the workspace policy is that
+/// MAC/HMAC-shaped verification belongs in a separate type
+/// (`MacTag`, `SecretDigest`) so the choice of constant-time
+/// equality is part of the type contract, not a per-call-site
+/// opt-in on a wire-format type.
+///
+/// [`subtle::ConstantTimeEq`]: https://docs.rs/subtle/latest/subtle/trait.ConstantTimeEq.html
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(try_from = "String", into = "String")]
 #[non_exhaustive]
