@@ -32,6 +32,11 @@ pub enum Sha256DigestErrorKind {
     /// `got` is the actual byte length. The spec ABNF
     /// (`64( %x30-39 / %x61-66 )`) is fixed-length and admits no
     /// other length.
+    ///
+    /// Per-variant `#[non_exhaustive]` so future field additions
+    /// (e.g. `expected: usize` once that grows beyond a single
+    /// constant 64) remain semver-additive.
+    #[non_exhaustive]
     WrongLength {
         /// The candidate's actual byte length.
         got: usize,
@@ -41,6 +46,11 @@ pub enum Sha256DigestErrorKind {
     ///
     /// Uppercase hex is intentionally rejected — the spec ABNF
     /// `%x61-66` is the lowercase subset only.
+    ///
+    /// Per-variant `#[non_exhaustive]` so future field additions
+    /// (e.g. the offending byte value — see related finding) remain
+    /// semver-additive.
+    #[non_exhaustive]
     NonHexLowercase {
         /// 0-based byte index of the first offending character.
         at: usize,
