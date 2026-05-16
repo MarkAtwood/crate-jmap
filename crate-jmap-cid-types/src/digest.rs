@@ -96,16 +96,31 @@ impl std::error::Error for Sha256DigestError {}
 /// SHA-256 digest carried on the JMAP wire as a 64-character
 /// lowercase hex string (draft-atwood-jmap-cid-00 §2).
 ///
-/// Construct with:
+/// # Construction
 ///
-/// - [`Sha256::from_hex`] — validates a candidate hex string.
-/// - [`Sha256::from_raw_digest`] — formats 32 raw digest bytes into
-///   a canonical lowercase-hex string. Infallible. Named to
-///   emphasise that the input is the *output* of a hash function
-///   (the raw digest), NOT arbitrary input data to be hashed —
-///   this crate carries no hash computation.
+/// All four ABNF-validating paths share the same parse logic from
+/// [`Sha256::from_hex`]:
 ///
-/// Wire format is the bare hex string — `#[serde(try_from, into)]`
+/// - [`Sha256::from_hex`] — validate a `&str` candidate.
+/// - [`TryFrom<&str>`](Sha256#impl-TryFrom<%26str>-for-Sha256) /
+///   [`TryFrom<String>`](Sha256#impl-TryFrom<String>-for-Sha256) —
+///   validate via `try_into()`.
+/// - [`FromStr::from_str`](std::str::FromStr) — validate via
+///   `.parse::<Sha256>()`.
+/// - `serde::Deserialize` — validates via `TryFrom<String>` per
+///   the `#[serde(try_from = "String")]` attribute.
+///
+/// One infallible constructor:
+///
+/// - [`Sha256::from_raw_digest`] — format 32 raw digest bytes
+///   into the canonical lowercase-hex string. Named to emphasise
+///   that the input is the *output* of a hash function (the raw
+///   digest), NOT arbitrary input data to be hashed — this crate
+///   carries no hash computation.
+///
+/// # Wire format
+///
+/// The bare 64-character hex string — `#[serde(try_from, into)]`
 /// drives serialization through the validating `TryFrom<String>` /
 /// `From<Sha256> for String` adapters so every deserialize path
 /// applies the same ABNF check `Sha256::from_hex` does.
@@ -150,6 +165,19 @@ impl Sha256 {
     /// computation; the name `from_raw_digest` (rather than the
     /// more familiar `from_bytes`) is chosen to make the
     /// input-vs-output distinction unambiguous at call sites.
+    ///
+    /// # Byte ordering
+    ///
+    /// The 32 input bytes are taken in the canonical
+    /// **FIPS 180-4 SHA-256 output order**: the most significant
+    /// byte of the digest first. `b[0]` occupies positions 0..=1
+    /// of the resulting hex string and `b[31]` occupies positions
+    /// 62..=63. This matches the output of `sha2::Sha256::digest`,
+    /// `ring::digest::digest(&SHA256, ...)`, and
+    /// `openssl::sha::sha256`. Consumers feeding digest output
+    /// from a non-standard source (HSM in non-standard endianness,
+    /// pre-reversed archive format) must reorder bytes before
+    /// calling this constructor or the wire value will be wrong.
     pub fn from_raw_digest(b: &[u8; 32]) -> Self {
         // 32 bytes → 64 hex chars. Pre-size the buffer to avoid
         // reallocations.
