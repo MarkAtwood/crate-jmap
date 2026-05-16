@@ -34,6 +34,13 @@ pub struct ChatMember {
     /// The `id` property (draft-atwood-jmap-chat-00 §4.9).
     pub id: Id,
     /// The `role` property (draft-atwood-jmap-chat-00 §4.9).
+    ///
+    /// Wire-observable values are enumerated by the draft as
+    /// `"admin"` or `"member"`; the full list is exported as
+    /// [`crate::vocabulary::SPEC_CHAT_MEMBER_ROLES`] for caller-side
+    /// validation. Servers MAY designate additional internal
+    /// principals as having admin-equivalent authority; those still
+    /// appear as `"admin"` on the wire.
     pub role: String,
     /// The `joinedAt` property (draft-atwood-jmap-chat-00 §4.9).
     pub joined_at: UTCDate,
@@ -56,10 +63,26 @@ pub struct ChannelPermission {
     /// The `targetId` property (draft-atwood-jmap-chat-00 §4.15).
     pub target_id: Id,
     /// The `targetType` property (draft-atwood-jmap-chat-00 §4.15).
+    ///
+    /// Spec-enumerated values: `"role"` or `"member"`. Full list
+    /// exported as
+    /// [`crate::vocabulary::SPEC_CHANNEL_PERMISSION_TARGET_TYPES`].
     pub target_type: String,
     /// The `allow` property (draft-atwood-jmap-chat-00 §4.15).
+    ///
+    /// Permission names explicitly granted in this channel,
+    /// overriding the Space-level role defaults. Drawn from the
+    /// spec-enumerated permission vocabulary exported as
+    /// [`crate::vocabulary::SPEC_PERMISSION_NAMES`]. Servers MUST
+    /// ignore unrecognized names per draft §4.12; consumers
+    /// SHOULD validate caller-supplied input against the const
+    /// list to surface typos at the boundary.
     pub allow: Vec<String>,
     /// The `deny` property (draft-atwood-jmap-chat-00 §4.15).
+    ///
+    /// Same vocabulary contract as
+    /// [`allow`](Self::allow): drawn from
+    /// [`crate::vocabulary::SPEC_PERMISSION_NAMES`].
     pub deny: Vec<String>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across

@@ -86,6 +86,13 @@ pub struct RolePatch {
     )]
     pub color: Option<Clearable<String>>,
     /// The `permissions` property (draft-atwood-jmap-chat-00 §Space/set updateRoles).
+    ///
+    /// Drawn from the spec-enumerated permission vocabulary
+    /// exported as [`crate::vocabulary::SPEC_PERMISSION_NAMES`].
+    /// Same forward-compat contract as
+    /// [`SpaceRole::permissions`](crate::SpaceRole::permissions):
+    /// servers MUST ignore unrecognized names; consumers SHOULD
+    /// validate caller-supplied input against the const list.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub permissions: Option<Vec<String>>,
     /// The `position` property (draft-atwood-jmap-chat-00 §Space/set updateRoles).
