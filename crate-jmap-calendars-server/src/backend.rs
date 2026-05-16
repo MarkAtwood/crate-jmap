@@ -533,6 +533,47 @@ pub trait CalendarsBackend: JmapBackend {
     /// or `notParsable`.
     ///
     /// The default implementation puts all blobs in `not_parsable`.
+    ///
+    /// # Properties (bd:JMAP-ic0j.66)
+    ///
+    /// The `properties` argument selects which `CalendarEvent`
+    /// properties are populated in each entry of `parsed` (RFC 8620
+    /// §5.1 property projection). Backends implementing non-default
+    /// behavior MUST honor this:
+    ///
+    /// - `None` — return all server-defined "default" properties.
+    ///   The default set is the same as `CalendarEvent/get` with
+    ///   `properties = null` (draft-ietf-jmap-calendars-26 §5.7).
+    /// - `Some(&[])` — return only the spec-required keys (notably
+    ///   `@type`, plus any property the server cannot omit while
+    ///   keeping the result self-describing). Treat as "confirm
+    ///   parseability without sending the body".
+    /// - `Some(&[..])` — return only the named properties (plus any
+    ///   the server cannot omit). Unknown property names MUST be
+    ///   silently ignored per RFC 8620 §5.1; do NOT classify the
+    ///   whole blob as `notParsable` because of an unknown property.
+    ///
+    /// Two backend impls given the same `(blob_ids, properties)`
+    /// arguments SHOULD produce identical `CalendarEvent` shapes for
+    /// successfully-parsed blobs; clients depend on this for
+    /// deployment-portable parsing logic.
+    ///
+    /// # Errors (bd:JMAP-ic0j.61)
+    ///
+    /// Returns `Err` for genuine backend storage / runtime failures
+    /// (connectivity loss, serialisation corruption, unrecoverable
+    /// I/O). The handler maps `Err` to a method-level `serverFail`
+    /// via [`jmap_server::server_fail_from_backend`], so the backend
+    /// `Self::Error` `Display` text is NOT echoed onto the wire
+    /// (see bd:JMAP-jfia.20 / .70).
+    ///
+    /// Malformed-but-readable blobs MUST be classified as
+    /// `not_parsable`, NOT returned as `Err`. Unknown blob ids MUST
+    /// be classified as `not_found`. A backend that returns `Err`
+    /// for either case will surface `serverFail` to the client
+    /// instead of the spec-defined parse-result buckets, and the
+    /// client cannot distinguish the legitimate cases from a real
+    /// outage.
     fn parse_calendar_event_blobs(
         &self,
         _caller: &Self::CallerCtx,
