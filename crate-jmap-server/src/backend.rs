@@ -1136,6 +1136,42 @@ pub trait JmapBackend: Send + Sync + 'static {
         let _ = caller;
         None
     }
+
+    /// Maximum number of objects this account permits in a single
+    /// `/set` call (RFC 8620 §5.3 `maxObjectsInSet`) (bd:JMAP-ayoz.41.1).
+    ///
+    /// Counts the sum of `create` + `update` + `destroy` entries in the
+    /// wire arguments. Handlers MUST enforce this at the top of every
+    /// `handle_*_set` via [`crate::helpers::enforce_max_objects_in_set`]
+    /// so a single batched request cannot drive O(M·N) work against
+    /// the storage layer.
+    ///
+    /// The default value `500` mirrors the workspace's testjig Session
+    /// JSON advertised cap and matches common Fastmail / Cyrus IMAP
+    /// server defaults. The cap is a *floor* on permissiveness, not a
+    /// floor on capability — backends MAY override per account (Free vs
+    /// Pro tier, multi-tenant SaaS, etc.). The `caller` and `account_id`
+    /// arguments are passed even though the default impl ignores them
+    /// so production backends can vary without an API break.
+    ///
+    /// Returning `0` makes every `/set` call fail with `limit
+    /// maxObjectsInSet` (defensive read-only mode). Returning
+    /// `u64::MAX` effectively disables the cap (NOT recommended — the
+    /// cap is a DoS defence and disabling it forfeits that defence).
+    ///
+    /// # Why on `JmapBackend` and not a per-extension `XxxLimits` struct
+    ///
+    /// `maxObjectsInSet` is RFC 8620 §5.3 base-protocol scope, not an
+    /// extension concept. Putting it on the foundation supertrait
+    /// covers all 8 extension server crates with one default impl;
+    /// per-extension `XxxLimits` structs are the right shape for
+    /// extension-specific caps (per-Space content limits, per-Mailbox
+    /// message size, etc. per workspace AGENTS.md "Backend caps and
+    /// limits") but are out of scope here.
+    fn max_objects_in_set(&self, caller: &Self::CallerCtx, account_id: &jmap_types::Id) -> u64 {
+        let _ = (caller, account_id);
+        500
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -1697,6 +1733,102 @@ mod tests {
             id.is_none(),
             "default principal_id impl must return None; got Some({:?})",
             id
+        );
+    }
+
+    /// Oracle (bd:JMAP-ayoz.41.1): `JmapBackend::max_objects_in_set`
+    /// has a default impl that returns `500`. The constant is the
+    /// workspace's testjig Session JSON advertised cap; a backend that
+    /// does not override the method inherits a sane DoS-defence
+    /// default rather than silently disabling the cap.
+    #[test]
+    fn max_objects_in_set_default_impl_returns_500() {
+        struct StubBackend;
+
+        #[derive(Debug)]
+        struct StubError;
+
+        impl std::fmt::Display for StubError {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                f.write_str("stub")
+            }
+        }
+        impl std::error::Error for StubError {}
+
+        impl JmapBackend for StubBackend {
+            type Error = StubError;
+            type CallerCtx = ();
+
+            async fn account_exists(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+            ) -> Result<bool, Self::Error> {
+                unreachable!("only max_objects_in_set is exercised in this test")
+            }
+
+            async fn get_objects<O: GetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _ids: Option<&[jmap_types::Id]>,
+                _properties: Option<&[String]>,
+            ) -> Result<(Vec<O>, Vec<jmap_types::Id>), Self::Error> {
+                unreachable!("only max_objects_in_set is exercised in this test")
+            }
+
+            async fn get_state<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+            ) -> Result<jmap_types::State, Self::Error> {
+                unreachable!("only max_objects_in_set is exercised in this test")
+            }
+
+            async fn get_changes<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _since_state: &jmap_types::State,
+                _max_changes: Option<u64>,
+            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+                unreachable!("only max_objects_in_set is exercised in this test")
+            }
+
+            async fn query_objects<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+            ) -> Result<QueryResult, Self::Error> {
+                unreachable!("only max_objects_in_set is exercised in this test")
+            }
+
+            async fn query_changes<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &jmap_types::Id,
+                _since_query_state: &jmap_types::State,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _max_changes: Option<u64>,
+                _up_to_id: Option<&jmap_types::Id>,
+                _collapse_threads: bool,
+            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                unreachable!("only max_objects_in_set is exercised in this test")
+            }
+        }
+
+        let backend = StubBackend;
+        let caller: <StubBackend as JmapBackend>::CallerCtx = ();
+        let id = jmap_types::Id::from("any-account");
+        assert_eq!(
+            backend.max_objects_in_set(&caller, &id),
+            500,
+            "default max_objects_in_set must return 500"
         );
     }
 }

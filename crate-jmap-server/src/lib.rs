@@ -46,8 +46,9 @@ pub use handlers::{
 #[allow(deprecated)]
 pub use helpers::ser;
 pub use helpers::{
-    bool_arg, extract_account_id, json_merge_patch, not_found_json, now_utc_string,
-    now_utc_string_checked, optional_arg, serialize_value, take_bool_arg, MergePatchError,
+    bool_arg, enforce_max_objects_in_set, extract_account_id, json_merge_patch, not_found_json,
+    now_utc_string, now_utc_string_checked, optional_arg, serialize_value, take_bool_arg,
+    MergePatchError,
 };
 
 mod parse;
