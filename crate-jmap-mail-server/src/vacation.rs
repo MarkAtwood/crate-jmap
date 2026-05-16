@@ -313,10 +313,19 @@ pub async fn handle_vacation_set<B: MailBackend>(
 
     // destroy — always forbidden for singletons.
     if let Some(destroy) = args.get("destroy").and_then(|v| v.as_array()) {
+        // RFC 8620 §5.3: every element of the destroy array MUST be a string Id.
+        // Reject the whole request if any element is non-string rather than
+        // silently skipping it, which would produce a misleading response.
+        if let Some(bad) = destroy.iter().find(|v| !v.is_string()) {
+            return Err(JmapError::invalid_arguments(format!(
+                "destroy: every element must be a string Id; got {bad}"
+            )));
+        }
+
         for id_val in destroy {
             let id = match id_val.as_str() {
                 Some(s) => s,
-                None => continue,
+                None => continue, // unreachable: validated above
             };
             let err = SetError::new(SetErrorType::Singleton)
                 .with_description("VacationResponse is a singleton; cannot destroy");
