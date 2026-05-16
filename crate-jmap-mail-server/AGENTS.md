@@ -26,13 +26,14 @@ This project uses **bd** (beads) for issue tracking. Run `bd prime` for full wor
 
 1. Read `PLAN.md` — `MailBackend` trait, module layout, handler pattern
 2. Read the relevant RFC 8621 section for the method you are implementing
-3. Study `~/PROJECT/crate-jmapchat-server/` for the handler/backend pattern to follow
-4. Run `bd ready` — check for open issues before creating new ones
+3. Run `bd ready` — check for open issues before creating new ones
 
 ## What This Is
 
 RFC 8621 (JMAP for Mail) method handlers. Plugs into `jmap-server`'s `Dispatcher` via
 `register_mail_handlers`. Defines `MailBackend` trait; consumers provide the storage impl.
+A reference in-memory implementation (`memory::MemoryBackend`) is gated behind the
+`memory` feature for tests and demos.
 
 ## Crate Family Context
 
@@ -55,12 +56,19 @@ error conditions, and response shapes must match exactly.
 
 ## Reference Pattern
 
-Study `~/PROJECT/crate-jmapchat-server/` for:
-- How `StorageBackend` trait is structured (analog of `MailBackend`)
-- How handlers are registered with `Dispatcher`
-- How `MemoryBackend` in `tests/` serves as both harness and example
+This crate **is** the canonical extension-server template. The Reference Pattern
+for siblings (chat, calendars, tasks, contacts, filenode, metadata, sharing) is
+to mirror this crate's shape:
 
-Do NOT copy chat-specific types or logic.
+- How the `MailBackend` trait is structured
+- How handlers are registered with `Dispatcher` via `register_mail_handlers`
+- How `MemoryBackend` (gated behind `feature = "memory"`) serves as both
+  integration-test harness and runnable reference example
+
+Outside reference: `~/PROJECT/crate-jmapchat-server/` predates this workspace
+and was the original `StorageBackend` prototype; it is no longer the canonical
+shape and should not be copied verbatim. Do NOT copy chat-specific types or
+logic from any sibling crate.
 
 ## Permission enforcement: backend canonical
 
@@ -113,12 +121,12 @@ Run all four before considering any work done.
 
 | Decision | Choice |
 |---|---|
-| Async | Always async (tokio) |
+| Async | `impl Future + Send` return types on backend trait methods, no `async fn`. Crate has NO tokio runtime dep — consumers pick the runtime. `tokio` is a dev-dep only, used to run integration tests (see `bd:JMAP-tco1`). |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
-| Auth | Not in handlers — caller's responsibility before `dispatch()` |
-| Dependencies | jmap-types, jmap-mail-types, jmap-server, tokio, thiserror only |
+| Auth | Not in handlers — caller's responsibility before `dispatch()`; permission enforcement lives in the backend per the section above |
+| Dependencies | jmap-types, jmap-mail-types, jmap-server, serde, serde_json, mime-tree (runtime); uuid + jmap-mime (optional, gated behind `memory` feature). `mime-tree` is the workspace's single RFC 5322 parsing gateway — see `bd:JMAP-g7wu.11`. `tokio` is dev-only. No `thiserror`. |
 | Method names | Must match RFC 8621 exactly (`Email/get`, `Mailbox/set`, etc.) |
-| Test harness | `MemoryMailBackend` in `tests/` — HashMap-based, no external deps |
+| Test harness | `MemoryBackend` gated behind `feature = "memory"` — HashMap-based, no external deps. Not production. |
 
 ## Subagent Guidance
 
@@ -131,6 +139,6 @@ Run all four before considering any work done.
 
 - Push freely — `git push`, no `pull --rebase` ritual (workspace AGENTS.md "Git Commit and Push Policy")
 - Do not use TodoWrite or markdown task lists — use `bd create`
-- Do not add dependencies beyond: jmap-types, jmap-mail-types, jmap-server, tokio, thiserror
-- Do not add auth logic or role checks inside handlers
+- Do not add dependencies beyond: jmap-types, jmap-mail-types, jmap-server, serde, serde_json, mime-tree (runtime), plus uuid + jmap-mime when the `memory` feature is enabled. `tokio` is dev-only.
+- Do not add auth logic or role checks inside handlers (backend canonical — see section above)
 - Do not implement methods not in RFC 8621 unless explicitly directed

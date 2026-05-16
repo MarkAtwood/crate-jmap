@@ -115,7 +115,7 @@ Run all four before considering any work done.
 
 | Decision | Choice |
 |---|---|
-| Async | Always async (tokio) |
+| Async | `impl Future + Send` return types on backend trait methods, no `async fn`. Crate has NO tokio runtime dep — consumers pick the runtime. `tokio` is a dev-dep only, used to run integration tests (see `bd:JMAP-tco1`). |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
 | Auth | Not in handlers — caller's responsibility before `dispatch()`; permission enforcement lives in the backend per the section above |
 | Dependencies | jmap-types, jmap-filenode-types, jmap-server, serde_json |
