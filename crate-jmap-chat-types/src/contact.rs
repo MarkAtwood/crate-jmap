@@ -93,6 +93,34 @@ pub struct ChatContact {
     /// Servers and clients MUST treat the value as opaque: do not
     /// parse, validate, or normalize. Two `ChatContact.id` values are
     /// "the same contact" iff their wire strings are byte-equal.
+    ///
+    /// # Id-layer constraints
+    ///
+    /// "Opaque" is a draft-level statement about semantic
+    /// interpretation, not about the wire-string character set.
+    /// The underlying [`Id`] type from `jmap-types` carries the
+    /// RFC 8620 §1.2 constraints when constructed via
+    /// `Id::new_validated`:
+    ///
+    /// - At most 255 bytes.
+    /// - SAFE-CHAR only: bytes `0x21` and `0x23..=0x7E` (visible
+    ///   ASCII, excluding `"`).
+    ///
+    /// In practice, "any opaque URI form" therefore reduces to
+    /// "any printable-ASCII URI form that fits in 255 bytes and
+    /// does not contain `\"`". The common forms (`user@host`,
+    /// `did:web:alice.example`, short `did:key:...` values, ULID
+    /// local-account ids) fit comfortably. Long `did:key` values
+    /// with extended multibase encodings can approach or exceed
+    /// the 255-byte limit; deployments that adopt such forms MUST
+    /// verify they fit before issuing them.
+    ///
+    /// `Id::from` (the infallible conversion) does NOT enforce
+    /// these constraints. Code that constructs a `ChatContact`
+    /// from a peer-supplied identity string SHOULD use
+    /// `Id::new_validated` and surface the `ValidationError` to
+    /// the auth layer rather than relying on `Id::from` to
+    /// silently accept non-conforming wire forms.
     pub id: Id,
     /// The `login` property (draft-atwood-jmap-chat-00 §4.8).
     pub login: String,

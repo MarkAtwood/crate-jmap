@@ -225,7 +225,9 @@ pub struct Mention {
     /// treat the value as opaque.
     ///
     /// See [`ChatContact`] (`id` field) for the full URI-latitude
-    /// note, including the list of accepted forms.
+    /// note, including the list of accepted forms AND the
+    /// Id-layer constraints (max 255 bytes, SAFE-CHAR character
+    /// set) that apply when constructing via `Id::new_validated`.
     ///
     /// [`ChatContact`]: crate::ChatContact
     pub id: Id,
