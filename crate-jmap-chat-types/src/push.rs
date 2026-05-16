@@ -1,6 +1,7 @@
 //! Push notification payload types for chat message delivery.
 
 use crate::chat::ChatKind;
+use crate::message::SenderId;
 use jmap_types::{Id, State, UTCDate};
 use serde::{Deserialize, Serialize};
 
@@ -49,7 +50,13 @@ pub struct ChatMessageEntry {
     /// The `chatKind` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub chat_kind: ChatKind,
     /// The `senderId` property (draft-atwood-jmap-chat-push-00 §5.2).
-    pub sender_id: String,
+    ///
+    /// Typed identically to [`crate::Message::sender_id`] and
+    /// [`crate::Reaction::sender_id`]: `SenderId::Owner` for messages
+    /// the account owner composed, `SenderId::Contact(<id>)`
+    /// otherwise. See [`SenderId`] for the wire `"self"` sentinel
+    /// and its collision caveat.
+    pub sender_id: SenderId,
     /// The `sentAt` property (draft-atwood-jmap-chat-push-00 §5.2).
     pub sent_at: UTCDate,
     /// The `hasMention` property (draft-atwood-jmap-chat-push-00 §5.2).
@@ -132,7 +139,7 @@ impl ChatMessageEntry {
         message_id: Id,
         chat_id: Id,
         chat_kind: ChatKind,
-        sender_id: impl Into<String>,
+        sender_id: SenderId,
         sent_at: UTCDate,
         has_mention: bool,
         has_mention_all: bool,
@@ -142,7 +149,7 @@ impl ChatMessageEntry {
             message_id,
             chat_id,
             chat_kind,
-            sender_id: sender_id.into(),
+            sender_id,
             sent_at,
             has_mention,
             has_mention_all,
@@ -165,7 +172,7 @@ impl ChatMessageEntry {
         message_id: Id,
         chat_id: Id,
         chat_kind: ChatKind,
-        sender_id: impl Into<String>,
+        sender_id: SenderId,
         sent_at: UTCDate,
         has_mention: bool,
         has_mention_all: bool,
@@ -174,7 +181,7 @@ impl ChatMessageEntry {
             message_id,
             chat_id,
             chat_kind,
-            sender_id: sender_id.into(),
+            sender_id,
             sent_at,
             has_mention,
             has_mention_all,
@@ -233,7 +240,7 @@ mod tests {
             Id::from("m1"),
             Id::from("c1"),
             ChatKind::Channel,
-            "alice",
+            SenderId::Contact("alice".to_owned()),
             UTCDate::from("2026-04-29T00:00:00Z"),
             false,
             false,
@@ -257,7 +264,7 @@ mod tests {
             Id::from("m2"),
             Id::from("c1"),
             ChatKind::Direct,
-            "bob",
+            SenderId::Contact("bob".to_owned()),
             UTCDate::from("2026-04-29T00:00:00Z"),
             false,
             false,
@@ -274,7 +281,7 @@ mod tests {
             Id::from("m3"),
             Id::from("c1"),
             ChatKind::Direct,
-            "carol",
+            SenderId::Contact("carol".to_owned()),
             UTCDate::from("2026-04-29T00:00:00Z"),
             false,
             false,
@@ -282,6 +289,28 @@ mod tests {
         );
         assert!(!entry.encrypted);
         assert!(entry.body_snippet.is_none());
+    }
+
+    /// Oracle: the parallel SenderId routing test for push entries.
+    /// A push entry whose wire `senderId` is `"self"` decodes to
+    /// `SenderId::Owner`, in parity with Message, Reaction, and
+    /// ChatTypingEvent. Push consumers can then echo-suppress the
+    /// account owner's own messages without raw-string comparison.
+    #[test]
+    fn push_entry_self_sentinel_routes_to_owner() {
+        let json = r#"{
+            "messageId": "m4",
+            "chatId": "c1",
+            "chatKind": "direct",
+            "senderId": "self",
+            "sentAt": "2026-04-29T00:00:00Z",
+            "hasMention": false,
+            "hasMentionAll": false,
+            "encrypted": false
+        }"#;
+        let entry: ChatMessageEntry =
+            serde_json::from_str(json).expect("deserialize ChatMessageEntry");
+        assert_eq!(entry.sender_id, SenderId::Owner);
     }
 
     // Oracle: hand-crafted minimal direct-chat entry with no chat_name;
