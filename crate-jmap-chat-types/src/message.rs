@@ -60,14 +60,77 @@ impl_string_enum!(ReadDisposition, "a read disposition string",
 
 /// Identifies who sent a [`Message`] or placed a [`Reaction`].
 ///
-/// The account owner is represented as the wire sentinel `"self"`.
-/// All other participants carry their `ChatContact.id` string.
+/// The account owner is represented as the wire sentinel `"self"`
+/// (draft-atwood-jmap-chat-00 §4.5, §4.7). All other participants
+/// carry their `ChatContact.id` string verbatim.
+///
+/// # Sentinel collision with `ChatContact.id == "self"`
+///
+/// `ChatContact.id` is the userId string provided by the authentication
+/// layer and the draft places no constraints on its form
+/// (draft-atwood-jmap-chat-00 §4.5: "the specific form of the identifier
+/// … is not constrained by this specification; servers MUST treat it
+/// as opaque regardless of form"). Consequently, nothing in the wire
+/// format prevents a `ChatContact.id` whose value is the literal
+/// 4-character string `"self"`.
+///
+/// **When such a contact exists, this type cannot distinguish a message
+/// authored by that contact from a message authored by the account
+/// owner**: both deserialize as [`SenderId::Owner`] and both serialize
+/// back to the wire string `"self"`. The collision is lossy in only
+/// one direction — wire `"self"` always decodes as `Owner` — and is
+/// preserved by serialization, so round-trip fidelity is maintained
+/// for the wire bytes but lost for the semantic distinction.
+///
+/// ## Consequences for downstream consumers
+///
+/// Authorization, audit, mention-resolution, and edit-permission code
+/// that branches on `SenderId::Owner` vs `SenderId::Contact(_)` MUST
+/// NOT use this enum alone to attribute a peer-originated message to
+/// the account owner. Instead, cross-check against the authentication
+/// layer's verified principal id (the account's own userId): a
+/// `SenderId::Owner` value on an inbound peer-delivered message is
+/// only trustworthy when the transport layer has independently
+/// verified the message originated from the local account.
+///
+/// On owner-composed (locally-originated) traffic the collision is
+/// not exploitable, since the local server is the source of truth
+/// for who composed the message.
+///
+/// ## Guidance for deployments
+///
+/// Authentication layers SHOULD avoid issuing userIds whose string
+/// representation is `"self"` (or any reserved sentinel a future
+/// revision of this draft might define). This is deployment policy,
+/// not a draft constraint, and is the cheapest mitigation for the
+/// collision risk above.
+///
+/// ## Future spec revision
+///
+/// Eliminating the collision at the wire level would require the
+/// draft to either (a) reserve a sentinel form that cannot occur in
+/// the userId namespace, or (b) encode the owner relationship out of
+/// band rather than overloading the `senderId` field. Both are
+/// breaking changes to the wire format; neither is in scope for this
+/// crate, which is canonical for the draft as currently written.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SenderId {
     /// The message or reaction was sent by the account owner.
+    ///
+    /// On the wire this is `"self"`. See the type-level rustdoc for the
+    /// sentinel-collision caveat: a peer-originated message whose
+    /// `senderId` wire string is literally `"self"` (because the
+    /// authoring contact's userId happens to be `"self"`) also
+    /// decodes as `Owner`.
     Owner,
     /// Another participant, identified by their `ChatContact.id`.
+    ///
+    /// Any wire string other than `"self"` decodes here. Construction
+    /// of `SenderId::Contact("self".to_owned())` is permitted by the
+    /// type system but collapses to [`SenderId::Owner`] on
+    /// serialize-then-deserialize round-trip — see the type-level
+    /// rustdoc.
     Contact(String),
 }
 
@@ -458,6 +521,46 @@ mod tests {
         let reaction = msg.reactions.get("r1").expect("reaction key r1");
         assert_eq!(reaction.emoji, "👍");
         assert_eq!(reaction.sender_id, SenderId::Contact("u99".to_owned()));
+    }
+
+    // Oracle: hand-built two-line JSON tokens chosen for the collision case;
+    // expected post-deserialize variants come from the documented `"self"` →
+    // `Owner` rule in `SenderId::deserialize`. This test asserts the
+    // collision behavior is preserved as documented on `SenderId`'s
+    // rustdoc — a wire-form `senderId` of `"self"` always decodes as
+    // `Owner`, regardless of whether the authoring party is the account
+    // owner or a peer contact whose userId happens to be the string
+    // `"self"`. A future revision that disambiguates the wire format
+    // MUST update this test alongside the wire-format change so that
+    // downstream consumers see the breaking change in their test
+    // failures.
+    #[test]
+    fn sender_id_self_sentinel_collision_documented_on_wire() {
+        // Wire "self" → SenderId::Owner, unambiguously.
+        let from_self: SenderId = serde_json::from_str(r#""self""#).expect("deserialize \"self\"");
+        assert_eq!(from_self, SenderId::Owner);
+
+        // Wire "alice@example.com" → SenderId::Contact, unambiguously.
+        let from_alice: SenderId = serde_json::from_str(r#""alice@example.com""#)
+            .expect("deserialize \"alice@example.com\"");
+        assert_eq!(
+            from_alice,
+            SenderId::Contact("alice@example.com".to_owned())
+        );
+
+        // The collision: a hypothetical ChatContact whose userId is the
+        // literal string "self" cannot be represented as
+        // SenderId::Contact("self") on the wire — that wire form
+        // decodes as SenderId::Owner instead. Downstream consumers
+        // doing authorization-grade attribution MUST NOT rely on this
+        // enum alone (see the SenderId type-level rustdoc).
+        let constructed = SenderId::Contact("self".to_owned());
+        let wire = serde_json::to_string(&constructed).expect("serialize Contact(\"self\")");
+        assert_eq!(wire, r#""self""#);
+        let round_tripped: SenderId =
+            serde_json::from_str(&wire).expect("deserialize round-tripped Contact(\"self\")");
+        assert_eq!(round_tripped, SenderId::Owner);
+        assert_ne!(round_tripped, constructed);
     }
 
     // Oracle: serde rename contract — the wire key for action_type must be "type".
