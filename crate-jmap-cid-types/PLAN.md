@@ -71,7 +71,9 @@ After bd:JMAP-v9py.12:
   (`64( %x30-39 / %x61-66 )`). Implements `Display`, `AsRef<str>`,
   `From<Sha256> for String`, `TryFrom<String>`, `TryFrom<&str>`,
   `FromStr`. Constructors: `from_hex(&str)` (validating) and
-  `from_bytes(&[u8; 32])` (infallible nibble-formatter).
+  `from_raw_digest(&[u8; 32])` (infallible nibble-formatter; the
+  name disambiguates from `sha2::Sha256::digest`-style "compute the
+  hash of these bytes" — see bd:JMAP-sf5h.4).
 - `pub enum Sha256DigestErrorKind { WrongLength { got }, NonHexLowercase { at } }`
   and `pub struct Sha256DigestError { kind: Sha256DigestErrorKind }`
   — both `#[non_exhaustive]`, position-tracking diagnostic for
