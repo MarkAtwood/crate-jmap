@@ -2990,6 +2990,56 @@ async fn email_set_create_with_malformed_received_at_rejected() {
     );
 }
 
+/// Oracle: Email/set create with non-string receivedAt (RFC 8620 §1.4
+/// requires a string-form UTCDate) is rejected with invalidProperties:
+/// ["receivedAt"]. Previously the inline `.and_then(|v| v.as_str())`
+/// would silently drop the field for non-string values and let the
+/// build path substitute `now_utc_string()`, hiding client error;
+/// the parse_received_at_field helper now rejects explicitly
+/// (`bd:JMAP-j7pa.4`).
+#[tokio::test]
+async fn email_set_create_with_non_string_received_at_rejected() {
+    let backend = MemoryBackend::new();
+    backend.register_account(&Id::from("account1"));
+    let account_id = Id::from("account1");
+
+    let set_args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "create": {
+            "c0": {
+                "mailboxIds": { "inbox": true },
+                "receivedAt": 1234567890
+            }
+        }
+    });
+
+    let (set_resp, _) = handle_email_set(&backend, &(), set_args)
+        .await
+        .expect("Email/set must not fail at method level");
+
+    let not_created = &set_resp["notCreated"]["c0"];
+    assert!(
+        !not_created.is_null(),
+        "c0 must appear in notCreated; response: {set_resp:?}"
+    );
+    assert_eq!(
+        not_created["type"].as_str().unwrap_or(""),
+        "invalidProperties",
+        "error type must be invalidProperties; got: {not_created:?}"
+    );
+    let empty = vec![];
+    let props: Vec<&str> = not_created["properties"]
+        .as_array()
+        .unwrap_or(&empty)
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        props.contains(&"receivedAt"),
+        "properties must name receivedAt; got: {props:?}"
+    );
+}
+
 /// Oracle: Email/get with all-valid ids returns `"notFound": []` (empty array, not null).
 ///
 /// RFC 8620 §5.1 mandates `notFound` as `Id[]` — it must always be an array.
