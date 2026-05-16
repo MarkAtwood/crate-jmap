@@ -1069,12 +1069,16 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// If the message no longer exists — because a previous
     /// `expire_message` call or an atomic `update_object`
-    /// implementation has already deleted it — this method SHOULD
-    /// return `Ok(())` rather than
-    /// `BackendSetError::SetError(SetError::NotFound)`. Expiry events
-    /// are inherently retry-friendly (a scheduler may re-fire if it
-    /// crashed mid-batch) and the burn-on-read handler integration
-    /// also treats a not-found backend response as a no-op.
+    /// implementation has already deleted it — this method MUST
+    /// return `Ok(())`. Expiry events are inherently retry-friendly
+    /// (a scheduler may re-fire if it crashed mid-batch) and the
+    /// burn-on-read handler integration also treats a not-found
+    /// backend response as a no-op. The return type is
+    /// `Result<(), Self::Error>` (not `BackendSetError`) precisely
+    /// to prevent a `NotFound` SetError construction on this path:
+    /// expiry is an internal scheduler hook, not a `/set`-shaped
+    /// call, and there is no JMAP wire surface for per-message
+    /// expiry rejection.
     ///
     /// # Atomicity with `Message/set` update
     ///
@@ -1099,7 +1103,7 @@ pub trait ChatBackend: JmapBackend {
         _caller: &Self::CallerCtx,
         _account_id: &jmap_types::Id,
         _message_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send {
+    ) -> impl std::future::Future<Output = Result<(), Self::Error>> + Send {
         async { Ok(()) }
     }
 }
