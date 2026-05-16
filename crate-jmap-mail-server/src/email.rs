@@ -1059,21 +1059,14 @@ pub async fn handle_email_set<B: MailBackend>(
                 continue;
             }
 
-            // Validate client-supplied receivedAt: must be a valid RFC 8620
-            // §1.4 UTCDate (20-char YYYY-MM-DDTHH:MM:SSZ). Reject malformed
-            // values up-front rather than letting them flow into downstream
-            // string compares with undefined ordering.
-            if let Some(s) = obj_val.get("receivedAt").and_then(|v| v.as_str()) {
-                if UTCDate::new_validated(s).is_err() {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["receivedAt"],
-                        }),
-                    );
-                    continue;
-                }
+            // Validate client-supplied receivedAt up-front so malformed
+            // values surface as invalidProperties rather than silently
+            // truncating inside build_email_from_create's UTCDate::from.
+            // Helper is shared with Email/import and Email/copy
+            // (`bd:JMAP-j7pa.4`).
+            if let Err(err) = parse_received_at_field(obj_val) {
+                not_created.insert(create_id.clone(), err);
+                continue;
             }
 
             // Build the Email object from the creation payload.
@@ -1468,6 +1461,38 @@ fn parse_mailbox_ids(entry: &Value, rfc_ref: &str) -> Result<Vec<Id>, Value> {
     Ok(mailbox_ids)
 }
 
+/// Parse and validate the optional `receivedAt` field of an Email/set
+/// create, Email/import, or Email/copy entry.
+///
+/// `receivedAt` is a client-supplied RFC 8620 §1.4 UTCDate. A malformed
+/// value MUST produce `invalidProperties` rather than flowing into the
+/// stored object — `UTCDate::from` is infallible and would silently
+/// truncate / pad a malformed string, breaking sort order downstream.
+///
+/// Returns `Ok(Some(parsed))` for a valid date, `Ok(None)` for an absent
+/// or null field, or `Err(value)` where `value` is the SetError-shaped
+/// JSON suitable for inserting into `notCreated` / `notImported` /
+/// `notCopied`. Single source of truth for the three call sites in
+/// Email/set, Email/import, and Email/copy (`bd:JMAP-j7pa.4`).
+fn parse_received_at_field(entry: &Value) -> Result<Option<UTCDate>, Value> {
+    match entry.get("receivedAt") {
+        None | Some(Value::Null) => Ok(None),
+        Some(v) => match v.as_str() {
+            Some(s) => match UTCDate::new_validated(s) {
+                Ok(d) => Ok(Some(d)),
+                Err(_) => Err(json!({
+                    "type": "invalidProperties",
+                    "properties": ["receivedAt"],
+                })),
+            },
+            None => Err(json!({
+                "type": "invalidProperties",
+                "properties": ["receivedAt"],
+            })),
+        },
+    }
+}
+
 /// Parse and validate `keywords` from an Email/import or Email/copy entry.
 ///
 /// Returns the normalized keyword list, or an `invalidProperties` error
@@ -1637,9 +1662,11 @@ async fn build_email_from_create<B: MailBackend>(
     let size: u64 = 0;
 
     // receivedAt: use provided value or now (RFC 8621 §5.5.3).
-    // Note: the caller is responsible for rejecting malformed client-supplied
-    // values up-front (see handle_email_set) so this helper only sees either
-    // a valid string or no field at all.
+    // The caller is required to have run `parse_received_at_field` to
+    // reject malformed values up-front (see handle_email_set), so this
+    // helper only sees either a valid UTCDate string or no field at all.
+    // `UTCDate::from` is therefore safe: it cannot silently truncate
+    // here because the input has already been validated.
     let received_at: UTCDate = obj_val
         .get("receivedAt")
         .and_then(|v| v.as_str())
@@ -1928,25 +1955,14 @@ pub async fn handle_email_import<B: MailBackend>(
             }
         };
 
-        // receivedAt: client-supplied (RFC 8621 §4.8). Validate via
-        // UTCDate::new_validated so malformed values produce
-        // invalidProperties rather than flowing into downstream string
-        // compares with undefined ordering.
-        let received_at: Option<UTCDate> = match entry.get("receivedAt").and_then(|v| v.as_str()) {
-            Some(s) => match UTCDate::new_validated(s) {
-                Ok(d) => Some(d),
-                Err(_) => {
-                    not_created.insert(
-                        import_id,
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["receivedAt"],
-                        }),
-                    );
-                    continue;
-                }
-            },
-            None => None,
+        // receivedAt: client-supplied (RFC 8621 §4.8). Shared helper
+        // with Email/set create and Email/copy (`bd:JMAP-j7pa.4`).
+        let received_at: Option<UTCDate> = match parse_received_at_field(&entry) {
+            Ok(v) => v,
+            Err(err) => {
+                not_created.insert(import_id, err);
+                continue;
+            }
         };
 
         match backend
@@ -2302,24 +2318,14 @@ pub async fn handle_email_copy<B: MailBackend>(
         };
 
         // receivedAt may be overridden during copy (RFC 8621 §4.7).
-        // Client-supplied; validate via UTCDate::new_validated so malformed
-        // values produce invalidProperties rather than flowing into
-        // downstream string compares with undefined ordering.
-        let received_at: Option<UTCDate> = match entry.get("receivedAt").and_then(|v| v.as_str()) {
-            Some(s) => match UTCDate::new_validated(s) {
-                Ok(d) => Some(d),
-                Err(_) => {
-                    not_created.insert(
-                        copy_id,
-                        json!({
-                            "type": "invalidProperties",
-                            "properties": ["receivedAt"],
-                        }),
-                    );
-                    continue;
-                }
-            },
-            None => None,
+        // Shared helper with Email/set create and Email/import
+        // (`bd:JMAP-j7pa.4`).
+        let received_at: Option<UTCDate> = match parse_received_at_field(&entry) {
+            Ok(v) => v,
+            Err(err) => {
+                not_created.insert(copy_id, err);
+                continue;
+            }
         };
 
         match backend
