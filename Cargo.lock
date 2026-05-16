@@ -1019,7 +1019,6 @@ dependencies = [
 name = "jmap-cid-types"
 version = "0.1.0"
 dependencies = [
- "jmap-types",
  "serde",
  "serde_json",
 ]

@@ -13,10 +13,11 @@ jmap-types
     └── jmap-cid-types  ← this crate
 ```
 
-Consumed by `jmap-base-client` (Blob upload response surface + Session
-capability detection) once the follow-up beads land. CID is independent
-of any single consumer extension — Chat, FileNode, and a future
-RFC 8620 bis all reference the same `sha256` field defined here.
+Consumed by `jmap-base-client` for the Blob upload response surface
+and Session capability detection (landed under bd:JMAP-v9py.13 / .14).
+CID is independent of any single consumer extension — Chat, FileNode,
+and a future RFC 8620 bis all reference the same `sha256` field
+defined here.
 
 ## Before starting any work
 
@@ -47,7 +48,7 @@ Run all four before considering any work done.
 |---|---|
 | Async | None — this crate is sync only |
 | Unsafe | Forbidden — `#[forbid(unsafe_code)]` |
-| Dependencies | jmap-types, serde, serde_json — no jmap-server, no async |
+| Dependencies | serde (runtime), serde_json (dev) — no jmap-types, no jmap-server, no async |
 | Wire format | camelCase JSON — `#[serde(rename_all = "camelCase")]` |
 | All public structs | `#[non_exhaustive]` |
 

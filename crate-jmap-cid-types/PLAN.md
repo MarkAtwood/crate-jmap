@@ -52,18 +52,20 @@ The wire-format types defined by draft-atwood-jmap-cid-00:
 ## Dependencies
 
 ```toml
-jmap-types = { workspace = true }
+[dependencies]
 serde      = { workspace = true }
+
+[dev-dependencies]
 serde_json = { workspace = true }
 ```
 
-`jmap-types` is included per the parent epic's acceptance criteria
-(bd:JMAP-v9py.11). The eventual `Sha256` shape may or may not
-reference `jmap-types` primitives directly; the dep is reserved in
-the skeleton so D.2 can land without a `Cargo.toml` churn commit.
-If D.2 ships without referencing `jmap-types` and `cargo udeps`
-flags it, the cleanup is a one-line edit and the workspace can
-decide whether to drop the dep then.
+The crate carries no `jmap-types` runtime dependency: `Sha256` uses
+only `serde` and `std`. The reservation that originally appeared
+here (per bd:JMAP-v9py.11 acceptance criteria) was dropped under
+bd:JMAP-sf5h.2 after the type landed without referencing
+`jmap-types`. If a future surface (e.g. an `Id`-shaped typed
+blob-reference helper) needs `jmap-types`, re-add it in the same
+commit that introduces the consumer code.
 
 ## Public API (current state)
 
