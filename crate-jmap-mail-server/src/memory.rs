@@ -1874,14 +1874,14 @@ fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
             if name.eq_ignore_ascii_case("Subject") {
                 subject = Some(rest.trim().to_owned());
             } else if name.eq_ignore_ascii_case("Message-ID") {
-                let ids = extract_msg_ids(rest);
+                let ids = parse_msg_ids_via_mime_tree(rest);
                 if !ids.is_empty() {
                     message_id = Some(ids);
                 }
             } else if name.eq_ignore_ascii_case("In-Reply-To") {
-                in_reply_to = extract_msg_ids(rest);
+                in_reply_to = parse_msg_ids_via_mime_tree(rest);
             } else if name.eq_ignore_ascii_case("References") {
-                references = extract_msg_ids(rest);
+                references = parse_msg_ids_via_mime_tree(rest);
             } else if name.eq_ignore_ascii_case("From") {
                 from_header = Some(rest.trim().to_owned());
             } else if name.eq_ignore_ascii_case("To") {
@@ -1892,9 +1892,9 @@ fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
         }
     }
 
-    let from = from_header.as_deref().map(parse_address_list);
-    let to = to_header.as_deref().map(parse_address_list);
-    let cc = cc_header.as_deref().map(parse_address_list);
+    let from = from_header.as_deref().map(parse_address_list_via_mime_tree);
+    let to = to_header.as_deref().map(parse_address_list_via_mime_tree);
+    let cc = cc_header.as_deref().map(parse_address_list_via_mime_tree);
 
     // Extract a short preview from the body.
     let preview = if body_block.trim().is_empty() {
@@ -1923,46 +1923,43 @@ fn parse_rfc5322_headers(bytes: &[u8]) -> ParsedHeaders {
     }
 }
 
-/// Extract `<id>` tokens from a Message-ID / In-Reply-To / References value.
-fn extract_msg_ids(s: &str) -> Vec<String> {
-    let mut ids = Vec::new();
-    let mut rest = s;
-    while let Some(start) = rest.find('<') {
-        rest = &rest[start + 1..];
-        if let Some(end) = rest.find('>') {
-            ids.push(rest[..end].to_owned());
-            rest = &rest[end + 1..];
-        } else {
-            break;
-        }
+/// Parse `<id>` tokens from a Message-ID / In-Reply-To / References
+/// header value via mime-tree.
+///
+/// This shares the workspace's single RFC 5322 parsing gateway with
+/// `email.rs::apply_header_form` so the Email/get `messageId` /
+/// `inReplyTo` / `references` properties stay consistent with
+/// `header:<name>:asMessageIds` results on identical input
+/// (`bd:JMAP-j7pa.10`).
+fn parse_msg_ids_via_mime_tree(s: &str) -> Vec<String> {
+    match mime_tree::parse_header_typed(mime_tree::HeaderForm::MessageIds, s.as_bytes()) {
+        mime_tree::HeaderValueTyped::MessageIds(ids) => ids,
+        _ => Vec::new(),
     }
-    ids
 }
 
-/// Very simple RFC 5322 address parser: handles `Display Name <addr>` and bare `addr`.
+/// Parse an RFC 5322 address-list header value (From / To / Cc) via
+/// mime-tree.
 ///
-/// Splits on commas, strips whitespace, extracts `<>` if present.
-fn parse_address_list(s: &str) -> Vec<EmailAddress> {
-    s.split(',')
-        .filter_map(|part| {
-            let part = part.trim();
-            if part.is_empty() {
-                return None;
-            }
-            if let (Some(lt), Some(gt)) = (part.rfind('<'), part.rfind('>')) {
-                if lt < gt {
-                    let email = part[lt + 1..gt].trim().to_owned();
-                    let name = part[..lt].trim().trim_matches('"').trim().to_owned();
-                    let mut addr = EmailAddress::new(email);
-                    if !name.is_empty() {
-                        addr.name = Some(name);
-                    }
-                    return Some(addr);
-                }
-            }
-            Some(EmailAddress::new(part.to_owned()))
-        })
-        .collect()
+/// Handles RFC 2047 encoded-words, RFC 5322 groups, and quoted-string
+/// display names with embedded commas — all cases the previous
+/// hand-rolled split-on-comma parser mis-handled. Shares the workspace's
+/// single RFC 5322 parsing gateway with `email.rs::apply_header_form` so
+/// the Email/get `from` / `to` / `cc` properties stay consistent with
+/// `header:<name>:asAddresses` results on identical input
+/// (`bd:JMAP-j7pa.10`).
+fn parse_address_list_via_mime_tree(s: &str) -> Vec<EmailAddress> {
+    match mime_tree::parse_header_typed(mime_tree::HeaderForm::Addresses, s.as_bytes()) {
+        mime_tree::HeaderValueTyped::Addresses(list) => list
+            .into_iter()
+            .map(|addr| {
+                let mut ea = EmailAddress::new(addr.address.unwrap_or_default());
+                ea.name = addr.name;
+                ea
+            })
+            .collect(),
+        _ => Vec::new(),
+    }
 }
 
 /// Assign a thread id for an email being imported or copied.
