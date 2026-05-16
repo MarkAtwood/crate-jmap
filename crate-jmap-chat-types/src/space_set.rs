@@ -35,11 +35,75 @@ use crate::chat::ChannelPermission;
 use crate::clearable::{some_clearable, Clearable};
 use crate::space::{Category, SpaceRole};
 
+/// Per-entry input for `addMembers` (draft-atwood-jmap-chat-00 §Space/set).
+///
+/// `user_id` is the [`crate::ChatContact`] id; `role_ids` may be
+/// empty (the member gets only `@everyone`).
+///
+/// Wire format is the same JSON object shape as the previous
+/// inline `SpacePatchOp::AddMember { user_id, role_ids }` variant;
+/// this struct exists so that all four `Add*` variants of
+/// [`SpacePatchOp`] are uniformly `Add*(<Create>)`, in parity with
+/// [`SpaceRole`] / [`ChannelCreate`] / [`Category`] for roles,
+/// channels, and categories respectively. The normalization lets
+/// unified visitors over `SpacePatchOp` pattern-match
+/// `AddMember(create)` the same way they match the other Add
+/// variants.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MemberCreate {
+    /// The new member's [`crate::ChatContact`] id.
+    pub user_id: Id,
+    /// SpaceRole ids the new member holds. May be empty (the
+    /// member gets only `@everyone`).
+    pub role_ids: Vec<Id>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl MemberCreate {
+    /// Construct a [`MemberCreate`] from the wire-required fields.
+    ///
+    /// `extra` defaults to an empty map; populate it after
+    /// construction if vendor-extension fields are needed.
+    pub fn new(user_id: Id, role_ids: Vec<Id>) -> Self {
+        Self {
+            user_id,
+            role_ids,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// Per-entry input for `addChannels` (draft-atwood-jmap-chat-00 §Space/set).
 ///
 /// The server creates a [`crate::Chat`] record of `kind: "channel"` with the
 /// new id and `spaceId` set to the host Space's id. This struct carries only
 /// the client-supplied subset.
+///
+/// # Maintenance contract — manual sync with [`crate::Chat`]
+///
+/// The compiler does NOT enforce that every field in `ChannelCreate`
+/// maps to a corresponding field in `Chat`. When a future draft
+/// revision adds a new field to `Chat` that is supplied by the
+/// client at channel-creation time, that field MUST be added to
+/// `ChannelCreate` AS WELL. The wire-format inventory of channel-
+/// create fields in this struct must remain a subset of `Chat`'s
+/// client-supplied field surface.
+///
+/// Server-supplied fields on `Chat` (`id`, `kind`, `created_at`,
+/// `unread_count`, etc.) do NOT belong here.
+///
+/// The current `channel_create_roundtrip` test asserts only that
+/// `ChannelCreate` round-trips through JSON; it does NOT cross-
+/// check against `Chat`'s field set. Maintainers updating either
+/// struct SHOULD diff this struct against `Chat` (chat.rs) by
+/// hand at each chat-draft revision.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -274,10 +338,7 @@ pub enum SpacePatchOp {
     /// Update an existing role (one entry from wire key `updateRoles`).
     UpdateRole { id: Id, patch: RolePatch },
     /// Add a member to the Space (one entry from wire key `addMembers`).
-    ///
-    /// `user_id` is the [`crate::ChatContact`] id; `role_ids` may be empty
-    /// (the member gets only `@everyone`).
-    AddMember { user_id: Id, role_ids: Vec<Id> },
+    AddMember(MemberCreate),
     /// Remove a member from the Space (one entry from wire key `removeMembers`).
     ///
     /// The owner cannot be removed.
@@ -475,10 +536,11 @@ mod tests {
                 id: Id::from("r1"),
                 patch: RolePatch::default(),
             },
-            SpacePatchOp::AddMember {
+            SpacePatchOp::AddMember(MemberCreate {
                 user_id: Id::from("u1"),
                 role_ids: vec![Id::from("r1")],
-            },
+                extra: serde_json::Map::new(),
+            }),
             SpacePatchOp::RemoveMember(Id::from("u1")),
             SpacePatchOp::UpdateMember {
                 user_id: Id::from("u1"),

@@ -2,9 +2,36 @@
 
 use crate::chat::ChatKind;
 use crate::message::SenderId;
-use jmap_types::{Id, State, UTCDate};
+use jmap_types::{impl_string_enum, Id, State, UTCDate};
 use serde::de::Error as _;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+
+/// Web Push urgency level per draft-atwood-jmap-chat-push-00 §4.1
+/// and RFC 8030 Section 5.3.
+///
+/// Servers MUST support at least `Normal` and `High`. `Other`
+/// preserves any future value for round-trip fidelity.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum UrgencyLevel {
+    /// Lowest priority (e.g. ad-hoc background sync hints).
+    VeryLow,
+    /// Low priority.
+    Low,
+    /// Default priority (the spec floor — servers MUST support this).
+    Normal,
+    /// High priority (e.g. mention-triggered notifications).
+    High,
+    /// A value not recognized by this version of the library.
+    Other(String),
+}
+
+impl_string_enum!(UrgencyLevel, "a web-push urgency string",
+    "very-low" => VeryLow,
+    "low" => Low,
+    "normal" => Normal,
+    "high" => High,
+);
 
 /// Client-supplied filter controlling which push notifications are delivered.
 ///
@@ -40,11 +67,18 @@ pub struct ChatPushConfig {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub properties: Option<Vec<String>>,
     /// The `urgency` property (draft-atwood-jmap-chat-push-00 §4.1).
+    ///
+    /// Typed against [`UrgencyLevel`]; unknown wire values are
+    /// preserved verbatim via `UrgencyLevel::Other(_)` for
+    /// forward-compat with future spec revisions.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub urgency: Option<String>,
+    pub urgency: Option<UrgencyLevel>,
     /// The `mentionUrgency` property (draft-atwood-jmap-chat-push-00 §4.1).
+    ///
+    /// Same typing and forward-compat contract as
+    /// [`urgency`](Self::urgency).
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub mention_urgency: Option<String>,
+    pub mention_urgency: Option<UrgencyLevel>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -435,6 +469,37 @@ mod tests {
             serde_json::from_str(json).expect("deserialize ChatMessageEntry");
         assert_eq!(entry.chat_kind, ChatKind::Direct);
         assert!(entry.chat_name.is_none());
+    }
+
+    /// Oracle: typed UrgencyLevel round-trips against the four
+    /// spec-defined wire values plus an unknown forward-compat
+    /// value preserved via Other(_). Wire form is byte-equivalent
+    /// to what a JMAP client would emit before this retype.
+    #[test]
+    fn push_config_urgency_typed_round_trip() {
+        let cases = [
+            ("very-low", UrgencyLevel::VeryLow),
+            ("low", UrgencyLevel::Low),
+            ("normal", UrgencyLevel::Normal),
+            ("high", UrgencyLevel::High),
+        ];
+        for (wire, expected) in cases {
+            let json = format!(r#"{{"urgency":"{wire}"}}"#);
+            let cfg: ChatPushConfig = serde_json::from_str(&json).unwrap();
+            assert_eq!(cfg.urgency, Some(expected.clone()), "wire {wire:?}");
+            let back = serde_json::to_string(&cfg).unwrap();
+            assert_eq!(back, json, "round-trip wire {wire:?}");
+        }
+
+        // Unknown wire value preserved via Other(_).
+        let json = r#"{"urgency":"insanely-high"}"#;
+        let cfg: ChatPushConfig = serde_json::from_str(json).unwrap();
+        assert_eq!(
+            cfg.urgency,
+            Some(UrgencyLevel::Other("insanely-high".to_owned()))
+        );
+        let back = serde_json::to_string(&cfg).unwrap();
+        assert_eq!(back, json);
     }
 
     /// Oracle: a ChatPushConfig with typed `kinds` round-trips

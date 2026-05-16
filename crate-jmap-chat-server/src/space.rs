@@ -57,7 +57,7 @@ fn parse_structural_entries(
             }
             "addMembers" => {
                 let (user_id, role_ids) = parse_add_member_entry(canonical, idx, entry)?;
-                SpacePatchOp::AddMember { user_id, role_ids }
+                SpacePatchOp::AddMember(jmap_chat_types::MemberCreate::new(user_id, role_ids))
             }
             "removeMembers" => SpacePatchOp::RemoveMember(parse_id_entry(canonical, idx, entry)?),
             "updateMembers" => {
@@ -621,7 +621,7 @@ fn count_add_ops(ops: &[SpacePatchOp]) -> (u32, u32, u32, u32) {
     for op in ops {
         match op {
             SpacePatchOp::AddRole(_) => add_roles = add_roles.saturating_add(1),
-            SpacePatchOp::AddMember { .. } => add_members = add_members.saturating_add(1),
+            SpacePatchOp::AddMember(_) => add_members = add_members.saturating_add(1),
             SpacePatchOp::AddChannel(_) => add_channels = add_channels.saturating_add(1),
             SpacePatchOp::AddCategory(_) => add_categories = add_categories.saturating_add(1),
             _ => {}
