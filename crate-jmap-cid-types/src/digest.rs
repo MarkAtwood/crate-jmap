@@ -16,7 +16,7 @@
 //! the wire shape. Servers / consumers compute the digest themselves
 //! (typically via [`sha2`](https://crates.io/crates/sha2) or
 //! [`ring`](https://crates.io/crates/ring)) and pass the 32 raw
-//! bytes to [`Sha256::from_bytes`] to format the wire value.
+//! bytes to [`Sha256::from_raw_digest`] to format the wire value.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -99,8 +99,11 @@ impl std::error::Error for Sha256DigestError {}
 /// Construct with:
 ///
 /// - [`Sha256::from_hex`] — validates a candidate hex string.
-/// - [`Sha256::from_bytes`] — formats 32 raw digest bytes into a
-///   canonical lowercase-hex string. Infallible.
+/// - [`Sha256::from_raw_digest`] — formats 32 raw digest bytes into
+///   a canonical lowercase-hex string. Infallible. Named to
+///   emphasise that the input is the *output* of a hash function
+///   (the raw digest), NOT arbitrary input data to be hashed —
+///   this crate carries no hash computation.
 ///
 /// Wire format is the bare hex string — `#[serde(try_from, into)]`
 /// drives serialization through the validating `TryFrom<String>` /
@@ -140,7 +143,14 @@ impl Sha256 {
     /// Format 32 raw digest bytes as a canonical lowercase-hex
     /// [`Sha256`]. Infallible because every byte produces two
     /// lowercase-hex nibbles by construction.
-    pub fn from_bytes(b: &[u8; 32]) -> Self {
+    ///
+    /// The input is the **output of a SHA-256 hash function** —
+    /// e.g. `sha2::Sha256::digest(data).into()` — not the data to
+    /// be hashed. This crate intentionally carries no hash
+    /// computation; the name `from_raw_digest` (rather than the
+    /// more familiar `from_bytes`) is chosen to make the
+    /// input-vs-output distinction unambiguous at call sites.
+    pub fn from_raw_digest(b: &[u8; 32]) -> Self {
         // 32 bytes → 64 hex chars. Pre-size the buffer to avoid
         // reallocations.
         let mut out = String::with_capacity(64);
@@ -274,7 +284,7 @@ mod tests {
     }
 
     #[test]
-    fn from_bytes_formats_canonical_lowercase_hex() {
+    fn from_raw_digest_formats_canonical_lowercase_hex() {
         // SHA-256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         // (NIST FIPS 180-4 published vector — independent oracle, not
         // derived from this crate).
@@ -283,12 +293,12 @@ mod tests {
             0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b,
             0x78, 0x52, 0xb8, 0x55,
         ];
-        let d = Sha256::from_bytes(&bytes);
+        let d = Sha256::from_raw_digest(&bytes);
         assert_eq!(d.as_str(), VALID);
     }
 
     #[test]
-    fn from_bytes_deadbeef_pattern() {
+    fn from_raw_digest_deadbeef_pattern() {
         // First four bytes 0xde 0xad 0xbe 0xef, rest zero — verifies
         // nibble ordering and lowercase-hex character set.
         let mut bytes = [0u8; 32];
@@ -296,7 +306,7 @@ mod tests {
         bytes[1] = 0xad;
         bytes[2] = 0xbe;
         bytes[3] = 0xef;
-        let d = Sha256::from_bytes(&bytes);
+        let d = Sha256::from_raw_digest(&bytes);
         assert!(d.as_str().starts_with("deadbeef"));
         assert_eq!(d.as_str().len(), 64);
         // All trailing nibbles should be '0' since the bytes are zero.
