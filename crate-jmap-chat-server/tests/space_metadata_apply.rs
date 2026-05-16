@@ -32,45 +32,10 @@
 
 mod common;
 
-use common::{IdentityBackend, MemoryBackend};
+use common::{seed_space, IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_types::Id;
 use serde_json::json;
-
-// ---------------------------------------------------------------------------
-// Seeding helpers
-// ---------------------------------------------------------------------------
-
-const ACCOUNT_ID: &str = "a1";
-const SPACE_ID: &str = "s1";
-
-/// Seed a Space with the supplied roles/members. Initial
-/// `description` is `"original"` so tests can assert it was (or was
-/// not) mutated.
-fn seed_space(
-    backend: &IdentityBackend,
-    roles: serde_json::Value,
-    members: serde_json::Value,
-) -> Id {
-    let space_val = json!({
-        "id": SPACE_ID,
-        "name": "Test Space",
-        "description": "original",
-        "createdAt": "2026-01-01T00:00:00Z",
-        "memberCount": members.as_array().map(Vec::len).unwrap_or(0),
-        "categories": [],
-        "uncategorizedChannelIds": [],
-        "isPublic": false,
-        "isPubliclyPreviewable": false,
-        "roles": roles,
-        "members": members,
-    });
-    backend.inner().register_account(&Id::from(ACCOUNT_ID));
-    backend
-        .inner()
-        .insert_object_for_test("Space", ACCOUNT_ID, SPACE_ID, space_val);
-    Id::from(SPACE_ID)
-}
 
 async fn read_space_description(backend: &IdentityBackend, caller: &Id) -> String {
     // Read back the description through Space/get so we exercise the

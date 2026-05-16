@@ -732,3 +732,103 @@ impl ChatBackend for IdentityBackend {
         self.inner.expire_message(&(), account_id, message_id).await
     }
 }
+
+// ---------------------------------------------------------------------------
+// Shared Space seeding helpers (bd:JMAP-x2gd.80)
+//
+// Used by the apply_space_patch integration tests
+// (role_member_apply.rs, channel_category_apply.rs,
+// space_metadata_apply.rs). The projection-test fixture in
+// space_get_projection.rs has a structurally different shape (full
+// categories/channels) and stays local to that file.
+// ---------------------------------------------------------------------------
+
+/// Default account id used by the apply_space_patch test suites.
+pub const ACCOUNT_ID: &str = "a1";
+
+/// Default Space id used by the apply_space_patch test suites.
+pub const SPACE_ID: &str = "s1";
+
+/// Seed a [`SPACE_ID`] in [`ACCOUNT_ID`] of the given backend with
+/// the supplied `roles` and `members`. The Space is seeded with
+/// `description: "original"` so the metadata-mutation tests can
+/// assert the description was (or was not) mutated; the apply-tests
+/// for Role/Member/Channel/Category do not inspect the description
+/// and are unaffected.
+///
+/// Bypasses `handle_space_set` create flow (which in the reference
+/// impl does NOT auto-add the creator as a member) by going through
+/// [`MemoryBackend::insert_object_for_test`].
+pub fn seed_space(
+    backend: &IdentityBackend,
+    roles: serde_json::Value,
+    members: serde_json::Value,
+) -> Id {
+    let space_val = serde_json::json!({
+        "id": SPACE_ID,
+        "name": "Test Space",
+        "description": "original",
+        "createdAt": "2026-01-01T00:00:00Z",
+        "memberCount": members.as_array().map(Vec::len).unwrap_or(0),
+        "categories": [],
+        "uncategorizedChannelIds": [],
+        "isPublic": false,
+        "isPubliclyPreviewable": false,
+        "roles": roles,
+        "members": members,
+    });
+    backend.inner().register_account(&Id::from(ACCOUNT_ID));
+    backend
+        .inner()
+        .insert_object_for_test("Space", ACCOUNT_ID, SPACE_ID, space_val);
+    Id::from(SPACE_ID)
+}
+
+/// Convenience: seed a Space where `admin_id` holds full admin
+/// permissions at position 100. Returns the seeded Space id.
+pub fn seed_with_admin(backend: &IdentityBackend, admin_id: &str) -> Id {
+    seed_space(
+        backend,
+        serde_json::json!([{
+            "id": "r-admin",
+            "name": "Admin",
+            "permissions": [
+                "manage_space",
+                "manage_roles",
+                "manage_members",
+                "manage_channels"
+            ],
+            "position": 100
+        }]),
+        serde_json::json!([{
+            "id": admin_id,
+            "roleIds": ["r-admin"],
+            "joinedAt": "2026-01-01T00:00:00Z"
+        }]),
+    )
+}
+
+/// Seed a Space where `caller_id` is a non-admin member holding only
+/// the implicit `@everyone` floor (no explicit roles). One admin
+/// (id `"admin-user"`) is also seeded so the Space is not empty of
+/// admins (relevant when last-admin-protection is active).
+pub fn seed_with_non_admin_caller(backend: &IdentityBackend, caller_id: &str) {
+    seed_space(
+        backend,
+        serde_json::json!([{
+            "id": "r-admin",
+            "name": "Admin",
+            "permissions": [
+                "manage_space",
+                "manage_roles",
+                "manage_members",
+                "manage_channels"
+            ],
+            "position": 100
+        }]),
+        serde_json::json!([
+            { "id": "admin-user", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
+            { "id": caller_id,    "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
+        ]),
+    );
+}

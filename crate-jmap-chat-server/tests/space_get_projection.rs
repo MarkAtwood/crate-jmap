@@ -20,19 +20,20 @@
 
 mod common;
 
-use common::{IdentityBackend, MemoryBackend};
+use common::{IdentityBackend, MemoryBackend, ACCOUNT_ID, SPACE_ID};
 use jmap_chat_server::handle_space_get;
 use jmap_types::Id;
 use serde_json::json;
 
-const ACCOUNT_ID: &str = "a1";
-const SPACE_ID: &str = "s1";
-
-/// Seed a fully-populated Space. `isPubliclyPreviewable` is
-/// controlled by `previewable`; everything else is identical.
-/// Members include an `admin` plus an additional `member-user`
-/// (so a member caller can be exercised without being the
-/// admin).
+/// Seed a fully-populated Space for the projection tests.
+/// `isPubliclyPreviewable` is controlled by `previewable`; everything
+/// else is identical. Members include an `admin` plus an additional
+/// `member-user` (so a member caller can be exercised without being
+/// the admin).
+///
+/// This fixture is structurally different from the shared
+/// [`common::seed_space`] (full categories/channels) and stays
+/// local to this file. See bd:JMAP-x2gd.80.
 fn seed_space(backend: &IdentityBackend, previewable: bool) {
     let space_val = json!({
         "id": SPACE_ID,
