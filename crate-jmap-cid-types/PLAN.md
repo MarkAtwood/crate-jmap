@@ -139,6 +139,47 @@ For `Sha256` parse-time validation, parametric tests cover:
 
 ## Type-design constraints
 
+### Sibling-of-Id newtype, fallible construction only (bd:JMAP-sf5h.7)
+
+`Sha256` mirrors the sibling `jmap-types::Id` newtype surface
+(`PartialEq<str>`, `PartialEq<&str>`, `Borrow<str>`,
+`AsRef<str>`, `Display`, `FromStr`, `into_inner`) so it reads like
+every other workspace wire-format newtype. The infallible
+`From<String>` / `From<&str>` impls that `Id`, `UTCDate`, `Date`,
+`State` carry via `impl_string_newtype!` are **deliberately
+omitted** from `Sha256`.
+
+- `Id`'s character set is open: RFC 8620 §1.2 SAFE-CHAR
+  (visible ASCII minus DQUOTE), 1..=255 bytes, server-assigned,
+  opaque to the client. Treating an arbitrary `String` as an `Id`
+  cannot produce a wire-protocol mismatch because the protocol
+  itself doesn't constrain content beyond the byte set.
+- `Sha256`'s character set is closed: draft-atwood-jmap-cid-00 §2
+  ABNF `64( %x30-39 / %x61-66 )` — exactly 64 bytes, lowercase
+  hex only. Both sides validate. An infallible `From<String>`
+  would let arbitrary garbage round-trip through serialize and
+  emerge as a malformed wire field.
+
+Construction is strictly fallible: `from_hex(&str)`,
+`TryFrom<&str>`, `TryFrom<String>`, `FromStr`, and the
+`Deserialize` adapter all share the same `validate(&str)` ABNF
+check. The decision is normative — a future contributor proposing
+`From<String> for Sha256` for canonical-template consistency
+should be referred to this section.
+
+### NIST FIPS 180-4 oracle for from_raw_digest tests (bd:JMAP-sf5h.8)
+
+`from_raw_digest_formats_canonical_lowercase_hex` uses the SHA-256
+of the empty string (`e3b0c4...b855`) hand-copied from NIST
+FIPS 180-4 as the test oracle. The vector is **not** computed at
+test time via `sha2::Sha256::digest()`. Doing so would close the
+oracle loop: any nibble-ordering or character-table bug in
+`from_raw_digest` would emit the same wrong digest the test
+expects, and the test would still pass. The independent oracle
+catches that class of bug. The decision is workspace-policy
+("Test oracles must be independent of the code under test" —
+workspace AGENTS.md "Test Integrity").
+
 ### Extras-preservation policy (JMAP-lbdy)
 
 The `CidCapability` struct, once it ships in a follow-up bead, will
