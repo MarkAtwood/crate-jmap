@@ -71,6 +71,36 @@ extension-server template) for:
 
 Do NOT copy mail-specific types or logic.
 
+## Documented divergence from canonical: tests/common backend wrappers
+
+`crate-jmap-chat-server/tests/common/mod.rs` defines three backend
+wrappers — `FaultyBackend`, `TrackingBackend`, `IdentityBackend` —
+whereas the canonical `jmap-mail-server/tests/common/mod.rs` defines
+only `FaultyBackend`. This divergence is intentional and tracked here
+so it does not get flagged as a canonical-template regression.
+
+| Wrapper | Mail | Chat | Why chat needs it |
+|---|---|---|---|
+| `FaultyBackend` | yes | yes | Common: surfaces backend-error mapping in handlers. |
+| `TrackingBackend` | no | yes | Call-count introspection for the chat-spec policy hooks `slow_mode_check`, `may_set_custom_emoji`, `is_contact_blocked` — gates RFC 8621 does not have. |
+| `IdentityBackend` | no | yes | `CallerCtx = Id` (instead of `()`), so per-test principal_id resolves to a real `Id` and `apply_space_patch`'s identity-sensitive enforcement helpers are exercised. RFC 8621 currently has no identity-sensitive method on `MailBackend`. |
+
+The divergence is justified by spec content, not by harness-design
+drift: chat has identity-sensitive surface (role-hierarchy
+permissions, `manage_members` / `ban` / `manage_space` /
+`manage_channels` gates) that mail-server does not yet have. When
+identity-sensitive surface lands in mail-server (e.g. RFC 8621
+`$seen` on shared mailboxes via the sharing extension), the matching
+wrappers should be added there at that time — not pre-positioned
+speculatively now.
+
+The pure-passthrough forwarding inside both wrappers (every method
+except 3-4 customizations is a one-line forward to `inner`) is verbose
+(~210 lines each) but uses no extra dependencies. A delegate /
+ambassador proc-macro would shrink each wrapper to ~30 lines but
+would add a dev-dependency; that trade-off is deliberately not made
+here.
+
 ## Permission enforcement: backend canonical
 
 Per the workspace AGENTS.md "Caller identity (foundation seam)"
