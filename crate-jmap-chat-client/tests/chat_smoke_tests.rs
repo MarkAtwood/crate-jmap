@@ -18,10 +18,13 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use helpers::{
+    jmap_response, mock_jmap_post, recorded_args, recorded_body, set_destroy_response,
+    set_response, CHAT_STATE_NEW, CHAT_STATE_OLD, TEST_ACCOUNT_ID,
+};
 use jmap_types::{Id, State};
 use serde_json::json;
-use wiremock::matchers::{method, path};
-use wiremock::{Mock, MockServer, ResponseTemplate};
+use wiremock::MockServer;
 
 /// `Chat/get` with `ids: None, properties: None` must omit both keys on the
 /// wire (chat.rs:35-43) — the conditional-add idiom prevents "present-but-null
@@ -29,24 +32,16 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 #[tokio::test]
 async fn chat_get_omits_ids_and_properties_when_none() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/get",
-            {
-                "accountId": "A13824",
-                "state": "c-state-1",
-                "list": [],
-                "notFound": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Chat/get",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "state": "c-state-1",
+            "list": [],
+            "notFound": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let resp = sc
@@ -54,18 +49,21 @@ async fn chat_get_omits_ids_and_properties_when_none() {
         .await
         .expect("chat_get: must succeed");
 
-    assert_eq!(resp.account_id.as_ref(), "A13824", "accountId mismatch");
+    assert_eq!(
+        resp.account_id.as_ref(),
+        TEST_ACCOUNT_ID,
+        "accountId mismatch"
+    );
     assert_eq!(resp.state, "c-state-1", "state mismatch");
     assert!(resp.list.is_empty(), "list must be empty");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let body = recorded_body(&server).await;
     let args = &body["methodCalls"][0][1];
-    assert_eq!(args["accountId"], json!("A13824"), "accountId mismatch");
+    assert_eq!(
+        args["accountId"],
+        json!(TEST_ACCOUNT_ID),
+        "accountId mismatch"
+    );
     assert!(
         args.get("ids").is_none(),
         "ids must be omitted when caller passes None"
@@ -92,24 +90,16 @@ async fn chat_get_omits_ids_and_properties_when_none() {
 #[tokio::test]
 async fn chat_get_threads_ids_and_properties_when_some() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/get",
-            {
-                "accountId": "A13824",
-                "state": "c-state-1",
-                "list": [],
-                "notFound": ["chat-missing"]
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Chat/get",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "state": "c-state-1",
+            "list": [],
+            "notFound": ["chat-missing"]
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let ids = [Id::from("chat-1"), Id::from("chat-missing")];
@@ -119,13 +109,7 @@ async fn chat_get_threads_ids_and_properties_when_some() {
         .await
         .expect("chat_get: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["ids"],
         json!(["chat-1", "chat-missing"]),
@@ -155,49 +139,41 @@ async fn chat_get_threads_ids_and_properties_when_some() {
 #[tokio::test]
 async fn chat_get_decodes_populated_chat() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/get",
-            {
-                "accountId": "A13824",
-                "state": "c-state-2",
-                "list": [
-                    {
-                        "id": "chat-1",
-                        "kind": "group",
-                        "name": "Team Standup",
-                        "createdAt": "2026-01-15T09:00:00Z",
-                        "unreadCount": 3,
-                        "pinnedMessageIds": ["msg-100"],
-                        "muted": false,
-                        "receiveTypingIndicators": true,
-                        "members": [
-                            {
-                                "id": "u1",
-                                "role": "owner",
-                                "joinedAt": "2026-01-10T08:00:00Z"
-                            },
-                            {
-                                "id": "u2",
-                                "role": "member",
-                                "joinedAt": "2026-01-12T10:30:00Z",
-                                "invitedBy": "u1"
-                            }
-                        ],
-                        "lastMessageAt": "2026-01-20T14:30:00Z"
-                    }
-                ],
-                "notFound": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Chat/get",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "state": "c-state-2",
+            "list": [
+                {
+                    "id": "chat-1",
+                    "kind": "group",
+                    "name": "Team Standup",
+                    "createdAt": "2026-01-15T09:00:00Z",
+                    "unreadCount": 3,
+                    "pinnedMessageIds": ["msg-100"],
+                    "muted": false,
+                    "receiveTypingIndicators": true,
+                    "members": [
+                        {
+                            "id": "u1",
+                            "role": "owner",
+                            "joinedAt": "2026-01-10T08:00:00Z"
+                        },
+                        {
+                            "id": "u2",
+                            "role": "member",
+                            "joinedAt": "2026-01-12T10:30:00Z",
+                            "invitedBy": "u1"
+                        }
+                    ],
+                    "lastMessageAt": "2026-01-20T14:30:00Z"
+                }
+            ],
+            "notFound": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let resp = sc
@@ -205,7 +181,11 @@ async fn chat_get_decodes_populated_chat() {
         .await
         .expect("chat_get: must succeed");
 
-    assert_eq!(resp.account_id.as_ref(), "A13824", "accountId mismatch");
+    assert_eq!(
+        resp.account_id.as_ref(),
+        TEST_ACCOUNT_ID,
+        "accountId mismatch"
+    );
     assert_eq!(resp.state, "c-state-2", "state mismatch");
     assert_eq!(resp.list.len(), 1, "list must contain exactly one Chat");
 
@@ -270,27 +250,19 @@ async fn chat_get_decodes_populated_chat() {
 #[tokio::test]
 async fn chat_query_empty_filter_sends_null() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/query",
-            {
-                "accountId": "A13824",
-                "queryState": "qs-1",
-                "canCalculateChanges": true,
-                "position": 0,
-                "ids": ["chat-1", "chat-2"],
-                "total": null,
-                "limit": null
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Chat/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "qs-1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": ["chat-1", "chat-2"],
+            "total": null,
+            "limit": null
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let mut input = jmap_chat_client::methods::ChatQueryInput::default();
@@ -301,13 +273,7 @@ async fn chat_query_empty_filter_sends_null() {
         .await
         .expect("chat_query: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["filter"],
         json!(null),
@@ -322,25 +288,17 @@ async fn chat_query_empty_filter_sends_null() {
 #[tokio::test]
 async fn chat_query_filter_muted_serializes() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/query",
-            {
-                "accountId": "A13824",
-                "queryState": "qs-1",
-                "canCalculateChanges": false,
-                "position": 0,
-                "ids": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Chat/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "qs-1",
+            "canCalculateChanges": false,
+            "position": 0,
+            "ids": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let mut input = jmap_chat_client::methods::ChatQueryInput::default();
@@ -350,13 +308,7 @@ async fn chat_query_filter_muted_serializes() {
         .await
         .expect("chat_query: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["filter"],
         json!({ "muted": true }),
@@ -369,27 +321,19 @@ async fn chat_query_filter_muted_serializes() {
 #[tokio::test]
 async fn chat_changes_since_state_and_max_changes_passthrough() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/changes",
-            {
-                "accountId": "A13824",
-                "oldState": "c-old",
-                "newState": "c-new",
-                "hasMoreChanges": false,
-                "created": ["chat-new"],
-                "updated": [],
-                "destroyed": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Chat/changes",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "oldState": "c-old",
+            "newState": "c-new",
+            "hasMoreChanges": false,
+            "created": ["chat-new"],
+            "updated": [],
+            "destroyed": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let since = State::from("c-old");
@@ -400,13 +344,7 @@ async fn chat_changes_since_state_and_max_changes_passthrough() {
     assert_eq!(resp.old_state, "c-old", "oldState mismatch");
     assert_eq!(resp.new_state, "c-new", "newState mismatch");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(args["sinceState"], json!("c-old"), "sinceState mismatch");
     assert_eq!(args["maxChanges"], json!(50), "maxChanges mismatch");
 }
@@ -450,26 +388,18 @@ async fn chat_changes_empty_since_state_rejected_before_send() {
 #[tokio::test]
 async fn chat_query_changes_since_query_state_passthrough() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/queryChanges",
-            {
-                "accountId": "A13824",
-                "oldQueryState": "qs-old",
-                "newQueryState": "qs-new",
-                "total": null,
-                "removed": [],
-                "added": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Chat/queryChanges",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "oldQueryState": "qs-old",
+            "newQueryState": "qs-new",
+            "total": null,
+            "removed": [],
+            "added": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
@@ -478,13 +408,7 @@ async fn chat_query_changes_since_query_state_passthrough() {
         .await
         .expect("chat_query_changes: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["sinceQueryState"],
         json!("qs-old"),
@@ -501,19 +425,8 @@ async fn chat_query_changes_since_query_state_passthrough() {
 #[tokio::test]
 async fn chat_typing_emits_chat_id_and_typing_flag() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/typing",
-            { "accountId": "A13824" },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response("Chat/typing", json!({ "accountId": TEST_ACCOUNT_ID }));
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
@@ -522,13 +435,7 @@ async fn chat_typing_emits_chat_id_and_typing_flag() {
         .await
         .expect("chat_typing: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(args["chatId"], json!("chat-1"), "chatId mismatch");
     assert_eq!(args["typing"], json!(true), "typing flag mismatch");
 }
@@ -539,29 +446,13 @@ async fn chat_typing_emits_chat_id_and_typing_flag() {
 #[tokio::test]
 async fn chat_create_direct_serializes_kind_and_contact_id() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/set",
-            {
-                "accountId": "A13824",
-                "oldState": "c-1",
-                "newState": "c-2",
-                "created": { "myKey": { "id": "chat-new-1" } },
-                "updated": null,
-                "destroyed": null,
-                "notCreated": null,
-                "notUpdated": null,
-                "notDestroyed": null
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "created": { "myKey": { "id": "chat-new-1" } } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let contact_id = Id::from("contact-bob");
@@ -576,13 +467,7 @@ async fn chat_create_direct_serializes_kind_and_contact_id() {
     let created = resp.created.expect("created must be present");
     assert!(created.contains_key("myKey"), "created must contain myKey");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["create"]["myKey"]["kind"],
         json!("direct"),
@@ -640,29 +525,13 @@ async fn chat_create_group_empty_name_rejected_before_send() {
 #[tokio::test]
 async fn chat_update_patch_muted_serializes() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/set",
-            {
-                "accountId": "A13824",
-                "oldState": "c-1",
-                "newState": "c-2",
-                "created": null,
-                "updated": { "chat-1": null },
-                "destroyed": null,
-                "notCreated": null,
-                "notUpdated": null,
-                "notDestroyed": null
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
@@ -673,13 +542,7 @@ async fn chat_update_patch_muted_serializes() {
         .await
         .expect("chat_update: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["update"]["chat-1"],
         json!({ "muted": true }),
@@ -697,29 +560,13 @@ async fn chat_update_patch_muted_serializes() {
 #[tokio::test]
 async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/set",
-            {
-                "accountId": "A13824",
-                "oldState": "c-1",
-                "newState": "c-2",
-                "created": null,
-                "updated": { "chat-1": null },
-                "destroyed": null,
-                "notCreated": null,
-                "notUpdated": null,
-                "notDestroyed": null
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
@@ -730,13 +577,7 @@ async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
         .await
         .expect("chat_update: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["update"]["chat-1"],
         json!({ "messageExpirySeconds": null }),
@@ -752,29 +593,13 @@ async fn chat_update_patch_message_expiry_seconds_clear_emits_null() {
 #[tokio::test]
 async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/set",
-            {
-                "accountId": "A13824",
-                "oldState": "c-1",
-                "newState": "c-2",
-                "created": null,
-                "updated": { "chat-1": null },
-                "destroyed": null,
-                "notCreated": null,
-                "notUpdated": null,
-                "notDestroyed": null
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = set_response(
+        "Chat/set",
+        CHAT_STATE_OLD,
+        CHAT_STATE_NEW,
+        json!({ "updated": { "chat-1": null } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let chat_id = Id::from("chat-1");
@@ -785,13 +610,7 @@ async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
         .await
         .expect("chat_update: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["update"]["chat-1"],
         json!({ "messageExpirySeconds": 86_400 }),
@@ -806,29 +625,8 @@ async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
 async fn chat_destroy_threads_ids_and_rejects_empty() {
     // Success path with a non-empty slice.
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Chat/set",
-            {
-                "accountId": "A13824",
-                "oldState": "c-1",
-                "newState": "c-2",
-                "created": null,
-                "updated": null,
-                "destroyed": ["chat-doomed"],
-                "notCreated": null,
-                "notUpdated": null,
-                "notDestroyed": null
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = set_destroy_response("Chat/set", CHAT_STATE_OLD, CHAT_STATE_NEW, "chat-doomed");
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let ids = [Id::from("chat-doomed")];
@@ -842,13 +640,7 @@ async fn chat_destroy_threads_ids_and_rejects_empty() {
         "destroyed must contain the chat id"
     );
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["destroy"],
         json!(["chat-doomed"]),

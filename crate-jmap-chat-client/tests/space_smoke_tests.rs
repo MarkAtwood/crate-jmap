@@ -12,34 +12,29 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use helpers::{
+    jmap_response, mock_jmap_post, recorded_args, recorded_body, set_destroy_response,
+    set_response, SPACE_STATE_NEW, SPACE_STATE_OLD, TEST_ACCOUNT_ID,
+};
 use jmap_types::{Id, State};
 use serde_json::json;
-use wiremock::matchers::{method, path};
-use wiremock::{Mock, MockServer, ResponseTemplate};
+use wiremock::MockServer;
 
 /// `Space/get` with `ids: None, properties: None` must omit both keys on
 /// the wire (space.rs:34-42), consistent with `chat_get`.
 #[tokio::test]
 async fn space_get_omits_ids_and_properties_when_none() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Space/get",
-            {
-                "accountId": "A13824",
-                "state": "sp-state-1",
-                "list": [],
-                "notFound": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Space/get",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "state": "sp-state-1",
+            "list": [],
+            "notFound": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let _ = sc
@@ -47,14 +42,13 @@ async fn space_get_omits_ids_and_properties_when_none() {
         .await
         .expect("space_get: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let body = recorded_body(&server).await;
     let args = &body["methodCalls"][0][1];
-    assert_eq!(args["accountId"], json!("A13824"), "accountId mismatch");
+    assert_eq!(
+        args["accountId"],
+        json!(TEST_ACCOUNT_ID),
+        "accountId mismatch"
+    );
     assert!(args.get("ids").is_none(), "ids must be omitted when None");
     assert!(
         args.get("properties").is_none(),
@@ -90,58 +84,50 @@ async fn space_get_omits_ids_and_properties_when_none() {
 #[tokio::test]
 async fn space_get_decodes_populated_space() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Space/get",
-            {
-                "accountId": "A13824",
-                "state": "sp-state-2",
-                "list": [
-                    {
-                        "id": "space-1",
-                        "name": "Engineering",
-                        "description": "Engineering team space",
-                        "roles": [
-                            {
-                                "id": "role-admin",
-                                "name": "Admin",
-                                "permissions": ["manage_channels", "manage_roles"],
-                                "position": 0
-                            }
-                        ],
-                        "members": [
-                            {
-                                "id": "u1",
-                                "roleIds": ["role-admin"],
-                                "joinedAt": "2026-01-01T00:00:00Z"
-                            }
-                        ],
-                        "categories": [
-                            {
-                                "id": "cat-1",
-                                "name": "General",
-                                "position": 0,
-                                "channelIds": ["chat-c1"]
-                            }
-                        ],
-                        "uncategorizedChannelIds": [],
-                        "createdAt": "2026-01-01T00:00:00Z",
-                        "isPublic": true,
-                        "isPubliclyPreviewable": false,
-                        "memberCount": 1
-                    }
-                ],
-                "notFound": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Space/get",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "state": "sp-state-2",
+            "list": [
+                {
+                    "id": "space-1",
+                    "name": "Engineering",
+                    "description": "Engineering team space",
+                    "roles": [
+                        {
+                            "id": "role-admin",
+                            "name": "Admin",
+                            "permissions": ["manage_channels", "manage_roles"],
+                            "position": 0
+                        }
+                    ],
+                    "members": [
+                        {
+                            "id": "u1",
+                            "roleIds": ["role-admin"],
+                            "joinedAt": "2026-01-01T00:00:00Z"
+                        }
+                    ],
+                    "categories": [
+                        {
+                            "id": "cat-1",
+                            "name": "General",
+                            "position": 0,
+                            "channelIds": ["chat-c1"]
+                        }
+                    ],
+                    "uncategorizedChannelIds": [],
+                    "createdAt": "2026-01-01T00:00:00Z",
+                    "isPublic": true,
+                    "isPubliclyPreviewable": false,
+                    "memberCount": 1
+                }
+            ],
+            "notFound": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let resp = sc
@@ -149,7 +135,11 @@ async fn space_get_decodes_populated_space() {
         .await
         .expect("space_get: must succeed");
 
-    assert_eq!(resp.account_id.as_ref(), "A13824", "accountId mismatch");
+    assert_eq!(
+        resp.account_id.as_ref(),
+        TEST_ACCOUNT_ID,
+        "accountId mismatch"
+    );
     assert_eq!(resp.state, "sp-state-2", "state mismatch");
     assert_eq!(resp.list.len(), 1, "list must contain exactly one Space");
 
@@ -232,27 +222,19 @@ async fn space_get_decodes_populated_space() {
 #[tokio::test]
 async fn space_changes_passthrough_and_empty_state_rejected() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Space/changes",
-            {
-                "accountId": "A13824",
-                "oldState": "sp-old",
-                "newState": "sp-new",
-                "hasMoreChanges": false,
-                "created": [],
-                "updated": [],
-                "destroyed": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Space/changes",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "oldState": "sp-old",
+            "newState": "sp-new",
+            "hasMoreChanges": false,
+            "created": [],
+            "updated": [],
+            "destroyed": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let since = State::from("sp-old");
@@ -261,13 +243,7 @@ async fn space_changes_passthrough_and_empty_state_rejected() {
         .await
         .expect("space_changes: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(args["sinceState"], json!("sp-old"), "sinceState mismatch");
     assert_eq!(args["maxChanges"], json!(25), "maxChanges mismatch");
 
@@ -294,29 +270,13 @@ async fn space_changes_passthrough_and_empty_state_rejected() {
 #[tokio::test]
 async fn space_destroy_threads_ids_and_rejects_empty() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Space/set",
-            {
-                "accountId": "A13824",
-                "oldState": "sp-1",
-                "newState": "sp-2",
-                "created": null,
-                "updated": null,
-                "destroyed": ["space-doomed"],
-                "notCreated": null,
-                "notUpdated": null,
-                "notDestroyed": null
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = set_destroy_response(
+        "Space/set",
+        SPACE_STATE_OLD,
+        SPACE_STATE_NEW,
+        "space-doomed",
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let ids = [Id::from("space-doomed")];
@@ -325,13 +285,7 @@ async fn space_destroy_threads_ids_and_rejects_empty() {
         .await
         .expect("space_destroy: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["destroy"],
         json!(["space-doomed"]),
@@ -360,25 +314,17 @@ async fn space_destroy_threads_ids_and_rejects_empty() {
 #[tokio::test]
 async fn space_query_empty_filter_sends_null() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Space/query",
-            {
-                "accountId": "A13824",
-                "queryState": "sq-1",
-                "canCalculateChanges": true,
-                "position": 0,
-                "ids": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Space/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "sq-1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let mut input = jmap_chat_client::methods::SpaceQueryInput::default();
@@ -389,13 +335,7 @@ async fn space_query_empty_filter_sends_null() {
         .await
         .expect("space_query: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(args["filter"], json!(null), "filter must be null");
     assert_eq!(args["position"], json!(0), "position must thread");
     assert_eq!(args["limit"], json!(20), "limit must thread");
@@ -406,25 +346,17 @@ async fn space_query_empty_filter_sends_null() {
 #[tokio::test]
 async fn space_query_filter_is_public_serializes() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Space/query",
-            {
-                "accountId": "A13824",
-                "queryState": "sq-1",
-                "canCalculateChanges": true,
-                "position": 0,
-                "ids": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Space/query",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "queryState": "sq-1",
+            "canCalculateChanges": true,
+            "position": 0,
+            "ids": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let mut input = jmap_chat_client::methods::SpaceQueryInput::default();
@@ -434,13 +366,7 @@ async fn space_query_filter_is_public_serializes() {
         .await
         .expect("space_query: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["filter"],
         json!({ "isPublic": true }),
@@ -453,26 +379,18 @@ async fn space_query_filter_is_public_serializes() {
 #[tokio::test]
 async fn space_query_changes_since_state_passthrough() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Space/queryChanges",
-            {
-                "accountId": "A13824",
-                "oldQueryState": "sqc-old",
-                "newQueryState": "sqc-new",
-                "total": null,
-                "removed": [],
-                "added": []
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = jmap_response(
+        "Space/queryChanges",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "oldQueryState": "sqc-old",
+            "newQueryState": "sqc-new",
+            "total": null,
+            "removed": [],
+            "added": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let since = State::from("sqc-old");
@@ -481,13 +399,7 @@ async fn space_query_changes_since_state_passthrough() {
         .await
         .expect("space_query_changes: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     assert_eq!(
         args["sinceQueryState"],
         json!("sqc-old"),
@@ -503,29 +415,13 @@ async fn space_query_changes_since_state_passthrough() {
 #[tokio::test]
 async fn space_create_serializes_create_object_and_rejects_empty_name() {
     let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "Space/set",
-            {
-                "accountId": "A13824",
-                "oldState": "sp-1",
-                "newState": "sp-2",
-                "created": { "my-space-key": { "id": "space-new-1" } },
-                "updated": null,
-                "destroyed": null,
-                "notCreated": null,
-                "notUpdated": null,
-                "notDestroyed": null
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
+    let resp_body = set_response(
+        "Space/set",
+        SPACE_STATE_OLD,
+        SPACE_STATE_NEW,
+        json!({ "created": { "my-space-key": { "id": "space-new-1" } } }),
+    );
+    mock_jmap_post(&server, resp_body).await;
 
     let sc = helpers::make_client(&server);
     let input = jmap_chat_client::methods::SpaceCreateInput::new("Engineering")
@@ -535,13 +431,7 @@ async fn space_create_serializes_create_object_and_rejects_empty_name() {
         .await
         .expect("space_create: must succeed");
 
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
+    let args = recorded_args(&server).await;
     let create = &args["create"]["my-space-key"];
     assert_eq!(create["name"], json!("Engineering"), "name mismatch");
     assert!(
