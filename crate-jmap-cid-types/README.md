@@ -48,9 +48,10 @@ attachment references.
 jmap-cid-types = "0.1"
 ```
 
-Transitively pulls in `jmap-types`, `serde`, `serde_json`. No async
-runtime, no `jmap-server`, no `jmap-base-client`. Parse and validate
-a `sha256` digest from a wire string:
+Pulls in only `serde` at runtime (`serde_json` is dev-only). No
+async runtime, no `jmap-types`, no `jmap-server`, no
+`jmap-base-client`. Parse and validate a `sha256` digest from a
+wire string:
 
 ```rust
 use jmap_cid_types::Sha256;
@@ -87,7 +88,8 @@ map in `jmap-base-client`.
 - `#[non_exhaustive]` on every public struct and enum, so additive
   spec evolution stays a non-breaking change.
 - No async. `#[forbid(unsafe_code)]` at the crate root.
-- Dependencies limited to `jmap-types`, `serde`, `serde_json`.
+- Runtime dependencies limited to `serde`; `serde_json` is dev-only
+  (used by round-trip tests).
 
 ## Gotchas
 
