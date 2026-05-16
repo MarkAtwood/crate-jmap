@@ -309,6 +309,26 @@ pub struct VirtualLocation {
 // ── Link ─────────────────────────────────────────────────────────────────────
 
 /// An attachment, image, or URL associated with an event (RFC 8984 §1.4.11).
+///
+/// # Source invariant: at least one of `href` or `blob_id` MUST be set
+///
+/// RFC 8984 §1.4.11 marks `href` as `"String" (mandatory)`.  The JMAP
+/// Calendars draft (draft-ietf-jmap-calendars-26 §5.3) relaxes that
+/// mandate: "Instead of mandating an 'href' property, clients may set a
+/// 'blobId' property instead to reference a blob of binary data in the
+/// account".  The combined contract is therefore **exactly one of
+/// `href` or `blob_id` MUST be present**, and both MAY be set
+/// simultaneously (a server-stored blob with a public-fetch URL).
+///
+/// This invariant is **not** encoded in the Rust type — both fields are
+/// `Option` so that partial deserialization (e.g. of an in-flight update
+/// where only one half has been populated) succeeds.  Encoding the
+/// invariant via `enum LinkSource { Href, BlobId, Both }` would be a
+/// breaking API change blocking partial constructors and is deliberately
+/// deferred until consumer evidence warrants it.
+///
+/// Consumers that need to validate the invariant on inbound data SHOULD
+/// call [`Link::validate_source`].
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -317,7 +337,14 @@ pub struct Link {
     #[serde(rename = "@type")]
     pub at_type: String,
 
-    /// URI of the linked resource; may be absent when `blob_id` is set.
+    /// URI from which the linked resource may be fetched (RFC 8984
+    /// §1.4.11 — `"String" (mandatory)`).
+    ///
+    /// The pure RFC 8984 mandate is relaxed by the JMAP Calendars draft
+    /// (draft-ietf-jmap-calendars-26 §5.3) when `blob_id` is set: the
+    /// client may omit `href` and reference the resource by JMAP blob
+    /// id instead.  At least one of `href` or `blob_id` MUST be
+    /// present on a well-formed Link; see the struct-level docs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub href: Option<String>,
 
@@ -353,11 +380,16 @@ pub struct Link {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
 
-    /// JMAP blob id; may be set instead of `href` for server-stored attachments
-    /// (draft-ietf-jmap-calendars-26 §5.3 / §10.9.14).
+    /// JMAP blob id (draft-ietf-jmap-calendars-26 §5.3 / §10.9.14).
     ///
-    /// When present, `href` may be absent.  The server MUST translate this to
-    /// an embedded data: URL when sending to systems that cannot access blobs.
+    /// When present, `href` may be absent — the JMAP Calendars draft
+    /// §5.3 explicitly permits substituting a `blob_id` for the
+    /// otherwise-mandatory `href`.  At least one of `href` or
+    /// `blob_id` MUST be present on a well-formed Link; see the
+    /// struct-level docs.
+    ///
+    /// Per draft §5.3: the server MUST translate this to an embedded
+    /// `data:` URL when sending to systems that cannot access blobs.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub blob_id: Option<Id>,
 
@@ -367,6 +399,58 @@ pub struct Link {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Error returned by [`Link::validate_source`] when the source invariant
+/// (RFC 8984 §1.4.11 + JMAP Calendars draft §5.3) is violated.
+///
+/// Currently the only failure mode is "neither `href` nor `blob_id` is
+/// set"; the type is `#[non_exhaustive]` so additional variants can be
+/// added without breaking matches.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum LinkSourceError {
+    /// Neither `href` nor `blob_id` is set.  Per RFC 8984 §1.4.11
+    /// `href` is mandatory; per JMAP Calendars draft §5.3 a
+    /// `blob_id` may substitute.  At least one of the two MUST be
+    /// present.
+    Missing,
+}
+
+impl std::fmt::Display for LinkSourceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LinkSourceError::Missing => f.write_str(
+                "Link has neither href nor blobId set; RFC 8984 §1.4.11 and \
+                 JMAP Calendars draft §5.3 require at least one",
+            ),
+        }
+    }
+}
+
+impl std::error::Error for LinkSourceError {}
+
+impl Link {
+    /// Validate the source invariant: at least one of `href` or
+    /// `blob_id` MUST be present.
+    ///
+    /// Combined contract from RFC 8984 §1.4.11 (`href` mandatory) and
+    /// the JMAP Calendars draft (draft-ietf-jmap-calendars-26 §5.3,
+    /// `blob_id` may substitute for `href`).  Both fields MAY be set
+    /// simultaneously — that is permitted, only the "neither set"
+    /// case fails.
+    ///
+    /// This is an opt-in check.  Deserialization itself does NOT enforce
+    /// the invariant so that partial Links (e.g. in-flight updates)
+    /// round-trip cleanly; consumers that need a wire-validity check on
+    /// inbound data call this method.
+    pub fn validate_source(&self) -> Result<(), LinkSourceError> {
+        if self.href.is_none() && self.blob_id.is_none() {
+            Err(LinkSourceError::Missing)
+        } else {
+            Ok(())
+        }
+    }
 }
 
 // ── Relation ─────────────────────────────────────────────────────────────────
@@ -497,6 +581,56 @@ pub struct Participant {
     /// Server-set and persisted; absent when no scheduling has occurred.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub schedule_status: Option<Vec<String>>,
+
+    /// Client request to force a scheduling message (RFC 8984 §4.4.6,
+    /// default `false`).
+    ///
+    /// A client sets this to `true` to ask the server to send a scheduling
+    /// message to the participant even when it would not normally do so
+    /// (e.g. no significant change was made, or `scheduleAgent` is
+    /// `"client"`).  Per the spec this property MUST NOT be stored on the
+    /// server or appear in a scheduling message — it is request-only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub schedule_force_send: Option<bool>,
+
+    /// Email address of the iMIP sender, if different from the
+    /// participant's `imip` send-to URI (RFC 8984 §4.4.6).
+    ///
+    /// SHOULD only be set when the From-header address of the email that
+    /// last updated this participant differs from the `mailto:` URI in
+    /// `sendTo["imip"]`.  If set, MUST be a valid `addr-spec` per
+    /// RFC 5322 §3.4.1.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sent_by: Option<String>,
+
+    /// Task-only: progress of the participant for this task
+    /// (RFC 8984 §4.4.6; allowed values in §5.2.5).
+    ///
+    /// MUST NOT be set when `participationStatus` is anything other than
+    /// `"accepted"`.  Only meaningful on a `Task`; ignored on an `Event`.
+    /// Type-level forward-compatibility: this field is kept as
+    /// `Option<String>` rather than a typed enum because RFC 8984 §5.2.5
+    /// defines an open value set extensible via the IANA "JSCalendar
+    /// Enum Values" registry.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress: Option<String>,
+
+    /// Task-only: timestamp the `progress` property was last set
+    /// (RFC 8984 §4.4.6; semantics in §5.2.6).
+    ///
+    /// Only meaningful on a `Task`; ignored on an `Event`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub progress_updated: Option<UTCDate>,
+
+    /// Task-only: percent completion of the participant for this task
+    /// (RFC 8984 §4.4.6).
+    ///
+    /// MUST be a value in the range `0..=100` per the spec.  Only
+    /// meaningful on a `Task`; ignored on an `Event`.  The type permits
+    /// the full `u8` range; values outside `0..=100` are wire-invalid
+    /// and the consumer is responsible for range-checking on input.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub percent_complete: Option<u8>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -912,6 +1046,41 @@ mod tests {
         assert_eq!(back["acmeCorpMeetingId"], "meet-42");
     }
 
+    /// Oracle: `Link::validate_source` accepts a Link with `href` only,
+    /// `blob_id` only, or both; rejects a Link with neither.  Combined
+    /// RFC 8984 §1.4.11 + JMAP Calendars draft §5.3 contract.
+    #[test]
+    fn link_validate_source_enforces_invariant() {
+        // href only — accepted (pure RFC 8984 case).
+        let href_only: Link = serde_json::from_value(json!({
+            "@type": "Link",
+            "href": "https://example.com/x"
+        }))
+        .unwrap();
+        assert!(href_only.validate_source().is_ok());
+
+        // blob_id only — accepted (JMAP Calendars §5.3 case).
+        let blob_only: Link = serde_json::from_value(json!({
+            "@type": "Link",
+            "blobId": "Ge682d5d7aad50b3a4f7180a7ed9276476485ea52"
+        }))
+        .unwrap();
+        assert!(blob_only.validate_source().is_ok());
+
+        // Both — accepted (server-stored blob with public-fetch URL).
+        let both: Link = serde_json::from_value(json!({
+            "@type": "Link",
+            "href": "https://example.com/x",
+            "blobId": "Ge682d5d7aad50b3a4f7180a7ed9276476485ea52"
+        }))
+        .unwrap();
+        assert!(both.validate_source().is_ok());
+
+        // Neither — rejected.
+        let neither: Link = serde_json::from_value(json!({"@type": "Link"})).unwrap();
+        assert_eq!(neither.validate_source(), Err(LinkSourceError::Missing));
+    }
+
     /// `Link.extra` captures vendor fields and preserves them.
     #[test]
     fn link_preserves_vendor_extras() {
@@ -945,6 +1114,37 @@ mod tests {
         );
         let back = serde_json::to_value(&r).unwrap();
         assert_eq!(back["acmeCorpDirection"], "outbound");
+    }
+
+    /// Oracle: the five RFC 8984 §4.4.6 fields that bd:JMAP-mno4.1 added
+    /// (`scheduleForceSend`, `sentBy`, `progress`, `progressUpdated`,
+    /// `percentComplete`) deserialize into their typed fields and round-trip
+    /// to identical wire JSON.  Each field name and shape comes verbatim
+    /// from the RFC 8984 §4.4.6 spec text — not from the code under test.
+    #[test]
+    fn participant_new_rfc8984_fields_round_trip() {
+        let raw = json!({
+            "@type": "Participant",
+            "roles": {"attendee": true},
+            "scheduleForceSend": true,
+            "sentBy": "delegate@example.com",
+            "progress": "in-process",
+            "progressUpdated": "2024-06-15T08:45:00Z",
+            "percentComplete": 42
+        });
+        let p: Participant =
+            serde_json::from_value(raw.clone()).expect("Participant must deserialize");
+        assert_eq!(p.schedule_force_send, Some(true));
+        assert_eq!(p.sent_by.as_deref(), Some("delegate@example.com"));
+        assert_eq!(p.progress.as_deref(), Some("in-process"));
+        assert_eq!(
+            p.progress_updated.as_ref().map(AsRef::as_ref),
+            Some("2024-06-15T08:45:00Z")
+        );
+        assert_eq!(p.percent_complete, Some(42));
+
+        let back = serde_json::to_value(&p).expect("serialize must succeed");
+        assert_eq!(back, raw, "round-trip must preserve wire shape");
     }
 
     /// `Participant.extra` captures vendor fields and preserves them.
