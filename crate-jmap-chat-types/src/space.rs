@@ -136,6 +136,27 @@ pub struct SpaceInvite {
     /// Unguessable secret — the bearer can redeem it to join the Space.
     /// Redacted by the [`std::fmt::Debug`] impl on this struct.
     ///
+    /// # Two-pattern leak protection (per workspace AGENTS.md)
+    ///
+    /// The `Debug` redaction above covers only one leak path:
+    /// `{:?}` / `format!("{invite:?}")`-style formatting on the
+    /// whole struct, exercised by the
+    /// `space_invite_debug_does_not_leak_code` test below.
+    ///
+    /// It does NOT cover the parallel `Display` / `tracing::*`
+    /// path. The `code` field is `pub String`, and a downstream
+    /// `tracing::info!(code = %invite.code, ...)` or
+    /// `format!("{}", invite.code)` bypasses the `Debug` impl
+    /// entirely. The workspace 'Security testing' policy mandates
+    /// a separate log-capture canary (pattern 2) for the crate
+    /// that actually emits `tracing::*` events — that is
+    /// `jmap-chat-server`, not this type crate. The log-capture
+    /// harness is tracked separately (see the workspace beads).
+    ///
+    /// Consumers MUST NOT pull `invite.code` into a log line by
+    /// hand. Constant-time comparison applies (see below) but is
+    /// orthogonal to redaction.
+    ///
     /// # Constant-time comparison
     ///
     /// This field is a credential. Any code that compares a stored `code`

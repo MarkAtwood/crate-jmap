@@ -134,12 +134,24 @@ pub enum SenderId {
     Contact(String),
 }
 
-impl Serialize for SenderId {
-    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(match self {
+impl SenderId {
+    /// Borrow the wire-format string representation of this
+    /// `SenderId`. `Owner` borrows the static `"self"` sentinel;
+    /// `Contact(id)` borrows the inner string.
+    ///
+    /// Used as the single source of truth by both [`Serialize`] and
+    /// [`std::fmt::Display`] so the two impls cannot drift.
+    fn wire_str(&self) -> &str {
+        match self {
             SenderId::Owner => "self",
             SenderId::Contact(id) => id.as_str(),
-        })
+        }
+    }
+}
+
+impl Serialize for SenderId {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        s.serialize_str(self.wire_str())
     }
 }
 
@@ -156,10 +168,7 @@ impl<'de> Deserialize<'de> for SenderId {
 
 impl std::fmt::Display for SenderId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            SenderId::Owner => "self",
-            SenderId::Contact(id) => id.as_str(),
-        })
+        f.write_str(self.wire_str())
     }
 }
 
@@ -328,8 +337,11 @@ pub struct MessageRevision {
 }
 
 /// Per-recipient delivery receipt for a [`Message`].
+///
+/// The natural zero state — "nothing acknowledged yet" — is
+/// `DeliveryReceipt::default()` (all four optional fields `None`).
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct DeliveryReceipt {
     /// The `deliveredAt` property (draft-atwood-jmap-chat-00 §4.11).
@@ -376,12 +388,49 @@ pub struct Message {
     /// The `actions` property (draft-atwood-jmap-chat-00 §4.11).
     pub actions: Vec<MessageAction>,
     /// The `reactions` property (draft-atwood-jmap-chat-00 §4.11).
+    ///
+    /// Keyed by `senderReactionId` — a client-assigned ULID for
+    /// owner-placed reactions, or a peer-supplied ULID for
+    /// inbound reactions. See the draft (§4.11 "reactions") for
+    /// the assignment contract: this id is what `Message/set`
+    /// patches use as the key for individual reaction add/remove
+    /// operations (`reactions/<senderReactionId>: <Reaction>` to
+    /// add, `reactions/<senderReactionId>: null` to remove).
     pub reactions: HashMap<String, Reaction>,
     /// The `sentAt` property (draft-atwood-jmap-chat-00 §4.11).
     pub sent_at: UTCDate,
     /// The `receivedAt` property (draft-atwood-jmap-chat-00 §4.11).
     pub received_at: UTCDate,
     /// The `deliveryState` property (draft-atwood-jmap-chat-00 §4.11).
+    ///
+    /// # Relationship to `delivered_at` and `delivery_receipts`
+    ///
+    /// Three fields on `Message` encode aspects of "did this
+    /// message get delivered?":
+    ///
+    /// - `delivery_state` (this field, always present) — coarse
+    ///   aggregate state (`Pending` / `Delivered` / `Failed` /
+    ///   `Received`). The server-authoritative summary value;
+    ///   downstream code that needs a single "is this delivered"
+    ///   boolean SHOULD branch on this field.
+    /// - [`delivered_at`](Self::delivered_at) (optional) — the
+    ///   aggregate first-acknowledgment timestamp on the owner side.
+    ///   Set when the first outbound delivery is acknowledged;
+    ///   absent before that. Per the draft, `delivered_at` is the
+    ///   timeline counterpart of `delivery_state == Delivered` but
+    ///   `delivery_state` is the dispatch primacy.
+    /// - [`delivery_receipts`](Self::delivery_receipts) (optional,
+    ///   present only when `sender_id == Owner`) — the per-recipient
+    ///   breakdown keyed by `ChatContact.id`. The aggregate fields
+    ///   above MAY be derived from this map (e.g. `delivered_at` =
+    ///   min over receipts), but the server is the source of truth
+    ///   for the aggregates — consumers SHOULD NOT recompute them
+    ///   client-side.
+    ///
+    /// Primacy summary: `delivery_state` is the dispatch field;
+    /// `delivered_at` is the dispatch field's timestamp;
+    /// `delivery_receipts` is the per-recipient detail. The three
+    /// MUST be mutually consistent on a well-formed wire frame.
     pub delivery_state: DeliveryState,
 
     /// The `replyTo` property (draft-atwood-jmap-chat-00 §4.11).
@@ -403,6 +452,12 @@ pub struct Message {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub burn_on_read: Option<bool>,
     /// The `deliveryReceipts` property (draft-atwood-jmap-chat-00 §4.11).
+    ///
+    /// Keyed by recipient `ChatContact.id` (one entry per non-owner
+    /// participant). Present only when this message's
+    /// [`sender_id`](Self::sender_id) is `SenderId::Owner` — the
+    /// owner-side per-recipient delivery state. See the draft
+    /// (§4.11 "deliveryReceipts") for the contract.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub delivery_receipts: Option<HashMap<String, DeliveryReceipt>>,
     /// The `deliveredAt` property (draft-atwood-jmap-chat-00 §4.11).
