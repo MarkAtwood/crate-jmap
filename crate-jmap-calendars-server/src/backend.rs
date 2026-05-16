@@ -815,7 +815,9 @@ impl CalendarEventParseResult {
 ///
 /// Marked `#[non_exhaustive]` so future calendars-draft revisions can add
 /// fields without a SemVer break for backends that construct the struct
-/// directly. Use [`SetDefaultResult::default()`] and assign individual fields.
+/// directly. External backend implementors use
+/// [`SetDefaultResult::new`] (preferred) or [`SetDefaultResult::default`]
+/// followed by individual field assignments.
 #[non_exhaustive]
 #[derive(Debug, Clone, Default)]
 pub struct SetDefaultResult {
@@ -828,6 +830,24 @@ pub struct SetDefaultResult {
     /// `updated.<previous_default>` entry with `isDefault: false` whenever
     /// this differs from `new_default`, so clients see the swap atomically.
     pub previous_default: Option<jmap_types::Id>,
+}
+
+impl SetDefaultResult {
+    /// Construct a `SetDefaultResult` (bd:JMAP-ic0j.60).
+    ///
+    /// Required because the struct is `#[non_exhaustive]` — external
+    /// crates cannot use struct-literal syntax. Mirrors the sibling
+    /// [`CalendarEventParseResult::new`] constructor in the same
+    /// file (which carries the same `#[non_exhaustive]` constraint).
+    pub fn new(
+        new_default: Option<jmap_types::Id>,
+        previous_default: Option<jmap_types::Id>,
+    ) -> Self {
+        Self {
+            new_default,
+            previous_default,
+        }
+    }
 }
 
 /// Error type for [`CalendarsBackend::get_availability`] backend calls.
