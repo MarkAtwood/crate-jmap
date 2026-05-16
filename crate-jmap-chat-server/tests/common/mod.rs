@@ -465,7 +465,7 @@ impl ChatBackend for TrackingBackend {
         caller: &(),
         account_id: &Id,
         message_id: &Id,
-    ) -> Result<(), BackendSetError<Self::Error>> {
+    ) -> Result<(), Self::Error> {
         self.inner
             .expire_message(caller, account_id, message_id)
             .await
@@ -728,7 +728,7 @@ impl ChatBackend for IdentityBackend {
         _caller: &Id,
         account_id: &Id,
         message_id: &Id,
-    ) -> Result<(), BackendSetError<Self::Error>> {
+    ) -> Result<(), Self::Error> {
         self.inner.expire_message(&(), account_id, message_id).await
     }
 }

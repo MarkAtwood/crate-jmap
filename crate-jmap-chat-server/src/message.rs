@@ -834,44 +834,36 @@ pub async fn handle_message_set<B: ChatBackend>(
             // this method for a separate two-step deletion. The reference
             // `MemoryBackend` uses (b). Both are conforming.
             if patch_sets_read_at && pre_patch_burn_on_read {
-                match backend.expire_message(caller, &account_id, &id).await {
-                    Ok(()) => {}
-                    Err(burn_err) => {
-                        // The readAt patch already landed in storage but
-                        // the spec-mandated hard-delete failed. Surface
-                        // as serverFail; the recipient will retry, and
-                        // the next pre-fetch will still see
-                        // `burnOnRead: true` (a sender-set field a
-                        // recipient cannot flip), so the burn will be
-                        // attempted again. Production backends that
-                        // need atomic readAt-and-burn semantics SHOULD
-                        // override `update_object` to perform both
-                        // inside a single transaction; the reference
-                        // `MemoryBackend::expire_message` does not
-                        // surface failures and so this branch is
-                        // unreachable for it.
-                        let description = match &burn_err {
-                            BackendSetError::Other(e) => e.to_string(),
-                            _ => "expire_message returned a non-Other error".to_owned(),
-                        };
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "serverFail",
-                                "description":
-                                    format!("burn-on-read hard-delete failed: {description}"),
-                            }),
-                        );
-                        // Bump mutated regardless, because the readAt
-                        // write is committed even though we report
-                        // notUpdated for the wire response. Callers
-                        // relying on `mutated` to decide whether to
-                        // rotate the state token will rotate, which
-                        // correctly reflects that something changed in
-                        // storage.
-                        mutated = true;
-                        continue;
-                    }
+                if let Err(burn_err) = backend.expire_message(caller, &account_id, &id).await {
+                    // The readAt patch already landed in storage but
+                    // the spec-mandated hard-delete failed. Surface
+                    // as serverFail; the recipient will retry, and
+                    // the next pre-fetch will still see
+                    // `burnOnRead: true` (a sender-set field a
+                    // recipient cannot flip), so the burn will be
+                    // attempted again. Production backends that
+                    // need atomic readAt-and-burn semantics SHOULD
+                    // override `update_object` to perform both
+                    // inside a single transaction; the reference
+                    // `MemoryBackend::expire_message` does not
+                    // surface failures and so this branch is
+                    // unreachable for it.
+                    //
+                    // Route through server_fail_value_from_backend to
+                    // redact backend Display text from the wire
+                    // description per workspace redaction discipline
+                    // (otherwise the backend error message leaks to
+                    // the JMAP client).
+                    not_updated.insert(id_str, server_fail_value_from_backend(&burn_err));
+                    // Bump mutated regardless, because the readAt
+                    // write is committed even though we report
+                    // notUpdated for the wire response. Callers
+                    // relying on `mutated` to decide whether to
+                    // rotate the state token will rotate, which
+                    // correctly reflects that something changed in
+                    // storage.
+                    mutated = true;
+                    continue;
                 }
             }
 

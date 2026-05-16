@@ -1067,7 +1067,7 @@ impl ChatBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
         message_id: &Id,
-    ) -> Result<(), BackendSetError<Self::Error>> {
+    ) -> Result<(), Self::Error> {
         let mut inner = self.inner.lock().unwrap();
 
         let removed = inner
