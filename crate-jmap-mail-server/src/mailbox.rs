@@ -212,15 +212,16 @@ pub async fn handle_mailbox_query<B: MailBackend>(
 
     // Reject unknown filter condition keys (RFC 8620 §5.5 requires unsupportedFilter).
     //
-    // MAINTENANCE: This list must match all fields of MailboxFilterCondition
-    // (jmap-mail-types). If a new field is added to MailboxFilterCondition,
-    // add its wire name here. Drift causes filter conditions to be rejected
-    // with unsupportedFilter instead of being applied — protocol misbehavior
-    // that is not a compile error.
-    const KNOWN_FILTER_KEYS: &[&str] = &["parentId", "name", "role", "hasAnyRole", "isSubscribed"];
+    // The wire-key list is sourced from `jmap_mail_types` so the struct
+    // definition is the single source of truth. A drift-check unit test
+    // in `jmap-mail-types` asserts the const matches every serialised
+    // field of `MailboxFilterCondition`, so adding a new filter clause
+    // without updating the const fails `cargo test -p jmap-mail-types`
+    // rather than silently producing `unsupportedFilter` responses for
+    // legitimate filters (`bd:JMAP-j7pa.3`).
     if let Some(filter_obj) = args.get("filter").and_then(|v| v.as_object()) {
         for key in filter_obj.keys() {
-            if !KNOWN_FILTER_KEYS.contains(&key.as_str()) {
+            if !jmap_mail_types::MAILBOX_FILTER_CONDITION_KEYS.contains(&key.as_str()) {
                 return Err(JmapError::unsupported_filter());
             }
         }
