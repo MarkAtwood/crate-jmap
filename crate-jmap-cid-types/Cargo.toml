@@ -12,6 +12,4 @@ categories = ["encoding", "network-programming"]
 
 [dependencies]
 serde = { workspace = true }
-
-[dev-dependencies]
 serde_json = { workspace = true }

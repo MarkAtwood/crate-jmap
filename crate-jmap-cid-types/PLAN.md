@@ -54,8 +54,6 @@ The wire-format types defined by draft-atwood-jmap-cid-00:
 ```toml
 [dependencies]
 serde      = { workspace = true }
-
-[dev-dependencies]
 serde_json = { workspace = true }
 ```
 
@@ -66,6 +64,13 @@ bd:JMAP-sf5h.2 after the type landed without referencing
 `jmap-types`. If a future surface (e.g. an `Id`-shaped typed
 blob-reference helper) needs `jmap-types`, re-add it in the same
 commit that introduces the consumer code.
+
+`serde_json` is a runtime dependency because `CidCapability.extra`
+is typed as `serde_json::Map<String, serde_json::Value>` per the
+workspace extras-preservation policy. It was briefly moved to
+`[dev-dependencies]` under bd:JMAP-sf5h.3 (when only the `Sha256`
+type was present) and moved back when `CidCapability` landed under
+bd:JMAP-sf5h.6.
 
 ## Public API (current state)
 
@@ -84,17 +89,15 @@ After bd:JMAP-v9py.12:
   — both `#[non_exhaustive]`, position-tracking diagnostic for
   failed parses.
 
-Still to come in a follow-up bead (bd:JMAP-sf5h.6):
-
-- `pub struct CidCapability { /* empty, #[non_exhaustive] */ }` —
-  the JMAP Session capability marker for
-  `urn:ietf:params:jmap:cid`. Will carry the workspace's standard
-  `extra` field per the extras-preservation policy.
+- `pub struct CidCapability` (landed under bd:JMAP-sf5h.6) — the
+  value object of `urn:ietf:params:jmap:cid` (draft §3). Currently
+  empty; `#[non_exhaustive]` with the workspace's standard `extra`
+  field per the extras-preservation policy.
 
 Module layout mirrors `jmap-metadata-types`: `digest.rs` for the
 `Sha256` type, `capability.rs` for the capability URI constant
-(`JMAP_CID_URI`, landed under bd:JMAP-sf5h.11) and the future
-`CidCapability` marker, and `lib.rs` re-exports.
+(`JMAP_CID_URI`) and the `CidCapability` value object, and
+`lib.rs` re-exports.
 
 ## Spec reference
 
