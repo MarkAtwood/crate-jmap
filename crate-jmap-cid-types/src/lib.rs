@@ -40,6 +40,8 @@
 //! - [`Sha256DigestError`] / [`Sha256DigestErrorKind`] — parse error
 //!   reported by [`Sha256::from_hex`] and the [`Sha256`]
 //!   `Deserialize` impl.
+//! - [`JMAP_CID_URI`] — the `urn:ietf:params:jmap:cid` capability
+//!   URI constant (draft §3).
 //!
 //! ## What this crate is not (yet)
 //!
@@ -49,6 +51,8 @@
 
 #![forbid(unsafe_code)]
 
+pub mod capability;
 pub mod digest;
 
+pub use capability::JMAP_CID_URI;
 pub use digest::{Sha256, Sha256DigestError, Sha256DigestErrorKind};
