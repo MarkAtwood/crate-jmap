@@ -496,6 +496,29 @@ pub trait CalendarsBackend: JmapBackend {
     /// silently swallows storage errors per §4.3 ("No error is returned to
     /// the client in this case") rather than escalating to `serverFail`.
     ///
+    /// # Storage-during-lookup ambiguity (bd:JMAP-ic0j.64)
+    ///
+    /// A backend that experiences a transient storage failure while
+    /// checking whether `calendar_id` is found / authorized cannot
+    /// distinguish the spec-defined silent-ignore cases from a real
+    /// outage. The trait contract is:
+    ///
+    /// **Return `Err` for any branch where the backend cannot complete
+    /// the found / forbidden / storage-failure trichotomy.** The
+    /// handler will silently swallow the `Err` per §4.3 — the user's
+    /// `onSuccessSetIsDefault` intent is dropped, but no error is
+    /// surfaced to the client. This is the §4.3-faithful behavior:
+    /// "No error is returned to the client" is honored absolutely;
+    /// the user's intent loss is the cost.
+    ///
+    /// Do NOT classify a transient storage failure as `Ok(default())`.
+    /// That would conflate "id not found" (deterministic) with "we
+    /// don't know because storage flaked" (transient), and a retry
+    /// after the storage recovers would not be observable from the
+    /// client side. Returning `Err` lets the backend's own
+    /// observability (logs, metrics) surface the transient outage
+    /// even though the wire stays §4.3-clean.
+    ///
     /// The default implementation returns an empty
     /// [`SetDefaultResult`](SetDefaultResult::default), modelling a backend
     /// that does not maintain a per-account default. Backends that DO
