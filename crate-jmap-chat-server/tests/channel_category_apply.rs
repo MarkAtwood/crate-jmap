@@ -28,91 +28,13 @@
 
 mod common;
 
-use common::{IdentityBackend, MemoryBackend};
+use common::{
+    seed_space, seed_with_admin, seed_with_non_admin_caller, IdentityBackend, MemoryBackend,
+    ACCOUNT_ID, SPACE_ID,
+};
 use jmap_chat_server::{handle_space_get, handle_space_set};
 use jmap_types::Id;
 use serde_json::json;
-
-// ---------------------------------------------------------------------------
-// Seeding helpers (mirrors role_member_apply.rs)
-// ---------------------------------------------------------------------------
-
-const ACCOUNT_ID: &str = "a1";
-const SPACE_ID: &str = "s1";
-
-/// Seed a `Space` with the supplied roles/members via the
-/// `MemoryBackend` test API.
-fn seed_space(
-    backend: &IdentityBackend,
-    roles: serde_json::Value,
-    members: serde_json::Value,
-) -> Id {
-    let space_val = json!({
-        "id": SPACE_ID,
-        "name": "Test Space",
-        "createdAt": "2026-01-01T00:00:00Z",
-        "memberCount": members.as_array().map(Vec::len).unwrap_or(0),
-        "categories": [],
-        "uncategorizedChannelIds": [],
-        "isPublic": false,
-        "isPubliclyPreviewable": false,
-        "roles": roles,
-        "members": members,
-    });
-    backend.inner().register_account(&Id::from(ACCOUNT_ID));
-    backend
-        .inner()
-        .insert_object_for_test("Space", ACCOUNT_ID, SPACE_ID, space_val);
-    Id::from(SPACE_ID)
-}
-
-/// Seed a Space where `caller` is a non-admin member holding only
-/// the `@everyone` floor (no explicit roles). One admin (separate
-/// id) is also seeded so the Space is not empty of admins (relevant
-/// when the last-admin-protection config is on).
-fn seed_with_non_admin_caller(backend: &IdentityBackend, caller_id: &str) {
-    seed_space(
-        backend,
-        json!([{
-            "id": "r-admin",
-            "name": "Admin",
-            "permissions": [
-                "manage_space",
-                "manage_roles",
-                "manage_members",
-                "manage_channels"
-            ],
-            "position": 100
-        }]),
-        json!([
-            { "id": "admin-user", "roleIds": ["r-admin"], "joinedAt": "2026-01-01T00:00:00Z" },
-            { "id": caller_id,    "roleIds": [],          "joinedAt": "2026-01-02T00:00:00Z" }
-        ]),
-    );
-}
-
-/// Seed a Space where `caller` holds full admin permissions.
-fn seed_with_admin_caller(backend: &IdentityBackend, caller_id: &str) {
-    seed_space(
-        backend,
-        json!([{
-            "id": "r-admin",
-            "name": "Admin",
-            "permissions": [
-                "manage_space",
-                "manage_roles",
-                "manage_members",
-                "manage_channels"
-            ],
-            "position": 100
-        }]),
-        json!([{
-            "id": caller_id,
-            "roleIds": ["r-admin"],
-            "joinedAt": "2026-01-01T00:00:00Z"
-        }]),
-    );
-}
 
 // ---------------------------------------------------------------------------
 // Single-user mode: identity-independent path still allows ops
@@ -175,7 +97,7 @@ async fn single_user_mode_skips_channel_permission_gate() {
 #[tokio::test]
 async fn non_member_caller_lacks_manage_channels() {
     let backend = IdentityBackend::new();
-    seed_with_admin_caller(&backend, "admin-user");
+    seed_with_admin(&backend, "admin-user");
     let outsider = Id::from("outsider");
 
     let (resp, _) = handle_space_set(
