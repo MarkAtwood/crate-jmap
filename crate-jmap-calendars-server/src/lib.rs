@@ -89,7 +89,9 @@ pub const JMAP_CALENDARS_URI: &str = "urn:ietf:params:jmap:calendars";
 ///
 /// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
 ///
-/// After this call, the dispatcher handles all 20 Calendars methods:
+/// After this call, the dispatcher handles all 19 Calendars methods
+/// (bd:JMAP-ic0j.7 — `Calendar/query` and `Calendar/queryChanges` are
+/// intentionally not registered; see `PLAN.md` §"Method Coverage"):
 /// - `Calendar/get`, `Calendar/changes`, `Calendar/set`
 /// - `CalendarEvent/get`, `CalendarEvent/changes`, `CalendarEvent/set`,
 ///   `CalendarEvent/copy`, `CalendarEvent/query`, `CalendarEvent/queryChanges`,
@@ -104,6 +106,32 @@ pub const JMAP_CALENDARS_URI: &str = "urn:ietf:params:jmap:calendars";
 /// The dispatcher's `CallerCtx` is taken from `B::CallerCtx`; every registered
 /// closure forwards it as `&ctx` into the wrapped `handle_*` function. Backends
 /// that use `type CallerCtx = ()` therefore see `&()` inside every handler.
+///
+/// # Optional methods and `supports_type` (bd:JMAP-ic0j.62)
+///
+/// Every method listed above is registered **unconditionally**. The
+/// dispatcher will invoke the handler even when the backend reports
+/// the underlying object type as unsupported via
+/// [`CalendarsBackend::supports_type`]. The deliberate divergence
+/// from the canonical `jmap-mail-server` (which short-circuits
+/// `SearchSnippet/get` via `supports_type::<SearchSnippet>()`) is
+/// documented on [`CalendarsBackend::supports_type`] itself.
+///
+/// Consumers building a JMAP `Session` capability response are
+/// responsible for separately consulting `supports_type::<T>()` to
+/// decide which capability URIs to advertise and which methods to
+/// surface to the client. This crate does NOT compute that mapping
+/// for the consumer.
+///
+/// What goes wrong if the consumer skips that step: a backend whose
+/// `supports_type::<CalendarEventNotification>()` returns `false`
+/// still has its five `CalendarEventNotification/*` methods
+/// registered. A client that calls them will reach the backend's
+/// `get_objects::<CalendarEventNotification>()` (or sibling), which
+/// the backend can answer with `Ok((vec![], vec![ids...]))` ("none
+/// found"). The client cannot distinguish "no notifications in this
+/// account" from "this server does not implement notifications" —
+/// both look like an empty response.
 pub fn register_calendars_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: CalendarsBackend + 'static,
