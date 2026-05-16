@@ -30,14 +30,104 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject, UTCDate};
 use serde::{Deserialize, Serialize};
+
+// Re-export the `jmap-types` symbols that appear in this crate's public
+// API surface so consumers can name them without taking a separate
+// `jmap-types` dependency.  `Id` appears on `Link.blob_id`, `UTCDate` on
+// `Participant.schedule_updated` / `progress_updated` and
+// `AbsoluteTrigger.when` / `Alert.acknowledged` / `TimeZone.updated` /
+// `TimeZone.valid_until`, and `PatchObject` on
+// `TimeZoneRule.recurrence_overrides`.
+pub use jmap_types::{Id, PatchObject, UTCDate};
+
+// ── Type-tag discriminator ────────────────────────────────────────────────────
+
+/// Mismatch between an object's `at_type` wire string and the
+/// RFC 8984-mandated discriminator literal for its Rust type.
+///
+/// Returned by [`TypeDiscriminator::validate_at_type`].  RFC 8984 marks
+/// every `@type` discriminator as `(mandatory)` and assigns a specific
+/// string literal per type (e.g. `"NDay"`, `"Participant"`,
+/// `"OffsetTrigger"`).  Deserialize itself does NOT enforce the match
+/// so that round-trip preservation of unfamiliar payloads still works;
+/// consumers that need strict input validation call
+/// `validate_at_type()` after deserializing.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TypeTagMismatch {
+    /// The literal the Rust type expects (e.g. `"NDay"`).
+    pub expected: &'static str,
+    /// The literal carried in the deserialized value's `at_type` field.
+    pub actual: String,
+}
+
+impl std::fmt::Display for TypeTagMismatch {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "JSCalendar @type mismatch: expected {:?}, got {:?}",
+            self.expected, self.actual
+        )
+    }
+}
+
+impl std::error::Error for TypeTagMismatch {}
+
+/// Wire-format type-tag discriminator for JSCalendar sub-objects
+/// (RFC 8984).
+///
+/// Each implementing struct names its mandatory `@type` wire literal in
+/// the [`Self::TYPE_TAG`] associated const.  The default
+/// [`Self::validate_at_type`] method compares the carried `at_type`
+/// field against that literal.
+///
+/// Deserialize is deliberately permissive — it does NOT enforce the
+/// match, so an object carrying a vendor-extended or future-spec
+/// `@type` value can still be deserialized for round-trip preservation
+/// per RFC 8984's preserve-mandate.  Consumers needing strict input
+/// validation MUST call `validate_at_type()` explicitly after
+/// deserializing.
+pub trait TypeDiscriminator {
+    /// The mandatory `@type` wire literal for this Rust type per
+    /// RFC 8984.  Example: `"NDay"` for [`NDay`], `"Participant"` for
+    /// [`Participant`].
+    const TYPE_TAG: &'static str;
+
+    /// The `at_type` field value carried by this instance.  Implementors
+    /// just return `&self.at_type`.
+    fn at_type(&self) -> &str;
+
+    /// Validate that the carried `at_type` matches the RFC 8984
+    /// mandatory discriminator literal for this Rust type.
+    ///
+    /// Default implementation compares against [`Self::TYPE_TAG`].
+    /// Returns `Err(TypeTagMismatch)` on mismatch; `Ok(())` otherwise.
+    fn validate_at_type(&self) -> Result<(), TypeTagMismatch> {
+        if self.at_type() == Self::TYPE_TAG {
+            Ok(())
+        } else {
+            Err(TypeTagMismatch {
+                expected: Self::TYPE_TAG,
+                actual: self.at_type().to_owned(),
+            })
+        }
+    }
+}
 
 // ── Scalar wrappers ───────────────────────────────────────────────────────────
 
 /// A date-time string without a timezone offset (RFC 8984 §1.4.5).
 ///
 /// Format: `YYYY-MM-DDTHH:MM:SS` (no `Z`, no `±offset`).
+///
+/// # Validation
+///
+/// The `From<String>` and `From<&str>` constructors accept **any** string
+/// without validating against the RFC 8984 §1.4.5 ABNF.  This is
+/// deliberate: parsing the format is left to the backend (per `PLAN.md`)
+/// to avoid pulling in a heavy date-time parser dependency.  Callers
+/// MUST treat the inner string as opaque-but-presumed-well-formed and
+/// validate at the system boundary.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LocalDateTime(String);
@@ -69,6 +159,15 @@ impl std::fmt::Display for LocalDateTime {
 /// An ISO 8601 duration string (RFC 8984 §1.4.6).
 ///
 /// Example: `"PT1H"`, `"P1DT2H"`.
+///
+/// # Validation
+///
+/// The `From<String>` and `From<&str>` constructors accept **any** string
+/// without validating against the RFC 8984 §1.4.6 ABNF.  This is
+/// deliberate: parsing the format is left to the backend (per `PLAN.md`)
+/// to avoid pulling in a heavy duration parser dependency.  Callers MUST
+/// treat the inner string as opaque-but-presumed-well-formed and
+/// validate at the system boundary.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Duration(String);
@@ -101,6 +200,15 @@ impl std::fmt::Display for Duration {
 ///
 /// Like `Duration` but may be prefixed with `+` or `-`.
 /// Example: `"-PT15M"`, `"+PT30M"`.
+///
+/// # Validation
+///
+/// The `From<String>` and `From<&str>` constructors accept **any** string
+/// without validating against the RFC 8984 §1.4.7 ABNF.  This is
+/// deliberate: parsing the format is left to the backend (per `PLAN.md`)
+/// to avoid pulling in a heavy duration parser dependency.  Callers MUST
+/// treat the inner string as opaque-but-presumed-well-formed and
+/// validate at the system boundary.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SignedDuration(String);
@@ -166,6 +274,13 @@ impl NDay {
             nth_of_period: None,
             extra: serde_json::Map::new(),
         }
+    }
+}
+
+impl TypeDiscriminator for NDay {
+    const TYPE_TAG: &'static str = "NDay";
+    fn at_type(&self) -> &str {
+        &self.at_type
     }
 }
 
@@ -286,6 +401,13 @@ impl RecurrenceRule {
     }
 }
 
+impl TypeDiscriminator for RecurrenceRule {
+    const TYPE_TAG: &'static str = "RecurrenceRule";
+    fn at_type(&self) -> &str {
+        &self.at_type
+    }
+}
+
 // ── Location and VirtualLocation ─────────────────────────────────────────────
 
 /// A physical or virtual location associated with an event (RFC 8984 §4.2.5).
@@ -357,6 +479,13 @@ impl Default for Location {
     }
 }
 
+impl TypeDiscriminator for Location {
+    const TYPE_TAG: &'static str = "Location";
+    fn at_type(&self) -> &str {
+        &self.at_type
+    }
+}
+
 /// An online meeting or virtual location (RFC 8984 §4.2.6).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -407,6 +536,13 @@ impl VirtualLocation {
             features: None,
             extra: serde_json::Map::new(),
         }
+    }
+}
+
+impl TypeDiscriminator for VirtualLocation {
+    const TYPE_TAG: &'static str = "VirtualLocation";
+    fn at_type(&self) -> &str {
+        &self.at_type
     }
 }
 
@@ -603,6 +739,13 @@ impl Default for Link {
     }
 }
 
+impl TypeDiscriminator for Link {
+    const TYPE_TAG: &'static str = "Link";
+    fn at_type(&self) -> &str {
+        &self.at_type
+    }
+}
+
 // ── Relation ─────────────────────────────────────────────────────────────────
 
 /// A relationship between this object and another, identified by UID
@@ -642,6 +785,13 @@ impl Relation {
 impl Default for Relation {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl TypeDiscriminator for Relation {
+    const TYPE_TAG: &'static str = "Relation";
+    fn at_type(&self) -> &str {
+        &self.at_type
     }
 }
 
@@ -853,6 +1003,13 @@ impl Participant {
     }
 }
 
+impl TypeDiscriminator for Participant {
+    const TYPE_TAG: &'static str = "Participant";
+    fn at_type(&self) -> &str {
+        &self.at_type
+    }
+}
+
 // ── Alert ─────────────────────────────────────────────────────────────────────
 
 /// A trigger time given as an offset from the event start or end
@@ -895,6 +1052,13 @@ impl OffsetTrigger {
     }
 }
 
+impl TypeDiscriminator for OffsetTrigger {
+    const TYPE_TAG: &'static str = "OffsetTrigger";
+    fn at_type(&self) -> &str {
+        &self.at_type
+    }
+}
+
 /// A trigger time given as an absolute UTC date-time (RFC 8984 §4.5.2).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -924,6 +1088,13 @@ impl AbsoluteTrigger {
             when,
             extra: serde_json::Map::new(),
         }
+    }
+}
+
+impl TypeDiscriminator for AbsoluteTrigger {
+    const TYPE_TAG: &'static str = "AbsoluteTrigger";
+    fn at_type(&self) -> &str {
+        &self.at_type
     }
 }
 
@@ -1054,6 +1225,13 @@ impl Alert {
     }
 }
 
+impl TypeDiscriminator for Alert {
+    const TYPE_TAG: &'static str = "Alert";
+    fn at_type(&self) -> &str {
+        &self.at_type
+    }
+}
+
 // ── TimeZone / TimeZoneRule ───────────────────────────────────────────────────
 
 /// A STANDARD or DAYLIGHT sub-component of a [`TimeZone`] (RFC 8984 §4.7.2).
@@ -1135,6 +1313,13 @@ impl TimeZoneRule {
     }
 }
 
+impl TypeDiscriminator for TimeZoneRule {
+    const TYPE_TAG: &'static str = "TimeZoneRule";
+    fn at_type(&self) -> &str {
+        &self.at_type
+    }
+}
+
 /// A time-zone definition embedded in `CalendarEvent.timeZones` or
 /// `Task.timeZones` (RFC 8984 §4.7.2).
 ///
@@ -1210,6 +1395,13 @@ impl TimeZone {
     }
 }
 
+impl TypeDiscriminator for TimeZone {
+    const TYPE_TAG: &'static str = "TimeZone";
+    fn at_type(&self) -> &str {
+        &self.at_type
+    }
+}
+
 #[cfg(test)]
 mod tests {
     //! Wire-format regression tests for the newtype-typed temporal fields
@@ -1223,6 +1415,45 @@ mod tests {
     //! `{"0": …}` on the wire.
     use super::*;
     use serde_json::json;
+
+    /// Oracle: `TypeDiscriminator::validate_at_type` enforces the
+    /// RFC 8984-mandated `@type` literal.  Hostile input carrying a
+    /// wrong `@type` (e.g. `{"@type": "NotNDay", "day": "mo"}`)
+    /// deserializes successfully for round-trip preservation but
+    /// `validate_at_type` rejects with `TypeTagMismatch`.
+    /// (bd:JMAP-mno4.15)
+    #[test]
+    fn validate_at_type_rejects_wrong_discriminator() {
+        // NDay with hostile @type — deserialize succeeds, validate
+        // rejects.
+        let raw = json!({"@type": "NotNDay", "day": "mo"});
+        let bad: NDay = serde_json::from_value(raw).unwrap();
+        assert_eq!(bad.day, "mo"); // payload survived for round-trip
+        let err = bad.validate_at_type().expect_err("expected mismatch");
+        assert_eq!(err.expected, "NDay");
+        assert_eq!(err.actual, "NotNDay");
+
+        // Constructor-built value passes validate_at_type.
+        let good = NDay::new("mo");
+        assert!(good.validate_at_type().is_ok());
+
+        // Spot-check a few other types: constructor-built passes,
+        // wrong-tag input fails.
+        let bad_loc: Location =
+            serde_json::from_value(json!({"@type": "Place", "name": "HQ"})).unwrap();
+        assert_eq!(
+            bad_loc.validate_at_type().unwrap_err().expected,
+            "Location"
+        );
+        assert!(Location::new().validate_at_type().is_ok());
+
+        let bad_alert: Alert = serde_json::from_value(json!({
+            "@type": "Notification",
+            "trigger": {"@type": "OffsetTrigger", "offset": "-PT5M"}
+        }))
+        .unwrap();
+        assert_eq!(bad_alert.validate_at_type().unwrap_err().expected, "Alert");
+    }
 
     /// Oracle: every `new` constructor sets `at_type` to the wire
     /// discriminator literal mandated by RFC 8984.  Round-trips through
