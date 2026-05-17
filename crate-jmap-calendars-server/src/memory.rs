@@ -1120,9 +1120,8 @@ impl CalendarsBackend for MemoryBackend {
             .map(|m| m.contains_key(calendar_id))
             .unwrap_or(false);
 
-        let mut result = SetDefaultResult::default();
         if !known {
-            return Ok(result);
+            return Ok(SetDefaultResult::default());
         }
 
         let previous = inner
@@ -1130,9 +1129,7 @@ impl CalendarsBackend for MemoryBackend {
             .and_then(|a| a.default_calendar.clone());
         inner.aux_mut(account_id.as_ref()).default_calendar = Some(calendar_id.clone());
 
-        result.new_default = Some(calendar_id.clone());
-        result.previous_default = previous;
-        Ok(result)
+        Ok(SetDefaultResult::new(Some(calendar_id.clone()), previous))
     }
 
     async fn set_default_participant_identity(
@@ -1149,9 +1146,8 @@ impl CalendarsBackend for MemoryBackend {
             .map(|m| m.contains_key(identity_id))
             .unwrap_or(false);
 
-        let mut result = SetDefaultResult::default();
         if !known {
-            return Ok(result);
+            return Ok(SetDefaultResult::default());
         }
 
         let previous = inner
@@ -1161,9 +1157,7 @@ impl CalendarsBackend for MemoryBackend {
             .aux_mut(account_id.as_ref())
             .default_participant_identity = Some(identity_id.clone());
 
-        result.new_default = Some(identity_id.clone());
-        result.previous_default = previous;
-        Ok(result)
+        Ok(SetDefaultResult::new(Some(identity_id.clone()), previous))
     }
 }
 
