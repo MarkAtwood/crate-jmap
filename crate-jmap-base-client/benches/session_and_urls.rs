@@ -267,7 +267,11 @@ fn bench_websocket_capability_deserialize(c: &mut Criterion) {
     let session: Session = serde_json::from_str(raw).expect("typical session must parse");
     c.bench_function("session_websocket_capability_deserialize", |b| {
         b.iter(|| {
-            let cap = session
+            // black_box both the input session and the output capability so
+            // the optimizer cannot hoist the websocket_capability() call out
+            // of the iteration loop. Consistent with every other bench in
+            // this file (bd:JMAP-6r7c.12).
+            let cap = black_box(&session)
                 .websocket_capability()
                 .expect("ws capability must parse");
             black_box(cap);
