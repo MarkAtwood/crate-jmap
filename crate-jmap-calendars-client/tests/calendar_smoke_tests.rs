@@ -9,6 +9,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_calendars_client::CalendarSetParams;
 use jmap_types::Id;
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -333,7 +334,16 @@ async fn calendar_set_on_destroy_remove_events_true_passthrough() {
     let sc = helpers::make_client(&server);
     let destroy_ids = [Id::from("cal-doomed")];
     let resp = sc
-        .calendar_set(None, None, Some(&destroy_ids), Some(true), None)
+        .calendar_set(
+            None,
+            None,
+            Some(&destroy_ids),
+            None,
+            Some(CalendarSetParams {
+                on_destroy_remove_events: Some(true),
+                ..Default::default()
+            }),
+        )
         .await
         .expect("calendar_set: must succeed");
     assert_eq!(

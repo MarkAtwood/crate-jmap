@@ -114,10 +114,6 @@ impl super::SessionClient {
 
     /// Create, update, or destroy TaskList objects (draft-tasks-06 §3.7).
     ///
-    /// `on_destroy_remove_tasks`: if `true`, any tasks in destroyed task lists
-    /// are also destroyed. If `false` (default), attempting to destroy a task list
-    /// that still contains tasks returns a `taskListHasTasks` error for that id.
-    ///
     /// Pass `create`, `update`, and/or `destroy` as needed. All three are
     /// optional; pass `None` to omit any operation from the request.
     ///
@@ -125,6 +121,16 @@ impl super::SessionClient {
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
+    ///
+    /// `params` carries extra method-level arguments
+    /// ([`TaskListSetParams`](super::TaskListSetParams)). Pass `None`
+    /// (or `Some(Default::default())`) for spec-default behavior. Use
+    /// [`TaskListSetParams::on_destroy_remove_tasks`](super::TaskListSetParams::on_destroy_remove_tasks)
+    /// to allow destroying a non-empty TaskList (otherwise the server
+    /// returns `taskListHasTasks`), and
+    /// [`TaskListSetParams::extra`](super::TaskListSetParams::extra) for
+    /// vendor / site extension fields (workspace extras-preservation
+    /// policy).
     ///
     /// # Errors
     ///
@@ -143,7 +149,7 @@ impl super::SessionClient {
         create: Option<serde_json::Value>,
         update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<Vec<Id>>,
-        on_destroy_remove_tasks: Option<bool>,
+        params: Option<super::TaskListSetParams>,
     ) -> Result<SetResponse<jmap_tasks_types::TaskList>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -156,6 +162,15 @@ impl super::SessionClient {
         let mut args = serde_json::json!({
             "accountId": account_id,
         });
+        let mut params_extra: Option<serde_json::Map<String, serde_json::Value>> = None;
+        if let Some(p) = params {
+            if let Some(v) = p.on_destroy_remove_tasks {
+                args["onDestroyRemoveTasks"] = v.into();
+            }
+            if !p.extra.is_empty() {
+                params_extra = Some(p.extra);
+            }
+        }
         if let Some(c) = create {
             args["create"] = c;
         }
@@ -169,8 +184,17 @@ impl super::SessionClient {
         if let Some(d) = destroy {
             args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
         }
-        if let Some(v) = on_destroy_remove_tasks {
-            args["onDestroyRemoveTasks"] = v.into();
+        // Route caller-supplied vendor extras onto the wire (workspace
+        // extras-preservation policy). Use `entry().or_insert()` so a
+        // caller who put a typed wire key into `params.extra` cannot
+        // silently clobber the typed value — typed wins on collision.
+        if let Some(extra) = params_extra {
+            let args_obj = args
+                .as_object_mut()
+                .expect("task_list_set: args is constructed as Object");
+            for (k, v) in extra {
+                args_obj.entry(k).or_insert(v);
+            }
         }
         let req = super::build_request("TaskList/set", args, super::USING_TASKS);
         let resp = self.call_internal(api_url, &req).await?;

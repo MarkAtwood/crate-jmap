@@ -74,7 +74,7 @@ from the bound session.
 |---|---|---|
 | `calendar_get` | `(ids: Option<&[Id]>, properties: Option<&[&str]>)` | `GetResponse<Calendar>` |
 | `calendar_changes` | `(since_state: &State, max_changes: Option<u64>)` | `ChangesResponse` |
-| `calendar_set` | `(create, update, destroy: Option<&[Id]>, on_destroy_remove_events: Option<bool>)` | `SetResponse<Calendar>` |
+| `calendar_set` | `(create, update, destroy: Option<&[Id]>, if_in_state: Option<&State>, params: Option<CalendarSetParams>)` | `SetResponse<Calendar>` |
 
 ### CalendarEvent
 

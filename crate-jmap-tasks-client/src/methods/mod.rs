@@ -23,6 +23,44 @@ pub use jmap_types::{
 };
 
 // ---------------------------------------------------------------------------
+// TaskList/set extra parameters
+// ---------------------------------------------------------------------------
+
+/// Extra method-level arguments for `TaskList/set`
+/// (draft-ietf-jmap-tasks-06 §3.7).
+///
+/// All fields are optional. Pass `None` (or `Default::default()`) when not
+/// needed. Mirrors the canonical
+/// [`MailboxSetParams`](https://docs.rs/jmap-mail-client/latest/jmap_mail_client/struct.MailboxSetParams.html)
+/// shape in `jmap-mail-client` (workspace canonical extension-client
+/// template).
+#[derive(Debug, Default, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TaskListSetParams {
+    /// If `true`, destroying a TaskList also destroys all its Tasks
+    /// (draft-ietf-jmap-tasks-06 §3.7). Server default: false (the
+    /// server MUST reject a destroy on a TaskList with tasks,
+    /// returning the `taskListHasTasks` SetError).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_destroy_remove_tasks: Option<bool>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -286,5 +324,44 @@ mod tests {
         let resp: SetResponse = serde_json::from_value(json).expect("SetResponse must deserialize");
         assert_eq!(resp.new_state, "s11");
         assert_eq!(resp.destroyed.as_deref(), Some(["id1".into()].as_slice()));
+    }
+
+    /// Oracle: TaskListSetParams with on_destroy_remove_tasks serializes
+    /// the field at the expected camelCase wire name.
+    /// Expected field name "onDestroyRemoveTasks" from
+    /// draft-ietf-jmap-tasks-06 §3.7.
+    #[test]
+    fn task_list_set_params_on_destroy_remove_tasks_serializes() {
+        let params = TaskListSetParams {
+            on_destroy_remove_tasks: Some(true),
+            extra: serde_json::Map::new(),
+        };
+        let out = serde_json::to_value(&params).expect("serialize TaskListSetParams");
+        assert_eq!(out["onDestroyRemoveTasks"], json!(true));
+    }
+
+    /// Oracle: TaskListSetParams default (all-None) serializes to an empty
+    /// object — every typed field is `skip_serializing_if = "Option::is_none"`
+    /// and `extra` is `skip_serializing_if = "Map::is_empty"`.
+    #[test]
+    fn task_list_set_params_default_serializes_empty() {
+        let params = TaskListSetParams::default();
+        let out = serde_json::to_value(&params).expect("serialize TaskListSetParams::default");
+        let obj = out.as_object().expect("must be Object");
+        assert!(
+            obj.is_empty(),
+            "all-None default must serialize to empty object, got: {out}"
+        );
+    }
+
+    /// `TaskListSetParams.extra` flattens into serialized JSON.
+    #[test]
+    fn task_list_set_params_propagates_vendor_extras() {
+        let mut params = TaskListSetParams::default();
+        params
+            .extra
+            .insert("acmeCorpCascade".into(), json!("strict"));
+        let v = serde_json::to_value(&params).expect("serialize TaskListSetParams");
+        assert_eq!(v["acmeCorpCascade"], json!("strict"));
     }
 }

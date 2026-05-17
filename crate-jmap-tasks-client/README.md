@@ -64,7 +64,7 @@ All `pub async fn` on `SessionClient`:
 |---|---|---|
 | `task_list_get(ids, properties)` | `TaskList/get` | `GetResponse<TaskList>` |
 | `task_list_changes(since_state, max_changes)` | `TaskList/changes` | `ChangesResponse` |
-| `task_list_set(create, update, destroy, on_destroy_remove_tasks)` | `TaskList/set` | `SetResponse<TaskList>` |
+| `task_list_set(create, update, destroy, params)` | `TaskList/set` | `SetResponse<TaskList>` |
 | `task_get(ids, properties)` | `Task/get` | `GetResponse<Task>` |
 | `task_changes(since_state, max_changes)` | `Task/changes` | `ChangesResponse` |
 | `task_set(create, update, destroy)` | `Task/set` | `SetResponse<Task>` |

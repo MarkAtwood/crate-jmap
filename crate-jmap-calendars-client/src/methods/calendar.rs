@@ -113,14 +113,19 @@ impl super::SessionClient {
     ///   parameter exists to bind the JSON Pointer key + null-leaf-removal
     ///   contract to the type system. Pass `None` to omit `update` entirely.
     /// - `destroy`: list of Calendar ids to destroy.
-    /// - `on_destroy_remove_events`: if `true`, destroying a calendar also
-    ///   destroys all its events. If `false` (the default), the server MUST
-    ///   reject a destroy if the calendar still has events
-    ///   (`calendarHasEvent` error).
     /// - `if_in_state`: optional optimistic-concurrency guard per RFC 8620
     ///   §5.3. If supplied, the value must equal the current Calendar state
     ///   on the server or the method rejects with `stateMismatch`. Pass the
     ///   `newState` returned by a prior /get or /set response.
+    /// - `params`: extra method-level arguments
+    ///   ([`CalendarSetParams`](super::CalendarSetParams)). Pass `None`
+    ///   (or `Some(Default::default())`) for spec-default behavior. Use
+    ///   [`CalendarSetParams::on_destroy_remove_events`](super::CalendarSetParams::on_destroy_remove_events)
+    ///   to allow destroying a non-empty calendar (otherwise the server
+    ///   returns `calendarHasEvent`), and
+    ///   [`CalendarSetParams::extra`](super::CalendarSetParams::extra) for
+    ///   vendor / site extension fields (workspace extras-preservation
+    ///   policy).
     ///
     /// # Errors
     ///
@@ -145,8 +150,8 @@ impl super::SessionClient {
         create: Option<HashMap<String, jmap_calendars_types::Calendar>>,
         update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<&[Id]>,
-        on_destroy_remove_events: Option<bool>,
         if_in_state: Option<&State>,
+        params: Option<super::CalendarSetParams>,
     ) -> Result<SetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
@@ -166,6 +171,18 @@ impl super::SessionClient {
         let mut args = serde_json::json!({
             "accountId": account_id,
         });
+        let mut params_extra: Option<serde_json::Map<String, serde_json::Value>> = None;
+        if let Some(p) = params {
+            if let Some(flag) = p.on_destroy_remove_events {
+                args["onDestroyRemoveEvents"] = flag.into();
+            }
+            if !p.extra.is_empty() {
+                params_extra = Some(p.extra);
+            }
+        }
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         if let Some(c) = create {
             args["create"] = serde_json::to_value(&c).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
@@ -183,11 +200,17 @@ impl super::SessionClient {
         if let Some(d) = destroy {
             args["destroy"] = serde_json::to_value(d).expect("Id slice Serialize is infallible");
         }
-        if let Some(flag) = on_destroy_remove_events {
-            args["onDestroyRemoveEvents"] = flag.into();
-        }
-        if let Some(s) = if_in_state {
-            args["ifInState"] = s.as_ref().into();
+        // Route caller-supplied vendor extras onto the wire (workspace
+        // extras-preservation policy). Use `entry().or_insert()` so a
+        // caller who put a typed wire key into `params.extra` cannot
+        // silently clobber the typed value — typed wins on collision.
+        if let Some(extra) = params_extra {
+            let args_obj = args
+                .as_object_mut()
+                .expect("calendar_set: args is constructed as Object");
+            for (k, v) in extra {
+                args_obj.entry(k).or_insert(v);
+            }
         }
         let req = super::build_request("Calendar/set", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;
