@@ -75,7 +75,15 @@ async fn calendar_get_smoke() {
     assert_eq!(resp.account_id.as_ref(), "A13824", "accountId mismatch");
     assert_eq!(resp.state, "s3", "state mismatch");
     assert_eq!(resp.list.len(), 1, "list must have 1 calendar");
-    assert_eq!(resp.list[0].id.as_ref(), "cal-1", "calendar id mismatch");
+    assert_eq!(
+        resp.list[0]
+            .id
+            .as_ref()
+            .expect("calendar id must be present in /get response")
+            .as_ref(),
+        "cal-1",
+        "calendar id mismatch"
+    );
     assert_eq!(resp.list[0].name, "Personal", "name mismatch");
     assert!(resp.list[0].is_default, "isDefault must be true");
     assert!(
