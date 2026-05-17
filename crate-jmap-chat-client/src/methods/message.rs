@@ -64,7 +64,7 @@ impl super::SessionClient {
         });
         if let Some(props) = properties {
             args["properties"] =
-                serde_json::to_value(props).expect("&[&str] Serialize is infallible");
+                serde_json::to_value(props).map_err(jmap_base_client::ClientError::Parse)?;
         }
         let req = super::build_request("Message/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -497,7 +497,8 @@ impl super::SessionClient {
             args["maxChanges"] = mc.into();
         }
         if let Some(uti) = up_to_id {
-            args["upToId"] = serde_json::to_value(uti).expect("Id Serialize is infallible");
+            args["upToId"] =
+                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::Parse)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();

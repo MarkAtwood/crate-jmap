@@ -56,11 +56,12 @@ impl super::SessionClient {
         // `chat_get` for the rationale (consistent with set/changes/query).
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+            args["ids"] =
+                serde_json::to_value(id_slice).map_err(jmap_base_client::ClientError::Parse)?;
         }
         if let Some(props) = properties {
             args["properties"] =
-                serde_json::to_value(props).expect("&[&str] Serialize is infallible");
+                serde_json::to_value(props).map_err(jmap_base_client::ClientError::Parse)?;
         }
         let req = super::build_request("Space/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -253,7 +254,8 @@ impl super::SessionClient {
             args["maxChanges"] = mc.into();
         }
         if let Some(uti) = up_to_id {
-            args["upToId"] = serde_json::to_value(uti).expect("Id Serialize is infallible");
+            args["upToId"] =
+                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::Parse)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
@@ -432,7 +434,7 @@ impl super::SessionClient {
                             let mut obj = serde_json::json!({ "id": m.id });
                             if let Some(role_ids) = m.role_ids {
                                 obj["roleIds"] = serde_json::to_value(role_ids)
-                                    .expect("Id slice Serialize is infallible");
+                                    .map_err(jmap_base_client::ClientError::Parse)?;
                             }
                             Ok(obj)
                         },
@@ -445,7 +447,7 @@ impl super::SessionClient {
             if !rm.is_empty() {
                 patch_map.insert(
                     "removeMembers".into(),
-                    serde_json::to_value(rm).expect("Id slice Serialize is infallible"),
+                    serde_json::to_value(rm).map_err(jmap_base_client::ClientError::Parse)?,
                 );
             }
         }
@@ -461,7 +463,7 @@ impl super::SessionClient {
                             let mut obj = serde_json::json!({ "id": u.id });
                             if let Some(role_ids) = u.role_ids {
                                 obj["roleIds"] = serde_json::to_value(role_ids)
-                                    .expect("Id slice Serialize is infallible");
+                                    .map_err(jmap_base_client::ClientError::Parse)?;
                             }
                             if let Some(entry) = u
                                 .nick
@@ -507,7 +509,7 @@ impl super::SessionClient {
             if !rc.is_empty() {
                 patch_map.insert(
                     "removeChannels".into(),
-                    serde_json::to_value(rc).expect("Id slice Serialize is infallible"),
+                    serde_json::to_value(rc).map_err(jmap_base_client::ClientError::Parse)?,
                 );
             }
         }
@@ -578,7 +580,7 @@ impl super::SessionClient {
             if !rr.is_empty() {
                 patch_map.insert(
                     "removeRoles".into(),
-                    serde_json::to_value(rr).expect("Id slice Serialize is infallible"),
+                    serde_json::to_value(rr).map_err(jmap_base_client::ClientError::Parse)?,
                 );
             }
         }
@@ -628,7 +630,7 @@ impl super::SessionClient {
                         }
                         if let Some(cids) = c.channel_ids {
                             obj["channelIds"] = serde_json::to_value(cids)
-                                .expect("Id slice Serialize is infallible");
+                                .map_err(jmap_base_client::ClientError::Parse)?;
                         }
                         Ok(obj)
                     })
@@ -640,7 +642,7 @@ impl super::SessionClient {
             if !rc.is_empty() {
                 patch_map.insert(
                     "removeCategories".into(),
-                    serde_json::to_value(rc).expect("Id slice Serialize is infallible"),
+                    serde_json::to_value(rc).map_err(jmap_base_client::ClientError::Parse)?,
                 );
             }
         }
@@ -658,11 +660,11 @@ impl super::SessionClient {
                         }
                         if let Some(cids) = c.channel_ids {
                             obj["channelIds"] = serde_json::to_value(cids)
-                                .expect("Id slice Serialize is infallible");
+                                .map_err(jmap_base_client::ClientError::Parse)?;
                         }
-                        obj
+                        Ok(obj)
                     })
-                    .collect::<Vec<serde_json::Value>>();
+                    .collect::<Result<Vec<serde_json::Value>, jmap_base_client::ClientError>>()?;
                 patch_map.insert("updateCategories".into(), serde_json::Value::Array(arr));
             }
         }

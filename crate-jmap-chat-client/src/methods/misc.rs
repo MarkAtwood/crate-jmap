@@ -43,7 +43,8 @@ impl super::SessionClient {
         // the rationale. ReadPosition/get has no `properties` parameter.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+            args["ids"] =
+                serde_json::to_value(id_slice).map_err(jmap_base_client::ClientError::Parse)?;
         }
         let req = super::build_request("ReadPosition/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
