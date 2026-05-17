@@ -177,6 +177,27 @@ pub trait MetadataBackend: JmapBackend {
     /// of the filter args per draft §3.3: a backend MUST NOT advance state
     /// based on filtered-out changes only. The handler does not enforce this
     /// — implementations honor the constraint themselves.
+    ///
+    /// # Unknown `account_id`
+    ///
+    /// The in-tree `handle_metadata_changes` handler validates account
+    /// existence via [`JmapBackend::account_exists`] BEFORE invoking this
+    /// method (bd:JMAP-826m.34) and surfaces the wire-level
+    /// `accountNotFound` itself. Implementors of this trait method
+    /// therefore do not need to repeat the account-existence check, but
+    /// they MUST behave gracefully if a caller other than the handler
+    /// invokes the method with an unknown account.
+    ///
+    /// Backends overriding this method SHOULD return
+    /// `Ok(ChangesResult::new(vec![], vec![], vec![], false, /* current
+    /// state for the empty account */))` for an unknown account, matching
+    /// the default-impl delegation through [`JmapBackend::get_changes`].
+    /// Returning `Err(BackendChangesError::Other(...))` for unknown
+    /// accounts is technically valid but surfaces at the wire as
+    /// `serverFail` rather than `accountNotFound`, which is hard to
+    /// debug without reading the handler source. The reference
+    /// `MemoryBackend` follows the empty-Ok convention (the change-log
+    /// lookup falls through to an empty slice).
     fn get_metadata_changes(
         &self,
         caller: &Self::CallerCtx,
