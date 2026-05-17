@@ -87,6 +87,7 @@ use jmap_mail_types::{
     Email, EmailAddress, EmailFilterCondition, EmailHeader, Keyword, Mailbox,
     MailboxFilterCondition, SearchSnippet,
 };
+use jmap_server::resolve_query_offset;
 use jmap_types::{Id, State, UTCDate};
 use serde::Deserialize;
 
@@ -399,13 +400,11 @@ impl MemoryBackend {
 
         let all_ids: Vec<Id> = matching.into_iter().map(|m| m.id).collect();
         let total = all_ids.len();
-        let start = if position >= 0 {
-            (position as usize).min(total)
-        } else {
-            // saturating_neg() avoids i64::MIN overflow (i64::MIN.saturating_neg() = i64::MAX).
-            let neg = position.saturating_neg() as usize;
-            total.saturating_sub(neg)
-        };
+        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset
+        // to avoid the `as usize` cast pattern that truncates on 32-bit
+        // and to handle the `i64::MIN.saturating_neg() = i64::MAX` edge
+        // case uniformly.
+        let start = resolve_query_offset(position, total);
         let ids: Vec<Id> = all_ids[start..]
             .iter()
             .take(limit.map_or(usize::MAX, |n| n.min(usize::MAX as u64) as usize))
@@ -974,12 +973,10 @@ impl JmapBackend for MemoryBackend {
         let all_ids: Vec<Id> = id_date_pairs.into_iter().map(|(id, _)| id).collect();
 
         let total = all_ids.len();
-        let start = if position >= 0 {
-            (position as usize).min(total)
-        } else {
-            let neg = (-position) as usize;
-            total.saturating_sub(neg)
-        };
+        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset.
+        // Replaces the strictly-worse `(-position) as usize` idiom that
+        // panicked on `i64::MIN` in debug and wrapped in release.
+        let start = resolve_query_offset(position, total);
 
         let ids: Vec<Id> = all_ids[start..]
             .iter()

@@ -497,6 +497,84 @@ fn json_merge_patch_inner(
     Ok(())
 }
 
+/// Resolve a request-side `position` argument (RFC 8620 §5.5) into a
+/// 0-based start index suitable for slicing the full ordered result
+/// list (bd:JMAP-qz9v.48).
+///
+/// `position` is the signed offset from the `/query` request. The
+/// foundation handler at [`crate::handlers::handle_query`] parses it
+/// via [`serde_json::Value::as_i64`], so the value reaching the
+/// backend is any `i64` (including `i64::MIN`). Non-negative values
+/// are absolute offsets from the start of the result list; negative
+/// values are end-relative offsets per RFC 8620 §5.5 ("`-1` represents
+/// the last entry, `-2` the second to last, and so on").
+///
+/// Returns a `usize` clamped to `[0, total]`. The clamp at the high
+/// end matches the slice-safety property: `all_ids[start..]` is
+/// guaranteed not to panic regardless of the input `position`.
+///
+/// # Edge cases this helper exists to centralize
+///
+/// 1. `position == 0` → `0`.
+/// 2. `position > total` → `total` (yields an empty page, matching
+///    the RFC's silent-clamp semantics — `/query` does not error on
+///    out-of-range positions).
+/// 3. `position == i64::MIN` → handled via [`i64::saturating_neg`],
+///    which returns `i64::MAX` rather than overflowing. The resulting
+///    `usize::MAX`-magnitude offset is then absorbed by
+///    [`usize::saturating_sub`].
+/// 4. `position` exceeding `usize::MAX` on a 32-bit target (`i64`
+///    values above `2^32 - 1`) → clamped to `total` rather than
+///    truncated. The previous workspace idiom (`position as usize`)
+///    silently wrapped the high bits on 32-bit, returning a small
+///    `start` index that did not match the caller's intent.
+///
+/// # Why this lives in the foundation
+///
+/// The pattern is identical across every extension server's `/query`
+/// backend impl. Centralizing it eliminates the per-crate
+/// `(position as usize)` / `(position.saturating_neg() as usize)`
+/// idiom that clippy::pedantic flags as `cast_possible_truncation` +
+/// `cast_sign_loss`, and prevents future siblings from re-introducing
+/// the strictly-worse `(-position) as usize` variant (which panics on
+/// `i64::MIN` in debug builds and wraps in release).
+///
+/// # Example
+///
+/// ```
+/// use jmap_server::resolve_query_offset;
+///
+/// // Absolute offset.
+/// assert_eq!(resolve_query_offset(0, 100), 0);
+/// assert_eq!(resolve_query_offset(25, 100), 25);
+///
+/// // End-relative offset.
+/// assert_eq!(resolve_query_offset(-1, 100), 99);
+/// assert_eq!(resolve_query_offset(-100, 100), 0);
+///
+/// // Out-of-range clamps to total.
+/// assert_eq!(resolve_query_offset(1_000, 100), 100);
+/// assert_eq!(resolve_query_offset(-1_000, 100), 0);
+///
+/// // i64::MIN does not overflow.
+/// assert_eq!(resolve_query_offset(i64::MIN, 100), 0);
+/// ```
+#[must_use]
+pub fn resolve_query_offset(position: i64, total: usize) -> usize {
+    if position >= 0 {
+        // `i64 >= 0` → fits in `u64`. `usize::try_from` returns the
+        // value on 64-bit targets and `Err` on 32-bit targets only
+        // when the magnitude exceeds `usize::MAX`; saturating to
+        // `usize::MAX` is then clamped to `total` by `.min`.
+        usize::try_from(position).unwrap_or(usize::MAX).min(total)
+    } else {
+        // `saturating_neg` maps `i64::MIN` to `i64::MAX` instead of
+        // overflowing. Every other negative `i64` negates exactly.
+        let neg = usize::try_from(position.saturating_neg()).unwrap_or(usize::MAX);
+        total.saturating_sub(neg)
+    }
+}
+
 /// Enforce RFC 8620 §5.3 `maxObjectsInSet` cap at the top of a `/set`
 /// handler (bd:JMAP-ayoz.41.1).
 ///
@@ -585,7 +663,7 @@ pub fn enforce_max_objects_in_set(args: &Map<String, Value>, max: u64) -> Result
 mod tests {
     use super::{
         civil_from_days, enforce_max_objects_in_set, extract_account_id, json_merge_patch,
-        now_utc_string, MergePatchError, MAX_MERGE_PATCH_DEPTH,
+        now_utc_string, resolve_query_offset, MergePatchError, MAX_MERGE_PATCH_DEPTH,
     };
     use serde_json::json;
 
@@ -1060,5 +1138,100 @@ mod tests {
             enforce_max_objects_in_set(&args, 5).expect_err("sum-of-all-three must trip the cap");
         assert_eq!(err.error_type.as_str(), "limit");
         assert_eq!(err.description.as_deref(), Some("maxObjectsInSet"));
+    }
+
+    /// Oracle (RFC 8620 §5.5 + bd:JMAP-qz9v.48): `position` is a signed
+    /// offset where non-negative is absolute and negative is
+    /// end-relative. All hand-computed values below come from reading
+    /// the spec text, NOT from the implementation under test.
+    #[test]
+    fn resolve_query_offset_absolute() {
+        // Non-negative position: absolute offset, clamped at total.
+        assert_eq!(resolve_query_offset(0, 100), 0);
+        assert_eq!(resolve_query_offset(1, 100), 1);
+        assert_eq!(resolve_query_offset(50, 100), 50);
+        assert_eq!(resolve_query_offset(99, 100), 99);
+        assert_eq!(resolve_query_offset(100, 100), 100);
+        // Past-the-end → clamped to total (RFC 8620 §5.5 silent-clamp).
+        assert_eq!(resolve_query_offset(101, 100), 100);
+        assert_eq!(resolve_query_offset(10_000, 100), 100);
+        assert_eq!(resolve_query_offset(i64::MAX, 100), 100);
+    }
+
+    #[test]
+    fn resolve_query_offset_end_relative() {
+        // RFC 8620 §5.5: "-1 represents the last entry, -2 the second
+        // to last". Implemented as `total - |position|`, saturating at
+        // 0 from below.
+        assert_eq!(resolve_query_offset(-1, 100), 99);
+        assert_eq!(resolve_query_offset(-2, 100), 98);
+        assert_eq!(resolve_query_offset(-99, 100), 1);
+        assert_eq!(resolve_query_offset(-100, 100), 0);
+        // Past-the-start → clamped to 0.
+        assert_eq!(resolve_query_offset(-101, 100), 0);
+        assert_eq!(resolve_query_offset(-10_000, 100), 0);
+    }
+
+    /// Oracle: with total=0 (empty result list), every position
+    /// resolves to 0 (the only valid index, and a no-op slice).
+    #[test]
+    fn resolve_query_offset_empty_total() {
+        assert_eq!(resolve_query_offset(0, 0), 0);
+        assert_eq!(resolve_query_offset(1, 0), 0);
+        assert_eq!(resolve_query_offset(-1, 0), 0);
+        assert_eq!(resolve_query_offset(i64::MAX, 0), 0);
+        assert_eq!(resolve_query_offset(i64::MIN, 0), 0);
+    }
+
+    /// Oracle: `i64::MIN` would overflow `-position` (the previous
+    /// workspace idiom at mail-server `memory/mod.rs:980`) but
+    /// `saturating_neg` returns `i64::MAX`. The resulting end-relative
+    /// offset of `i64::MAX` is well past any realistic `total`, so for
+    /// any realistic total the result is 0.
+    ///
+    /// For the synthetic case `total == usize::MAX`, the offset stays
+    /// within the saturation range and the result is
+    /// `usize::MAX - i64::MAX`, which on a 64-bit target is exactly
+    /// `0x8000_0000_0000_0000`. The point of the regression guard is
+    /// that the call does NOT panic (which it would under the prior
+    /// `(-position) as usize` idiom in debug builds).
+    #[test]
+    fn resolve_query_offset_i64_min_does_not_overflow() {
+        assert_eq!(resolve_query_offset(i64::MIN, 1), 0);
+        assert_eq!(resolve_query_offset(i64::MIN, 100), 0);
+        assert_eq!(resolve_query_offset(i64::MIN, i64::MAX as usize), 0);
+        // Synthetic upper bound: the answer is computable but not 0.
+        // What matters is no overflow / no panic, and start <= total.
+        let start = resolve_query_offset(i64::MIN, usize::MAX);
+        assert!(start <= usize::MAX);
+        assert_eq!(start, usize::MAX - (i64::MAX as usize));
+        // And `i64::MAX` on the positive side is also handled.
+        assert_eq!(resolve_query_offset(i64::MAX, 0), 0);
+        assert_eq!(resolve_query_offset(i64::MAX, 1), 1);
+    }
+
+    /// Oracle: the bead's specific concern was that `position as usize`
+    /// truncates on 32-bit targets. On 64-bit (this test host) the
+    /// `i64`-to-`usize` conversion is lossless within `[0, i64::MAX]`,
+    /// so the truncation cannot be directly demonstrated; what we CAN
+    /// verify is that the helper uses `usize::try_from` semantics, so
+    /// a value above `i64::MAX` (only reachable here via direct cast
+    /// from an unsigned constant) clamps to `total` rather than
+    /// wrapping. The `i64::MIN` case in the prior test is the real
+    /// regression guard.
+    #[test]
+    fn resolve_query_offset_truncation_resistant() {
+        // The slice-safety property: `total..=total` is always a valid
+        // start index for `slice[start..]` (yields empty slice). The
+        // helper MUST return a value in `0..=total`.
+        for &pos in &[i64::MIN, -1_000_000, -1, 0, 1, 1_000_000, i64::MAX] {
+            for &total in &[0usize, 1, 100, 10_000] {
+                let start = resolve_query_offset(pos, total);
+                assert!(
+                    start <= total,
+                    "resolve_query_offset({pos}, {total}) = {start} violates start <= total"
+                );
+            }
+        }
     }
 }

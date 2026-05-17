@@ -200,7 +200,7 @@ use crate::{
 // The canonical RFC 7396 tests for json_merge_patch live with the
 // function in jmap-server.
 use jmap_metadata_types::{Metadata, MetadataFilterCondition};
-use jmap_server::{json_merge_patch, MergePatchError};
+use jmap_server::{json_merge_patch, resolve_query_offset, MergePatchError};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -922,12 +922,8 @@ impl JmapBackend for MemoryBackend {
         let total = ids.len() as u64;
 
         // RFC 8620 §5.5 — clamp effective position to [0, len].
-        let start = if position >= 0 {
-            (position as usize).min(ids.len())
-        } else {
-            let neg = position.saturating_neg() as usize;
-            ids.len().saturating_sub(neg)
-        };
+        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset.
+        let start = resolve_query_offset(position, ids.len());
 
         let page: Vec<Id> = ids[start..]
             .iter()

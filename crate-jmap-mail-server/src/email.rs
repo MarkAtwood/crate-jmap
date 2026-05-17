@@ -39,7 +39,8 @@ use crate::helpers::{
     find_immutable_patch_key, not_found_json, serialize_value, set_error_value, SetAccumulators,
 };
 use jmap_server::{
-    bool_arg, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
+    bool_arg, resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend,
+    take_bool_arg,
 };
 
 /// RFC 8621 §4.2 — default `Email/get` property list when `properties` is null.
@@ -925,12 +926,10 @@ pub async fn handle_email_query<B: MailBackend>(
                 // RFC 8620 §5.5: clamp effective position to [0, len].
                 let raw = anchor_idx as i64 + anchor_offset;
                 raw.max(0).min(all_ids.len() as i64) as usize
-            } else if position >= 0 {
-                (position as usize).min(all_ids.len())
             } else {
-                // saturating_neg() avoids i64::MIN overflow.
-                let neg = position.saturating_neg() as usize;
-                all_ids.len().saturating_sub(neg)
+                // bd:JMAP-qz9v.48 — centralized i64-to-usize bounds /
+                // i64::MIN handling in jmap_server::resolve_query_offset.
+                resolve_query_offset(position, all_ids.len())
             };
 
             let page: Vec<Id> = all_ids
