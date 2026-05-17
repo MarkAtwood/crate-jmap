@@ -59,13 +59,13 @@ pub trait JmapTasksExt: sealed::Sealed {
     /// Callers that want to guard at the binding site can pre-check
     /// the session before calling this method via
     /// [`session.primary_account_id("urn:ietf:params:jmap:tasks")`](jmap_base_client::Session::primary_account_id).
-    fn with_tasks_session(self, session: jmap_base_client::Session) -> methods::SessionClient;
+    fn with_tasks_session(&self, session: jmap_base_client::Session) -> methods::SessionClient;
 }
 
 impl JmapTasksExt for jmap_base_client::JmapClient {
-    fn with_tasks_session(self, session: jmap_base_client::Session) -> methods::SessionClient {
+    fn with_tasks_session(&self, session: jmap_base_client::Session) -> methods::SessionClient {
         methods::SessionClient {
-            client: self,
+            client: self.clone(),
             session,
         }
     }
