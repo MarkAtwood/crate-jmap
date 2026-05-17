@@ -1,4 +1,27 @@
-//! Chat/* method handlers (JMAP Chat extension §Chat).
+//! Chat/* method handlers (draft-atwood-jmap-chat-00 §Chat).
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by draft-atwood-jmap-chat-00 §Chat. The returned
+//! `Value` is the corresponding method-response object per the same
+//! section refs. `Chat/typing` (draft §Chat) is a Chat-specific signal
+//! method with its own request/response shape.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside `/set` surface
+//! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
+//! `Ok((Value, ...))`, not as `Err`.
 
 use std::collections::{HashMap, HashSet};
 
@@ -17,7 +40,13 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // Chat/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `Chat/get` method call.
+/// Handle a `Chat/get` method call (draft-atwood-jmap-chat-00 §Chat).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 // NOTE: properties forwarded via handle_get
 pub async fn handle_chat_get<B: ChatBackend>(
     backend: &B,
@@ -31,7 +60,14 @@ pub async fn handle_chat_get<B: ChatBackend>(
 // Chat/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `Chat/changes` method call (RFC 8620 §5.2).
+/// Handle a `Chat/changes` method call (draft-atwood-jmap-chat-00 §Chat).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -44,7 +80,16 @@ pub async fn handle_chat_changes<B: ChatBackend>(
 // Chat/query
 // ---------------------------------------------------------------------------
 
-/// Handle a `Chat/query` method call (RFC 8620 §5.5).
+/// Handle a `Chat/query` method call (draft-atwood-jmap-chat-00 §Chat).
+///
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`); the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -57,7 +102,16 @@ pub async fn handle_chat_query<B: ChatBackend>(
 // Chat/queryChanges
 // ---------------------------------------------------------------------------
 
-/// Handle a `Chat/queryChanges` method call (RFC 8620 §5.6).
+/// Handle a `Chat/queryChanges` method call (draft-atwood-jmap-chat-00 §Chat).
+///
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -70,7 +124,14 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 // Chat/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `Chat/set` method call.
+/// Handle a `Chat/set` method call (draft-atwood-jmap-chat-00 §Chat).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
 ///
 /// Validation enforced here (not in the backend):
 /// - `kind` is required on create.
@@ -78,6 +139,8 @@ pub async fn handle_chat_query_changes<B: ChatBackend>(
 /// - `channel` chats require `spaceId`.
 /// - `id`, `createdAt`, `unreadCount`, `pinnedMessageIds` are server-set and
 ///   rejected in updates.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -554,7 +617,11 @@ pub async fn handle_chat_set<B: ChatBackend>(
 // Chat/typing
 // ---------------------------------------------------------------------------
 
-/// Handle a `Chat/typing` method call.
+/// Handle a `Chat/typing` method call (draft-atwood-jmap-chat-00 §Chat).
+///
+/// `args` is the draft §Chat `Chat/typing` request shape (`accountId`,
+/// `chatId`); the returned `Value` is the §Chat response shape
+/// (`accountId` echo). No persistent state is changed.
 ///
 /// This method is ephemeral — it signals the user is typing in a chat.
 /// No state is persisted. In a full implementation, the server would
@@ -584,6 +651,8 @@ pub async fn handle_chat_set<B: ChatBackend>(
 /// Group / channel chats (n recipients) are skipped on the kit side:
 /// the handler has no way to enumerate fan-out recipients. That work
 /// belongs entirely to the consumer's transport layer.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_chat_typing<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,

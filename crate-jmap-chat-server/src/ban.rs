@@ -1,8 +1,28 @@
-//! SpaceBan/* method handlers (JMAP Chat extension §SpaceBan).
+//! SpaceBan/* method handlers (draft-atwood-jmap-chat-00 §SpaceBan).
 //!
 //! SpaceBan supports get, changes, and set only (no query, no queryChanges).
 //! `bannedBy` is always set server-side from the `accountId`; it is never
 //! accepted from client request bodies.
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
+//! type-specific arguments defined by draft-atwood-jmap-chat-00 §SpaceBan.
+//! The returned `Value` is the corresponding method-response object
+//! per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `cannotCalculateChanges` — per RFC 8620 §3.6 and §5). Per-target
+//! failures inside `/set` surface in the `notCreated` / `notUpdated` /
+//! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_chat_types::SpaceBan;
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
@@ -19,7 +39,13 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // SpaceBan/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `SpaceBan/get` method call.
+/// Handle a `SpaceBan/get` method call (draft-atwood-jmap-chat-00 §SpaceBan).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_ban_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -66,7 +92,14 @@ pub async fn handle_ban_get<B: ChatBackend>(
 // SpaceBan/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `SpaceBan/changes` method call (RFC 8620 §5.2).
+/// Handle a `SpaceBan/changes` method call (draft-atwood-jmap-chat-00 §SpaceBan).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_ban_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -79,13 +112,22 @@ pub async fn handle_ban_changes<B: ChatBackend>(
 // SpaceBan/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `SpaceBan/set` method call.
+/// Handle a `SpaceBan/set` method call (draft-atwood-jmap-chat-00 §SpaceBan).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
 ///
 /// Validation enforced here (not in the backend):
 /// - `spaceId` and `userId` are required on create.
 /// - `bannedBy` is set server-side from `accountId`; never accepted from client.
 /// - `id`, `spaceId`, `userId`, `bannedBy`, `createdAt` are server-set/immutable
 ///   and rejected in updates.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_ban_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
