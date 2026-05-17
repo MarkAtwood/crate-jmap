@@ -17,7 +17,7 @@ mime-tree = { workspace = true }
 
 [dev-dependencies]
 serde_json = { workspace = true }
-criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
+criterion = { workspace = true }
 
 [[bench]]
 name = "mime_pipeline"

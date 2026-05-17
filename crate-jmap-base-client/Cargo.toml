@@ -30,10 +30,10 @@ zeroize = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
-wiremock = "0.6"
-criterion = { version = "0.8", default-features = false, features = ["cargo_bench_support"] }
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt"] }
+wiremock = { workspace = true }
+criterion = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 
 [[bench]]
 name = "session_and_urls"
