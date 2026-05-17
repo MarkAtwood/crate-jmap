@@ -677,17 +677,12 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 
             // Merge: serialize source to map, overlay client-supplied properties,
             // then strip "id" so the backend assigns a fresh server id.
-            let mut merged: serde_json::Map<String, Value> = match serde_json::to_value(
-                &source_events[0],
-            ) {
-                Ok(Value::Object(m)) => m,
-                _ => {
-                    not_created.insert(
-                            create_id,
-                            json!({"type": "serverFail", "description": "failed to serialize source event"}),
-                        );
-                    continue;
-                }
+            let Ok(Value::Object(mut merged)) = serde_json::to_value(&source_events[0]) else {
+                not_created.insert(
+                    create_id,
+                    json!({"type": "serverFail", "description": "failed to serialize source event"}),
+                );
+                continue;
             };
             if let Value::Object(client_props) = client_val {
                 for (k, v) in client_props {

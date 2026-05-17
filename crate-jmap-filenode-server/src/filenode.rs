@@ -1035,17 +1035,14 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
             // obj_val is the per-copy descriptor from the client: it must
             // contain `id` (the source node id in fromAccountId) plus any
             // property overrides for the copy.
-            let source_id_str = match obj_val.get("id").and_then(|v| v.as_str()) {
-                Some(s) => s.to_owned(),
-                None => {
-                    not_copied.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": "id (source) is required" }),
-                    );
-                    continue;
-                }
+            let Some(source_id_str) = obj_val.get("id").and_then(|v| v.as_str()) else {
+                not_copied.insert(
+                    create_id,
+                    json!({ "type": "invalidProperties", "description": "id (source) is required" }),
+                );
+                continue;
             };
-            let source_id = Id::from(source_id_str.as_str());
+            let source_id = Id::from(source_id_str);
 
             // Fetch the source node.
             let (mut nodes, not_found): (Vec<FileNode>, _) = backend
