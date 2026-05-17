@@ -222,6 +222,43 @@ struct ChangeRecord {
     type_name: String,
 }
 
+impl ChangeRecord {
+    /// Build a [`ChangeRecord`] from a stored object's JSON value,
+    /// capturing the `relatedType` / `@type` fields the
+    /// `MetadataBackend::get_metadata_changes` override consumes for
+    /// draft-ietf-jmap-metadata-01 §3.3 strict conformance.
+    ///
+    /// Used at every change-log emission point in this MemoryBackend
+    /// (`create_object`, `update_object`, `destroy_object`). The
+    /// `related_type` / `type_name` snapshot MUST be taken at mutation
+    /// time, BEFORE the value moves into or out of the `objects`
+    /// store; the destroy path in particular cannot recover these
+    /// strings post-mortem. See bd:JMAP-ayoz.19 / bd:JMAP-ayoz.37 for
+    /// the rationale and the de-duplication that consolidated three
+    /// inline call sites into this helper.
+    ///
+    /// Non-Metadata object types stored in this MemoryBackend
+    /// (currently none, but the storage shape is generic) carry empty
+    /// strings for both fields; the get-changes override only
+    /// inspects them when the change-log key matches
+    /// `Metadata::TYPE_NAME`, so the empty-string fallback is a wash.
+    fn from_stored_value(id: Id, val: &serde_json::Value) -> Self {
+        Self {
+            id,
+            related_type: val
+                .get("relatedType")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_owned(),
+            type_name: val
+                .get("@type")
+                .and_then(|v| v.as_str())
+                .unwrap_or("")
+                .to_owned(),
+        }
+    }
+}
+
 /// A change log entry for one state transition.
 #[derive(Clone, Debug)]
 struct ChangeEntry {
@@ -993,19 +1030,7 @@ impl MetadataBackend for MemoryBackend {
         // val moves into objects_mut. For non-Metadata types these strings
         // are empty — get_metadata_changes only consumes them when the
         // change log key matches Metadata::TYPE_NAME.
-        let record = ChangeRecord {
-            id: server_id.clone(),
-            related_type: val
-                .get("relatedType")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_owned(),
-            type_name: val
-                .get("@type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_owned(),
-        };
+        let record = ChangeRecord::from_stored_value(server_id.clone(), &val);
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(server_id.clone(), val);
@@ -1093,19 +1118,7 @@ impl MetadataBackend for MemoryBackend {
         // Capture related_type / type_name from the post-patch value
         // BEFORE current moves into objects_mut. For non-Metadata types
         // these strings are empty (see ChangeRecord rustdoc).
-        let record = ChangeRecord {
-            id: id.clone(),
-            related_type: current
-                .get("relatedType")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_owned(),
-            type_name: current
-                .get("@type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_owned(),
-        };
+        let record = ChangeRecord::from_stored_value(id.clone(), &current);
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(id.clone(), current);
@@ -1145,19 +1158,7 @@ impl MetadataBackend for MemoryBackend {
             // filtered after the fact (the object no longer exists in
             // `objects` for the override to inspect).
             Some(val) => {
-                let record = ChangeRecord {
-                    id: id.clone(),
-                    related_type: val
-                        .get("relatedType")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_owned(),
-                    type_name: val
-                        .get("@type")
-                        .and_then(|v| v.as_str())
-                        .unwrap_or("")
-                        .to_owned(),
-                };
+                let record = ChangeRecord::from_stored_value(id.clone(), &val);
                 let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
                 inner
                     .change_log_mut(O::TYPE_NAME, account_id.as_ref())
