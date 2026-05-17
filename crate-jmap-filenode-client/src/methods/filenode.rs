@@ -32,7 +32,7 @@ pub enum FileNodeOnExists {
 /// (draft-ietf-jmap-filenode-13 §3.2.3).
 ///
 /// All fields are optional; omitted fields take server defaults.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileNodeSetParams {
     /// If true, destroying a directory also destroys all its descendants.
@@ -58,7 +58,7 @@ pub struct FileNodeSetParams {
 
 /// Parameters for FileNode/copy requests
 /// (draft-ietf-jmap-filenode-13 §3.2.4).
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileNodeCopyParams {
     /// The account that is the source of the copy operation.

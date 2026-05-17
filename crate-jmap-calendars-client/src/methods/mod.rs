@@ -145,7 +145,7 @@ pub struct CalendarEventGetParams {
 /// the request (the server uses its default).
 ///
 /// [`EmailParseParams`]: https://docs.rs/jmap-mail-client/latest/jmap_mail_client/methods/struct.EmailParseParams.html
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CalendarEventParseParams {
     /// Override the set of `CalendarEvent` properties returned per parsed
@@ -166,7 +166,7 @@ pub struct CalendarEventParseParams {
 ///
 /// All fields are optional. Pass `None` for any field to omit it from
 /// the request (the server uses its default).
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PrincipalGetAvailabilityParams {
     /// If `true`, the response includes per-`BusyPeriod` event detail
