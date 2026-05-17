@@ -4,6 +4,27 @@
 //! entities in a collaborative JMAP environment.  `Principal/set` delegates
 //! permission enforcement entirely to the backend — the spec allows any
 //! server to restrict creates/updates/destroys with `forbidden` SetErrors.
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by RFC 9670 §2. The returned `Value` is the
+//! corresponding method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside `/set` surface
+//! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
+//! `Ok((Value, ...))`, not as `Err`.
 
 use jmap_sharing_types::Principal;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
@@ -18,6 +39,12 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // ---------------------------------------------------------------------------
 
 /// Handle a `Principal/get` method call (RFC 9670 §2.1).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_get<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -32,11 +59,18 @@ pub async fn handle_principal_get<B: SharingBackend>(
 
 /// Handle a `Principal/changes` method call (RFC 9670 §2.2).
 ///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
 /// Backends backed by external read-only directories may return
 /// [`BackendChangesError::CannotCalculate`] (bd:JMAP-jfia.31) to
 /// signal `cannotCalculateChanges` per RFC 8620 §5.2. The
 /// `TooManyChanges { limit: 0 }` magic-zero alias maps to the same
 /// wire error via the permanent legacy-alias path (bd:JMAP-jfia.37).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -51,9 +85,18 @@ pub async fn handle_principal_changes<B: SharingBackend>(
 
 /// Handle a `Principal/set` method call (RFC 9670 §2.3).
 ///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
+///
 /// All create/update/destroy operations are forwarded to the backend. The
 /// backend is responsible for returning `forbidden` SetErrors for operations
 /// it does not permit (e.g. a read-only directory backend rejects all writes).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_set<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -285,6 +328,15 @@ pub async fn handle_principal_set<B: SharingBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `Principal/query` method call (RFC 9670 §2.4).
+///
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`); the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_query<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -299,11 +351,20 @@ pub async fn handle_principal_query<B: SharingBackend>(
 
 /// Handle a `Principal/queryChanges` method call (RFC 9670 §2.5).
 ///
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
 /// Backends that cannot calculate query changes return
 /// [`BackendChangesError::CannotCalculate`] (bd:JMAP-jfia.31) which
 /// maps to `cannotCalculateChanges`. The
 /// `TooManyChanges { limit: 0 }` magic-zero alias is preserved via the
 /// permanent legacy-alias path (bd:JMAP-jfia.37).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_query_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
