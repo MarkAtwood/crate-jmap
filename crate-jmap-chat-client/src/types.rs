@@ -3,6 +3,7 @@
 //! This module contains types used in client-facing APIs that are not part of
 //! the wire-format types defined in `jmap-chat-types`.
 
+use jmap_types::impl_string_enum;
 use serde::Serialize;
 
 // ---------------------------------------------------------------------------
@@ -85,29 +86,11 @@ impl QuotaScope {
     }
 }
 
-impl std::fmt::Display for QuotaScope {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-impl serde::Serialize for QuotaScope {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(self.as_str())
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for QuotaScope {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let raw = String::deserialize(d)?;
-        Ok(match raw.as_str() {
-            "account" => QuotaScope::Account,
-            "domain" => QuotaScope::Domain,
-            "global" => QuotaScope::Global,
-            _ => QuotaScope::Other(raw),
-        })
-    }
-}
+impl_string_enum!(QuotaScope, "a QuotaScope wire string",
+    "account" => Account,
+    "domain"  => Domain,
+    "global"  => Global,
+);
 
 // ---------------------------------------------------------------------------
 // ChatMemberRole
@@ -141,28 +124,10 @@ impl ChatMemberRole {
     }
 }
 
-impl std::fmt::Display for ChatMemberRole {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-impl serde::Serialize for ChatMemberRole {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(self.as_str())
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for ChatMemberRole {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let raw = String::deserialize(d)?;
-        Ok(match raw.as_str() {
-            "admin" => ChatMemberRole::Admin,
-            "member" => ChatMemberRole::Member,
-            _ => ChatMemberRole::Other(raw),
-        })
-    }
-}
+impl_string_enum!(ChatMemberRole, "a ChatMemberRole wire string",
+    "admin"  => Admin,
+    "member" => Member,
+);
 
 // ---------------------------------------------------------------------------
 // BodyType
@@ -199,26 +164,8 @@ impl BodyType {
     }
 }
 
-impl std::fmt::Display for BodyType {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
-impl serde::Serialize for BodyType {
-    fn serialize<S: serde::Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        s.serialize_str(self.as_str())
-    }
-}
-
-impl<'de> serde::Deserialize<'de> for BodyType {
-    fn deserialize<D: serde::Deserializer<'de>>(d: D) -> Result<Self, D::Error> {
-        let raw = String::deserialize(d)?;
-        Ok(match raw.as_str() {
-            "text/plain" => BodyType::Plain,
-            "text/markdown" => BodyType::Markdown,
-            "application/jmap-chat-rich" => BodyType::Rich,
-            _ => BodyType::Other(raw),
-        })
-    }
-}
+impl_string_enum!(BodyType, "a BodyType MIME-string",
+    "text/plain"                 => Plain,
+    "text/markdown"              => Markdown,
+    "application/jmap-chat-rich" => Rich,
+);
