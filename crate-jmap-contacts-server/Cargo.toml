@@ -25,6 +25,22 @@ memory = []
 # production backends must mint real ULIDs (or equivalent
 # globally-unique, monotonic, persistent-across-restarts ids) and never
 # use this helper as a copy-paste source.
+#
+# Stability (bd:JMAP-ic0j.63 / bd:JMAP-qz9v.31): the exact id format
+# produced by either mode is NOT part of the public API surface.
+# Switching the feature on or off across minor versions may silently
+# change the format; the format may also change within a single mode
+# across minor versions pre-1.0. Downstream consumers MUST NOT depend
+# on a specific id shape from `MemoryBackend` — `Id` values are opaque
+# server strings per RFC 8620 §1.2.
+#
+# This feature has no analog in the canonical `jmap-mail-server`, which
+# mints unconditionally in the equivalent of the realistic mode. The
+# divergence is deliberate: contacts-server's deterministic default
+# makes test debugging easier (repeatable ids in assertions) without
+# requiring a separate test backend. Do NOT propagate this feature to
+# extension-server siblings that do not already have it (mail,
+# filenode) as a canonical-template change.
 realistic-demo-ids = []
 
 [dependencies]
