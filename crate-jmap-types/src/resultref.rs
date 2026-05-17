@@ -8,7 +8,35 @@ use serde::{Deserialize, Serialize};
 ///
 /// This trait is intentionally sealed: it is defined in a private module and
 /// can only be implemented inside this crate. The current sealed set is:
-/// `String`, `Vec<String>`, `Id`, `Vec<Id>`, `u32`, `u64`, `bool`.
+///
+/// | Type | Rationale |
+/// |---|---|
+/// | `String` | RFC 8620 §3.7 — generic id / token argument |
+/// | `Vec<String>` | id-list argument, e.g. `Email/get { ids }` |
+/// | [`crate::Id`] | typed id argument |
+/// | `Vec<`[`crate::Id`]`>` | typed id-list argument, e.g. `Email/set { destroy }` |
+/// | [`crate::Date`] | calendar-date argument (RFC 8984 / JMAP Calendars) |
+/// | `Vec<`[`crate::Date`]`>` | date-list argument |
+/// | [`crate::UTCDate`] | UTC-timestamp argument, e.g. `Email/query { before, after }` (RFC 8621 §4.4.1) |
+/// | `Vec<`[`crate::UTCDate`]`>` | timestamp-list argument |
+/// | [`crate::State`] | state-token argument, e.g. `Email/changes { sinceState }` (RFC 8620 §5.2) |
+/// | `Vec<`[`crate::State`]`>` | state-list argument |
+/// | `u32`, `u64` | counts, indexes, limits (RFC 8620 §5.5) |
+/// | `bool` | flag argument |
+///
+/// `crate::Date`, `crate::UTCDate`, and `crate::State` are
+/// `#[serde(transparent)]` newtypes over `String`. They serialize and
+/// deserialize as JSON strings (never as objects), so they satisfy the
+/// [`Argument`] `# Invariant` and are safe to seal.
+///
+/// **Types NOT in the sealed set** (and the reason): every JMAP wire
+/// data-object type (`Email`, `Mailbox`, `Calendar`, `ContactCard`,
+/// `Thread`, etc.) and every per-extension argument struct. These types
+/// deserialize from JSON objects; with `#[serde(untagged)]` on
+/// [`Argument`], the `T` variant would match before `Ref` and silently
+/// swallow any `ResultReference` payload. `serde_json::Value` is
+/// excluded for the same reason — see the `# Type safety` section on
+/// [`Argument`].
 ///
 /// **External contributors**: you cannot implement `Sealed` outside this crate.
 /// To add a new type to the sealed set, open a PR to `crate-jmap-types` and
@@ -21,6 +49,12 @@ mod sealed {
     impl Sealed for Vec<String> {}
     impl Sealed for crate::Id {}
     impl Sealed for Vec<crate::Id> {}
+    impl Sealed for crate::Date {}
+    impl Sealed for Vec<crate::Date> {}
+    impl Sealed for crate::UTCDate {}
+    impl Sealed for Vec<crate::UTCDate> {}
+    impl Sealed for crate::State {}
+    impl Sealed for Vec<crate::State> {}
     impl Sealed for u32 {}
     impl Sealed for u64 {}
     impl Sealed for bool {}
@@ -196,6 +230,68 @@ mod tests {
             Argument::Ref(rr) => {
                 assert_eq!(rr.result_of, "0");
                 assert_eq!(rr.name, "X/get");
+            }
+            Argument::Value(_) => panic!("expected Ref"),
+        }
+    }
+
+    // Oracle: bd:JMAP-6xs8.27 — the sealed set now includes Date, UTCDate,
+    // and State (plus their Vec forms). These are #[serde(transparent)]
+    // String newtypes that satisfy the Argument<T> invariant (they
+    // deserialize as JSON strings, never as objects), so they are safe
+    // to use as the inner type of an Argument. This test exercises both
+    // variants for each, ensuring the sealed-set additions actually
+    // compile and round-trip.
+    #[test]
+    fn argument_string_newtypes_compile_and_round_trip() {
+        use crate::{Date, State, UTCDate};
+
+        // Date
+        let arg_date: Argument<Date> = Argument::Value(Date::from("2024-06-15"));
+        let j_date = serde_json::to_string(&arg_date).expect("serialize Date Value");
+        assert_eq!(j_date, "\"2024-06-15\"");
+        let back_date: Argument<Date> =
+            serde_json::from_str(&j_date).expect("deserialize Date Value");
+        assert_eq!(arg_date, back_date);
+
+        let arg_date_list: Argument<Vec<Date>> = Argument::Value(vec![Date::from("2024-06-15")]);
+        let _ = serde_json::to_string(&arg_date_list).expect("Vec<Date> Value");
+
+        // UTCDate
+        let arg_utc: Argument<UTCDate> = Argument::Value(UTCDate::from("2024-06-15T09:00:00Z"));
+        let j_utc = serde_json::to_string(&arg_utc).expect("serialize UTCDate Value");
+        assert_eq!(j_utc, "\"2024-06-15T09:00:00Z\"");
+        let back_utc: Argument<UTCDate> =
+            serde_json::from_str(&j_utc).expect("deserialize UTCDate Value");
+        assert_eq!(arg_utc, back_utc);
+
+        let arg_utc_list: Argument<Vec<UTCDate>> = Argument::Value(vec![]);
+        let _ = serde_json::to_string(&arg_utc_list).expect("Vec<UTCDate> Value");
+
+        // State
+        let arg_state: Argument<State> = Argument::Value(State::from("s-42"));
+        let j_state = serde_json::to_string(&arg_state).expect("serialize State Value");
+        assert_eq!(j_state, "\"s-42\"");
+        let back_state: Argument<State> =
+            serde_json::from_str(&j_state).expect("deserialize State Value");
+        assert_eq!(arg_state, back_state);
+
+        let arg_state_list: Argument<Vec<State>> = Argument::Value(vec![]);
+        let _ = serde_json::to_string(&arg_state_list).expect("Vec<State> Value");
+
+        // The Ref variant still works for the newly-added inner types.
+        let rr = ResultReference::new("0", "Email/changes", "/newState");
+        let arg_state_ref: Argument<State> = Argument::Ref(rr.clone());
+        let j_state_ref = serde_json::to_string(&arg_state_ref).expect("serialize Ref");
+        assert!(j_state_ref.contains("\"resultOf\""));
+        assert!(j_state_ref.contains("\"Email/changes\""));
+        let back_ref: Argument<State> =
+            serde_json::from_str(&j_state_ref).expect("deserialize Ref");
+        match back_ref {
+            Argument::Ref(rr2) => {
+                assert_eq!(rr2.result_of, "0");
+                assert_eq!(rr2.name, "Email/changes");
+                assert_eq!(rr2.path, "/newState");
             }
             Argument::Value(_) => panic!("expected Ref"),
         }
