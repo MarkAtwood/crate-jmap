@@ -494,6 +494,13 @@ impl SessionClient {
     /// Return the primary account id for `urn:ietf:params:jmap:chat`,
     /// or `Err(InvalidSession)` if the session has no primary account for
     /// that capability.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the session has no primary account for the chat capability
+    ///   URI. This is the only failure mode — the method is a pure
+    ///   accessor on the captured session and does no network I/O.
     pub fn chat_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
         self.session
             .primary_account_id("urn:ietf:params:jmap:chat")
