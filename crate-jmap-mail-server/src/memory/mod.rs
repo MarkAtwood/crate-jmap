@@ -293,22 +293,45 @@ impl MemoryBackend {
         inner.known_accounts.insert(account_id.as_ref().to_owned());
     }
 
-    /// Set the maximum Sieve script size in bytes for size enforcement tests.
+    /// **Test-only**: set the maximum Sieve script size in bytes for
+    /// size-enforcement tests. Production backends should implement
+    /// [`SieveBackend::max_sieve_script_bytes`](crate::sieve::SieveBackend::max_sieve_script_bytes)
+    /// directly on their own backend type — this setter exists so the
+    /// reference [`MemoryBackend`] can simulate per-deployment caps
+    /// inside integration tests without growing a separate fixture
+    /// backend. The `pub` exposure plus the `memory` feature gate's
+    /// existing "not production" disclaimer is sufficient; the
+    /// `#[doc(hidden)]` keeps this knob out of `cargo doc` so downstream
+    /// consumers do not mistake it for a recommended configuration
+    /// surface.
     ///
-    /// When set, `SieveBackend::max_sieve_script_bytes` returns this limit,
-    /// causing `handle_sieve_set` to reject scripts exceeding it with `tooLarge`.
+    /// When set, `SieveBackend::max_sieve_script_bytes` returns this
+    /// limit, causing `handle_sieve_set` to reject scripts exceeding it
+    /// with `tooLarge`.
     #[cfg(feature = "sieve")]
+    #[doc(hidden)]
     pub fn set_max_sieve_script_bytes(&self, limit: u64) {
         self.inner.lock().unwrap().max_sieve_script_limit = Some(limit);
     }
 
-    /// Set the maximum per-account Sieve script count for overQuota tests.
+    /// **Test-only**: set the maximum per-account Sieve script count for
+    /// `overQuota` enforcement tests. Production backends should
+    /// implement
+    /// [`SieveBackend::max_sieve_scripts_per_account`](crate::sieve::SieveBackend::max_sieve_scripts_per_account)
+    /// directly on their own backend type — this setter exists so the
+    /// reference [`MemoryBackend`] can simulate per-account quota caps
+    /// inside integration tests. The `pub` exposure plus the `memory`
+    /// feature gate's existing "not production" disclaimer is
+    /// sufficient; the `#[doc(hidden)]` keeps this knob out of
+    /// `cargo doc` so downstream consumers do not mistake it for a
+    /// recommended configuration surface.
     ///
-    /// When set, `SieveBackend::max_sieve_scripts_per_account` returns this
-    /// limit, causing `handle_sieve_set` to reject the (N+1)th create with
-    /// `overQuota` once the account already has N scripts. When unset, the
-    /// trait default of 100 applies.
+    /// When set, `SieveBackend::max_sieve_scripts_per_account` returns
+    /// this limit, causing `handle_sieve_set` to reject the (N+1)th
+    /// create with `overQuota` once the account already has N scripts.
+    /// When unset, the trait default of 100 applies.
     #[cfg(feature = "sieve")]
+    #[doc(hidden)]
     pub fn set_max_sieve_scripts_per_account(&self, limit: usize) {
         self.inner.lock().unwrap().max_sieve_scripts_limit = Some(limit);
     }
