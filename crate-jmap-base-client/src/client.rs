@@ -271,6 +271,66 @@ impl JmapClient {
         Self::new(DefaultTransport, auth, base_url, config)
     }
 
+    /// Create a new client sharing an existing `Arc<dyn AuthProvider>`
+    /// (bd:JMAP-6r7c.27).
+    ///
+    /// `JmapClient::new` and `new_plain` take `auth` by value and wrap it
+    /// in a fresh `Arc` internally. That is the ergonomic case for a
+    /// caller constructing one client with one auth provider. It is the
+    /// wrong shape for a caller who:
+    ///
+    /// - Operates multiple `JmapClient` instances against different
+    ///   shards or accounts but uses the **same** credential holder
+    ///   (e.g. a shared OAuth token-refresh state machine, a shared
+    ///   service-account principal).
+    /// - Wants a credential refresh in one client to be visible to all
+    ///   sibling clients without rebuilding each one.
+    ///
+    /// This constructor takes a pre-built `Arc<dyn AuthProvider>` so
+    /// callers can clone the Arc and pass clones to multiple
+    /// `JmapClient::new_with_shared_auth` calls. The auth provider is
+    /// then shared by reference-count, and any interior-mutable state
+    /// (e.g. an `RwLock<TokenState>` inside a custom `OAuthAuth`
+    /// implementation that holds a refreshable bearer) is genuinely
+    /// shared across all sibling clients.
+    ///
+    /// Arguments mirror [`JmapClient::new`] otherwise.
+    ///
+    /// ```rust,ignore
+    /// use std::sync::Arc;
+    /// use jmap_base_client::{auth::{AuthProvider, BearerAuth, DefaultTransport}, client::{JmapClient, ClientConfig}};
+    ///
+    /// let auth: Arc<dyn AuthProvider> = Arc::new(BearerAuth::new("token")?);
+    /// let shard_a = JmapClient::new_with_shared_auth(
+    ///     DefaultTransport,
+    ///     auth.clone(),
+    ///     "https://a.example.com",
+    ///     ClientConfig::default(),
+    /// )?;
+    /// let shard_b = JmapClient::new_with_shared_auth(
+    ///     DefaultTransport,
+    ///     auth,
+    ///     "https://b.example.com",
+    ///     ClientConfig::default(),
+    /// )?;
+    /// ```
+    pub fn new_with_shared_auth(
+        transport: impl TransportConfig,
+        auth: Arc<dyn AuthProvider>,
+        base_url: &str,
+        config: ClientConfig,
+    ) -> Result<Self, ClientError> {
+        let parsed = parse_base_url(base_url)?;
+        config.validate()?;
+        let http = transport.build_client()?;
+        Ok(Self {
+            base_url: parsed,
+            auth,
+            http,
+            config,
+        })
+    }
+
     /// Apply the auth header (if any) to a request builder.
     ///
     /// Centralises the repeated `if let Some(...) = self.auth.auth_header()` pattern
