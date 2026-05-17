@@ -1420,3 +1420,179 @@ async fn query_changes_filter_known_field_wrong_value_type_returns_unsupported_f
          {args}",
     );
 }
+
+// ---------------------------------------------------------------------------
+// Metadata/queryChanges standard cycle (bd:JMAP-ayoz.6.4)
+//
+// End-to-end exercise of the §3.5 / RFC 8620 §5.6 cycle: capture an
+// initial queryState via /query, mutate the account (one create + one
+// destroy), then /queryChanges from the captured state and assert the
+// response shape and contents.
+// ---------------------------------------------------------------------------
+
+/// Oracle: RFC 8620 §5.6 — `/queryChanges` returns the diff between the
+/// `sinceQueryState` and the current state. Concretely:
+///
+/// * `oldQueryState` MUST be the echoed `sinceQueryState`.
+/// * `newQueryState` MUST be the current query state (and, in this
+///   fixture where mutations happened, MUST differ from
+///   `oldQueryState`).
+/// * `removed` MUST contain the id of every object that left the result
+///   set (here, the destroyed one).
+/// * `added` MUST contain an `{id, index}` entry for every object that
+///   entered the result set (here, the newly created one), sorted by
+///   index ascending.
+///
+/// Fixture: seed two Metadata objects directly, capture `/query`'s
+/// `queryState`, then dispatch a `/set` that destroys one of the seeded
+/// objects and creates a new one. The third object's id is determined
+/// by `demo_next_id`; we assert positional shape (count + sort order)
+/// against the post-mutation `/query` result rather than against a
+/// hardcoded id literal that would couple the test to the id minter.
+#[tokio::test]
+async fn query_changes_standard_cycle_reports_removed_and_added() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let id_kept = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM1"}),
+    )
+    .await;
+    let id_to_destroy = seed_metadata(
+        &backend,
+        "acc1",
+        json!({"@type": "Annotation", "relatedType": "Email", "relatedId": "EM2"}),
+    )
+    .await;
+
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    // Step 1: /query — capture the initial queryState.
+    let req = single_call("Metadata/query", json!({"accountId": "acc1"}), "c0");
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+    let initial_state = args["queryState"]
+        .as_str()
+        .expect("queryState must be a string")
+        .to_owned();
+    let initial_ids: Vec<&str> = args["ids"]
+        .as_array()
+        .expect("ids must be array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert_eq!(
+        initial_ids.len(),
+        2,
+        "after two seeds /query returns two ids: {args}",
+    );
+
+    // Step 2: mutate via /set — create one new object and destroy one
+    // existing. Both ops are atomic at /set level; the backend bumps
+    // state on each ChangeRecord write.
+    let req = single_call(
+        "Metadata/set",
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "new1": {
+                    "@type": "Annotation",
+                    "relatedType": "Email",
+                    "relatedId": "EM3"
+                }
+            },
+            "destroy": [id_to_destroy.as_ref()],
+        }),
+        "c1",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (_, args, _) = &resp.method_responses[0];
+    let id_created = args["created"]["new1"]["id"]
+        .as_str()
+        .map(Id::from)
+        .expect("created.new1.id must be set");
+    let destroyed = args["destroyed"]
+        .as_array()
+        .expect("destroyed must be array");
+    assert_eq!(destroyed.len(), 1, "exactly one id destroyed: {args}");
+
+    // Step 3: /queryChanges from the initial state.
+    let req = single_call(
+        "Metadata/queryChanges",
+        json!({
+            "accountId": "acc1",
+            "sinceQueryState": initial_state.clone(),
+        }),
+        "c2",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (method_name, args, _) = &resp.method_responses[0];
+    assert_eq!(
+        method_name, "Metadata/queryChanges",
+        "successful /queryChanges returns the method name, not 'error': {args}",
+    );
+
+    // oldQueryState MUST echo sinceQueryState.
+    assert_eq!(
+        args["oldQueryState"].as_str(),
+        Some(initial_state.as_str()),
+        "oldQueryState MUST echo sinceQueryState (RFC 8620 §5.6): {args}",
+    );
+
+    // newQueryState MUST differ from oldQueryState because mutations
+    // happened between the two calls.
+    let new_state = args["newQueryState"]
+        .as_str()
+        .expect("newQueryState must be a string");
+    assert_ne!(
+        new_state, initial_state,
+        "newQueryState MUST differ from oldQueryState after mutation: {args}",
+    );
+
+    // removed MUST contain the destroyed id.
+    let removed: Vec<&str> = args["removed"]
+        .as_array()
+        .expect("removed must be array")
+        .iter()
+        .filter_map(|v| v.as_str())
+        .collect();
+    assert!(
+        removed.contains(&id_to_destroy.as_ref()),
+        "destroyed id MUST appear in removed: removed={removed:?}, destroyed={}, args={args}",
+        id_to_destroy.as_ref(),
+    );
+
+    // added MUST contain the newly created id with a valid index, and
+    // MUST be sorted by index ascending (RFC 8620 §5.6).
+    let added = args["added"].as_array().expect("added must be array");
+    let added_ids: Vec<&str> = added.iter().filter_map(|v| v["id"].as_str()).collect();
+    assert!(
+        added_ids.contains(&id_created.as_ref()),
+        "created id MUST appear in added: added_ids={added_ids:?}, created={}, args={args}",
+        id_created.as_ref(),
+    );
+    let indices: Vec<u64> = added.iter().filter_map(|v| v["index"].as_u64()).collect();
+    assert_eq!(
+        indices.len(),
+        added.len(),
+        "every added item MUST carry an index field: {args}",
+    );
+    let mut sorted_indices = indices.clone();
+    sorted_indices.sort_unstable();
+    assert_eq!(
+        indices, sorted_indices,
+        "added array MUST be sorted by index ascending (RFC 8620 §5.6): {args}",
+    );
+
+    // Sanity: id_kept (untouched seed) MUST NOT appear in either
+    // removed or added — the diff is exactly {destroyed, created}.
+    assert!(
+        !removed.contains(&id_kept.as_ref()),
+        "untouched id MUST NOT appear in removed: {args}",
+    );
+    assert!(
+        !added_ids.contains(&id_kept.as_ref()),
+        "untouched id MUST NOT appear in added: {args}",
+    );
+}
