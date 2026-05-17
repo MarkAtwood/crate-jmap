@@ -31,8 +31,10 @@ pub use jmap_types::{
 pub(crate) const CALL_ID: &str = "r1";
 
 /// Capability URIs for JMAP Tasks method calls.
-pub(crate) const USING_TASKS: &[&str] =
-    &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:tasks"];
+pub(crate) const USING_TASKS: &[&str] = &[
+    "urn:ietf:params:jmap:core",
+    jmap_tasks_types::JMAP_TASKS_URI,
+];
 
 // ---------------------------------------------------------------------------
 // build_request helper
@@ -145,7 +147,7 @@ impl SessionClient {
     /// that capability.
     pub fn tasks_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
         self.session
-            .primary_account_id("urn:ietf:params:jmap:tasks")
+            .primary_account_id(jmap_tasks_types::JMAP_TASKS_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:tasks".into(),
@@ -161,7 +163,7 @@ impl SessionClient {
         let api_url = self.session.api_url.as_str();
         let account_id = self
             .session
-            .primary_account_id("urn:ietf:params:jmap:tasks")
+            .primary_account_id(jmap_tasks_types::JMAP_TASKS_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:tasks".into(),
