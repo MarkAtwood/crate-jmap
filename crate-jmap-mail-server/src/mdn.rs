@@ -250,6 +250,30 @@ pub trait MdnBackend: jmap_server::JmapBackend {
         account_id: &jmap_types::Id,
         blob_ids: Vec<jmap_types::Id>,
     ) -> impl std::future::Future<Output = Result<MdnParseResult, Self::Error>> + Send;
+
+    /// Maximum number of blob IDs accepted in a single `MDN/parse` request.
+    ///
+    /// The default is [`MDN_PARSE_MAX_BLOB_IDS`] (16) — a conservative cap
+    /// matching typical email-client batch sizes. The draft spec mandates
+    /// no specific limit; production deployments override this method to
+    /// raise the cap for high-volume use, or to vary it per-account
+    /// (e.g. a Free vs Pro tier).
+    ///
+    /// The handler ([`handle_mdn_parse`]) checks `req.blob_ids.len()`
+    /// against this value and returns a method-level `requestTooLarge`
+    /// error (RFC 8620 §5.1) when exceeded.
+    ///
+    /// Mirrors the per-method `max_<thing>(caller, account_id)`
+    /// convention in [`MailBackend`] (e.g.
+    /// [`MailBackend::max_body_value_bytes`],
+    /// [`MailBackend::max_collapse_threads_emails`]).
+    fn max_mdn_parse_blob_ids(
+        &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
+    ) -> usize {
+        MDN_PARSE_MAX_BLOB_IDS
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -603,16 +627,21 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 
 /// Default maximum blob IDs for a single `MDN/parse` request.
 ///
-/// Pass this as `max_blob_ids` to [`handle_mdn_parse`] unless your deployment
-/// has a specific policy.  16 is a conservative default matching typical email
-/// client batch sizes; the draft spec mandates no limit.
+/// This is the value returned by the default impl of
+/// [`MdnBackend::max_mdn_parse_blob_ids`]. Backends override that method
+/// to choose a different per-account cap; the const exists for
+/// documentation and as the trait-method default.
+///
+/// 16 is a conservative default matching typical email-client batch sizes;
+/// the draft spec mandates no limit.
 pub const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
 
 /// Handle an `MDN/parse` method call (RFC 9007 §3.3).
 ///
-/// `max_blob_ids` caps the number of blob IDs accepted in a single request.
-/// Use [`MDN_PARSE_MAX_BLOB_IDS`] for the default.  Exceeding the limit
-/// returns a method-level `requestTooLarge` error (RFC 8620 §5.1).
+/// The per-request blob-ID cap is read from
+/// [`MdnBackend::max_mdn_parse_blob_ids`] (default
+/// [`MDN_PARSE_MAX_BLOB_IDS`] = 16). Exceeding the cap returns a
+/// method-level `requestTooLarge` error (RFC 8620 §5.1).
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty — `MDN/parse` is a read-only operation with no side effects.
@@ -620,7 +649,6 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
     backend: &B,
     caller: &B::CallerCtx,
     args: Value,
-    max_blob_ids: usize,
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     // Step 1: deserialize the full request structure.
     let req: MdnParseRequest = serde_json::from_value(args).map_err(|e| {
@@ -636,7 +664,8 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    // Step 3: enforce per-request blob count limit.
+    // Step 3: enforce per-request blob count limit (per-account cap from backend).
+    let max_blob_ids = backend.max_mdn_parse_blob_ids(caller, &req.account_id);
     if req.blob_ids.len() > max_blob_ids {
         return Err(JmapError::request_too_large());
     }
