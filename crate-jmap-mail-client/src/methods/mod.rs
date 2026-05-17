@@ -445,7 +445,8 @@ pub(crate) const CALL_ID: &str = "r1";
 ///
 /// Use for Email/*, Mailbox/*, Thread/*, and SearchSnippet/* methods —
 /// i.e. anything covered by `urn:ietf:params:jmap:mail`.
-pub(crate) const USING_MAIL: &[&str] = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
+pub(crate) const USING_MAIL: &[&str] =
+    &["urn:ietf:params:jmap:core", jmap_mail_types::JMAP_MAIL_URI];
 
 /// Capability URIs for JMAP Mail Submission method calls (RFC 8621 §1.3.2).
 ///
@@ -456,8 +457,8 @@ pub(crate) const USING_MAIL: &[&str] = &["urn:ietf:params:jmap:core", "urn:ietf:
 /// Email/destroy invocations on the same request.
 pub(crate) const USING_SUBMISSION: &[&str] = &[
     "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:mail",
-    "urn:ietf:params:jmap:submission",
+    jmap_mail_types::JMAP_MAIL_URI,
+    jmap_mail_types::JMAP_SUBMISSION_URI,
 ];
 
 /// Capability URIs for JMAP VacationResponse method calls (RFC 8621 §1.3.3).
@@ -467,7 +468,7 @@ pub(crate) const USING_SUBMISSION: &[&str] = &[
 /// mail-typed fields and stand on their own as a vacation-protocol object.
 pub(crate) const USING_VACATION: &[&str] = &[
     "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:vacationresponse",
+    jmap_mail_types::JMAP_VACATIONRESPONSE_URI,
 ];
 
 // ---------------------------------------------------------------------------
@@ -592,7 +593,7 @@ impl SessionClient {
     /// template).
     pub fn mail_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
         self.session
-            .primary_account_id("urn:ietf:params:jmap:mail")
+            .primary_account_id(jmap_mail_types::JMAP_MAIL_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:mail".into(),
@@ -608,7 +609,7 @@ impl SessionClient {
         let api_url = self.session.api_url.as_str();
         let account_id = self
             .session
-            .primary_account_id("urn:ietf:params:jmap:mail")
+            .primary_account_id(jmap_mail_types::JMAP_MAIL_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:mail".into(),
