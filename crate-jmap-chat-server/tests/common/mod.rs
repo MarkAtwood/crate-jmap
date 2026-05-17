@@ -44,7 +44,7 @@ impl JmapBackend for FaultyBackend {
     type CallerCtx = ();
 
     async fn account_exists(&self, _caller: &(), _account_id: &Id) -> Result<bool, Self::Error> {
-        Err(MemoryError("storage unavailable".to_owned()))
+        Err(MemoryError::new("storage unavailable"))
     }
 
     async fn get_objects<O: GetObject + Send + Sync>(
@@ -54,7 +54,7 @@ impl JmapBackend for FaultyBackend {
         _ids: Option<&[Id]>,
         _properties: Option<&[String]>,
     ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
-        Err(MemoryError("storage unavailable".to_owned()))
+        Err(MemoryError::new("storage unavailable"))
     }
 
     async fn get_state<O: JmapObject + Send + Sync>(
@@ -62,7 +62,7 @@ impl JmapBackend for FaultyBackend {
         _caller: &(),
         _account_id: &Id,
     ) -> Result<State, Self::Error> {
-        Err(MemoryError("storage unavailable".to_owned()))
+        Err(MemoryError::new("storage unavailable"))
     }
 
     async fn get_changes<O: JmapObject + Send + Sync>(
@@ -72,8 +72,8 @@ impl JmapBackend for FaultyBackend {
         _since_state: &State,
         _max_changes: Option<u64>,
     ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
-        Err(BackendChangesError::Other(MemoryError(
-            "storage unavailable".to_owned(),
+        Err(BackendChangesError::Other(MemoryError::new(
+            "storage unavailable",
         )))
     }
 
@@ -86,7 +86,7 @@ impl JmapBackend for FaultyBackend {
         _limit: Option<u64>,
         _position: i64,
     ) -> Result<QueryResult, Self::Error> {
-        Err(MemoryError("storage unavailable".to_owned()))
+        Err(MemoryError::new("storage unavailable"))
     }
 
     async fn query_changes<O: QueryObject + Send + Sync>(
@@ -100,8 +100,8 @@ impl JmapBackend for FaultyBackend {
         _up_to_id: Option<&Id>,
         _collapse_threads: bool,
     ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
-        Err(BackendChangesError::Other(MemoryError(
-            "storage unavailable".to_owned(),
+        Err(BackendChangesError::Other(MemoryError::new(
+            "storage unavailable",
         )))
     }
 }
@@ -114,8 +114,8 @@ impl ChatBackend for FaultyBackend {
         _create_id: &str,
         _obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        Err(BackendSetError::Other(MemoryError(
-            "storage unavailable".to_owned(),
+        Err(BackendSetError::Other(MemoryError::new(
+            "storage unavailable",
         )))
     }
 
@@ -126,8 +126,8 @@ impl ChatBackend for FaultyBackend {
         _id: &Id,
         _patch: O::Patch,
     ) -> Result<Option<O>, BackendSetError<Self::Error>> {
-        Err(BackendSetError::Other(MemoryError(
-            "storage unavailable".to_owned(),
+        Err(BackendSetError::Other(MemoryError::new(
+            "storage unavailable",
         )))
     }
 
@@ -137,8 +137,8 @@ impl ChatBackend for FaultyBackend {
         _account_id: &Id,
         _id: &Id,
     ) -> Result<(), BackendSetError<Self::Error>> {
-        Err(BackendSetError::Other(MemoryError(
-            "storage unavailable".to_owned(),
+        Err(BackendSetError::Other(MemoryError::new(
+            "storage unavailable",
         )))
     }
 
@@ -165,8 +165,8 @@ impl ChatBackend for FaultyBackend {
         _space_id: &Id,
         _ops: Vec<SpacePatchOp>,
     ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
-        Err(BackendSetError::Other(MemoryError(
-            "storage unavailable".to_owned(),
+        Err(BackendSetError::Other(MemoryError::new(
+            "storage unavailable",
         )))
     }
 
@@ -177,8 +177,8 @@ impl ChatBackend for FaultyBackend {
         _space_id: &Id,
         _patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
-        Err(BackendSetError::Other(MemoryError(
-            "storage unavailable".to_owned(),
+        Err(BackendSetError::Other(MemoryError::new(
+            "storage unavailable",
         )))
     }
 }
