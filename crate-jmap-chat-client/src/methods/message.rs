@@ -18,6 +18,29 @@ use super::{
     QueryChangesResponse, QueryResponse, ReactionChange, SetResponse,
 };
 
+/// Reject a `sender_reaction_id` that is empty or contains RFC 6901
+/// JSON Pointer special characters (`/` or `~`).
+///
+/// Shared by both `ReactionChange::Add` and `ReactionChange::Remove`
+/// arms of `message_update`; see the rustdoc on
+/// [`ReactionChange`](super::ReactionChange) for the underlying
+/// JSON-Pointer construction rule.
+fn validate_sender_reaction_id(id: &str) -> Result<(), jmap_base_client::ClientError> {
+    if id.is_empty() {
+        return Err(jmap_base_client::ClientError::InvalidArgument(
+            "message_update: sender_reaction_id may not be empty".into(),
+        ));
+    }
+    if id.contains('/') || id.contains('~') {
+        return Err(jmap_base_client::ClientError::InvalidArgument(
+            "message_update: sender_reaction_id must not contain '/' or '~' \
+             (RFC 6901 JSON Pointer special characters)"
+                .into(),
+        ));
+    }
+    Ok(())
+}
+
 impl super::SessionClient {
     /// Fetch Message objects by IDs (RFC 8620 §5.1 / JMAP Chat §Message/get).
     ///
@@ -352,36 +375,14 @@ impl super::SessionClient {
                     emoji,
                     sent_at,
                 } => {
-                    if sender_reaction_id.is_empty() {
-                        return Err(jmap_base_client::ClientError::InvalidArgument(
-                            "message_update: sender_reaction_id may not be empty".into(),
-                        ));
-                    }
-                    if sender_reaction_id.contains('/') || sender_reaction_id.contains('~') {
-                        return Err(jmap_base_client::ClientError::InvalidArgument(
-                            "message_update: sender_reaction_id must not contain '/' or '~' \
-                             (RFC 6901 JSON Pointer special characters)"
-                                .into(),
-                        ));
-                    }
+                    validate_sender_reaction_id(sender_reaction_id)?;
                     patch_map.insert(
                         format!("reactions/{sender_reaction_id}"),
                         serde_json::json!({"emoji": emoji, "sentAt": sent_at.as_ref()}),
                     );
                 }
                 ReactionChange::Remove { sender_reaction_id } => {
-                    if sender_reaction_id.is_empty() {
-                        return Err(jmap_base_client::ClientError::InvalidArgument(
-                            "message_update: sender_reaction_id may not be empty".into(),
-                        ));
-                    }
-                    if sender_reaction_id.contains('/') || sender_reaction_id.contains('~') {
-                        return Err(jmap_base_client::ClientError::InvalidArgument(
-                            "message_update: sender_reaction_id must not contain '/' or '~' \
-                             (RFC 6901 JSON Pointer special characters)"
-                                .into(),
-                        ));
-                    }
+                    validate_sender_reaction_id(sender_reaction_id)?;
                     patch_map.insert(
                         format!("reactions/{sender_reaction_id}"),
                         serde_json::Value::Null,
