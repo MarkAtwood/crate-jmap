@@ -168,6 +168,16 @@ impl ClientConfig {
 /// Construct with [`JmapClient::new`] or [`JmapClient::new_plain`].
 /// Extension-specific clients (`jmap-chat-client`, `jmap-mail-client`) depend
 /// on this crate and add their method implementations via `impl JmapClient`.
+///
+/// # Thread-safety (bd:JMAP-6r7c.25)
+///
+/// `JmapClient` is `Send + Sync + Clone`. Share by clone across threads or
+/// `tokio::spawn` tasks; the underlying `reqwest::Client` is reference-counted
+/// (Arc-backed) and the [`AuthProvider`] trait requires `Send + Sync` on every
+/// implementation. A compile-time assertion in this crate's test suite pins
+/// the `Send + Sync` contract: a future refactor that adds a non-`Sync` field
+/// (e.g. `Rc<T>`, `RefCell<T>`, `Cell<T>`) would break the assertion in CI
+/// before any downstream consumer is exposed.
 #[derive(Clone)]
 pub struct JmapClient {
     pub(crate) base_url: url::Url,
@@ -1038,5 +1048,22 @@ mod tests {
         decode_utf8_chunk(&mut raw, &mut buf);
         assert_eq!(buf, "ab");
         assert!(raw.is_empty(), "prefix and invalid byte must be drained");
+    }
+
+    /// Compile-time assertion that [`JmapClient`] is `Send + Sync + Clone`
+    /// (bd:JMAP-6r7c.25). A future refactor that adds a non-`Sync` field
+    /// (e.g. `Rc<T>`, `RefCell<T>`, `Cell<T>`) would fail this test in CI
+    /// before any downstream consumer that shares a `JmapClient` across
+    /// tokio tasks is exposed. The body is fenceposts: the function bodies
+    /// of `assert_send`, `assert_sync`, and `assert_clone` never run; what
+    /// matters is that the trait-bound monomorphization succeeds.
+    #[test]
+    fn jmap_client_is_send_sync_clone() {
+        fn assert_send<T: Send>() {}
+        fn assert_sync<T: Sync>() {}
+        fn assert_clone<T: Clone>() {}
+        assert_send::<super::JmapClient>();
+        assert_sync::<super::JmapClient>();
+        assert_clone::<super::JmapClient>();
     }
 }
