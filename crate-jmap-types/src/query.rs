@@ -73,6 +73,46 @@ pub enum Operator {
 /// `FilterOperator<T>` requires an `"operator"` field and fails fast without
 /// it, allowing the deserializer to fall through to `Condition(T)`.
 ///
+/// # Malformed-operator hazard (silent fallthrough)
+///
+/// The untagged-enum dispatch combined with the per-crate `FilterCondition`
+/// types being structs of all-`Option` fields without
+/// `#[serde(deny_unknown_fields)]` creates a query-correctness hazard:
+/// a client clause whose `operator` key is misspelled (e.g.
+/// `{"opperator":"AND","conditions":[]}` or `{"Operator":"AND","conditions":[]}`)
+/// fails to deserialize as [`FilterOperator`] (the spelling does not match
+/// the typed field) and falls through to `Filter::Condition(T)`. The
+/// fallthrough variant then deserializes as `T::default()` (all fields
+/// `None`), which semantically means "no constraint" and therefore
+/// **matches every record**. The malformed clause produces no
+/// deserialization error and no query error — the query just silently
+/// returns the full result set.
+///
+/// `#[serde(deny_unknown_fields)]` cannot be added to the `T`
+/// implementations because it interacts badly with `#[serde(untagged)]`
+/// (see `jmap-mail-types/src/query.rs` for the in-tree warning).
+///
+/// **Server-side defenses** (the canonical mitigations live in server
+/// crates, not here):
+///
+/// 1. Validate the parsed filter tree. After deserialization, walk the
+///    tree and reject any `Filter::Condition(t)` whose `t` has every
+///    field unset — that is a "match all" pre-image and almost certainly
+///    a malformed client clause. Map to RFC 8620 §5.5
+///    `unsupportedFilter`.
+/// 2. Validate the raw JSON before / instead of relying on the typed
+///    deserialization. Look for `conditions` adjacent to a non-`operator`
+///    key, or `operator` adjacent to a non-`conditions` key, or any
+///    object containing neither `operator` nor a recognised
+///    `T::FieldName`. Reject with `unsupportedFilter`.
+///
+/// Clients writing query filters should never rely on "no-error" as a
+/// signal of acceptance; always check that the response shape matches
+/// what they asked for.
+///
+/// Regression test in this crate: see
+/// `filter_with_typoed_operator_silently_decodes_as_match_all_condition`.
+///
 /// # Excluded from extras preservation
 ///
 /// This type is **out of scope** for the workspace extras-preservation
@@ -188,6 +228,58 @@ mod tests {
         assert_eq!(serde_json::to_string(&Operator::And).unwrap(), r#""AND""#);
         assert_eq!(serde_json::to_string(&Operator::Or).unwrap(), r#""OR""#);
         assert_eq!(serde_json::to_string(&Operator::Not).unwrap(), r#""NOT""#);
+    }
+
+    /// Oracle: pins the malformed-operator silent-fallthrough hazard
+    /// documented on [`Filter`]. A client clause with a misspelled
+    /// `operator` field key (here `opperator`) fails to deserialize as
+    /// `Filter::Operator(FilterOperator)` (the key does not match the
+    /// typed field name) and falls through to `Filter::Condition(T)`.
+    /// Because `Cond` is a struct of all-`Option` fields without
+    /// `#[serde(deny_unknown_fields)]`, serde silently drops the
+    /// unknown `opperator` and `conditions` keys and deserializes the
+    /// clause as `Cond { has_keyword: None }` — semantically "match
+    /// any record".
+    ///
+    /// This test is a regression marker for `bd:JMAP-6xs8.7`: if a
+    /// future serde or `#[serde(untagged)]` change alters the
+    /// fallthrough behavior (e.g. starts rejecting unknown fields),
+    /// this test will fail and force a deliberate review of the
+    /// server-side defenses documented on [`Filter`]'s rustdoc.
+    ///
+    /// Server-side mitigation is out of scope for this crate; see the
+    /// "Malformed-operator hazard" section on [`Filter`] for the two
+    /// canonical defenses backends must implement.
+    #[test]
+    fn filter_with_typoed_operator_silently_decodes_as_match_all_condition() {
+        // Variant 1: lower-case `o` typoed as `opperator`.
+        let raw = r#"{"opperator":"AND","conditions":[]}"#;
+        let f: Filter<Cond> = serde_json::from_str(raw).expect(
+            "untagged enum must accept the typo as Filter::Condition — \
+             this is the silent-fallthrough hazard",
+        );
+        match f {
+            Filter::Condition(c) => assert!(
+                c.has_keyword.is_none(),
+                "fallthrough Condition must be the all-None default \
+                 'match-all' shape; got: {c:?}"
+            ),
+            Filter::Operator(_) => panic!(
+                "expected silent fallthrough to Condition, got Operator \
+                 — serde untagged behavior changed?"
+            ),
+        }
+
+        // Variant 2: capitalised `O` typoed as `Operator`.
+        let raw_capitalised = r#"{"Operator":"AND","conditions":[]}"#;
+        let f2: Filter<Cond> = serde_json::from_str(raw_capitalised)
+            .expect("capitalised typo must also fall through");
+        match f2 {
+            Filter::Condition(c) => assert!(c.has_keyword.is_none()),
+            Filter::Operator(_) => panic!(
+                "expected silent fallthrough to Condition, got Operator"
+            ),
+        }
     }
 
     /// Oracle: nested AND(OR(...)) structure roundtrips correctly.
