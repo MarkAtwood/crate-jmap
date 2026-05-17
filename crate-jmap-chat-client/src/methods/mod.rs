@@ -328,7 +328,8 @@ impl<'de, T: serde::Deserialize<'de>> serde::Deserialize<'de> for Patch<T> {
 pub const CALL_ID: &str = "r1";
 
 /// Capability URIs for standard JMAP Chat method calls (RFC 8620 §3.3).
-pub(crate) const USING_CHAT: &[&str] = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:chat"];
+pub(crate) const USING_CHAT: &[&str] =
+    &["urn:ietf:params:jmap:core", jmap_chat_types::JMAP_CHAT_URI];
 
 /// Capability URIs for Quota method calls.
 pub(crate) const USING_QUOTA: &[&str] =
@@ -340,7 +341,7 @@ pub(crate) const USING_CORE: &[&str] = &["urn:ietf:params:jmap:core"];
 /// Capability URIs for PushSubscription/set with chat push extension.
 pub(crate) const USING_CHAT_PUSH: &[&str] = &[
     "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:chat:push",
+    jmap_chat_types::JMAP_CHAT_PUSH_URI,
 ];
 
 // ---------------------------------------------------------------------------
@@ -503,7 +504,7 @@ impl SessionClient {
     ///   accessor on the captured session and does no network I/O.
     pub fn chat_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
         self.session
-            .primary_account_id("urn:ietf:params:jmap:chat")
+            .primary_account_id(jmap_chat_types::JMAP_CHAT_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:chat".into(),
@@ -519,7 +520,7 @@ impl SessionClient {
         let api_url = self.session.api_url.as_str();
         let account_id = self
             .session
-            .primary_account_id("urn:ietf:params:jmap:chat")
+            .primary_account_id(jmap_chat_types::JMAP_CHAT_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:chat".into(),

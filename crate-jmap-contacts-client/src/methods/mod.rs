@@ -71,8 +71,10 @@ pub(crate) const CALL_ID: &str = "r1";
 
 /// Capability URIs for JMAP Contacts method calls
 /// (RFC 9610 §1.4).
-pub(crate) const USING_CONTACTS: &[&str] =
-    &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:contacts"];
+pub(crate) const USING_CONTACTS: &[&str] = &[
+    "urn:ietf:params:jmap:core",
+    jmap_contacts_types::JMAP_CONTACTS_URI,
+];
 
 // ---------------------------------------------------------------------------
 // build_request helper
@@ -185,7 +187,7 @@ impl SessionClient {
     /// that capability.
     pub fn contacts_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
         self.session
-            .primary_account_id("urn:ietf:params:jmap:contacts")
+            .primary_account_id(jmap_contacts_types::JMAP_CONTACTS_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:contacts".into(),
@@ -201,7 +203,7 @@ impl SessionClient {
         let api_url = self.session.api_url.as_str();
         let account_id = self
             .session
-            .primary_account_id("urn:ietf:params:jmap:contacts")
+            .primary_account_id(jmap_contacts_types::JMAP_CONTACTS_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:contacts".into(),

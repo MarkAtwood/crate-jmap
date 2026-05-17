@@ -292,7 +292,7 @@ impl SessionClient {
     /// that capability.
     pub fn metadata_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
         self.session
-            .primary_account_id("urn:ietf:params:jmap:metadata")
+            .primary_account_id(jmap_metadata_types::JMAP_METADATA_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:metadata".into(),

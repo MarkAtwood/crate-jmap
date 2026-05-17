@@ -32,7 +32,7 @@ pub(crate) const CALL_ID: &str = "r1";
 /// Capability URIs for JMAP Sharing method calls (RFC 9670).
 pub(crate) const USING_SHARING: &[&str] = &[
     "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:principals",
+    jmap_sharing_types::JMAP_PRINCIPALS_URI,
 ];
 
 // ---------------------------------------------------------------------------
@@ -146,7 +146,7 @@ impl SessionClient {
     /// that capability.
     pub fn principals_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
         self.session
-            .primary_account_id("urn:ietf:params:jmap:principals")
+            .primary_account_id(jmap_sharing_types::JMAP_PRINCIPALS_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:principals".into(),
@@ -162,7 +162,7 @@ impl SessionClient {
         let api_url = self.session.api_url.as_str();
         let account_id = self
             .session
-            .primary_account_id("urn:ietf:params:jmap:principals")
+            .primary_account_id(jmap_sharing_types::JMAP_PRINCIPALS_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:principals".into(),

@@ -214,22 +214,22 @@ pub(crate) const CALL_ID: &str = "r1";
 /// Capability URIs for JMAP Calendars method calls (draft-ietf-jmap-calendars-26).
 pub(crate) const USING_CALENDARS: &[&str] = &[
     "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:calendars",
+    jmap_calendars_types::JMAP_CALENDARS_URI,
 ];
 
 /// Capability URIs for `CalendarEvent/parse`
 /// (draft-ietf-jmap-calendars-26 §5.13).
 pub(crate) const USING_PARSE: &[&str] = &[
     "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:calendars",
-    "urn:ietf:params:jmap:calendars:parse",
+    jmap_calendars_types::JMAP_CALENDARS_URI,
+    jmap_calendars_types::JMAP_CALENDARS_PARSE_URI,
 ];
 
 /// Capability URIs for `Principal/getAvailability`
 /// (draft-ietf-jmap-calendars-26 §2.2).
 pub(crate) const USING_AVAILABILITY: &[&str] = &[
     "urn:ietf:params:jmap:core",
-    "urn:ietf:params:jmap:principals:availability",
+    jmap_calendars_types::JMAP_PRINCIPALS_AVAILABILITY_URI,
 ];
 
 // ---------------------------------------------------------------------------
@@ -348,7 +348,7 @@ impl SessionClient {
     /// that capability.
     pub fn calendars_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
         self.session
-            .primary_account_id("urn:ietf:params:jmap:calendars")
+            .primary_account_id(jmap_calendars_types::JMAP_CALENDARS_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:calendars".into(),
@@ -364,7 +364,7 @@ impl SessionClient {
         let api_url = self.session.api_url.as_str();
         let account_id = self
             .session
-            .primary_account_id("urn:ietf:params:jmap:calendars")
+            .primary_account_id(jmap_calendars_types::JMAP_CALENDARS_URI)
             .ok_or_else(|| {
                 jmap_base_client::ClientError::InvalidSession(
                     "no primary account for urn:ietf:params:jmap:calendars".into(),
