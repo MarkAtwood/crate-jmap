@@ -2800,40 +2800,38 @@ fn check_count_caps(
             }
         };
 
-    if let Some(e) = exceeded(
-        "too many roles",
-        cur_roles,
-        add_roles,
-        limits.max_roles_per_space,
-    ) {
-        return Some(e);
-    }
-    if let Some(e) = exceeded(
-        "too many members",
-        cur_members,
-        add_members,
-        limits.max_space_members,
-    ) {
-        return Some(e);
-    }
-    if let Some(e) = exceeded(
-        "too many channels",
-        cur_channels,
-        add_channels,
-        limits.max_channels_per_space,
-    ) {
-        return Some(e);
-    }
-    if let Some(e) = exceeded(
-        "too many categories",
-        cur_categories,
-        add_categories,
-        limits.max_categories_per_space,
-    ) {
-        return Some(e);
-    }
-
-    None
+    // First cap to trip determines the SetError (see `handle_space_set`'s
+    // per-target single-error contract). `find_map` expresses that
+    // ordered "first hit wins" semantic in one combinator chain rather
+    // than four sequential `if-let-Some` early-returns.
+    [
+        (
+            "too many roles",
+            cur_roles,
+            add_roles,
+            limits.max_roles_per_space,
+        ),
+        (
+            "too many members",
+            cur_members,
+            add_members,
+            limits.max_space_members,
+        ),
+        (
+            "too many channels",
+            cur_channels,
+            add_channels,
+            limits.max_channels_per_space,
+        ),
+        (
+            "too many categories",
+            cur_categories,
+            add_categories,
+            limits.max_categories_per_space,
+        ),
+    ]
+    .into_iter()
+    .find_map(|(description, current, add, cap)| exceeded(description, current, add, cap))
 }
 
 /// Pre-validate all ops in the patch.
