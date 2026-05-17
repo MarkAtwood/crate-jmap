@@ -289,6 +289,28 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   visibility is `pub`, matching the existing `MethodResponseError.extra`
   precedent in `jmap-types`.
 
+  **Caller contract — wire-key collisions.** The `pub` visibility means
+  a caller can insert any string key, including one whose name matches
+  a typed field on the same struct (e.g. `addr.extra.insert("email", v)`
+  on an `EmailAddress`). `#[serde(flatten)]` does NOT deduplicate
+  against typed fields: serialize emits the typed field first and then
+  every flattened entry verbatim, producing JSON with two entries for
+  the same key. RFC 8259 §4 calls duplicate keys "unpredictable"; the
+  crate's own `Deserialize` impl rejects such input with `duplicate
+  field`. The contract is therefore: **callers must not insert keys
+  into `extra` whose name matches a typed field on the same struct, or
+  any camelCase-form alias of one.** Workspace policy is to enforce
+  this contract at the doc / convention layer, not via a wrapper
+  type, because the alternative (an accessor or newtype) would forbid
+  zero-cost passthrough of vendor-namespace dicts and the workspace
+  precedent in `jmap-types::MethodResponseError.extra` is also a bare
+  `pub Map`. Per-type rustdoc need not call this out individually —
+  every in-scope type's `extra` field can point to this AGENTS.md
+  section. Regression test: see `crate-jmap-mail-types/src/email.rs`
+  `extra_collision_with_typed_field_round_trip_fails` (locks in the
+  current serde-flatten behavior so a future serde change does not
+  silently alter the contract).
+
   Result-enum forward-compat shape:
 
   ```rust
