@@ -73,13 +73,45 @@ use jmap_types::{Id, State};
 // Error type
 // ---------------------------------------------------------------------------
 
-/// A simple string error for `MemoryBackend` failures.
+/// Opaque storage-layer error returned by [`MemoryBackend`] operations.
+///
+/// Carries a human-readable description of the underlying failure
+/// (serialization round-trip miss, account-not-registered race, etc.).
+/// The description is intended for test failure messages and
+/// diagnostic logging; it is not a stable wire-format identifier.
+///
+/// # Forward compatibility
+///
+/// This type is `#[non_exhaustive]` and uses a named-field shape so
+/// future revisions can add structured context (error kind, source
+/// reference, account id, etc.) without a breaking change. Outside-
+/// crate construction goes through [`MemoryError::new`]; outside-crate
+/// reads go through [`MemoryError::description`].
+///
+/// Mirrors the canonical jmap-mail-server `MemoryError` shape.
+#[non_exhaustive]
 #[derive(Debug)]
-pub struct MemoryError(pub String);
+pub struct MemoryError {
+    description: String,
+}
+
+impl MemoryError {
+    /// Construct a [`MemoryError`] from a human-readable description.
+    pub fn new(description: impl Into<String>) -> Self {
+        Self {
+            description: description.into(),
+        }
+    }
+
+    /// Human-readable description of the underlying failure.
+    pub fn description(&self) -> &str {
+        &self.description
+    }
+}
 
 impl std::fmt::Display for MemoryError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.0)
+        write!(f, "MemoryBackend error: {}", self.description)
     }
 }
 
@@ -474,7 +506,7 @@ impl JmapBackend for MemoryBackend {
                         match O::deserialize(val) {
                             Ok(obj) => list.push(obj),
                             Err(e) => {
-                                return Err(MemoryError(format!(
+                                return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
                                 )))
@@ -492,7 +524,7 @@ impl JmapBackend for MemoryBackend {
                         Some(val) => match O::deserialize(val) {
                             Ok(obj) => found.push(obj),
                             Err(e) => {
-                                return Err(MemoryError(format!(
+                                return Err(MemoryError::new(format!(
                                     "deserialize {}: {e}",
                                     O::TYPE_NAME
                                 )))
@@ -789,7 +821,7 @@ impl ContactsBackend for MemoryBackend {
         let server_id = Self::demo_next_id(&mut inner, O::TYPE_NAME, account_id.as_ref());
 
         let mut val = serde_json::to_value(&obj)
-            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize: {e}"))))?;
+            .map_err(|e| BackendSetError::Other(MemoryError::new(format!("serialize: {e}"))))?;
         if let Some(map) = val.as_object_mut() {
             map.insert(
                 "id".to_owned(),
@@ -830,7 +862,7 @@ impl ContactsBackend for MemoryBackend {
         }
 
         let stored_obj: O = O::deserialize(&val).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("deserialize after create: {e}")))
+            BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
         })?;
 
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
@@ -883,8 +915,9 @@ impl ContactsBackend for MemoryBackend {
         // update` shapes. `current` is a clone of the stored value, so a
         // partially-applied patch on error is discarded with the local
         // without touching storage.
-        let patch_val = serde_json::to_value(&patch)
-            .map_err(|e| BackendSetError::Other(MemoryError(format!("serialize patch: {e}"))))?;
+        let patch_val = serde_json::to_value(&patch).map_err(|e| {
+            BackendSetError::Other(MemoryError::new(format!("serialize patch: {e}")))
+        })?;
         if let Err(MergePatchError::DepthExceeded) = json_merge_patch(&mut current, patch_val) {
             return Err(BackendSetError::SetError(
                 SetError::new(SetErrorType::InvalidPatch)
@@ -1021,7 +1054,7 @@ impl ContactsBackend for MemoryBackend {
         let new_id = Self::demo_next_id(&mut inner, "ContactCard", to_account_id.as_ref());
 
         let mut val = serde_json::to_value(&card).map_err(|e| {
-            BackendSetError::Other(MemoryError(format!("serialize copied card: {e}")))
+            BackendSetError::Other(MemoryError::new(format!("serialize copied card: {e}")))
         })?;
         if let Some(map) = val.as_object_mut() {
             map.insert(
@@ -1031,7 +1064,7 @@ impl ContactsBackend for MemoryBackend {
         }
         let stored: jmap_contacts_types::ContactCard = serde_json::from_value(val.clone())
             .map_err(|e| {
-                BackendSetError::Other(MemoryError(format!("deserialize copied card: {e}")))
+                BackendSetError::Other(MemoryError::new(format!("deserialize copied card: {e}")))
             })?;
 
         let new_state = inner.bump_state("ContactCard", to_account_id.as_ref());
