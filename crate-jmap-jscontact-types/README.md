@@ -109,10 +109,10 @@ The same pattern works for `EmailAddress`, `Phone`, `Address`,
   clients) routinely send values outside the RFC 9553 enumeration, so
   the catch-all would do all the real work for no programmatic
   dispatch benefit. Match string literals if you need to dispatch.
-- `JsContactId` is a transparent newtype around `String` and does NOT
-  validate the RFC 9553 §1.4.1 character set (`A-Z`, `a-z`, `0-9`,
-  `-`, `_`, length 1–255). Validation is left to the caller because
-  this crate has no JMAP dependency.
+- JSContact `Id` references (per RFC 9553 §1.4.1) are modelled as
+  bare `String` throughout this crate — no newtype. Validation of the
+  character set (`A-Z`, `a-z`, `0-9`, `-`, `_`, length 1–255) is left
+  to the caller because this crate has no JMAP dependency.
 - Six structs carry a cross-field "at least one of X, Y" RFC 9553
   constraint that the Rust type system does NOT enforce: `Name`
   (`components` or `full`), `Organization` (`name` or `units`),

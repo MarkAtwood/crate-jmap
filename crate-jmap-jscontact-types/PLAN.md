@@ -242,7 +242,6 @@ In scope (each has a round-trip preservation test):
 
 Out of scope:
 
-- `JsContactId` — newtype around `String`.
 - `AnniversaryDate` — outer dispatch enum; extras live on variant
   structs.
 

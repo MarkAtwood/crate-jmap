@@ -82,38 +82,6 @@ use serde::{Deserialize, Serialize};
 
 // ── Common helpers ────────────────────────────────────────────────────────────
 
-/// JSContact `Id` data type (RFC 9553 §1.4.1).
-///
-/// A string of 1–255 octets containing only base64url-safe characters
-/// (`A-Z`, `a-z`, `0-9`, `-`, `_`). JSContact `Id` values are NOT
-/// JMAP `Id` values: validation of the character set is left to the
-/// caller because this crate has no JMAP dependency.
-///
-/// Modelled as a transparent newtype around `String` so that wire JSON
-/// for fields typed `Id` looks identical to a bare `String`.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(transparent)]
-pub struct JsContactId(String);
-
-impl From<String> for JsContactId {
-    fn from(s: String) -> Self {
-        Self(s)
-    }
-}
-
-impl From<&str> for JsContactId {
-    fn from(s: &str) -> Self {
-        Self(s.to_owned())
-    }
-}
-
-impl AsRef<str> for JsContactId {
-    fn as_ref(&self) -> &str {
-        &self.0
-    }
-}
-
 // ── Name and NameComponent (RFC 9553 §2.2.1) ──────────────────────────────────
 
 /// The name of the entity represented by a Card (RFC 9553 §2.2.1).
@@ -309,7 +277,11 @@ pub struct SpeakToAs {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub grammatical_gender: Option<String>,
 
-    /// Map of pronoun [`Id`](JsContactId) → [`Pronouns`] object.
+    /// Map of pronoun Id (per RFC 9553 §1.4.1) → [`Pronouns`] object.
+    /// Keys are bare `String` per the workspace policy that JSContact
+    /// `Id` references on the wire are modelled as `String`; validation
+    /// of the character set (`A-Z`, `a-z`, `0-9`, `-`, `_`, length
+    /// 1–255) is the caller's responsibility.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub pronouns: Option<HashMap<String, Pronouns>>,
 
@@ -367,9 +339,11 @@ pub struct Title {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub kind: Option<String>,
 
-    /// The [`JsContactId`] of the organization in which this title is held.
+    /// The JSContact `Id` (per RFC 9553 §1.4.1) of the organization in
+    /// which this title is held. Modelled as `String`; validation of
+    /// the character set is the caller's responsibility.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub organization_id: Option<JsContactId>,
+    pub organization_id: Option<String>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -1872,17 +1846,6 @@ mod tests {
             "relation": {}
         });
         assert_roundtrip::<Relation>(v);
-    }
-
-    // ── JsContactId transparent newtype ───────────────────────────────────
-
-    #[test]
-    fn jscontact_id_is_transparent_string() {
-        let id = JsContactId::from("abc123");
-        let v = serde_json::to_value(&id).unwrap();
-        assert_eq!(v, json!("abc123"));
-        let back: JsContactId = serde_json::from_value(v).unwrap();
-        assert_eq!(back, id);
     }
 
     // ── Extras-preservation policy tests (JMAP-lbdy.5, JMAP-lbdy.12) ─────
