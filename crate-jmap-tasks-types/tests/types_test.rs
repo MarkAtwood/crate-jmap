@@ -389,6 +389,31 @@ fn notification_deserialize() {
     assert!(notif.task_patch.is_none());
 }
 
+/// Structural round-trip of the `notification.json` fixture: every typed
+/// field deserializes and re-serializes back into an Eq-equal value.
+/// Mirrors `task_roundtrip` and `tasklist_roundtrip`.
+///
+/// Note: the fixture carries `"comment": null` (an explicit null on an
+/// `Option<String>` field with `skip_serializing_if`). On deserialize
+/// the field becomes `None`; on serialize the key is omitted. A
+/// byte-equal round-trip is therefore NOT possible against the fixture
+/// — but a structural round-trip is, because the second deserialize
+/// also collapses the absent key into `None`. The Eq compare is the
+/// right oracle for catching deserialize regressions without coupling
+/// the test to the explicit-null-vs-absent asymmetry documented in
+/// workspace AGENTS.md extras-preservation policy.
+///
+/// See bd:JMAP-ky8g.5.
+#[test]
+fn notification_roundtrip() {
+    let json = include_str!("fixtures/notification.json");
+    let original: TaskNotification = serde_json::from_str(json).expect("first deserialize");
+    let serialized = serde_json::to_string(&original).expect("serialize");
+    let recovered: TaskNotification =
+        serde_json::from_str(&serialized).expect("second deserialize");
+    assert_eq!(original, recovered);
+}
+
 /// `task_patch` round-trips as a `PatchObject` without altering wire shape.
 ///
 /// Oracle: hand-written JSON modelled on draft-tasks-06 §5.1 (taskPatch is a
