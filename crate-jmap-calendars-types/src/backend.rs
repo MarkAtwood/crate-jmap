@@ -283,19 +283,71 @@ mod tests {
     use super::*;
 
     /// Pinning test: the per-user property list MUST match the IANA-registered
-    /// set in draft-ietf-jmap-calendars-26 §5.4 / §10.8.2 exactly. Update this
-    /// table only when the spec list itself changes.
+    /// set in draft-ietf-jmap-calendars-26 §10.8.2 exactly.
+    ///
+    /// # Independent oracle (verbatim spec quote)
+    ///
+    /// The expected list is the verbatim bullet list from
+    /// draft-ietf-jmap-calendars-26 §10.8.2 "Initial values for existing
+    /// registrations":
+    ///
+    /// > IANA will set "Is per-user: yes" on the following property
+    /// > registrations:
+    /// >
+    /// > *  keywords
+    /// > *  color
+    /// > *  freeBusyStatus
+    /// > *  useDefaultAlerts
+    /// > *  alerts
+    /// >
+    /// > All other existing registrations will have "Is per-user: no".
+    ///
+    /// The test extracts the bullet item names from a multi-line string
+    /// shaped to mirror the spec passage, then asserts equality with the
+    /// production const. Updating this test requires the contributor to
+    /// edit the spec-shaped string — which a code-review reviewer can
+    /// diff against the spec passage above. A contributor who edits the
+    /// const without also editing the spec quote will see this test
+    /// fail; a contributor who edits both must justify the spec citation
+    /// in the same diff.
     #[test]
     fn per_user_calendar_event_properties_match_spec() {
+        // Spec-shaped fixture: mirror of draft-ietf-jmap-calendars-26
+        // §10.8.2 bullet list. Each "*  <name>" line names one IANA-
+        // registered per-user property. Modify ONLY by reconciling
+        // against the verbatim spec text in this test's doc comment.
+        const SPEC_REGISTERED_PER_USER_PROPERTIES_VERBATIM: &str = "\
+*  keywords
+*  color
+*  freeBusyStatus
+*  useDefaultAlerts
+*  alerts
+";
+
+        // Parse the bullet list independently of the production const.
+        // This is the independent-oracle step: the parser does not look
+        // at PER_USER_CALENDAR_EVENT_PROPERTIES.
+        let spec_list: Vec<&str> = SPEC_REGISTERED_PER_USER_PROPERTIES_VERBATIM
+            .lines()
+            .filter_map(|line| line.strip_prefix("*  ").map(str::trim))
+            .filter(|name| !name.is_empty())
+            .collect();
+
+        // Sanity-check the parser before relying on it as the oracle.
+        assert_eq!(
+            spec_list.len(),
+            5,
+            "spec-quote parser sanity: §10.8.2 bullet list has exactly 5 entries; \
+             parser found {}: {spec_list:?}",
+            spec_list.len()
+        );
+
+        // The real assertion: production const equals the spec quote.
         assert_eq!(
             PER_USER_CALENDAR_EVENT_PROPERTIES,
-            &[
-                "keywords",
-                "color",
-                "freeBusyStatus",
-                "useDefaultAlerts",
-                "alerts"
-            ]
+            spec_list.as_slice(),
+            "PER_USER_CALENDAR_EVENT_PROPERTIES must match \
+             draft-ietf-jmap-calendars-26 §10.8.2 verbatim (including order)"
         );
     }
 
