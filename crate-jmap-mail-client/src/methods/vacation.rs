@@ -10,7 +10,7 @@
 //!   1. Validate arguments (empty-string guards).
 //!   2. Call `self.session_parts()?` → `(api_url, account_id)`.
 //!   3. Build args JSON with `serde_json::json!({…})`.
-//!   4. Call `build_request(method_name, args, USING_MAIL)`.
+//!   4. Call `build_request(method_name, args, USING_VACATION)`.
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 
@@ -33,7 +33,7 @@ impl super::SessionClient {
             "accountId": account_id,
             "ids": ["singleton"],
         });
-        let req = super::build_request("VacationResponse/get", args, super::USING_MAIL);
+        let req = super::build_request("VacationResponse/get", args, super::USING_VACATION);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -66,7 +66,7 @@ impl super::SessionClient {
                 ))
             })?;
         }
-        let req = super::build_request("VacationResponse/set", args, super::USING_MAIL);
+        let req = super::build_request("VacationResponse/set", args, super::USING_VACATION);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -94,7 +94,7 @@ mod tests {
     // (RFC 8621 §8) are tracked under JMAP-uuoi for a follow-up wiremock
     // smoke test.
     //
-    // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
+    // `build_request`, `CALL_ID`, and `USING_VACATION` themselves have their
     // own focused tests in `methods/mod.rs`.
 
     /// Oracle: VacationResponse deserialization from RFC 8621 §8 shape.

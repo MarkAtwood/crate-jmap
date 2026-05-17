@@ -317,8 +317,34 @@ pub struct EmailParseResponse {
 /// [`build_request`]. Pass directly to `jmap_base_client::extract_response`.
 pub(crate) const CALL_ID: &str = "r1";
 
-/// Capability URIs for JMAP Mail method calls (RFC 8621).
+/// Capability URIs for JMAP Mail method calls (RFC 8621 §1.3.1).
+///
+/// Use for Email/*, Mailbox/*, Thread/*, and SearchSnippet/* methods —
+/// i.e. anything covered by `urn:ietf:params:jmap:mail`.
 pub(crate) const USING_MAIL: &[&str] = &["urn:ietf:params:jmap:core", "urn:ietf:params:jmap:mail"];
+
+/// Capability URIs for JMAP Mail Submission method calls (RFC 8621 §1.3.2).
+///
+/// Use for Identity/* and EmailSubmission/* methods. Includes
+/// `urn:ietf:params:jmap:mail` because EmailSubmission references
+/// emailId / threadId (mail-typed) and the onSuccessUpdateEmail /
+/// onSuccessDestroyEmail mechanism produces implicit Email/set or
+/// Email/destroy invocations on the same request.
+pub(crate) const USING_SUBMISSION: &[&str] = &[
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:mail",
+    "urn:ietf:params:jmap:submission",
+];
+
+/// Capability URIs for JMAP VacationResponse method calls (RFC 8621 §1.3.3).
+///
+/// Use for VacationResponse/* methods. Does NOT include
+/// `urn:ietf:params:jmap:mail` — vacation responses do not reference any
+/// mail-typed fields and stand on their own as a vacation-protocol object.
+pub(crate) const USING_VACATION: &[&str] = &[
+    "urn:ietf:params:jmap:core",
+    "urn:ietf:params:jmap:vacationresponse",
+];
 
 // ---------------------------------------------------------------------------
 // build_request helper
@@ -446,7 +472,7 @@ mod tests {
     }
 
     /// Oracle: USING_MAIL contains exactly the two RFC 8621 capability URIs.
-    /// Expected values are taken directly from RFC 8621 §1.3.
+    /// Expected values are taken directly from RFC 8621 §1.3.1.
     #[test]
     fn using_mail_contains_correct_uris() {
         let req = build_request("Email/get", json!({}), USING_MAIL);
@@ -460,6 +486,56 @@ mod tests {
         assert!(
             using.contains(&json!("urn:ietf:params:jmap:mail")),
             "must include jmap:mail"
+        );
+    }
+
+    /// Oracle: USING_SUBMISSION contains core + mail + submission.
+    /// Expected values are taken directly from RFC 8621 §1.3.2. The
+    /// inclusion of `urn:ietf:params:jmap:mail` is required because
+    /// EmailSubmission references emailId / threadId and the
+    /// onSuccessUpdateEmail / onSuccessDestroyEmail mechanism produces
+    /// implicit Email/set or Email/destroy invocations on the same request.
+    #[test]
+    fn using_submission_contains_correct_uris() {
+        let req = build_request("EmailSubmission/get", json!({}), USING_SUBMISSION);
+        let v = serde_json::to_value(&req).expect("serialize");
+        let using = v["using"].as_array().expect("using must be array");
+        assert_eq!(using.len(), 3);
+        assert!(
+            using.contains(&json!("urn:ietf:params:jmap:core")),
+            "must include jmap:core"
+        );
+        assert!(
+            using.contains(&json!("urn:ietf:params:jmap:mail")),
+            "must include jmap:mail (EmailSubmission references mail-typed fields)"
+        );
+        assert!(
+            using.contains(&json!("urn:ietf:params:jmap:submission")),
+            "must include jmap:submission"
+        );
+    }
+
+    /// Oracle: USING_VACATION contains exactly core + vacationresponse.
+    /// Expected values are taken directly from RFC 8621 §1.3.3. The
+    /// `urn:ietf:params:jmap:mail` URI is NOT included — VacationResponse
+    /// does not reference any mail-typed fields.
+    #[test]
+    fn using_vacation_contains_correct_uris() {
+        let req = build_request("VacationResponse/get", json!({}), USING_VACATION);
+        let v = serde_json::to_value(&req).expect("serialize");
+        let using = v["using"].as_array().expect("using must be array");
+        assert_eq!(using.len(), 2);
+        assert!(
+            using.contains(&json!("urn:ietf:params:jmap:core")),
+            "must include jmap:core"
+        );
+        assert!(
+            using.contains(&json!("urn:ietf:params:jmap:vacationresponse")),
+            "must include jmap:vacationresponse"
+        );
+        assert!(
+            !using.contains(&json!("urn:ietf:params:jmap:mail")),
+            "must NOT include jmap:mail (VacationResponse is a standalone capability)"
         );
     }
 
