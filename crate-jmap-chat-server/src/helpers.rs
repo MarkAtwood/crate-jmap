@@ -144,3 +144,39 @@ pub(crate) fn iso8601_before(a: &str, b: &str) -> bool {
 pub(crate) fn set_error_value(e: &crate::backend::SetError) -> serde_json::Value {
     serde_json::to_value(e).expect("derive(Serialize) on plain data is infallible")
 }
+
+/// Count `Add*` ops in a [`SpacePatchOp`] sequence, returning
+/// `(add_roles, add_members, add_channels, add_categories)`.
+///
+/// `Remove*` and `Update*` ops are not counted: the conservative
+/// `existing + add` cap check ignores in-flight removes so the
+/// resulting count is bounded even if ops are reordered by the
+/// backend. The check rejects strictly more patches than strict
+/// "final-count" enforcement; both are spec-conformant (the spec only
+/// requires that the resulting count not exceed the cap).
+///
+/// Used both by `handle_space_set` for the defense-in-depth pre-flight
+/// and by the reference `MemoryBackend`'s `apply_space_patch_impl` for
+/// the backend-canonical enforcement (bd:JMAP-x2gd.44).
+pub(crate) fn count_add_ops(ops: &[crate::backend::SpacePatchOp]) -> (u32, u32, u32, u32) {
+    let mut add_roles: u32 = 0;
+    let mut add_members: u32 = 0;
+    let mut add_channels: u32 = 0;
+    let mut add_categories: u32 = 0;
+    for op in ops {
+        match op {
+            crate::backend::SpacePatchOp::AddRole(_) => add_roles = add_roles.saturating_add(1),
+            crate::backend::SpacePatchOp::AddMember(_) => {
+                add_members = add_members.saturating_add(1);
+            }
+            crate::backend::SpacePatchOp::AddChannel(_) => {
+                add_channels = add_channels.saturating_add(1);
+            }
+            crate::backend::SpacePatchOp::AddCategory(_) => {
+                add_categories = add_categories.saturating_add(1);
+            }
+            _ => {}
+        }
+    }
+    (add_roles, add_members, add_channels, add_categories)
+}

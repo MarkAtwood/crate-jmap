@@ -7003,3 +7003,102 @@ async fn space_set_count_limits_create_only_unaffected() {
         resp
     );
 }
+
+// ---------------------------------------------------------------------------
+// Backend-canonical cap enforcement (bd:JMAP-x2gd.44)
+// ---------------------------------------------------------------------------
+//
+// These tests verify that the cap check fires when callers bypass the
+// `handle_space_set` handler and call `apply_space_patch` (via the
+// test-only `apply_space_patch_with_caller_id` entry point) directly.
+// Per bd:JMAP-x2gd.44, cap enforcement is backend-canonical: a direct
+// caller (admin tool, federation receiver, batch importer) must still
+// see caps enforced.
+
+/// Oracle: a direct call to the backend's structural-mutation API with
+/// an Add* op that would push the Space over the roles cap MUST be
+/// rejected at the backend, not silently allowed. The handler-level
+/// pre-flight check does not run on this path.
+#[tokio::test]
+async fn apply_space_patch_direct_call_enforces_roles_cap() {
+    use jmap_chat_server::SpacePatchOp;
+    use jmap_chat_types::SpaceRole;
+
+    let backend = MemoryBackend::new();
+    // Tight cap: only 0 roles allowed.
+    backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 1024, 1024, 1024)));
+    let space_id = make_space(&backend, "Direct Caller Cap Test").await;
+
+    // Construct one AddRole op via JSON since SpaceRole is
+    // #[non_exhaustive]. Without the backend-canonical cap enforcement,
+    // this op would land successfully.
+    let role: SpaceRole = serde_json::from_value(json!({
+        "id": "placeholder",
+        "name": "admin",
+        "permissions": ["manage_space"],
+        "position": 10
+    }))
+    .expect("deserialize SpaceRole");
+    let ops = vec![SpacePatchOp::AddRole(role)];
+
+    let result = backend.apply_space_patch_with_caller_id(
+        None,
+        &Id::from("a1"),
+        &Id::from(space_id.as_str()),
+        ops,
+    );
+
+    match result {
+        Err(jmap_chat_server::BackendSetError::SetError(set_err)) => {
+            let v = serde_json::to_value(&set_err).expect("set_err serializes");
+            assert_eq!(
+                v["type"], "overQuota",
+                "Direct backend call must surface overQuota when caps would be exceeded: {v:?}"
+            );
+            assert!(
+                v["description"]
+                    .as_str()
+                    .is_some_and(|s| s.contains("roles")),
+                "overQuota description must name the offending collection: {v:?}"
+            );
+        }
+        other => panic!("Direct backend call should be rejected with overQuota, got {other:?}"),
+    }
+}
+
+/// Oracle: a no-Add* patch (e.g. RemoveRole with a missing id) called
+/// directly on the backend with a roles cap of 0 must NOT trip the
+/// cap check — only Add* ops are counted against the cap.
+#[tokio::test]
+async fn apply_space_patch_direct_call_no_add_ops_bypasses_cap_check() {
+    use jmap_chat_server::SpacePatchOp;
+
+    let backend = MemoryBackend::new();
+    backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
+    let space_id = make_space(&backend, "No-Add Direct").await;
+
+    let ops = vec![SpacePatchOp::RemoveRole(Id::from("nonexistent-role-id"))];
+
+    let result = backend.apply_space_patch_with_caller_id(
+        None,
+        &Id::from("a1"),
+        &Id::from(space_id.as_str()),
+        ops,
+    );
+
+    // The result should not be an overQuota — it should reach the
+    // per-op apply path. (The actual outcome here depends on whether
+    // the RemoveRole stub treats missing-id as Forbidden or NotFound;
+    // the assertion is specifically that it is NOT overQuota.)
+    match result {
+        Ok(_) => {}
+        Err(jmap_chat_server::BackendSetError::SetError(set_err)) => {
+            let v = serde_json::to_value(&set_err).expect("set_err serializes");
+            assert_ne!(
+                v["type"], "overQuota",
+                "no-Add* patches must NOT be cap-rejected at the backend: {v:?}"
+            );
+        }
+        Err(other) => panic!("unexpected backend error: {other:?}"),
+    }
+}
