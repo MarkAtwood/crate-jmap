@@ -1032,13 +1032,23 @@ pub trait ChatBackend: JmapBackend {
     /// Exactly once per create/update/destroy entry in the request,
     /// AFTER wire-format validation has succeeded and BEFORE the
     /// corresponding `create_object` / `update_object` /
-    /// `destroy_object` call. On `Ok(false)` the handler maps to a
-    /// `forbidden` SetError and skips the underlying mutation.
-    /// On `Err(e)` the handler maps to a `serverFail` SetError.
+    /// `destroy_object` call. The handler skips the underlying mutation
+    /// when the outer `Result` is `Ok(Err(_))` or when the outer is
+    /// `Err(_)`. The wire mapping is:
+    ///
+    /// - `Ok(Ok(()))` — permit; the handler proceeds to the underlying
+    ///   `create_object` / `update_object` / `destroy_object`.
+    /// - `Ok(Err(set_err))` — deny with reason; the handler serialises
+    ///   `set_err` into the appropriate `notCreated` / `notUpdated` /
+    ///   `notDestroyed` map verbatim. Backends construct the SetError
+    ///   with the type, description, and any `with_extra` fields the
+    ///   deployment wants the client to see.
+    /// - `Err(e)` — backend infrastructure failure; the handler maps
+    ///   to a `serverFail` SetError.
     ///
     /// # Default implementation
     ///
-    /// The default returns `Ok(true)` — every op is permitted. This
+    /// The default returns `Ok(Ok(()))` — every op is permitted. This
     /// matches the workspace's "kit defines the hook; consumer
     /// enforces the policy" posture (see the parallel design of
     /// [`Self::slow_mode_check`]). Production backends SHOULD override
@@ -1046,6 +1056,17 @@ pub trait ChatBackend: JmapBackend {
     /// "only members of `target_space_id` may modify a Space-scoped
     /// emoji" or "only `manage_emoji` permission-holders may modify
     /// server-global emoji."
+    ///
+    /// # SetError shape recommendation
+    ///
+    /// Production backends SHOULD return
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)
+    ///     .with_description("…")))` for authorization denials, mirroring
+    /// the workspace convention for /set responses. The description
+    /// should explain the deployment's denial reason without leaking
+    /// internal policy details — e.g. "Space-scoped emoji on this
+    /// Space requires `manage_channels` permission" rather than
+    /// "principal abc123 is not in role admin on Space xyz789".
     ///
     /// # Foundation seam
     ///
@@ -1057,15 +1078,15 @@ pub trait ChatBackend: JmapBackend {
     /// "Caller identity (foundation seam)" section of the workspace
     /// `AGENTS.md`) cannot meaningfully implement identity-scoped
     /// authorization — they should either override `principal_id`
-    /// first or return `Ok(true)` to match the reference posture.
+    /// first or return `Ok(Ok(()))` to match the reference posture.
     fn may_set_custom_emoji(
         &self,
         _caller: &Self::CallerCtx,
         _account_id: &jmap_types::Id,
         _target_space_id: Option<&jmap_types::Id>,
         _op: EmojiSetOp,
-    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send {
-        async { Ok(true) }
+    ) -> impl std::future::Future<Output = Result<Result<(), SetError>, Self::Error>> + Send {
+        async { Ok(Ok(())) }
     }
 
     /// Throttle gate consulted before a `Message/set` create lands on

@@ -5747,7 +5747,7 @@ async fn emoji_get_returns_created() {
 // CustomEmoji authorization gate (draft-atwood-jmap-chat-00 commit 9344aec)
 // ---------------------------------------------------------------------------
 
-/// Oracle: the reference `MemoryBackend` returns `Ok(true)` from
+/// Oracle: the reference `MemoryBackend` returns `Ok(Ok(()))` from
 /// `may_set_custom_emoji` unconditionally; `CustomEmoji/set` create
 /// without a spaceId (server-global) succeeds. The kit defines the
 /// authorization hook; the consumer enforces the policy.
@@ -5778,7 +5778,7 @@ async fn emoji_set_create_server_global_no_authz_block() {
 
 /// Oracle: `MemoryBackend` permits a Space-scoped `CustomEmoji/set`
 /// create too (its `may_set_custom_emoji` is the demo permissive
-/// `Ok(true)`). Spec text: "Authorization for CustomEmoji/set is
+/// `Ok(Ok(()))`). Spec text: "Authorization for CustomEmoji/set is
 /// implementation-defined, for both Space-scoped and server-global
 /// emoji" (draft commit 9344aec).
 #[tokio::test]
@@ -5804,10 +5804,11 @@ async fn emoji_set_create_space_scoped_no_authz_block() {
     assert_eq!(resp["created"]["e0"]["spaceId"], "s1");
 }
 
-/// Oracle: when `may_set_custom_emoji` returns `Ok(false)` on Create,
-/// the handler MUST reject the create with a `forbidden` SetError
-/// carrying the implementation-defined description, per draft commit
-/// 9344aec.
+/// Oracle: when `may_set_custom_emoji` returns
+/// `Ok(Err(SetError::new(SetErrorType::Forbidden)))` on Create, the
+/// handler MUST reject the create with the backend's SetError
+/// serialised verbatim into `notCreated`, including its description,
+/// per draft commit 9344aec.
 #[tokio::test]
 async fn emoji_set_create_authz_denied_returns_forbidden() {
     use jmap_chat_server::handle_emoji_set;
@@ -5836,13 +5837,15 @@ async fn emoji_set_create_authz_denied_returns_forbidden() {
     );
 }
 
-/// Oracle: when `may_set_custom_emoji` returns `Ok(false)` on Update,
-/// the handler MUST reject the update with a `forbidden` SetError.
-/// The update path pre-fetches the existing emoji to learn its
-/// spaceId before consulting the gate. We seed the wrapped
-/// `MemoryBackend` directly via `insert_object_for_test` because the
-/// deny-everything backend cannot seed via its own `create_object`
-/// (the gate denies create too).
+/// Oracle: when `may_set_custom_emoji` returns
+/// `Ok(Err(SetError::new(SetErrorType::Forbidden)))` on Update, the
+/// handler MUST reject the update with the backend's SetError
+/// serialised verbatim into `notUpdated`. The update path pre-fetches
+/// the existing emoji to learn its spaceId before consulting the
+/// gate. We seed the wrapped `MemoryBackend` directly via
+/// `insert_object_for_test` because the deny-everything backend
+/// cannot seed via its own `create_object` (the gate denies create
+/// too).
 #[tokio::test]
 async fn emoji_set_update_authz_denied_returns_forbidden() {
     use jmap_chat_server::handle_emoji_set;
@@ -5878,10 +5881,12 @@ async fn emoji_set_update_authz_denied_returns_forbidden() {
     assert_eq!(nu["type"], "forbidden");
 }
 
-/// Oracle: when `may_set_custom_emoji` returns `Ok(false)` on Destroy,
-/// the handler MUST reject the destroy with a `forbidden` SetError.
-/// Destroy path pre-fetches the existing emoji to learn its spaceId
-/// before consulting the gate.
+/// Oracle: when `may_set_custom_emoji` returns
+/// `Ok(Err(SetError::new(SetErrorType::Forbidden)))` on Destroy, the
+/// handler MUST reject the destroy with the backend's SetError
+/// serialised verbatim into `notDestroyed`. Destroy path pre-fetches
+/// the existing emoji to learn its spaceId before consulting the
+/// gate.
 #[tokio::test]
 async fn emoji_set_destroy_authz_denied_returns_forbidden() {
     use jmap_chat_server::handle_emoji_set;

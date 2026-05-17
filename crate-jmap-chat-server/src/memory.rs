@@ -1019,7 +1019,7 @@ impl ChatBackend for MemoryBackend {
 
     /// Reference implementation of [`ChatBackend::may_set_custom_emoji`].
     ///
-    /// Demonstration-only: returns `Ok(true)` unconditionally. The
+    /// Demonstration-only: returns `Ok(Ok(()))` unconditionally. The
     /// reference backend does not honor identity-scoped permissions
     /// because `JmapBackend::principal_id(&())` returns `None` for the
     /// workspace's `CallerCtx = ()` default. A meaningful permission
@@ -1035,8 +1035,8 @@ impl ChatBackend for MemoryBackend {
         _account_id: &Id,
         _target_space_id: Option<&Id>,
         _op: EmojiSetOp,
-    ) -> Result<bool, Self::Error> {
-        Ok(true)
+    ) -> Result<Result<(), SetError>, Self::Error> {
+        Ok(Ok(()))
     }
 
     /// Reference implementation of [`ChatBackend::slow_mode_check`].

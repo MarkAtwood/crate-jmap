@@ -382,16 +382,9 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 .may_set_custom_emoji(caller, &account_id, space_id.as_ref(), EmojiSetOp::Create)
                 .await
             {
-                Ok(true) => {}
-                Ok(false) => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({
-                            "type": "forbidden",
-                            "description":
-                                "Implementation-defined emoji authorization denied this operation.",
-                        }),
-                    );
+                Ok(Ok(())) => {}
+                Ok(Err(set_err)) => {
+                    not_created.insert(create_id.clone(), set_error_value(&set_err));
                     continue;
                 }
                 Err(e) => {
@@ -514,16 +507,9 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                     .may_set_custom_emoji(caller, &account_id, scope_ref, EmojiSetOp::Update)
                     .await
                 {
-                    Ok(true) => {}
-                    Ok(false) => {
-                        not_updated.insert(
-                            id_str,
-                            json!({
-                                "type": "forbidden",
-                                "description":
-                                    "Implementation-defined emoji authorization denied this operation.",
-                            }),
-                        );
+                    Ok(Ok(())) => {}
+                    Ok(Err(set_err)) => {
+                        not_updated.insert(id_str, set_error_value(&set_err));
                         continue;
                     }
                     Err(e) => {
@@ -619,16 +605,9 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                     .may_set_custom_emoji(caller, &account_id, scope_ref, EmojiSetOp::Destroy)
                     .await
                 {
-                    Ok(true) => {}
-                    Ok(false) => {
-                        not_destroyed.insert(
-                            id_str.to_owned(),
-                            json!({
-                                "type": "forbidden",
-                                "description":
-                                    "Implementation-defined emoji authorization denied this operation.",
-                            }),
-                        );
+                    Ok(Ok(())) => {}
+                    Ok(Err(set_err)) => {
+                        not_destroyed.insert(id_str.to_owned(), set_error_value(&set_err));
                         continue;
                     }
                     Err(e) => {
