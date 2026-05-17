@@ -301,6 +301,15 @@ impl JmapError {
     }
 
     /// RFC 8620 §5.6 — "tooManyChanges"
+    ///
+    /// Always prefer [`too_many_changes_with_limit`][Self::too_many_changes_with_limit],
+    /// which includes the server's limit so the client knows the
+    /// maximum `maxChanges` value to use on retry. RFC 8620 §9.6.1
+    /// requires `limit` to be present on the wire; this bare constructor
+    /// produces a wire form that violates that requirement.
+    #[deprecated(
+        note = "always use too_many_changes_with_limit to include the limit per RFC 8620 §9.6.1"
+    )]
     pub fn too_many_changes() -> Self {
         Self {
             error_type: "tooManyChanges".into(),
@@ -642,6 +651,7 @@ mod tests {
         assert!(!json.contains("\"description\""));
     }
 
+    #[allow(deprecated)]
     #[test]
     fn too_many_changes_type_string() {
         let e = JmapError::too_many_changes();
@@ -659,6 +669,13 @@ mod tests {
         assert!(v.get("description").is_none());
     }
 
+    /// Pins the deprecated bare-constructor's wire form — the absence of
+    /// the `limit` field is the RFC 8620 §9.6.1 noncompliance the
+    /// deprecation was added to flag. If a future contributor changes
+    /// the bare constructor to populate `limit` with a placeholder, this
+    /// test would fail and force a deliberate review of whether the
+    /// deprecation should be removed at that time.
+    #[allow(deprecated)]
     #[test]
     fn too_many_changes_without_limit_has_no_limit_field() {
         let err = JmapError::too_many_changes();
