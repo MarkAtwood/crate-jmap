@@ -174,42 +174,99 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
 
     // Post-filter the `created` and `updated` arrays for the default-impl
     // path. Backends that overrode `get_metadata_changes` have already
-    // pre-filtered, in which case these calls are no-ops on already-pruned
-    // arrays. The cost (per-Id re-fetch) is only paid by default-impl
-    // backends; override backends pay zero overhead.
-    filter_changes_array(
-        backend,
-        caller,
-        &account_id,
+    // pre-filtered, in which case the union below is already-pruned and
+    // the lookup-based filter is a no-op on each entry. The cost
+    // (re-fetch) is only paid by default-impl backends; override backends
+    // pay only the cost of one in-memory walk.
+    //
+    // Build the union of `created` + `updated` Ids and fetch all of them
+    // in a SINGLE `get_objects` round-trip (bd:JMAP-ayoz.9). The lists
+    // returned by `get_changes` are disjoint by spec (an entry is created
+    // OR updated within a window, never both — RFC 8620 §5.2), but we
+    // dedupe defensively in case an override backend violates that
+    // invariant.
+    let created_strs: Vec<String> = response["created"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+    let updated_strs: Vec<String> = response["updated"]
+        .as_array()
+        .map(|a| {
+            a.iter()
+                .filter_map(|v| v.as_str().map(str::to_owned))
+                .collect()
+        })
+        .unwrap_or_default();
+
+    if created_strs.is_empty() && updated_strs.is_empty() {
+        return Ok((response, vec![]));
+    }
+
+    let mut seen: std::collections::HashSet<&str> = std::collections::HashSet::new();
+    let mut union_ids: Vec<Id> = Vec::with_capacity(created_strs.len() + updated_strs.len());
+    for s in created_strs.iter().chain(updated_strs.iter()) {
+        if seen.insert(s.as_str()) {
+            union_ids.push(Id::from(s.as_str()));
+        }
+    }
+
+    // Single fetch.
+    let (objects, _not_found) = backend
+        .get_objects::<Metadata>(caller, &account_id, Some(&union_ids), None)
+        .await
+        .map_err(|e| server_fail_from_backend(&e))?;
+
+    // Build lookup: id -> Metadata for O(1) filter checks.
+    let lookup: std::collections::HashMap<String, &Metadata> = objects
+        .iter()
+        .filter_map(|m| m.id().map(|id| (id.as_ref().to_owned(), m)))
+        .collect();
+
+    // Filter both arrays from the same lookup.
+    filter_array_via_lookup(
         &mut response,
         "created",
+        created_strs,
+        &lookup,
         filter_related_type.as_deref(),
         filter_metadata_type.as_deref(),
-    )
-    .await?;
-    filter_changes_array(
-        backend,
-        caller,
-        &account_id,
+    );
+    filter_array_via_lookup(
         &mut response,
         "updated",
+        updated_strs,
+        &lookup,
         filter_related_type.as_deref(),
         filter_metadata_type.as_deref(),
-    )
-    .await?;
+    );
 
     Ok((response, vec![]))
 }
 
-/// Re-fetch each Id in `response[key]` via `get_objects::<Metadata>` and
-/// retain only those whose `relatedType` and `@type` match the supplied
-/// filters.
+/// Filter `response[key]` against a pre-built `id → Metadata` lookup,
+/// retaining only entries whose `relatedType` and `@type` match the
+/// supplied filters. Pure in-memory operation; no backend calls.
+///
+/// The caller (`handle_metadata_changes`) builds `lookup` from a single
+/// `get_objects::<Metadata>` call on the union of `created` + `updated`
+/// Ids and reuses it for both arrays (bd:JMAP-ayoz.9). Before that fix
+/// the lookup was built once per array, doubling the backend
+/// round-trips on every filtered `/changes` call.
+///
+/// `id_strs` is the original order of Ids in `response[key]`, captured
+/// before any filtering so this helper can iterate without re-reading
+/// the response Value. The helper overwrites `response[key]` with the
+/// filtered result.
 ///
 /// **TOCTOU policy** (bd:JMAP-ayoz.4). If a Metadata object the change
-/// log named for this window can no longer be fetched — typically because
+/// log named for this window is absent from `lookup` — typically because
 /// a concurrent /set destroyed it between the `get_metadata_changes` call
-/// and the `get_objects` call inside this function — its Id is **kept**
-/// in the filtered array, not dropped.
+/// and the caller's single `get_objects` call — its Id is **kept** in
+/// the filtered array, not dropped.
 ///
 /// Rationale: dropping the Id is the worst of both worlds. The state
 /// token covers the window inclusive of the original change-log entry,
@@ -231,10 +288,11 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
 ///
 /// # Batch-size warning for default-impl backends
 ///
-/// This helper makes one `get_objects::<Metadata>(..., Some(&ids), None)`
-/// call carrying every change-window id. There is NO max-batch cap,
-/// NO chunking, NO size guard (bd:JMAP-826m.22). For a default-impl
-/// database-backed `MetadataBackend` this can mean:
+/// The caller passes a `Vec<Id>` carrying every change-window id (the
+/// union of created + updated) to one `get_objects::<Metadata>` call.
+/// There is NO max-batch cap, NO chunking, NO size guard
+/// (bd:JMAP-826m.22). For a default-impl database-backed
+/// `MetadataBackend` this can mean:
 ///
 /// - An `IN (...)` clause with thousands of items, exceeding common
 ///   driver limits (PostgreSQL ~32k, SQLite ~999).
@@ -248,52 +306,33 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
 /// to pre-filter from their change log directly. Backends that ship the
 /// default impl unmodified will pay O(window_size) cost on every
 /// `/changes` call. The override pattern is the only way to fully avoid
-/// this helper's batch behaviour; chunking inside this helper would
-/// still issue O(window_size / chunk_size) round-trips for the same
-/// data volume.
-async fn filter_changes_array<B: MetadataBackend>(
-    backend: &B,
-    caller: &B::CallerCtx,
-    account_id: &Id,
+/// this batch behaviour; chunking inside this code path would still
+/// issue O(window_size / chunk_size) round-trips for the same data
+/// volume.
+fn filter_array_via_lookup(
     response: &mut Value,
     key: &str,
+    id_strs: Vec<String>,
+    lookup: &std::collections::HashMap<String, &Metadata>,
     filter_related_type: Option<&str>,
     filter_metadata_type: Option<&[String]>,
-) -> Result<(), JmapError> {
+) {
     let Some(Value::Array(ids)) = response.get_mut(key) else {
-        return Ok(());
+        return;
     };
 
-    if ids.is_empty() {
-        return Ok(());
+    if id_strs.is_empty() {
+        return;
     }
-
-    // Collect string Ids from the response array, preserving order.
-    let id_strs: Vec<String> = ids
-        .iter()
-        .filter_map(|v| v.as_str().map(|s| s.to_owned()))
-        .collect();
-    let ids_for_fetch: Vec<Id> = id_strs.iter().map(|s| Id::from(s.as_str())).collect();
-
-    // Fetch the actual Metadata objects so we can inspect relatedType / @type.
-    let (objects, _not_found) = backend
-        .get_objects::<Metadata>(caller, account_id, Some(&ids_for_fetch), None)
-        .await
-        .map_err(|e| server_fail_from_backend(&e))?;
-
-    // Build lookup: id -> Metadata for O(1) filter lookups.
-    let lookup: std::collections::HashMap<String, &Metadata> = objects
-        .iter()
-        .filter_map(|m| m.id().map(|id| (id.as_ref().to_owned(), m)))
-        .collect();
 
     let filtered: Vec<Value> = id_strs
         .into_iter()
         .filter(|id_str| {
             let Some(meta) = lookup.get(id_str) else {
                 // TOCTOU policy (see function rustdoc): the object
-                // disappeared between the change-log read and this
-                // re-fetch. Keep the Id rather than silently drop it.
+                // disappeared between the change-log read and the
+                // caller's single re-fetch. Keep the Id rather than
+                // silently drop it.
                 return true;
             };
             if let Some(rt) = filter_related_type {
@@ -316,7 +355,6 @@ async fn filter_changes_array<B: MetadataBackend>(
         .collect();
 
     *ids = filtered;
-    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -1435,10 +1473,10 @@ mod tests {
         assert_eq!(err.error_type, "invalidArguments", "got: {err:?}");
     }
 
-    /// Oracle: bd:JMAP-ayoz.4 — filter_changes_array's post-fetch path
-    /// MUST NOT silently drop an Id whose Metadata object disappeared
-    /// between the change-log read and the get_objects re-fetch (TOCTOU
-    /// with a concurrent destroyer). The Id is kept; per draft §3.3 the
+    /// Oracle: bd:JMAP-ayoz.4 — the post-fetch filter pass MUST NOT
+    /// silently drop an Id whose Metadata object disappeared between
+    /// the change-log read and the `get_objects` re-fetch (TOCTOU with
+    /// a concurrent destroyer). The Id is kept; per draft §3.3 the
     /// filter applies to which entries appear, not to which entries the
     /// server is allowed to forget.
     ///
@@ -1468,7 +1506,7 @@ mod tests {
             acct.state = 1;
         }
 
-        // Use a filter so filter_changes_array runs (it short-circuits
+        // Use a filter so the post-filter pass runs (it short-circuits
         // when both filter args are None).
         let args = json!({
             "accountId": "acc1",
@@ -1490,6 +1528,109 @@ mod tests {
         assert!(
             created_ids.contains(&"md_gone"),
             "md_gone (disappeared mid-flight) MUST be kept, not silently dropped: {resp}",
+        );
+    }
+
+    /// Oracle: bd:JMAP-ayoz.9 — the post-filter pass MUST issue at most
+    /// ONE `get_objects` call regardless of how many entries the change
+    /// log holds across `created` + `updated`. The pre-fix shape called
+    /// `filter_changes_array` once per array, each making its own
+    /// `get_objects` round-trip; after the fix the handler unions the
+    /// Ids and fetches once.
+    ///
+    /// Setup: seed the change log with two created Ids AND two updated
+    /// Ids, all four Metadata objects pre-registered. Call with a
+    /// filter so the post-filter path runs. Assert `get_objects` was
+    /// called exactly once.
+    #[tokio::test]
+    async fn changes_filter_uses_single_get_objects_round_trip() {
+        let backend = MockBackend::new_with_account("acc1");
+        for id in ["md1", "md2", "md3", "md4"] {
+            backend.add_metadata(
+                "acc1",
+                id,
+                json!({
+                    "@type": "Annotation",
+                    "id": id,
+                    "relatedType": "Email",
+                    "relatedId": "EM1"
+                }),
+            );
+        }
+        {
+            let mut guard = backend.state_for_test();
+            let acct = guard.get_mut("acc1").unwrap();
+            acct.created = vec![Id::from("md1"), Id::from("md2")];
+            acct.updated = vec![Id::from("md3"), Id::from("md4")];
+            acct.state = 1;
+        }
+
+        let baseline = backend.get_objects_call_count();
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": "Email"
+        });
+        let (resp, _) = handle_metadata_changes(&backend, &(), args).await.unwrap();
+        let after = backend.get_objects_call_count();
+
+        assert_eq!(
+            after - baseline,
+            1,
+            "post-filter pass MUST issue exactly one get_objects call \
+             (was two separate calls before bd:JMAP-ayoz.9); response: {resp}",
+        );
+
+        // Sanity-check the result is still correct.
+        let created_ids: Vec<&str> = resp["created"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        let updated_ids: Vec<&str> = resp["updated"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .filter_map(|v| v.as_str())
+            .collect();
+        assert_eq!(created_ids, vec!["md1", "md2"]);
+        assert_eq!(updated_ids, vec!["md3", "md4"]);
+    }
+
+    /// Oracle: bd:JMAP-ayoz.9 — when both `created` and `updated` are
+    /// empty AND a filter is supplied, the handler MUST short-circuit
+    /// without calling `get_objects` at all. Previously the per-array
+    /// helpers each early-returned on empty input, but BOTH still ran;
+    /// the union-empty short-circuit is the new bonus optimisation
+    /// recommended by the bead description.
+    #[tokio::test]
+    async fn changes_filter_skips_get_objects_when_both_arrays_empty() {
+        let backend = MockBackend::new_with_account("acc1");
+        // Bump state so `since_state == "0"` triggers the change-log
+        // walk path rather than the no-changes early return.
+        {
+            let mut guard = backend.state_for_test();
+            let acct = guard.get_mut("acc1").unwrap();
+            acct.state = 1;
+            // Leave created / updated / destroyed empty — change-log
+            // walk returns three empty Vecs.
+        }
+
+        let baseline = backend.get_objects_call_count();
+        let args = json!({
+            "accountId": "acc1",
+            "sinceState": "0",
+            "filterRelatedType": "Email"
+        });
+        let (resp, _) = handle_metadata_changes(&backend, &(), args).await.unwrap();
+        let after = backend.get_objects_call_count();
+
+        assert_eq!(
+            after - baseline,
+            0,
+            "post-filter pass MUST NOT call get_objects when both \
+             arrays are empty; response: {resp}",
         );
     }
 

@@ -154,6 +154,7 @@ pub(crate) mod test_support {
     //! [`crate::memory::MemoryBackend`] for the public reference impl.
 
     use std::collections::HashMap;
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::sync::{Arc, Mutex};
 
     use jmap_metadata_types::Metadata;
@@ -231,6 +232,10 @@ pub(crate) mod test_support {
         /// the mock to be shared across threads (required by
         /// `JmapBackend: Sync`).
         state: Arc<Mutex<HashMap<String, AccountState>>>,
+        /// Counter incremented on every `get_objects` call. Used by
+        /// `Metadata/changes` round-trip-count regression tests
+        /// (bd:JMAP-ayoz.9) to pin the handler's union-fetch behaviour.
+        get_objects_calls: Arc<AtomicU64>,
     }
 
     impl MockBackend {
@@ -238,6 +243,7 @@ pub(crate) mod test_support {
         pub fn new() -> Self {
             Self {
                 state: Arc::new(Mutex::new(HashMap::new())),
+                get_objects_calls: Arc::new(AtomicU64::new(0)),
             }
         }
 
@@ -249,6 +255,13 @@ pub(crate) mod test_support {
                 .unwrap()
                 .insert(account_id.to_owned(), AccountState::default());
             b
+        }
+
+        /// Number of `get_objects` calls observed since this backend
+        /// instance was constructed. Tests assert against this value to
+        /// pin handler round-trip counts (bd:JMAP-ayoz.9).
+        pub fn get_objects_call_count(&self) -> u64 {
+            self.get_objects_calls.load(Ordering::Relaxed)
         }
 
         /// Pre-populate a Metadata object in the given account.
@@ -301,6 +314,7 @@ pub(crate) mod test_support {
             ids: Option<&[Id]>,
             _properties: Option<&[String]>,
         ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+            self.get_objects_calls.fetch_add(1, Ordering::Relaxed);
             // The mock stores Metadata objects only. Other O types return an
             // empty list — fine for these tests.
             if O::TYPE_NAME != Metadata::TYPE_NAME {
