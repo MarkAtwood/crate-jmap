@@ -60,10 +60,12 @@ async fn calendar_event_get_params_all_three_passthrough() {
         .await;
 
     let sc = helpers::make_client(&server);
-    let mut params = CalendarEventGetParams::default();
-    params.expand_recurrences = Some(true);
-    params.reduced_participants = Some(false);
-    params.fetch_calendars = Some(true);
+    let params = CalendarEventGetParams {
+        expand_recurrences: Some(true),
+        reduced_participants: Some(false),
+        fetch_calendars: Some(true),
+        ..Default::default()
+    };
     let _ = sc
         .calendar_event_get(None, None, Some(params))
         .await
