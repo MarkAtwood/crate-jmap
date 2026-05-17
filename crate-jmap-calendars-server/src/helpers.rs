@@ -8,6 +8,27 @@ use jmap_server::server_fail_from_backend;
 
 pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 
+/// Sentinel object ID set by `*/set` create handlers before the backend
+/// assigns the real one.
+///
+/// Used by [`calendar.rs`](crate::calendar), [`event.rs`](crate::event), and
+/// [`participant_identity.rs`](crate::participant_identity) create paths.
+/// The typed `Calendar` / `CalendarEvent` / `ParticipantIdentity` structs
+/// in `jmap-calendars-types` require an `id` field for serde to deserialize
+/// the wire payload, but draft-ietf-jmap-calendars-26 §5.3 forbids the
+/// client from supplying one on create. The handler force-inserts this
+/// sentinel before `serde_json::from_value`, then the backend's
+/// `create_object` MUST replace it with a real, unique, account-scoped Id
+/// (see the `CalendarsBackend::create_object` contract). Clients must
+/// never see this value.
+///
+/// Defined as a constant so the three write-side handler sites and any
+/// future read-side detection site all use the same string and a rename
+/// is caught at compile time. Mirrors the canonical
+/// [`crate-jmap-mail-server/src/helpers.rs`] `PLACEHOLDER_ID` pattern
+/// (bd:JMAP-ic0j.10).
+pub(crate) const PLACEHOLDER_ID: &str = "placeholder";
+
 /// Per-`/set` accumulators emitted in the RFC 8620 §5.3 response envelope.
 ///
 /// The six fields correspond to the six top-level result keys (`created`,
