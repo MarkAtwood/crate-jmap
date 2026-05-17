@@ -79,7 +79,7 @@ impl TransportConfig for DefaultTransport {
 /// (`reqwest::ClientBuilder::add_root_certificate` does NOT call
 /// `.tls_built_in_root_certs(false)` by default, so a hand-rolled impl
 /// has the additive shape automatically).
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct CustomCaTransport {
     der_cert: Vec<u8>,
 }
@@ -88,6 +88,28 @@ impl CustomCaTransport {
     /// Construct a `CustomCaTransport` from a DER-encoded CA certificate.
     pub fn new(der_cert: Vec<u8>) -> Self {
         Self { der_cert }
+    }
+}
+
+/// Manual `Debug` impl that redacts the DER-encoded CA bytes
+/// (bd:JMAP-6r7c.13).
+///
+/// The DER bytes are not a credential, but they are deployment-identifying
+/// material: a CA certificate uniquely identifies the deployment's PKI
+/// (Subject DN, public key, signing algorithm, validity window, X.509
+/// extensions). In federated or multi-tenant scenarios, surfacing those
+/// bytes in `tracing` output reveals which private-CA-using customer the
+/// client is configured to talk to. Print the length only and let the
+/// caller obtain the bytes via a constructor-controlled path if they
+/// genuinely need them.
+///
+/// Mirrors the redacting `Debug` impls on `BearerAuth` and `BasicAuth`
+/// in this file and on `Session` and `AccountInfo` in `request.rs`.
+impl std::fmt::Debug for CustomCaTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CustomCaTransport")
+            .field("der_cert", &format_args!("<{} bytes>", self.der_cert.len()))
+            .finish()
     }
 }
 
@@ -550,6 +572,50 @@ mod tests {
         assert!(
             !dbg.contains(&base64_pair),
             "BasicAuth Debug must not contain the base64-encoded credentials; got: {dbg}"
+        );
+    }
+
+    /// Oracle: `CustomCaTransport`'s Debug impl never prints the raw DER
+    /// certificate bytes (bd:JMAP-6r7c.13).
+    ///
+    /// CA DER bytes are not a credential, but they are deployment-identifying
+    /// material — Subject DN, public key, signing algorithm, X.509
+    /// extensions. Surfacing them in `tracing` output reveals which private-
+    /// CA-using customer the client is configured for. The canary byte
+    /// sequence is an unmistakable repeating literal `0xCA` 32 times — the
+    /// test asserts neither the lower-hex nor the upper-hex nor the
+    /// Rust-debug `[202, 202, ...]` rendering of those bytes appears in the
+    /// Debug output. Same tripwire shape as the BearerAuth and BasicAuth
+    /// tests above.
+    #[test]
+    fn custom_ca_transport_debug_does_not_leak_der_bytes() {
+        // 32 copies of 0xCA — an unmistakable sentinel byte. No conformant
+        // DER encoder produces a run like this, so any leakage path
+        // surfaces it intact.
+        let canary_der = vec![0xCA_u8; 32];
+        let transport = CustomCaTransport::new(canary_der);
+        let dbg = format!("{transport:?}");
+        // Lowercase hex rendering of the canary.
+        assert!(
+            !dbg.contains("cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca"),
+            "CustomCaTransport Debug must not contain lowercase-hex DER bytes; got: {dbg}"
+        );
+        // Uppercase hex rendering — in case a future fmt::Debug uses {:X}.
+        assert!(
+            !dbg.contains("CACACACACACACACACACACACACACACACACACACACACACACACACACACACACACACACA"),
+            "CustomCaTransport Debug must not contain uppercase-hex DER bytes; got: {dbg}"
+        );
+        // Rust `[u8]` default Debug rendering — `[202, 202, ...]`. A
+        // derive(Debug) regression on the field would emit this shape.
+        assert!(
+            !dbg.contains("202, 202, 202"),
+            "CustomCaTransport Debug must not contain decimal-byte DER bytes; got: {dbg}"
+        );
+        // Positive assertion: the redacted form mentions the length, so a
+        // reader of `tracing` output still knows the field is non-empty.
+        assert!(
+            dbg.contains("32 bytes"),
+            "CustomCaTransport Debug should record the DER byte length; got: {dbg}"
         );
     }
 
