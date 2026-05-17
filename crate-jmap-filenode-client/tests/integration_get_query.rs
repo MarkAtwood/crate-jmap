@@ -78,7 +78,14 @@ async fn filenode_get_with_fetch_parents() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .filenode_get(Some(&[Id::from("fn1")]), None, Some(true))
+        .filenode_get(
+            Some(&[Id::from("fn1")]),
+            None,
+            Some(jmap_filenode_client::FileNodeGetParams {
+                fetch_parents: Some(true),
+                extra: serde_json::Map::new(),
+            }),
+        )
         .await
         .expect("filenode_get_with_fetch_parents: must succeed");
 

@@ -17,6 +17,45 @@ use jmap_types::{Id, PatchObject, State};
 // FileNode-specific input types
 // ---------------------------------------------------------------------------
 
+/// Parameters for FileNode/get requests
+/// (draft-ietf-jmap-filenode-13 §3.2.1).
+///
+/// Carries the extension-specific request arguments beyond the standard
+/// RFC 8620 §5.1 `accountId` / `ids` / `properties` set, which are passed
+/// as positional arguments to [`SessionClient::filenode_get`].
+///
+/// The current draft (revision 13) defines a single extension argument,
+/// `fetchParents`. Future draft revisions may add more (e.g. a depth or
+/// path-resolution control); housing the args in a `#[non_exhaustive]`
+/// struct lets the workspace add fields without a breaking change to the
+/// `filenode_get` signature.
+///
+/// [`SessionClient::filenode_get`]: super::SessionClient::filenode_get
+#[derive(Debug, Default, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FileNodeGetParams {
+    /// If `Some(true)`, the server returns all ancestor nodes of the
+    /// requested ids in addition to the requested nodes themselves
+    /// (draft-ietf-jmap-filenode-13 §3.2.1). Server default when absent
+    /// is `false`.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub fetch_parents: Option<bool>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the standard
+    /// RFC 8620 §5.1 arg names (`accountId`, `ids`, `properties`) or with
+    /// the typed-field wire names above (`fetchParents`); `filenode_get`
+    /// will silently retain the typed-field value if an extras key
+    /// collides. Place vendor extensions under vendor-prefixed keys (e.g.
+    /// `"acmeCorpFoo"`) to avoid the collision class.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
 /// The action to take when a FileNode with the same name already exists
 /// (draft-ietf-jmap-filenode-13 §3.2.3 `onExists` argument).
 #[derive(Debug, Clone, serde::Serialize)]
@@ -102,14 +141,20 @@ impl super::SessionClient {
     /// `requestTooLarge` errors when the account holds more objects
     /// than the cap.
     /// Pass `properties: None` to return all fields.
-    /// If `fetch_parents` is `Some(true)`, the server also returns all ancestor
-    /// nodes of the requested IDs.
+    /// Use `params` to set FileNode-specific top-level arguments such as
+    /// `fetchParents` (draft-ietf-jmap-filenode-13 §3.2.1) and vendor
+    /// extensions via the [`FileNodeGetParams::extra`] flatten field. Pass
+    /// `params: None` for the spec-default behavior.
     ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:filenode`.
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `params` is `Some` and serializing it to JSON fails
+    ///   (pathological conditions only — allocation failure, or a vendor
+    ///   value in `params.extra` that itself fails to serialize).
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -126,7 +171,7 @@ impl super::SessionClient {
         &self,
         ids: Option<&[Id]>,
         properties: Option<&[&str]>,
-        fetch_parents: Option<bool>,
+        params: Option<FileNodeGetParams>,
     ) -> Result<GetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         // Omit `ids` / `properties` entirely when None rather than sending
@@ -143,8 +188,25 @@ impl super::SessionClient {
             args["properties"] =
                 serde_json::to_value(props).expect("&[&str] Serialize is infallible");
         }
-        if let Some(fp) = fetch_parents {
-            args["fetchParents"] = fp.into();
+        if let Some(p) = params {
+            let pv = serde_json::to_value(p).map_err(|e| {
+                jmap_base_client::ClientError::InvalidArgument(format!(
+                    "filenode_get: failed to serialize params: {e}"
+                ))
+            })?;
+            if let serde_json::Value::Object(map) = pv {
+                // Use `entry().or_insert()` so a caller who put a typed
+                // wire key (e.g. "accountId", "ids", "properties",
+                // "fetchParents") into `params.extra` cannot silently
+                // clobber the value computed from the bound session and
+                // the typed args. Typed wins on collision.
+                let args_obj = args
+                    .as_object_mut()
+                    .expect("filenode_get: args is constructed as Object");
+                for (k, v) in map {
+                    args_obj.entry(k).or_insert(v);
+                }
+            }
         }
         let req = super::build_request("FileNode/get", args, super::USING_FILENODE);
         let resp = self.call_internal(api_url, &req).await?;
