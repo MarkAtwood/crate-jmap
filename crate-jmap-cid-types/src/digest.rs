@@ -16,7 +16,8 @@
 //! the wire shape. Servers / consumers compute the digest themselves
 //! (typically via [`sha2`](https://crates.io/crates/sha2) or
 //! [`ring`](https://crates.io/crates/ring)) and pass the 32 raw
-//! bytes to [`Sha256::from_raw_digest`] to format the wire value.
+//! bytes via [`From`]`<[u8; 32]>` / [`From`]`<&[u8; 32]>` for
+//! [`Sha256`] to format the wire value.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
@@ -132,13 +133,16 @@ impl std::error::Error for Sha256DigestError {}
 /// - `serde::Deserialize` — validates via `TryFrom<String>` per
 ///   the `#[serde(try_from = "String")]` attribute.
 ///
-/// One infallible constructor:
+/// One infallible conversion:
 ///
-/// - [`Sha256::from_raw_digest`] — format 32 raw digest bytes
-///   into the canonical lowercase-hex string. Named to emphasise
-///   that the input is the *output* of a hash function (the raw
-///   digest), NOT arbitrary input data to be hashed — this crate
-///   carries no hash computation.
+/// - [`From`]`<[u8; 32]>` / [`From`]`<&[u8; 32]>` for [`Sha256`] —
+///   format 32 raw digest bytes into the canonical lowercase-hex
+///   string. Infallible because every byte produces two
+///   lowercase-hex nibbles by construction. The input is the
+///   *output* of a hash function (the raw digest), NOT arbitrary
+///   input data to be hashed — this crate carries no hash
+///   computation. See the [`From<&[u8; 32]>`](#impl-From%3C%26%5Bu8;+32%5D%3E-for-Sha256)
+///   impl for byte-ordering details.
 ///
 /// # Wire format
 ///
@@ -273,45 +277,6 @@ impl Sha256 {
         Ok(())
     }
 
-    /// Format 32 raw digest bytes as a canonical lowercase-hex
-    /// [`Sha256`]. Infallible because every byte produces two
-    /// lowercase-hex nibbles by construction.
-    ///
-    /// The input is the **output of a SHA-256 hash function** —
-    /// e.g. `sha2::Sha256::digest(data).into()` — not the data to
-    /// be hashed. This crate intentionally carries no hash
-    /// computation; the name `from_raw_digest` (rather than the
-    /// more familiar `from_bytes`) is chosen to make the
-    /// input-vs-output distinction unambiguous at call sites.
-    ///
-    /// # Byte ordering
-    ///
-    /// The 32 input bytes are taken in the canonical
-    /// **FIPS 180-4 SHA-256 output order**: the most significant
-    /// byte of the digest first. `b[0]` occupies positions 0..=1
-    /// of the resulting hex string and `b[31]` occupies positions
-    /// 62..=63. This matches the output of `sha2::Sha256::digest`,
-    /// `ring::digest::digest(&SHA256, ...)`, and
-    /// `openssl::sha::sha256`. Consumers feeding digest output
-    /// from a non-standard source (HSM in non-standard endianness,
-    /// pre-reversed archive format) must reorder bytes before
-    /// calling this constructor or the wire value will be wrong.
-    pub fn from_raw_digest(b: &[u8; 32]) -> Self {
-        use std::fmt::Write as _;
-        // 32 bytes → 64 hex chars. Pre-size the buffer to avoid
-        // reallocations; the `{:02x}` formatter writes two
-        // lowercase-hex nibbles per byte using std's well-tested
-        // hex formatter.
-        let mut out = String::with_capacity(64);
-        for byte in b {
-            // write! to a String never fails (the String never
-            // returns Err from its fmt::Write impl) — the .expect
-            // documents that the only Err path is unreachable.
-            write!(out, "{byte:02x}").expect("write! to String is infallible");
-        }
-        Self(out)
-    }
-
     /// Borrow the inner 64-character lowercase-hex string.
     pub fn as_str(&self) -> &str {
         &self.0
@@ -365,6 +330,57 @@ impl std::str::FromStr for Sha256 {
 impl From<Sha256> for String {
     fn from(d: Sha256) -> Self {
         d.0
+    }
+}
+
+impl From<&[u8; 32]> for Sha256 {
+    /// Format 32 raw digest bytes as a canonical lowercase-hex
+    /// [`Sha256`]. Infallible because every byte produces two
+    /// lowercase-hex nibbles by construction.
+    ///
+    /// The input is the **output of a SHA-256 hash function** —
+    /// e.g. `sha2::Sha256::digest(data).into()` — not the data to
+    /// be hashed. This crate intentionally carries no hash
+    /// computation.
+    ///
+    /// # Byte ordering
+    ///
+    /// The 32 input bytes are taken in the canonical
+    /// **FIPS 180-4 SHA-256 output order**: the most significant
+    /// byte of the digest first. `b[0]` occupies positions 0..=1
+    /// of the resulting hex string and `b[31]` occupies positions
+    /// 62..=63. This matches the output of `sha2::Sha256::digest`,
+    /// `ring::digest::digest(&SHA256, ...)`, and
+    /// `openssl::sha::sha256`. Consumers feeding digest output
+    /// from a non-standard source (HSM in non-standard endianness,
+    /// pre-reversed archive format) must reorder bytes before
+    /// the conversion or the wire value will be wrong.
+    fn from(b: &[u8; 32]) -> Self {
+        use std::fmt::Write as _;
+        // 32 bytes → 64 hex chars. Pre-size the buffer to avoid
+        // reallocations; the `{:02x}` formatter writes two
+        // lowercase-hex nibbles per byte using std's well-tested
+        // hex formatter.
+        let mut out = String::with_capacity(64);
+        for byte in b {
+            // write! to a String never fails (the String never
+            // returns Err from its fmt::Write impl) — the .expect
+            // documents that the only Err path is unreachable.
+            write!(out, "{byte:02x}").expect("write! to String is infallible");
+        }
+        Self(out)
+    }
+}
+
+impl From<[u8; 32]> for Sha256 {
+    /// Ergonomic owned-array conversion. Delegates to
+    /// [`From`]`<&[u8; 32]>` for [`Sha256`] — see that impl for
+    /// byte-ordering details. Provided so callers with an owned
+    /// digest array (e.g. `sha2::Sha256::digest(data).into()`)
+    /// can write `Sha256::from(bytes)` or `bytes.into()` without
+    /// reaching for `&bytes` at the call site.
+    fn from(b: [u8; 32]) -> Self {
+        Self::from(&b)
     }
 }
 
@@ -472,26 +488,44 @@ mod tests {
     }
 
     #[test]
-    fn from_raw_digest_formats_canonical_lowercase_hex() {
+    fn from_borrowed_array_formats_canonical_lowercase_hex() {
         // SHA-256("") = e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
         // (NIST FIPS 180-4 published vector — independent oracle, NOT
-        // derived from this crate). The vector is hand-copied into the
-        // test rather than computed via sha2::Sha256::digest() at test
-        // time, because the latter would close the oracle loop: any
-        // nibble-ordering or character-table bug in from_raw_digest
-        // would emit the same wrong digest the test expects. See
-        // bd:JMAP-sf5h.8 for the decision record.
+        // derived from this crate). The vector is hand-copied into
+        // the test rather than computed via sha2::Sha256::digest() at
+        // test time, because the latter would close the oracle loop:
+        // any nibble-ordering or character-table bug in the
+        // From<&[u8; 32]> impl would emit the same wrong digest the
+        // test expects. See bd:JMAP-sf5h.8 for the decision record.
         let bytes: [u8; 32] = [
             0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f,
             0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b,
             0x78, 0x52, 0xb8, 0x55,
         ];
-        let d = Sha256::from_raw_digest(&bytes);
+        let d = Sha256::from(&bytes);
         assert_eq!(d.as_str(), VALID);
     }
 
     #[test]
-    fn from_raw_digest_deadbeef_pattern() {
+    fn from_owned_array_delegates_to_borrowed_path() {
+        // The owned-array From<[u8; 32]> impl must produce the same
+        // wire string as the borrowed-array From<&[u8; 32]> impl for
+        // the same input — they share a single nibble-formatting
+        // path. Same FIPS 180-4 vector as the borrowed-path test.
+        let bytes: [u8; 32] = [
+            0xe3, 0xb0, 0xc4, 0x42, 0x98, 0xfc, 0x1c, 0x14, 0x9a, 0xfb, 0xf4, 0xc8, 0x99, 0x6f,
+            0xb9, 0x24, 0x27, 0xae, 0x41, 0xe4, 0x64, 0x9b, 0x93, 0x4c, 0xa4, 0x95, 0x99, 0x1b,
+            0x78, 0x52, 0xb8, 0x55,
+        ];
+        // `.into()` exercises the From<[u8; 32]> path.
+        let d: Sha256 = bytes.into();
+        assert_eq!(d.as_str(), VALID);
+        // And both impls agree.
+        assert_eq!(d, Sha256::from(&bytes));
+    }
+
+    #[test]
+    fn from_array_deadbeef_pattern() {
         // First four bytes 0xde 0xad 0xbe 0xef, rest zero — verifies
         // nibble ordering and lowercase-hex character set.
         let mut bytes = [0u8; 32];
@@ -499,7 +533,7 @@ mod tests {
         bytes[1] = 0xad;
         bytes[2] = 0xbe;
         bytes[3] = 0xef;
-        let d = Sha256::from_raw_digest(&bytes);
+        let d = Sha256::from(&bytes);
         assert!(d.as_str().starts_with("deadbeef"));
         assert_eq!(d.as_str().len(), 64);
         // All trailing nibbles should be '0' since the bytes are zero.

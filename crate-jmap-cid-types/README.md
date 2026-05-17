@@ -62,11 +62,11 @@ assert_eq!(digest.as_ref().len(), 64);
 # Ok::<(), jmap_cid_types::Sha256DigestError>(())
 ```
 
-Use `Sha256::from_raw_digest(&[u8; 32])` to build a digest from the
-raw 32-byte output of a SHA-256 hash function (e.g. `sha2::Sha256`)
-without going through a hex string. The capability URI
-`"urn:ietf:params:jmap:cid"` is detected via the `Session.capabilities`
-map in `jmap-base-client`.
+Use `Sha256::from(&[u8; 32])` (or `Sha256::from([u8; 32])` for an
+owned array) to build a digest from the raw 32-byte output of a
+SHA-256 hash function (e.g. `sha2::Sha256`) without going through a
+hex string. The capability URI `"urn:ietf:params:jmap:cid"` is
+detected via the `Session.capabilities` map in `jmap-base-client`.
 
 ## How it works
 
@@ -75,11 +75,12 @@ map in `jmap-base-client`.
   (`64( %x30-39 / %x61-66 )`): exactly 64 characters, lowercase hex
   only. Validation runs on `from_hex`, `TryFrom<&str>`, `FromStr`,
   and the `Deserialize` impl.
-- `from_raw_digest(&[u8; 32])` builds a digest infallibly by
-  formatting the raw 32-byte SHA-256 output as lowercase hex; no
-  parse step is needed because the output is always valid by
-  construction. The name emphasises that the input is the output
-  of a hash function — this crate carries no hash computation.
+- `From<[u8; 32]>` / `From<&[u8; 32]>` for `Sha256` build a digest
+  infallibly by formatting the raw 32-byte SHA-256 output as
+  lowercase hex; no parse step is needed because the output is
+  always valid by construction. The input is the output of a hash
+  function (e.g. `sha2::Sha256::digest(data).into()`) — this crate
+  carries no hash computation.
 - The error type [`Sha256DigestError`] is a single-tier enum
   (`WrongLength { got }` or `NonHexLowercase { at, byte }`) with
   `#[non_exhaustive]` at the type level and per-variant

@@ -81,9 +81,12 @@ After bd:JMAP-v9py.12:
   (`64( %x30-39 / %x61-66 )`). Implements `Display`, `AsRef<str>`,
   `From<Sha256> for String`, `TryFrom<String>`, `TryFrom<&str>`,
   `FromStr`. Constructors: `from_hex(&str)` (validating) and
-  `from_raw_digest(&[u8; 32])` (infallible nibble-formatter; the
-  name disambiguates from `sha2::Sha256::digest`-style "compute the
-  hash of these bytes" — see bd:JMAP-sf5h.4).
+  `From<[u8; 32]>` / `From<&[u8; 32]>` (infallible nibble-formatter
+  for raw SHA-256 output; bd:JMAP-sf5h.19 collapsed the previous
+  named `from_raw_digest` constructor to a trait impl now that the
+  input-vs-output ambiguity from bd:JMAP-sf5h.4 is gone — the
+  `[u8; 32]` input type alone disambiguates from
+  `sha2::Sha256::digest`-style "compute hash of these bytes").
 - `pub enum Sha256DigestError { WrongLength { got }, NonHexLowercase { at, byte } }`
   — single-tier enum (bd:JMAP-sf5h.21 dropped the prior wrapper
   struct); `#[non_exhaustive]` at the type level and per-variant
@@ -171,14 +174,15 @@ check. The decision is normative — a future contributor proposing
 `From<String> for Sha256` for canonical-template consistency
 should be referred to this section.
 
-### NIST FIPS 180-4 oracle for from_raw_digest tests (bd:JMAP-sf5h.8)
+### NIST FIPS 180-4 oracle for raw-digest → hex tests (bd:JMAP-sf5h.8)
 
-`from_raw_digest_formats_canonical_lowercase_hex` uses the SHA-256
-of the empty string (`e3b0c4...b855`) hand-copied from NIST
+`from_borrowed_array_formats_canonical_lowercase_hex` and
+`from_owned_array_delegates_to_borrowed_path` use the SHA-256 of
+the empty string (`e3b0c4...b855`) hand-copied from NIST
 FIPS 180-4 as the test oracle. The vector is **not** computed at
 test time via `sha2::Sha256::digest()`. Doing so would close the
-oracle loop: any nibble-ordering or character-table bug in
-`from_raw_digest` would emit the same wrong digest the test
+oracle loop: any nibble-ordering or character-table bug in the
+`From<&[u8; 32]>` impl would emit the same wrong digest the test
 expects, and the test would still pass. The independent oracle
 catches that class of bug. The decision is workspace-policy
 ("Test oracles must be independent of the code under test" —
