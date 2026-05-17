@@ -108,6 +108,19 @@ pub struct CalendarEvent {
     /// Wire name is `"iCalComponent"` — not `"icalComponent"` — because "iCal"
     /// is a brand abbreviation with mixed case.  Manual rename required since
     /// `rename_all = "camelCase"` would produce `"icalComponent"`.
+    ///
+    /// **Brand-mismatch hazard (interop pitfall).** A peer that follows naive
+    /// camelCase rules instead of the spec spelling will emit
+    /// `"icalComponent"` (lowercase `i`). That key does NOT deserialize into
+    /// this typed field — it falls through into [`CalendarEvent::extra`] and
+    /// round-trips back out under the same lowercase spelling. Application
+    /// code that reads `.ical_component` will see `None` and conclude no
+    /// iCalendar data was provided, even though the bytes are present in
+    /// `extra["icalComponent"]`. Pinned in regression test
+    /// `calendar_event_naive_icalcomponent_lands_in_extras_not_typed_field`.
+    /// Consumers that interoperate with non-conformant peers should either
+    /// check `extra` for the lowercase key explicitly, or normalize the
+    /// payload upstream.
     #[serde(rename = "iCalComponent", skip_serializing_if = "Option::is_none")]
     pub ical_component: Option<String>,
 

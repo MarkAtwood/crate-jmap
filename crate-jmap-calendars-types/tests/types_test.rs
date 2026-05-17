@@ -1610,6 +1610,57 @@ fn calendar_event_ical_component_roundtrip() {
     );
 }
 
+/// Regression marker for the brand-mismatch hazard documented at bd:JMAP-1rwf.3.
+///
+/// The spec wire name for `CalendarEvent.ical_component` is `iCalComponent`
+/// (capital I, capital C) — reflecting the "iCal" brand spelling. A peer
+/// that follows naive camelCase rules emits `icalComponent` (lowercase i).
+/// The typed field does NOT accept the lowercase spelling: it stays `None`
+/// and the data ends up preserved in the `extra` flatten-catchall, where
+/// it round-trips back out under the same lowercase spelling.
+///
+/// This test pins the current behavior so that any future change — adding
+/// `#[serde(alias = "icalComponent")]` to recover the data into the typed
+/// field, or any unrelated serde behavior change — is visible. If you are
+/// adding the alias, update this test to assert the new typed-field
+/// destination; do not delete it.
+#[test]
+fn calendar_event_naive_icalcomponent_lands_in_extras_not_typed_field() {
+    let payload = r#"{"id":"e1","icalComponent":"BEGIN:VEVENT END:VEVENT"}"#;
+    let ev: CalendarEvent =
+        serde_json::from_str(payload).expect("naive camelCase payload must still deserialize");
+
+    // The typed field does NOT capture the lowercase spelling.
+    assert!(
+        ev.ical_component.is_none(),
+        "typed ical_component must remain None for the lowercase spelling — \
+         got {:?}",
+        ev.ical_component
+    );
+
+    // The flatten-catchall preserves the unknown key.
+    assert!(
+        ev.extra.contains_key("icalComponent"),
+        "naive 'icalComponent' must round-trip via the extras catch-all"
+    );
+    assert_eq!(
+        ev.extra.get("icalComponent").and_then(|v| v.as_str()),
+        Some("BEGIN:VEVENT END:VEVENT"),
+        "extras must preserve the raw value verbatim"
+    );
+
+    // Re-serialize: the lowercase form survives in extras, unchanged.
+    let reser = serde_json::to_value(&ev).expect("re-serialize must succeed");
+    assert_eq!(
+        reser["icalComponent"], "BEGIN:VEVENT END:VEVENT",
+        "re-serialize must emit the original lowercase spelling from extras"
+    );
+    assert!(
+        reser.get("iCalComponent").is_none(),
+        "no canonicalization happens — the spec spelling must NOT appear"
+    );
+}
+
 #[test]
 fn calendar_event_ical_component_absent_when_none() {
     // Oracle: skip_serializing_if = Option::is_none — iCalComponent must be absent

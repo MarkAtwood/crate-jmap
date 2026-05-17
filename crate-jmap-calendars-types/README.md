@@ -291,6 +291,16 @@ pub ical_component: Option<String>,
   with no validation. The crate does not parse or validate the iCalendar content;
   that is the consumer's responsibility.
 
+- **`iCalComponent` brand-mismatch hazard.** The spec wire name is
+  `iCalComponent` (capital I, capital C) — reflecting the "iCal" brand
+  spelling. A peer that follows naive `rename_all = "camelCase"` rules emits
+  `icalComponent` (lowercase `i`), which does NOT deserialize into the typed
+  `ical_component` field — it falls into the extras catch-all and round-trips
+  back out under the same lowercase spelling. Consumers reading
+  `.ical_component` will see `None` and conclude no data was provided even
+  though the bytes are present in `extra["icalComponent"]`. Pinned in
+  regression test `calendar_event_naive_icalcomponent_lands_in_extras_not_typed_field`.
+
 - **Draft expired.** draft-ietf-jmap-calendars-26 is an expired Internet-Draft,
   not a published RFC. Some ambiguous field semantics use best-judgment
   interpretation based on the JSCalendar RFC 8984 normative base. The type
