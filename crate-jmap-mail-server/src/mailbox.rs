@@ -661,6 +661,32 @@ pub async fn handle_mailbox_set<B: MailBackend>(
     if let Some(Value::Object(updates)) = args.remove("update") {
         // Two-pass update loop — do NOT collapse into a single pass.
         //
+        // Defense notes (bd:JMAP-q2wa.13): a future contributor might
+        // suggest simplifying this into one pass on the grounds that
+        // `serde_json::Map` iteration is insertion-ordered, or that a
+        // topological sort over the role-claim graph would do the same
+        // job more cleanly. Both refactors are wrong:
+        //
+        //   1. `serde_json::Map` iteration order is currently BTreeMap-
+        //      or insertion-ordered depending on the `preserve_order`
+        //      feature, but neither variant is part of the documented
+        //      semver contract. Relying on a single-pass order is a
+        //      latent bug under a dep bump.
+        //   2. The two-pass model directly mirrors the RFC 8620 §5.3
+        //      "creates before updates" ordering rule applied within
+        //      the update phase: vacating patches free state that
+        //      subsequent claiming patches consume. The shape
+        //      communicates the spec invariant at a glance.
+        //   3. A topological sort would require building a role-
+        //      dependency graph (which role is freed for whom) — net
+        //      negative abstraction vs. two short for-loops over the
+        //      partitioned update map.
+        //   4. The single-request role-swap case (A vacates inbox, B
+        //      claims inbox) is one of the easier-to-reason-about
+        //      correctness properties of `Mailbox/set`; the two-pass
+        //      shape makes the proof obvious. Combining would require
+        //      a complex argument about ordering within a single pass.
+        //
         // Two invariants govern the role-swap logic across the whole update loop:
         //
         //   roles_successfully_vacated — roles freed by pass-1 updates that
@@ -674,13 +700,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
         //
         // Pass 1 runs every patch that sets role: null (vacating a role).
         // Pass 2 runs everything else (including role-claiming patches).
-        //
-        // Two-pass: vacating patches (role: null) run first so that a single
-        // request can atomically swap roles — e.g. A vacates inbox, B claims
-        // inbox. Without the two passes, HashMap iteration order is undefined
-        // so either pass could run first and reject the claim. RFC 8621 §2.5.
-        // Pass 1 = role-vacating (role: null); pass 2 = everything else.
-        // This ordering allows a single request to swap roles atomically.
+        // This ordering allows a single request to swap roles atomically
+        // (RFC 8621 §2.5).
         let (vacating, non_vacating): (Vec<_>, Vec<_>) = updates.into_iter().partition(|(_, v)| {
             v.as_object()
                 .and_then(|o| o.get("role"))
