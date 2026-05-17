@@ -319,6 +319,20 @@ deserializes its arguments into `T`. Returns `ClientError::MethodNotFound` if
 the call ID is absent. Returns `ClientError::MethodError` if the server
 returned a JMAP `"error"` response for that call (RFC 8620 §3.6.1).
 
+**Multiple invocations sharing a call_id.** Per RFC 8620 §3.2, a single
+method call may produce multiple invocations in the response — for
+example, `Foo/copy` with `onSuccessDestroyOriginal: true` produces both
+a `Foo/copy` and an implicit `Foo/set` invocation, both stamped with
+the same `call_id` (RFC 8620 §5.8). `extract_response` handles this
+case by giving errors precedence: if any invocation matching `call_id`
+is a JMAP `"error"` response, that error is returned even when a
+sibling invocation with the same `call_id` succeeded. A success cannot
+mask a sibling error — silently returning success while the server
+reported failure would be data loss. Otherwise the first non-error
+invocation matching `call_id` is deserialized into `T`. See the
+function-level rustdoc for the full contract, including the "method
+name is not checked against `T`" caveat.
+
 Extension crates use this function to extract typed results without depending
 on internal crate details.
 
