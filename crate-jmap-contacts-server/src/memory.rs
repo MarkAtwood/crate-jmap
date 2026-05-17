@@ -861,6 +861,37 @@ impl ContactsBackend for MemoryBackend {
             }
         }
 
+        // bd:JMAP-qz9v.5 — RFC 9610 §2 AddressBook single-default invariant.
+        // "isDefault ... MUST NOT be true for more than one AddressBook
+        // within an account." Same enforcement shape as update_object
+        // (bd:JMAP-qz9v.11): demote every previously-default book in the
+        // same account when this create makes a new default. Demoted ids
+        // are collected so the change_log entry can surface them via
+        // AddressBook/changes per RFC 8620 §5.2.
+        //
+        // Note: RFC 9610 §2 marks isDefault as `(server-set)`, which by
+        // RFC 8620 §1.6 means the client MUST NOT send it on create. The
+        // strict-server-set reading is to reject client-supplied isDefault
+        // entirely with invalidProperties; the workspace currently allows
+        // it (test fixtures in src/lib.rs `seed_addressbook` rely on
+        // client-set isDefault). Until the workspace decides which
+        // reading to enforce, the invariant fix below makes the
+        // MemoryBackend at least satisfy the MUST NOT-more-than-one
+        // half of §2. The strict-server-set follow-up is tracked
+        // separately.
+        let mut demoted_ids: Vec<Id> = Vec::new();
+        if O::TYPE_NAME == "AddressBook" && address_book_is_default(&val) {
+            let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
+            for (other_id, other_val) in store.iter_mut() {
+                if address_book_is_default(other_val) {
+                    if let Some(map) = other_val.as_object_mut() {
+                        map.insert("isDefault".to_owned(), serde_json::Value::Bool(false));
+                        demoted_ids.push(other_id.clone());
+                    }
+                }
+            }
+        }
+
         let stored_obj: O = O::deserialize(&val).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!("deserialize after create: {e}")))
         })?;
@@ -881,7 +912,9 @@ impl ContactsBackend for MemoryBackend {
             .push(ChangeEntry {
                 new_state,
                 created: vec![server_id.clone()],
-                updated: vec![],
+                // Any AddressBooks demoted by the single-default invariant
+                // (bd:JMAP-qz9v.5) surface in `updated` for AddressBook/changes.
+                updated: demoted_ids,
                 destroyed: vec![],
             });
 

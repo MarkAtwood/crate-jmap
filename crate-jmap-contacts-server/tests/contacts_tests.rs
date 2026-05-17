@@ -484,6 +484,106 @@ async fn address_book_set_update_is_default_no_op_does_not_demote() {
 }
 
 // ---------------------------------------------------------------------------
+// Single-default invariant on AddressBook/set CREATE (bd:JMAP-qz9v.5)
+// Oracle: RFC 9610 §2 "MUST NOT be true for more than one AddressBook
+// within an account." Same invariant as update-side; parallel coverage.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn address_book_set_create_with_is_default_demotes_existing_default() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture_with_default("ab1", "First", true),
+    );
+
+    // Create a new book with isDefault:true; ab1 must be demoted.
+    let args = json!({
+        "accountId": "acc1",
+        "create": {
+            "c1": {
+                "name": "Second",
+                "sortOrder": 0,
+                "isDefault": true,
+                "isSubscribed": true
+            }
+        }
+    });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+    assert!(
+        resp["created"].is_object(),
+        "created must be present: {resp}"
+    );
+
+    // Fetch ab1 and confirm it was demoted.
+    let args = json!({ "accountId": "acc1", "ids": ["ab1"] });
+    let (resp, _) = handle_address_book_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let list = resp["list"].as_array().expect("list must be an array");
+    assert_eq!(list.len(), 1);
+    assert_eq!(
+        list[0]["isDefault"],
+        json!(false),
+        "ab1 must be demoted by the create-side invariant: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn address_book_set_create_with_is_default_records_demoted_in_changes() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture_with_default("ab1", "First", true),
+    );
+
+    // Capture pre-create state.
+    let args = json!({ "accountId": "acc1", "ids": null });
+    let (before, _) = handle_address_book_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let old_state = before["state"].clone();
+
+    // Create a new default book.
+    let args = json!({
+        "accountId": "acc1",
+        "create": {
+            "c1": {
+                "name": "Second",
+                "sortOrder": 0,
+                "isDefault": true,
+                "isSubscribed": true
+            }
+        }
+    });
+    let _ = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    // /changes since old_state must list ab1 in `updated` (demoted by
+    // the create's invariant pass) per RFC 8620 §5.2.
+    let args = json!({ "accountId": "acc1", "sinceState": old_state });
+    let (changes, _) = handle_address_book_changes(&backend, &(), args)
+        .await
+        .expect("/changes must succeed");
+    let updated = changes["updated"]
+        .as_array()
+        .expect("updated must be an array");
+    let updated_ids: std::collections::HashSet<&str> =
+        updated.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        updated_ids.contains("ab1"),
+        "ab1 (demoted on create) must appear in /changes updated: {changes}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Test 12: ContactCard/set create with client id rejected
 // Oracle: RFC 8620 §5.3.
 // ---------------------------------------------------------------------------
