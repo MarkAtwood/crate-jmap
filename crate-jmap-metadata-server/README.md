@@ -232,6 +232,36 @@ reference when writing a real backend. **Not production.** API stability
 is opt-in via this feature and may break across minor versions while the
 crate is pre-1.0.
 
+### `realistic-demo-ids` (opt-in id format)
+
+`MemoryBackend::demo_next_id` defaults to deterministic ids of the shape
+`"<typename><n:016x>"` (e.g. `"metadata0000000000000001"`). The
+counter is `HashMap::len() + 1` — easy to read in debug output and
+stable across runs, but it recycles ids after a destroy and resets on
+every process restart. Both bugs are fine for in-process tests.
+
+Enable `realistic-demo-ids` to switch to a process-global
+`(start_nanos + atomic_counter)` minter matching the canonical
+`jmap-mail-server` `next_id` pattern. Ids survive deletes without
+recycling and are globally lex-orderable within a process, but they
+are **not repeatable across runs** — any test that snapshots a
+literal id will break under this feature flip.
+
+```toml
+jmap-metadata-server = { version = "0.1", features = ["memory", "realistic-demo-ids"] }
+```
+
+Both modes are explicitly demonstration-quality; production backends
+must mint real ULIDs (or equivalent globally-unique, monotonic,
+persistent-across-restarts ids) and never use `demo_next_id` as a
+copy-paste source.
+
+Downstream consumers using `MemoryBackend` in their own test suite
+should be aware: enabling this feature anywhere in the workspace's
+feature unification will flip the id format for every `MemoryBackend`
+instance built in the same Cargo build, including ones in unrelated
+test fixtures.
+
 ## Gotchas
 
 - The handler does NOT enforce uniqueness, `maySetPrivate`, quota, or

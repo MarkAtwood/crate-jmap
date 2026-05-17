@@ -26,6 +26,34 @@
 //! that do not want to stand up a real database. **Not production.**
 //! API stability is opt-in via this feature and may break across minor
 //! versions while the crate is pre-1.0.
+//!
+//! # `realistic-demo-ids` feature (opt-in id format)
+//!
+//! By default `MemoryBackend::demo_next_id` mints deterministic ids of
+//! the shape `"<typename><n:016x>"` (e.g. `"metadata000000000000001"`).
+//! Deterministic ids make test snapshots stable across runs and easy
+//! to read in debug output, but the underlying counter is a
+//! per-(type, account) `HashMap::len() + 1` — it recycles ids after a
+//! destroy and resets to zero on every process restart.
+//!
+//! Enabling `realistic-demo-ids` switches to a process-global
+//! `(start_nanos + atomic_counter)` minter matching the canonical
+//! `jmap-mail-server` pattern at `email.rs:1748`. Ids are globally
+//! lex-orderable within a process and survive deletes without
+//! recycling. They are **not** repeatable across runs, so any test
+//! that snapshots a literal id will break under this feature flip.
+//!
+//! Both modes are explicitly demonstration-quality; production
+//! backends must mint real ULIDs (or equivalent globally-unique,
+//! monotonic, persistent-across-restarts ids) and never use
+//! `demo_next_id` as a copy-paste source. See
+//! [`memory::MemoryBackend`] rustdoc for the full discussion.
+//!
+//! Downstream consumers using `MemoryBackend` in their own test
+//! suite should be aware: enabling this feature anywhere in the
+//! workspace's feature unification will flip the id format for every
+//! `MemoryBackend` instance built in the same Cargo build, including
+//! ones in unrelated test fixtures.
 
 #![forbid(unsafe_code)]
 
