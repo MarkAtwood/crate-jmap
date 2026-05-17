@@ -125,6 +125,32 @@ type Inner =
 ///
 /// The caller is responsible for reconnecting after the stream ends or returns
 /// a transport error. Use exponential backoff.
+///
+/// # Drop and cancellation (bd:JMAP-6r7c.24)
+///
+/// `WsSession` may be dropped at any point — including from inside a
+/// `tokio::select!` losing branch while [`next_frame`](WsSession::next_frame)
+/// is awaiting. Dropping is always safe and always synchronous:
+///
+/// - **Partial frame state is discarded.** The split sink and stream halves
+///   are owned by the session; dropping the session drops both halves and
+///   any in-flight tungstenite buffering.
+/// - **The underlying TCP / TLS connection is closed.** No `Close` frame is
+///   sent — dropping skips the WebSocket close handshake. Callers that want
+///   the server to see a clean shutdown should arrange to receive the
+///   server's `Close` (which `next_frame` returns as `None`) before drop;
+///   this crate does not currently expose an explicit client-initiated
+///   `close()` method.
+/// - **Resumption is the caller's job.** If you need to recover the
+///   conversation state, you must either persist enough application-level
+///   state to replay, or rely on the server's push-state replay protocol.
+///   `WsSession` itself buffers nothing the caller can replay.
+///
+/// `next_frame` is cancel-safe in the sense that cancelling its future
+/// (via `select!` or `drop`) does not corrupt subsequent calls to
+/// `next_frame` on the same `WsSession` — but cancelling means giving up
+/// on any partial frame that was being read; the next `next_frame` call
+/// starts from the next complete message.
 pub struct WsSession {
     sink: futures::stream::SplitSink<Inner, Message>,
     stream: futures::stream::SplitStream<Inner>,

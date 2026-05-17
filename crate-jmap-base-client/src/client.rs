@@ -436,6 +436,33 @@ impl JmapClient {
     ///
     /// Returns `ClientError::AuthFailed` on HTTP 401 or 403 before the stream
     /// starts.
+    ///
+    /// # Stream drop and cancellation (bd:JMAP-6r7c.24)
+    ///
+    /// The returned `BoxStream` may be dropped at any point — mid-frame,
+    /// while awaiting `StreamExt::next`, or from inside a `tokio::select!`
+    /// losing-branch cancellation. Dropping is always safe and always
+    /// synchronous:
+    ///
+    /// - **Partial frame bytes are discarded.** Any bytes accumulated in
+    ///   the internal `raw_buf` or `buf` that have not yet been parsed
+    ///   into an [`SseFrame`] are lost. There is no buffering or replay
+    ///   inside the client — the server is the source of truth for what
+    ///   was emitted vs what was acknowledged.
+    /// - **The underlying HTTP connection is released.** The
+    ///   `reqwest::Response::bytes_stream` held inside the stream is
+    ///   dropped along with the stream; reqwest returns the connection
+    ///   to its pool (or closes it) per its own pool policy.
+    /// - **Resumption is the caller's job.** If you want to resume from
+    ///   the last successfully-parsed frame, capture the most recent
+    ///   `SseFrame::id` (if the server sets one) and pass it as
+    ///   `last_event_id` on the next `subscribe_events` call. The
+    ///   server will replay events from that point per RFC 8895 §9.
+    ///
+    /// `tokio::select!` cancellation is the canonical use case: a caller
+    /// racing the SSE stream against a shutdown signal can drop the
+    /// stream by selecting the shutdown branch without leaking the HTTP
+    /// connection or memory.
     pub async fn subscribe_events(
         &self,
         event_source_url: &str,
