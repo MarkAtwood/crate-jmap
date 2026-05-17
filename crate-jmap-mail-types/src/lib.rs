@@ -46,6 +46,7 @@
 #![forbid(unsafe_code)]
 
 pub mod backend;
+pub mod capability;
 pub mod email;
 pub mod identity;
 pub mod keyword;
@@ -69,6 +70,10 @@ pub use backend::SieveScriptProperty;
 pub use backend::{
     EmailProperty, EmailSubmissionProperty, IdentityProperty, MailboxProperty,
     SearchSnippetProperty, ThreadProperty, VacationResponseProperty,
+};
+pub use capability::{
+    MailAccountCapability, MailCapability, SubmissionAccountCapability, SubmissionCapability,
+    VacationResponseCapability, JMAP_MAIL_URI, JMAP_SUBMISSION_URI, JMAP_VACATIONRESPONSE_URI,
 };
 pub use email::{
     Email, EmailAddress, EmailAddressGroup, EmailBodyPart, EmailBodyValue, EmailHeader,
