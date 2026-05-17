@@ -1708,6 +1708,99 @@ async fn memory_backend_expire_message_idempotent_on_missing() {
 }
 
 // ---------------------------------------------------------------------------
+// Burn-on-read serverFail redaction canary (bd:JMAP-x2gd.99)
+//
+// The bd:JMAP-x2gd.91 fix routed a failed `expire_message` (the spec-mandated
+// hard-delete after readAt is set on a burnOnRead message) through
+// `server_fail_value_from_backend`, which substitutes the static
+// `SERVER_FAIL_INTERNAL_DESC` for the backend's Display text. The previous
+// shape leaked the backend error message into the wire `notUpdated[id]`
+// description.
+//
+// This test injects a backend whose `expire_message` returns an error
+// carrying the canary literal `INJECTABLE_BACKEND_CANARY`, drives the
+// Message/set update that triggers expire_message, and asserts the wire
+// response contains no canary anywhere. Mirrors the canonical
+// jmap-mail-server `set_per_id_server_fail_redacts_backend_display_*`
+// pattern.
+// ---------------------------------------------------------------------------
+
+/// Oracle: when `expire_message` fails after a burnOnRead readAt patch
+/// lands, the wire-format `notUpdated[id]` description MUST be the
+/// static [`jmap_server::SERVER_FAIL_INTERNAL_DESC`] — the backend
+/// error's Display text MUST NOT appear in the response.
+#[tokio::test]
+async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
+    use common::{InjectableBackend, INJECTABLE_BACKEND_CANARY};
+
+    let backend = InjectableBackend::new();
+    backend.inner.register_account(&Id::from("a1"));
+
+    // Create a burn-on-read message via the normal handler path. The
+    // setup write goes through the inner MemoryBackend with no fault
+    // injected.
+    let (create_resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "m0": {
+                    "chatId": "c1",
+                    "body": "will fail to burn",
+                    "sentAt": "2024-01-01T00:00:00Z",
+                    "burnOnRead": true
+                }
+            }
+        }),
+    )
+    .await
+    .expect("create");
+    let msg_id = create_resp["created"]["m0"]["id"]
+        .as_str()
+        .expect("id in created response")
+        .to_owned();
+
+    // Inject the fault on expire_message. The readAt patch itself will
+    // land (update_object is not injected); the spec-mandated hard-delete
+    // hook will fail with a MemoryError whose Display contains the canary.
+    backend.inject("Message", "expire");
+
+    let (resp, _) = handle_message_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": { &msg_id: { "readAt": "2024-01-02T00:00:00Z" } }
+        }),
+    )
+    .await
+    .expect("update");
+
+    // The canary MUST NOT appear anywhere in the wire response.
+    let wire = resp.to_string();
+    assert!(
+        !wire.contains(INJECTABLE_BACKEND_CANARY),
+        "backend-error Display canary must not appear in /set response \
+         (burn-on-read expire_message failure Value path must redact); wire: {wire}"
+    );
+
+    // Positive control: notUpdated[id] must exist with type=serverFail and
+    // description=SERVER_FAIL_INTERNAL_DESC, proving the redaction helper
+    // produced the expected wire shape.
+    assert_eq!(
+        resp["notUpdated"][&msg_id]["type"].as_str(),
+        Some("serverFail"),
+        "notUpdated[{msg_id}] must have type serverFail; resp: {resp}"
+    );
+    assert_eq!(
+        resp["notUpdated"][&msg_id]["description"].as_str(),
+        Some(jmap_server::SERVER_FAIL_INTERNAL_DESC),
+        "description must be the static SERVER_FAIL_INTERNAL_DESC; resp: {resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Edit-history retention gate
 // (draft-atwood-jmap-chat-00 commit 0783fc4 + §Message editHistory)
 // ---------------------------------------------------------------------------

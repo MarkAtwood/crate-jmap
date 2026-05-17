@@ -738,6 +738,257 @@ impl ChatBackend for IdentityBackend {
 }
 
 // ---------------------------------------------------------------------------
+// InjectableBackend — MemoryBackend wrapper with per-(type, op) fault injection
+// ---------------------------------------------------------------------------
+
+/// Canary literal embedded in every fault-injected `BackendSetError::Other`
+/// payload. Tests assert this string does NOT appear in the wire-format
+/// `/set` response, which proves the per-id `serverFail` Value path redacts
+/// backend-error Display text through
+/// [`jmap_server::server_fail_value_from_backend`] rather than echoing it
+/// onto the wire. Shaped like a leaked credential so a future contributor
+/// who breaks the redaction sees the visible footgun in the test failure.
+///
+/// Mirrors the canonical jmap-mail-server `FAULTY_BACKEND_CANARY` literal.
+pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3a2";
+
+/// A wrapper around [`MemoryBackend`] that can fault-inject
+/// `BackendSetError::Other` (or `Self::Error`) for specific
+/// `(type_name, operation)` pairs. The setup writes go through to the
+/// inner [`MemoryBackend`] normally; only operations matching a
+/// previously-injected pair fail.
+///
+/// Call [`InjectableBackend::inject`] before the operation under test. The
+/// first matching call returns an error whose Display contains
+/// [`INJECTABLE_BACKEND_CANARY`]; the flag is cleared so subsequent calls
+/// go to the inner backend normally (fire-once semantics).
+///
+/// Mirrors the canonical jmap-mail-server `FaultyBackend` injection
+/// pattern. Lives alongside [`FaultyBackend`] (the always-fails
+/// negative-path wrapper) rather than extending it because the two
+/// existing `FaultyBackend` test sites depend on the always-fails
+/// behaviour.
+///
+/// # Supported injection targets
+///
+/// - `(O::TYPE_NAME, "destroy")` — fails the next
+///   [`ChatBackend::destroy_object`] call for type `O`.
+/// - `("Message", "expire")` — fails the next
+///   [`ChatBackend::expire_message`] call.
+///
+/// Other `(type, op)` pairs are not currently honored; extend this
+/// wrapper if a new redaction-canary site lands.
+pub struct InjectableBackend {
+    pub inner: MemoryBackend,
+    failures:
+        std::sync::Arc<std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>>,
+}
+
+impl InjectableBackend {
+    /// Fresh `InjectableBackend` wrapping an empty [`MemoryBackend`] with
+    /// no faults queued.
+    pub fn new() -> Self {
+        Self {
+            inner: MemoryBackend::new(),
+            failures: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
+        }
+    }
+
+    /// Schedule a fault for the next call to `op` on `type_name`.
+    ///
+    /// Calling `inject` twice for the same `(type_name, op)` pair is a
+    /// no-op — only one fault is queued; the second call is silently
+    /// ignored.
+    pub fn inject(&self, type_name: &'static str, op: &'static str) {
+        self.failures.lock().unwrap().insert((type_name, op));
+    }
+
+    /// Remove and return a previously-injected fault (fire-once).
+    /// Returns `true` if the fault was present (and is now consumed).
+    fn take_fault(&self, type_name: &'static str, op: &'static str) -> bool {
+        self.failures.lock().unwrap().remove(&(type_name, op))
+    }
+}
+
+impl Default for InjectableBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl JmapBackend for InjectableBackend {
+    type Error = MemoryError;
+    type CallerCtx = ();
+
+    async fn account_exists(&self, caller: &(), account_id: &Id) -> Result<bool, Self::Error> {
+        self.inner.account_exists(caller, account_id).await
+    }
+
+    async fn get_objects<O: GetObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        ids: Option<&[Id]>,
+        properties: Option<&[String]>,
+    ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+        self.inner
+            .get_objects::<O>(caller, account_id, ids, properties)
+            .await
+    }
+
+    async fn get_state<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+    ) -> Result<State, Self::Error> {
+        self.inner.get_state::<O>(caller, account_id).await
+    }
+
+    async fn get_changes<O: JmapObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        since_state: &State,
+        max_changes: Option<u64>,
+    ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+        self.inner
+            .get_changes::<O>(caller, account_id, since_state, max_changes)
+            .await
+    }
+
+    async fn query_objects<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        limit: Option<u64>,
+        position: i64,
+    ) -> Result<QueryResult, Self::Error> {
+        self.inner
+            .query_objects::<O>(caller, account_id, filter, sort, limit, position)
+            .await
+    }
+
+    async fn query_changes<O: QueryObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        since_query_state: &State,
+        filter: Option<&O::Filter>,
+        sort: Option<&[O::Comparator]>,
+        max_changes: Option<u64>,
+        up_to_id: Option<&Id>,
+        collapse_threads: bool,
+    ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+        self.inner
+            .query_changes::<O>(
+                caller,
+                account_id,
+                since_query_state,
+                filter,
+                sort,
+                max_changes,
+                up_to_id,
+                collapse_threads,
+            )
+            .await
+    }
+}
+
+impl ChatBackend for InjectableBackend {
+    async fn create_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        create_id: &str,
+        obj: O,
+    ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+        self.inner
+            .create_object::<O>(caller, account_id, create_id, obj)
+            .await
+    }
+
+    async fn update_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        id: &Id,
+        patch: O::Patch,
+    ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+        self.inner
+            .update_object::<O>(caller, account_id, id, patch)
+            .await
+    }
+
+    async fn destroy_object<O: SetObject + Send + Sync>(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        id: &Id,
+    ) -> Result<(), BackendSetError<Self::Error>> {
+        if self.take_fault(O::TYPE_NAME, "destroy") {
+            return Err(BackendSetError::Other(MemoryError::new(format!(
+                "injected destroy error {INJECTABLE_BACKEND_CANARY}"
+            ))));
+        }
+        self.inner.destroy_object::<O>(caller, account_id, id).await
+    }
+
+    fn supports_type<O: JmapObject>(&self) -> bool {
+        self.inner.supports_type::<O>()
+    }
+
+    fn generate_invite_code(&self) -> String {
+        self.inner.generate_invite_code()
+    }
+
+    fn limits(&self, caller: &(), account_id: &Id) -> ChatLimits {
+        self.inner.limits(caller, account_id)
+    }
+
+    async fn apply_space_patch(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+        ops: Vec<SpacePatchOp>,
+    ) -> Result<Vec<OpResult>, BackendSetError<Self::Error>> {
+        self.inner
+            .apply_space_patch(caller, account_id, space_id, ops)
+            .await
+    }
+
+    async fn apply_space_metadata_patch(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        space_id: &Id,
+        patch: jmap_chat_types::SpaceMetadataPatch,
+    ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
+        self.inner
+            .apply_space_metadata_patch(caller, account_id, space_id, patch)
+            .await
+    }
+
+    async fn expire_message(
+        &self,
+        caller: &(),
+        account_id: &Id,
+        message_id: &Id,
+    ) -> Result<(), Self::Error> {
+        if self.take_fault("Message", "expire") {
+            return Err(MemoryError::new(format!(
+                "injected expire error {INJECTABLE_BACKEND_CANARY}"
+            )));
+        }
+        self.inner
+            .expire_message(caller, account_id, message_id)
+            .await
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Shared Space seeding helpers (bd:JMAP-x2gd.80)
 //
 // Used by the apply_space_patch integration tests
