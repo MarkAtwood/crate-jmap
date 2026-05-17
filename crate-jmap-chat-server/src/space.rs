@@ -12,8 +12,9 @@ use crate::backend::{
     BackendSetError, ChatBackend, ChatLimits, SetError, SetErrorType, SpacePatchOp,
 };
 use crate::helpers::{
-    enforce_max_objects_in_set, extract_account_id, finalize_set_response, iso8601_before,
-    not_found_json, now_utc_string, serialize_value, set_error_value, SetAccumulators,
+    count_add_ops, enforce_max_objects_in_set, extract_account_id, finalize_set_response,
+    iso8601_before, not_found_json, now_utc_string, serialize_value, set_error_value,
+    SetAccumulators,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
@@ -696,35 +697,11 @@ pub async fn handle_space_query_changes<B: ChatBackend>(
 }
 
 // ---------------------------------------------------------------------------
-// Space/set count-limit enforcement (bd:JMAP-g7wu.2.4.8)
+// Space/set count-limit enforcement (bd:JMAP-g7wu.2.4.8, bd:JMAP-x2gd.44)
 // ---------------------------------------------------------------------------
 
-/// Count `Add*` ops by collection (roles / members / channels / categories)
-/// in a parsed `Vec<SpacePatchOp>`.
-///
-/// Returns a tuple of `(add_roles, add_members, add_channels, add_categories)`.
-/// `Remove*` and `Update*` ops are not counted: the conservative
-/// `existing + add` check ignores in-flight removes so the resulting
-/// count is bounded even if ops are reordered by the backend. The
-/// check rejects strictly more patches than strict "final-count"
-/// enforcement; both are spec-conformant (the spec only requires that
-/// the resulting count not exceed the cap).
-fn count_add_ops(ops: &[SpacePatchOp]) -> (u32, u32, u32, u32) {
-    let mut add_roles: u32 = 0;
-    let mut add_members: u32 = 0;
-    let mut add_channels: u32 = 0;
-    let mut add_categories: u32 = 0;
-    for op in ops {
-        match op {
-            SpacePatchOp::AddRole(_) => add_roles = add_roles.saturating_add(1),
-            SpacePatchOp::AddMember(_) => add_members = add_members.saturating_add(1),
-            SpacePatchOp::AddChannel(_) => add_channels = add_channels.saturating_add(1),
-            SpacePatchOp::AddCategory(_) => add_categories = add_categories.saturating_add(1),
-            _ => {}
-        }
-    }
-    (add_roles, add_members, add_channels, add_categories)
-}
+// `count_add_ops` is shared with the reference `MemoryBackend`'s
+// backend-canonical cap enforcement via `crate::helpers::count_add_ops`.
 
 /// Enforce per-Space count limits before dispatching structural ops to
 /// [`ChatBackend::apply_space_patch`].

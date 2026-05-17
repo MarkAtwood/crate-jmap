@@ -565,18 +565,27 @@ pub trait ChatBackend: JmapBackend {
     /// caller is not authorized to perform.
     ///
     /// Per-aggregate count limits on roles, members, channels, and
-    /// categories per Space are applied by `handle_space_set` *before*
-    /// it calls this method. The handler queries
-    /// the backend's [`ChatBackend::limits`] once per request,
-    /// fetches the current Space, and rejects the whole update target
-    /// with an `overQuota` SetError (RFC 8620 §5.3) if any aggregate
-    /// would exceed its cap. This means an `apply_space_patch` call
-    /// that originates from `handle_space_set` will not contain
-    /// `Add*` ops that push the Space over cap. Backends called
-    /// directly (bypassing the handler) MAY enforce caps a second
-    /// time for defense in depth; the reference `MemoryBackend` does
-    /// not. Per draft-atwood-jmap-chat-00 §Space/set (spec commit
-    /// `80d5e11`, 2026-05-11), this behavior is normative.
+    /// categories per Space are **backend-canonical** as of
+    /// bd:JMAP-x2gd.44: the backend MUST query its own
+    /// [`ChatBackend::limits`], project the post-patch counts for the
+    /// target Space, and reject the whole patch with an `overQuota`
+    /// SetError (RFC 8620 §5.3) if any aggregate would exceed its
+    /// cap. The cap enforcement MUST be atomic with the mutation
+    /// itself — typically inside the same database transaction or
+    /// the same mutex critical section. Per
+    /// draft-atwood-jmap-chat-00 §Space/set (spec commit `80d5e11`,
+    /// 2026-05-11), this behavior is normative.
+    ///
+    /// The handler at [`crate::space::handle_space_set`] additionally
+    /// runs a defense-in-depth pre-flight cap check before this
+    /// method, but the pre-flight is non-load-bearing: a backend
+    /// caller that bypasses the JMAP wire layer (admin tool,
+    /// federation receiver, internal batch importer) and calls
+    /// `apply_space_patch` directly MUST still see caps enforced.
+    /// The pre-flight exists only to surface `overQuota` to the
+    /// client as a single SetError without consuming a backend
+    /// round-trip; backends MAY rely on the handler having pre-checked
+    /// for performance, but MUST NOT rely on it for correctness.
     ///
     /// The role-position hierarchy check (members may only add or modify
     /// roles whose `position` is strictly less than their own

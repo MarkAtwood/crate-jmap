@@ -1157,6 +1157,16 @@ fn apply_space_patch_impl(
         return Err(BackendSetError::SetError(e));
     }
 
+    // Per-aggregate count limit check (bd:JMAP-x2gd.44 — backend-canonical
+    // enforcement). The handler may have done a defense-in-depth pre-flight
+    // check, but the backend MUST re-verify atomically with the mutation so
+    // direct callers (admin tools, federation receivers, batch importers
+    // that bypass `handle_space_set`) still see caps enforced.
+    let limits = inner.limits_override.unwrap_or_default();
+    if let Some(set_err) = check_count_caps(&space_snapshot, &ops, &limits) {
+        return Err(BackendSetError::SetError(set_err));
+    }
+
     let mut results = Vec::with_capacity(ops.len());
     let mut space_mutated = false;
     let mut chats_created: Vec<Id> = Vec::new();
@@ -2654,6 +2664,117 @@ fn apply_update_member(
 // (bd:JMAP-g7wu.2.4.3 criteria 1, 2, 3-replacement, 6, 7)
 // ---------------------------------------------------------------------------
 
+/// Project the post-patch aggregate counts and reject the whole patch
+/// with an `overQuota` SetError (RFC 8620 §5.3) if any aggregate
+/// (roles, members, channels, categories) would exceed its cap from
+/// [`ChatLimits`].
+///
+/// Backend-canonical cap enforcement per bd:JMAP-x2gd.44. The handler
+/// at [`crate::space::handle_space_set`] runs a defense-in-depth
+/// pre-flight check before this function fires, but the pre-flight
+/// is non-load-bearing — a direct caller of `apply_space_patch`
+/// (admin tool, federation receiver, batch importer) MUST still see
+/// caps enforced.
+///
+/// Returns `None` if no `Add*` ops are present or all caps are
+/// satisfied. Returns the first offending collection's SetError
+/// otherwise — matching the handler's "first cap to trip" surface
+/// for response shape parity.
+///
+/// Identity-independent and policy-rather-than-structural; the
+/// sibling [`validate_space_patch_ops`] handles permission gating,
+/// role-position hierarchy, and last-admin protection.
+#[allow(clippy::result_large_err)]
+fn check_count_caps(
+    space_val: &serde_json::Value,
+    ops: &[SpacePatchOp],
+    limits: &ChatLimits,
+) -> Option<SetError> {
+    let (add_roles, add_members, add_channels, add_categories) = crate::helpers::count_add_ops(ops);
+    if add_roles == 0 && add_members == 0 && add_channels == 0 && add_categories == 0 {
+        return None;
+    }
+
+    let count_array = |key: &str| -> u32 {
+        space_val
+            .get(key)
+            .and_then(|v| v.as_array())
+            .map(|a| u32::try_from(a.len()).unwrap_or(u32::MAX))
+            .unwrap_or(0)
+    };
+
+    let cur_roles = count_array("roles");
+    let cur_members = count_array("members");
+    let cur_categories = count_array("categories");
+    // Channels = uncategorizedChannelIds + sum(categories[].channelIds).
+    let uncategorized = space_val
+        .get("uncategorizedChannelIds")
+        .and_then(|v| v.as_array())
+        .map(|a| a.len())
+        .unwrap_or(0);
+    let categorized: usize = space_val
+        .get("categories")
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .map(|c| {
+                    c.get("channelIds")
+                        .and_then(|v| v.as_array())
+                        .map(|a| a.len())
+                        .unwrap_or(0)
+                })
+                .sum()
+        })
+        .unwrap_or(0);
+    let cur_channels = u32::try_from(uncategorized + categorized).unwrap_or(u32::MAX);
+
+    let exceeded = |label: &'static str, current: u32, add: u32, cap: u32| -> Option<SetError> {
+        if add == 0 {
+            return None;
+        }
+        let proposed = current.saturating_add(add);
+        if proposed > cap {
+            Some(
+                SetError::new(SetErrorType::OverQuota).with_description(format!(
+                    "{label}: would have {proposed} after adding {add} (existing {current}, cap {cap})"
+                )),
+            )
+        } else {
+            None
+        }
+    };
+
+    if let Some(e) = exceeded("roles", cur_roles, add_roles, limits.max_roles_per_space) {
+        return Some(e);
+    }
+    if let Some(e) = exceeded(
+        "members",
+        cur_members,
+        add_members,
+        limits.max_space_members,
+    ) {
+        return Some(e);
+    }
+    if let Some(e) = exceeded(
+        "channels",
+        cur_channels,
+        add_channels,
+        limits.max_channels_per_space,
+    ) {
+        return Some(e);
+    }
+    if let Some(e) = exceeded(
+        "categories",
+        cur_categories,
+        add_categories,
+        limits.max_categories_per_space,
+    ) {
+        return Some(e);
+    }
+
+    None
+}
+
 /// Pre-validate all ops in the patch.
 ///
 /// Walks every op (Role, Member, Channel, Category) and applies:
@@ -2693,6 +2814,11 @@ fn apply_update_member(
 /// `validate_role_member_ops` and only gated Role/Member ops, leaving
 /// the Channel and Category ops at the backend without a permission
 /// pre-check. The rename + filter drop close that gap.
+///
+/// Per-aggregate count caps are enforced separately by the sibling
+/// [`check_count_caps`] above — caps are identity-independent and
+/// policy-rather-than-structural, so they are not part of this
+/// validator.
 #[allow(clippy::result_large_err)]
 fn validate_space_patch_ops(
     space_val: &serde_json::Value,
