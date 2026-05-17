@@ -357,6 +357,36 @@ impl Inner {
 /// harness and the canonical example for backend implementors.
 ///
 /// Cloning is cheap: every clone shares the same underlying `Arc<Mutex<…>>`.
+///
+/// # Caveats (bd:JMAP-ic0j.16)
+///
+/// This is a **reference / study impl**, not a production backend. The
+/// following limitations are intentional and would need to be addressed
+/// by a production-grade `CalendarsBackend` implementor:
+///
+/// - **Sort is not honored.** `query_calendar_events` and the generic
+///   `query_objects` ignore the `sort` parameter; ids are returned in
+///   lexical-by-id order regardless of what the client requested. RFC
+///   8620 §5.5 and draft-ietf-jmap-calendars-26 §5.4 require honoring
+///   `CalendarEventComparator` properties (`start`, `sortOrder`, etc.).
+///   The integration tests do not exercise sort, so this gap is invisible
+///   in CI; production tests must.
+/// - **Filter coverage is narrow.** Only the `inCalendar` filter is
+///   honored on `CalendarEvent/query` (used by `Calendar/set` cleanup);
+///   all other `CalendarEventFilterCondition` fields fall through to
+///   "match all". Production backends MUST honor every documented filter.
+/// - **No recurrence expansion.** The `expandRecurrences` argument is
+///   not implemented; the handler's spec-mandated bound-check still
+///   runs, but recurring events are returned as single rows. Production
+///   backends MUST expand per RFC 5545 / RFC 8984.
+/// - **No availability calculation.** `get_availability` falls through
+///   to the default trait impl, which returns an empty result. Production
+///   backends MUST implement free/busy lookup per
+///   draft-ietf-jmap-calendars-26 §2.2.
+///
+/// All four caveats are out of scope for the reference impl's purpose —
+/// they are the *reason* production deployments override the backend
+/// trait rather than reusing `MemoryBackend`.
 #[derive(Clone, Default)]
 pub struct MemoryBackend {
     inner: Arc<Mutex<Inner>>,
@@ -844,6 +874,9 @@ impl JmapBackend for MemoryBackend {
         ))
     }
 
+    /// Reference query_objects impl — see the module-level "Caveats" doc
+    /// (bd:JMAP-ic0j.16) for the sort / filter / position semantics the
+    /// reference impl does NOT honor.
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
         _caller: &(),
@@ -853,6 +886,13 @@ impl JmapBackend for MemoryBackend {
         limit: Option<u64>,
         position: i64,
     ) -> Result<QueryResult, Self::Error> {
+        // bd:JMAP-ic0j.16 — sort is NOT honored. The `_sort` parameter is
+        // prefixed with `_` and never consulted; ids are returned in
+        // lexical-by-id order. Production backends that override
+        // `CalendarsBackend::query_calendar_events` MUST honor sort per
+        // RFC 8620 §5.5 and draft-ietf-jmap-calendars-26 §5.4. The
+        // reference impl's sort-ignoring shape is documented in the
+        // crate-level MemoryBackend rustdoc.
         let inner = self.inner.lock().unwrap();
 
         // For CalendarEvent, support the `inCalendar` filter (used by
