@@ -45,6 +45,8 @@ pub use methods::{
 };
 pub use session::{ChatCapability, ChatPushCapability, ChatSessionExt};
 pub use sse::{parse_chat_sse_block, ChatSseEvent, ChatSseFrame};
+pub use types::{BodyType, ChatMemberRole, ContactPresenceFilter, QuotaResourceType, QuotaScope};
+pub use utils::{format_receipt_timestamp, format_receipt_timestamp_at};
 pub use ws::{ChatWsExt, ChatWsFrame};
 
 /// Extension trait adding JMAP Chat methods to [`jmap_base_client::JmapClient`].
