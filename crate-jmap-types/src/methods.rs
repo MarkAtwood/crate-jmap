@@ -72,7 +72,7 @@ pub struct GetResponse<T> {
 /// `/changes` again with `since_state = new_state` to retrieve the next
 /// page; otherwise `new_state` is the current state.
 ///
-/// # Extension fields
+/// # Extension fields and the foundation-coupling trade-off
 ///
 /// Some JMAP data-type extensions add an `updatedProperties` field to
 /// their `/changes` response shape:
@@ -85,8 +85,46 @@ pub struct GetResponse<T> {
 /// For all other `/changes` methods (RFC 8621 §3.2 `Thread/changes`,
 /// §4.3 `Email/changes`, plus every extension `/changes` method not
 /// listed above) the server omits the field, and clients deserialize
-/// it as `None`. Carrying the field on the base type avoids duplicating
-/// the `ChangesResponse` shape into per-extension newtypes.
+/// it as `None`.
+///
+/// **Architectural decision (bd:JMAP-6xs8.5).** Carrying
+/// `updatedProperties` on this base type, rather than on per-extension
+/// `MailboxChangesResponse` / `QuotaChangesResponse` newtypes, is a
+/// deliberate workspace trade-off:
+///
+/// - **Chosen shape**: one foundation `ChangesResponse` with an
+///   `Option<Vec<String>>` field that two extensions populate.
+/// - **Alternative (a)**: `ChangesResponse<Ext = ()>` generic with a
+///   per-type extension struct. Rejected: would force every
+///   `/changes` handler in every extension server to thread the `Ext`
+///   type parameter, and the 30-crate canonical-template family would
+///   have to settle on a single way to express "no extension" vs
+///   "Mailbox extension" vs "Quota extension".
+/// - **Alternative (b)**: `MailboxChangesResponse` and
+///   `QuotaChangesResponse` as separate types in `jmap-mail-types` and
+///   a future `jmap-quota-types`, delegating to a shared base via
+///   composition. Rejected: would duplicate the seven base fields
+///   (`accountId`, `oldState`, `newState`, `hasMoreChanges`, three
+///   id vectors) at every extension type, and require parallel
+///   handler / parse / dispatch code.
+/// - **Alternative (c)**: leave `updatedProperties` as an extras
+///   flatten entry that mail/quota types explicitly read via
+///   `resp.extra.get("updatedProperties")`. Rejected: loses typed
+///   access, and the field is RFC-defined (not vendor / site), so the
+///   extras pattern (workspace AGENTS.md "Extras-preservation policy")
+///   is the wrong tool.
+///
+/// **Drift risk acknowledged**: every future `/changes` extension
+/// (`jmap-sharing`, `jmap-tasks`, etc.) will face pressure to add its
+/// own typed field here "for parity". Each such field would extend
+/// this foundation type by one more extension-specific column.
+/// Cautionary precedent: bd:JMAP-kt5k removed eight cap-advertising
+/// fields from the chat capability after they accreted there for the
+/// same parity-pressure reason. New `/changes` extension fields land
+/// here only when the field is RFC-defined and the alternative shapes
+/// above have been re-evaluated against the new use case; a vendor
+/// extension belongs in the extras catch-all, not on the typed
+/// surface.
 #[non_exhaustive]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
