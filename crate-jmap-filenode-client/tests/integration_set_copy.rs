@@ -25,7 +25,7 @@ use jmap_filenode_client::{FileNodeOnExists, FileNodeSetParams};
 /// onExists ("replace"|"rename"), compareCaseInsensitively (Boolean) are top-level
 /// arguments on the FileNode/set method call, not nested inside a create object.
 #[tokio::test]
-async fn file_node_set_create_with_params() {
+async fn filenode_set_create_with_params() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -71,7 +71,7 @@ async fn file_node_set_create_with_params() {
         extra: serde_json::Map::new(),
     };
     let resp = sc
-        .file_node_set(
+        .filenode_set(
             Some(json!({
                 "c1": { "name": "NewDir", "parentId": null }
             })),
@@ -80,7 +80,7 @@ async fn file_node_set_create_with_params() {
             Some(params),
         )
         .await
-        .expect("file_node_set_create_with_params: must succeed");
+        .expect("filenode_set_create_with_params: must succeed");
 
     assert_eq!(resp.new_state, "s11", "newState mismatch");
     let created = resp.created.expect("created must be Some");
@@ -95,7 +95,7 @@ async fn file_node_set_create_with_params() {
     let reqs = server
         .received_requests()
         .await
-        .expect("file_node_set_create_with_params: must have recorded requests");
+        .expect("filenode_set_create_with_params: must have recorded requests");
     let body: serde_json::Value =
         serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
     let args = &body["methodCalls"][0][1];
@@ -127,7 +127,7 @@ async fn file_node_set_create_with_params() {
 /// onDestroyRemoveChildren=true MUST return a "nodeHasChildren" SetError for
 /// any destroy attempt on a non-empty directory. RFC 8620 §5.3 SetError shape.
 #[tokio::test]
-async fn file_node_set_destroy_node_has_children_error() {
+async fn filenode_set_destroy_node_has_children_error() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -160,9 +160,9 @@ async fn file_node_set_destroy_node_has_children_error() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .file_node_set(None, None, Some(vec![Id::from("node-abc")]), None)
+        .filenode_set(None, None, Some(vec![Id::from("node-abc")]), None)
         .await
-        .expect("file_node_set_destroy_node_has_children_error: must succeed");
+        .expect("filenode_set_destroy_node_has_children_error: must succeed");
 
     // destroyed must be absent (server rejected the operation).
     assert!(
@@ -194,7 +194,7 @@ async fn file_node_set_destroy_node_has_children_error() {
 /// Oracle: draft-ietf-jmap-filenode-13 §3.2.4 — fromAccountId is required;
 /// onExists controls collision handling for copied nodes.
 #[tokio::test]
-async fn file_node_copy_with_on_exists_rename() {
+async fn filenode_copy_with_on_exists_rename() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -234,7 +234,7 @@ async fn file_node_copy_with_on_exists_rename() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .file_node_copy(
+        .filenode_copy(
             &Id::from("source-account"),
             json!({
                 "copy1": { "id": "original-node-x", "parentId": null }
@@ -244,7 +244,7 @@ async fn file_node_copy_with_on_exists_rename() {
             None, // compare_case_insensitively
         )
         .await
-        .expect("file_node_copy_with_on_exists_rename: must succeed");
+        .expect("filenode_copy_with_on_exists_rename: must succeed");
 
     assert_eq!(resp.new_state, "s11", "newState mismatch");
     let created = resp.created.expect("created must be Some");
@@ -254,7 +254,7 @@ async fn file_node_copy_with_on_exists_rename() {
     let reqs = server
         .received_requests()
         .await
-        .expect("file_node_copy_with_on_exists_rename: must have recorded requests");
+        .expect("filenode_copy_with_on_exists_rename: must have recorded requests");
     let body: serde_json::Value =
         serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
     let args = &body["methodCalls"][0][1];

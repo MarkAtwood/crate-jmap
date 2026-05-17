@@ -41,7 +41,7 @@ pub fn make_session(server: &MockServer) -> jmap_base_client::Session {
 /// Uses `DefaultTransport` (standard TLS) and `NoneAuth` (no credentials) — appropriate
 /// for wiremock test servers which do not verify auth headers.
 pub fn make_client(server: &MockServer) -> jmap_filenode_client::SessionClient {
-    use jmap_filenode_client::JmapFileNodeExt;
+    use jmap_filenode_client::JmapFilenodeExt;
     let client = jmap_base_client::JmapClient::new(
         jmap_base_client::DefaultTransport,
         jmap_base_client::NoneAuth,

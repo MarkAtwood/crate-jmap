@@ -122,7 +122,7 @@ impl super::SessionClient {
     ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
     ///   or
     ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
-    pub async fn file_node_get(
+    pub async fn filenode_get(
         &self,
         ids: Option<&[Id]>,
         properties: Option<&[&str]>,
@@ -169,8 +169,8 @@ impl super::SessionClient {
     ///   `urn:ietf:params:jmap:filenode`.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
-    ///   the matching error list on [`Self::file_node_get`].
-    pub async fn file_node_changes(
+    ///   the matching error list on [`Self::filenode_get`].
+    pub async fn filenode_changes(
         &self,
         since_state: &State,
         max_changes: Option<u64>,
@@ -179,7 +179,7 @@ impl super::SessionClient {
         // even though State is a typed newtype.
         if since_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
-                "file_node_changes: since_state may not be empty".into(),
+                "filenode_changes: since_state may not be empty".into(),
             ));
         }
         let (api_url, account_id) = self.session_parts()?;
@@ -225,8 +225,8 @@ impl super::SessionClient {
     ///   dealing with thousands of patches per call may prefer to batch.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
-    ///   the matching error list on [`Self::file_node_get`].
-    pub async fn file_node_set(
+    ///   the matching error list on [`Self::filenode_get`].
+    pub async fn filenode_set(
         &self,
         create: Option<serde_json::Value>,
         update: Option<HashMap<Id, PatchObject>>,
@@ -235,7 +235,7 @@ impl super::SessionClient {
     ) -> Result<SetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
         if create.is_none() && update.is_none() && destroy.is_none() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
-                "file_node_set: at least one of create, update, destroy must be Some \
+                "filenode_set: at least one of create, update, destroy must be Some \
                  (an all-None /set is a no-op round-trip)"
                     .into(),
             ));
@@ -250,7 +250,7 @@ impl super::SessionClient {
         if let Some(u) = update {
             args["update"] = serde_json::to_value(&u).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
-                    "file_node_set: serializing update map failed: {e}"
+                    "filenode_set: serializing update map failed: {e}"
                 ))
             })?;
         }
@@ -260,7 +260,7 @@ impl super::SessionClient {
         if let Some(p) = params {
             let params_val = serde_json::to_value(&p).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
-                    "file_node_set: failed to serialize params: {e}"
+                    "filenode_set: failed to serialize params: {e}"
                 ))
             })?;
             if let serde_json::Value::Object(map) = params_val {
@@ -270,7 +270,7 @@ impl super::SessionClient {
                 // silently clobber the typed args. Typed wins on collision.
                 let args_obj = args
                     .as_object_mut()
-                    .expect("file_node_set: args is constructed as Object");
+                    .expect("filenode_set: args is constructed as Object");
                 for (k, v) in map {
                     args_obj.entry(k).or_insert(v);
                 }
@@ -306,12 +306,12 @@ impl super::SessionClient {
     ///   conditions only).
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
-    ///   the matching error list on [`Self::file_node_get`]. RFC 8620
+    ///   the matching error list on [`Self::filenode_get`]. RFC 8620
     ///   §5.4 /copy adds method-level errors `fromAccountNotFound`,
     ///   `fromAccountNotSupportedByMethod`, and `anchorNotFound`; they
     ///   surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn file_node_copy(
+    pub async fn filenode_copy(
         &self,
         from_account_id: &Id,
         create: serde_json::Value,
@@ -331,7 +331,7 @@ impl super::SessionClient {
         if let Some(oe) = on_exists {
             args["onExists"] = serde_json::to_value(&oe).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
-                    "file_node_copy: failed to serialize onExists: {e}"
+                    "filenode_copy: failed to serialize onExists: {e}"
                 ))
             })?;
         }
@@ -356,12 +356,12 @@ impl super::SessionClient {
     ///   `urn:ietf:params:jmap:filenode`.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
-    ///   the matching error list on [`Self::file_node_get`]. RFC 8620
+    ///   the matching error list on [`Self::filenode_get`]. RFC 8620
     ///   §5.5 defines additional /query method-level errors
     ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
     ///   `tooManyChanges`) that surface as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn file_node_query(
+    pub async fn filenode_query(
         &self,
         filter: Option<serde_json::Value>,
         sort: Option<serde_json::Value>,
@@ -411,18 +411,18 @@ impl super::SessionClient {
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
     ///   if `since_query_state` is the empty string (defence-in-depth
-    ///   empty-state guard; see [`Self::file_node_changes`]).
+    ///   empty-state guard; see [`Self::filenode_changes`]).
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:filenode`.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
-    ///   the matching error list on [`Self::file_node_get`]. RFC 8620
+    ///   the matching error list on [`Self::filenode_get`]. RFC 8620
     ///   §5.6 also defines `cannotCalculateChanges` (returned when the
     ///   server cannot honour the request given the supplied filter /
     ///   sort); it surfaces as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
-    pub async fn file_node_query_changes(
+    pub async fn filenode_query_changes(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
@@ -431,10 +431,10 @@ impl super::SessionClient {
         up_to_id: Option<&Id>,
         calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
-        // Defence-in-depth: see file_node_changes.
+        // Defence-in-depth: see filenode_changes.
         if since_query_state.as_ref().is_empty() {
             return Err(jmap_base_client::ClientError::InvalidArgument(
-                "file_node_query_changes: since_query_state may not be empty".into(),
+                "filenode_query_changes: since_query_state may not be empty".into(),
             ));
         }
         let (api_url, account_id) = self.session_parts()?;
@@ -472,16 +472,16 @@ impl super::SessionClient {
 // (wiremock-backed end-to-end)
 // ---------------------------------------------------------------------------
 //
-// `file_node_get_request_shape`, `file_node_query_with_depth_includes_depth_in_args`,
-// `file_node_query_without_depth_omits_depth`,
-// `file_node_changes_request_includes_since_state`,
-// `file_node_set_destroy_request_shape`,
-// `file_node_copy_request_includes_from_account_id`,
-// `file_node_copy_with_on_destroy_remove_children_includes_key`, and
-// `file_node_copy_without_on_destroy_remove_children_omits_key` were vacuous:
+// `filenode_get_request_shape`, `filenode_query_with_depth_includes_depth_in_args`,
+// `filenode_query_without_depth_omits_depth`,
+// `filenode_changes_request_includes_since_state`,
+// `filenode_set_destroy_request_shape`,
+// `filenode_copy_request_includes_from_account_id`,
+// `filenode_copy_with_on_destroy_remove_children_includes_key`, and
+// `filenode_copy_without_on_destroy_remove_children_omits_key` were vacuous:
 // they hand-built `args` Values and fed them to `build_request`, never
-// exercising the production `file_node_get`, `file_node_query`,
-// `file_node_changes`, `file_node_set`, or `file_node_copy` builders.
+// exercising the production `filenode_get`, `filenode_query`,
+// `filenode_changes`, `filenode_set`, or `filenode_copy` builders.
 // Deleted in JMAP-tco1.25.
 //
 // Real production-path coverage:
@@ -505,7 +505,7 @@ mod tests {
 
     // ── Empty-string guards ─────────────────────────────────────────────────
 
-    // The `file_node_get_empty_id_guard` inline smoke test was removed by the
+    // The `filenode_get_empty_id_guard` inline smoke test was removed by the
     // JMAP-6by7.6 typed-Id refactor. It was vacuous because it only iterated
     // a local `&[""]` slice and asserted `is_empty()` found the empty value,
     // without invoking any production method. Under typed `&[Id]` parameters,
@@ -543,7 +543,7 @@ mod tests {
     /// Oracle: FileNodeSetParams with onDestroyRemoveChildren=true serializes correctly.
     /// Expected field name "onDestroyRemoveChildren" from draft-ietf-jmap-filenode-13 §3.2.3.
     #[test]
-    fn file_node_set_params_on_destroy_serializes() {
+    fn filenode_set_params_on_destroy_serializes() {
         let params = FileNodeSetParams {
             on_destroy_remove_children: Some(true),
             on_exists: None,
@@ -564,7 +564,7 @@ mod tests {
 
     /// Oracle: FileNodeSetParams with all fields set serializes all three.
     #[test]
-    fn file_node_set_params_all_fields_serializes() {
+    fn filenode_set_params_all_fields_serializes() {
         let params = FileNodeSetParams {
             on_destroy_remove_children: Some(false),
             on_exists: Some(FileNodeOnExists::Replace),
@@ -648,7 +648,7 @@ mod tests {
 
     /// `FileNodeSetParams.extra` flattens into serialized JSON.
     #[test]
-    fn file_node_set_params_propagates_vendor_extras() {
+    fn filenode_set_params_propagates_vendor_extras() {
         let mut params = FileNodeSetParams::default();
         params
             .extra
@@ -659,7 +659,7 @@ mod tests {
 
     /// `FileNodeCopyParams.extra` flattens into serialized JSON.
     #[test]
-    fn file_node_copy_params_propagates_vendor_extras() {
+    fn filenode_copy_params_propagates_vendor_extras() {
         let mut extra = serde_json::Map::new();
         extra.insert("acmeCorpAudit".into(), json!(true));
         let params = FileNodeCopyParams {

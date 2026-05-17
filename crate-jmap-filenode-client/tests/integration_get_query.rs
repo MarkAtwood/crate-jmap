@@ -52,7 +52,7 @@ fn file_node_fixture(
 /// to also return ancestor nodes for every requested ID.
 /// Response: RFC 8620 §5.1 GetResponse shape.
 #[tokio::test]
-async fn file_node_get_with_fetch_parents() {
+async fn filenode_get_with_fetch_parents() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -78,9 +78,9 @@ async fn file_node_get_with_fetch_parents() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .file_node_get(Some(&[Id::from("fn1")]), None, Some(true))
+        .filenode_get(Some(&[Id::from("fn1")]), None, Some(true))
         .await
-        .expect("file_node_get_with_fetch_parents: must succeed");
+        .expect("filenode_get_with_fetch_parents: must succeed");
 
     assert_eq!(resp.list.len(), 2, "list must have 2 nodes (file + parent)");
     assert!(
@@ -96,10 +96,10 @@ async fn file_node_get_with_fetch_parents() {
     let reqs = server
         .received_requests()
         .await
-        .expect("file_node_get_with_fetch_parents: must have recorded requests");
+        .expect("filenode_get_with_fetch_parents: must have recorded requests");
     assert_eq!(reqs.len(), 1, "must have received exactly one request");
     let body: serde_json::Value = serde_json::from_slice(&reqs[0].body)
-        .expect("file_node_get_with_fetch_parents: request body must be valid JSON");
+        .expect("filenode_get_with_fetch_parents: request body must be valid JSON");
     let args = &body["methodCalls"][0][1];
     assert_eq!(
         args["fetchParents"],
@@ -118,7 +118,7 @@ async fn file_node_get_with_fetch_parents() {
 /// absent the server uses its default (no parent fetching). Sending null would be
 /// a protocol error; the key must simply be absent.
 #[tokio::test]
-async fn file_node_get_without_fetch_parents_omits_field() {
+async fn filenode_get_without_fetch_parents_omits_field() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -142,14 +142,14 @@ async fn file_node_get_without_fetch_parents_omits_field() {
         .await;
 
     let sc = helpers::make_client(&server);
-    sc.file_node_get(Some(&[Id::from("fn2")]), None, None)
+    sc.filenode_get(Some(&[Id::from("fn2")]), None, None)
         .await
-        .expect("file_node_get_without_fetch_parents_omits_field: must succeed");
+        .expect("filenode_get_without_fetch_parents_omits_field: must succeed");
 
     let reqs = server
         .received_requests()
         .await
-        .expect("file_node_get_without_fetch_parents_omits_field: must have recorded requests");
+        .expect("filenode_get_without_fetch_parents_omits_field: must have recorded requests");
     let body: serde_json::Value =
         serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
     let args = &body["methodCalls"][0][1];
@@ -168,7 +168,7 @@ async fn file_node_get_without_fetch_parents_omits_field() {
 /// Oracle: RFC 8620 §5.2 /changes response — oldState, newState, hasMoreChanges,
 /// created, updated, destroyed arrays. sinceState in request maps to oldState in response.
 #[tokio::test]
-async fn file_node_changes_returns_change_lists() {
+async fn filenode_changes_returns_change_lists() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -194,9 +194,9 @@ async fn file_node_changes_returns_change_lists() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .file_node_changes(&State::from("s3"), None)
+        .filenode_changes(&State::from("s3"), None)
         .await
-        .expect("file_node_changes_returns_change_lists: must succeed");
+        .expect("filenode_changes_returns_change_lists: must succeed");
 
     assert_eq!(resp.old_state, "s3", "oldState mismatch");
     assert_eq!(resp.new_state, "s4", "newState mismatch");
@@ -226,7 +226,7 @@ async fn file_node_changes_returns_change_lists() {
 /// descent; filter is a standard RFC 8620 FilterCondition object.
 /// Response: RFC 8620 §5.5 QueryResponse shape.
 #[tokio::test]
-async fn file_node_query_with_depth_and_filter() {
+async fn filenode_query_with_depth_and_filter() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -251,7 +251,7 @@ async fn file_node_query_with_depth_and_filter() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .file_node_query(
+        .filenode_query(
             Some(json!({ "parentId": "dir1" })),
             None,
             None,
@@ -259,7 +259,7 @@ async fn file_node_query_with_depth_and_filter() {
             Some(2u64),
         )
         .await
-        .expect("file_node_query_with_depth_and_filter: must succeed");
+        .expect("filenode_query_with_depth_and_filter: must succeed");
 
     assert_eq!(resp.ids.len(), 3, "ids must have 3 items");
     assert_eq!(resp.query_state, "qs3", "queryState mismatch");
@@ -268,7 +268,7 @@ async fn file_node_query_with_depth_and_filter() {
     let reqs = server
         .received_requests()
         .await
-        .expect("file_node_query_with_depth_and_filter: must have recorded requests");
+        .expect("filenode_query_with_depth_and_filter: must have recorded requests");
     let body: serde_json::Value =
         serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
     let args = &body["methodCalls"][0][1];
@@ -293,7 +293,7 @@ async fn file_node_query_with_depth_and_filter() {
 /// Oracle: RFC 8620 §5.6 /queryChanges response — removed is an array of IDs,
 /// added is an array of AddedItem objects with {id, index}.
 #[tokio::test]
-async fn file_node_query_changes_returns_added_and_removed() {
+async fn filenode_query_changes_returns_added_and_removed() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -320,9 +320,9 @@ async fn file_node_query_changes_returns_added_and_removed() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .file_node_query_changes(&State::from("qs1"), None, None, None, None, None)
+        .filenode_query_changes(&State::from("qs1"), None, None, None, None, None)
         .await
-        .expect("file_node_query_changes_returns_added_and_removed: must succeed");
+        .expect("filenode_query_changes_returns_added_and_removed: must succeed");
 
     assert_eq!(resp.old_query_state, "qs1", "oldQueryState mismatch");
     assert_eq!(resp.new_query_state, "qs2", "newQueryState mismatch");
@@ -342,7 +342,7 @@ async fn file_node_query_changes_returns_added_and_removed() {
 /// `nodeType` are valid FileNode filter fields; the comparator shape
 /// (property + isAscending) follows RFC 8620 §5.5.
 #[tokio::test]
-async fn file_node_query_changes_with_filter_sort_upto_calculatetotal() {
+async fn filenode_query_changes_with_filter_sort_upto_calculatetotal() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -368,7 +368,7 @@ async fn file_node_query_changes_with_filter_sort_upto_calculatetotal() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     let up_to = Id::from("fn-100");
-    sc.file_node_query_changes(
+    sc.filenode_query_changes(
         &since,
         None,
         Some(json!({ "parentId": "parent-1", "nodeType": "file" })),
@@ -377,7 +377,7 @@ async fn file_node_query_changes_with_filter_sort_upto_calculatetotal() {
         Some(true),
     )
     .await
-    .expect("file_node_query_changes_with_filter_sort_upto_calculatetotal: must succeed");
+    .expect("filenode_query_changes_with_filter_sort_upto_calculatetotal: must succeed");
 
     let reqs = server
         .received_requests()
@@ -420,7 +420,7 @@ async fn file_node_query_changes_with_filter_sort_upto_calculatetotal() {
 /// `None` for each must be byte-identical to the minimal
 /// `sinceQueryState`-only call.
 #[tokio::test]
-async fn file_node_query_changes_all_none_omits_optional_wire_keys() {
+async fn filenode_query_changes_all_none_omits_optional_wire_keys() {
     let server = MockServer::start().await;
     let resp_body = json!({
         "sessionState": "s1",
@@ -445,9 +445,9 @@ async fn file_node_query_changes_all_none_omits_optional_wire_keys() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
-    sc.file_node_query_changes(&since, None, None, None, None, None)
+    sc.filenode_query_changes(&since, None, None, None, None, None)
         .await
-        .expect("file_node_query_changes_all_none_omits_optional_wire_keys: must succeed");
+        .expect("filenode_query_changes_all_none_omits_optional_wire_keys: must succeed");
 
     let reqs = server
         .received_requests()
