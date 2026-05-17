@@ -39,6 +39,39 @@ pub trait ContactsBackend: JmapBackend {
     /// context is available via the `caller` parameter, which the
     /// `register_contacts_handlers` closures forward unchanged from
     /// [`jmap_server::Dispatcher::dispatch`].
+    ///
+    /// # Sentinel fields the backend MUST replace
+    ///
+    /// The method handlers in this crate pass partially-constructed objects
+    /// with a sentinel value that the backend MUST replace with a real value
+    /// before storing:
+    ///
+    /// - **`id`**: The `id` field in the input object is always set to
+    ///   `"placeholder"` so the typed `Deserialize` on `O` (AddressBook /
+    ///   ContactCard) succeeds. The backend MUST replace it with a real,
+    ///   unique, account-scoped id, and return that id as the first element
+    ///   of the result tuple AND on the returned `O` (the handler stores the
+    ///   returned `O` verbatim in the `/set` `created` response per RFC 8620
+    ///   §5.3).
+    ///
+    /// Failing to replace the sentinel produces a record reachable by the
+    /// real id but carrying `id == "placeholder"` in its serialized form;
+    /// every subsequent `/get` / `/set` lookup against the real id will
+    /// return data that, when re-serialized, fails to round-trip.
+    ///
+    /// # Server-set fields beyond `id`
+    ///
+    /// Other server-set fields (timestamps, computed flags, etc.) MAY be
+    /// added to the returned `O` and the handler will surface them on the
+    /// wire per RFC 8620 §5.3 server-set-field echo. For example, when
+    /// `AddressBook/set { create: { c0: { isDefault: true } } }` would
+    /// demote a previously-default AddressBook, the backend MAY return the
+    /// new `AddressBook` reflecting any server-set computed fields beyond
+    /// what the client requested.
+    ///
+    /// Mirrors the canonical jmap-mail-server sentinel-fields contract
+    /// (bd:JMAP-qz9v.29). Contacts has no `blob_id` / `size` sentinels —
+    /// only `id`.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
