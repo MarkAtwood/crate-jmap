@@ -89,6 +89,95 @@ impl CustomCaTransport {
     pub fn new(der_cert: Vec<u8>) -> Self {
         Self { der_cert }
     }
+
+    /// Construct a `CustomCaTransport` from a PEM-encoded CA certificate
+    /// (bd:JMAP-6r7c.37).
+    ///
+    /// Operators typically distribute private-CA certificates as PEM
+    /// files (text-format, `-----BEGIN CERTIFICATE-----` framing).
+    /// Without this helper, every caller has to convert PEM to DER
+    /// themselves before passing to [`CustomCaTransport::new`]:
+    ///
+    /// ```rust,ignore
+    /// // Without from_pem_bytes (the long way):
+    /// let pem_bytes = std::fs::read("ca.pem")?;
+    /// let der = rustls_pemfile::certs(&mut pem_bytes.as_slice())
+    ///     .next()
+    ///     .transpose()?
+    ///     .ok_or("no certificate in PEM file")?
+    ///     .to_vec();
+    /// let transport = CustomCaTransport::new(der);
+    ///
+    /// // With from_pem_bytes (the short way):
+    /// let transport = CustomCaTransport::from_pem_bytes(&std::fs::read("ca.pem")?)?;
+    /// ```
+    ///
+    /// The first PEM-framed certificate in `pem_bytes` is used. To use
+    /// a different certificate from a multi-cert bundle, split the
+    /// bundle yourself and pass the desired one. Multi-cert chains
+    /// (root + intermediate) require constructing a custom
+    /// [`TransportConfig`] implementation that adds multiple roots —
+    /// `CustomCaTransport` is single-root.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidArgument`] if `pem_bytes` does not
+    /// contain a recognisable PEM-framed certificate or if the PEM
+    /// body cannot be base64-decoded.
+    ///
+    /// **DER validity is NOT checked at this stage.** This matches the
+    /// existing [`CustomCaTransport::new`] contract — invalid DER
+    /// (PEM body that decodes to non-DER bytes) is detected later when
+    /// the `JmapClient` is constructed and the underlying transport
+    /// tries to load the root, at which point it surfaces as
+    /// [`ClientError::Http`]. The PEM helper deliberately matches the
+    /// DER helper's behaviour: cheap validation here, full validation
+    /// at client-build time.
+    pub fn from_pem_bytes(pem_bytes: &[u8]) -> Result<Self, ClientError> {
+        // The PEM-to-DER conversion uses a minimal in-line decoder so
+        // this crate does not need to depend on rustls_pemfile. DER
+        // semantic validity is the underlying transport's
+        // responsibility (it happens at build_client time, where
+        // reqwest::Certificate::from_der + ClientBuilder do the
+        // actual rustls/native-tls parse).
+        let cert_bytes = parse_first_pem_cert(pem_bytes)
+            .ok_or_else(|| ClientError::InvalidArgument(
+                "CustomCaTransport::from_pem_bytes: no PEM-framed certificate found in input".into()
+            ))?;
+        Ok(Self { der_cert: cert_bytes })
+    }
+}
+
+/// Extract the DER bytes of the first PEM-framed certificate in `input`.
+///
+/// PEM (RFC 7468) format: `-----BEGIN <label>-----` / base64 body /
+/// `-----END <label>-----`. We accept any label whose payload is a
+/// valid DER certificate (the most common label is `CERTIFICATE`;
+/// some toolchains emit `X509 CERTIFICATE` or `TRUSTED CERTIFICATE`).
+///
+/// Returns `None` if no PEM frame is found or if the base64 body
+/// cannot be decoded. The DER validity check is the caller's
+/// responsibility (do it via `reqwest::Certificate::from_der`).
+fn parse_first_pem_cert(input: &[u8]) -> Option<Vec<u8>> {
+    use base64::Engine as _;
+    let text = std::str::from_utf8(input).ok()?;
+    // Find any BEGIN line. RFC 7468 §3 mandates exactly five hyphens
+    // and an ASCII-uppercase label; we accept the common shapes.
+    let begin_idx = text.find("-----BEGIN ")?;
+    let after_begin = &text[begin_idx + "-----BEGIN ".len()..];
+    let begin_eol = after_begin.find('\n')?;
+    let label = after_begin[..begin_eol].trim().trim_end_matches('-').trim();
+    let end_marker = format!("-----END {label}-----");
+    let body_start = begin_idx + "-----BEGIN ".len() + begin_eol + 1;
+    let end_offset = text[body_start..].find(end_marker.as_str())?;
+    let body = &text[body_start..body_start + end_offset];
+    // Strip whitespace from the base64 body. PEM allows line wraps
+    // every 64 chars per RFC 7468 §3; the base64 standard engine
+    // does not accept embedded whitespace.
+    let body_no_ws: String = body.chars().filter(|c| !c.is_whitespace()).collect();
+    base64::engine::general_purpose::STANDARD
+        .decode(body_no_ws)
+        .ok()
 }
 
 /// Manual `Debug` impl that redacts the DER-encoded CA bytes
@@ -660,6 +749,91 @@ mod tests {
             dbg.contains("32 bytes"),
             "CustomCaTransport Debug should record the DER byte length; got: {dbg}"
         );
+    }
+
+    // bd:JMAP-6r7c.37 — PEM constructor tests.
+    //
+    // Oracle: a hand-generated self-signed certificate produced by
+    // `openssl req -x509 -newkey rsa:2048 -nodes -days 36500
+    // -subj "/CN=JMAP-6r7c.37 test CA"`. The PEM and DER forms of the
+    // same certificate are committed under tests/fixtures/tls/. The PEM
+    // → DER conversion ran via `openssl x509 -outform DER`. Both files
+    // are oracles independent of the code under test: the PEM was not
+    // produced by `parse_first_pem_cert` and the DER was not produced
+    // by reqwest. The test asserts the round-trip matches OpenSSL's
+    // canonical bytes.
+    const TEST_CA_PEM: &[u8] = include_bytes!("../tests/fixtures/tls/test-ca.pem");
+    const TEST_CA_DER: &[u8] = include_bytes!("../tests/fixtures/tls/test-ca.der");
+
+    #[test]
+    fn from_pem_bytes_extracts_der_matching_openssl_oracle() {
+        let transport = CustomCaTransport::from_pem_bytes(TEST_CA_PEM)
+            .expect("test-ca.pem fixture must parse as a valid CA");
+        assert_eq!(
+            transport.der_cert.as_slice(),
+            TEST_CA_DER,
+            "PEM-decoded DER must match the openssl-produced reference DER fixture"
+        );
+    }
+
+    #[test]
+    fn from_pem_bytes_rejects_empty_input() {
+        let err = CustomCaTransport::from_pem_bytes(b"")
+            .expect_err("empty input must be rejected");
+        assert!(
+            matches!(err, ClientError::InvalidArgument(_)),
+            "empty input must surface as InvalidArgument; got {err:?}"
+        );
+    }
+
+    #[test]
+    fn from_pem_bytes_rejects_input_with_no_pem_framing() {
+        let err = CustomCaTransport::from_pem_bytes(b"this is not a PEM file")
+            .expect_err("non-PEM input must be rejected");
+        assert!(
+            matches!(err, ClientError::InvalidArgument(_)),
+            "non-PEM input must surface as InvalidArgument; got {err:?}"
+        );
+    }
+
+    #[test]
+    fn from_pem_bytes_rejects_pem_with_invalid_base64() {
+        // PEM framing with junk inside — should fail base64 decode.
+        let bad = b"-----BEGIN CERTIFICATE-----\nNOT VALID BASE64 @#$%\n-----END CERTIFICATE-----\n";
+        let err = CustomCaTransport::from_pem_bytes(bad)
+            .expect_err("invalid base64 must be rejected");
+        assert!(
+            matches!(err, ClientError::InvalidArgument(_)),
+            "invalid-base64 PEM must surface as InvalidArgument; got {err:?}"
+        );
+    }
+
+    #[test]
+    fn from_pem_bytes_accepts_garbage_der_payload_deferring_validation_to_build() {
+        use base64::Engine as _;
+        // Properly-PEM-framed garbage bytes: PEM framing is correct,
+        // base64 decodes OK, but the inner bytes are not a DER
+        // certificate. By design (matching CustomCaTransport::new's
+        // contract), from_pem_bytes accepts these bytes — DER validity
+        // is checked at build_client() time, where it surfaces as
+        // ClientError::Http through reqwest. This test documents that
+        // contract.
+        let garbage_der = [0u8; 16];
+        let body = base64::engine::general_purpose::STANDARD.encode(garbage_der);
+        let pem = format!(
+            "-----BEGIN CERTIFICATE-----\n{body}\n-----END CERTIFICATE-----\n"
+        );
+        let transport = CustomCaTransport::from_pem_bytes(pem.as_bytes())
+            .expect("PEM framing OK + base64 OK = constructor accepts");
+        assert_eq!(
+            transport.der_cert.as_slice(),
+            &garbage_der,
+            "PEM helper must extract the exact base64-decoded bytes"
+        );
+        // build_client() is where rustls/native-tls actually parses the
+        // DER and would reject the garbage. Exercising that here would
+        // require constructing a real ClientBuilder, which is covered
+        // by the broader test suite's integration tests.
     }
 
     // Note: a dyn-AuthProvider Debug test (bead JMAP-sc1b.79 item #4) is
