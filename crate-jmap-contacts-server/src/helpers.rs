@@ -6,7 +6,7 @@ use serde_json::{json, Map, Value};
 use crate::backend::ContactsBackend;
 use jmap_server::server_fail_from_backend;
 
-pub(crate) use jmap_server::extract_account_id;
+pub(crate) use jmap_server::{enforce_max_objects_in_set, extract_account_id};
 
 /// Serialize a [`SetError`] to a JSON value for inclusion in
 /// `notCreated`/`notUpdated`/`notDestroyed` maps.
