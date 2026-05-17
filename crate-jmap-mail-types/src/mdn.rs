@@ -258,6 +258,22 @@ pub struct MdnSendRequest {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl MdnSendRequest {
+    /// Construct an [`MdnSendRequest`] from its three required fields.
+    ///
+    /// `on_success_update_email` defaults to `None` and `extra` defaults
+    /// to empty. Set them directly after construction as needed.
+    pub fn new(account_id: Id, identity_id: Id, send: HashMap<String, Mdn>) -> Self {
+        Self {
+            account_id,
+            identity_id,
+            send,
+            on_success_update_email: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// Response object for `MDN/send` (RFC 9007 §3.1).
 ///
 /// The `notSent` map values are JMAP SetError objects (RFC 8620 §5.3) serialized
@@ -283,6 +299,21 @@ pub struct MdnSendResponse {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+impl MdnSendResponse {
+    /// Construct an [`MdnSendResponse`] from the required `account_id`.
+    ///
+    /// `sent`, `not_sent`, and `extra` default to `None` / empty. Set
+    /// them directly after construction as needed.
+    pub fn new(account_id: Id) -> Self {
+        Self {
+            account_id,
+            sent: None,
+            not_sent: None,
+            extra: serde_json::Map::new(),
+        }
+    }
+}
+
 /// Request object for `MDN/parse` (RFC 9007 §3.3).
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -298,6 +329,20 @@ pub struct MdnParseRequest {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl MdnParseRequest {
+    /// Construct an [`MdnParseRequest`] from its two required fields.
+    ///
+    /// `extra` defaults to empty. Set it directly after construction as
+    /// needed.
+    pub fn new(account_id: Id, blob_ids: Vec<Id>) -> Self {
+        Self {
+            account_id,
+            blob_ids,
+            extra: serde_json::Map::new(),
+        }
+    }
 }
 
 /// Response object for `MDN/parse` (RFC 9007 §3.3).
@@ -322,6 +367,22 @@ pub struct MdnParseResponse {
     /// policy (see workspace AGENTS.md).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl MdnParseResponse {
+    /// Construct an [`MdnParseResponse`] from the required `account_id`.
+    ///
+    /// `parsed`, `not_parsable`, `not_found`, and `extra` default to
+    /// `None` / empty. Set them directly after construction as needed.
+    pub fn new(account_id: Id) -> Self {
+        Self {
+            account_id,
+            parsed: None,
+            not_parsable: None,
+            not_found: None,
+            extra: serde_json::Map::new(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -663,5 +724,47 @@ mod tests {
         );
         let back = serde_json::to_value(&resp).unwrap();
         assert_eq!(back["acmeCorpStatus"], "complete");
+    }
+
+    /// Each Mdn*Request and Mdn*Response constructor produces a value
+    /// whose serialised wire form matches the minimal RFC 9007 §3.1 /
+    /// §3.3 shape, with no `extra` keys.
+    ///
+    /// Independent oracle: the expected JSON is hand-written from RFC
+    /// 9007 §3.1 (`MDN/send` request/response shape) and §3.3
+    /// (`MDN/parse` request/response shape), not produced by the code
+    /// under test.
+    #[test]
+    fn mdn_request_response_constructors_match_spec_minimal_shape() {
+        let account_id = Id::try_from("a1").unwrap();
+        let identity_id = Id::try_from("i1").unwrap();
+        let blob_id = Id::try_from("b1").unwrap();
+
+        // MdnSendRequest: required accountId, identityId, send map.
+        let send_req = MdnSendRequest::new(account_id.clone(), identity_id, HashMap::new());
+        let expected = serde_json::json!({
+            "accountId": "a1",
+            "identityId": "i1",
+            "send": {}
+        });
+        assert_eq!(serde_json::to_value(&send_req).unwrap(), expected);
+
+        // MdnSendResponse: required accountId only.
+        let send_resp = MdnSendResponse::new(account_id.clone());
+        let expected = serde_json::json!({ "accountId": "a1" });
+        assert_eq!(serde_json::to_value(&send_resp).unwrap(), expected);
+
+        // MdnParseRequest: required accountId and blobIds.
+        let parse_req = MdnParseRequest::new(account_id.clone(), vec![blob_id]);
+        let expected = serde_json::json!({
+            "accountId": "a1",
+            "blobIds": ["b1"]
+        });
+        assert_eq!(serde_json::to_value(&parse_req).unwrap(), expected);
+
+        // MdnParseResponse: required accountId only.
+        let parse_resp = MdnParseResponse::new(account_id);
+        let expected = serde_json::json!({ "accountId": "a1" });
+        assert_eq!(serde_json::to_value(&parse_resp).unwrap(), expected);
     }
 }
