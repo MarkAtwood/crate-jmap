@@ -73,7 +73,7 @@ All 26 RFC 8621 method names are available as typed async methods on
 | `email_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `email_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>` | `SetResponse<Email>` |
 | `email_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>, collapse_threads: Option<bool>` | `QueryResponse` |
-| `email_query_changes` | `since_query_state: &State, max_changes: Option<u64>, collapse_threads: Option<bool>` | `QueryChangesResponse` |
+| `email_query_changes` | `since_query_state: &State, max_changes: Option<u64>, collapse_threads: Option<bool>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `email_copy` | `params: EmailCopyParams, create: Value` | `SetResponse<Email>` |
 | `email_import` | `emails: &HashMap<String, EmailImportInput>, if_in_state: Option<&State>` | `EmailImportResponse` |
 | `email_parse` | `blob_ids: &[Id], params: Option<EmailParseParams>` | `EmailParseResponse` |
@@ -81,20 +81,20 @@ All 26 RFC 8621 method names are available as typed async methods on
 | `mailbox_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `mailbox_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, params: Option<MailboxSetParams>` | `SetResponse<Mailbox>` |
 | `mailbox_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>` | `QueryResponse` |
-| `mailbox_query_changes` | `since_query_state: &State, max_changes: Option<u64>` | `QueryChangesResponse` |
+| `mailbox_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `thread_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Thread>` |
 | `thread_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `identity_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Identity>` |
 | `identity_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `identity_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>` | `SetResponse<Identity>` |
-| `search_snippet_get` | `account_id: Option<&Id>, filter: Value, thread_ids: Option<&[Id]>, email_ids: Option<&[Id]>` | `Value` |
+| `search_snippet_get` | `account_id: Option<&Id>, filter: Value, email_ids: Option<&[Id]>` | `Value` |
 | `email_submission_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<EmailSubmission>` |
 | `email_submission_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `email_submission_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>` | `QueryResponse` |
-| `email_submission_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<Value>` | `QueryChangesResponse` |
+| `email_submission_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `email_submission_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<EmailSubmissionSetParams>` | `SetResponse<EmailSubmission>` |
 | `vacation_response_get` | _(none)_ | `GetResponse<VacationResponse>` |
-| `vacation_response_set` | `update: Option<Value>` | `SetResponse<VacationResponse>` |
+| `vacation_response_set` | `update: Option<HashMap<Id, PatchObject>>` | `SetResponse<VacationResponse>` |
 
 `Id` and `State` here are `jmap_types::Id` and `jmap_types::State`.
 
@@ -106,18 +106,22 @@ update object:
 
 ```rust
 pub struct EmailSubmissionSetParams {
-    /// Map of creation key → JSON Merge Patch to apply to the related Email
+    /// Map of creation key → PatchObject to apply to the related Email
     /// if the submission is created successfully (RFC 8621 §7.5).
     ///
     /// Keys prefixed with "#" are result references to creation keys in the
     /// same `create` map.  Typical use: remove `$draft` keyword on success.
-    pub on_success_update_email: Option<serde_json::Value>,
+    pub on_success_update_email: Option<HashMap<String, jmap_types::PatchObject>>,
 
     /// Email IDs (or "#"-prefixed creation keys) to destroy if the submission
     /// succeeds (RFC 8621 §7.5).
     ///
     /// Typical use: destroy the draft email after successful delivery.
     pub on_success_destroy_email: Option<Vec<String>>,
+
+    /// Vendor / site / private extension fields preserved across the wire
+    /// per the workspace extras-preservation policy.
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 ```
 
@@ -138,6 +142,7 @@ pub struct EmailGetParams {
     pub fetch_text_body_values: Option<bool>,
 
     /// If true, inline decoded values for text/html body parts.
+    /// Wire name is `fetchHTMLBodyValues` (HTML uppercase) per RFC 8621 §4.2.
     pub fetch_html_body_values: Option<bool>,
 
     /// If true, inline decoded values for all body parts.
@@ -145,6 +150,10 @@ pub struct EmailGetParams {
 
     /// Maximum bytes of body value to return per part (0 or absent = no limit).
     pub max_body_value_bytes: Option<u64>,
+
+    /// Vendor / site / private extension fields preserved across the wire
+    /// per the workspace extras-preservation policy.
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 ```
 
@@ -178,9 +187,12 @@ Every method on `SessionClient` follows the same six-step pipeline:
    for `urn:ietf:params:jmap:mail`.
 3. **Build args JSON** — constructs the `serde_json::Value` argument object,
    merging in any extra params structs by iterating their key-value pairs.
-4. **`build_request(method, args, USING_MAIL)`** — wraps the single invocation
-   into a `JmapRequest` with `using = ["urn:ietf:params:jmap:core",
-   "urn:ietf:params:jmap:mail"]` and call ID `"r1"`.
+4. **`build_request(method, args, USING_*)`** — wraps the single invocation
+   into a `JmapRequest` with the appropriate `using` array per RFC 8621 §1.3:
+   `USING_MAIL` for Email/Mailbox/Thread/SearchSnippet methods,
+   `USING_SUBMISSION` for Identity/EmailSubmission methods (includes both
+   `urn:ietf:params:jmap:mail` and `urn:ietf:params:jmap:submission`), and
+   `USING_VACATION` for VacationResponse methods. Call ID is `"r1"`.
 5. **`call_internal(api_url, &req)`** — delegates to
    `jmap_base_client::JmapClient::call`, which POSTs the request and returns a
    `JmapResponse`.
