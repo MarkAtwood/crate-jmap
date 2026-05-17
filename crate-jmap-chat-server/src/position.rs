@@ -1,4 +1,4 @@
-//! ReadPosition/* method handlers (JMAP Chat extension §ReadPosition).
+//! ReadPosition/* method handlers (draft-atwood-jmap-chat-00 §ReadPosition).
 //!
 //! ReadPosition tracks how far a user has read in a given Chat. There is at
 //! most one ReadPosition per (account, chat) pair. Create and destroy are
@@ -15,6 +15,27 @@
 //! atomically with the create. See the "Per-type uniqueness contracts"
 //! section on [`crate::backend::ChatBackend::create_object`] for the full
 //! contract.
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
+//! type-specific arguments defined by draft-atwood-jmap-chat-00
+//! §ReadPosition. The returned `Value` is the corresponding
+//! method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `cannotCalculateChanges` — per RFC 8620 §3.6 and §5). Per-target
+//! failures inside `/set` (including the uniqueness `alreadyExists`
+//! rejection) surface in the `notCreated` / `notUpdated` / `notDestroyed`
+//! maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_chat_types::ReadPosition;
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
@@ -31,7 +52,13 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // ReadPosition/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `ReadPosition/get` method call.
+/// Handle a `ReadPosition/get` method call (draft-atwood-jmap-chat-00 §ReadPosition).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_position_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -78,7 +105,14 @@ pub async fn handle_position_get<B: ChatBackend>(
 // ReadPosition/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `ReadPosition/changes` method call (RFC 8620 §5.2).
+/// Handle a `ReadPosition/changes` method call (draft-atwood-jmap-chat-00 §ReadPosition).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_position_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -122,11 +156,20 @@ pub async fn handle_position_changes<B: ChatBackend>(
 // ReadPosition/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `ReadPosition/set` method call.
+/// Handle a `ReadPosition/set` method call (draft-atwood-jmap-chat-00 §ReadPosition).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
 ///
 /// Validation enforced here (not in the backend):
 /// - `chatId` is required on create.
 /// - `id` and `chatId` are server-set/immutable and rejected in updates.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_position_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,

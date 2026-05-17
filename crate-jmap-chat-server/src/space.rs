@@ -1,4 +1,31 @@
-//! Space/* method handlers (JMAP Chat extension §Space).
+//! Space/* method handlers (draft-atwood-jmap-chat-00 §Space).
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by draft-atwood-jmap-chat-00 §Space. The returned
+//! `Value` is the corresponding method-response object per the same
+//! section refs. `Space/join` (draft §Space) is a Chat-specific method
+//! with its own request/response shape (`accountId`, `inviteCode` →
+//! `accountId`, `spaceId`).
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside `/set`
+//! (including the structural-mutation pipeline rejections —
+//! `addRoles`/`removeRoles`/`addMembers` etc. — and the
+//! position-0 / cap-exceeded enforcement) surface in the `notCreated`
+//! / `notUpdated` / `notDestroyed` maps within `Ok((Value, ...))`, not
+//! as `Err`.
 
 use jmap_chat_types::space_set::{
     CategoryPatch, ChannelCreate, ChannelPatch, MemberPatch, RolePatch,
@@ -299,7 +326,13 @@ fn json_value_kind(v: &Value) -> &'static str {
 // Space/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `Space/get` method call.
+/// Handle a `Space/get` method call (draft-atwood-jmap-chat-00 §Space).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -527,7 +560,14 @@ fn filter_object_fields<F: Fn(&str) -> bool>(value: Value, keep: F) -> Value {
 // Space/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `Space/changes` method call (RFC 8620 §5.2).
+/// Handle a `Space/changes` method call (draft-atwood-jmap-chat-00 §Space).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -540,9 +580,18 @@ pub async fn handle_space_changes<B: ChatBackend>(
 // Space/query
 // ---------------------------------------------------------------------------
 
-/// Handle a `Space/query` method call (RFC 8620 §5.5).
+/// Handle a `Space/query` method call (draft-atwood-jmap-chat-00 §Space).
+///
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`); the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
 ///
 /// Filter and sort are passed through to the backend unchanged.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -619,7 +668,16 @@ pub async fn handle_space_query<B: ChatBackend>(
 // Space/queryChanges
 // ---------------------------------------------------------------------------
 
-/// Handle a `Space/queryChanges` method call (RFC 8620 §5.6).
+/// Handle a `Space/queryChanges` method call (draft-atwood-jmap-chat-00 §Space).
+///
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -832,11 +890,23 @@ async fn check_space_count_limits<B: ChatBackend>(
 // Space/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `Space/set` method call.
+/// Handle a `Space/set` method call (draft-atwood-jmap-chat-00 §Space).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps), augmented
+/// with the JMAP Chat structural-mutation pipeline (addRoles / removeRoles
+/// / updateRoles / addMembers / removeMembers / updateMembers / addCategories
+/// / removeCategories / updateCategories / addChannels / removeChannels /
+/// updateChannels / metadata-patch surface); the returned `Value` is the
+/// §5.3 `/set` response shape (`accountId`, `oldState`, `newState`, plus
+/// the per-operation `created` / `notCreated` / `updated` / `notUpdated`
+/// / `destroyed` / `notDestroyed` maps).
 ///
 /// Validation enforced here (not in the backend):
 /// - `name` is required on create.
 /// - `id`, `createdAt`, `memberCount` are server-set and rejected in updates.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1320,10 +1390,16 @@ pub async fn handle_space_set<B: ChatBackend>(
 // Space/join
 // ---------------------------------------------------------------------------
 
-/// Handle a `Space/join` method call.
+/// Handle a `Space/join` method call (draft-atwood-jmap-chat-00 §Space).
+///
+/// `args` is the draft §Space `Space/join` request shape (`accountId`,
+/// exactly one of `inviteCode` or `spaceId`); the returned `Value` is
+/// the §Space response shape (`accountId`, `spaceId`).
 ///
 /// Accepts exactly one of `inviteCode` or `spaceId`. Validates the invite or
 /// space, adds the caller as a member, and returns `{ "accountId": ..., "spaceId": ... }`.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_space_join<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,

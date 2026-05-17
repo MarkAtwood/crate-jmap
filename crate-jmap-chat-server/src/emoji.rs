@@ -1,4 +1,27 @@
-//! CustomEmoji/* method handlers (JMAP Chat extension §CustomEmoji).
+//! CustomEmoji/* method handlers (draft-atwood-jmap-chat-00 §CustomEmoji).
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by draft-atwood-jmap-chat-00 §CustomEmoji. The
+//! returned `Value` is the corresponding method-response object per the
+//! same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside `/set`
+//! (including the backend-canonical `may_set_custom_emoji` rich-SetError
+//! deny path) surface in the `notCreated` / `notUpdated` / `notDestroyed`
+//! maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_chat_types::CustomEmoji;
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
@@ -15,7 +38,13 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // CustomEmoji/get
 // ---------------------------------------------------------------------------
 
-/// Handle a `CustomEmoji/get` method call.
+/// Handle a `CustomEmoji/get` method call (draft-atwood-jmap-chat-00 §CustomEmoji).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_emoji_get<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -62,7 +91,14 @@ pub async fn handle_emoji_get<B: ChatBackend>(
 // CustomEmoji/changes
 // ---------------------------------------------------------------------------
 
-/// Handle a `CustomEmoji/changes` method call (RFC 8620 §5.2).
+/// Handle a `CustomEmoji/changes` method call (draft-atwood-jmap-chat-00 §CustomEmoji).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_emoji_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -106,9 +142,18 @@ pub async fn handle_emoji_changes<B: ChatBackend>(
 // CustomEmoji/query
 // ---------------------------------------------------------------------------
 
-/// Handle a `CustomEmoji/query` method call (RFC 8620 §5.5).
+/// Handle a `CustomEmoji/query` method call (draft-atwood-jmap-chat-00 §CustomEmoji).
+///
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`); the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
 ///
 /// Filter and sort are passed through to the backend unchanged.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_emoji_query<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -185,7 +230,16 @@ pub async fn handle_emoji_query<B: ChatBackend>(
 // CustomEmoji/queryChanges
 // ---------------------------------------------------------------------------
 
-/// Handle a `CustomEmoji/queryChanges` method call (RFC 8620 §5.6).
+/// Handle a `CustomEmoji/queryChanges` method call (draft-atwood-jmap-chat-00 §CustomEmoji).
+///
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_emoji_query_changes<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -266,13 +320,22 @@ pub async fn handle_emoji_query_changes<B: ChatBackend>(
 // CustomEmoji/set
 // ---------------------------------------------------------------------------
 
-/// Handle a `CustomEmoji/set` method call.
+/// Handle a `CustomEmoji/set` method call (draft-atwood-jmap-chat-00 §CustomEmoji).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
 ///
 /// Validation enforced here (not in the backend):
 /// - `name` is required on create and must match `/^[a-z0-9_-]+$/`.
 /// - `blobId` is required on create.
 /// - `id`, `createdBy`, `createdAt`, `spaceId` are server-set or immutable and
 ///   rejected in updates.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_emoji_set<B: ChatBackend>(
     backend: &B,
     caller: &B::CallerCtx,
