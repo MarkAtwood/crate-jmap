@@ -62,7 +62,7 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
-            "sinceState": since_state.as_ref(),
+            "sinceState": since_state,
         });
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
