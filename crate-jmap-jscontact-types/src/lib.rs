@@ -983,11 +983,19 @@ pub struct PartialDate {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub year: Option<u32>,
 
-    /// Calendar month, 1..=12.
+    /// Calendar month, 1..=12. The type does NOT range-check; callers
+    /// MUST verify the value is in `1..=12` before treating the
+    /// `PartialDate` as RFC 9553-conformant. Deserialize accepts
+    /// out-of-range values (e.g. `13`) without complaint.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub month: Option<u32>,
 
-    /// Calendar day of month, 1..=31.
+    /// Calendar day of month, 1..=31 (with month-specific cap of
+    /// 28/29/30/31). The type does NOT range-check; callers MUST
+    /// verify the value is in `1..=31` and within the month-specific
+    /// cap before treating the `PartialDate` as RFC 9553-conformant.
+    /// Deserialize accepts out-of-range values (e.g. `32`) without
+    /// complaint.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub day: Option<u32>,
 

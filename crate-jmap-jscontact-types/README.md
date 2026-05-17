@@ -134,6 +134,15 @@ The same pattern works for `EmailAddress`, `Phone`, `Address`,
   a fresh value MUST populate these fields before serializing.
   Deserialize accepts partial inputs. See the crate-level rustdoc
   "Design: optional fields and `Option<...>`" section for the table.
+- `PartialDate.month` and `PartialDate.day` are `Option<u32>` with no
+  range validation. RFC 9553 §2.8.1 specifies `month` is `1..=12` and
+  `day` is `1..=31` (with month-specific cap of 28/29/30/31).
+  Deserialize accepts out-of-range values (`month: 13`, `day: 32`)
+  without complaint; callers MUST verify the values before treating
+  the `PartialDate` as RFC 9553-conformant. This matches the kit's
+  posture for the other unbounded spec-numeric fields (`pref` per
+  bd:JMAP-sgrr.14, `list_as` per bd:JMAP-sgrr.15): types model the
+  wire shape, semantic validity is the consumer's job.
 - The Sloppy-Value pattern in `jmap-contacts-types` (per the workspace
   `AGENTS.md`) means consumers see some contact-card fields as
   `serde_json::Value` rather than typed sub-types from this crate. To
