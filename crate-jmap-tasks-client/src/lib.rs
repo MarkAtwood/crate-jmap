@@ -35,6 +35,25 @@ pub trait JmapTasksExt {
     /// The returned [`SessionClient`] captures the session at construction time.
     /// After re-fetching the session, construct a new `SessionClient` with the
     /// updated session.
+    ///
+    /// # Deferred session-capability validation
+    ///
+    /// This constructor accepts ANY [`jmap_base_client::Session`],
+    /// including one whose advertised capabilities do not include
+    /// `urn:ietf:params:jmap:tasks` or whose `primaryAccounts` map has
+    /// no entry for the tasks capability. The constructor performs no
+    /// up-front validation and never fails — its return type is the
+    /// infallible [`methods::SessionClient`], not a `Result`.
+    ///
+    /// Capability and primary-account validation is deferred to every
+    /// individual method call on the returned [`SessionClient`]. If
+    /// the session is unsuitable, those per-method calls return
+    /// [`ClientError::InvalidSession`] with a description like
+    /// `"no primary account for urn:ietf:params:jmap:tasks"`.
+    ///
+    /// Callers that want to guard at the binding site can pre-check
+    /// the session before calling this method via
+    /// [`session.primary_account_id("urn:ietf:params:jmap:tasks")`](jmap_base_client::Session::primary_account_id).
     fn with_tasks_session(self, session: jmap_base_client::Session) -> methods::SessionClient;
 }
 

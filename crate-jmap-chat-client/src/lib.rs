@@ -63,6 +63,37 @@ pub trait JmapChatExt: sealed::Sealed {
     /// Create a [`SessionClient`] bound to this client and session.
     ///
     /// All JMAP Chat method calls are made through the returned [`SessionClient`].
+    ///
+    /// # Deferred session-capability validation
+    ///
+    /// This constructor accepts ANY [`jmap_base_client::Session`],
+    /// including one whose advertised capabilities do not include
+    /// `urn:ietf:params:jmap:chat` or whose `primaryAccounts` map has
+    /// no entry for the chat capability. The constructor performs no
+    /// up-front validation and never fails — its return type is the
+    /// infallible [`methods::SessionClient`], not a `Result`.
+    ///
+    /// Capability and primary-account validation is deferred to every
+    /// individual method call on the returned [`SessionClient`]. If
+    /// the session is unsuitable, those per-method calls return
+    /// [`ClientError::InvalidSession`] with a description like
+    /// `"no primary account for urn:ietf:params:jmap:chat"`.
+    ///
+    /// Callers that want to guard at the binding site can pre-check
+    /// the session before calling this method:
+    ///
+    /// ```ignore
+    /// if session
+    ///     .primary_account_id("urn:ietf:params:jmap:chat")
+    ///     .is_none()
+    /// {
+    ///     // Session does not advertise a primary account for chat;
+    ///     // every subsequent SessionClient method call would fail
+    ///     // with ClientError::InvalidSession. Refuse here.
+    ///     return Err(MyAppError::SessionMissingChatCapability);
+    /// }
+    /// let sc = client.with_chat_session(session);
+    /// ```
     fn with_chat_session(&self, session: jmap_base_client::Session) -> methods::SessionClient;
 }
 
