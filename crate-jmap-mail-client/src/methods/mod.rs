@@ -61,7 +61,20 @@ pub struct EmailGetParams {
     /// If `true`, inline values for all body parts (RFC 8621 §4.1.8).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fetch_all_body_values: Option<bool>,
-    /// Truncate body values to at most this many bytes (RFC 8621 §4.1.8).
+    /// Truncate body values to at most this many octets (RFC 8621 §4.1.8).
+    ///
+    /// When set, each returned `EmailBodyValue` whose UTF-8 byte length
+    /// exceeds this limit is truncated; the truncation point is rounded
+    /// down to a UTF-8 character boundary so the returned string is
+    /// always valid UTF-8 (trailing bytes that would result in an
+    /// incomplete code point are dropped). Consequently the actual
+    /// returned length may be a few octets short of this limit when
+    /// the cut would fall inside a multi-byte UTF-8 sequence.
+    ///
+    /// Truncated `EmailBodyValue` objects have their `isTruncated`
+    /// property set to `true`. Callers that need the full body of a
+    /// truncated value should download the raw blob via
+    /// [`JmapClient::download_blob`](jmap_base_client::JmapClient::download_blob).
     ///
     /// Spec magic-value: `Some(0)` is equivalent to omitting the field —
     /// RFC 8621 §4.1.8 says "If positive, ..." which means the truncation
@@ -351,7 +364,16 @@ pub struct EmailParseParams {
     /// If `true`, inline values for all body parts (RFC 8621 §4.9).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fetch_all_body_values: Option<bool>,
-    /// Truncate body values to at most this many bytes (RFC 8621 §4.9).
+    /// Truncate body values to at most this many octets (RFC 8621 §4.9).
+    ///
+    /// `Email/parse` reuses the same truncation contract as
+    /// [`EmailGetParams::max_body_value_bytes`]: the truncation point
+    /// is rounded down to a UTF-8 character boundary so the returned
+    /// string is always valid UTF-8, and truncated `EmailBodyValue`
+    /// objects have `isTruncated` set to `true`. Callers that need
+    /// the full body of a truncated value should download the raw
+    /// blob via
+    /// [`JmapClient::download_blob`](jmap_base_client::JmapClient::download_blob).
     ///
     /// Spec magic-value: `Some(0)` is equivalent to omitting the field
     /// per RFC 8621 §4.9 ("If positive, ..."). Pass `None` to omit the
