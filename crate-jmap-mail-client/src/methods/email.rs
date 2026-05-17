@@ -359,17 +359,45 @@ impl super::SessionClient {
     /// `create` is a map of creation keys to partial Email objects (with new
     /// mailboxIds etc.) as described in RFC 8621 §4.7.
     ///
+    /// # Cross-account error space (RFC 8620 §5.4 + RFC 8621 §4.7)
+    ///
+    /// `Email/copy` is the ONLY method in this crate that crosses
+    /// account boundaries, and it has a method-specific error space
+    /// that ordinary `Email/set` does not. The following codes surface
+    /// as [`ClientError::MethodError`](jmap_base_client::ClientError::MethodError)
+    /// with the corresponding `error_type` string:
+    ///
+    /// - `fromAccountNotFound` — `from_account_id` is not an account
+    ///   the user can access.
+    /// - `fromAccountNotSupportedByMethod` — the source account does
+    ///   not support the JMAP Mail capability.
+    /// - `stateMismatch` — `destroy_from_if_in_state` did not match
+    ///   the current state of Email on the source account.
+    /// - `tooManyCopies` — server-defined cap on copies-per-request
+    ///   exceeded.
+    /// - `tooManyEmails` — server-defined cap on emails-per-copy
+    ///   exceeded.
+    /// - `anchorNotFound` — RFC 8620 §5.4 reserves this for
+    ///   `#`-prefixed result references that cannot be resolved.
+    ///
+    /// Per-entry failures (one per creation key in `create`) appear in
+    /// [`SetResponse::not_created`] as [`SetError`](super::SetError)
+    /// values, NOT as method-level errors. Common per-entry codes
+    /// include `invalidProperties`, `notFound` (when the source email
+    /// id does not exist), `overQuota`, and `alreadyExists`.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
-    ///   `urn:ietf:params:jmap:mail`.
+    ///   `urn:ietf:params:jmap:mail`. (The destination account is the
+    ///   session's primary mail account; the source account is the
+    ///   `from_account_id` argument.)
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
-    ///   the matching error list on [`Self::email_get`]. RFC 8620 §5.4
-    ///   /copy adds method-level errors `fromAccountNotFound`,
-    ///   `fromAccountNotSupportedByMethod`, and `anchorNotFound` (the
-    ///   latter under `onSuccessDestroyOriginal`); they surface as
+    ///   the matching error list on [`Self::email_get`].
+    /// - The /copy-specific method-level errors listed in the
+    ///   "Cross-account error space" section above, surfaced as
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn email_copy(
         &self,
