@@ -187,8 +187,15 @@ impl super::SessionClient {
                 ))
             })?;
             if let serde_json::Value::Object(map) = params_val {
+                // Use `entry().or_insert()` so a caller who put a typed
+                // wire key (e.g. "accountId", "create", "update",
+                // "destroy", "ifInState") into `params.extra` cannot
+                // silently clobber the typed args. Typed wins on collision.
+                let args_obj = args
+                    .as_object_mut()
+                    .expect("file_node_set: args is constructed as Object");
                 for (k, v) in map {
-                    args[k] = v;
+                    args_obj.entry(k).or_insert(v);
                 }
             }
         }
