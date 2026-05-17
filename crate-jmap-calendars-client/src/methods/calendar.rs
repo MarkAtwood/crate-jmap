@@ -86,12 +86,17 @@ impl super::SessionClient {
     ///   destroys all its events. If `false` (the default), the server MUST
     ///   reject a destroy if the calendar still has events
     ///   (`calendarHasEvent` error).
+    /// - `if_in_state`: optional optimistic-concurrency guard per RFC 8620
+    ///   §5.3. If supplied, the value must equal the current Calendar state
+    ///   on the server or the method rejects with `stateMismatch`. Pass the
+    ///   `newState` returned by a prior /get or /set response.
     pub async fn calendar_set(
         &self,
         create: Option<HashMap<String, jmap_calendars_types::Calendar>>,
         update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<&[Id]>,
         on_destroy_remove_events: Option<bool>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {
         if let Some(ref m) = create {
             for k in m.keys() {
@@ -125,6 +130,9 @@ impl super::SessionClient {
         }
         if let Some(flag) = on_destroy_remove_events {
             args["onDestroyRemoveEvents"] = flag.into();
+        }
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
         }
         let req = super::build_request("Calendar/set", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;

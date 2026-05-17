@@ -145,7 +145,7 @@ async fn calendar_event_set_smoke() {
     let mut create_map = std::collections::HashMap::new();
     create_map.insert("newEv".to_owned(), event);
     let resp = sc
-        .calendar_event_set(Some(create_map), None, None)
+        .calendar_event_set(Some(create_map), None, None, None)
         .await
         .expect("calendar_event_set_smoke: must succeed");
 
@@ -312,7 +312,7 @@ async fn calendar_set_on_destroy_remove_events_true_passthrough() {
     let sc = helpers::make_client(&server);
     let destroy_ids = [Id::from("cal-doomed")];
     let resp = sc
-        .calendar_set(None, None, Some(&destroy_ids), Some(true))
+        .calendar_set(None, None, Some(&destroy_ids), Some(true), None)
         .await
         .expect("calendar_set: must succeed");
     assert_eq!(
@@ -385,7 +385,7 @@ async fn calendar_set_on_destroy_remove_events_none_omits_field() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .calendar_set(None, None, None, None)
+        .calendar_set(None, None, None, None, None)
         .await
         .expect("calendar_set: must succeed");
 

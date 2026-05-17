@@ -89,7 +89,7 @@ impl super::SessionClient {
     ///
     /// ```ignore
     /// if !ids.is_empty() {
-    ///     let _ = sc.calendar_event_notification_set(Some(&ids)).await?;
+    ///     let _ = sc.calendar_event_notification_set(Some(&ids), None).await?;
     /// }
     /// ```
     ///
@@ -103,19 +103,28 @@ impl super::SessionClient {
     /// optimistic concurrency. Keeping the call unconditional preserves
     /// state-token correctness; the caller is in the best position to
     /// decide whether to skip the call entirely.
+    /// - `if_in_state`: optional optimistic-concurrency guard per RFC 8620
+    ///   §5.3. If supplied, the value must equal the current
+    ///   `CalendarEventNotification` state on the server or the method
+    ///   rejects with `stateMismatch`. Pass the `newState` returned by
+    ///   a prior /get response.
     pub async fn calendar_event_notification_set(
         &self,
         destroy: Option<&[Id]>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let destroy_val = match destroy {
             Some(ids) => serde_json::to_value(ids).expect("Id slice Serialize is infallible"),
             None => serde_json::Value::Array(vec![]),
         };
-        let args = serde_json::json!({
+        let mut args = serde_json::json!({
             "accountId": account_id,
             "destroy": destroy_val,
         });
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
+        }
         let req = super::build_request(
             "CalendarEventNotification/set",
             args,

@@ -201,7 +201,7 @@ async fn participant_identity_set_create_round_trip() {
     let mut create_map = HashMap::new();
     create_map.insert("newPi".to_owned(), identity);
     let resp = sc
-        .participant_identity_set(Some(create_map), None, None)
+        .participant_identity_set(Some(create_map), None, None, None)
         .await
         .expect("participant_identity_set: must succeed");
 
@@ -284,7 +284,7 @@ async fn participant_identity_set_destroy_only_passthrough() {
     let sc = helpers::make_client(&server);
     let destroy_ids = [Id::from("pi-old")];
     let _ = sc
-        .participant_identity_set(None, None, Some(&destroy_ids))
+        .participant_identity_set(None, None, Some(&destroy_ids), None)
         .await
         .expect("participant_identity_set: must succeed");
 

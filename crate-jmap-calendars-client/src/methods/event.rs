@@ -95,11 +95,16 @@ impl super::SessionClient {
     ///   `/`-separated paths into `recurrenceOverrides` etc.; the
     ///   server interprets them per the patched object's schema.
     /// - `destroy`: list of `CalendarEvent` ids to destroy.
+    /// - `if_in_state`: optional optimistic-concurrency guard per RFC 8620
+    ///   §5.3. If supplied, the value must equal the current `CalendarEvent`
+    ///   state on the server or the method rejects with `stateMismatch`.
+    ///   Pass the `newState` returned by a prior /get or /set response.
     pub async fn calendar_event_set(
         &self,
         create: Option<HashMap<String, jmap_calendars_types::CalendarEvent>>,
         update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<&[Id]>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
         if let Some(ref m) = create {
@@ -131,6 +136,9 @@ impl super::SessionClient {
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::to_value(d).expect("Id slice Serialize is infallible");
+        }
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
         }
         let req = super::build_request("CalendarEvent/set", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;
