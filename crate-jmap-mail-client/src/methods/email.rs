@@ -99,6 +99,18 @@ impl super::SessionClient {
     /// If `has_more_changes` is true in the response, call again with `new_state`
     /// as `since_state` until the flag is false.
     ///
+    /// # `max_changes` spec magic-values (RFC 8620 §5.2)
+    ///
+    /// - `None` omits the wire field and lets the server apply its
+    ///   default cap.
+    /// - `Some(0)` is wire-legal and means "no client limit"; the
+    ///   server may still apply its own cap. This is distinct from
+    ///   `None`: `None` says "I haven't expressed a preference",
+    ///   `Some(0)` says "I want as many entries as the server is
+    ///   willing to return in one round-trip".
+    /// - `Some(n)` with `n > 0` requests at most `n` entries; the
+    ///   server may return fewer.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -206,6 +218,16 @@ impl super::SessionClient {
     /// server-default ordering. Use `position` and `limit` for pagination.
     /// Pass `collapse_threads: Some(true)` to return at most one email per thread.
     ///
+    /// # Numeric parameter spec magic-values (RFC 8620 §5.5)
+    ///
+    /// - `position: Some(0)` selects the first item (zero-indexed); the
+    ///   spec also accepts negative values, but `u64` does not represent
+    ///   them — pass `None` to omit and use the server default of `0`.
+    /// - `limit: Some(0)` is wire-legal but means "server's default
+    ///   cap", NOT "zero results"; the server is free to return its
+    ///   default page size. Pass `None` to omit (server applies its
+    ///   default), or `Some(n)` with `n > 0` for an explicit cap.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -267,6 +289,9 @@ impl super::SessionClient {
     /// point when both `filter` and `sort` are on immutable properties.
     ///
     /// `calculate_total` requests the new total result count.
+    ///
+    /// `max_changes` follows the same magic-value semantics as
+    /// [`Self::email_changes`].
     ///
     /// # Errors
     ///

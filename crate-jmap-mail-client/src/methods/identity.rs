@@ -62,6 +62,11 @@ impl super::SessionClient {
 
     /// Fetch changes to Identity objects since `since_state` (RFC 8621 §6.2 — Identity/changes).
     ///
+    /// `max_changes` follows the same RFC 8620 §5.2 magic-value semantics
+    /// as [`SessionClient::email_changes`](crate::methods::SessionClient::email_changes):
+    /// `None` lets the server apply its default cap, `Some(0)` means
+    /// "no client limit", `Some(n>0)` requests at most `n` entries.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
