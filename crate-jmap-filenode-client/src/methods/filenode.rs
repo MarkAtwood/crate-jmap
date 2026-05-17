@@ -105,11 +105,32 @@ pub struct FileNodeSetParams {
 
 /// Parameters for FileNode/copy requests
 /// (draft-ietf-jmap-filenode-13 §3.2.4).
+///
+/// `from_account_id` is the source account; the destination account is the
+/// session's primary FileNode account. `on_destroy_remove_children`,
+/// `on_exists`, and `compare_case_insensitively` mirror the like-named
+/// arguments on `FileNode/set` (§3.2.3) and control cascade-destroy and
+/// name-collision behaviour at the destination.
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct FileNodeCopyParams {
     /// The account that is the source of the copy operation.
     pub from_account_id: Id,
+
+    /// If true, destroying a directory also destroys all its descendants.
+    /// Server default: false (destroy fails if children exist).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_destroy_remove_children: Option<bool>,
+
+    /// How to handle a name collision with an existing sibling node at the
+    /// destination. `None` means the server's default policy applies.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_exists: Option<FileNodeOnExists>,
+
+    /// If true, name comparisons are case-insensitive when checking for
+    /// sibling name collisions at the destination. Server default: false.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub compare_case_insensitively: Option<bool>,
 
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
@@ -347,16 +368,21 @@ impl super::SessionClient {
     /// (draft-ietf-jmap-filenode-13 §3.2.4).
     ///
     /// `from_account_id` is the source account. `create` is a JSON object
-    /// mapping creation keys to copy-creation objects. `on_exists` and
-    /// `compare_case_insensitively` are optional collision-handling parameters.
-    /// Copy FileNode objects from `from_account_id` into this account
+    /// Copy FileNode objects from `params.from_account_id` into this account
     /// (draft-ietf-jmap-filenode-13 §3.2.4 — FileNode/copy).
     ///
-    /// Accepts the same optional arguments as `FileNode/set`:
-    /// - `on_destroy_remove_children`: when `true`, any children of a destroyed
-    ///   source node are also removed (§3.2.4, §3.2.3).
+    /// `params` carries `fromAccountId` plus the optional destination-side
+    /// arguments shared with `FileNode/set`:
+    /// - `on_destroy_remove_children`: when `true`, any children of a
+    ///   destroyed source node are also removed (§3.2.4, §3.2.3).
     /// - `on_exists`: collision policy at the destination.
     /// - `compare_case_insensitively`: case-folding for name collisions.
+    ///
+    /// `create` is the RFC 8620 §5.4 `create` map (a JSON object mapping
+    /// creation keys to copy-creation objects).
+    ///
+    /// Use [`FileNodeCopyParams::extra`] to plumb vendor / site extension
+    /// fields through to the wire (workspace extras-preservation policy).
     ///
     /// # Errors
     ///
@@ -364,8 +390,8 @@ impl super::SessionClient {
     ///   if the bound session has no primary account for
     ///   `urn:ietf:params:jmap:filenode`.
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
-    ///   if `on_exists` is `Some` and serializing it fails (pathological
-    ///   conditions only).
+    ///   if `params.on_exists` is `Some` and serializing it fails
+    ///   (pathological conditions only).
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
     ///   the matching error list on [`Self::filenode_get`]. RFC 8620
@@ -375,30 +401,39 @@ impl super::SessionClient {
     ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn filenode_copy(
         &self,
-        from_account_id: &Id,
+        params: FileNodeCopyParams,
         create: serde_json::Value,
-        on_destroy_remove_children: Option<bool>,
-        on_exists: Option<FileNodeOnExists>,
-        compare_case_insensitively: Option<bool>,
     ) -> Result<SetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
-            "fromAccountId": from_account_id,
+            "fromAccountId": params.from_account_id,
             "accountId": account_id,
             "create": create,
         });
-        if let Some(odrc) = on_destroy_remove_children {
+        if let Some(odrc) = params.on_destroy_remove_children {
             args["onDestroyRemoveChildren"] = odrc.into();
         }
-        if let Some(oe) = on_exists {
+        if let Some(oe) = params.on_exists {
             args["onExists"] = serde_json::to_value(&oe).map_err(|e| {
                 jmap_base_client::ClientError::InvalidArgument(format!(
                     "filenode_copy: failed to serialize onExists: {e}"
                 ))
             })?;
         }
-        if let Some(cci) = compare_case_insensitively {
+        if let Some(cci) = params.compare_case_insensitively {
             args["compareCaseInsensitively"] = cci.into();
+        }
+        // Route caller-supplied vendor extras onto the wire (workspace
+        // extras-preservation policy). Use `entry().or_insert()` so a
+        // caller who put a typed wire key into `params.extra` cannot
+        // silently clobber the typed value — typed wins on collision.
+        if !params.extra.is_empty() {
+            let args_obj = args
+                .as_object_mut()
+                .expect("filenode_copy: args is constructed as Object");
+            for (k, v) in params.extra {
+                args_obj.entry(k).or_insert(v);
+            }
         }
         let req = super::build_request("FileNode/copy", args, super::USING_FILENODE);
         let resp = self.call_internal(api_url, &req).await?;
@@ -726,9 +761,32 @@ mod tests {
         extra.insert("acmeCorpAudit".into(), json!(true));
         let params = FileNodeCopyParams {
             from_account_id: Id::from("acct-src"),
+            on_destroy_remove_children: None,
+            on_exists: None,
+            compare_case_insensitively: None,
             extra,
         };
         let v = serde_json::to_value(&params).expect("serialize FileNodeCopyParams");
         assert_eq!(v["acmeCorpAudit"], json!(true));
+    }
+
+    /// Oracle: FileNodeCopyParams with on_destroy_remove_children and
+    /// compare_case_insensitively serializes all three named fields
+    /// (fromAccountId, onDestroyRemoveChildren, compareCaseInsensitively).
+    /// Expected field names from draft-ietf-jmap-filenode-13 §3.2.4.
+    #[test]
+    fn filenode_copy_params_all_fields_serializes() {
+        let params = FileNodeCopyParams {
+            from_account_id: Id::from("acct-src"),
+            on_destroy_remove_children: Some(true),
+            on_exists: Some(FileNodeOnExists::Rename),
+            compare_case_insensitively: Some(false),
+            extra: serde_json::Map::new(),
+        };
+        let v = serde_json::to_value(&params).expect("serialize FileNodeCopyParams");
+        assert_eq!(v["fromAccountId"], json!("acct-src"));
+        assert_eq!(v["onDestroyRemoveChildren"], json!(true));
+        assert_eq!(v["onExists"], json!("rename"));
+        assert_eq!(v["compareCaseInsensitively"], json!(false));
     }
 }
