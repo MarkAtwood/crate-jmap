@@ -31,6 +31,45 @@ pub use jmap_server::{
 ///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl ContactsBackend>` when sharing across tasks.
+///
+/// # Caller identity (foundation seam)
+///
+/// Per the workspace AGENTS.md "Caller identity (foundation seam)" section,
+/// the canonical (and only) way for a method to learn who is asking is
+/// [`JmapBackend::principal_id`] on the `caller: &Self::CallerCtx`
+/// parameter. `ContactsBackend` extends [`JmapBackend`], so the seam is
+/// inherited; no contacts-specific identity method exists or should
+/// exist.
+///
+/// Backends that have not wired identity (test fixtures, single-user dev
+/// servers — including the in-crate [`crate::memory::MemoryBackend`])
+/// return `None` from `principal_id`. Such backends CANNOT correctly
+/// implement AddressBook ACLs or any other identity-sensitive contacts
+/// surface; the workspace AGENTS.md per-extension implication for
+/// contacts is recorded in `crate-jmap-contacts-server/AGENTS.md`
+/// "Permission enforcement: backend canonical":
+///
+/// > every AddressBook / ContactCard mutation must be authorized
+/// > against the caller's effective rights on the AddressBook (RFC 9670
+/// > myRights semantics, propagated through `jmap-sharing-server` when
+/// > present).
+///
+/// `ContactsBackend` itself has no method that consumes
+/// `principal_id` today — RFC 9610 does not define an identity-sensitive
+/// contacts method by name, and the in-crate handlers (
+/// `handle_address_book_*`, `handle_contact_card_*`) compute the
+/// candidate mutation without reading identity. Authorization is the
+/// production backend's responsibility: the implementor reads
+/// `principal_id(caller)`, resolves it against the deployment's
+/// permission model (RFC 9670 `myRights`, `shareWith`,
+/// `isSubscribed`, per-user $seen-style state, vendor ACLs), and
+/// rejects the operation atomically with the storage write via
+/// [`SetError`] / [`BackendSetError`].
+///
+/// The canonical consumer pattern is `ChatBackend::apply_space_patch`
+/// in jmap-chat-server (bd:JMAP-g7wu.2.4). Future AddressBook ACL
+/// enforcement work in contacts SHOULD mirror that pattern.
+/// bd:JMAP-qz9v.19 tracks the trait-doc-vs-implementation gap.
 pub trait ContactsBackend: JmapBackend {
     /// Create a new AddressBook or ContactCard.
     ///
