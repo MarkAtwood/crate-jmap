@@ -117,8 +117,7 @@ impl super::SessionClient {
     /// operations with `forbidden` SetErrors. This method accepts only
     /// `destroy` to prevent constructing invalid requests.
     ///
-    /// Pass `destroy: None` to send an empty destroy list (no-op). Pass
-    /// `destroy: Some(ids)` to dismiss the listed notifications.
+    /// Pass an empty vec to send an empty destroy list (no-op round-trip).
     ///
     /// # Errors
     ///
@@ -130,16 +129,12 @@ impl super::SessionClient {
     ///   the matching error list on [`Self::share_notification_get`].
     pub async fn share_notification_set(
         &self,
-        destroy: Option<Vec<Id>>,
+        destroy: Vec<Id>,
     ) -> Result<SetResponse, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
-        let destroy_val = match destroy {
-            Some(ids) => serde_json::to_value(&ids).expect("Id Vec Serialize is infallible"),
-            None => serde_json::Value::Array(vec![]),
-        };
         let args = serde_json::json!({
             "accountId": account_id,
-            "destroy": destroy_val,
+            "destroy": destroy,
         });
         let req = super::build_request("ShareNotification/set", args, super::USING_SHARING);
         let resp = self.call_internal(api_url, &req).await?;

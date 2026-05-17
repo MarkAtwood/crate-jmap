@@ -188,8 +188,7 @@ pub trait JmapSharingExt {
     /// entries. Use `destroy` to dismiss notifications.
     async fn share_notification_set(
         &self,
-        account_id: &Id,
-        destroy: &[Id],
+        destroy: Vec<Id>,
     ) -> Result<SetResponse<ShareNotification>, ClientError>;
 
     /// ShareNotification/query (RFC 9670 §3.4).

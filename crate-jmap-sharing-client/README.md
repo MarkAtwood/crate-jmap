@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // 7. Dismiss a share notification (destroy-only — no create or update).
-    sharing.share_notification_set(Some(vec![Id::from("notif-id-1")])).await?;
+    sharing.share_notification_set(vec![Id::from("notif-id-1")]).await?;
 
     Ok(())
 }
@@ -96,10 +96,10 @@ requests that the server will always reject.
 use jmap_types::Id;
 
 // Dismiss one notification:
-sharing.share_notification_set(Some(vec![Id::from("notif-id-1")])).await?;
+sharing.share_notification_set(vec![Id::from("notif-id-1")]).await?;
 
 // Send an empty destroy (no-op, still a valid /set call):
-sharing.share_notification_set(None).await?;
+sharing.share_notification_set(vec![]).await?;
 ```
 
 ### Principal/set — permission note
