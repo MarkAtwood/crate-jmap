@@ -7,6 +7,27 @@
 //! - `ContactCard/copy`
 //! - `ContactCard/query`
 //! - `ContactCard/queryChanges`
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3, `/copy` → §5.4,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by RFC 9610 §3. The returned `Value` is the
+//! corresponding method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside a `/set` or
+//! `/copy` call surface in the `notCreated` / `notUpdated` /
+//! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_contacts_types::ContactCard;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
@@ -21,6 +42,12 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // ---------------------------------------------------------------------------
 
 /// Handle a `ContactCard/get` method call (RFC 9610 §3.1).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_get<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -34,6 +61,13 @@ pub async fn handle_contact_card_get<B: ContactsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ContactCard/changes` method call (RFC 9610 §3.2).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -47,6 +81,15 @@ pub async fn handle_contact_card_changes<B: ContactsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ContactCard/set` method call (RFC 9610 §3.3).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_set<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -340,7 +383,14 @@ fn apply_jmap_patch(base: &mut serde_json::Map<String, Value>, path: &str, val: 
     }
 }
 
-/// Handle a `ContactCard/copy` method call (RFC 9610 §3.4 / RFC 8620 §6.3).
+/// Handle a `ContactCard/copy` method call (RFC 9610 §3.4 / RFC 8620 §5.4).
+///
+/// `args` is the RFC 8620 §5.4 `/copy` request shape (`fromAccountId`,
+/// optional `ifFromInState`, `accountId`, optional `ifInState`, `create`
+/// map of creationId → object, optional `onSuccessDestroyOriginal`,
+/// optional `destroyFromIfInState`); the returned `Value` is the §5.4
+/// `/copy` response shape (`fromAccountId`, `accountId`, `oldState`,
+/// `newState`, `created` / `notCreated` maps).
 ///
 /// Fetches cards from `fromAccountId`, delegates copy to the backend, and
 /// returns `copied`/`notCopied` maps.
@@ -353,6 +403,9 @@ fn apply_jmap_patch(base: &mut serde_json::Map<String, Value>, path: &str, val: 
 /// emits a synthetic `ContactCard/set` invocation per RFC 8620 §6.3;
 /// `destroyFromIfInState` (if supplied) gates the implicit destroy
 /// against the source state at destroy time.
+///
+/// Returns `(response_args, extra_invocations)`. Extra invocations are
+/// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3.
 pub async fn handle_contact_card_copy<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -655,6 +708,15 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ContactCard/query` method call (RFC 9610 §3.3).
+///
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`); the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_query<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -668,6 +730,15 @@ pub async fn handle_contact_card_query<B: ContactsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ContactCard/queryChanges` method call (RFC 9610 §3.4).
+///
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_contact_card_query_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
