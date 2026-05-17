@@ -416,9 +416,32 @@ pub enum ClientError {
 
     /// Server rate-limited the request. `retry_after` indicates when to retry.
     ///
-    /// **Note (bd:JMAP-6lsm.3): this base crate does not currently produce
-    /// this variant.** HTTP 429 responses fall through reqwest's
-    /// `error_for_status()` and surface as [`ClientError::Http`] instead.
+    /// # ⚠ Not currently produced by this crate (bd:JMAP-6lsm.3, bd:JMAP-6r7c.33)
+    ///
+    /// **HTTP 429 responses fall through `reqwest::error_for_status()` and
+    /// surface as [`ClientError::Http`] today, NOT as `ClientError::RateLimited`.**
+    /// A caller that matches only on this variant will miss every actual
+    /// 429 from the base crate. Until bd:JMAP-6lsm.3 lands the native
+    /// 429 → `RateLimited` conversion, callers MUST handle both cases:
+    ///
+    /// ```rust,ignore
+    /// match err {
+    ///     ClientError::RateLimited { retry_after } => {
+    ///         // Eventually the only path; today only produced by extension
+    ///         // crates that wrap this crate's error conversion.
+    ///         sleep_until(retry_after).await;
+    ///     }
+    ///     ClientError::Http(http) if http.status() == Some(429) => {
+    ///         // Base-crate path today (bd:JMAP-6lsm.3 will collapse this
+    ///         // into the RateLimited arm above).
+    ///         sleep(Duration::from_secs(30)).await; // or parse Retry-After
+    ///     }
+    ///     other => { /* propagate */ }
+    /// }
+    /// ```
+    ///
+    /// # Why the variant ships anyway
+    ///
     /// The variant is part of the public contract so:
     ///
     /// 1. Extension crates that wrap or replace this crate's transport may
@@ -428,12 +451,11 @@ pub enum ClientError {
     ///    have a stable target to match on, even before the conversion
     ///    logic lands here (tracked under `bd:JMAP-6lsm.3`).
     ///
-    /// If you encounter a 429 today, match on `ClientError::Http` and call
-    /// [`HttpError::status`] to confirm `Some(429)`. The base crate may
-    /// gain native 429 → `RateLimited` conversion in a future minor
-    /// release; the variant shape will not change in a backward-incompatible
-    /// way (it is `#[non_exhaustive]` via the enum-level annotation, so
-    /// extra fields can be added without a SemVer break).
+    /// The variant shape will not change in a backward-incompatible way
+    /// when 429 → `RateLimited` conversion lands — it is part of a
+    /// `#[non_exhaustive]` enum and the struct payload is itself stable,
+    /// so callers writing the dual-match pattern above today will not
+    /// need to adjust when the migration completes.
     #[error("rate limited; retry after {retry_after}")]
     RateLimited {
         /// Absolute UTC instant the client should wait until before retrying,
