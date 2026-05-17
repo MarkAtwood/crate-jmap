@@ -138,6 +138,28 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
         }
     }
 
+    // bd:JMAP-qz9v.57 — capture the set of currently-default AddressBook ids
+    // before any mutations so we can detect demotions triggered by the
+    // single-default invariant (bd:JMAP-qz9v.5 / bd:JMAP-qz9v.11). After the
+    // create + update loops we re-fetch and any id whose isDefault flipped
+    // from true → false is surfaced in the wire `updated` map per RFC 8620
+    // §5.3 ('any properties of any other object that have been changed').
+    // A best-effort error from this initial fetch is treated as "no
+    // previously-default ids known" — the worst case is a demotion that
+    // happened to a book we never saw, which is still picked up by
+    // AddressBook/changes.
+    let previously_default_ids: std::collections::HashSet<Id> = backend
+        .get_objects::<AddressBook>(caller, &account_id, None, None)
+        .await
+        .map(|(books, _)| {
+            books
+                .into_iter()
+                .filter(|b| b.is_default)
+                .map(|b| b.id)
+                .collect()
+        })
+        .unwrap_or_default();
+
     let mut created = serde_json::Map::new();
     let mut not_created = serde_json::Map::new();
     let mut updated = serde_json::Map::new();
@@ -369,6 +391,55 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                                 format!("unhandled backend error variant: {other:?}"),
                         }),
                     );
+                }
+            }
+        }
+    }
+
+    // -----------------------------------------------------------------------
+    // bd:JMAP-qz9v.57 — report books demoted by the single-default invariant.
+    //
+    // After the regular create + update + destroy loops, any AddressBook that
+    // was isDefault:true at the start of /set (captured in
+    // `previously_default_ids`) but is now isDefault:false was implicitly
+    // demoted by the backend's enforcement of RFC 9610 §2's
+    // 'MUST NOT be true for more than one AddressBook within an account'
+    // invariant. RFC 8620 §5.3 requires every modified object to surface in
+    // the response, so we re-fetch the previously-default ids and insert
+    // any flipped-to-false entries into the wire `updated` map.
+    //
+    // Skip ids that already appear in `updated` (because they were the
+    // explicit target of a successful update) or in `created` (because
+    // they were just created); those entries are authoritative.
+    //
+    // A best-effort error from the re-fetch leaves the wire response as-is.
+    // The /changes machinery will still surface the demotion.
+    //
+    // The onSuccessSetIsDefault block below has its own (legacy) demotion
+    // reporting; this pass covers the regular paths only. Running this
+    // BEFORE onSuccessSetIsDefault ensures no double-attribution: any
+    // promotion onSuccessSetIsDefault triggers will be picked up by its
+    // own existing block.
+    // -----------------------------------------------------------------------
+    if !previously_default_ids.is_empty() {
+        if let Ok((current_books, _)) = backend
+            .get_objects::<AddressBook>(caller, &account_id, None, None)
+            .await
+        {
+            for book in current_books {
+                let book_id_str = book.id.to_string();
+                if !previously_default_ids.contains(&book.id) {
+                    continue; // not previously default → not a demotion candidate
+                }
+                if book.is_default {
+                    continue; // still default → not demoted
+                }
+                if updated.contains_key(&book_id_str) || created.contains_key(&book_id_str) {
+                    continue; // already authoritatively recorded
+                }
+                if let Ok(v) = serde_json::to_value(&book) {
+                    updated.insert(book_id_str, v);
+                    mutated = true;
                 }
             }
         }
