@@ -74,6 +74,11 @@ impl super::SessionClient {
     /// Fetch changes to EmailSubmission objects since `since_state`
     /// (RFC 8621 §7.2 — EmailSubmission/changes).
     ///
+    /// `max_changes` follows the same RFC 8620 §5.2 magic-value semantics
+    /// as [`SessionClient::email_changes`](crate::methods::SessionClient::email_changes):
+    /// `None` lets the server apply its default cap, `Some(0)` means
+    /// "no client limit", `Some(n>0)` requests at most `n` entries.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -117,6 +122,12 @@ impl super::SessionClient {
     /// The sort property for this object type is `"sentAt"` (RFC 8621 §7.3, line 4513),
     /// not `"sendAt"` (which is an object field).  Callers constructing the sort
     /// argument should use `"sentAt"` as the property name.
+    ///
+    /// `position` and `limit` follow the same RFC 8620 §5.5 magic-value
+    /// semantics as
+    /// [`SessionClient::email_query`](crate::methods::SessionClient::email_query):
+    /// `position: Some(0)` is the first item (zero-indexed); `limit:
+    /// Some(0)` means "server's default cap", NOT "zero results".
     ///
     /// # Errors
     ///
@@ -174,6 +185,9 @@ impl super::SessionClient {
     /// point when both `filter` and `sort` are on immutable properties.
     ///
     /// `calculate_total` requests the new total result count.
+    ///
+    /// `max_changes` follows the same magic-value semantics as
+    /// [`SessionClient::email_changes`](crate::methods::SessionClient::email_changes).
     ///
     /// # Errors
     ///

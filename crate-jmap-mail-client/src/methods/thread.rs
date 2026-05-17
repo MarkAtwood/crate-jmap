@@ -61,6 +61,11 @@ impl super::SessionClient {
     /// If `has_more_changes` is true in the response, call again with `new_state`
     /// as `since_state` until the flag is false.
     ///
+    /// `max_changes` follows the same RFC 8620 §5.2 magic-value semantics
+    /// as [`SessionClient::email_changes`](crate::methods::SessionClient::email_changes):
+    /// `None` lets the server apply its default cap, `Some(0)` means
+    /// "no client limit", `Some(n>0)` requests at most `n` entries.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)

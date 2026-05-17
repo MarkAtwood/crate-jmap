@@ -62,6 +62,14 @@ pub struct EmailGetParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fetch_all_body_values: Option<bool>,
     /// Truncate body values to at most this many bytes (RFC 8621 §4.1.8).
+    ///
+    /// Spec magic-value: `Some(0)` is equivalent to omitting the field —
+    /// RFC 8621 §4.1.8 says "If positive, ..." which means the truncation
+    /// only applies for strictly-positive values. Pass `None` to omit
+    /// the wire field entirely (server uses its default policy), or
+    /// `Some(n)` with `n > 0` for an explicit truncation cap. Passing
+    /// `Some(0)` is wire-legal but semantically identical to omission
+    /// — prefer `None` for clarity.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_body_value_bytes: Option<u64>,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -288,6 +296,11 @@ pub struct EmailParseParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fetch_all_body_values: Option<bool>,
     /// Truncate body values to at most this many bytes (RFC 8621 §4.9).
+    ///
+    /// Spec magic-value: `Some(0)` is equivalent to omitting the field
+    /// per RFC 8621 §4.9 ("If positive, ..."). Pass `None` to omit the
+    /// wire field entirely (server uses its default policy), or
+    /// `Some(n)` with `n > 0` for an explicit truncation cap.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_body_value_bytes: Option<u64>,
     /// Catch-all for vendor / site / private extension fields not covered

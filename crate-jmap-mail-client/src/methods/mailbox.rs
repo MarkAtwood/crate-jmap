@@ -63,6 +63,11 @@ impl super::SessionClient {
 
     /// Fetch changes to Mailbox objects since `since_state` (RFC 8621 §2.2 — Mailbox/changes).
     ///
+    /// `max_changes` follows the same RFC 8620 §5.2 magic-value semantics
+    /// as [`Self::email_changes`]: `None` lets the server apply its
+    /// default cap, `Some(0)` means "no client limit", `Some(n>0)`
+    /// requests at most `n` entries.
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
@@ -178,6 +183,11 @@ impl super::SessionClient {
     /// Pass `filter: None` and `sort: None` to return all Mailboxes with
     /// server-default ordering. Use `position` and `limit` for pagination.
     ///
+    /// `position` and `limit` follow the same RFC 8620 §5.5 magic-value
+    /// semantics as [`Self::email_query`]: `position: Some(0)` is the
+    /// first item (zero-indexed); `limit: Some(0)` means "server's
+    /// default cap", NOT "zero results".
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
@@ -233,6 +243,9 @@ impl super::SessionClient {
     /// point when both `filter` and `sort` are on immutable properties.
     ///
     /// `calculate_total` requests the new total result count.
+    ///
+    /// `max_changes` follows the same magic-value semantics as
+    /// [`Self::email_changes`].
     ///
     /// # Errors
     ///
