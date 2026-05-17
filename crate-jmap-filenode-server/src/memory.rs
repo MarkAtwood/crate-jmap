@@ -159,9 +159,36 @@ impl AccountStore {
         }
     }
 
+    /// Allocate the next reference-impl node id.
+    ///
+    /// The format is `node-N` where N is a monotonically increasing
+    /// counter scoped to this `AccountStore`. The format is **observable**
+    /// to test fixtures: any caller that seeds a node with id `node-K`
+    /// via [`MemoryBackend::seed_node`] would collide on the next
+    /// `create_object` if `node_counter` were not synchronised. The
+    /// seed path watches for `node-N`-shaped ids and bumps the counter
+    /// past the seeded N so the next allocation cannot collide.
     fn next_node_id(&mut self) -> Id {
         self.node_counter += 1;
         Id::from(format!("node-{}", self.node_counter))
+    }
+
+    /// If `id` matches the reference-impl format `node-N`, bump
+    /// `node_counter` to at least `N` so future [`Self::next_node_id`]
+    /// allocations cannot collide with this externally-seeded id.
+    ///
+    /// Idempotent: replays on the same id are no-ops. Non-matching ids
+    /// (UUIDs, arbitrary strings) are ignored — they are guaranteed
+    /// not to collide with the `node-N` allocator anyway.
+    fn sync_counter_with_seeded_id(&mut self, id: &Id) {
+        let s = id.as_ref();
+        if let Some(rest) = s.strip_prefix("node-") {
+            if let Ok(n) = rest.parse::<u64>() {
+                if n > self.node_counter {
+                    self.node_counter = n;
+                }
+            }
+        }
     }
 
     fn bump_state(&mut self, change_type: ChangeType, id: Id) {
@@ -245,9 +272,18 @@ impl MemoryBackend {
     /// Add a pre-existing node to an account (used to set up test fixtures).
     ///
     /// The state counter is NOT incremented — this is silent fixture setup.
+    ///
+    /// If the seeded `node.id` matches the reference-impl format `node-N`,
+    /// the per-account id counter is synchronised so future
+    /// [`FileNodeBackend::create_object`] allocations cannot collide with
+    /// this fixture id (bd:JMAP-510h.61). Seeded ids in other shapes
+    /// (UUIDs, hand-picked strings without the `node-` prefix or with a
+    /// non-numeric suffix) are accepted unchanged and cannot collide
+    /// with the allocator.
     pub fn seed_node(&self, account_id: &str, node: FileNode) {
         let mut guard = self.inner.lock().unwrap();
         if let Some(store) = guard.accounts.get_mut(account_id) {
+            store.sync_counter_with_seeded_id(&node.id);
             store.nodes.insert(node.id.clone(), node);
         }
     }
@@ -1188,6 +1224,135 @@ mod tests {
             nodes[0].id.as_ref(),
             "n1",
             "the surviving node must be the originally-seeded one"
+        );
+    }
+
+    /// Oracle: a `node-N`-shaped seeded id bumps the per-account
+    /// id-counter past N so the next `create_object` cannot allocate
+    /// a colliding id. Regression guard for bd:JMAP-510h.61, which
+    /// noted that the previous shape silently overwrote the seeded
+    /// fixture on the first create call.
+    #[tokio::test]
+    async fn seed_node_with_collision_shaped_id_bumps_counter() {
+        let backend = MemoryBackend::new().with_account("acc1");
+
+        // Seed a fixture using the natural-looking `node-3` shape that a
+        // contributor reading the public API (without peeking inside
+        // memory.rs) would reach for. The bug being guarded is: the
+        // counter starts at 0, next_node_id() emits "node-1" on the
+        // first call, the HashMap insert silently overwrites "node-1"
+        // — but our seed is "node-3", which is not yet at risk.
+        // The real bug bites with a seed of "node-1" or any value <=
+        // the current counter. We test both shapes here to lock in
+        // both behaviours.
+        let seed_1 = make_filenode("node-1", "fixture-root-1");
+        let seed_3 = make_filenode("node-3", "fixture-root-3");
+        backend.seed_node("acc1", seed_1);
+        backend.seed_node("acc1", seed_3);
+
+        // Create one new node. Before the fix this allocated "node-1"
+        // and overwrote the fixture; after the fix it must allocate
+        // "node-4" (next-after-the-highest-seed) so both fixtures
+        // survive AND the create succeeds with a fresh id.
+        let new_node: FileNode = serde_json::from_value(json!({
+            "id": "",
+            "name": "freshly-created",
+            "parentId": null,
+            "role": null,
+            "nodeType": "directory",
+            "target": null,
+            "blobId": null,
+            "type": null,
+            "size": null,
+            "shareWith": null,
+            "myRights": null,
+            "created": "2026-05-17T00:00:00Z",
+            "modified": "2026-05-17T00:00:00Z",
+            "accessed": null
+        }))
+        .expect("fresh FileNode must deserialize");
+        let (allocated_id, _) = backend
+            .create_object::<FileNode>(&(), &Id::from("acc1"), "c1", new_node)
+            .await
+            .expect("create_object must succeed");
+        assert_eq!(
+            allocated_id.as_ref(),
+            "node-4",
+            "next_node_id must allocate after the highest seeded node-N: got {}",
+            allocated_id.as_ref()
+        );
+
+        // Verify both fixtures survived.
+        let (nodes, _missing) = backend
+            .get_objects::<FileNode>(
+                &(),
+                &Id::from("acc1"),
+                Some(&[Id::from("node-1"), Id::from("node-3"), Id::from("node-4")]),
+                None,
+            )
+            .await
+            .expect("get_objects must succeed");
+        assert_eq!(
+            nodes.len(),
+            3,
+            "all three nodes (2 seeds + 1 create) must be present: got {} ({:?})",
+            nodes.len(),
+            nodes.iter().map(|n| n.id.as_ref()).collect::<Vec<_>>()
+        );
+        let names: std::collections::HashSet<_> = nodes.iter().map(|n| n.name.as_str()).collect();
+        assert!(
+            names.contains("fixture-root-1"),
+            "fixture-root-1 (seed at node-1) must survive: got {names:?}"
+        );
+        assert!(
+            names.contains("fixture-root-3"),
+            "fixture-root-3 (seed at node-3) must survive: got {names:?}"
+        );
+        assert!(
+            names.contains("freshly-created"),
+            "the new node must be present: got {names:?}"
+        );
+    }
+
+    /// Oracle: a seed with a non-matching id (UUID, arbitrary string)
+    /// does NOT bump the counter — the `node-N` allocator is
+    /// guaranteed not to collide with non-matching seeds.
+    #[tokio::test]
+    async fn seed_node_with_non_matching_id_leaves_counter_alone() {
+        let backend = MemoryBackend::new().with_account("acc1");
+        backend.seed_node(
+            "acc1",
+            make_filenode("550e8400-e29b-41d4-a716-446655440000", "uuid-seeded"),
+        );
+        backend.seed_node("acc1", make_filenode("hand-picked", "named-seeded"));
+        backend.seed_node("acc1", make_filenode("node-not-a-number", "almost-but-no"));
+
+        let new_node: FileNode = serde_json::from_value(json!({
+            "id": "",
+            "name": "first-create",
+            "parentId": null,
+            "role": null,
+            "nodeType": "directory",
+            "target": null,
+            "blobId": null,
+            "type": null,
+            "size": null,
+            "shareWith": null,
+            "myRights": null,
+            "created": "2026-05-17T00:00:00Z",
+            "modified": "2026-05-17T00:00:00Z",
+            "accessed": null
+        }))
+        .expect("fresh FileNode must deserialize");
+        let (allocated_id, _) = backend
+            .create_object::<FileNode>(&(), &Id::from("acc1"), "c1", new_node)
+            .await
+            .expect("create_object must succeed");
+        assert_eq!(
+            allocated_id.as_ref(),
+            "node-1",
+            "non-matching seeds must not bump the counter; first create stays at node-1: got {}",
+            allocated_id.as_ref()
         );
     }
 
