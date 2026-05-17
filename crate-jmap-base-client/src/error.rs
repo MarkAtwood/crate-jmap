@@ -125,6 +125,99 @@ impl HttpError {
     pub fn url(&self) -> Option<String> {
         self.0.url().map(ToString::to_string)
     }
+
+    /// Classify the error into a single category (bd:JMAP-6r7c.34).
+    ///
+    /// The 8 [`is_*`](HttpError::is_timeout) boolean accessors are
+    /// useful when a caller wants to test for a specific category, but
+    /// they leave the caller writing a chained-`if-else` dispatch with
+    /// undocumented mutual relationships ("can `is_status` and
+    /// `is_decode` both be true?"). This method returns a single
+    /// `HttpErrorKind` so a caller can `match` on it once.
+    ///
+    /// Precedence (highest first) when multiple predicates could
+    /// arguably apply: `Timeout`, `Connect`, `Redirect`, `Status`,
+    /// `RequestBody`, `ResponseBody`, `Decode`, `Builder`, `Other`.
+    /// Status takes precedence over body/decode because reqwest sets
+    /// `is_status` precisely when the failure is "the HTTP server
+    /// returned a non-success status code"; in that case the body or
+    /// decode flag may also be set, but the most-actionable
+    /// classification for a caller is the status code itself.
+    ///
+    /// This method does not return retriability advice — the same
+    /// `Status(429)` may be retriable or fatal depending on the
+    /// `Retry-After` header value, and the same `Connect` may mean
+    /// "DNS not yet warm" (retry) or "host is down" (give up). Make
+    /// the retriability decision at the call site, using the kind as
+    /// input.
+    pub fn kind(&self) -> HttpErrorKind {
+        if self.0.is_timeout() {
+            HttpErrorKind::Timeout
+        } else if self.0.is_connect() {
+            HttpErrorKind::Connect
+        } else if self.0.is_redirect() {
+            HttpErrorKind::Redirect
+        } else if let Some(s) = self.0.status() {
+            HttpErrorKind::Status(s.as_u16())
+        } else if self.0.is_request() {
+            HttpErrorKind::RequestBody
+        } else if self.0.is_body() {
+            HttpErrorKind::ResponseBody
+        } else if self.0.is_decode() {
+            HttpErrorKind::Decode
+        } else if self.0.is_builder() {
+            HttpErrorKind::Builder
+        } else {
+            HttpErrorKind::Other
+        }
+    }
+}
+
+/// Classification of an [`HttpError`] returned by [`HttpError::kind`].
+///
+/// A coarse partition over the failure modes reqwest reports. Use this
+/// when a caller wants to dispatch on the error category in a single
+/// `match`; the [`HttpError::is_timeout`] / [`HttpError::is_connect`]
+/// boolean accessors remain available for callers that test for one
+/// specific category.
+///
+/// `#[non_exhaustive]` so new variants may be added in minor releases
+/// without breaking callers.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum HttpErrorKind {
+    /// Request timed out before a response was received
+    /// ([`HttpError::is_timeout`]).
+    Timeout,
+    /// Underlying connection could not be established — DNS failure,
+    /// TCP refused, TLS handshake failure ([`HttpError::is_connect`]).
+    Connect,
+    /// Redirect loop or too-many-redirects failure
+    /// ([`HttpError::is_redirect`]).
+    Redirect,
+    /// Server returned a non-success HTTP status. The payload is the
+    /// status code as `u16` (e.g. `404`, `429`, `503`). 401 / 403 are
+    /// not surfaced here — they are caught earlier and produce
+    /// [`ClientError::AuthFailed`].
+    Status(u16),
+    /// Error happened while sending the request body
+    /// ([`HttpError::is_request`]).
+    RequestBody,
+    /// Error happened while receiving the response body
+    /// ([`HttpError::is_body`]).
+    ResponseBody,
+    /// Response body could not be decoded as the requested representation
+    /// (e.g. JSON parse failure inside the transport layer)
+    /// ([`HttpError::is_decode`]).
+    Decode,
+    /// Error originated in the request builder — URL parse failure,
+    /// invalid header construction at build time, etc.
+    /// ([`HttpError::is_builder`]). Indicates a caller bug.
+    Builder,
+    /// Categorisation did not match any of the predicates above.
+    /// May appear for transport-level errors that reqwest reports
+    /// without setting any of the typed predicates.
+    Other,
 }
 
 impl fmt::Display for HttpError {
@@ -189,6 +282,61 @@ impl WebSocketError {
     pub fn is_url(&self) -> bool {
         matches!(&self.0, tokio_tungstenite::tungstenite::Error::Url(_))
     }
+
+    /// Classify the error into a single category (bd:JMAP-6r7c.34).
+    ///
+    /// Single-`match` alternative to the 6 [`is_*`](WebSocketError::is_io)
+    /// boolean accessors. Returns a [`WebSocketErrorKind`] so a caller
+    /// can dispatch on the failure mode without chained-`if-else`.
+    ///
+    /// Precedence (highest first): `ConnectionClosed`, `AlreadyClosed`,
+    /// `Url`, `Protocol`, `Capacity`, `Io`, `Other`. The first three
+    /// are exact tungstenite variants and are mutually exclusive;
+    /// the remainder follow the `is_*` accessor order from this file.
+    /// This method does not return retriability advice — make that
+    /// decision at the call site using the kind as input.
+    pub fn kind(&self) -> WebSocketErrorKind {
+        use tokio_tungstenite::tungstenite::Error as TError;
+        match &self.0 {
+            TError::ConnectionClosed => WebSocketErrorKind::ConnectionClosed,
+            TError::AlreadyClosed => WebSocketErrorKind::AlreadyClosed,
+            TError::Url(_) => WebSocketErrorKind::Url,
+            TError::Protocol(_) => WebSocketErrorKind::Protocol,
+            TError::Capacity(_) => WebSocketErrorKind::Capacity,
+            TError::Io(_) => WebSocketErrorKind::Io,
+            _ => WebSocketErrorKind::Other,
+        }
+    }
+}
+
+/// Classification of a [`WebSocketError`] returned by [`WebSocketError::kind`].
+///
+/// `#[non_exhaustive]` so new variants may be added in minor releases
+/// without breaking callers.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum WebSocketErrorKind {
+    /// Peer cleanly closed the connection
+    /// ([`WebSocketError::is_connection_closed`]).
+    ConnectionClosed,
+    /// Connection was already closed when the operation was attempted
+    /// — caller bug or race ([`WebSocketError::is_already_closed`]).
+    AlreadyClosed,
+    /// WebSocket URL was invalid ([`WebSocketError::is_url`]).
+    Url,
+    /// WebSocket protocol violation — malformed frame, invalid opcode,
+    /// etc. ([`WebSocketError::is_protocol`]).
+    Protocol,
+    /// Frame or message exceeded a configured size limit
+    /// ([`WebSocketError::is_capacity`]).
+    Capacity,
+    /// Error wraps an underlying `std::io::Error`
+    /// ([`WebSocketError::is_io`]).
+    Io,
+    /// Categorisation did not match any of the variants above. May
+    /// appear for tungstenite error variants not yet covered by this
+    /// crate's classification (e.g. `Tls`, `Http`, future additions).
+    Other,
 }
 
 impl fmt::Display for WebSocketError {
@@ -642,5 +790,95 @@ mod tests {
         assert_error::<HttpError>();
         assert_error::<WebSocketError>();
         assert_error::<InvalidHeaderValueError>();
+    }
+
+    /// bd:JMAP-6r7c.34 — verify every HttpErrorKind variant by exhaustive
+    /// match. A future variant addition (forgetting to update this match)
+    /// fails the test, forcing a deliberate choice rather than silent
+    /// API drift.
+    #[test]
+    fn http_error_kind_exhaustive_match() {
+        let k = HttpErrorKind::Other;
+        match k {
+            HttpErrorKind::Timeout => {}
+            HttpErrorKind::Connect => {}
+            HttpErrorKind::Redirect => {}
+            HttpErrorKind::Status(_) => {}
+            HttpErrorKind::RequestBody => {}
+            HttpErrorKind::ResponseBody => {}
+            HttpErrorKind::Decode => {}
+            HttpErrorKind::Builder => {}
+            HttpErrorKind::Other => {}
+        }
+    }
+
+    /// bd:JMAP-6r7c.34 — exhaustive match over WebSocketErrorKind. Same
+    /// regression-tripwire role as http_error_kind_exhaustive_match.
+    #[test]
+    fn ws_error_kind_exhaustive_match() {
+        let k = WebSocketErrorKind::Other;
+        match k {
+            WebSocketErrorKind::ConnectionClosed => {}
+            WebSocketErrorKind::AlreadyClosed => {}
+            WebSocketErrorKind::Url => {}
+            WebSocketErrorKind::Protocol => {}
+            WebSocketErrorKind::Capacity => {}
+            WebSocketErrorKind::Io => {}
+            WebSocketErrorKind::Other => {}
+        }
+    }
+
+    /// bd:JMAP-6r7c.34 — independent oracle for the ConnectionClosed
+    /// classification. tungstenite::Error::ConnectionClosed is a unit
+    /// variant constructible directly; the test wraps it through
+    /// WebSocketError::from and asserts kind() == ConnectionClosed.
+    #[test]
+    fn ws_error_kind_classifies_connection_closed() {
+        let inner = tokio_tungstenite::tungstenite::Error::ConnectionClosed;
+        let ws = WebSocketError(inner);
+        assert_eq!(ws.kind(), WebSocketErrorKind::ConnectionClosed);
+    }
+
+    /// bd:JMAP-6r7c.34 — independent oracle for the Io classification.
+    /// std::io::Error is constructible directly and tungstenite::Error
+    /// has a `From<std::io::Error>` impl that produces the Io variant.
+    #[test]
+    fn ws_error_kind_classifies_io() {
+        let io_err = std::io::Error::new(std::io::ErrorKind::BrokenPipe, "test");
+        let inner = tokio_tungstenite::tungstenite::Error::Io(io_err);
+        let ws = WebSocketError(inner);
+        assert_eq!(ws.kind(), WebSocketErrorKind::Io);
+    }
+
+    /// bd:JMAP-6r7c.34 — independent oracle for the Builder classification.
+    /// reqwest::Client::get on a malformed URL produces a builder-time
+    /// error; the test sends through HttpError::from(reqwest::Error) and
+    /// asserts kind() == Builder. The test does NOT use HttpError's own
+    /// is_builder() as the oracle — it uses reqwest's invariant that
+    /// "an unparseable URL produces a builder error" as the independent
+    /// claim, and asserts the wrapper preserves the classification.
+    #[test]
+    fn http_error_kind_classifies_builder_error() {
+        // reqwest::ClientBuilder::new().build() then .get on a malformed
+        // URL is the canonical "builder error" production path. The
+        // empty string is rejected as not-a-URL.
+        let client = reqwest::ClientBuilder::new().build().expect("build");
+        let req_err = client
+            .request(reqwest::Method::GET, "not a url")
+            .build()
+            .expect_err("malformed URL must produce a request builder error");
+        // Independent oracle: reqwest documents that URL parse failures
+        // during build come back as is_builder() == true.
+        assert!(
+            req_err.is_builder(),
+            "reqwest invariant: malformed-URL build is a builder error"
+        );
+
+        let http = HttpError(req_err);
+        assert_eq!(
+            http.kind(),
+            HttpErrorKind::Builder,
+            "HttpError::kind must classify a builder-side error as Builder"
+        );
     }
 }
