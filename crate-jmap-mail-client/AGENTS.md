@@ -26,7 +26,10 @@ calendars draft in calendars-client; etc.).
 RFC 8621 (JMAP for Mail) method implementations on top of `jmap-base-client`.
 Implements the standard `/get`, `/changes`, `/set`, `/query`, `/queryChanges`,
 `/copy` methods for `Email`, `Mailbox`, `Thread`, `Identity`, `EmailSubmission`,
-`SearchSnippet`, `MDN`, plus extension methods for blob upload/download.
+and `SearchSnippet`, plus `Email/import`, `Email/parse`, and `VacationResponse/*`.
+
+Blob upload / download for attachments composes with `jmap-base-client`'s
+`JmapClient::upload` / `JmapClient::download_blob` — not re-exported here.
 
 ## Crate Family Context
 
