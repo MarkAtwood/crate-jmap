@@ -28,8 +28,13 @@ pub struct Quota {
     pub name: String,
     /// Scope of the quota: `"account"`, `"domain"`, or `"global"`.
     pub scope: crate::types::QuotaScope,
-    /// Resource type: `"octets"` (byte-based) or `"count"` (object-count-based).
-    pub resource_type: String,
+    /// Resource type — `Count` (object-count-based) or `Octets`
+    /// (byte-based) per RFC 9425 §3.2. Element type is
+    /// [`crate::types::QuotaResourceType`] so callers can match on
+    /// typed variants directly; unknown wire strings land in
+    /// `QuotaResourceType::Other(s)` per the `impl_string_enum!`
+    /// round-trip contract.
+    pub resource_type: crate::types::QuotaResourceType,
     /// Data type names covered by this quota (e.g. `["Message", "Chat"]`).
     ///
     /// Element type is `String` rather than a typed `DataTypeName` enum
