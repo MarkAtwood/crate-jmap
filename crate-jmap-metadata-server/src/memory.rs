@@ -757,8 +757,7 @@ impl JmapBackend for MemoryBackend {
             let qs = State::from(
                 inner
                     .current_state(O::TYPE_NAME, account_id.as_ref())
-                    .to_string()
-                    .as_str(),
+                    .to_string(),
             );
             (entries, qs)
         };
@@ -902,8 +901,7 @@ impl JmapBackend for MemoryBackend {
         let new_query_state = State::from(
             inner
                 .current_state(O::TYPE_NAME, account_id.as_ref())
-                .to_string()
-                .as_str(),
+                .to_string(),
         );
 
         let current_ids: Vec<Id> = inner
