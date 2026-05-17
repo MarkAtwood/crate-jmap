@@ -775,6 +775,14 @@ pub const INJECTABLE_BACKEND_CANARY: &str = "BACKEND-CANARY-LEAK-DO-NOT-WIRE-7f3
 ///   [`ChatBackend::destroy_object`] call for type `O`.
 /// - `("Message", "expire")` — fails the next
 ///   [`ChatBackend::expire_message`] call.
+/// - [`InjectableBackend::queue_chat_race_phantom`] — after the next
+///   [`ChatBackend::create_object`] call for type `Chat` returns
+///   successfully, insert a phantom `Direct` Chat into the inner
+///   backend with a lex-smaller id and the supplied `contact_id`.
+///   This makes the handler's race-detection re-fetch see a
+///   duplicate, driving it into the cleanup-destroy branch. Combine
+///   with `inject("Chat", "destroy")` to exercise the
+///   `chat.rs:413-428` redaction site.
 ///
 /// Other `(type, op)` pairs are not currently honored; extend this
 /// wrapper if a new redaction-canary site lands.
@@ -782,6 +790,22 @@ pub struct InjectableBackend {
     pub inner: MemoryBackend,
     failures:
         std::sync::Arc<std::sync::Mutex<std::collections::HashSet<(&'static str, &'static str)>>>,
+    /// Pending race-phantom seed: when set, the next `create_object::<Chat>`
+    /// call (post-success) seeds a phantom Direct Chat into the inner
+    /// backend at the supplied `(account_id, phantom_id, contact_id)`.
+    /// Fire-once.
+    chat_race_phantom: std::sync::Arc<std::sync::Mutex<Option<ChatRacePhantom>>>,
+}
+
+/// Pre-canned phantom-Chat seed: where to insert (`account_id`), what
+/// id to seed it with (`phantom_id` — must be lex-smaller than the
+/// next-assigned new chat id for the race-detection canonical pick
+/// to select it), and the `contact_id` of the Direct chat being
+/// duplicated.
+struct ChatRacePhantom {
+    account_id: String,
+    phantom_id: String,
+    contact_id: String,
 }
 
 impl InjectableBackend {
@@ -791,6 +815,7 @@ impl InjectableBackend {
         Self {
             inner: MemoryBackend::new(),
             failures: std::sync::Arc::new(std::sync::Mutex::new(std::collections::HashSet::new())),
+            chat_race_phantom: std::sync::Arc::new(std::sync::Mutex::new(None)),
         }
     }
 
@@ -803,10 +828,39 @@ impl InjectableBackend {
         self.failures.lock().unwrap().insert((type_name, op));
     }
 
+    /// Schedule a phantom-Direct-Chat seed to fire after the next
+    /// successful `create_object::<Chat>` call. The phantom is inserted
+    /// into the inner backend (via `MemoryBackend::insert_object_for_test`)
+    /// AFTER the inner create returns, so the handler's pre-create
+    /// `existing_chats` snapshot does not see it, but the handler's
+    /// post-create race-detection re-fetch does.
+    ///
+    /// `phantom_id` should be lex-smaller than the next id the inner
+    /// `MemoryBackend` will assign to the about-to-be-created Chat —
+    /// otherwise the race-detection code picks the new id as canonical
+    /// and the cleanup-destroy branch never runs. Under the default
+    /// deterministic-id mode, the next Chat id has shape
+    /// `"chat0000000000000001"` (or higher count); any id starting
+    /// with a character < `'c'` (e.g. `"aaaa"`) is safe.
+    ///
+    /// Fire-once.
+    pub fn queue_chat_race_phantom(&self, account_id: &str, phantom_id: &str, contact_id: &str) {
+        *self.chat_race_phantom.lock().unwrap() = Some(ChatRacePhantom {
+            account_id: account_id.to_owned(),
+            phantom_id: phantom_id.to_owned(),
+            contact_id: contact_id.to_owned(),
+        });
+    }
+
     /// Remove and return a previously-injected fault (fire-once).
     /// Returns `true` if the fault was present (and is now consumed).
     fn take_fault(&self, type_name: &'static str, op: &'static str) -> bool {
         self.failures.lock().unwrap().remove(&(type_name, op))
+    }
+
+    /// Remove and return a previously-queued chat race phantom (fire-once).
+    fn take_chat_race_phantom(&self) -> Option<ChatRacePhantom> {
+        self.chat_race_phantom.lock().unwrap().take()
     }
 }
 
@@ -904,9 +958,36 @@ impl ChatBackend for InjectableBackend {
         create_id: &str,
         obj: O,
     ) -> Result<(Id, O), BackendSetError<Self::Error>> {
-        self.inner
+        let result = self
+            .inner
             .create_object::<O>(caller, account_id, create_id, obj)
-            .await
+            .await;
+        // Race-phantom seeding only applies to Chat creates and only
+        // after a successful inner create. The phantom is inserted
+        // via `insert_object_for_test` which bypasses the normal
+        // dedupe / change-log machinery — exactly the harness shape
+        // needed to simulate "another transaction won the race".
+        if O::TYPE_NAME == "Chat" && result.is_ok() {
+            if let Some(phantom) = self.take_chat_race_phantom() {
+                let phantom_val = serde_json::json!({
+                    "id": &phantom.phantom_id,
+                    "kind": "direct",
+                    "createdAt": "2024-01-01T00:00:00Z",
+                    "unreadCount": 0,
+                    "pinnedMessageIds": [],
+                    "muted": false,
+                    "receiveTypingIndicators": true,
+                    "contactId": &phantom.contact_id,
+                });
+                self.inner.insert_object_for_test(
+                    "Chat",
+                    &phantom.account_id,
+                    &phantom.phantom_id,
+                    phantom_val,
+                );
+            }
+        }
+        result
     }
 
     async fn update_object<O: SetObject + Send + Sync>(

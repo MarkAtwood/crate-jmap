@@ -1800,6 +1800,88 @@ async fn message_set_burn_on_read_expire_failure_redacts_backend_display() {
     );
 }
 
+/// Oracle: when `Chat/set` create races to produce a duplicate `Direct`
+/// chat, the handler picks the lex-smaller id as canonical and destroys
+/// its own newly-created (lex-larger) copy. If that cleanup destroy
+/// fails, the handler routes the backend error through
+/// `jmap_server::server_fail_value_from_backend` (chat.rs:413-428), and
+/// the wire `notCreated[id]` MUST carry the static
+/// [`jmap_server::SERVER_FAIL_INTERNAL_DESC`] — the backend error's
+/// Display text MUST NOT appear in the response.
+///
+/// Test mechanism (split from bd:JMAP-x2gd.99; see bd:JMAP-x2gd.102 for
+/// the harness rationale). The handler's pre-create
+/// `existing_chats` snapshot is taken once before the per-create loop
+/// begins, so just pre-seeding a phantom is intercepted at the
+/// pre-check. To exercise the race-detection cleanup-destroy path:
+///   1. The `InjectableBackend::create_object::<Chat>` override
+///      delegates to the inner create normally.
+///   2. After the inner create returns Ok, the override seeds a
+///      phantom `Direct` Chat with a lex-smaller id (`"aaaa"`) and
+///      the same `contactId` into the inner backend, via
+///      `insert_object_for_test`.
+///   3. The handler's post-create race-detection re-fetch
+///      (chat.rs:390) sees both chats, picks `"aaaa"` as canonical,
+///      and tries to destroy our newly-created (lex-larger) chat.
+///   4. The destroy is also fault-injected, returning a
+///      `MemoryError` whose Display contains
+///      [`INJECTABLE_BACKEND_CANARY`].
+///   5. The handler emits `not_created[create_id]` via
+///      `server_fail_value_from_backend` — the redaction site under
+///      test.
+#[tokio::test]
+async fn chat_set_duplicate_direct_cleanup_destroy_failure_redacts_backend_display() {
+    use common::{InjectableBackend, INJECTABLE_BACKEND_CANARY};
+
+    let backend = InjectableBackend::new();
+    backend.inner.register_account(&Id::from("a1"));
+
+    // Arm both the race-phantom seed and the destroy fault BEFORE
+    // invoking the handler. The phantom fires after the inner
+    // create_object returns Ok; the destroy fault then fires when the
+    // handler tries to clean up its own copy.
+    backend.queue_chat_race_phantom("a1", "aaaa", "contact-1");
+    backend.inject("Chat", "destroy");
+
+    let (resp, _) = handle_chat_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "c0": {
+                    "kind": "direct",
+                    "contactId": "contact-1"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("chat_set");
+
+    // The canary MUST NOT appear anywhere in the wire response.
+    let wire = resp.to_string();
+    assert!(
+        !wire.contains(INJECTABLE_BACKEND_CANARY),
+        "backend-error Display canary must not appear in /set response \
+         (duplicate-Direct cleanup destroy failure Value path must redact); wire: {wire}"
+    );
+
+    // Positive control: notCreated["c0"] must exist with type=serverFail
+    // and description=SERVER_FAIL_INTERNAL_DESC, proving the redaction
+    // helper produced the expected wire shape.
+    assert_eq!(
+        resp["notCreated"]["c0"]["type"].as_str(),
+        Some("serverFail"),
+        "notCreated[c0] must have type serverFail; resp: {resp}"
+    );
+    assert_eq!(
+        resp["notCreated"]["c0"]["description"].as_str(),
+        Some(jmap_server::SERVER_FAIL_INTERNAL_DESC),
+        "description must be the static SERVER_FAIL_INTERNAL_DESC; resp: {resp}"
+    );
+}
+
 // ---------------------------------------------------------------------------
 // Edit-history retention gate
 // (draft-atwood-jmap-chat-00 commit 0783fc4 + §Message editHistory)
