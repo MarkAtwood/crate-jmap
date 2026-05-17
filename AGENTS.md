@@ -253,7 +253,7 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
 - **Extras-preservation policy for vendor/site fields**: every public
   `Deserialize` struct that appears on the JMAP wire carries a catch-all
   `extra` field, and every wire-format **result** string enum carries an
-  `Unknown(String)` variant. The combination preserves vendor / site /
+  `Other(String)` variant. The combination preserves vendor / site /
   private-extension fields and unrecognised result values losslessly
   across deserialize / serialize round-trips. RFC 8620 §1.6 mandates
   silent-ignore of unknown fields; the spec floor permits data loss.
@@ -303,14 +303,16 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
       /// Forward-compat catch-all for vendor / site / future-spec roles.
       /// The wire string is preserved for round-trip.
       #[serde(other)]
-      Unknown(String),
+      Other(String),
   }
   ```
 
   Note: `#[serde(other)]` only captures the *variant tag*; the matched
-  wire string is the original. All in-scope result enums remain
-  `#[non_exhaustive]` so a future spec-defined variant addition is still
-  a non-breaking change.
+  wire string is the original. The variant identifier `Other` is a
+  Rust-side naming choice that the wire format does not see — the
+  attribute `#[serde(other)]` is what makes it the catch-all. All
+  in-scope result enums remain `#[non_exhaustive]` so a future
+  spec-defined variant addition is still a non-breaking change.
 
   **In scope** (apply both mechanisms):
   - Data object types and their nested wire sub-types (`Email`,
@@ -324,7 +326,7 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   - Wire-format **result** string enums (`MailboxRole`, `DeliveryState`,
     `NodeType`, `EmojiKind`, `ChatKind`, `ParticipantRole`, etc.).
 
-  **Out of scope** (do NOT add extras / `Unknown` to these):
+  **Out of scope** (do NOT add extras / `Other` to these):
   - Filter and comparator algebra types — see the dedicated sub-section
     below.
   - Control string enums (`Operator`, `ComparatorProperty`) — see same.
@@ -343,7 +345,7 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   **Test discipline**: every in-scope type carries at least one
   round-trip preservation test. For structs, the test asserts an unknown
   field survives serialize. For result enums, the test asserts an
-  unknown wire string deserialises into `Unknown(s)` and round-trips
+  unknown wire string deserialises into `Other(s)` and round-trips
   back to the same wire string. Tests use independent oracles per
   workspace test-integrity rules — never the code under test.
 
@@ -357,7 +359,7 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   `FilterOperator<T>`, per-crate `FilterCondition` types,
   `EmailComparator`, `CalendarEventComparator`, etc.) and control string
   enums (`Operator`, `ComparatorProperty`) MUST NOT receive `extra`
-  fields or `Unknown(String)` variants. Three reasons:
+  fields or `Other(String)` variants. Three reasons:
 
   1. **Silent-drop is a server-side query-correctness bug.** Unlike
      data-object extras, which round-trip mechanically through the
@@ -377,7 +379,7 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
 
   3. **Control enums must dispatch on known variants.** `Operator`
      (`AND`/`OR`/`NOT`) and `ComparatorProperty` are not display values
-     — backends implement matching logic per variant. `Unknown(String)`
+     — backends implement matching logic per variant. `Other(String)`
      is meaningless here: a backend cannot honor `XAND` or
      `someUnknownSortKey`. The `#[non_exhaustive]` derives already
      give spec-level forward-compat for future RFC-defined operators;

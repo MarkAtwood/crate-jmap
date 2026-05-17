@@ -199,11 +199,12 @@ pub struct EmailFilterCondition {
 ///
 /// This enum is **out of scope** for the workspace extras-preservation
 /// policy: it is a control enum that backends must dispatch on to
-/// determine the sort order, so a generic `Unknown(String)` catch-all
-/// would be meaningless for query execution. The `Other(String)` variant
-/// exists only to preserve unknown property names for client-side
-/// round-tripping; servers cannot meaningfully sort by an unrecognised
-/// property without a registered extension.
+/// determine the sort order, so a generic catch-all variant would be
+/// meaningless for query execution. The `Other(String)` variant that
+/// `ComparatorProperty` does carry exists only to preserve unknown
+/// property names for client-side round-tripping; servers cannot
+/// meaningfully sort by an unrecognised property without a registered
+/// extension.
 ///
 /// More broadly, filter / comparator algebra is excluded because
 /// unrecognised clauses are a query-correctness hazard: silently dropping

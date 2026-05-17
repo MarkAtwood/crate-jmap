@@ -31,7 +31,7 @@ Filter and comparator types in this crate — the generic `Filter<T>`,
 vendor "extras" fields. A filter clause the server does not understand silently
 breaks query correctness: the client gets the wrong set of records back with no
 error signal. So these types deliberately have no `extra` catch-all field, and
-`Operator` has no `Unknown(String)` variant. The same exclusion applies to
+`Operator` has no `Other(String)` variant. The same exclusion applies to
 every per-object `FilterCondition` / `Comparator` / `ComparatorProperty` type
 in the downstream `jmap-*-types` crates.
 

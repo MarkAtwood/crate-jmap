@@ -88,7 +88,7 @@ consumers, and the crate root declares `#[forbid(unsafe_code)]`. Data-
 object types (Chat, Message, Space, etc.) carry a flattened `extra:
 serde_json::Map<String, serde_json::Value>` catch-all so vendor and site
 fields round-trip losslessly, and wire-format result enums carry an
-`Unknown(String)` variant via `#[serde(other)]` so unrecognised result
+`Other(String)` variant via `#[serde(other)]` so unrecognised result
 strings round-trip back to the same wire value.
 
 ## Gotchas

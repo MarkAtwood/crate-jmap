@@ -296,7 +296,7 @@ override.
 Every public deserialize struct on the JMAP wire carries an `extra:
 serde_json::Map<String, serde_json::Value>` flatten field; every wire-format
 result string enum (e.g. `MailboxRole`, `NodeType`, `ChatKind`,
-`ParticipantRole`) carries an `Unknown(String)` variant. Together these
+`ParticipantRole`) carries an `Other(String)` variant. Together these
 preserve vendor / site / private-extension fields and unrecognised result
 values across deserialize / serialize round-trip. Filter algebra types,
 control enums (`Operator`, `ComparatorProperty`), and externally-owned

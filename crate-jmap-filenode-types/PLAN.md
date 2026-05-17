@@ -296,7 +296,7 @@ Out of scope:
 - `FileNodeCapability` (capability.rs) — capability object, consistent
   with the canonical extension-types template treating capabilities as
   Session-shape objects rather than data objects.
-- `NodeType`, `NodeRole` — string enums; result-enum `Unknown(String)`
+- `NodeType`, `NodeRole` — string enums; result-enum `Other(String)`
   variants are tracked separately.
 
 ### New-type rule

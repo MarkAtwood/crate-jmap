@@ -62,7 +62,7 @@ fields. A filter clause the server does not understand silently breaks query
 correctness: the client gets the wrong set of records back with no error
 signal. So these types deliberately have no `extra` catch-all field, and
 control enums (`Operator`, `ComparatorProperty`) have no generic
-`Unknown(String)` variant for query dispatch.
+`Other(String)` variant for query dispatch.
 
 Vendors who need to filter on custom fields have two options:
 

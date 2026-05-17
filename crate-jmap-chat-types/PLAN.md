@@ -116,7 +116,7 @@ Out of scope (explicitly excluded by the workspace policy):
 
 - String enums (`ChatKind`, `Presence`, `DeliveryState`, `SenderId`,
   `ReadDisposition`, etc.) — result enums tracked via separate
-  `Unknown(String)` propagation; control enums get neither.
+  `Other(String)` propagation; control enums get neither.
 - `Clearable<T>` — internal three-state helper, not a wire object.
 - `SpacePatchOp` — internal Rust representation of Space/set wire keys;
   has no wire form of its own.
