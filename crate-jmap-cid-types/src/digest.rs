@@ -157,6 +157,59 @@ impl std::error::Error for Sha256DigestError {}
 /// `From<Sha256> for String` adapters so every deserialize path
 /// applies the same ABNF check `Sha256::from_hex` does.
 ///
+/// # Allocation bounds
+///
+/// **`Sha256` does not bound allocation before validation.** The
+/// `#[serde(try_from = "String")]` adapter routes every deserialize
+/// path through `TryFrom<String>`, which means `serde_json` (and any
+/// other serde data format) **materialises the full input string
+/// before** the 64-byte ABNF cap rejects oversize values. A hostile
+/// JMAP peer responding with `{"sha256": "aaaa…"}` where the payload
+/// is gigabytes of `'a'` will force the consumer to allocate
+/// `O(payload-length)` bytes per deserialize attempt before the
+/// `WrongLength` error fires.
+///
+/// Consumers deserialising `Sha256` (directly or transitively, e.g.
+/// via [`jmap-base-client`]'s `BlobUploadResponse.sha256` field) from
+/// an untrusted or partially-trusted JMAP peer MUST enforce a
+/// **body-size limit at the transport layer**:
+///
+/// - `reqwest::Response::bytes()` does not bound by default; use
+///   `Response::bytes_stream()` plus a wrapping `take(N)` byte cap,
+///   or check `Response::content_length()` against a policy maximum
+///   before reading.
+/// - `tokio_tungstenite` WebSocket frames default to a 64 MiB limit
+///   per frame (`WebSocketConfig::max_frame_size`); JMAP push frames
+///   carrying a digest field do not need 64 MiB and the limit can be
+///   tightened.
+/// - Hand-rolled HTTP clients reading a `Body` MUST cap with a
+///   `take(N)` adapter before calling `serde_json::from_reader`.
+///
+/// In-scope threats:
+///
+/// - A JMAP client connected to a malicious or compromised JMAP
+///   server. The server controls the response body.
+/// - A JMAP middleware (federation peer, mirror, cache) processing
+///   responses from a peer it does not fully trust.
+/// - A JMAP client behind a proxy that rewrites response bodies
+///   (less likely on TLS, but possible on metadata or via injection).
+///
+/// Out of scope: a trusted server returning oversize bodies by
+/// accident. Transport-layer bounding handles both cases uniformly.
+///
+/// This crate intentionally does not switch to a custom
+/// `Deserialize` impl with `Visitor::visit_str` length pre-check —
+/// the workspace canonical pattern keeps validation centralised in
+/// `Sha256::from_hex` so the ABNF check is a single source of truth
+/// (see bd:JMAP-sf5h.9 for the decision record). Self-bounding at
+/// the type level would shift validation responsibility into the
+/// `Deserialize` impl and away from `from_hex`; the workspace prefers
+/// transport-layer bounding over per-type bounding because the
+/// transport bound applies uniformly to **every** field on a
+/// hostile response, not just `sha256` ones.
+///
+/// [`jmap-base-client`]: https://docs.rs/jmap-base-client
+///
 /// # Equality and threat model
 ///
 /// `PartialEq` and `Eq` on `Sha256` inherit the standard
