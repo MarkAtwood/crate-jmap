@@ -190,14 +190,22 @@ impl Mailbox {
 }
 
 /// Deserialize `parent_id` so that an explicit JSON `null` is preserved as
-/// `Some(Value::Null)` instead of being collapsed to `None`.
+/// `Some(Value::Null)` instead of being collapsed to `None`, while
+/// rejecting wire values that RFC 8621 §2.3 does not permit (numbers,
+/// booleans, arrays, nested objects).
 ///
 /// `#[serde(default)]` on the field handles the absent case (produces `None`
 /// without calling this function). When the field is present, serde calls
-/// this function with the value, which always wraps the result in `Some(...)`.
-/// This is the only way to distinguish `{}` from `{"parentId": null}` for a
-/// field of type `Option<T>` — serde's default `Option<T>` Deserialize impl
-/// treats both as `None`.
+/// this function with the value, which always wraps a spec-valid result
+/// in `Some(...)`. This is the only way to distinguish `{}` from
+/// `{"parentId": null}` for a field of type `Option<T>` — serde's
+/// default `Option<T>` Deserialize impl treats both as `None`.
+///
+/// Per RFC 8621 §2.3 the only valid `parentId` wire shapes are JSON
+/// `null` and a JSON string (Mailbox `Id`). Anything else is a
+/// non-conformant peer; rejecting at the deserialize layer surfaces
+/// the error to the caller instead of silently round-tripping
+/// wire-invalid data.
 fn deserialize_parent_id_three_way<'de, D>(
     deserializer: D,
 ) -> Result<Option<serde_json::Value>, D::Error>
@@ -205,7 +213,21 @@ where
     D: serde::Deserializer<'de>,
 {
     use serde::Deserialize;
-    serde_json::Value::deserialize(deserializer).map(Some)
+    let v = serde_json::Value::deserialize(deserializer)?;
+    match &v {
+        serde_json::Value::Null | serde_json::Value::String(_) => Ok(Some(v)),
+        other => Err(serde::de::Error::custom(format!(
+            "parentId must be null or a string (Mailbox Id) per RFC 8621 §2.3; got {}",
+            match other {
+                serde_json::Value::Bool(_) => "boolean",
+                serde_json::Value::Number(_) => "number",
+                serde_json::Value::Array(_) => "array",
+                serde_json::Value::Object(_) => "object",
+                // Null and String already returned above.
+                _ => "unexpected value",
+            }
+        ))),
+    }
 }
 
 /// Filter condition for `Mailbox/query` (RFC 8621 §2.3).
@@ -378,6 +400,33 @@ mod tests {
         }
         let back = serde_json::to_value(&cond).unwrap();
         assert_eq!(back["parentId"], "mbox-42");
+    }
+
+    /// RFC 8621 §2.3 admits only JSON `null` and a JSON string for
+    /// `parentId`. Numbers, booleans, arrays, and nested objects MUST
+    /// be rejected at deserialize time rather than silently round-
+    /// tripped as opaque `serde_json::Value` blobs.
+    ///
+    /// Independent oracle: the spec text itself. Each rejected case
+    /// asserts the error message references the spec section, so a
+    /// future shape change that loosened the deserializer would be
+    /// caught.
+    #[test]
+    fn mailbox_filter_parent_id_rejects_non_spec_shapes() {
+        for (bad, label) in [
+            (json!({"parentId": 42}), "number"),
+            (json!({"parentId": true}), "boolean"),
+            (json!({"parentId": ["m1"]}), "array"),
+            (json!({"parentId": {"id": "m1"}}), "object"),
+        ] {
+            let err = serde_json::from_value::<MailboxFilterCondition>(bad)
+                .expect_err(&format!("{label} must be rejected"));
+            let msg = err.to_string();
+            assert!(
+                msg.contains("parentId must be null or a string"),
+                "{label} rejection must cite the spec rule; got: {msg}"
+            );
+        }
     }
 
     /// Oracle: [`MAILBOX_FILTER_CONDITION_KEYS`] is a single source of truth
