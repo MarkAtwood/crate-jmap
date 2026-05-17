@@ -545,48 +545,99 @@ impl JmapBackend for MemoryBackend {
         ))
     }
 
+    /// Returns all object ids in this account, sorted lexicographically by id,
+    /// paginated by `position` and `limit`.
+    ///
+    /// # Filter and sort are NOT honored
+    ///
+    /// This reference implementation does **not** support any filter or sort
+    /// shape. RFC 8620 §5.5 mandates that an unsupported `filter` produces
+    /// `unsupportedFilter` at the method level, and an unsupported `sort`
+    /// produces `unsupportedSort`. A production backend MUST inspect both
+    /// arguments against the type's [`QueryObject`] supported sets and
+    /// reject queries that exceed them.
+    ///
+    /// To prevent consumers copying the silent-drop shape into a real
+    /// backend (a workspace test-integrity hazard documented in the
+    /// `MemoryBackend` module rustdoc), this method **fails loud** when
+    /// either argument is non-trivial:
+    ///
+    /// - `filter` is `Some` carrying any non-null field → returns
+    ///   [`MemoryError`] with a `filter not supported` message.
+    /// - `sort` is `Some` with one or more comparators → returns
+    ///   [`MemoryError`] with a `sort not supported` message.
+    ///
+    /// The handler maps both to `serverFail` on the wire (a workspace-canonical
+    /// approximation; a properly typed `unsupportedFilter` / `unsupportedSort`
+    /// path through the backend would require a richer error variant on
+    /// the `JmapBackend` trait).
+    ///
+    /// Callers (handlers, internal `TaskList/set` destroy cascade if it
+    /// grew one in future) that want "all tasks in this account" continue
+    /// to work — they pass `filter = None`, `sort = None`.
+    ///
+    /// Mirrors the reference-impl correctness teaching applied to
+    /// [`TasksBackend::enforce_is_draft_atomically`] (bd:JMAP-h47t.4): the
+    /// demo backend models the spec invariant rather than the spec-violating
+    /// shortcut.
     async fn query_objects<O: QueryObject + Send + Sync>(
         &self,
         _caller: &(),
         account_id: &Id,
         filter: Option<&O::Filter>,
-        _sort: Option<&[O::Comparator]>,
+        sort: Option<&[O::Comparator]>,
         limit: Option<u64>,
         position: i64,
     ) -> Result<QueryResult, Self::Error> {
-        let inner = self.inner.lock().unwrap();
+        // Fail loud on any non-trivial filter. A `None` or all-fields-None
+        // filter passes (matches everything); any populated field rejects.
+        //
+        // Type-identity roundtrip (Pattern G, see jmap-mail-server memory): the
+        // generic `O::Filter` is the concrete `Task/TaskList/TaskNotification
+        // FilterCondition` here, so `to_value(&f)` is infallible. A future
+        // custom-serde change that breaks the roundtrip surfaces as a panic
+        // rather than silently dropping the filter.
+        if let Some(f) = filter {
+            let v = serde_json::to_value(f).expect("derive(Serialize) on plain data is infallible");
+            let any_field_set = match v.as_object() {
+                Some(m) => m.values().any(|val| !val.is_null()),
+                // Filter serialized as something other than an object (e.g. a
+                // FilterOperator variant from a future spec revision): treat
+                // as non-trivial.
+                None => true,
+            };
+            if any_field_set {
+                return Err(MemoryError::new(format!(
+                    "MemoryBackend does not support filter on {}/query — reference \
+                     implementation; a production backend MUST honor RFC 8620 §5.5 \
+                     filter / supported_filter for {}",
+                    O::TYPE_NAME,
+                    O::TYPE_NAME
+                )));
+            }
+        }
 
-        // For Task, support the `inTaskList` filter (used by `TaskList/set`
-        // cleanup when `onDestroyRemoveTasks: true`). Other filters fall
-        // through to "match all".
-        let in_task_list: Option<String> = if O::TYPE_NAME == "Task" {
-            filter
-                .and_then(|f| serde_json::to_value(f).ok())
-                .and_then(|v| {
-                    v.get("inTaskList")
-                        .and_then(|c| c.as_str())
-                        .map(String::from)
-                })
-        } else {
-            None
-        };
+        // Fail loud on any non-empty sort. RFC 8620 §5.5 default order is
+        // implementation-defined; this reference impl returns ids in
+        // id-lexicographic order, which a client must not assume.
+        if sort.is_some_and(|s| !s.is_empty()) {
+            return Err(MemoryError::new(format!(
+                "MemoryBackend does not support sort on {}/query — reference \
+                 implementation returns id-lexicographic order; a production \
+                 backend MUST honor RFC 8620 §5.5 sort / supported_sort for {}",
+                O::TYPE_NAME,
+                O::TYPE_NAME
+            )));
+        }
+
+        let inner = self.inner.lock().unwrap();
 
         let mut ids: Vec<Id> = inner
             .objects_ref(O::TYPE_NAME, account_id.as_ref())
             .map(|m| {
-                let mut keys: Vec<(Id, &serde_json::Value)> =
-                    m.iter().map(|(k, v)| (k.clone(), v)).collect();
-                keys.sort_by(|a, b| a.0.as_ref().cmp(b.0.as_ref()));
-                keys.into_iter()
-                    .filter(|(_, v)| match &in_task_list {
-                        None => true,
-                        Some(target) => v
-                            .get("taskListId")
-                            .and_then(|s| s.as_str())
-                            .is_some_and(|s| s == target.as_str()),
-                    })
-                    .map(|(id, _)| id)
-                    .collect()
+                let mut keys: Vec<Id> = m.keys().cloned().collect();
+                keys.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+                keys
             })
             .unwrap_or_default();
 
@@ -620,6 +671,37 @@ impl JmapBackend for MemoryBackend {
         ))
     }
 
+    /// Returns the changes to a `/query` result set since `since_query_state`.
+    ///
+    /// # Filter and sort are NOT honored
+    ///
+    /// RFC 8620 §5.6 requires `/queryChanges` to report `added` /
+    /// `removed` entries that reflect filter and sort over **mutable**
+    /// properties — i.e. ids that were in the previous query result and
+    /// are now excluded by an updated filter-affecting property must
+    /// appear in `removed`. This reference implementation cannot
+    /// implement that faithfully without re-deriving each type's filter
+    /// algebra, so it ignores `filter` and `sort` entirely and returns
+    /// `added` / `removed` purely from the change-log (`created` →
+    /// `added`, `destroyed` → `removed`, with `updated` ignored).
+    ///
+    /// The trade-off is documented (rather than fixed) because:
+    ///
+    /// - `query_objects` here is itself filter-and-sort-blind (and now
+    ///   fails loud on non-trivial filter/sort), so a `/queryChanges`
+    ///   that did honor filter/sort would be lying about consistency
+    ///   with its `/query` sibling.
+    /// - Re-deriving the type's filter algebra in the reference impl
+    ///   would couple `MemoryBackend` to every QueryObject's wire-format
+    ///   property names — a layering hazard for a reference impl whose
+    ///   purpose is to demonstrate the trait shape, not to be feature-
+    ///   complete.
+    ///
+    /// A production backend MUST track filter-affecting property
+    /// transitions in its change log and emit `removed` for them per
+    /// §5.6. See the canonical sibling `jmap-mail-server`'s
+    /// `MemoryBackend::query_changes` for the shape that an
+    /// implementation with mature filter/sort would take.
     async fn query_changes<O: QueryObject + Send + Sync>(
         &self,
         caller: &(),
