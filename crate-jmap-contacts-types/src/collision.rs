@@ -31,6 +31,13 @@ use std::fmt;
 /// one or more keys that shadow typed wire-format fields on the same
 /// struct. The colliding keys are reported in deterministic
 /// alphabetical order.
+///
+/// `#[non_exhaustive]` matches the workspace pattern set by
+/// `jmap_mail_types::KeywordError` and the foundation error types
+/// (`JmapError`, `MethodResponseError`, `SetError`): a future field or
+/// variant addition (for example, an `account_id` field to disambiguate
+/// cross-account collisions) must remain a non-breaking semver change.
+#[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CollisionError {
     /// The colliding keys, sorted alphabetically for stable error
