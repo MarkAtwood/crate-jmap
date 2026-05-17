@@ -49,7 +49,7 @@ async fn share_notification_set_destroy_only_wire() {
 
     let sc = common::make_client(&server);
     let resp = sc
-        .share_notification_set(Some(vec![Id::from("notif-1")]))
+        .share_notification_set(vec![Id::from("notif-1")])
         .await
         .expect("share_notification_set_destroy_only_wire: must succeed");
 
@@ -92,11 +92,13 @@ async fn share_notification_set_destroy_only_wire() {
     );
 }
 
-/// Test 2: ShareNotification/set with destroy=None sends empty destroy array.
+/// Test 2: ShareNotification/set with an empty `destroy` vec sends an empty
+/// destroy array.
 ///
-/// Oracle: RFC 9670 §3.3 — The implementation converts None to an empty
-/// destroy array rather than omitting the key. An empty destroy is a no-op
-/// that must succeed without error.
+/// Oracle: RFC 9670 §3.3 — destroy is required on ShareNotification/set
+/// (create/update are forbidden). An empty destroy is a no-op that must
+/// succeed without error, and the implementation serializes the empty vec
+/// to an empty JSON array rather than omitting the key.
 #[tokio::test]
 async fn share_notification_set_empty_destroy() {
     let server = MockServer::start().await;
@@ -126,7 +128,7 @@ async fn share_notification_set_empty_destroy() {
 
     let sc = common::make_client(&server);
     let resp = sc
-        .share_notification_set(None)
+        .share_notification_set(vec![])
         .await
         .expect("share_notification_set_empty_destroy: must succeed with no-op destroy");
 
