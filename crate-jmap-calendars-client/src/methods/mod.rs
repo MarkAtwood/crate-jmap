@@ -98,19 +98,38 @@ pub struct PrincipalGetAvailabilityResponse {
 ///
 /// All fields are optional. Pass `None` for any field to omit it from the
 /// request (the server uses its default).
-#[non_exhaustive]
-#[derive(Debug, Clone, Default)]
+///
+/// Mirrors the canonical [`EmailGetParams`] shape from `jmap-mail-client`:
+/// derives `serde::Serialize` + `#[serde(rename_all = "camelCase")]` so
+/// the wire shape is enforced by the type system, and carries an `extra`
+/// flatten map for the workspace extras-preservation policy
+/// (workspace AGENTS.md → "Extras-preservation policy" → in-scope:
+/// "Method-argument structs in *-client crates"). Forward-compat for
+/// future spec-defined fields is the `extra` map, not `#[non_exhaustive]`.
+///
+/// [`EmailGetParams`]: https://docs.rs/jmap-mail-client/latest/jmap_mail_client/methods/struct.EmailGetParams.html
+#[derive(Debug, Clone, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct CalendarEventGetParams {
     /// If `true`, expand recurring events into individual instances.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub expand_recurrences: Option<bool>,
     /// If `true`, participants are filtered to those relevant to the
     /// authenticated user (reducedParticipants draft §5.4).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub reduced_participants: Option<bool>,
     /// If `true`, the server SHOULD also include `Calendar/get`-style
     /// responses for the `Calendar` objects referenced by returned events
     /// (draft §5.4 `fetchCalendars` argument). The fetched calendars are
     /// emitted as additional `methodResponses` entries, not inlined.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub fetch_calendars: Option<bool>,
+    /// Catch-all for vendor / site / private extension fields not
+    /// covered by the typed fields above. Preserves unknown fields
+    /// across deserialize/serialize round-trip per workspace
+    /// extras-preservation policy.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Extra parameters accepted by `CalendarEvent/parse`
@@ -576,37 +595,54 @@ mod tests {
     }
 
     /// Oracle: CalendarEventGetParams serializes correctly to JSON.
-    /// All Some fields appear; None fields are absent.
+    /// All Some fields appear; None fields are absent via
+    /// `skip_serializing_if`. Independent of the production builder —
+    /// directly exercises the struct's Serialize derive against the
+    /// expected wire shape from draft-ietf-jmap-calendars-26 §5.4.
     #[test]
     fn calendar_event_get_params_serializes() {
         let params = CalendarEventGetParams {
             expand_recurrences: Some(true),
             reduced_participants: Some(false),
             fetch_calendars: None,
+            extra: serde_json::Map::new(),
         };
-        let mut args = json!({"accountId": "acc1"});
-        if let Some(v) = params.expand_recurrences {
-            args["expandRecurrences"] = v.into();
-        }
-        if let Some(v) = params.reduced_participants {
-            args["reducedParticipants"] = v.into();
-        }
-        if let Some(v) = params.fetch_calendars {
-            args["fetchCalendars"] = v.into();
-        }
-        // Verify expandRecurrences and reducedParticipants are in args
-        assert_eq!(args["expandRecurrences"], json!(true));
-        assert_eq!(args["reducedParticipants"], json!(false));
-        // fetch_calendars was None — it should not have been inserted
+        let out = serde_json::to_value(&params).expect("Serialize is infallible for plain data");
+        let obj = out
+            .as_object()
+            .expect("Params must serialize to a JSON object");
+        // Some fields appear with camelCase wire names
+        assert_eq!(obj.get("expandRecurrences"), Some(&json!(true)));
+        assert_eq!(obj.get("reducedParticipants"), Some(&json!(false)));
+        // None field is omitted via skip_serializing_if
         assert!(
-            args.get("fetchCalendars").is_none(),
-            "fetchCalendars should not appear when None"
+            obj.get("fetchCalendars").is_none(),
+            "fetchCalendars must be absent when None"
         );
-        // Verify round-trip through build_request
-        let req = build_request("CalendarEvent/get", args.clone(), USING_CALENDARS);
-        let v = serde_json::to_value(&req).expect("serialize");
-        let method_args = &v["methodCalls"][0][1];
-        assert_eq!(method_args["expandRecurrences"], json!(true));
-        assert_eq!(method_args["reducedParticipants"], json!(false));
+        // No snake_case leakage
+        assert!(
+            obj.get("expand_recurrences").is_none(),
+            "snake_case must not appear on the wire"
+        );
+        // Extra map is empty so it doesn't add anything to the output
+        assert!(obj.len() == 2, "expected exactly 2 set fields, got: {out}");
+    }
+
+    /// Oracle: CalendarEventGetParams.extra carries vendor / site
+    /// extension fields through the wire request via the flatten map.
+    /// Workspace AGENTS.md mandates this for method-argument structs.
+    #[test]
+    fn calendar_event_get_params_extras_flatten() {
+        let mut extra = serde_json::Map::new();
+        extra.insert("acmeCorpDebug".to_owned(), json!(true));
+        let params = CalendarEventGetParams {
+            expand_recurrences: Some(true),
+            reduced_participants: None,
+            fetch_calendars: None,
+            extra,
+        };
+        let out = serde_json::to_value(&params).expect("Serialize is infallible for plain data");
+        assert_eq!(out["expandRecurrences"], json!(true));
+        assert_eq!(out["acmeCorpDebug"], json!(true));
     }
 }
