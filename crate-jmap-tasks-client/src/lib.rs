@@ -29,7 +29,12 @@ pub use methods::{
 /// Extension trait adding JMAP Tasks methods to [`jmap_base_client::JmapClient`].
 ///
 /// Import this trait to use: `use jmap_tasks_client::JmapTasksExt;`
-pub trait JmapTasksExt {
+/// This trait is **sealed**: implementations outside this crate are not
+/// permitted. The crate adds an `impl` only for
+/// [`jmap_base_client::JmapClient`]. Sealing prevents downstream
+/// divergence (e.g. `impl JmapTasksExt for MySimulator`) and keeps
+/// adding methods to the trait a non-breaking change.
+pub trait JmapTasksExt: sealed::Sealed {
     /// Bind this client to a JMAP session for use with Tasks methods.
     ///
     /// The returned [`SessionClient`] captures the session at construction time.
@@ -64,4 +69,10 @@ impl JmapTasksExt for jmap_base_client::JmapClient {
             session,
         }
     }
+}
+
+mod sealed {
+    /// Sealing-trait for [`super::JmapTasksExt`] — see the trait's rustdoc.
+    pub trait Sealed {}
+    impl Sealed for ::jmap_base_client::JmapClient {}
 }

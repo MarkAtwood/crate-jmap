@@ -40,7 +40,12 @@ pub use methods::{
 ///
 /// All JMAP Metadata method calls are made through the [`SessionClient`]
 /// returned by [`with_metadata_session`](JmapMetadataExt::with_metadata_session).
-pub trait JmapMetadataExt {
+/// This trait is **sealed**: implementations outside this crate are not
+/// permitted. The crate adds an `impl` only for
+/// [`jmap_base_client::JmapClient`]. Sealing prevents downstream
+/// divergence (e.g. `impl JmapMetadataExt for MySimulator`) and keeps
+/// adding methods to the trait a non-breaking change.
+pub trait JmapMetadataExt: sealed::Sealed {
     /// Create a [`SessionClient`] bound to this client and session.
     ///
     /// All JMAP Metadata method calls are made through the returned
@@ -75,4 +80,10 @@ impl JmapMetadataExt for jmap_base_client::JmapClient {
             session,
         }
     }
+}
+
+mod sealed {
+    /// Sealing-trait for [`super::JmapMetadataExt`] — see the trait's rustdoc.
+    pub trait Sealed {}
+    impl Sealed for ::jmap_base_client::JmapClient {}
 }

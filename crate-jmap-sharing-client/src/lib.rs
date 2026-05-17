@@ -33,7 +33,12 @@ pub use methods::{
 ///
 /// All JMAP Sharing method calls are made through the [`SessionClient`] returned
 /// by [`with_sharing_session`](JmapSharingExt::with_sharing_session).
-pub trait JmapSharingExt {
+/// This trait is **sealed**: implementations outside this crate are not
+/// permitted. The crate adds an `impl` only for
+/// [`jmap_base_client::JmapClient`]. Sealing prevents downstream
+/// divergence (e.g. `impl JmapSharingExt for MySimulator`) and keeps
+/// adding methods to the trait a non-breaking change.
+pub trait JmapSharingExt: sealed::Sealed {
     /// Create a [`SessionClient`] bound to this client and session.
     ///
     /// All JMAP Sharing method calls are made through the returned [`SessionClient`].
@@ -67,4 +72,10 @@ impl JmapSharingExt for jmap_base_client::JmapClient {
             session,
         }
     }
+}
+
+mod sealed {
+    /// Sealing-trait for [`super::JmapSharingExt`] — see the trait's rustdoc.
+    pub trait Sealed {}
+    impl Sealed for ::jmap_base_client::JmapClient {}
 }
