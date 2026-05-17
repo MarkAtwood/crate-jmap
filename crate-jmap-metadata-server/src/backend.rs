@@ -10,7 +10,21 @@
 //!
 //! Property selector enum and `JmapObject`/`GetObject`/`SetObject`/`QueryObject`
 //! impls for [`jmap_metadata_types::Metadata`] live in `jmap-metadata-types`
-//! (`backend` module); they are re-exported here for convenience.
+//! (`backend` module); they are re-exported here so a downstream
+//! `MetadataBackend` impl can `use jmap_metadata_server::backend::*` and
+//! get the full vocabulary — the foundation supertrait, the
+//! [`MetadataProperty`] selector, and the standard wire error types — in
+//! one import, without separately importing the foundation crate and
+//! the types crate. The re-exported items are GROUPED here, not
+//! redefined; their canonical home is the source crate.
+//!
+//! **Version pinning**: each `pub use` pins the upstream type's
+//! major-version contract into this crate's public surface. A
+//! SemVer-breaking change in [`jmap_server`] or
+//! [`jmap_metadata_types`] cascades into a SemVer-breaking change
+//! here. The workspace's path-dep coordination and synchronized
+//! minor-version cadence (`0.1.x` across all `jmap-*` crates) is what
+//! keeps this manageable.
 
 pub use jmap_metadata_types::backend::MetadataProperty;
 pub use jmap_server::{
