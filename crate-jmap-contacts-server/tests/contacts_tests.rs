@@ -584,6 +584,143 @@ async fn address_book_set_create_with_is_default_records_demoted_in_changes() {
 }
 
 // ---------------------------------------------------------------------------
+// Wire-level demotion echo on AddressBook/set (bd:JMAP-qz9v.57)
+//
+// RFC 8620 §5.3 requires every modified object to surface in the response's
+// `updated` map. When the single-default invariant demotes sibling books in
+// response to a regular create-with-isDefault or update-with-isDefault, the
+// demoted entries MUST appear in `updated` (not just in /changes).
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn address_book_set_update_with_is_default_reports_demoted_in_updated_wire() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture_with_default("ab1", "First", true),
+    );
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab2",
+        address_book_fixture_with_default("ab2", "Second", false),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "update": { "ab2": { "isDefault": true } }
+    });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    let updated = resp["updated"]
+        .as_object()
+        .expect("updated must be an object: {resp}");
+    assert!(
+        updated.contains_key("ab2"),
+        "ab2 (promoted) must appear in updated: {resp}"
+    );
+    assert!(
+        updated.contains_key("ab1"),
+        "ab1 (demoted) must appear in updated per RFC 8620 §5.3: {resp}"
+    );
+    assert_eq!(
+        updated["ab1"]["isDefault"],
+        json!(false),
+        "ab1 in updated must show isDefault:false: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn address_book_set_create_with_is_default_reports_demoted_in_updated_wire() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture_with_default("ab1", "First", true),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "create": {
+            "c1": {
+                "name": "Second",
+                "sortOrder": 0,
+                "isDefault": true,
+                "isSubscribed": true
+            }
+        }
+    });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    assert!(
+        resp["created"].as_object().is_some_and(|m| !m.is_empty()),
+        "created must contain c1: {resp}"
+    );
+    let updated = resp["updated"]
+        .as_object()
+        .expect("updated must be an object: {resp}");
+    assert!(
+        updated.contains_key("ab1"),
+        "ab1 (demoted by create-side invariant) must appear in updated per RFC 8620 §5.3: {resp}"
+    );
+    assert_eq!(
+        updated["ab1"]["isDefault"],
+        json!(false),
+        "ab1 in updated must show isDefault:false: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn address_book_set_update_no_is_default_change_does_not_pollute_updated() {
+    // Regression: a regular update that does NOT touch isDefault must not
+    // cause `updated` to be populated with unrelated entries by the
+    // demotion-detection pass.
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture_with_default("ab1", "First", true),
+    );
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab2",
+        address_book_fixture_with_default("ab2", "Second", false),
+    );
+
+    // Rename ab2 — no isDefault touched.
+    let args = json!({
+        "accountId": "acc1",
+        "update": { "ab2": { "name": "Renamed" } }
+    });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    let updated = resp["updated"]
+        .as_object()
+        .expect("updated must be an object: {resp}");
+    // ab2 must appear (the explicit update target).
+    assert!(
+        updated.contains_key("ab2"),
+        "ab2 must appear in updated: {resp}"
+    );
+    // ab1 was not touched — must NOT appear.
+    assert!(
+        !updated.contains_key("ab1"),
+        "ab1 (untouched, still isDefault:true) must NOT appear in updated: {resp}"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Test 12: ContactCard/set create with client id rejected
 // Oracle: RFC 8620 §5.3.
 // ---------------------------------------------------------------------------
