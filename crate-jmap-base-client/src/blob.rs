@@ -139,6 +139,27 @@ pub struct BlobUploadResponse {
 /// Only simple-string expansion is supported. Reserved-expansion (`{+var}`)
 /// and other Level-2+ operators are not supported.
 ///
+/// # ⚠ Level-2+ templates silently mis-expand (bd:JMAP-6r7c.32)
+///
+/// A server that returns a Level-2 or higher template — e.g.
+/// `{+blobId}` (reserved-expansion), `{#var}` (fragment-style), or
+/// `{var*}` (list-shaped) — will NOT be detected as malformed. The
+/// `{+blobId}` form parses as a variable name `+blobId` which is then
+/// either replaced verbatim (if a caller happens to pass that exact
+/// name in `vars`) or rejected as an unknown variable. The
+/// percent-encoding logic treats every non-unreserved byte as
+/// something to escape; Level-2 reserved expansion EXPECTS reserved
+/// characters like `/` and `:` to pass through unchanged. A server
+/// using `{+downloadId}` to embed a slash-bearing identifier directly
+/// would have those slashes percent-encoded by this function and the
+/// resulting URL would be rejected server-side.
+///
+/// **JMAP servers SHOULD use Level-1 templates only per RFC 8620 §2.**
+/// If your server uses higher levels, you must expand the template
+/// yourself with an RFC-6570-compliant external library and pass the
+/// already-expanded URL to methods that accept a plain URL — do not
+/// pass a Level-2+ template through this function.
+///
 /// # Usage with `subscribe_events`
 ///
 /// [`Session::event_source_url`] is a URI template with variables `types`,
