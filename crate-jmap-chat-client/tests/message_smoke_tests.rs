@@ -657,10 +657,11 @@ async fn message_update_reaction_id_with_json_pointer_chars_rejected() {
 }
 
 /// `Message/set` destroy must thread non-empty `ids` to the wire
-/// `destroy` key and reject the empty slice client-side
-/// (message.rs:301-318, RFC 8620 §5.3).
+/// `destroy` key (message.rs:301-318, RFC 8620 §5.3). Empty-slice
+/// rejection lives in the paired
+/// [`message_destroy_rejects_empty_ids`] test below.
 #[tokio::test]
-async fn message_destroy_threads_ids_and_rejects_empty() {
+async fn message_destroy_threads_ids() {
     let server = MockServer::start().await;
     let resp_body =
         helpers::set_destroy_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
@@ -675,8 +676,15 @@ async fn message_destroy_threads_ids_and_rejects_empty() {
 
     let args = recorded_args(&server).await;
     assert_eq!(args["destroy"], json!(["msg-1"]), "destroy must thread");
+}
 
-    // Empty-slice guard.
+/// `Message/set` destroy must reject an empty `ids` slice client-side
+/// before any HTTP call, surfacing `ClientError::InvalidArgument`.
+/// Paired with [`message_destroy_threads_ids`] above.
+#[tokio::test]
+async fn message_destroy_rejects_empty_ids() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
     let empty: [Id; 0] = [];
     let err = sc
         .message_destroy(&empty)

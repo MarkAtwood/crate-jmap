@@ -618,12 +618,11 @@ async fn chat_update_patch_message_expiry_seconds_set_emits_value() {
     );
 }
 
-/// `Chat/set` destroy must thread the `ids` slice through to the `destroy`
-/// wire key (chat.rs:387-391) and reject an empty slice client-side
-/// (chat.rs:382-386, RFC 8620 §5.3).
+/// `Chat/set` destroy must thread the `ids` slice through to the
+/// `destroy` wire key (chat.rs:387-391). Empty-slice rejection lives
+/// in the paired [`chat_destroy_rejects_empty_ids`] test below.
 #[tokio::test]
-async fn chat_destroy_threads_ids_and_rejects_empty() {
-    // Success path with a non-empty slice.
+async fn chat_destroy_threads_ids() {
     let server = MockServer::start().await;
     let resp_body = set_destroy_response("Chat/set", CHAT_STATE_OLD, CHAT_STATE_NEW, "chat-doomed");
     mock_jmap_post(&server, resp_body).await;
@@ -650,10 +649,16 @@ async fn chat_destroy_threads_ids_and_rejects_empty() {
         args.get("create").is_none(),
         "create must be absent on destroy-only call"
     );
+}
 
-    // Empty-slice guard: no separate mock server is needed because the
-    // guard fires before any HTTP request. Build a fresh sc against the
-    // same server (mock pre-registered but irrelevant).
+/// `Chat/set` destroy with an empty ids slice MUST be rejected
+/// client-side before any HTTP call, surfacing
+/// `ClientError::InvalidArgument`. Paired with
+/// [`chat_destroy_threads_ids`] above which exercises the happy path.
+#[tokio::test]
+async fn chat_destroy_rejects_empty_ids() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
     let empty: [Id; 0] = [];
     let err = sc
         .chat_destroy(&empty)
