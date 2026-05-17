@@ -84,6 +84,31 @@ pub struct Date(String);
 ///
 /// Returned by `/get` and `/changes` methods. Clients echo it back in
 /// `sinceState` / `ifInState` parameters. Treat as opaque — no structure assumed.
+///
+/// # Migrating from `String`-typed code
+///
+/// Earlier revisions of this crate exposed state fields as
+/// `pub session_state: String` on [`crate::JmapResponse`] and similar
+/// shapes. The current revision uses the `State` newtype for type
+/// safety. The wire format is unchanged (`State` is
+/// `#[serde(transparent)]` over `String`). The Rust API conversions
+/// available to callers migrating from `String`:
+///
+/// - Read as `&str`: `state.as_ref()` (via `AsRef<str>`) or
+///   `format!("{state}")` (via `Display`).
+/// - Compare to a literal: `state == "abc"` (via `PartialEq<str>`).
+/// - Move into an owned `String`: `state.into_inner()`.
+/// - Borrow as `&String`: not directly available; use `as_ref()` to
+///   get `&str` instead.
+/// - Build from `&str` or `String`: `State::from("abc")` or
+///   `State::from(my_string)` (via `From<&str>` / `From<String>`).
+///
+/// Callers passing a `State` to a function that takes `String` should
+/// either change the signature to `impl AsRef<str>` or call
+/// `state.into_inner()` at the boundary. Callers keying a
+/// `HashMap<String, _>` by state token can either rekey by
+/// `HashMap<State, _>` (`State` implements `Hash + Eq`) or call
+/// `state.into_inner()` at insertion / lookup time.
 // #[non_exhaustive] prevents callers from pattern-matching the inner field,
 // preserving semver freedom to add fields later.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
