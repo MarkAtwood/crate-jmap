@@ -537,6 +537,55 @@ mod tests {
         assert!(obj.contains_key("email"));
     }
 
+    /// Regression test locking in the wire-key-collision contract.
+    ///
+    /// Workspace AGENTS.md ("Extras-preservation policy" → "Caller
+    /// contract — wire-key collisions") documents that a caller MUST
+    /// NOT insert a key into `extra` whose name matches a typed field
+    /// on the same struct. This test asserts the observable behavior
+    /// that justifies the doc warning:
+    ///
+    /// 1. Serialize succeeds and emits both the typed field and the
+    ///    `extra` entry (no dedup by serde-flatten).
+    /// 2. Deserialize on the same bytes rejects with `duplicate field`.
+    ///
+    /// If a future serde or serde_json release changes either behavior
+    /// (e.g. silently drops the typed field, silently drops the flatten
+    /// entry, accepts duplicate keys), this test will fail loudly so
+    /// the workspace policy can be re-evaluated rather than silently
+    /// drift.
+    ///
+    /// Independent oracle: the expected JSON shape (two `"email"`
+    /// keys) is constructed by string concatenation, not by the code
+    /// under test.
+    #[test]
+    fn extra_collision_with_typed_field_round_trip_fails() {
+        let mut addr = EmailAddress::new("real@example.com");
+        addr.extra.insert(
+            "email".into(),
+            serde_json::Value::from("override@example.com"),
+        );
+
+        // (1) Serialize succeeds and emits both keys.
+        let serialised = serde_json::to_string(&addr).expect("serialize must succeed");
+        // Independent oracle: the bytes must contain two "email" keys.
+        let occurrences = serialised.matches("\"email\":").count();
+        assert_eq!(
+            occurrences, 2,
+            "wire output must contain two duplicate keys; got {serialised}"
+        );
+
+        // (2) Deserialize on the same bytes must reject with duplicate
+        // field. RFC 8259 §4 calls duplicate keys "unpredictable" and
+        // the workspace's strict-deserialize stance rejects them.
+        let err = serde_json::from_str::<EmailAddress>(&serialised)
+            .expect_err("deserialize must reject duplicate-key wire form");
+        assert!(
+            err.to_string().contains("duplicate field"),
+            "error must mention duplicate field; got: {err}"
+        );
+    }
+
     /// Stress test for the workspace extras-preservation contract.
     ///
     /// The per-type `*_preserves_vendor_extras` tests above each insert one
