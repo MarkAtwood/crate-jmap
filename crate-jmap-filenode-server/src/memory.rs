@@ -582,12 +582,14 @@ impl FileNodeBackend for MemoryBackend {
             )));
         }
 
-        // Serialize patch as a JSON Value for merge-patching.
+        // Serialize patch as a JSON Value for JMAP-style path patching.
         //
-        // LIMITATION: Only top-level key patches are supported.  Paths using "/"
-        // syntax (e.g. "keywords/flag1") are ignored — the key is merged as-is at
-        // the top level of the serialized node.  This is sufficient for the current
-        // integration tests and simpler than a full RFC 7396 implementation.
+        // RFC 8620 §5.3 PatchObject: keys may contain "/" separators naming a
+        // path into nested objects (e.g. `"shareWith/alice"`). Null values
+        // remove the target key; non-null values overwrite or create it.
+        // The local `apply_jmap_patch` helper mirrors the canonical
+        // jmap-mail-server pattern (it uses the same shape for
+        // `mailboxIds/<id>: null` cascade ops).
         let patch_val = serde_json::to_value(&patch).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!(
                 "update_object: serialize patch: {e}"
@@ -605,7 +607,7 @@ impl FileNodeBackend for MemoryBackend {
             .ok_or_else(|| BackendSetError::SetError(SetError::new(SetErrorType::NotFound)))?
             .clone();
 
-        // Serialize the stored node to JSON, apply the patch as a JSON merge,
+        // Serialize the stored node to JSON, apply the patch as a JMAP patch,
         // then deserialize back to FileNode.
         let mut node_val = serde_json::to_value(&node).map_err(|e| {
             BackendSetError::Other(MemoryError::new(format!(
@@ -615,7 +617,7 @@ impl FileNodeBackend for MemoryBackend {
 
         if let (Some(obj), Some(patch_obj)) = (node_val.as_object_mut(), patch_val.as_object()) {
             for (k, v) in patch_obj {
-                obj.insert(k.clone(), v.clone());
+                apply_jmap_patch(obj, k, v.clone());
             }
         }
 
@@ -1090,6 +1092,42 @@ fn date_on_or_after(node_date: Option<&jmap_types::UTCDate>, bound: &jmap_types:
     }
 }
 
+/// Apply one JMAP patch key-value pair to a JSON object (RFC 8620 §5.3).
+///
+/// Keys may contain "/" separators naming a path into nested objects
+/// (e.g. `"shareWith/alice"` to mutate one principal's rights in the
+/// `shareWith` map). Null values remove the target key; non-null values
+/// overwrite or create it. This is the JMAP patch format, which is a
+/// superset of RFC 7396 flat merge-patch.
+///
+/// Mirrors the canonical jmap-mail-server helper of the same name (mail
+/// uses the same shape for `mailboxIds/<id>: null` cascade ops).
+fn apply_jmap_patch(
+    base: &mut serde_json::Map<String, serde_json::Value>,
+    key: &str,
+    value: serde_json::Value,
+) {
+    if let Some(slash) = key.find('/') {
+        let head = &key[..slash];
+        let tail = &key[slash + 1..];
+        if let Some(entry) = base.get_mut(head) {
+            if let serde_json::Value::Object(inner) = entry {
+                apply_jmap_patch(inner, tail, value);
+            }
+        } else if !value.is_null() {
+            // Parent absent and value is non-null: create parent then set leaf.
+            let mut inner = serde_json::Map::new();
+            apply_jmap_patch(&mut inner, tail, value);
+            base.insert(head.to_owned(), serde_json::Value::Object(inner));
+        }
+        // Parent absent and value is null: nothing to remove — no-op.
+    } else if value.is_null() {
+        base.remove(key);
+    } else {
+        base.insert(key.to_owned(), value);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1150,6 +1188,140 @@ mod tests {
             nodes[0].id.as_ref(),
             "n1",
             "the surviving node must be the originally-seeded one"
+        );
+    }
+
+    /// Oracle: `update_object` honors RFC 8620 §5.3 path-style PatchObject
+    /// keys (`shareWith/<userId>`). The previous naive top-level-merge
+    /// silently no-op'd path patches AND polluted the stored node with a
+    /// literal `"shareWith/alice"` field via the workspace extras-
+    /// preservation flatten. Regression guard for bd:JMAP-510h.23.
+    #[tokio::test]
+    async fn update_object_applies_path_style_share_with_patch() {
+        use jmap_types::PatchObject;
+
+        let backend = MemoryBackend::new().with_account("acc1");
+
+        // Seed a FileNode with shareWith already populated (one entry, "existing").
+        // This makes the path-style mutations exercise both add (new userId)
+        // and remove (existing userId → null) branches without first having
+        // to materialize shareWith from null. The null-parent gap is a
+        // separate concern.
+        let node: FileNode = serde_json::from_value(json!({
+            "id": "n1",
+            "name": "shared-doc",
+            "parentId": null,
+            "role": null,
+            "nodeType": "file",
+            "target": null,
+            "blobId": "B-blob1",
+            "type": "text/plain",
+            "size": 7,
+            "shareWith": {
+                "existing": {
+                    "mayRead": true,
+                    "mayAddChildren": false,
+                    "mayRename": false,
+                    "mayDelete": false,
+                    "mayModifyContent": false,
+                    "mayShare": false
+                }
+            },
+            "myRights": null,
+            "created": "2026-01-01T00:00:00Z",
+            "modified": "2026-01-01T00:00:00Z",
+            "accessed": null
+        }))
+        .expect("seed FileNode must deserialize");
+        backend.seed_node("acc1", node);
+
+        // Patch: add "alice" via path-style; touch unrelated top-level
+        // "name" to verify flat patches still work in the new helper.
+        let mut patch_map = serde_json::Map::new();
+        patch_map.insert("name".to_owned(), json!("renamed-shared-doc"));
+        patch_map.insert(
+            "shareWith/alice".to_owned(),
+            json!({
+                "mayRead": true,
+                "mayAddChildren": false,
+                "mayRename": false,
+                "mayDelete": false,
+                "mayModifyContent": false,
+                "mayShare": false
+            }),
+        );
+        let patch = PatchObject::from_map(patch_map);
+        backend
+            .update_object::<FileNode>(&(), &Id::from("acc1"), &Id::from("n1"), patch)
+            .await
+            .expect("first patch must succeed");
+
+        // Read back via the typed API and assert shareWith has both entries
+        // AND the top-level name was updated.
+        let (nodes, _missing) = backend
+            .get_objects::<FileNode>(&(), &Id::from("acc1"), Some(&[Id::from("n1")]), None)
+            .await
+            .expect("get_objects must succeed");
+        assert_eq!(nodes.len(), 1, "n1 must be returned");
+        assert_eq!(
+            nodes[0].name, "renamed-shared-doc",
+            "flat top-level patch must still apply"
+        );
+        let sw = nodes[0]
+            .share_with
+            .as_ref()
+            .expect("shareWith must be Some after add");
+        assert_eq!(
+            sw.len(),
+            2,
+            "shareWith must contain both existing + alice after path-style add: {sw:?}"
+        );
+        assert!(
+            sw.contains_key(&Id::from("alice")),
+            "alice must be present after path-style add: {sw:?}"
+        );
+        assert!(
+            sw.contains_key(&Id::from("existing")),
+            "existing must survive path-style add of unrelated key: {sw:?}"
+        );
+
+        // Verify the extras catch-all stayed empty (no `shareWith/alice`
+        // literal field leaked through the naive top-level merge).
+        assert!(
+            nodes[0].extra.is_empty(),
+            "no path-key literal must land in extras: {:?}",
+            nodes[0].extra
+        );
+
+        // Second patch: remove "existing" via path-style null.
+        let mut remove_map = serde_json::Map::new();
+        remove_map.insert("shareWith/existing".to_owned(), serde_json::Value::Null);
+        let remove_patch = PatchObject::from_map(remove_map);
+        backend
+            .update_object::<FileNode>(&(), &Id::from("acc1"), &Id::from("n1"), remove_patch)
+            .await
+            .expect("remove patch must succeed");
+
+        let (nodes, _missing) = backend
+            .get_objects::<FileNode>(&(), &Id::from("acc1"), Some(&[Id::from("n1")]), None)
+            .await
+            .expect("get_objects must succeed");
+        let sw = nodes[0]
+            .share_with
+            .as_ref()
+            .expect("shareWith must remain Some after partial remove");
+        assert_eq!(
+            sw.len(),
+            1,
+            "shareWith must shrink to a single entry after path-style remove: {sw:?}"
+        );
+        assert!(
+            sw.contains_key(&Id::from("alice")),
+            "alice must survive removal of existing: {sw:?}"
+        );
+        assert!(
+            !sw.contains_key(&Id::from("existing")),
+            "existing must be gone after path-style null patch: {sw:?}"
         );
     }
 }
