@@ -2651,6 +2651,40 @@ mod tests {
         assert!(resp["ids"].as_array().unwrap().is_empty());
     }
 
+    /// Oracle: depth=0 with a non-empty account returns ONLY the level-0
+    /// match set, NOT the recursive subtree. Regression guard for
+    /// bd:JMAP-510h.45 — the trait doc previously claimed
+    /// `0 = direct children only` which contradicted both the spec
+    /// (draft-ietf-jmap-filenode-13 §3.2.5 "If absent, null, or zero,
+    /// do not recurse") and the handler's actual short-circuit. This
+    /// test pins down the spec semantics: depth=0 must not include
+    /// children even when children exist.
+    #[tokio::test]
+    async fn query_depth_zero_excludes_children_even_when_present() {
+        let backend = FaultyBackend::new_with_account("acc1");
+        backend.seed_node("acc1", make_filenode("dir1", None, "dir1"));
+        backend.seed_node("acc1", make_filenode("child1", Some("dir1"), "child1"));
+        backend.seed_node("acc1", make_filenode("child2", Some("dir1"), "child2"));
+
+        let args = json!({
+            "accountId": "acc1",
+            "depth": 0,
+            "filter": {"isTopLevel": true},
+            "sort": null
+        });
+        let (resp, _) = handle_filenode_query(&backend, &(), args)
+            .await
+            .expect("must succeed for depth=0 with seeded children");
+        let ids = resp["ids"].as_array().expect("ids must be array");
+        assert_eq!(
+            ids.len(),
+            1,
+            "depth=0 must return only the level-0 match (dir1), not its children: {resp}"
+        );
+        let id_strs: Vec<&str> = ids.iter().filter_map(|v| v.as_str()).collect();
+        assert_eq!(id_strs, vec!["dir1"], "level-0 match must be dir1");
+    }
+
     /// Oracle: depth=1 → initial result plus direct children of matched nodes.
     /// Backend is seeded so that "dir1" has children ["child1", "child2"].
     /// The initial query returns ["dir1"] (via parentId=None/root filter);

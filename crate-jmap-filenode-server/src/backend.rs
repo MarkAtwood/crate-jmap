@@ -325,14 +325,33 @@ pub trait FileNodeBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<jmap_types::Id>, Self::Error>> + Send;
 
     /// Return all FileNode IDs in the subtree rooted at any node in `root_ids`,
-    /// up to `max_depth` levels deep (0 = direct children only, `u64::MAX` = full subtree).
+    /// up to `max_depth` levels deep.
+    ///
+    /// # `max_depth` semantics (draft-ietf-jmap-filenode-13 §3.2.5)
+    ///
+    /// `max_depth` is the **number of levels of subdirectories to recurse
+    /// into**, matching the spec's `depth` argument:
+    ///
+    /// - `0`: do not recurse — returns an empty `Vec`. (Spec: "If absent,
+    ///   null, or zero, do not recurse.")
+    /// - `1`: include direct children of every `root_id` (one level of
+    ///   descent).
+    /// - `N`: include up to `N` levels of descendants.
+    /// - `u64::MAX`: practical "full subtree". The default impl terminates
+    ///   when `frontier` becomes empty (i.e. the deepest reachable level
+    ///   has been visited), well before the counter could wrap. A
+    ///   pathological tree deep enough to exhaust `u64::MAX` levels is
+    ///   not reachable in practice.
+    ///
+    /// The `root_ids` themselves are NOT included in the result.
+    ///
+    /// # Default impl
     ///
     /// The default implementation calls `query_objects` with a `parentId` filter
     /// once per level — O(max_depth) backend calls.  Backends with a nested-sets
     /// model, closure table, or recursive CTE SHOULD override this to a single query.
     ///
     /// Returned IDs are deduplicated; ordering is unspecified.
-    /// The `root_ids` themselves are NOT included in the result.
     ///
     /// Errors from the per-level `query_objects` calls are propagated. The
     /// default impl does NOT silently truncate the subtree on a transient
