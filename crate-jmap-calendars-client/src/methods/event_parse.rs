@@ -2,9 +2,7 @@
 
 use jmap_types::Id;
 
-use super::{
-    CalendarEventParseParams, CalendarEventParseResponse, SessionClient, CALL_ID, USING_PARSE,
-};
+use super::{CalendarEventParseParams, CalendarEventParseResponse, SessionClient};
 use jmap_base_client::ClientError;
 
 impl SessionClient {
@@ -46,9 +44,9 @@ impl SessionClient {
                 }
             }
         }
-        let req = super::build_request("CalendarEvent/parse", args, USING_PARSE);
+        let req = super::build_request("CalendarEvent/parse", args, super::USING_PARSE);
         let resp = self.call_internal(api_url, &req).await?;
-        jmap_base_client::extract_response(&resp, CALL_ID)
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 }
 

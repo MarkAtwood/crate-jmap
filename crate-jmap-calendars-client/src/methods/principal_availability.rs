@@ -2,10 +2,7 @@
 
 use jmap_types::{Id, UTCDate};
 
-use super::{
-    PrincipalGetAvailabilityParams, PrincipalGetAvailabilityResponse, SessionClient, CALL_ID,
-    USING_AVAILABILITY,
-};
+use super::{PrincipalGetAvailabilityParams, PrincipalGetAvailabilityResponse, SessionClient};
 use jmap_base_client::ClientError;
 
 impl SessionClient {
@@ -49,9 +46,10 @@ impl SessionClient {
                 }
             }
         }
-        let req = super::build_request("Principal/getAvailability", args, USING_AVAILABILITY);
+        let req =
+            super::build_request("Principal/getAvailability", args, super::USING_AVAILABILITY);
         let resp = self.call_internal(api_url, &req).await?;
-        jmap_base_client::extract_response(&resp, CALL_ID)
+        jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
 }
 
