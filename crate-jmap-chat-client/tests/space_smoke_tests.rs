@@ -217,10 +217,11 @@ async fn space_get_decodes_populated_space() {
     );
 }
 
-/// `Space/changes` must thread `since_state` and `max_changes` and
-/// reject empty `since_state` client-side (space.rs:57-62, RFC 8620 §5.2).
+/// `Space/changes` must thread `since_state` and `max_changes`
+/// (space.rs:57-62, RFC 8620 §5.2). Empty-state rejection lives in
+/// the paired [`space_changes_rejects_empty_state`] test below.
 #[tokio::test]
-async fn space_changes_passthrough_and_empty_state_rejected() {
+async fn space_changes_passthrough() {
     let server = MockServer::start().await;
     let resp_body = jmap_response(
         "Space/changes",
@@ -246,8 +247,15 @@ async fn space_changes_passthrough_and_empty_state_rejected() {
     let args = recorded_args(&server).await;
     assert_eq!(args["sinceState"], json!("sp-old"), "sinceState mismatch");
     assert_eq!(args["maxChanges"], json!(25), "maxChanges mismatch");
+}
 
-    // Empty state guard.
+/// `Space/changes` must reject an empty `since_state` client-side
+/// before any HTTP call, surfacing `ClientError::InvalidArgument`.
+/// Paired with [`space_changes_passthrough`] above.
+#[tokio::test]
+async fn space_changes_rejects_empty_state() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
     let empty = State::from("");
     let err = sc
         .space_changes(&empty, None)
@@ -264,11 +272,11 @@ async fn space_changes_passthrough_and_empty_state_rejected() {
     }
 }
 
-/// `Space/set` destroy must thread `ids` to the `destroy` wire key and
-/// reject the empty slice client-side
-/// (space.rs:80-97, RFC 8620 §5.3).
+/// `Space/set` destroy must thread `ids` to the `destroy` wire key
+/// (space.rs:80-97, RFC 8620 §5.3). Empty-slice rejection lives in
+/// the paired [`space_destroy_rejects_empty_ids`] test below.
 #[tokio::test]
-async fn space_destroy_threads_ids_and_rejects_empty() {
+async fn space_destroy_threads_ids() {
     let server = MockServer::start().await;
     let resp_body = set_destroy_response(
         "Space/set",
@@ -291,8 +299,15 @@ async fn space_destroy_threads_ids_and_rejects_empty() {
         json!(["space-doomed"]),
         "destroy ids must thread through"
     );
+}
 
-    // Empty-slice guard.
+/// `Space/set` destroy must reject an empty `ids` slice client-side
+/// before any HTTP call, surfacing `ClientError::InvalidArgument`.
+/// Paired with [`space_destroy_threads_ids`] above.
+#[tokio::test]
+async fn space_destroy_rejects_empty_ids() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
     let empty: [Id; 0] = [];
     let err = sc
         .space_destroy(&empty)
@@ -408,12 +423,12 @@ async fn space_query_changes_since_state_passthrough() {
     assert_eq!(args["maxChanges"], json!(50), "maxChanges mismatch");
 }
 
-/// `Space/set` create must serialize the create object with `name` and
-/// any provided optional fields, keyed by the caller-supplied creation
-/// id (space.rs:178-194). Empty `name` must short-circuit
-/// (space.rs:173-177).
+/// `Space/set` create must serialize the create object with `name`
+/// and any provided optional fields, keyed by the caller-supplied
+/// creation id (space.rs:178-194). Empty-name rejection lives in the
+/// paired [`space_create_rejects_empty_name`] test below.
 #[tokio::test]
-async fn space_create_serializes_create_object_and_rejects_empty_name() {
+async fn space_create_serializes_create_object() {
     let server = MockServer::start().await;
     let resp_body = set_response(
         "Space/set",
@@ -442,8 +457,16 @@ async fn space_create_serializes_create_object_and_rejects_empty_name() {
         create.get("iconBlobId").is_none(),
         "iconBlobId must be absent when None"
     );
+}
 
-    // Empty-name guard.
+/// `Space/set` create must reject an empty `name` client-side before
+/// any HTTP call (space.rs:173-177), surfacing
+/// `ClientError::InvalidArgument`. Paired with
+/// [`space_create_serializes_create_object`] above.
+#[tokio::test]
+async fn space_create_rejects_empty_name() {
+    let server = MockServer::start().await;
+    let sc = helpers::make_client(&server);
     let bad = jmap_chat_client::methods::SpaceCreateInput::new("");
     let err = sc
         .space_create(&bad)
