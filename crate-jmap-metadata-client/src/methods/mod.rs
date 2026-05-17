@@ -108,6 +108,14 @@ pub struct MetadataChangesParams {
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
     ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
+    ///
     /// Keys MUST NOT collide with the standard RFC 8620 §5.2 / draft-01
     /// §3.3 arg names (`accountId`, `sinceState`, `maxChanges`,
     /// `filterRelatedType`, `filterMetadataType`); `metadata_changes` will
