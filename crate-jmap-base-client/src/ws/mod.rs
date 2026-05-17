@@ -144,6 +144,40 @@ pub struct WsSession {
 ///
 /// `Binary` frames are NOT counted here — they violate RFC 8887 §4.1 and
 /// surface as `UnexpectedResponse` immediately on the first occurrence.
+///
+/// # Do not remove the cap (bd:JMAP-6r7c.17, originally bd:JMAP-6lsm.6)
+///
+/// A future contributor may suggest "tungstenite handles pings at the
+/// protocol layer, just continue the loop silently for any non-text
+/// non-close frame." That re-introduces the resource-exhaustion bug
+/// bd:JMAP-6lsm.6 fixed. The cap is load-bearing for five reasons:
+///
+/// 1. **Starvation defense.** A hostile or misbehaving server can
+///    flood the stream with no-op frames (Ping, Pong, Frame, future
+///    variants) and starve a caller of `next_frame()` indefinitely.
+///    The cap surfaces this as an error before the caller's outer
+///    loop is starved.
+/// 2. **Calibrated threshold.** 64 is high enough that a normal
+///    connection never trips it. Lower numbers (e.g. 8) would
+///    false-positive on networks with weak NAT keepalives where the
+///    server sends frequent pings to keep the connection alive.
+/// 3. **Binary frames are a separate guarantee.** They are NOT
+///    subsumed by the cap — they violate RFC 8887 §4.1 and surface
+///    immediately on first occurrence (see `classify_message`
+///    `MessageDisposition::UnexpectedFrame` path). Removing the cap
+///    does not affect Binary handling; the threats are different.
+/// 4. **Unit-testable policy.** `classify_message` (free function,
+///    not a method) is testable without a real WebSocket. The test
+///    suite in this file exercises the classification explicitly so
+///    a refactor that "just changes the loop" doesn't silently lose
+///    the policy.
+/// 5. **Pinned by tripwire test.**
+///    `consecutive_skip_cap_matches_documented_value` asserts the
+///    constant equals 64. A retune fails the test loudly so the
+///    change is visible in CI, forcing a deliberate choice rather
+///    than a silent regression.
+///
+/// Resist requests to "simplify" by removing the count.
 const MAX_CONSECUTIVE_NON_TEXT_FRAMES: usize = 64;
 
 /// Classify a single tungstenite [`Message`] into a [`MessageDisposition`]
