@@ -227,6 +227,25 @@ pub struct CalendarEvent {
     /// so per-occurrence overrides retain full JSCalendar shape flexibility
     /// (Sloppy-Value at the leaf, typed at the envelope).  Wire format is
     /// byte-identical via `#[serde(transparent)]`.
+    ///
+    /// **Maintainer note: do NOT "simplify" this shape.** Two refactors
+    /// commonly surface; both are wrong:
+    ///
+    /// 1. **Revert to `Option<serde_json::Value>`.** Loses the type-level
+    ///    signal that the outer envelope follows JMAP `PatchObject`
+    ///    (RFC 8620 §5.3) semantics. JMAP and JSCalendar are
+    ///    co-evolving specs with separate ownership of the envelope vs
+    ///    leaf semantics, and the type-level split mirrors that.
+    /// 2. **Type the inner leaves with full JSCalendar field-by-field
+    ///    structs.** Would require an exhaustive JSCalendar leaf type
+    ///    that must track both specs and break partial deserialize. The
+    ///    workspace Sloppy-Value policy (workspace AGENTS.md) is
+    ///    designed exactly to avoid this trap.
+    ///
+    /// Wire-format byte-identity is pinned by
+    /// `calendar_event_recurrence_overrides_wire_format_is_object_map`
+    /// in `tests/types_test.rs`. Design defense: bd:JMAP-1rwf.6. See
+    /// also `localizations` below — same shape, same rationale.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub recurrence_overrides: Option<HashMap<String, PatchObject>>,
 
@@ -282,6 +301,12 @@ pub struct CalendarEvent {
     /// language overrides retain full JSCalendar shape flexibility (Sloppy-
     /// Value at the leaf, typed at the envelope).  Wire format is byte-
     /// identical via `#[serde(transparent)]`.
+    ///
+    /// **Maintainer note: do NOT "simplify" this shape** — see the same
+    /// note on [`Self::recurrence_overrides`] above for the full rationale.
+    /// The two fields share the hybrid Sloppy-Value-at-the-leaf,
+    /// typed-at-the-envelope pattern (JMAP §5.3 envelope ownership vs.
+    /// JSCalendar §4.6 leaf ownership). Design defense: bd:JMAP-1rwf.6.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub localizations: Option<HashMap<String, PatchObject>>,
 
