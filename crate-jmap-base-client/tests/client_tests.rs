@@ -541,6 +541,69 @@ async fn test_call_round_trip() {
     );
 }
 
+/// Oracle: bd:JMAP-6r7c.39 — `call_session` POSTs to `session.api_url`,
+/// not to `session.upload_url` or any other session URL field.
+///
+/// The mock server is configured so that GETting `/api/` would return
+/// 500 (which would fail the test), and POSTing `/api/` returns the
+/// canned call_response fixture. We construct a Session whose api_url
+/// points at the mock's `/api/` and upload_url points at a different
+/// path that is unmocked (so any accidental route would 404). If a
+/// future refactor accidentally routed `call_session` to (say)
+/// `session.upload_url`, the test would fail because the mock would
+/// not match the wrong path.
+#[tokio::test]
+async fn test_call_session_routes_to_session_api_url() {
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(call_response_fixture()))
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    // Construct a Session by deserializing a minimal JSON payload so the
+    // URL points at the mock server, not at the example.com placeholder
+    // from the on-disk fixture. The upload_url / download_url /
+    // event_source_url fields point at an unmocked path so any
+    // wrong-routing regression surfaces as a connection error or 404,
+    // not as a silent success.  Session is `#[non_exhaustive]`, so a
+    // struct-literal constructor is not available from outside the
+    // crate; the JSON path is the public construction API.
+    let api_url = format!("{}/api/", server.uri());
+    let unmocked_url = format!("{}/UNMOCKED-must-not-be-hit", server.uri());
+    let session: jmap_base_client::request::Session = serde_json::from_value(serde_json::json!({
+        "capabilities": {},
+        "accounts": {},
+        "primaryAccounts": {},
+        "username": "",
+        "apiUrl": api_url,
+        "downloadUrl": unmocked_url,
+        "uploadUrl": unmocked_url,
+        "eventSourceUrl": unmocked_url,
+        "state": "",
+    }))
+    .expect("hand-rolled Session JSON must deserialize");
+
+    let resp = client
+        .call_session(&session, &minimal_request())
+        .await
+        .expect("call_session must succeed against session.api_url");
+
+    // Oracle from call_response.json fixture: same as test_call_round_trip.
+    assert_eq!(resp.session_state, "sess1");
+    assert_eq!(resp.method_responses.len(), 1);
+    assert_eq!(resp.method_responses[0].0, "Mailbox/get");
+}
+
 /// Oracle: security requirement — call response body capped at 8 MiB.
 /// A response body of 8 MiB + 1 byte must return ClientError::ResponseTooLarge.
 #[tokio::test]
