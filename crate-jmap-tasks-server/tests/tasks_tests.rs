@@ -457,3 +457,108 @@ async fn task_set_isdraft_revert_rejected_by_memory_backend() {
         "isDraft must be listed in properties: {resp}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Test: Task/query against MemoryBackend with a non-trivial filter fails
+// loud rather than silently returning all ids.
+//
+// Oracle: RFC 8620 §5.5 — "A server MUST reject the call with an
+// `unsupportedFilter` error if it cannot process the given filter."
+// The reference MemoryBackend cannot process any filter, so a query
+// carrying one must surface a method-level error rather than silently
+// matching all objects. The reference impl uses `serverFail` as a
+// workspace-canonical approximation (a richer error variant on
+// JmapBackend would be needed to plumb `unsupportedFilter` proper).
+//
+// Bead: JMAP-h47t.5.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn task_query_with_filter_fails_loud_on_memory_backend() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object("acc1", "TaskList", "tl1", task_list_fixture("tl1", "Todo"));
+    backend.seed_object("acc1", "Task", "t1", task_fixture("t1", "tl1", "Buy milk"));
+
+    let args = json!({
+        "accountId": "acc1",
+        "filter": { "taskListId": "tl1" }
+    });
+    let err = handle_task_query(&backend, &(), args)
+        .await
+        .expect_err("Task/query with filter must fail loud on the reference MemoryBackend");
+    assert_eq!(
+        err.error_type.as_str(),
+        "serverFail",
+        "fail-loud should surface as serverFail (the workspace-canonical \
+         approximation of RFC 8620 §5.5 unsupportedFilter when the backend \
+         cannot signal it directly): {err:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test: Task/query against MemoryBackend with a non-empty sort fails loud
+// rather than silently returning ids in id-lexicographic order.
+//
+// Oracle: RFC 8620 §5.5 — "A server MUST reject the call with an
+// `unsupportedSort` error if it cannot sort by the given properties."
+// The reference MemoryBackend cannot honor any sort key, so a query
+// carrying one must surface a method-level error rather than silently
+// returning ids in id-creation order (which a client following the
+// `task<n:016x>` demo id scheme might mistake for working sort).
+//
+// Bead: JMAP-h47t.5.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn task_query_with_sort_fails_loud_on_memory_backend() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object("acc1", "TaskList", "tl1", task_list_fixture("tl1", "Todo"));
+    backend.seed_object("acc1", "Task", "t1", task_fixture("t1", "tl1", "Buy milk"));
+
+    let args = json!({
+        "accountId": "acc1",
+        "sort": [ { "property": "due", "isAscending": true } ]
+    });
+    let err = handle_task_query(&backend, &(), args)
+        .await
+        .expect_err("Task/query with sort must fail loud on the reference MemoryBackend");
+    assert_eq!(
+        err.error_type.as_str(),
+        "serverFail",
+        "fail-loud should surface as serverFail (the workspace-canonical \
+         approximation of RFC 8620 §5.5 unsupportedSort when the backend \
+         cannot signal it directly): {err:?}"
+    );
+}
+
+// ---------------------------------------------------------------------------
+// Test: Task/query with no filter and no sort continues to succeed and
+// return all task ids in id-lexicographic order, the documented
+// MemoryBackend baseline.
+//
+// Oracle: the fail-loud change to query_objects must NOT regress the
+// trivial-filter case (which is the only path internal consumers and
+// integration tests rely on).
+//
+// Bead: JMAP-h47t.5.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn task_query_with_no_filter_or_sort_succeeds() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object("acc1", "TaskList", "tl1", task_list_fixture("tl1", "Todo"));
+    backend.seed_object("acc1", "Task", "t1", task_fixture("t1", "tl1", "Buy milk"));
+    backend.seed_object("acc1", "Task", "t2", task_fixture("t2", "tl1", "Walk dog"));
+
+    let args = json!({ "accountId": "acc1", "calculateTotal": true });
+    let (resp, _) = handle_task_query(&backend, &(), args)
+        .await
+        .expect("Task/query with no filter / no sort must succeed");
+
+    let ids = resp["ids"].as_array().expect("ids array present");
+    assert_eq!(ids.len(), 2, "two tasks seeded: {resp}");
+    assert_eq!(resp["total"], 2);
+    // id-lexicographic order; t1 < t2.
+    assert_eq!(ids[0], "t1");
+    assert_eq!(ids[1], "t2");
+}
