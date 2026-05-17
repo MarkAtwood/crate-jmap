@@ -28,7 +28,12 @@ use super::{
 impl super::SessionClient {
     /// Fetch EmailSubmission objects by IDs (RFC 8621 §7.1 — EmailSubmission/get).
     ///
-    /// If `ids` is `None`, the server returns all submissions for the account.
+    /// If `ids` is `None`, the server returns all submissions for the account,
+    /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
+    /// For production use, scope the result set via the corresponding
+    /// /query method first and pass explicit ids here to avoid
+    /// `requestTooLarge` errors when the account holds more objects
+    /// than the cap.
     /// Pass `properties: None` to return all fields.
     ///
     /// # Errors

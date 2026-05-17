@@ -95,7 +95,12 @@ pub struct FileNodeCopyParams {
 impl super::SessionClient {
     /// Fetch FileNode objects by IDs (draft-ietf-jmap-filenode-13 §3.2.1).
     ///
-    /// If `ids` is `None`, the server returns all FileNodes for the account.
+    /// If `ids` is `None`, the server returns all FileNodes for the account,
+    /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
+    /// For production use, scope the result set via the corresponding
+    /// /query method first and pass explicit ids here to avoid
+    /// `requestTooLarge` errors when the account holds more objects
+    /// than the cap.
     /// Pass `properties: None` to return all fields.
     /// If `fetch_parents` is `Some(true)`, the server also returns all ancestor
     /// nodes of the requested IDs.

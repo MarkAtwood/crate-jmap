@@ -9,7 +9,12 @@ use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, S
 impl super::SessionClient {
     /// Fetch Task objects by IDs (draft-tasks-06 §4.5).
     ///
-    /// If `ids` is `None`, the server returns all Tasks for the account.
+    /// If `ids` is `None`, the server returns all Tasks for the account,
+    /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
+    /// For production use, scope the result set via the corresponding
+    /// /query method first and pass explicit ids here to avoid
+    /// `requestTooLarge` errors when the account holds more objects
+    /// than the cap.
     /// Pass `properties: None` to return all fields.
     ///
     /// # Errors
