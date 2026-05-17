@@ -32,6 +32,22 @@ pub struct Id(String);
 ///
 /// Format: `YYYY-MM-DDTHH:MM:SSZ` — time-offset MUST be `Z`, letters uppercase,
 /// fractional seconds omitted if zero. Example: `"2014-10-30T06:12:00Z"`.
+///
+/// # Deserialization is NOT validated
+///
+/// `UTCDate` is `#[serde(transparent)]` over `String`. Any string that
+/// deserializes into a `String` deserializes into a `UTCDate` — including
+/// `"not-a-date"`, `"2024-01-19T18:00:00"` (no `Z` suffix), or any other
+/// shape that violates RFC 8620 §1.4. The newtype carries the
+/// **type-level intent** of "RFC 8620 UTC timestamp" but does NOT enforce
+/// it at the wire boundary.
+///
+/// Use [`UTCDate::new_validated`] when constructing from untrusted input,
+/// or call [`UTCDate::to_epoch_seconds`] when consuming a deserialized
+/// value: the latter re-validates structural format AND semantic ranges
+/// (month, day, hour, minute, second) and returns [`ValidationError`] on
+/// any deviation. Treat any field of type `Option<UTCDate>` arriving
+/// from a peer as "RFC 8620 timestamp by convention, not by contract".
 // #[non_exhaustive] prevents callers from pattern-matching the inner field,
 // preserving semver freedom to add fields later.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -48,6 +64,15 @@ pub struct UTCDate(String);
 /// Distinct from [`UTCDate`], which requires the time-offset to be `Z`.
 /// Use `Date` for fields derived from RFC 5322 email headers (e.g. `sentAt`),
 /// which commonly carry non-UTC offsets.
+///
+/// # Deserialization is NOT validated
+///
+/// `Date` is `#[serde(transparent)]` over `String`. Any string that
+/// deserializes into a `String` deserializes into a `Date`, including
+/// values that violate RFC 8620 §1.4 / RFC 3339. The newtype carries
+/// the **type-level intent** but does NOT enforce it at the wire
+/// boundary. Treat any field of type `Option<Date>` arriving from a
+/// peer as "RFC 8620 timestamp by convention, not by contract".
 // #[non_exhaustive] prevents callers from pattern-matching the inner field,
 // preserving semver freedom to add fields later.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
