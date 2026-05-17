@@ -285,6 +285,21 @@ pub(crate) fn build_request(
 /// `jmap-base-client`); only the `Session` is shown. This lets callers
 /// embed a `SessionClient` in a `#[derive(Debug)]` struct without manual
 /// impls of their own.
+///
+/// # Thread safety
+///
+/// `SessionClient` is `Send + Sync`. Both
+/// [`jmap_base_client::JmapClient`] (backed by `reqwest::Client`) and
+/// [`jmap_base_client::Session`] (plain serde-derived data) are
+/// `Send + Sync` per jmap-base-client's contract, so this type can be
+/// shared across async tasks via `Arc<SessionClient>` or cloned for
+/// per-task ownership.
+///
+/// A `Send + Sync` regression in a future jmap-base-client release
+/// would be a major-version-breaking change for this crate. A
+/// compile-time assertion in `methods/mod.rs` guards against the
+/// regression landing silently — see
+/// `_assert_session_client_send_sync`.
 #[non_exhaustive]
 #[derive(Clone)]
 pub struct SessionClient {
@@ -366,6 +381,22 @@ impl SessionClient {
     ) -> Result<jmap_types::JmapResponse, jmap_base_client::ClientError> {
         self.client.call(api_url, req).await
     }
+}
+
+/// Compile-time assertion that [`SessionClient`] is `Send + Sync`.
+///
+/// The `# Thread safety` section of [`SessionClient`]'s rustdoc promises
+/// auto-trait inheritance from
+/// [`jmap_base_client::JmapClient`] and
+/// [`jmap_base_client::Session`]. If a future jmap-base-client release
+/// adds a `!Sync` interior-mutability field to either, this assertion
+/// fails at compile time — flagging the regression at the dependency
+/// upgrade rather than at the downstream caller's "cannot send between
+/// threads safely" error.
+#[allow(dead_code)]
+fn _assert_session_client_send_sync() {
+    fn assert_send_sync<T: Send + Sync>() {}
+    assert_send_sync::<SessionClient>();
 }
 
 // ---------------------------------------------------------------------------
