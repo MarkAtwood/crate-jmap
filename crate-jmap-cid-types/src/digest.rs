@@ -19,7 +19,7 @@
 //! bytes via [`From`]`<[u8; 32]>` / [`From`]`<&[u8; 32]>` for
 //! [`Sha256`] to format the wire value.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, Serializer};
 use std::fmt;
 
 /// Parse error produced by [`Sha256::from_hex`] and the [`Sha256`]
@@ -146,10 +146,13 @@ impl std::error::Error for Sha256DigestError {}
 ///
 /// # Wire format
 ///
-/// The bare 64-character hex string — `#[serde(try_from, into)]`
-/// drives serialization through the validating `TryFrom<String>` /
-/// `From<Sha256> for String` adapters so every deserialize path
-/// applies the same ABNF check `Sha256::from_hex` does.
+/// The bare 64-character hex string. `#[serde(try_from = "String")]`
+/// routes every deserialize path through the validating
+/// `TryFrom<String>` impl, so every deserialize path applies the
+/// same ABNF check `Sha256::from_hex` does. Serialize uses a
+/// manual `impl Serialize` that emits the inner hex string via
+/// `serializer.collect_str` (canonical-template parity with the
+/// `jmap-types::Id` newtype; see bd:JMAP-sf5h.20).
 ///
 /// # Allocation bounds
 ///
@@ -232,10 +235,26 @@ impl std::error::Error for Sha256DigestError {}
 /// opt-in on a wire-format type.
 ///
 /// [`subtle::ConstantTimeEq`]: https://docs.rs/subtle/latest/subtle/trait.ConstantTimeEq.html
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[serde(try_from = "String", into = "String")]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
+#[serde(try_from = "String")]
 #[non_exhaustive]
 pub struct Sha256(String);
+
+// Manual Serialize impl — matches the canonical Id newtype pattern
+// in crate-jmap-types/src/id.rs and eliminates the previous
+// `#[serde(into = "String")]` adapter (which forced a public
+// `From<Sha256> for String` impl that duplicated the `into_inner`
+// inherent method on the public surface — bd:JMAP-sf5h.20).
+//
+// `collect_str` writes the inner hex string directly into the
+// serializer without an intermediate `String` clone, matching the
+// zero-extra-allocation posture the type already has on
+// deserialize via `TryFrom<String>`.
+impl Serialize for Sha256 {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        serializer.collect_str(&self.0)
+    }
+}
 
 impl Sha256 {
     /// Parse a candidate hex string into a [`Sha256`].
@@ -324,12 +343,6 @@ impl std::str::FromStr for Sha256 {
     type Err = Sha256DigestError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Self::from_hex(s)
-    }
-}
-
-impl From<Sha256> for String {
-    fn from(d: Sha256) -> Self {
-        d.0
     }
 }
 
