@@ -213,8 +213,16 @@ fn validate_id(s: &str) -> Result<(), ValidationError> {
 
 /// Validate a [`UTCDate`] string per RFC 8620 §1.4.
 ///
-/// Required format: `YYYY-MM-DDTHH:MM:SSZ` (exactly 20 characters, `Z` suffix,
-/// all digit positions ASCII digits). No external crate needed.
+/// Validation has two layers:
+///
+/// 1. **Shape**: exactly 20 characters in the `YYYY-MM-DDTHH:MM:SSZ`
+///    layout with `Z` suffix, ASCII digits in every numeric position.
+/// 2. **Values**: month in `1..=12`, day in `1..=days_in_month(year,
+///    month)` (proleptic Gregorian, exact leap-year rules), hour in
+///    `0..=23`, minute in `0..=59`, second in `0..=59` (RFC 8620 §1.4
+///    does not permit leap seconds even though RFC 3339 §5.6 does).
+///
+/// No external crate needed.
 fn validate_utcdate(s: &str) -> Result<(), ValidationError> {
     if s.len() != 20 {
         return Err(ValidationError(format!(
@@ -245,6 +253,50 @@ fn validate_utcdate(s: &str) -> Result<(), ValidationError> {
                 pos, s
             )));
         }
+    }
+
+    // Value-range checks. Shape is now confirmed, so digit positions
+    // are guaranteed ASCII digits and the parses are infallible.
+    let parse = |start: usize, end: usize| -> i64 {
+        let mut n: i64 = 0;
+        for &byte in &b[start..end] {
+            n = n * 10 + (byte - b'0') as i64;
+        }
+        n
+    };
+    let year = parse(0, 4);
+    let month = parse(5, 7) as u32;
+    let day = parse(8, 10) as u32;
+    let hour = parse(11, 13) as u32;
+    let minute = parse(14, 16) as u32;
+    let second = parse(17, 19) as u32;
+
+    if !(1..=12).contains(&month) {
+        return Err(ValidationError(format!(
+            "UTCDate month must be 1..=12, got {month} in {s:?}"
+        )));
+    }
+    let max_day = days_in_month(year, month);
+    if !(1..=max_day).contains(&day) {
+        return Err(ValidationError(format!(
+            "UTCDate day must be 1..={max_day} for {year:04}-{month:02}, got {day} in {s:?}"
+        )));
+    }
+    if hour > 23 {
+        return Err(ValidationError(format!(
+            "UTCDate hour must be 0..=23, got {hour} in {s:?}"
+        )));
+    }
+    if minute > 59 {
+        return Err(ValidationError(format!(
+            "UTCDate minute must be 0..=59, got {minute} in {s:?}"
+        )));
+    }
+    // No leap seconds in RFC 8620 §1.4 (it specifies seconds 0..=59).
+    if second > 59 {
+        return Err(ValidationError(format!(
+            "UTCDate second must be 0..=59, got {second} in {s:?}"
+        )));
     }
     Ok(())
 }
@@ -291,10 +343,36 @@ impl Id {
 }
 
 impl UTCDate {
-    /// Construct a [`UTCDate`] with RFC 8620 §1.4 format validation.
+    /// Construct a [`UTCDate`] with RFC 8620 §1.4 validation.
     ///
-    /// Requires exactly the format `YYYY-MM-DDTHH:MM:SSZ` (20 characters,
-    /// `Z` suffix, all numeric fields are ASCII digits).
+    /// Validation has two layers:
+    ///
+    /// 1. **Shape**: exactly 20 characters in the
+    ///    `YYYY-MM-DDTHH:MM:SSZ` layout with `Z` suffix and ASCII
+    ///    digits in every numeric position.
+    /// 2. **Values**: month `1..=12`; day `1..=days_in_month(year,
+    ///    month)` with proleptic Gregorian leap-year rules so e.g.
+    ///    `2024-02-29` is accepted but `2023-02-29` and `2024-02-30`
+    ///    are rejected; hour `0..=23`; minute `0..=59`; second
+    ///    `0..=59` (RFC 8620 §1.4 does not permit leap seconds even
+    ///    though RFC 3339 §5.6 does).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ValidationError`] when the input does not satisfy
+    /// RFC 8620 §1.4. The error description contains a substring that
+    /// callers can match on if they need finer-grained handling:
+    ///
+    /// - `"exactly 20 characters"` — wrong length;
+    /// - `"wrong structure"` — separators or `Z` suffix missing /
+    ///   misplaced;
+    /// - `"is not a digit"` — non-digit at a numeric position;
+    /// - `"month must be"` — month outside `1..=12`;
+    /// - `"day must be"` — day outside `1..=days_in_month(year,
+    ///   month)` (catches both out-of-range day numbers like `32` and
+    ///   non-existent dates like Feb 30 or Feb 29 in a non-leap year);
+    /// - `"hour must be"`, `"minute must be"`, `"second must be"` —
+    ///   the corresponding time component is out of range.
     ///
     /// Use [`UTCDate::from`] when the value is known to be valid.
     pub fn new_validated(s: impl Into<String>) -> Result<Self, ValidationError> {
@@ -369,9 +447,12 @@ fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
 }
 
 /// Internal helper: convert a `YYYY-MM-DDTHH:MM:SSZ` string to epoch seconds.
+///
+/// `validate_utcdate` performs both shape and value-range validation;
+/// after it returns Ok, the per-position digit parses are infallible
+/// and the parsed values are within their RFC 8620 §1.4 ranges.
 fn utcdate_to_epoch_seconds(s: &str) -> Result<i64, ValidationError> {
     validate_utcdate(s)?;
-    // validate_utcdate guarantees ASCII-digit positions; direct parse is safe.
     let parse = |start: usize, end: usize| -> i64 {
         let mut n: i64 = 0;
         for &b in &s.as_bytes()[start..end] {
@@ -385,34 +466,6 @@ fn utcdate_to_epoch_seconds(s: &str) -> Result<i64, ValidationError> {
     let hour = parse(11, 13) as u32;
     let minute = parse(14, 16) as u32;
     let second = parse(17, 19) as u32;
-
-    if !(1..=12).contains(&month) {
-        return Err(ValidationError(format!(
-            "UTCDate month must be 1..=12, got {month} in {s:?}"
-        )));
-    }
-    let max_day = days_in_month(year, month);
-    if !(1..=max_day).contains(&day) {
-        return Err(ValidationError(format!(
-            "UTCDate day must be 1..={max_day} for {year:04}-{month:02}, got {day} in {s:?}"
-        )));
-    }
-    if hour > 23 {
-        return Err(ValidationError(format!(
-            "UTCDate hour must be 0..=23, got {hour} in {s:?}"
-        )));
-    }
-    if minute > 59 {
-        return Err(ValidationError(format!(
-            "UTCDate minute must be 0..=59, got {minute} in {s:?}"
-        )));
-    }
-    // No leap seconds in RFC 8620 §1.4 (it specifies seconds 0..=59).
-    if second > 59 {
-        return Err(ValidationError(format!(
-            "UTCDate second must be 0..=59, got {second} in {s:?}"
-        )));
-    }
 
     let days = days_from_civil(year, month, day);
     Ok(days * 86_400 + hour as i64 * 3_600 + minute as i64 * 60 + second as i64)
@@ -622,6 +675,72 @@ mod tests {
     #[test]
     fn utcdate_new_validated_non_digit_fails() {
         assert!(UTCDate::new_validated("XXXX-10-30T06:12:00Z").is_err());
+    }
+
+    /// Oracle: RFC 8620 §1.4 — month out of range MUST be rejected.
+    /// Pre-tightening, `validate_utcdate` was shape-only and would
+    /// accept this. bd:JMAP-6xs8.20 added semantic validation.
+    #[test]
+    fn utcdate_new_validated_rejects_month_out_of_range() {
+        let err = UTCDate::new_validated("2024-13-15T09:00:00Z").unwrap_err();
+        assert!(err.0.contains("month must be"), "{err}");
+        let err = UTCDate::new_validated("9999-99-99T09:00:00Z").unwrap_err();
+        assert!(err.0.contains("month must be"), "{err}");
+    }
+
+    /// Oracle: RFC 8620 §1.4 — day out of range MUST be rejected
+    /// including non-existent dates (Feb 30) and Feb 29 in non-leap
+    /// years. bd:JMAP-6xs8.20.
+    #[test]
+    fn utcdate_new_validated_rejects_day_out_of_range() {
+        // Day 32 in January
+        let err = UTCDate::new_validated("2024-01-32T09:00:00Z").unwrap_err();
+        assert!(err.0.contains("day must be"), "{err}");
+        // Feb 30 never exists
+        let err = UTCDate::new_validated("2024-02-30T09:00:00Z").unwrap_err();
+        assert!(err.0.contains("day must be"), "{err}");
+        // Feb 29 in non-leap year 2023 (not divisible by 4)
+        let err = UTCDate::new_validated("2023-02-29T09:00:00Z").unwrap_err();
+        assert!(err.0.contains("day must be"), "{err}");
+        // April 31 (April has 30 days)
+        let err = UTCDate::new_validated("2024-04-31T09:00:00Z").unwrap_err();
+        assert!(err.0.contains("day must be"), "{err}");
+    }
+
+    /// Oracle: RFC 8620 §1.4 — Feb 29 in a leap year MUST be accepted.
+    /// Pins the leap-year branch of the day-range check (2024 is
+    /// divisible by 4, not by 100, so leap). bd:JMAP-6xs8.20.
+    #[test]
+    fn utcdate_new_validated_accepts_feb_29_leap_year() {
+        UTCDate::new_validated("2024-02-29T00:00:00Z").expect("leap day must succeed");
+    }
+
+    /// Oracle: RFC 8620 §1.4 — time-component out of range MUST be
+    /// rejected. Includes hour 24, minute 60, second 60 (no leap
+    /// seconds per §1.4 even though RFC 3339 §5.6 permits them).
+    /// bd:JMAP-6xs8.20.
+    #[test]
+    fn utcdate_new_validated_rejects_time_out_of_range() {
+        let err = UTCDate::new_validated("2024-06-15T24:00:00Z").unwrap_err();
+        assert!(err.0.contains("hour must be"), "{err}");
+        let err = UTCDate::new_validated("2024-06-15T09:60:00Z").unwrap_err();
+        assert!(err.0.contains("minute must be"), "{err}");
+        let err = UTCDate::new_validated("2024-06-15T09:00:60Z").unwrap_err();
+        assert!(err.0.contains("second must be"), "{err}");
+    }
+
+    /// Oracle: the absurd case from the bd:JMAP-6xs8.20 bead body
+    /// (`9999-99-99T99:99:99Z`) MUST be rejected. Pinned here so a
+    /// future contributor can't accidentally regress to the old
+    /// shape-only validator.
+    #[test]
+    fn utcdate_new_validated_rejects_absurd_values() {
+        let err = UTCDate::new_validated("9999-99-99T99:99:99Z").unwrap_err();
+        assert!(
+            err.0.contains("month must be"),
+            "first rejected component (in left-to-right order) is the \
+             month; got: {err}"
+        );
     }
 
     /// Oracle: RFC 8620 §1.2 — State must be non-empty.
