@@ -55,9 +55,9 @@ pub async fn handle_message_get<B: ChatBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
-    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
+    let ids: Option<Vec<Id>> = match args.remove("ids") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
             serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
@@ -65,9 +65,9 @@ pub async fn handle_message_get<B: ChatBackend>(
 
     // RFC 8620 §5.1: when `properties` is specified, return only those fields
     // (plus `id` which is always included). `None` means return all fields.
-    let properties: Option<Vec<String>> = match args.remove("properties").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
+    let properties: Option<Vec<String>> = match args.remove("properties") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
             serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
         ),
@@ -174,9 +174,9 @@ pub async fn handle_message_query<B: ChatBackend>(
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
 
-    let limit: Option<u64> = match args.remove("limit").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => match v.as_u64() {
+    let limit: Option<u64> = match args.remove("limit") {
+        None | Some(Value::Null) => None,
+        Some(v) => match v.as_u64() {
             Some(n) => Some(n),
             None => {
                 return Err(JmapError::invalid_arguments(format!(
@@ -186,16 +186,16 @@ pub async fn handle_message_query<B: ChatBackend>(
         },
     };
 
-    let position: i64 = match args.remove("position").unwrap_or(Value::Null) {
-        Value::Null => 0,
-        v => v.as_i64().ok_or_else(|| {
+    let position: i64 = match args.remove("position") {
+        None | Some(Value::Null) => 0,
+        Some(v) => v.as_i64().ok_or_else(|| {
             JmapError::invalid_arguments(format!("position: expected an integer, got {v}"))
         })?,
     };
 
-    let filter: Option<serde_json::Value> = match args.remove("filter").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(v),
+    let filter: Option<serde_json::Value> = match args.remove("filter") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(v),
     };
 
     // JMAP Chat spec §Message — chatId filter is required unless hasMention: true.
@@ -213,9 +213,9 @@ pub async fn handle_message_query<B: ChatBackend>(
         return Err(JmapError::unsupported_filter());
     }
 
-    let sort: Option<Vec<serde_json::Value>> = match args.remove("sort").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
+    let sort: Option<Vec<serde_json::Value>> = match args.remove("sort") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
             serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
         ),

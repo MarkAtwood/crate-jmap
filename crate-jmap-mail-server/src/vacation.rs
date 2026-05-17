@@ -67,9 +67,9 @@ pub async fn handle_vacation_get<B: MailBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    let requested_ids: Option<Vec<String>> = match args.remove("ids").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
+    let requested_ids: Option<Vec<String>> = match args.remove("ids") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
             serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be a string array"))?,
         ),
