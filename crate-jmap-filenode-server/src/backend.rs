@@ -367,8 +367,6 @@ pub trait FileNodeBackend: JmapBackend {
         root_ids: &[jmap_types::Id],
         max_depth: u64,
     ) -> impl std::future::Future<Output = Result<Vec<jmap_types::Id>, Self::Error>> + Send
-    where
-        Self: Sized,
     {
         // Default: loop using query_objects with parentId filter per level.
         // This is correct but O(max_depth) in backend calls.
