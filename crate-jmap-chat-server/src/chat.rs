@@ -123,23 +123,21 @@ pub async fn handle_chat_set<B: ChatBackend>(
         // Fetch all existing chats once before the loop (O(1) fetch instead of
         // O(n) per-create fetches) and build a set of already-known Direct
         // contactIds for the pre-check.  Skipped entirely for non-Direct batches.
-        let existing_chats: Vec<Chat>;
-        let mut known_direct_contact_ids: HashSet<String>;
-        if has_direct_create {
-            let (chats, _) = backend
-                .get_objects::<Chat>(caller, &account_id, None, None)
-                .await
-                .map_err(|e| server_fail_from_backend(&e))?;
-            known_direct_contact_ids = chats
-                .iter()
-                .filter(|c| c.kind == ChatKind::Direct)
-                .filter_map(|c| c.contact_id.as_ref().map(|id| id.as_ref().to_owned()))
-                .collect();
-            existing_chats = chats;
-        } else {
-            existing_chats = Vec::new();
-            known_direct_contact_ids = HashSet::new();
-        }
+        let (existing_chats, mut known_direct_contact_ids): (Vec<Chat>, HashSet<String>) =
+            if has_direct_create {
+                let (chats, _) = backend
+                    .get_objects::<Chat>(caller, &account_id, None, None)
+                    .await
+                    .map_err(|e| server_fail_from_backend(&e))?;
+                let known = chats
+                    .iter()
+                    .filter(|c| c.kind == ChatKind::Direct)
+                    .filter_map(|c| c.contact_id.as_ref().map(|id| id.as_ref().to_owned()))
+                    .collect();
+                (chats, known)
+            } else {
+                (Vec::new(), HashSet::new())
+            };
 
         // Maps contactId -> assigned new_id for Direct chats successfully
         // created earlier in this batch.  Used to resolve intra-batch duplicates
