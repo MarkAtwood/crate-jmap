@@ -71,6 +71,22 @@ pub enum QuotaScope {
     Global,
     /// Catch-all for any unrecognized wire value from a future spec version.
     /// The original wire value is preserved for lossless round-trip.
+    ///
+    /// # Forging caveat
+    ///
+    /// `Other(String)` is `pub`, so callers can construct
+    /// `QuotaScope::Other("account".into())`. The custom serde impl
+    /// emits the wrapped string verbatim on serialize and normalises
+    /// canonical wire strings to their typed variant on deserialize.
+    /// Consequences:
+    /// * `QuotaScope::Other("account".into()) != QuotaScope::Account`
+    ///   on PartialEq, but both serialize to `"account"`.
+    /// * `Other("account")` -> `"account"` -> `Account` is a lossy
+    ///   round-trip (the variant changes shape).
+    ///
+    /// Reserve `Other(s)` for genuinely unrecognised wire strings.
+    /// Comparing wire-string equality across two values requires
+    /// matching on `as_str()`, not on `PartialEq`.
     Other(String),
 }
 
@@ -110,6 +126,14 @@ pub enum ChatMemberRole {
     /// Regular member.
     Member,
     /// Catch-all for any unrecognized wire value from a future spec version.
+    ///
+    /// **Forging caveat**: see [`QuotaScope::Other`] for the full
+    /// discussion. Constructing `ChatMemberRole::Other("admin".into())`
+    /// produces a value that is unequal to `ChatMemberRole::Admin` on
+    /// `PartialEq` but serialises to the same wire string `"admin"`
+    /// and round-trips back to `ChatMemberRole::Admin`. Reserve
+    /// `Other(s)` for genuinely unrecognised wire strings; compare
+    /// wire equality via `as_str()`, not `PartialEq`.
     Other(String),
 }
 
@@ -149,6 +173,14 @@ pub enum BodyType {
     /// `"application/jmap-chat-rich"` — structured rich text (spans array).
     Rich,
     /// Any unrecognized MIME type string, preserved as-is.
+    ///
+    /// **Forging caveat**: see [`QuotaScope::Other`] for the full
+    /// discussion. Constructing `BodyType::Other("text/plain".into())`
+    /// produces a value that is unequal to `BodyType::Plain` on
+    /// `PartialEq` but serialises to the same wire string and
+    /// round-trips back to `BodyType::Plain`. Reserve `Other(s)` for
+    /// genuinely unrecognised MIME types; compare wire equality via
+    /// `as_str()`, not `PartialEq`.
     Other(String),
 }
 
