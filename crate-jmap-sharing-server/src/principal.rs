@@ -31,7 +31,10 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, SharingBackend};
-use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
+use crate::helpers::{
+    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
+    SetAccumulators,
+};
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
@@ -116,6 +119,10 @@ pub async fn handle_principal_set<B: SharingBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.8). Reject
+    // unbounded /set batches before touching the storage layer.
+    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
     let old_state = backend
         .get_state::<Principal>(caller, &account_id)
