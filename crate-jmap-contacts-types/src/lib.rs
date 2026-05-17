@@ -131,9 +131,9 @@ pub use card::prop as comparator_prop;
 // `ContactCard`.
 pub use jmap_jscontact_types::{
     Address, AddressComponent, Anniversary, AnniversaryDate, Author, Calendar, CryptoKey,
-    Directory, EmailAddress, JsContactId, LanguagePref, Link, Media, Name, NameComponent, Nickname,
-    Note, OnlineService, OrgUnit, Organization, PartialDate, PersonalInfo, Phone, Pronouns,
-    Relation, SchedulingAddress, SpeakToAs, Timestamp, Title,
+    Directory, EmailAddress, LanguagePref, Link, Media, Name, NameComponent, Nickname, Note,
+    OnlineService, OrgUnit, Organization, PartialDate, PersonalInfo, Phone, Pronouns, Relation,
+    SchedulingAddress, SpeakToAs, Timestamp, Title,
 };
 
 #[cfg(test)]
