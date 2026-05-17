@@ -2,7 +2,10 @@
 
 use jmap_types::{Id, UTCDate};
 
-use super::{PrincipalGetAvailabilityResponse, SessionClient, CALL_ID, USING_AVAILABILITY};
+use super::{
+    PrincipalGetAvailabilityParams, PrincipalGetAvailabilityResponse, SessionClient, CALL_ID,
+    USING_AVAILABILITY,
+};
 use jmap_base_client::ClientError;
 
 impl SessionClient {
@@ -15,13 +18,17 @@ impl SessionClient {
     /// format validation is enforced at construction time via
     /// [`UTCDate::new_validated`], so invalid time strings cannot reach the
     /// wire.
+    ///
+    /// `params` lets the caller pin `show_details` / `event_properties`
+    /// and thread vendor / site extension fields through the wire request
+    /// via the struct's `extra` flatten map. Pass `None` to omit all
+    /// optional arguments.
     pub async fn principal_get_availability(
         &self,
         principal_id: &Id,
         utc_start: &UTCDate,
         utc_end: &UTCDate,
-        show_details: Option<bool>,
-        event_properties: Option<&[&str]>,
+        params: Option<PrincipalGetAvailabilityParams>,
     ) -> Result<PrincipalGetAvailabilityResponse, ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
@@ -30,13 +37,17 @@ impl SessionClient {
             "utcStart": utc_start,
             "utcEnd": utc_end,
         });
-        if let Some(sd) = show_details {
-            args["showDetails"] = serde_json::Value::Bool(sd);
-        }
-        if let Some(props) = event_properties {
-            args["eventProperties"] = serde_json::Value::Array(
-                props.iter().copied().map(serde_json::Value::from).collect(),
-            );
+        if let Some(p) = params {
+            let pv = serde_json::to_value(&p).map_err(|e| {
+                ClientError::InvalidArgument(format!(
+                    "principal_get_availability: failed to serialize params: {e}"
+                ))
+            })?;
+            if let serde_json::Value::Object(map) = pv {
+                for (k, v) in map {
+                    args[k] = v;
+                }
+            }
         }
         let req = super::build_request("Principal/getAvailability", args, USING_AVAILABILITY);
         let resp = self.call_internal(api_url, &req).await?;
