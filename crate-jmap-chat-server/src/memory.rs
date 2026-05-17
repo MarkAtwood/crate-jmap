@@ -2738,7 +2738,6 @@ fn apply_update_member(
 /// Identity-independent and policy-rather-than-structural; the
 /// sibling [`validate_space_patch_ops`] handles permission gating,
 /// role-position hierarchy, and last-admin protection.
-#[allow(clippy::result_large_err)]
 fn check_count_caps(
     space_val: &serde_json::Value,
     ops: &[SpacePatchOp],
@@ -3067,7 +3066,6 @@ fn validate_space_patch_ops(
 
 /// Construct the standard "role position not strictly less than
 /// caller's highest" SetError. Used by [`validate_space_patch_ops`].
-#[allow(clippy::result_large_err)]
 fn hierarchy_error(target_pos: u64, caller_highest: u64, op_label: &str) -> SetError {
     SetError::new(SetErrorType::Forbidden).with_description(format!(
         "{op_label}: target role position {target_pos} is not strictly less than \
