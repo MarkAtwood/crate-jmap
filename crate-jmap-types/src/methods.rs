@@ -190,7 +190,10 @@ pub struct SetError {
     /// Extension crates provide typed accessors (e.g.
     /// `jmap-chat-client`'s helper for reading `serverRetryAfter`).
     ///
-    /// Uses `serde_json::Map` (which preserves insertion order) rather than
+    /// Uses `serde_json::Map` (which, under the workspace's default
+    /// `serde_json` features — `preserve_order` is NOT enabled — is
+    /// backed by `BTreeMap` and therefore deterministically serializes
+    /// in lexicographic key order, NOT in insertion order) rather than
     /// `HashMap` to match the workspace extras-preservation policy (see
     /// workspace `AGENTS.md`) and to give callers deterministic serialized
     /// output.
