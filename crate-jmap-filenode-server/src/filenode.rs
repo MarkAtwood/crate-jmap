@@ -3292,7 +3292,9 @@ mod tests {
     }
 
     /// Oracle: create with onExists="rename" → name is suffixed to avoid collision.
-    /// Source: draft-ietf-jmap-filenode-13 §3.2.3.
+    /// Source: draft-ietf-jmap-filenode-13 §3.2.3 lines 572-575 — "If the
+    /// server changes the name, it MUST include the new 'name' value in the
+    /// created or updated response field for this id."
     #[tokio::test]
     async fn set_create_collision_rename_uses_suffixed_name() {
         let backend = FaultyBackend::new_with_account("acc1");
@@ -3315,8 +3317,20 @@ mod tests {
             "rename must not produce notCreated: {resp}"
         );
         assert!(
-            resp["created"].is_object(),
+            resp["created"].is_object() && resp["created"]["c1"].is_object(),
             "created must be present: {resp}"
+        );
+        // §3.2.3 MUST: the renamed name appears in the response. With the
+        // only seeded sibling at "foo", the rename loop's first non-colliding
+        // candidate ("foo-1") wins. Asserting on the concrete value catches
+        // regressions where the rename branch returns without mutating
+        // obj_with_id (the JMAP-510h.26 failure mode).
+        let name = resp["created"]["c1"]["name"]
+            .as_str()
+            .expect("created.c1.name must be present");
+        assert_eq!(
+            name, "foo-1",
+            "rename MUST surface the renamed name in created.c1 (§3.2.3): {resp}"
         );
     }
 
