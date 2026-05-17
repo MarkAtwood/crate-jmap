@@ -196,7 +196,14 @@ async fn email_submission_set_no_on_success_when_none() {
         .await;
 
     let sc = helpers::make_client(&server);
-    sc.email_submission_set(None, None, None, None, None)
+    // Need at least one of create/update/destroy to be Some — the
+    // all-None /set is rejected client-side by the defence-in-depth
+    // guard (bd:JMAP-tjvm.24). An empty destroy slice is the smallest
+    // valid input; the test's actual oracle (onSuccessUpdateEmail /
+    // onSuccessDestroyEmail must be absent when params=None) is
+    // preserved.
+    let destroy_ids: Vec<jmap_types::Id> = vec![];
+    sc.email_submission_set(None, None, Some(destroy_ids), None, None)
         .await
         .expect("email_submission_set_no_on_success_when_none: must succeed");
 

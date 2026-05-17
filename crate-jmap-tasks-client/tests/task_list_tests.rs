@@ -272,7 +272,14 @@ async fn task_list_set_without_on_destroy_omits_field() {
         .await;
 
     let sc = helpers::make_client(&server);
-    sc.task_list_set(None, None, None, None)
+    // Need at least one of create/update/destroy to be Some — the
+    // all-None /set is rejected client-side by the defence-in-depth
+    // guard (bd:JMAP-tjvm.24). An empty destroy Vec is the smallest
+    // valid input; the test's actual oracle (onDestroyRemoveTasks must
+    // be omitted from the wire when the caller passes None) is
+    // preserved.
+    let destroy_ids: Vec<jmap_types::Id> = vec![];
+    sc.task_list_set(None, None, Some(destroy_ids), None)
         .await
         .expect("task_list_set_without_on_destroy_omits_field: must succeed");
 

@@ -192,6 +192,13 @@ impl super::SessionClient {
         destroy: Option<Vec<Id>>,
         if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_mail_types::Email>, jmap_base_client::ClientError> {
+        if create.is_none() && update.is_none() && destroy.is_none() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "email_set: at least one of create, update, destroy must be Some \
+                 (an all-None /set is a no-op round-trip)"
+                    .into(),
+            ));
+        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,

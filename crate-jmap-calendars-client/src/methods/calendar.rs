@@ -148,6 +148,13 @@ impl super::SessionClient {
         on_destroy_remove_events: Option<bool>,
         if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_calendars_types::Calendar>, jmap_base_client::ClientError> {
+        if create.is_none() && update.is_none() && destroy.is_none() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "calendar_set: at least one of create, update, destroy must be Some \
+                 (an all-None /set is a no-op round-trip)"
+                    .into(),
+            ));
+        }
         if let Some(m) = &create {
             if m.keys().any(|k| k.is_empty()) {
                 return Err(jmap_base_client::ClientError::InvalidArgument(

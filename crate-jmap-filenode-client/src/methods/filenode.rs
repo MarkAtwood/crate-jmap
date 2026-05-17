@@ -233,6 +233,13 @@ impl super::SessionClient {
         destroy: Option<Vec<Id>>,
         params: Option<FileNodeSetParams>,
     ) -> Result<SetResponse<jmap_filenode_types::FileNode>, jmap_base_client::ClientError> {
+        if create.is_none() && update.is_none() && destroy.is_none() {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "file_node_set: at least one of create, update, destroy must be Some \
+                 (an all-None /set is a no-op round-trip)"
+                    .into(),
+            ));
+        }
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,

@@ -119,8 +119,15 @@ async fn mailbox_set_without_params_omits_on_destroy_remove_emails() {
         .await;
 
     let sc = helpers::make_client(&server);
+    // Need at least one of create/update/destroy to be Some — the
+    // all-None /set is rejected client-side by the defence-in-depth
+    // guard (bd:JMAP-tjvm.24). An empty destroy slice is the smallest
+    // valid input; the test's actual oracle is the *absence* of
+    // onDestroyRemoveEmails from the wire when params is None, which
+    // still holds when destroy is Some.
+    let destroy_ids: Vec<jmap_types::Id> = vec![];
     let _ = sc
-        .mailbox_set(None, None, None, None)
+        .mailbox_set(None, None, Some(destroy_ids), None)
         .await
         .expect("mailbox_set: must succeed");
 
