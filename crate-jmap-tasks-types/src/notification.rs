@@ -145,3 +145,14 @@ pub struct TaskNotificationFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub task_ids: Option<Vec<Id>>,
 }
+
+/// Concrete filter type for TaskNotification/query
+/// (draft-ietf-jmap-tasks-06 §5).
+///
+/// Alias for `jmap_types::query::Filter<TaskNotificationFilterCondition>`
+/// provided so callers do not have to reach into `jmap-types` directly.
+/// Mirrors the canonical [`jmap_mail_types::EmailFilter`] shape from the
+/// workspace canonical extension-types template.
+///
+/// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
+pub type TaskNotificationFilter = jmap_types::query::Filter<TaskNotificationFilterCondition>;

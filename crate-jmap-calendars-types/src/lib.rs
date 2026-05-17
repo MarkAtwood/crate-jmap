@@ -68,23 +68,38 @@ pub mod jscalendar {
 // ── Top-level re-exports ──────────────────────────────────────────────────────
 
 pub use availability::BusyPeriod;
-pub use calendar::{Calendar, CalendarFilterCondition, CalendarRights, IncludeInAvailability};
+pub use calendar::{
+    Calendar, CalendarFilter, CalendarFilterCondition, CalendarRights, IncludeInAvailability,
+};
 pub use capability::{
     CalendarsAccountCapability, CalendarsCapability, CalendarsParseCapability,
     PrincipalCalendarsCapability, PrincipalsAvailabilityAccountCapability,
     PrincipalsAvailabilityCapability, JMAP_CALENDARS_PARSE_URI, JMAP_CALENDARS_URI,
     JMAP_PRINCIPALS_AVAILABILITY_URI,
 };
-pub use event::{CalendarEvent, CalendarEventComparator, CalendarEventFilterCondition};
+pub use event::{
+    CalendarEvent, CalendarEventComparator, CalendarEventFilter, CalendarEventFilterCondition,
+};
 pub use jmap_jscalendar_types::{
     AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay,
     OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, TimeZone, TimeZoneRule,
     VirtualLocation,
 };
 pub use notification::{
-    CalendarAlert, CalendarEventNotification, NotificationFilterCondition, NotificationType, Person,
+    CalendarAlert, CalendarEventNotification, NotificationFilter, NotificationFilterCondition,
+    NotificationType, Person,
 };
 pub use participant_identity::ParticipantIdentity;
+
+/// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
+///
+/// Re-exported here so callers of `jmap-calendars-types` do not need a
+/// direct dependency on `jmap-types`. Mirrors the canonical
+/// [`jmap_mail_types::query`] re-exports from the workspace canonical
+/// extension-types template.
+///
+/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
+pub use jmap_types::query::{Filter, FilterOperator, Operator};
 
 // ── Backend re-exports ────────────────────────────────────────────────────────
 

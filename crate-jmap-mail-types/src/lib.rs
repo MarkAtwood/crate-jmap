@@ -85,7 +85,7 @@ pub use mailbox::{
 };
 pub use query::{
     ComparatorProperty, EmailComparator, EmailFilter, EmailFilterCondition, EmailSubmissionFilter,
-    Filter, FilterOperator, Operator,
+    Filter, FilterOperator, MailboxFilter, Operator,
 };
 pub use snippet::SearchSnippet;
 pub use submission::{

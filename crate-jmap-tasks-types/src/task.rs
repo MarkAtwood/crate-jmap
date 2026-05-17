@@ -593,3 +593,13 @@ pub struct TaskFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub workflow_status: Option<String>,
 }
+
+/// Concrete filter type for Task/query (draft-ietf-jmap-tasks-06 §4.6).
+///
+/// Alias for `jmap_types::query::Filter<TaskFilterCondition>` provided so
+/// callers do not have to reach into `jmap-types` directly. Mirrors the
+/// canonical [`jmap_mail_types::EmailFilter`] shape from the workspace
+/// canonical extension-types template.
+///
+/// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
+pub type TaskFilter = jmap_types::query::Filter<TaskFilterCondition>;

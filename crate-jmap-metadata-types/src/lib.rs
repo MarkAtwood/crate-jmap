@@ -54,5 +54,15 @@ pub mod metadata;
 
 pub use backend::MetadataProperty;
 pub use capability::{MetadataCapability, JMAP_METADATA_URI};
-pub use filter::MetadataFilterCondition;
+pub use filter::{MetadataFilter, MetadataFilterCondition};
 pub use metadata::{Annotation, ImapMetadata, Metadata, WebDavMetadata};
+
+/// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
+///
+/// Re-exported here so callers of `jmap-metadata-types` do not need a
+/// direct dependency on `jmap-types`. Mirrors the canonical
+/// [`jmap_mail_types::query`] re-exports from the workspace canonical
+/// extension-types template.
+///
+/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
+pub use jmap_types::query::{Filter, FilterOperator, Operator};

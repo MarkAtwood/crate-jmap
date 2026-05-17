@@ -87,3 +87,13 @@ pub struct MetadataFilterCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text_match: Option<String>,
 }
+
+/// Concrete filter type for Metadata/query (draft-ietf-jmap-metadata-01 §3.4).
+///
+/// Alias for `jmap_types::query::Filter<MetadataFilterCondition>` provided
+/// so callers do not have to reach into `jmap-types` directly. Mirrors the
+/// canonical [`jmap_mail_types::EmailFilter`] shape from the workspace
+/// canonical extension-types template.
+///
+/// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
+pub type MetadataFilter = jmap_types::query::Filter<MetadataFilterCondition>;
