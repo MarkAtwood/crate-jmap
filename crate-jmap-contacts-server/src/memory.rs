@@ -676,6 +676,12 @@ impl JmapBackend for MemoryBackend {
             }
         }
 
+        // bd:JMAP-ic0j.75 — RFC 8620 §5.2 SHOULD-preferred path: if an id is
+        // both created and destroyed within the window, omit it from BOTH
+        // `created` and `destroyed` lists (the client's `since` predates the
+        // create, so it never knew about the record). Mirrors the canonical
+        // jmap-mail-server at crate-jmap-mail-server/src/memory/mod.rs:670-680
+        // per the workspace cookie-cutter consistency rule.
         let mut created: Vec<Id> = Vec::new();
         let mut updated: Vec<Id> = Vec::new();
         let mut destroyed: Vec<Id> = Vec::new();
@@ -692,9 +698,13 @@ impl JmapBackend for MemoryBackend {
                 }
             }
             for id in &entry.destroyed {
+                // SHOULD-preferred path: if the id was created within this
+                // same window, omit from `destroyed` as well — the client
+                // never knew about it. Otherwise add to `destroyed`.
+                let was_created_in_window = created.contains(id);
                 created.retain(|c| c != id);
                 updated.retain(|u| u != id);
-                if !destroyed.contains(id) {
+                if !was_created_in_window && !destroyed.contains(id) {
                     destroyed.push(id.clone());
                 }
             }
