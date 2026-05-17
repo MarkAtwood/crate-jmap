@@ -1422,3 +1422,106 @@ fn task_notification_preserves_vendor_extras() {
     let back = serde_json::to_value(&n).unwrap();
     assert_eq!(back["acmeCorpNotificationChannel"], "email");
 }
+
+// ── @type-default regression tests (bd:JMAP-ky8g.1) ─────────────────────
+//
+// Person / CheckItem / Checklist / Comment declare `@type` as a bare
+// `String` with a serde-default function returning the type-mandated
+// literal. Deserialize must succeed when `@type` is absent (spec-
+// violating producer input or partial fixture), populating the field
+// with the literal. Serialize must always emit the field.
+//
+// Independent oracle: hand-written JSON shaped against draft-tasks-06
+// §4.2.3 / §4.2.4 with `@type` omitted, plus the produced
+// serialize-back JSON checked against the same draft's mandated string.
+
+/// `Person` deserialize succeeds when `@type` is absent and defaults
+/// to `"Person"`. Re-serialize emits the field with the default value.
+#[test]
+fn person_at_type_defaults_when_absent() {
+    let raw = serde_json::json!({ "name": "Alice" });
+    let p: Person = serde_json::from_value(raw).unwrap();
+    assert_eq!(p.at_type, "Person");
+    let back = serde_json::to_value(&p).unwrap();
+    assert_eq!(back["@type"], "Person");
+}
+
+/// `CheckItem` deserialize succeeds when `@type` is absent and defaults
+/// to `"CheckItem"`. Re-serialize emits the field with the default value.
+#[test]
+fn check_item_at_type_defaults_when_absent() {
+    let raw = serde_json::json!({
+        "title": "Buy milk",
+        "isComplete": false
+    });
+    let c: CheckItem = serde_json::from_value(raw).unwrap();
+    assert_eq!(c.at_type, "CheckItem");
+    let back = serde_json::to_value(&c).unwrap();
+    assert_eq!(back["@type"], "CheckItem");
+}
+
+/// `Checklist` deserialize succeeds when `@type` is absent and defaults
+/// to `"Checklist"`. Re-serialize emits the field with the default value.
+#[test]
+fn checklist_at_type_defaults_when_absent() {
+    let raw = serde_json::json!({ "title": "Shopping" });
+    let c: Checklist = serde_json::from_value(raw).unwrap();
+    assert_eq!(c.at_type, "Checklist");
+    let back = serde_json::to_value(&c).unwrap();
+    assert_eq!(back["@type"], "Checklist");
+}
+
+/// `Comment` deserialize succeeds when `@type` is absent and defaults
+/// to `"Comment"`. Re-serialize emits the field with the default value.
+#[test]
+fn comment_at_type_defaults_when_absent() {
+    let raw = serde_json::json!({ "message": "lgtm" });
+    let c: Comment = serde_json::from_value(raw).unwrap();
+    assert_eq!(c.at_type, "Comment");
+    let back = serde_json::to_value(&c).unwrap();
+    assert_eq!(back["@type"], "Comment");
+}
+
+/// Explicit non-default `@type` values still round-trip verbatim
+/// (the serde-default does NOT overwrite an explicit wire value).
+/// Locks in the contract that a vendor shipping a non-conformant string
+/// is preserved end-to-end rather than silently normalised.
+#[test]
+fn person_at_type_explicit_value_round_trips_verbatim() {
+    let raw = serde_json::json!({ "@type": "AcmeCorpPerson", "name": "Alice" });
+    let p: Person = serde_json::from_value(raw).unwrap();
+    assert_eq!(p.at_type, "AcmeCorpPerson");
+    let back = serde_json::to_value(&p).unwrap();
+    assert_eq!(back["@type"], "AcmeCorpPerson");
+}
+
+/// A parent object (Task -> checklists -> CheckItem) deserializes
+/// successfully when nested CheckItems omit `@type`. This is the
+/// concrete failure-mode the bead identifies: a server response
+/// missing `@type` on a sub-object would previously fail the whole
+/// Task deserialize.
+#[test]
+fn task_with_check_items_missing_at_type_deserializes() {
+    let raw = serde_json::json!({
+        "id": "t1",
+        "title": "Plan release",
+        "checklists": {
+            "cl1": {
+                "title": "Release tasks",
+                "checkItems": [
+                    { "title": "Tag commit", "isComplete": false },
+                    { "title": "Publish crate", "isComplete": false }
+                ]
+            }
+        }
+    });
+    let t: Task = serde_json::from_value(raw).unwrap();
+    let checklists = t.checklists.expect("checklists present");
+    let cl = checklists
+        .get(&jmap_types::Id::from("cl1"))
+        .expect("cl1 present");
+    assert_eq!(cl.at_type, "Checklist");
+    let items = cl.check_items.as_ref().expect("checkItems present");
+    assert_eq!(items.len(), 2);
+    assert!(items.iter().all(|i| i.at_type == "CheckItem"));
+}
