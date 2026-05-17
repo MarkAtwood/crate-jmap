@@ -558,3 +558,139 @@ async fn metadata_set_params_extras_do_not_overwrite_account_id() {
         "accountId from session must win over extras hijack attempt"
     );
 }
+
+/// `Metadata/queryChanges` with filter, sort, upToId, and calculateTotal
+/// must emit all four optional args on the wire (RFC 8620 §5.6).
+///
+/// Oracle: draft-ietf-jmap-metadata-01 §3.4 — `relatedType` is a valid
+/// MetadataFilterCondition field; the comparator shape (property +
+/// isAscending) follows RFC 8620 §5.5.
+///
+/// Note: `Metadata/queryChanges` carries an extra trailing
+/// `MetadataQueryChangesParams` argument (the only such method across
+/// the workspace) — passing `None` keeps the wire shape identical to
+/// the sibling /queryChanges methods.
+#[tokio::test]
+async fn metadata_query_changes_with_filter_sort_upto_calculatetotal() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Metadata/queryChanges",
+            {
+                "accountId": "A13824",
+                "oldQueryState": "qs1",
+                "newQueryState": "qs2",
+                "total": 0,
+                "removed": [],
+                "added": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let since = jmap_types::State::from("qs1");
+    let up_to = jmap_types::Id::from("MD-100");
+    sc.metadata_query_changes(
+        &since,
+        None,
+        Some(json!({ "relatedType": "Email" })),
+        Some(json!([{ "property": "id", "isAscending": true }])),
+        Some(&up_to),
+        Some(true),
+        None,
+    )
+    .await
+    .expect("metadata_query_changes_with_filter_sort_upto_calculatetotal: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["filter"]["relatedType"],
+        json!("Email"),
+        "filter.relatedType must be 'Email'"
+    );
+    assert_eq!(
+        args["sort"][0]["property"],
+        json!("id"),
+        "sort[0].property must be 'id'"
+    );
+    assert_eq!(
+        args["upToId"],
+        json!("MD-100"),
+        "upToId must be on the wire (RFC 8620 §5.6)"
+    );
+    assert_eq!(
+        args["calculateTotal"],
+        json!(true),
+        "calculateTotal must be on the wire (RFC 8620 §5.6)"
+    );
+}
+
+/// `Metadata/queryChanges` with all None optional args (including the
+/// trailing `params: None`) must NOT emit any of
+/// filter/sort/upToId/calculateTotal/maxChanges on the wire.
+///
+/// Oracle: RFC 8620 §5.6 — all five are optional; the wire shape with
+/// `None` for each must be byte-identical to the minimal
+/// `sinceQueryState`-only call.
+#[tokio::test]
+async fn metadata_query_changes_all_none_omits_optional_wire_keys() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Metadata/queryChanges",
+            {
+                "accountId": "A13824",
+                "oldQueryState": "qs1",
+                "newQueryState": "qs2",
+                "total": 0,
+                "removed": [],
+                "added": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let since = jmap_types::State::from("qs1");
+    sc.metadata_query_changes(&since, None, None, None, None, None, None)
+        .await
+        .expect("metadata_query_changes_all_none_omits_optional_wire_keys: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert!(args.get("filter").is_none(), "filter must be omitted");
+    assert!(args.get("sort").is_none(), "sort must be omitted");
+    assert!(args.get("upToId").is_none(), "upToId must be omitted");
+    assert!(
+        args.get("calculateTotal").is_none(),
+        "calculateTotal must be omitted"
+    );
+    assert!(
+        args.get("maxChanges").is_none(),
+        "maxChanges must be omitted"
+    );
+}

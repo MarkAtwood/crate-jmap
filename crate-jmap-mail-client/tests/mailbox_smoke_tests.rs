@@ -256,3 +256,132 @@ async fn mailbox_query_no_args_omits_optional_keys() {
     assert!(args.get("position").is_none(), "position must be omitted");
     assert!(args.get("limit").is_none(), "limit must be omitted");
 }
+
+/// `Mailbox/queryChanges` with filter, sort, upToId, and calculateTotal
+/// must emit all four optional args on the wire (RFC 8620 §5.6).
+///
+/// Oracle: RFC 8621 §2.3 — `role` is a valid Mailbox filter field;
+/// `name` is a valid sort property; the comparator shape (property +
+/// isAscending) follows RFC 8620 §5.5.
+#[tokio::test]
+async fn mailbox_query_changes_with_filter_sort_upto_calculatetotal() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Mailbox/queryChanges",
+            {
+                "accountId": "A13824",
+                "oldQueryState": "qs1",
+                "newQueryState": "qs2",
+                "total": 0,
+                "removed": [],
+                "added": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let since = jmap_types::State::from("qs1");
+    let up_to = jmap_types::Id::from("MB-100");
+    sc.mailbox_query_changes(
+        &since,
+        None,
+        Some(json!({ "role": "inbox" })),
+        Some(json!([{ "property": "name", "isAscending": true }])),
+        Some(&up_to),
+        Some(true),
+    )
+    .await
+    .expect("mailbox_query_changes_with_filter_sort_upto_calculatetotal: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["filter"]["role"],
+        json!("inbox"),
+        "filter.role must be 'inbox'"
+    );
+    assert_eq!(
+        args["sort"][0]["property"],
+        json!("name"),
+        "sort[0].property must be 'name' (RFC 8621 §2.3)"
+    );
+    assert_eq!(
+        args["upToId"],
+        json!("MB-100"),
+        "upToId must be on the wire (RFC 8620 §5.6)"
+    );
+    assert_eq!(
+        args["calculateTotal"],
+        json!(true),
+        "calculateTotal must be on the wire (RFC 8620 §5.6)"
+    );
+}
+
+/// `Mailbox/queryChanges` with all None optional args must NOT emit any
+/// of filter/sort/upToId/calculateTotal/maxChanges on the wire.
+///
+/// Oracle: RFC 8620 §5.6 — all five are optional; the wire shape with
+/// `None` for each must be byte-identical to the minimal
+/// `sinceQueryState`-only call.
+#[tokio::test]
+async fn mailbox_query_changes_all_none_omits_optional_wire_keys() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "Mailbox/queryChanges",
+            {
+                "accountId": "A13824",
+                "oldQueryState": "qs1",
+                "newQueryState": "qs2",
+                "total": 0,
+                "removed": [],
+                "added": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let since = jmap_types::State::from("qs1");
+    sc.mailbox_query_changes(&since, None, None, None, None, None)
+        .await
+        .expect("mailbox_query_changes_all_none_omits_optional_wire_keys: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert!(args.get("filter").is_none(), "filter must be omitted");
+    assert!(args.get("sort").is_none(), "sort must be omitted");
+    assert!(args.get("upToId").is_none(), "upToId must be omitted");
+    assert!(
+        args.get("calculateTotal").is_none(),
+        "calculateTotal must be omitted"
+    );
+    assert!(
+        args.get("maxChanges").is_none(),
+        "maxChanges must be omitted"
+    );
+}

@@ -334,3 +334,137 @@ async fn file_node_query_changes_returns_added_and_removed() {
     assert_eq!(resp.added[0].id.as_ref(), "n12", "added[0].id must be n12");
     assert_eq!(resp.added[0].index, 2, "added[0].index must be 2");
 }
+
+/// `FileNode/queryChanges` with filter, sort, upToId, and calculateTotal
+/// must emit all four optional args on the wire (RFC 8620 §5.6).
+///
+/// Oracle: draft-ietf-jmap-filenode-13 §3.2.5 — `parentId` and
+/// `nodeType` are valid FileNode filter fields; the comparator shape
+/// (property + isAscending) follows RFC 8620 §5.5.
+#[tokio::test]
+async fn file_node_query_changes_with_filter_sort_upto_calculatetotal() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "FileNode/queryChanges",
+            {
+                "accountId": "A13824",
+                "oldQueryState": "qs1",
+                "newQueryState": "qs2",
+                "total": 0,
+                "removed": [],
+                "added": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let since = State::from("qs1");
+    let up_to = Id::from("fn-100");
+    sc.file_node_query_changes(
+        &since,
+        None,
+        Some(json!({ "parentId": "parent-1", "nodeType": "file" })),
+        Some(json!([{ "property": "name", "isAscending": true }])),
+        Some(&up_to),
+        Some(true),
+    )
+    .await
+    .expect("file_node_query_changes_with_filter_sort_upto_calculatetotal: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert_eq!(
+        args["filter"]["parentId"],
+        json!("parent-1"),
+        "filter.parentId must be 'parent-1'"
+    );
+    assert_eq!(
+        args["filter"]["nodeType"],
+        json!("file"),
+        "filter.nodeType must be 'file'"
+    );
+    assert_eq!(
+        args["sort"][0]["property"],
+        json!("name"),
+        "sort[0].property must be 'name'"
+    );
+    assert_eq!(
+        args["upToId"],
+        json!("fn-100"),
+        "upToId must be on the wire (RFC 8620 §5.6)"
+    );
+    assert_eq!(
+        args["calculateTotal"],
+        json!(true),
+        "calculateTotal must be on the wire (RFC 8620 §5.6)"
+    );
+}
+
+/// `FileNode/queryChanges` with all None optional args must NOT emit
+/// any of filter/sort/upToId/calculateTotal/maxChanges on the wire.
+///
+/// Oracle: RFC 8620 §5.6 — all five are optional; the wire shape with
+/// `None` for each must be byte-identical to the minimal
+/// `sinceQueryState`-only call.
+#[tokio::test]
+async fn file_node_query_changes_all_none_omits_optional_wire_keys() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "FileNode/queryChanges",
+            {
+                "accountId": "A13824",
+                "oldQueryState": "qs1",
+                "newQueryState": "qs2",
+                "total": 0,
+                "removed": [],
+                "added": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let since = State::from("qs1");
+    sc.file_node_query_changes(&since, None, None, None, None, None)
+        .await
+        .expect("file_node_query_changes_all_none_omits_optional_wire_keys: must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    assert!(args.get("filter").is_none(), "filter must be omitted");
+    assert!(args.get("sort").is_none(), "sort must be omitted");
+    assert!(args.get("upToId").is_none(), "upToId must be omitted");
+    assert!(
+        args.get("calculateTotal").is_none(),
+        "calculateTotal must be omitted"
+    );
+    assert!(
+        args.get("maxChanges").is_none(),
+        "maxChanges must be omitted"
+    );
+}

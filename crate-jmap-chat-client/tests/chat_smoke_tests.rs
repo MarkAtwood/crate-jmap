@@ -823,3 +823,104 @@ async fn chat_update_patch_update_member_roles_serialises() {
         "updateMemberRoles must thread well-known + Other(String) wire strings"
     );
 }
+
+/// `Chat/queryChanges` with filter, sort, upToId, and calculateTotal must
+/// emit all four optional args on the wire (RFC 8620 §5.6).
+///
+/// Oracle: draft-atwood-jmap-chat-00 — `kind` is a valid Chat filter
+/// field; the comparator shape (property + isAscending) follows
+/// RFC 8620 §5.5.
+#[tokio::test]
+async fn chat_query_changes_with_filter_sort_upto_calculatetotal() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Chat/queryChanges",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "oldQueryState": "qs-old",
+            "newQueryState": "qs-new",
+            "total": 0,
+            "removed": [],
+            "added": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let since = State::from("qs-old");
+    let up_to = Id::from("CH-100");
+    sc.chat_query_changes(
+        &since,
+        None,
+        Some(json!({ "kind": "group" })),
+        Some(json!([{ "property": "lastSeenAt", "isAscending": false }])),
+        Some(&up_to),
+        Some(true),
+    )
+    .await
+    .expect("chat_query_changes_with_filter_sort_upto_calculatetotal: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert_eq!(
+        args["filter"]["kind"],
+        json!("group"),
+        "filter.kind must be 'group'"
+    );
+    assert_eq!(
+        args["sort"][0]["property"],
+        json!("lastSeenAt"),
+        "sort[0].property must be 'lastSeenAt'"
+    );
+    assert_eq!(
+        args["upToId"],
+        json!("CH-100"),
+        "upToId must be on the wire (RFC 8620 §5.6)"
+    );
+    assert_eq!(
+        args["calculateTotal"],
+        json!(true),
+        "calculateTotal must be on the wire (RFC 8620 §5.6)"
+    );
+}
+
+/// `Chat/queryChanges` with all None optional args must NOT emit any of
+/// filter/sort/upToId/calculateTotal/maxChanges on the wire.
+///
+/// Oracle: RFC 8620 §5.6 — all five are optional; the wire shape with
+/// `None` for each must be byte-identical to the minimal
+/// `sinceQueryState`-only call.
+#[tokio::test]
+async fn chat_query_changes_all_none_omits_optional_wire_keys() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Chat/queryChanges",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "oldQueryState": "qs-old",
+            "newQueryState": "qs-new",
+            "total": 0,
+            "removed": [],
+            "added": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let since = State::from("qs-old");
+    sc.chat_query_changes(&since, None, None, None, None, None)
+        .await
+        .expect("chat_query_changes_all_none_omits_optional_wire_keys: must succeed");
+
+    let args = recorded_args(&server).await;
+    assert!(args.get("filter").is_none(), "filter must be omitted");
+    assert!(args.get("sort").is_none(), "sort must be omitted");
+    assert!(args.get("upToId").is_none(), "upToId must be omitted");
+    assert!(
+        args.get("calculateTotal").is_none(),
+        "calculateTotal must be omitted"
+    );
+    assert!(
+        args.get("maxChanges").is_none(),
+        "maxChanges must be omitted"
+    );
+}
