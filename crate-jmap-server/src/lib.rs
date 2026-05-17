@@ -337,12 +337,9 @@ impl<CallerCtx: Clone + Send + 'static> Dispatcher<CallerCtx> {
             }
 
             // Look up the handler.
-            let handler = match self.handlers.get(&method) {
-                Some(h) => Arc::clone(h),
-                None => {
-                    method_responses.push(error_invocation(&call_id, JmapError::unknown_method()));
-                    continue;
-                }
+            let Some(handler) = self.handlers.get(&method).map(Arc::clone) else {
+                method_responses.push(error_invocation(&call_id, JmapError::unknown_method()));
+                continue;
             };
 
             let caller_clone = caller.clone();

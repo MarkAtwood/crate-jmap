@@ -152,15 +152,16 @@ pub async fn handle_chat_set<B: ChatBackend>(
 
         for (create_id, obj_val) in create_map {
             // kind is required.
-            let kind_str = match obj_val.get("kind").and_then(|v| v.as_str()) {
-                Some(s) => s.to_owned(),
-                None => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["kind"] }),
-                    );
-                    continue;
-                }
+            let Some(kind_str) = obj_val
+                .get("kind")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned)
+            else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["kind"] }),
+                );
+                continue;
             };
 
             // ChatKind::Other(_) is the deserialize-from-wire forward-compat
@@ -190,15 +191,16 @@ pub async fn handle_chat_set<B: ChatBackend>(
             // direct) would otherwise be implicit.
             let direct_contact_id_str: Option<String> = match &kind {
                 ChatKind::Direct => {
-                    let contact_id_str = match obj_val.get("contactId").and_then(|v| v.as_str()) {
-                        Some(s) => s.to_owned(),
-                        None => {
-                            not_created.insert(
-                                create_id.clone(),
-                                json!({ "type": "invalidProperties", "properties": ["contactId"] }),
-                            );
-                            continue;
-                        }
+                    let Some(contact_id_str) = obj_val
+                        .get("contactId")
+                        .and_then(|v| v.as_str())
+                        .map(str::to_owned)
+                    else {
+                        not_created.insert(
+                            create_id.clone(),
+                            json!({ "type": "invalidProperties", "properties": ["contactId"] }),
+                        );
+                        continue;
                     };
 
                     // Pre-check: reject if a direct chat with this contactId is

@@ -330,26 +330,25 @@ pub async fn handle_message_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
-            let chat_id = match obj_val.get("chatId").and_then(|v| v.as_str()) {
-                Some(s) => Id::from(s),
-                None => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["chatId"] }),
-                    );
-                    continue;
-                }
+            let Some(chat_id_str) = obj_val.get("chatId").and_then(|v| v.as_str()) else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["chatId"] }),
+                );
+                continue;
             };
+            let chat_id = Id::from(chat_id_str);
 
-            let body = match obj_val.get("body").and_then(|v| v.as_str()) {
-                Some(s) => s.to_owned(),
-                None => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["body"] }),
-                    );
-                    continue;
-                }
+            let Some(body) = obj_val
+                .get("body")
+                .and_then(|v| v.as_str())
+                .map(str::to_owned)
+            else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["body"] }),
+                );
+                continue;
             };
             if body.len() > 100_000 {
                 not_created.insert(
@@ -366,24 +365,19 @@ pub async fn handle_message_set<B: ChatBackend>(
             // to storage where downstream lex-compares and slice ops
             // (helpers::iso8601_before) assume a validated 20-byte
             // ASCII shape.
-            let sent_at: UTCDate = match obj_val.get("sentAt").and_then(|v| v.as_str()) {
-                Some(s) => match UTCDate::new_validated(s) {
-                    Ok(d) => d,
-                    Err(_) => {
-                        not_created.insert(
-                            create_id.clone(),
-                            json!({ "type": "invalidProperties", "properties": ["sentAt"] }),
-                        );
-                        continue;
-                    }
-                },
-                None => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["sentAt"] }),
-                    );
-                    continue;
-                }
+            let Some(sent_at_str) = obj_val.get("sentAt").and_then(|v| v.as_str()) else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["sentAt"] }),
+                );
+                continue;
+            };
+            let Ok(sent_at) = UTCDate::new_validated(sent_at_str) else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["sentAt"] }),
+                );
+                continue;
             };
 
             let body_type = obj_val
@@ -408,21 +402,20 @@ pub async fn handle_message_set<B: ChatBackend>(
             // invalidProperties rather than silently flowing through to
             // a downstream string compare with undefined ordering.
             let sender_expires_at: Option<UTCDate> =
-                match obj_val.get("senderExpiresAt").and_then(|v| v.as_str()) {
-                    Some(s) => match UTCDate::new_validated(s) {
-                        Ok(d) => Some(d),
-                        Err(_) => {
-                            not_created.insert(
-                                create_id.clone(),
-                                json!({
-                                    "type": "invalidProperties",
-                                    "properties": ["senderExpiresAt"],
-                                }),
-                            );
-                            continue;
-                        }
-                    },
-                    None => None,
+                if let Some(s) = obj_val.get("senderExpiresAt").and_then(|v| v.as_str()) {
+                    let Ok(d) = UTCDate::new_validated(s) else {
+                        not_created.insert(
+                            create_id.clone(),
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["senderExpiresAt"],
+                            }),
+                        );
+                        continue;
+                    };
+                    Some(d)
+                } else {
+                    None
                 };
 
             let burn_on_read: Option<bool> = obj_val.get("burnOnRead").and_then(|v| v.as_bool());

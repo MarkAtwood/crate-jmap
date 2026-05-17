@@ -479,21 +479,18 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
             }
 
             // a. blob_id is required.
-            let blob_id_str = match obj_val.get("blobId").and_then(|v| v.as_str()) {
-                Some(s) => s.to_owned(),
-                None => {
-                    not_created.insert(
-                        creation_id,
-                        set_error_value(
-                            &SetError::new(SetErrorType::InvalidProperties)
-                                .with_properties(["blobId"])
-                                .with_description("blobId is required"),
-                        ),
-                    );
-                    continue;
-                }
+            let Some(blob_id_str) = obj_val.get("blobId").and_then(|v| v.as_str()) else {
+                not_created.insert(
+                    creation_id,
+                    set_error_value(
+                        &SetError::new(SetErrorType::InvalidProperties)
+                            .with_properties(["blobId"])
+                            .with_description("blobId is required"),
+                    ),
+                );
+                continue;
             };
-            let blob_id = Id::from(blob_id_str.as_str());
+            let blob_id = Id::from(blob_id_str);
 
             // b. Name validation and uniqueness check (if name is provided and non-null).
             let name: Option<String> = obj_val
