@@ -318,6 +318,172 @@ async fn address_book_set_state_bumps_visible_via_changes() {
 }
 
 // ---------------------------------------------------------------------------
+// Single-default invariant on AddressBook/set update (bd:JMAP-qz9v.11)
+// Oracle: RFC 9610 §2 at-most-one-default semantics; RFC 8620 §5.2 changes
+// surface every modified id (including server-set demotions).
+// ---------------------------------------------------------------------------
+
+/// Build an AddressBook fixture with explicit isDefault state.
+fn address_book_fixture_with_default(id: &str, name: &str, is_default: bool) -> Value {
+    let mut v = address_book_fixture(id, name);
+    v["isDefault"] = json!(is_default);
+    v
+}
+
+#[tokio::test]
+async fn address_book_set_update_is_default_demotes_other_books_in_memory() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture_with_default("ab1", "First", true),
+    );
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab2",
+        address_book_fixture_with_default("ab2", "Second", false),
+    );
+
+    // Promote ab2 to default via a regular update patch.
+    let args = json!({
+        "accountId": "acc1",
+        "update": { "ab2": { "isDefault": true } }
+    });
+    let (resp, _) = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+    assert!(
+        resp["updated"].is_object(),
+        "updated must be present: {resp}"
+    );
+
+    // Read both books back and check the invariant holds.
+    let args = json!({ "accountId": "acc1", "ids": ["ab1", "ab2"] });
+    let (resp, _) = handle_address_book_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let list = resp["list"].as_array().expect("list must be an array");
+
+    let mut found_ab1_default: Option<bool> = None;
+    let mut found_ab2_default: Option<bool> = None;
+    for book in list {
+        match book["id"].as_str() {
+            Some("ab1") => found_ab1_default = book["isDefault"].as_bool(),
+            Some("ab2") => found_ab2_default = book["isDefault"].as_bool(),
+            _ => {}
+        }
+    }
+    assert_eq!(
+        found_ab1_default,
+        Some(false),
+        "ab1 must be demoted to isDefault:false by the invariant: {resp}"
+    );
+    assert_eq!(
+        found_ab2_default,
+        Some(true),
+        "ab2 must be isDefault:true after promotion: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn address_book_set_update_is_default_records_demoted_books_in_changes() {
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture_with_default("ab1", "First", true),
+    );
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab2",
+        address_book_fixture_with_default("ab2", "Second", false),
+    );
+
+    // Capture state before the promotion.
+    let args = json!({ "accountId": "acc1", "ids": null });
+    let (before, _) = handle_address_book_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let old_state = before["state"].clone();
+
+    // Promote ab2.
+    let args = json!({
+        "accountId": "acc1",
+        "update": { "ab2": { "isDefault": true } }
+    });
+    let _ = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    // /changes since old_state must list both ab1 (demoted) and ab2 (promoted)
+    // in updated. RFC 8620 §5.2: every modified id surfaces.
+    let args = json!({ "accountId": "acc1", "sinceState": old_state });
+    let (changes, _) = handle_address_book_changes(&backend, &(), args)
+        .await
+        .expect("/changes must succeed");
+    let updated = changes["updated"]
+        .as_array()
+        .expect("updated must be an array");
+    let updated_ids: std::collections::HashSet<&str> =
+        updated.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        updated_ids.contains("ab1"),
+        "demoted ab1 must appear in /changes updated: {changes}"
+    );
+    assert!(
+        updated_ids.contains("ab2"),
+        "promoted ab2 must appear in /changes updated: {changes}"
+    );
+}
+
+#[tokio::test]
+async fn address_book_set_update_is_default_no_op_does_not_demote() {
+    // Setting isDefault:true on a book that is already default must
+    // still trigger the invariant pass (idempotent), but the second
+    // book stays at isDefault:false either way.
+    let backend = MemoryBackend::new().with_account("acc1");
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab1",
+        address_book_fixture_with_default("ab1", "First", true),
+    );
+    backend.seed_object(
+        "acc1",
+        "AddressBook",
+        "ab2",
+        address_book_fixture_with_default("ab2", "Second", false),
+    );
+
+    let args = json!({
+        "accountId": "acc1",
+        "update": { "ab1": { "isDefault": true } }
+    });
+    let _ = handle_address_book_set(&backend, &(), args)
+        .await
+        .expect("/set must succeed");
+
+    let args = json!({ "accountId": "acc1", "ids": ["ab1", "ab2"] });
+    let (resp, _) = handle_address_book_get(&backend, &(), args)
+        .await
+        .expect("/get must succeed");
+    let list = resp["list"].as_array().expect("list must be an array");
+    for book in list {
+        let id = book["id"].as_str().unwrap_or("");
+        let is_default = book["isDefault"].as_bool().unwrap_or(false);
+        match id {
+            "ab1" => assert!(is_default, "ab1 must remain isDefault:true: {resp}"),
+            "ab2" => assert!(!is_default, "ab2 must remain isDefault:false: {resp}"),
+            _ => {}
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Test 12: ContactCard/set create with client id rejected
 // Oracle: RFC 8620 §5.3.
 // ---------------------------------------------------------------------------
