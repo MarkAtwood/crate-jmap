@@ -117,7 +117,7 @@ async fn non_member_caller_lacks_manage_channels() {
     );
     let desc = resp["notUpdated"][SPACE_ID]["description"]
         .as_str()
-        .unwrap_or("");
+        .expect("description must be a string");
     assert!(
         desc.contains("manage_channels"),
         "error must name the missing permission: {desc:?}"
@@ -154,7 +154,7 @@ async fn everyone_only_member_cannot_add_channel() {
     );
     let desc = resp["notUpdated"][SPACE_ID]["description"]
         .as_str()
-        .unwrap_or("");
+        .expect("description must be a string");
     assert!(
         desc.contains("manage_channels"),
         "error must name manage_channels: {desc:?}"
@@ -185,7 +185,7 @@ async fn everyone_only_member_cannot_remove_channel() {
     );
     let desc = resp["notUpdated"][SPACE_ID]["description"]
         .as_str()
-        .unwrap_or("");
+        .expect("description must be a string");
     assert!(
         desc.contains("manage_channels"),
         "error must name manage_channels: {desc:?}"
@@ -249,7 +249,7 @@ async fn everyone_only_member_cannot_add_category() {
     );
     let desc = resp["notUpdated"][SPACE_ID]["description"]
         .as_str()
-        .unwrap_or("");
+        .expect("description must be a string");
     assert!(
         desc.contains("manage_channels"),
         "error must name manage_channels: {desc:?}"
@@ -429,7 +429,7 @@ async fn whole_patch_reject_on_channel_permission_failure() {
         .expect("r-target")
         .get("name")
         .and_then(|v| v.as_str())
-        .unwrap_or("");
+        .expect("role name must be a string");
     assert_eq!(
         target_name, "Target",
         "the legal updateRoles op must NOT have applied — atomicity"
@@ -438,8 +438,8 @@ async fn whole_patch_reject_on_channel_permission_failure() {
     // Confirm no channel was created.
     let chan_count = get_resp["list"][0]["uncategorizedChannelIds"]
         .as_array()
-        .map(Vec::len)
-        .unwrap_or(usize::MAX);
+        .expect("uncategorizedChannelIds must be an array")
+        .len();
     assert_eq!(
         chan_count, 0,
         "the illegal addChannels op must NOT have created a channel"
@@ -494,16 +494,16 @@ async fn mixed_channel_category_patch_atomic_reject() {
     assert_eq!(
         get_resp["list"][0]["uncategorizedChannelIds"]
             .as_array()
-            .map(Vec::len)
-            .unwrap_or(usize::MAX),
+            .expect("uncategorizedChannelIds must be an array")
+            .len(),
         0,
         "no channel must have been created"
     );
     assert_eq!(
         get_resp["list"][0]["categories"]
             .as_array()
-            .map(Vec::len)
-            .unwrap_or(usize::MAX),
+            .expect("categories must be an array")
+            .len(),
         0,
         "no category must have been created"
     );

@@ -109,7 +109,7 @@ async fn non_member_caller_lacks_all_permissions() {
     );
     let desc = resp["notUpdated"][SPACE_ID]["description"]
         .as_str()
-        .unwrap_or("");
+        .expect("description must be a string");
     assert!(
         desc.contains("manage_roles"),
         "error should name the missing permission: {desc:?}"
@@ -235,7 +235,7 @@ async fn add_role_at_caller_position_rejected() {
     );
     let desc = resp["notUpdated"][SPACE_ID]["description"]
         .as_str()
-        .unwrap_or("");
+        .expect("description must be a string");
     assert!(
         desc.contains("hierarchy") || desc.contains("position"),
         "error should mention hierarchy: {desc:?}"
@@ -515,7 +515,7 @@ async fn last_admin_protection_blocks_removal_when_enabled() {
     );
     let desc = resp["notUpdated"][SPACE_ID]["description"]
         .as_str()
-        .unwrap_or("");
+        .expect("description must be a string");
     assert!(
         desc.contains("last-admin") || desc.contains("manage_members"),
         "error should mention last-admin protection: {desc:?}"
@@ -707,7 +707,7 @@ async fn whole_patch_reject_on_permission_failure_no_partial_mutation() {
         .expect("r-target")
         .get("name")
         .and_then(|v| v.as_str())
-        .unwrap_or("");
+        .expect("role name must be a string");
     assert_eq!(
         target_name, "Target",
         "the legal updateRoles op must NOT have applied — criterion 6 atomicity"
@@ -862,7 +862,7 @@ async fn member_lifecycle_with_authenticated_admin() {
         .expect("newbie")
         .get("nick")
         .and_then(|v| v.as_str())
-        .unwrap_or("");
+        .expect("nick must be a string");
     assert_eq!(nick, "Captain Newbie");
 
     // RemoveMember.
