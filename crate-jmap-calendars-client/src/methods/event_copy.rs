@@ -39,7 +39,7 @@ impl super::SessionClient {
             ))
         })?;
         let args = serde_json::json!({
-            "fromAccountId": from_account_id.as_ref(),
+            "fromAccountId": from_account_id,
             "accountId": account_id,
             "create": create_val,
         });

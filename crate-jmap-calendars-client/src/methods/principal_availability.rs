@@ -26,9 +26,9 @@ impl SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
             "accountId": account_id,
-            "id": principal_id.as_ref(),  // §2.2 uses "id" not "principalId"
-            "utcStart": utc_start.as_ref(),
-            "utcEnd": utc_end.as_ref(),
+            "id": principal_id,  // §2.2 uses "id" not "principalId"
+            "utcStart": utc_start,
+            "utcEnd": utc_end,
         });
         if let Some(sd) = show_details {
             args["showDetails"] = serde_json::Value::Bool(sd);
