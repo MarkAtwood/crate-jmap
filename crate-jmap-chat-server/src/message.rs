@@ -5,7 +5,7 @@ use jmap_types::{Id, Invocation, JmapError, PatchObject, State, UTCDate};
 use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
@@ -474,10 +474,6 @@ pub async fn handle_message_set<B: ChatBackend>(
                 chat_id,
                 body,
                 body_type,
-                vec![],
-                vec![],
-                vec![],
-                HashMap::new(),
                 sent_at,
                 received_at,
                 DeliveryState::Pending,

@@ -490,9 +490,23 @@ pub struct Message {
 }
 
 impl Message {
-    /// Construct a [`Message`] from its required fields.
+    /// Construct a [`Message`] from its required wire fields.
     ///
-    /// All optional fields default to `None`.
+    /// Empty-by-default collection fields (`attachments`, `mentions`,
+    /// `actions`, `reactions`) and all optional metadata fields default
+    /// to their zero values. Callers assign them via struct-update after
+    /// construction.
+    ///
+    /// Shape mirrors the canonical `jmap_mail_types::Email::new`:
+    /// the signature carries only the spec-required wire fields; "empty
+    /// by default" collections and optional metadata are filled in here.
+    ///
+    /// The argument count exceeds clippy's default `too_many_arguments`
+    /// threshold of 7 because every parameter is a spec-required Message
+    /// field with no meaningful default (identity, content, timestamps,
+    /// delivery state). Compressing further would push spec-required
+    /// fields into post-construction assignment, which the workspace
+    /// constructor convention specifically prohibits.
     #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: Id,
@@ -501,10 +515,6 @@ impl Message {
         chat_id: Id,
         body: impl Into<String>,
         body_type: impl Into<String>,
-        attachments: Vec<Attachment>,
-        mentions: Vec<Mention>,
-        actions: Vec<MessageAction>,
-        reactions: HashMap<String, Reaction>,
         sent_at: UTCDate,
         received_at: UTCDate,
         delivery_state: DeliveryState,
@@ -516,10 +526,10 @@ impl Message {
             chat_id,
             body: body.into(),
             body_type: body_type.into(),
-            attachments,
-            mentions,
-            actions,
-            reactions,
+            attachments: Vec::new(),
+            mentions: Vec::new(),
+            actions: Vec::new(),
+            reactions: HashMap::new(),
             sent_at,
             received_at,
             delivery_state,
