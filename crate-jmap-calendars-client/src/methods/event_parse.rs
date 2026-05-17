@@ -2,19 +2,26 @@
 
 use jmap_types::Id;
 
-use super::{CalendarEventParseResponse, SessionClient, CALL_ID, USING_PARSE};
+use super::{
+    CalendarEventParseParams, CalendarEventParseResponse, SessionClient, CALL_ID, USING_PARSE,
+};
 use jmap_base_client::ClientError;
 
 impl SessionClient {
     /// Parse calendar event blobs into `CalendarEvent` objects
     /// (draft-ietf-jmap-calendars-26 §5.13 — CalendarEvent/parse).
     ///
+    /// `params` lets the caller pin the `properties` selector and thread
+    /// vendor / site extension fields through the wire request via the
+    /// struct's `extra` flatten map. Pass `None` to omit all optional
+    /// arguments.
+    ///
     /// # Errors
     /// Returns `ClientError::InvalidArgument` if `blob_ids` is an empty slice.
     pub async fn calendar_event_parse(
         &self,
         blob_ids: &[Id],
-        properties: Option<&[&str]>,
+        params: Option<CalendarEventParseParams>,
     ) -> Result<CalendarEventParseResponse, ClientError> {
         if blob_ids.is_empty() {
             return Err(ClientError::InvalidArgument(
@@ -27,10 +34,17 @@ impl SessionClient {
             "blobIds": serde_json::to_value(blob_ids)
                 .expect("Id slice Serialize is infallible"),
         });
-        if let Some(props) = properties {
-            args["properties"] = serde_json::Value::Array(
-                props.iter().copied().map(serde_json::Value::from).collect(),
-            );
+        if let Some(p) = params {
+            let pv = serde_json::to_value(&p).map_err(|e| {
+                ClientError::InvalidArgument(format!(
+                    "calendar_event_parse: failed to serialize params: {e}"
+                ))
+            })?;
+            if let serde_json::Value::Object(map) = pv {
+                for (k, v) in map {
+                    args[k] = v;
+                }
+            }
         }
         let req = super::build_request("CalendarEvent/parse", args, USING_PARSE);
         let resp = self.call_internal(api_url, &req).await?;

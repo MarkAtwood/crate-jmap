@@ -46,7 +46,7 @@ async fn principal_get_availability_round_trip() {
     let utc_end = UTCDate::new_validated("2024-06-15T10:00:00Z")
         .expect("hand-written RFC 8620 §1.4 UTCDate fixture must validate");
     let resp = sc
-        .principal_get_availability(&principal_id, &utc_start, &utc_end, None, None)
+        .principal_get_availability(&principal_id, &utc_start, &utc_end, None)
         .await
         .expect("principal_get_availability_round_trip: must succeed");
 

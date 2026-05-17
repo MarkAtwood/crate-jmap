@@ -113,6 +113,61 @@ pub struct CalendarEventGetParams {
     pub fetch_calendars: Option<bool>,
 }
 
+/// Extra parameters accepted by `CalendarEvent/parse`
+/// (draft-ietf-jmap-calendars-26 §5.13).
+///
+/// Mirrors the canonical [`EmailParseParams`] shape from
+/// `jmap-mail-client`: optional spec-defined fields plus a `flatten`-ed
+/// `extra` map for the workspace extras-preservation policy
+/// (workspace AGENTS.md → "Extras-preservation policy" → in-scope:
+/// "Method-argument structs in *-client crates").
+///
+/// All fields are optional. Pass `None` for any field to omit it from
+/// the request (the server uses its default).
+///
+/// [`EmailParseParams`]: https://docs.rs/jmap-mail-client/latest/jmap_mail_client/methods/struct.EmailParseParams.html
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarEventParseParams {
+    /// Override the set of `CalendarEvent` properties returned per parsed
+    /// blob. When `None`, the server returns the default property set
+    /// documented in the draft.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub properties: Option<Vec<String>>,
+    /// Catch-all for vendor / site / private extension fields not
+    /// covered by the typed fields above. Preserves unknown fields
+    /// across deserialize/serialize round-trip per workspace
+    /// extras-preservation policy.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+/// Extra parameters accepted by `Principal/getAvailability`
+/// (draft-ietf-jmap-calendars-26 §2.2).
+///
+/// All fields are optional. Pass `None` for any field to omit it from
+/// the request (the server uses its default).
+#[derive(Debug, Default, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PrincipalGetAvailabilityParams {
+    /// If `true`, the response includes per-`BusyPeriod` event detail
+    /// (subject to per-event `mayReadItems` permission). When `None` or
+    /// `Some(false)`, only opaque busy markers are returned.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub show_details: Option<bool>,
+    /// Subset of `CalendarEvent` properties to return on each
+    /// `BusyPeriod`'s `event` field (only meaningful when
+    /// `show_details: Some(true)`).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub event_properties: Option<Vec<String>>,
+    /// Catch-all for vendor / site / private extension fields not
+    /// covered by the typed fields above. Preserves unknown fields
+    /// across deserialize/serialize round-trip per workspace
+    /// extras-preservation policy.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
