@@ -33,7 +33,7 @@ pub use jmap_types::{
 /// site / private-extension `extra` flatten field. Future draft revisions
 /// or vendor extensions add typed knobs without a breaking signature change
 /// because `metadata_get` accepts `Option<MetadataGetParams>`.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataGetParams {
     /// Catch-all for vendor / site / private extension fields. Preserves
@@ -55,7 +55,7 @@ pub struct MetadataGetParams {
 /// site / private-extension `extra` flatten field. The `if_in_state`
 /// argument is passed as a positional parameter to `metadata_set`,
 /// mirroring the canonical `email_set` shape.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataSetParams {
     /// Catch-all for vendor / site / private extension fields. Preserves
@@ -82,7 +82,7 @@ pub struct MetadataSetParams {
 /// account state and is independent of the filters; clients that use these
 /// filters MUST re-use the same filter values across subsequent
 /// `Metadata/changes` calls to ensure consistent synchronisation.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataChangesParams {
     /// Restrict the `created`/`updated`/`destroyed` arrays in the response
@@ -130,7 +130,7 @@ pub struct MetadataChangesParams {
 /// Draft-01 defines no method-specific args on `Metadata/query` beyond the
 /// RFC 8620 §5.5 standard set; this struct carries only the vendor /
 /// site / private-extension `extra` flatten field.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataQueryParams {
     /// Catch-all for vendor / site / private extension fields. Preserves
@@ -151,7 +151,7 @@ pub struct MetadataQueryParams {
 /// Draft-01 defines no method-specific args on `Metadata/queryChanges`
 /// beyond the RFC 8620 §5.6 standard set; this struct carries only the
 /// vendor / site / private-extension `extra` flatten field.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MetadataQueryChangesParams {
     /// Catch-all for vendor / site / private extension fields. Preserves
