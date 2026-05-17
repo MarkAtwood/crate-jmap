@@ -120,9 +120,15 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .is_some_and(|s| s.eq_ignore_ascii_case("direct"))
         });
 
-        // Fetch all existing chats once before the loop (O(1) fetch instead of
-        // O(n) per-create fetches) and build a set of already-known Direct
-        // contactIds for the pre-check.  Skipped entirely for non-Direct batches.
+        // Fetch all existing chats once before the loop. For a batch of N
+        // creates against an account with K existing chats this is O(K + N)
+        // reads (one full-account scan + a HashSet lookup per create) rather
+        // than the naive O(N * K) of one fetch per create. The per-batch fetch
+        // still scales linearly in the account's chat count K, so production
+        // backends serving accounts with large K should push the
+        // contact-id-uniqueness check into a typed query method on
+        // ChatBackend rather than rely on this hoisted scan (tracked by
+        // JMAP-63k.9). Skipped entirely for non-Direct batches.
         let (existing_chats, mut known_direct_contact_ids): (Vec<Chat>, HashSet<String>) =
             if has_direct_create {
                 let (chats, _) = backend
