@@ -138,7 +138,15 @@ Out of scope (explicitly excluded by the policy):
   `FilterOperator<T>`) — see the filter-algebra exclusion sub-section in
   the workspace policy.
 - Newtypes (`Id`, `UTCDate`, `Date`, `State`) — single-value wrappers.
-- `Argument<T>`, `ResultReference` — recursive / non-flat shapes.
+- `Argument<T>` — `#[serde(untagged)]` enum that dispatches by JSON
+  shape; on the wire it is either the inner value's shape or a
+  `ResultReference` object, so there is no container-level JSON object
+  to attach a flattened `extra` map to.
+- `ResultReference` — dispatcher input. An unknown field on a
+  result-reference is either a no-op (the dispatcher silently drops
+  the field) or a sign of a server bug; preserving such fields on
+  round-trip would silently propagate the bug. Same reasoning family
+  as the filter-algebra exclusion in the workspace AGENTS.md policy.
 - `Invocation` — tuple type; cannot carry a struct field.
 - `PatchObject` — already a `Map<String, Value>`.
 
