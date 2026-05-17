@@ -113,6 +113,17 @@ where
     });
 }
 
+/// Generic closure-to-[`JmapHandler`] adapter from [`jmap_server`].
+///
+/// Re-exported so the [`register_filenode_handlers`] macro body can name
+/// `ClosureHandler` without a fully-qualified path. **Stability**: this
+/// re-export pins the major-version contract of [`jmap_server::ClosureHandler`]
+/// into this crate's public surface — a breaking change to that type
+/// upstream is a breaking change here. Consumers needing a closure handler
+/// adapter SHOULD prefer importing from [`jmap_server`] directly; the
+/// re-export is retained primarily for the in-crate macro and for
+/// backward-compatible spelling of the existing handler-registration
+/// pattern.
 pub use jmap_server::ClosureHandler;
 
 // ---------------------------------------------------------------------------
