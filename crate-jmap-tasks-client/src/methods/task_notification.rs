@@ -113,10 +113,22 @@ impl super::SessionClient {
 
     /// Fetch query-result changes for TaskNotification since `since_query_state`
     /// (draft-tasks-06 §5.6).
+    ///
+    /// `filter` and `sort` MUST match the `filter` / `sort` passed to the
+    /// original `TaskNotification/query` call that returned
+    /// `since_query_state` — RFC 8620 §5.6 is explicit that the server uses
+    /// them to compute which entries entered or left the result set.
+    ///
+    /// `up_to_id` is the highest-index id the client has cached;
+    /// `calculate_total` requests the new total result count.
     pub async fn task_notification_query_changes(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
+        filter: Option<serde_json::Value>,
+        sort: Option<serde_json::Value>,
+        up_to_id: Option<&Id>,
+        calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
         // Defence-in-depth: see task_list_changes.
         if since_query_state.as_ref().is_empty() {
@@ -129,8 +141,20 @@ impl super::SessionClient {
             "accountId": account_id,
             "sinceQueryState": since_query_state,
         });
+        if let Some(f) = filter {
+            args["filter"] = f;
+        }
+        if let Some(s) = sort {
+            args["sort"] = s;
+        }
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
+        }
+        if let Some(uti) = up_to_id {
+            args["upToId"] = serde_json::to_value(uti).expect("Id Serialize is infallible");
+        }
+        if let Some(ct) = calculate_total {
+            args["calculateTotal"] = ct.into();
         }
         let req = super::build_request("TaskNotification/queryChanges", args, super::USING_TASKS);
         let resp = self.call_internal(api_url, &req).await?;

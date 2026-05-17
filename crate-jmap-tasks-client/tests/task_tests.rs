@@ -432,7 +432,7 @@ async fn task_query_changes_round_trip() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .task_query_changes(&State::from("qs1"), Some(5))
+        .task_query_changes(&State::from("qs1"), Some(5), None, None, None, None)
         .await
         .expect("task_query_changes_round_trip: must succeed");
 

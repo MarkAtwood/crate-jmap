@@ -354,7 +354,7 @@ async fn calendar_event_notification_query_changes_basic_shape() {
     let sc = helpers::make_client(&server);
     let since = State::from("nqs1");
     let _ = sc
-        .calendar_event_notification_query_changes(&since, None)
+        .calendar_event_notification_query_changes(&since, None, None, None, None, None)
         .await
         .expect("calendar_event_notification_query_changes: must succeed");
 

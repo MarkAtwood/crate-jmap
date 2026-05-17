@@ -383,7 +383,7 @@ async fn calendar_event_query_changes_since_state_passthrough() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs5");
     let resp = sc
-        .calendar_event_query_changes(&since, Some(25))
+        .calendar_event_query_changes(&since, Some(25), None, None, None, None)
         .await
         .expect("calendar_event_query_changes: must succeed");
     assert_eq!(resp.old_query_state, "qs5", "oldQueryState mismatch");

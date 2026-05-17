@@ -395,7 +395,7 @@ async fn space_query_changes_since_state_passthrough() {
     let sc = helpers::make_client(&server);
     let since = State::from("sqc-old");
     let _ = sc
-        .space_query_changes(&since, Some(50))
+        .space_query_changes(&since, Some(50), None, None, None, None)
         .await
         .expect("space_query_changes: must succeed");
 

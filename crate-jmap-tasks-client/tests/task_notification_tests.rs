@@ -396,7 +396,7 @@ async fn task_notification_query_changes_round_trip() {
         .await;
 
     let sc = helpers::make_client(&server);
-    sc.task_notification_query_changes(&State::from("qs1"), Some(20))
+    sc.task_notification_query_changes(&State::from("qs1"), Some(20), None, None, None, None)
         .await
         .expect("task_notification_query_changes_round_trip: must succeed");
 

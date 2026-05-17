@@ -102,7 +102,7 @@ async fn share_notification_query_changes_round_trip() {
 
     let sc = common::make_client(&server);
     let resp = sc
-        .share_notification_query_changes(&State::from("nqs1"), None)
+        .share_notification_query_changes(&State::from("nqs1"), None, None, None, None, None)
         .await
         .expect("share_notification_query_changes_round_trip: must succeed");
 

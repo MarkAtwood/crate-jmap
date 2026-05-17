@@ -897,7 +897,7 @@ async fn message_query_changes_passthrough_and_empty_state_rejected() {
     let sc = helpers::make_client(&server);
     let since = State::from("mqc-old");
     let _ = sc
-        .message_query_changes(&since, Some(25))
+        .message_query_changes(&since, Some(25), None, None, None, None)
         .await
         .expect("message_query_changes: must succeed");
 
@@ -911,7 +911,7 @@ async fn message_query_changes_passthrough_and_empty_state_rejected() {
 
     let empty = State::from("");
     let err = sc
-        .message_query_changes(&empty, None)
+        .message_query_changes(&empty, None, None, None, None, None)
         .await
         .expect_err("must reject empty since_query_state");
     match err {

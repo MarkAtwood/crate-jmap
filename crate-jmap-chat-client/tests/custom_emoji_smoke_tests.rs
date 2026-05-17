@@ -325,7 +325,7 @@ async fn custom_emoji_query_changes_passthrough_and_empty_state_rejected() {
     let sc = helpers::make_client(&server);
     let since = State::from("ceqc-old");
     let _ = sc
-        .custom_emoji_query_changes(&since, Some(5))
+        .custom_emoji_query_changes(&since, Some(5), None, None, None, None)
         .await
         .expect("custom_emoji_query_changes: must succeed");
 
@@ -339,7 +339,7 @@ async fn custom_emoji_query_changes_passthrough_and_empty_state_rejected() {
 
     let empty = State::from("");
     let err = sc
-        .custom_emoji_query_changes(&empty, None)
+        .custom_emoji_query_changes(&empty, None, None, None, None, None)
         .await
         .expect_err("must reject empty since_query_state");
     match err {
