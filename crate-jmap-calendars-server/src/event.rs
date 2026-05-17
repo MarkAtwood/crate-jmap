@@ -35,7 +35,9 @@ use crate::backend::{
     BackendSetError, CalendarEventGetArgs, CalendarEventQueryArgs, CalendarEventSetArgs,
     CalendarsBackend, QueryCalendarEventsError,
 };
-use crate::helpers::{extract_account_id, finalize_set_response, set_error_value, SetAccumulators};
+use crate::helpers::{
+    extract_account_id, finalize_set_response, set_error_value, SetAccumulators, PLACEHOLDER_ID,
+};
 use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
 // ---------------------------------------------------------------------------
@@ -313,7 +315,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.entry("id")
-                        .or_insert_with(|| Value::String("placeholder".to_owned()));
+                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
                     Value::Object(m)
                 }
                 other => other,
@@ -624,8 +626,23 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     if let Some(Value::Object(create_map)) = args.remove("create") {
         for (create_id, client_val) in create_map {
             // RFC 8620 §5.4: "id" in the create entry is the source object id.
-            let source_id: Id = match client_val.get("id").and_then(|v| v.as_str()) {
-                Some(s) => Id::from(s),
+            // bd:JMAP-ic0j.12: distinguish missing-id from non-string-id so the
+            // client error message points at the actual problem; both shapes are
+            // RFC 8620 §5.3 invalidProperties-conformant, but the description
+            // field disambiguates them.
+            let source_id: Id = match client_val.get("id") {
+                Some(Value::String(s)) => Id::from(s.as_str()),
+                Some(_) => {
+                    not_created.insert(
+                        create_id,
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["id"],
+                            "description": "id must be a string",
+                        }),
+                    );
+                    continue;
+                }
                 None => {
                     not_created.insert(
                         create_id,
@@ -1298,6 +1315,55 @@ mod tests {
             resp["notCreated"]["c1"]["properties"][0], "id",
             "must cite 'id' in properties: {resp}"
         );
+        // bd:JMAP-ic0j.12: the missing-id case must NOT carry a "description"
+        // field — clients distinguish missing-id from non-string-id by the
+        // presence of "description".
+        assert!(
+            resp["notCreated"]["c1"].get("description").is_none(),
+            "missing-id case must omit 'description': {resp}"
+        );
+    }
+
+    /// Regression for bd:JMAP-ic0j.12: when the `id` field in a /copy create
+    /// entry is present but is not a JSON string, `notCreated` must produce
+    /// an `invalidProperties` entry whose `description` field disambiguates
+    /// the type error from the missing-id case.
+    ///
+    /// Oracle: RFC 8620 §5.3 permits `invalidProperties` SetErrors to carry
+    /// a `description` field. RFC 8620 §5.4 references §5.3 for the
+    /// invalidProperties shape on `/copy`. The two error conditions
+    /// ("`id` absent" vs "`id` not a string") must be distinguishable by
+    /// the client so the error message can guide the user to the right fix.
+    #[tokio::test]
+    async fn copy_non_string_source_id_returns_invalid_properties_with_description() {
+        let backend = MockBackend::new_with_account("acc");
+        let args = json!({
+            "accountId": "acc",
+            "fromAccountId": "acc",
+            "create": {
+                "c1": { "id": 42 },
+                "c2": { "id": null },
+                "c3": { "id": { "wrong": "shape" } }
+            }
+        });
+        let (resp, extra) = handle_calendar_event_copy(&backend, &(), args, "c0")
+            .await
+            .expect("must not return top-level error");
+        assert!(extra.is_empty());
+        for entry in ["c1", "c2", "c3"] {
+            assert_eq!(
+                resp["notCreated"][entry]["type"], "invalidProperties",
+                "wrong notCreated[{entry}] type: {resp}"
+            );
+            assert_eq!(
+                resp["notCreated"][entry]["properties"][0], "id",
+                "{entry} must cite 'id' in properties: {resp}"
+            );
+            assert_eq!(
+                resp["notCreated"][entry]["description"], "id must be a string",
+                "{entry} must carry 'description' field disambiguating from missing-id: {resp}"
+            );
+        }
     }
 
     /// Oracle: RFC 8620 §5.4 — when the source id does not exist in

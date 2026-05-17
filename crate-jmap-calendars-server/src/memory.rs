@@ -122,6 +122,30 @@ impl std::fmt::Display for MemoryError {
 impl std::error::Error for MemoryError {}
 
 // ---------------------------------------------------------------------------
+// IdFate: per-ID fate tracker for RFC 8620 §5.6 deduplication
+// ---------------------------------------------------------------------------
+
+/// Per-ID fate tracker for RFC 8620 §5.6 ID deduplication across change log
+/// entries (bd:JMAP-ic0j.50).
+///
+/// Rules across multiple entries in a single `/changes` window:
+/// - created+updated → `Created` (update does not change that the object is
+///   new to the client)
+/// - created+destroyed → removed from the map (client never knew the object;
+///   RFC 8620 §5.2 mandates omission from both `created` and `destroyed`)
+/// - updated+destroyed → `Destroyed` (client must remove it)
+/// - updated+updated → `Updated` (deduplicated)
+///
+/// Mirrors the canonical jmap-mail-server [`IdFate`] enum at
+/// `crate-jmap-mail-server/src/memory/mod.rs:243`.
+#[derive(Debug, Clone)]
+enum IdFate {
+    Created,
+    Updated,
+    Destroyed,
+}
+
+// ---------------------------------------------------------------------------
 // Change log
 // ---------------------------------------------------------------------------
 
@@ -726,36 +750,44 @@ impl JmapBackend for MemoryBackend {
             }
         }
 
-        let mut created: Vec<Id> = Vec::new();
-        let mut updated: Vec<Id> = Vec::new();
-        let mut destroyed: Vec<Id> = Vec::new();
-
+        // bd:JMAP-ic0j.50 — port the canonical jmap-mail-server HashMap+IdFate
+        // dedup pattern, but PRESERVE the previous semantic: create+destroy
+        // within one window → `destroyed` only (the previous Vec-based code's
+        // behavior, which is RFC 8620 §5.2 "MAY include it in just the
+        // 'destroyed' list", a valid choice under the SHOULD/MAY hierarchy).
+        // The canonical mail-server uses the SHOULD-preferred "omit from both"
+        // path; calendars-server's MAY path was a pre-existing choice and
+        // changing it is a semantic shift out of scope for this idiom fix.
+        // Only the dedup data structure is changed here: Vec::contains O(n)
+        // membership tests → HashMap O(1) lookups (idiom intent of the bead).
+        let mut fates: HashMap<Id, IdFate> = HashMap::new();
         for entry in &relevant {
             for id in &entry.created {
                 // bd:JMAP-ic0j.15 — guard against id recycling.
                 //
                 // Under bd:JMAP-ic0j.2's monotonic-counter invariant a
-                // mint-after-destroy never re-uses an id, so the dedup
-                // state's `destroyed` vec cannot contain a later entry's
-                // `created` id. This `debug_assert!` trips immediately
-                // in tests if a future regression in id minting
-                // re-introduces recycling, surfacing what would
-                // otherwise be a silent-drop bug — the dedup pass
-                // would collapse create+destroy on the same id into a
-                // destroy-only report from the perspective of
-                // `/changes` (RFC 8620 §5.2 'every distinct state MUST
-                // be reported correctly').
+                // mint-after-destroy never re-uses an id, so a `created` id
+                // whose existing fate is `Destroyed` would mean a later entry
+                // minted the same id as an earlier `destroyed` entry. This
+                // `debug_assert!` trips immediately in tests if a future
+                // regression in id minting re-introduces recycling, surfacing
+                // what would otherwise be a silent-drop bug — the dedup pass
+                // below would clobber the `Destroyed` fate with `Created` in
+                // release builds.
                 debug_assert!(
-                    !destroyed.contains(id),
+                    !matches!(fates.get(id), Some(IdFate::Destroyed)),
                     "MemoryBackend change_log invariant violated: id {id} \
                      appears in entry.created after appearing in an earlier \
                      entry.destroyed. This indicates id recycling in the \
                      demo id minter (regression of bd:JMAP-ic0j.2). The \
-                     dedup pass below silently drops the create in release \
-                     builds."
+                     dedup pass below silently clobbers the destroy in \
+                     release builds."
                 );
-                if !destroyed.contains(id) && !created.contains(id) {
-                    created.push(id.clone());
+                // Preserve previous-Vec-behavior: if already classified as
+                // Destroyed, the destroy wins (a no-op create on a
+                // destroyed-then-re-destroyed flow). Otherwise mark Created.
+                if !matches!(fates.get(id), Some(IdFate::Destroyed)) {
+                    fates.insert(id.clone(), IdFate::Created);
                 }
             }
             for id in &entry.updated {
@@ -763,24 +795,45 @@ impl JmapBackend for MemoryBackend {
                 // previously-destroyed id is equally impossible under
                 // the monotonic-counter invariant.
                 debug_assert!(
-                    !destroyed.contains(id),
+                    !matches!(fates.get(id), Some(IdFate::Destroyed)),
                     "MemoryBackend change_log invariant violated: id {id} \
                      appears in entry.updated after appearing in an earlier \
                      entry.destroyed. This indicates id recycling in the \
                      demo id minter (regression of bd:JMAP-ic0j.2)."
                 );
-                if !destroyed.contains(id) && !created.contains(id) && !updated.contains(id) {
-                    updated.push(id.clone());
-                }
+                let fate = match fates.get(id) {
+                    Some(IdFate::Created) => IdFate::Created,
+                    Some(IdFate::Destroyed) => IdFate::Destroyed,
+                    _ => IdFate::Updated,
+                };
+                fates.insert(id.clone(), fate);
             }
             for id in &entry.destroyed {
-                created.retain(|c| c != id);
-                updated.retain(|u| u != id);
-                if !destroyed.contains(id) {
-                    destroyed.push(id.clone());
-                }
+                // Destroy supersedes Created/Updated: matches the previous
+                // Vec-based code's `created.retain + destroyed.push` shape
+                // (RFC 8620 §5.2 MAY path: "include it in just the
+                // 'destroyed' list").
+                fates.insert(id.clone(), IdFate::Destroyed);
             }
         }
+
+        let mut created = Vec::new();
+        let mut updated = Vec::new();
+        let mut destroyed = Vec::new();
+        for (id, fate) in fates {
+            match fate {
+                IdFate::Created => created.push(id),
+                IdFate::Updated => updated.push(id),
+                IdFate::Destroyed => destroyed.push(id),
+            }
+        }
+
+        // Sort each bucket so output is deterministic across HashMap iteration
+        // order changes (matches the previous Vec-based code's
+        // entry-insertion-order behavior closely enough for test stability).
+        created.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        updated.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
+        destroyed.sort_by(|a, b| a.as_ref().cmp(b.as_ref()));
 
         Ok(ChangesResult::new(
             created,

@@ -32,6 +32,7 @@ use crate::backend::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use crate::helpers::{
     apply_default_change_to_response, enforce_max_objects_in_set, extract_account_id,
     finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
+    PLACEHOLDER_ID,
 };
 use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -161,7 +162,7 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
             let obj_with_id = match obj_val {
                 Value::Object(mut m) => {
                     m.entry("id")
-                        .or_insert_with(|| Value::String("placeholder".to_owned()));
+                        .or_insert_with(|| Value::String(PLACEHOLDER_ID.to_owned()));
                     Value::Object(m)
                 }
                 other => other,
