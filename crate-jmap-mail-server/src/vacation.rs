@@ -3,6 +3,26 @@
 //! VacationResponse is a **singleton**: there is exactly one per account and
 //! its `id` is always the string `"singleton"`.  Create and destroy are
 //! forbidden; only update of `"singleton"` is permitted.
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/set` → §5.3), with the type-specific arguments
+//! defined by RFC 8621 §8. The returned `Value` is the corresponding
+//! method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`
+//! — per RFC 8620 §3.6 and §5). Per-target failures inside `/set`
+//! (singleton-create rejection, singleton-destroy rejection, non-singleton
+//! id rejection) surface in the `notCreated` / `notUpdated` / `notDestroyed`
+//! maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_mail_types::VacationResponse;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
@@ -23,9 +43,15 @@ const SINGLETON_ID: &str = "singleton";
 
 /// Handle a `VacationResponse/get` request (RFC 8621 §8.1).
 ///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
 /// Accepts `ids = null` or `ids = ["singleton"]` — both return the singleton
 /// (if it exists). `ids = []` returns an empty list immediately.  Any id
 /// other than `"singleton"` is placed in `notFound`.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_vacation_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -106,12 +132,21 @@ pub async fn handle_vacation_get<B: MailBackend>(
 
 /// Handle a `VacationResponse/set` request (RFC 8621 §8.2).
 ///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
+///
 /// Rules enforced here (not in the backend):
 /// - `create` is always rejected with `SetErrorType::Singleton`.
 /// - `destroy` is always rejected with `SetErrorType::Singleton`.
 /// - `update "singleton"` is the only permitted mutation.  If no
 ///   VacationResponse exists yet the handler creates it (upsert semantics).
 /// - Any update id other than `"singleton"` is rejected with `NotFound`.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_vacation_set<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,

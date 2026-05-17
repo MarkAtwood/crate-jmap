@@ -1,4 +1,21 @@
-//! SearchSnippet/get method handler (RFC 8621 §5.9).
+//! SearchSnippet/get method handler (RFC 8621 §5.1).
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1), with the type-specific arguments defined by RFC 8621
+//! §5.1. The returned `Value` is the corresponding method-response object
+//! per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `accountNotSupportedByMethod`, `invalidArguments`,
+//! `serverFail` — per RFC 8620 §3.6 and §5).
 
 use jmap_mail_types::{query::EmailFilter, SearchSnippet};
 use jmap_types::{Id, Invocation, JmapError};
@@ -9,10 +26,11 @@ use crate::backend::MailBackend;
 use crate::helpers::extract_account_id;
 use jmap_server::server_fail_from_backend;
 
-/// Handle a `SearchSnippet/get` method call (RFC 8621 §5.9).
+/// Handle a `SearchSnippet/get` method call (RFC 8621 §5.1).
 ///
-/// Returns `(response_args, extra_invocations)`. The extra invocations list is
-/// always empty for this method.
+/// `args` is the RFC 8621 §5.1 `SearchSnippet/get` request shape
+/// (`accountId`, optional `filter`, `emailIds`); the returned `Value` is
+/// the §5.1 response shape (`accountId`, `list`, `notFound`).
 ///
 /// # Capability gating
 ///
@@ -25,7 +43,9 @@ use jmap_server::server_fail_from_backend;
 /// The `filter` argument follows the same `Filter<EmailFilterCondition>` shape
 /// as `Email/query`. Only a plain `Condition` variant is forwarded to the
 /// backend; operator trees (`AND`/`OR`/`NOT`) are passed as `None` (no
-/// highlight — valid per RFC 8621 §5.9 which allows `null` snippets).
+/// highlight — valid per RFC 8621 §5.1 which allows `null` snippets).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_search_snippet_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,

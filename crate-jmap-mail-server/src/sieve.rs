@@ -6,6 +6,31 @@
 //! on `jmap-mail-server`. The feature gate lives in `lib.rs`
 //! (`#[cfg(feature = "sieve")]`), not here — this file contains no
 //! `#[cfg(…)]` attributes.
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/set` → §5.3, `/query` → §5.5), with the
+//! type-specific arguments defined by RFC 9661. The returned `Value` is
+//! the corresponding method-response object per the same section refs.
+//! `SieveScript/validate` (RFC 9661 §2.6) is a Sieve-specific method
+//! with its own request/response shape (`accountId`, `blobId` → `error`).
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty** —
+//! activation side effects in `SieveScript/set` are applied inline, not
+//! as separate invocations.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort` — per RFC 8620 §3.6 and §5).
+//! Per-target failures inside `/set` (including the `invalidSieve` and
+//! `sieveIsActive` Sieve-specific SetError types defined by RFC 9661)
+//! surface in the `notCreated` / `notUpdated` / `notDestroyed` maps
+//! within `Ok((Value, ...))`, not as `Err`.
 
 /// IANA-registered JMAP Sieve error type for script validation failures.
 pub(crate) const SIEVE_ERR_INVALID: &str = "invalidSieve";
@@ -185,13 +210,17 @@ fn validate_script_name(name: &str) -> Option<SetError> {
 
 /// Handle a `SieveScript/get` request (RFC 9661 §2.3).
 ///
-/// Returns `(response_args, extra_invocations)`. Extra invocations are always
-/// empty — `SieveScript/get` is a read-only operation with no side effects.
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// # notFound contract
 ///
 /// Per RFC 8620 §5.1, `notFound` is always an `Id[]`. When empty it serializes
 /// as `[]`, never as `null`.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty
+/// — `SieveScript/get` is a read-only operation with no side effects.
 pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -276,6 +305,14 @@ pub async fn handle_sieve_get<B: MailBackend + SieveBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `SieveScript/set` method call (RFC 9661 §2.4).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps),
+/// augmented with the RFC 9661 §2.4 `onSuccessActivateScript` argument;
+/// the returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
 ///
 /// Returns `(response_args, extra_invocations)`. Extra invocations are always
 /// empty — activation side effects are applied inline, not as separate
@@ -990,10 +1027,19 @@ pub async fn handle_sieve_set<B: MailBackend + SieveBackend>(
 
 /// Handle a `SieveScript/query` method call (RFC 9661 §4.2).
 ///
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`); the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
+///
 /// `SieveScript` implements `GetObject` but not `QueryObject`, so the backend
 /// `query_objects` generic is unavailable. We fetch all scripts and apply
 /// filter/sort/pagination in-handler. Accounts typically have very few scripts
 /// (O(10)), so a full scan is cheap.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -1152,8 +1198,12 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
 
 /// Handle a `SieveScript/validate` method call (RFC 9661 §2.6).
 ///
-/// Returns `(response_args, extra_invocations)`. Extra invocations are always
-/// empty.
+/// `args` is the RFC 9661 §2.6 `SieveScript/validate` request shape
+/// (`accountId`, `blobId`); the returned `Value` is the §2.6 response
+/// shape (`accountId`, `error` — either `null` for valid scripts or
+/// a `SetError` describing why the script is invalid).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_sieve_validate<B: MailBackend + SieveBackend>(
     backend: &B,
     caller: &B::CallerCtx,

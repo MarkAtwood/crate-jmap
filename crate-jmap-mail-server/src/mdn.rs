@@ -3,6 +3,26 @@
 //! This module is unconditionally compiled when the `mdn` feature is enabled on
 //! `jmap-mail-server`. The feature gate lives in `lib.rs` (`#[cfg(feature = "mdn")]`),
 //! not here — this file contains no `#[cfg(…)]` attributes.
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the method shape defined by RFC 9007 §3
+//! (which extends the RFC 8620 §5 patterns). The returned `Value` is
+//! the corresponding method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3).
+//! `handle_mdn_send` MAY emit one `Email/set` follow-up invocation when
+//! `onSuccessUpdateEmail` is present (RFC 9007 §3.1); `handle_mdn_parse`
+//! is **always empty** (read-only).
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `requestTooLarge`,
+//! `serverFail` — per RFC 8620 §3.6 and §5; `forbiddenToSend` etc. per
+//! RFC 9007 §3.1). Per-target failures inside `/send` surface in the
+//! `notSent` map within `Ok((Value, ...))`, not as `Err`.
 
 use std::collections::HashMap;
 
@@ -281,6 +301,11 @@ pub trait MdnBackend: jmap_server::JmapBackend {
 // ---------------------------------------------------------------------------
 
 /// Handle an `MDN/send` method call (RFC 9007 §3.1).
+///
+/// `args` is the RFC 9007 §3.1 `MDN/send` request shape (`accountId`,
+/// `identityId`, `send` map of creationId → MDN object, optional
+/// `onSuccessUpdateEmail`); the returned `Value` is the §3.1 response
+/// shape (`accountId`, `sent` / `notSent` maps).
 ///
 /// Returns `(response_args, extra_invocations)`. When `onSuccessUpdateEmail` is
 /// present and MDNs are sent successfully, `extra_invocations` will contain one
@@ -637,6 +662,10 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 pub const MDN_PARSE_MAX_BLOB_IDS: usize = 16;
 
 /// Handle an `MDN/parse` method call (RFC 9007 §3.3).
+///
+/// `args` is the RFC 9007 §3.3 `MDN/parse` request shape (`accountId`,
+/// `blobIds`); the returned `Value` is the §3.3 response shape
+/// (`accountId`, `parsed` / `notParsable` / `notFound` maps).
 ///
 /// The per-request blob-ID cap is read from
 /// [`MdnBackend::max_mdn_parse_blob_ids`] (default
