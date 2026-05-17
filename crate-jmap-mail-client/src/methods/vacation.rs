@@ -23,8 +23,14 @@ use super::{GetResponse, SetResponse};
 impl super::SessionClient {
     /// Fetch the VacationResponse singleton for the account (RFC 8621 §8).
     ///
-    /// The server always returns a single `VacationResponse` object whose `id`
-    /// is `"singleton"`. There is no need to pass ids.
+    /// RFC 8621 §8 declares `VacationResponse` a per-account singleton
+    /// whose `id` is always `"singleton"`; one always exists per
+    /// account, defaulting to `isEnabled: false`. This method returns
+    /// the singleton value directly, unwrapping the standard /get
+    /// envelope (`accountId`, `state`, `list`, `notFound`). Callers
+    /// that need the envelope fields (e.g. the `state` token for a
+    /// subsequent `VacationResponse/set` `ifInState` guard) should call
+    /// [`Self::vacation_response_get_envelope`] instead.
     ///
     /// # Errors
     ///
@@ -33,6 +39,9 @@ impl super::SessionClient {
     ///   `urn:ietf:params:jmap:mail`. (VacationResponse/* uses
     ///   `urn:ietf:params:jmap:vacationresponse` in its `using` array
     ///   but is keyed on the mail primary account.)
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the server returns an empty `list` — a protocol violation
+    ///   per RFC 8621 §8 (the singleton always exists).
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -46,6 +55,38 @@ impl super::SessionClient {
     ///   or
     ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn vacation_response_get(
+        &self,
+    ) -> Result<jmap_mail_types::VacationResponse, jmap_base_client::ClientError> {
+        let envelope = self.vacation_response_get_envelope().await?;
+        envelope.list.into_iter().next().ok_or_else(|| {
+            jmap_base_client::ClientError::InvalidSession(
+                "VacationResponse/get returned an empty list; RFC 8621 §8 requires \
+                 the singleton to exist for every account"
+                    .into(),
+            )
+        })
+    }
+
+    /// Fetch the VacationResponse singleton including the standard
+    /// /get envelope (`accountId`, `state`, `list`, `notFound`).
+    ///
+    /// Use this instead of [`Self::vacation_response_get`] when you
+    /// need access to the response `state` token (e.g. for a
+    /// subsequent `VacationResponse/set` `ifInState` guard) or to
+    /// distinguish the empty-`list` protocol-violation case from a
+    /// genuine missing-account error.
+    ///
+    /// `list` always contains exactly one element on a spec-conformant
+    /// server; an empty `list` indicates a server bug. See
+    /// [`Self::vacation_response_get`] for the unwrap-and-validate
+    /// shape that callers typically want.
+    ///
+    /// # Errors
+    ///
+    /// Same set as [`Self::vacation_response_get`], except this method
+    /// does NOT translate an empty `list` into
+    /// [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession).
+    pub async fn vacation_response_get_envelope(
         &self,
     ) -> Result<GetResponse<jmap_mail_types::VacationResponse>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
