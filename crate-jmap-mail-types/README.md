@@ -52,6 +52,14 @@ between `jmap-types` (shared wire primitives from RFC 8620) and `jmap-mail-serve
 | `SearchSnippetProperty` | — | Enum of legal `SearchSnippet` property names |
 | `VacationResponseProperty` | — | Enum of legal `VacationResponse` property names |
 
+## What it's for
+
+`jmap-mail-server` needs these types to implement method handlers. `jmap-mail-client`
+needs them to build requests and parse responses. Neither should carry the other's
+dependencies. `jmap-mail-types` has exactly four runtime dependencies — `jmap-types`,
+`serde`, `serde_json`, and nothing else — and no async runtime, no HTTP framework,
+and no application logic. Any crate in the `jmap-*` family can depend on it without cost.
+
 ## Filter extensibility
 
 Filter and comparator types in this crate — `EmailFilterCondition`,
@@ -121,14 +129,6 @@ Enables `pub mod sieve`. Adds the following public types and constants:
 | `SieveCapability` | RFC 9661 §2 — server-level capability (`implementation`) |
 | `SieveAccountCapability` | RFC 9661 §2 — per-account limits and supported extensions |
 | `SieveScriptProperty` (re-exported from `backend`) | RFC 9661 §3 — property enum for `SieveScript/get` |
-
-## What it's for
-
-`jmap-mail-server` needs these types to implement method handlers. `jmap-mail-client`
-needs them to build requests and parse responses. Neither should carry the other's
-dependencies. `jmap-mail-types` has exactly four runtime dependencies — `jmap-types`,
-`serde`, `serde_json`, and nothing else — and no async runtime, no HTTP framework,
-and no application logic. Any crate in the `jmap-*` family can depend on it without cost.
 
 ## How to use
 
