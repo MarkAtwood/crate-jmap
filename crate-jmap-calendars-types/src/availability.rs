@@ -50,10 +50,30 @@ pub struct BusyPeriod {
 
     /// The underlying event, if the requester has read access.
     ///
-    /// Represented as a raw JSON value to avoid a circular type dependency:
-    /// `CalendarEvent` is defined in a sibling module, and callers that need
-    /// the typed form can deserialize `event` into [`crate::CalendarEvent`]
-    /// themselves.
+    /// Represented as a raw JSON value because the server emits a
+    /// server-side projection of the [`crate::CalendarEvent`] rather
+    /// than the full object:
+    ///
+    /// - draft-ietf-jmap-calendars-26 §2.2 (the `Principal/getAvailability`
+    ///   `eventProperties` argument) restricts the returned representation
+    ///   to a caller-requested property subset.
+    /// - The server also enforces privacy and `mayReadItems` permission
+    ///   filtering on a per-event basis (the spec lists the conditions
+    ///   under which `event` is `null`).
+    ///
+    /// Modelling that projection at the type level would require either
+    /// a typed partial-`CalendarEvent` shape (large, tracks the spec) or
+    /// `Option<crate::CalendarEvent>` where every field is `Option` by
+    /// workspace convention. Using `serde_json::Value` keeps the
+    /// projection nature explicit on the wire, avoids forcing
+    /// availability consumers to walk the full `CalendarEvent` deserialize
+    /// path, and lets callers that need typed access deserialize the
+    /// value into [`crate::CalendarEvent`] on demand.
+    ///
+    /// (The previous version of this docstring cited a "circular type
+    /// dependency" between `BusyPeriod` and `CalendarEvent`. That was
+    /// inaccurate — both live in the same crate as sibling modules and
+    /// neither depends on the other.)
     #[serde(skip_serializing_if = "Option::is_none")]
     pub event: Option<serde_json::Value>,
 
