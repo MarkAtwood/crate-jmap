@@ -517,6 +517,27 @@ impl MemoryBackend {
     /// uniqueness key matches `key`. Returns `Some(id)` if a conflict
     /// exists. Lock must already be held by the caller.
     ///
+    /// # NOT A PRODUCTION PATTERN
+    ///
+    /// This is an O(N) linear scan over every Metadata object in the
+    /// account, run on every `/set create` entry. For a `/set` call
+    /// creating M new objects against an account holding N existing
+    /// Metadata records, that's O(M·N) — acceptable for the demo /
+    /// test scale this backend serves (N typically 5–20), unusable at
+    /// production scale.
+    ///
+    /// **Production backends MUST maintain a secondary index** keyed by
+    /// `(relatedType, relatedId, @type, isPrivate)` (plus the caller's
+    /// principal id once per-user uniqueness is wired — see the
+    /// single-user note below) so the conflict check is O(1). The
+    /// natural shape is a `HashMap<UniquenessKey, Id>` updated
+    /// alongside the primary object store on every create / update /
+    /// destroy; database-backed backends will index the four columns
+    /// directly. Copying this O(N) scan into a production backend
+    /// inherits the wrong complexity class — same cargo-cult hazard
+    /// the `demo_next_id` rustdoc warns about for id minting
+    /// (bd:JMAP-ayoz.10, bd:JMAP-ayoz.20).
+    ///
     /// **Single-user limitation** (bd:JMAP-ayoz.5): the scan is
     /// account-wide, NOT per-caller. draft-ietf-jmap-metadata-01 §3.1
     /// requires per-user uniqueness for private metadata — two
