@@ -32,6 +32,14 @@ pub struct BlobLookupEntry {
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -55,6 +63,14 @@ pub struct BlobLookupResponse {
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -79,6 +95,14 @@ pub struct BlobObject {
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
@@ -104,6 +128,14 @@ pub struct BlobConvertResponse {
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
