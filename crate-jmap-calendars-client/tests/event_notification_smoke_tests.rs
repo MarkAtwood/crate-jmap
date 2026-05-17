@@ -159,7 +159,7 @@ async fn calendar_event_notification_set_destroy_only_with_ids() {
     let sc = helpers::make_client(&server);
     let ids = [Id::from("n-1"), Id::from("n-2")];
     let resp = sc
-        .calendar_event_notification_set(Some(&ids))
+        .calendar_event_notification_set(Some(&ids), None)
         .await
         .expect("calendar_event_notification_set: must succeed");
     assert_eq!(
@@ -223,7 +223,7 @@ async fn calendar_event_notification_set_destroy_none_sends_empty_array() {
 
     let sc = helpers::make_client(&server);
     let _ = sc
-        .calendar_event_notification_set(None)
+        .calendar_event_notification_set(None, None)
         .await
         .expect("calendar_event_notification_set: must succeed");
 

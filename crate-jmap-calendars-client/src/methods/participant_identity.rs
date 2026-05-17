@@ -69,11 +69,17 @@ impl super::SessionClient {
     ///   typed parameter binds the JSON Pointer key + null-leaf removal
     ///   contract to the type system.
     /// - `destroy`: list of identity ids to destroy.
+    /// - `if_in_state`: optional optimistic-concurrency guard per RFC 8620
+    ///   §5.3. If supplied, the value must equal the current
+    ///   `ParticipantIdentity` state on the server or the method rejects
+    ///   with `stateMismatch`. Pass the `newState` returned by a prior
+    ///   /get or /set response.
     pub async fn participant_identity_set(
         &self,
         create: Option<HashMap<String, jmap_calendars_types::ParticipantIdentity>>,
         update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<&[Id]>,
+        if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_calendars_types::ParticipantIdentity>, jmap_base_client::ClientError>
     {
         if let Some(ref m) = create {
@@ -106,6 +112,9 @@ impl super::SessionClient {
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::to_value(d).expect("Id slice Serialize is infallible");
+        }
+        if let Some(s) = if_in_state {
+            args["ifInState"] = s.as_ref().into();
         }
         let req = super::build_request("ParticipantIdentity/set", args, super::USING_CALENDARS);
         let resp = self.call_internal(api_url, &req).await?;
