@@ -537,11 +537,20 @@ async fn changes_filter_drops_non_matching_destroyed() {
     let mut dispatcher: Dispatcher<()> = Dispatcher::new();
     register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
 
+    // `sinceState: "2"` captures the state AFTER the two seeds and
+    // BEFORE the two destroys — so the /changes window contains only
+    // the destroy events. Using `sinceState: "0"` would put both the
+    // create and the destroy for each id in the same window, which
+    // under the RFC 8620 §5.2 SHOULD-conformant IdFate algorithm
+    // (bd:JMAP-826m.8) omits the id from both `created` and
+    // `destroyed`. The test's intent is destroyed-array filtering,
+    // not create-then-destroy precedence, so we sidestep the omit-both
+    // path here by separating the seed and destroy windows.
     let req = single_call(
         "Metadata/changes",
         json!({
             "accountId": "acc1",
-            "sinceState": "0",
+            "sinceState": "2",
             "filterRelatedType": "Email"
         }),
         "c0",
@@ -642,9 +651,19 @@ async fn changes_filter_combined_related_type_and_metadata_type() {
         "only Email + Annotation must survive: {args}",
     );
 
-    // Destroy all four, then re-run /changes from "0" with the same
-    // AND filter. The destroyed array must show only the
+    // Destroy all four, then re-run /changes from `sinceState: "4"`
+    // (the state after all four seeds, before any destroy) with the
+    // same AND filter. The destroyed array must show only the
     // (Email, Annotation) id.
+    //
+    // We use `sinceState: "4"` rather than `"0"` because under the
+    // RFC 8620 §5.2 SHOULD-conformant IdFate algorithm (bd:JMAP-826m.8)
+    // a create followed by a destroy within the same /changes window
+    // is omitted from both `created` and `destroyed`. The test's intent
+    // is destroyed-array filtering (AND combination on a destroyed
+    // record's `relatedType` and `@type`), not create-then-destroy
+    // precedence, so the destroys-only window isolates the filter
+    // behavior cleanly.
     for id in [&email_ann, &email_imap, &mailbox_ann, &mailbox_imap] {
         backend
             .destroy_object::<Metadata>(&(), &Id::from("acc1"), id)
@@ -656,7 +675,7 @@ async fn changes_filter_combined_related_type_and_metadata_type() {
         "Metadata/changes",
         json!({
             "accountId": "acc1",
-            "sinceState": "0",
+            "sinceState": "4",
             "filterRelatedType": "Email",
             "filterMetadataType": ["Annotation"]
         }),
@@ -665,10 +684,6 @@ async fn changes_filter_combined_related_type_and_metadata_type() {
     let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
     let (_, args, _) = &resp.method_responses[0];
 
-    // Created and destroyed for the same id within the same /changes
-    // window collapse to destroyed (later supersedes earlier) per the
-    // override's create-then-destroy precedence. So the (Email,
-    // Annotation) id must appear in destroyed, NOT in created.
     let created: Vec<&str> = args["created"]
         .as_array()
         .unwrap()
@@ -683,7 +698,7 @@ async fn changes_filter_combined_related_type_and_metadata_type() {
         .collect();
     assert!(
         created.is_empty(),
-        "no surviving creates when every id is also destroyed: {args}",
+        "destroys-only window must have no creates: {args}",
     );
     assert_eq!(
         destroyed.len(),

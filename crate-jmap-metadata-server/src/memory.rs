@@ -269,6 +269,31 @@ struct ChangeEntry {
     destroyed: Vec<ChangeRecord>,
 }
 
+// ---------------------------------------------------------------------------
+// IdFate: per-ID fate tracker for RFC 8620 §5.2 deduplication
+// ---------------------------------------------------------------------------
+
+/// Per-ID fate tracker for RFC 8620 §5.2 ID deduplication across change
+/// log entries.
+///
+/// Rules across multiple entries in a single `/changes` window:
+/// - created+updated → Created (update does not change that the object
+///   is new to the client)
+/// - created+destroyed → removed from map (client never knew the
+///   object, the SHOULD path per RFC 8620 §5.2)
+/// - updated+destroyed → Destroyed (client must remove it)
+/// - updated+updated → Updated (deduplicated)
+///
+/// Mirrors the canonical `jmap-mail-server::memory::IdFate` per workspace
+/// AGENTS.md canonical-template propagation rule. See bd:JMAP-826m.8 for
+/// the propagation analysis (path (a)).
+#[derive(Debug, Clone)]
+enum IdFate {
+    Created,
+    Updated,
+    Destroyed,
+}
+
 /// Shared inner state, behind `Arc<Mutex>`.
 #[derive(Default)]
 struct Inner {
@@ -695,30 +720,47 @@ impl JmapBackend for MemoryBackend {
             max_changes,
         )?;
 
+        // RFC 8620 §5.2 ID deduplication across the window via per-ID
+        // fate tracking. Mirrors the canonical jmap-mail-server algorithm
+        // (memory/mod.rs ~656-696) per workspace AGENTS.md
+        // canonical-template propagation rule; closes bd:JMAP-826m.8
+        // (cookie-cutter divergence on omit-both) and bd:JMAP-826m.25
+        // (O(n²) Vec::contains dedup) in lockstep.
+        let mut fates: HashMap<Id, IdFate> = HashMap::new();
+        for entry in &relevant {
+            for rec in &entry.created {
+                fates.insert(rec.id.clone(), IdFate::Created);
+            }
+            for rec in &entry.updated {
+                let fate = match fates.get(&rec.id) {
+                    Some(IdFate::Created) => IdFate::Created,
+                    Some(IdFate::Destroyed) => IdFate::Destroyed,
+                    _ => IdFate::Updated,
+                };
+                fates.insert(rec.id.clone(), fate);
+            }
+            for rec in &entry.destroyed {
+                match fates.remove(&rec.id) {
+                    // RFC 8620 §5.2: if an object is created and
+                    // destroyed within a single /changes window, omit
+                    // it from both 'created' and 'destroyed' lists —
+                    // the client never knew about it.
+                    Some(IdFate::Created) => {} // created+destroyed in window → omit
+                    Some(_) | None => {
+                        fates.insert(rec.id.clone(), IdFate::Destroyed);
+                    }
+                }
+            }
+        }
+
         let mut created: Vec<Id> = Vec::new();
         let mut updated: Vec<Id> = Vec::new();
         let mut destroyed: Vec<Id> = Vec::new();
-
-        for entry in &relevant {
-            for rec in &entry.created {
-                if !destroyed.contains(&rec.id) && !created.contains(&rec.id) {
-                    created.push(rec.id.clone());
-                }
-            }
-            for rec in &entry.updated {
-                if !destroyed.contains(&rec.id)
-                    && !created.contains(&rec.id)
-                    && !updated.contains(&rec.id)
-                {
-                    updated.push(rec.id.clone());
-                }
-            }
-            for rec in &entry.destroyed {
-                created.retain(|c| c != &rec.id);
-                updated.retain(|u| u != &rec.id);
-                if !destroyed.contains(&rec.id) {
-                    destroyed.push(rec.id.clone());
-                }
+        for (id, fate) in fates {
+            match fate {
+                IdFate::Created => created.push(id),
+                IdFate::Updated => updated.push(id),
+                IdFate::Destroyed => destroyed.push(id),
             }
         }
 
@@ -1229,43 +1271,61 @@ impl MetadataBackend for MemoryBackend {
             true
         };
 
-        let mut created: Vec<Id> = Vec::new();
-        let mut updated: Vec<Id> = Vec::new();
-        let mut destroyed: Vec<Id> = Vec::new();
-
+        // RFC 8620 §5.2 ID deduplication via per-ID fate tracking,
+        // gated by the §3.3 strict-conformance filter predicate.
+        // Mirrors the canonical jmap-mail-server algorithm; closes
+        // bd:JMAP-826m.8 and bd:JMAP-826m.25 in lockstep. A destroy
+        // strictly supersedes earlier create/update for the same id
+        // even when the destroy itself does NOT pass the filter — the
+        // unconditional `fates.remove` below preserves that semantic
+        // from the prior `created.retain` / `updated.retain` form.
+        let mut fates: HashMap<Id, IdFate> = HashMap::new();
         for entry in &relevant {
             for rec in &entry.created {
                 if !record_matches(rec) {
                     continue;
                 }
-                if !destroyed.contains(&rec.id) && !created.contains(&rec.id) {
-                    created.push(rec.id.clone());
-                }
+                fates.insert(rec.id.clone(), IdFate::Created);
             }
             for rec in &entry.updated {
                 if !record_matches(rec) {
                     continue;
                 }
-                if !destroyed.contains(&rec.id)
-                    && !created.contains(&rec.id)
-                    && !updated.contains(&rec.id)
-                {
-                    updated.push(rec.id.clone());
-                }
+                let fate = match fates.get(&rec.id) {
+                    Some(IdFate::Created) => IdFate::Created,
+                    Some(IdFate::Destroyed) => IdFate::Destroyed,
+                    _ => IdFate::Updated,
+                };
+                fates.insert(rec.id.clone(), fate);
             }
             for rec in &entry.destroyed {
-                // Suppress from created/updated even when the destroy
-                // entry itself does not pass the filter — a destroy
-                // strictly supersedes earlier create/update for the
-                // same id. Then conditionally record in destroyed.
-                created.retain(|c| c != &rec.id);
-                updated.retain(|u| u != &rec.id);
-                if !record_matches(rec) {
-                    continue;
+                // Always remove the prior fate so a destroy supersedes
+                // earlier create/update even when the destroy itself
+                // does not match the filter.
+                let prior = fates.remove(&rec.id);
+                match prior {
+                    // RFC 8620 §5.2: created+destroyed in window → omit.
+                    Some(IdFate::Created) => {}
+                    Some(_) | None => {
+                        // Only record the destroy if the destroy record
+                        // itself passes the filter (§3.3); otherwise
+                        // leave the id absent from all three arrays.
+                        if record_matches(rec) {
+                            fates.insert(rec.id.clone(), IdFate::Destroyed);
+                        }
+                    }
                 }
-                if !destroyed.contains(&rec.id) {
-                    destroyed.push(rec.id.clone());
-                }
+            }
+        }
+
+        let mut created: Vec<Id> = Vec::new();
+        let mut updated: Vec<Id> = Vec::new();
+        let mut destroyed: Vec<Id> = Vec::new();
+        for (id, fate) in fates {
+            match fate {
+                IdFate::Created => created.push(id),
+                IdFate::Updated => updated.push(id),
+                IdFate::Destroyed => destroyed.push(id),
             }
         }
 
