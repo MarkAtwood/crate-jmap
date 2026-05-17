@@ -79,14 +79,18 @@ Not in this crate (tracked separately under bd JMAP-06zp):
   `metadata: Metadata[]` response field) live in each consumer
   crate's `/get` and `/set` argument structs (bd JMAP-06zp.5).
 
-## Filter-algebra exclusion
+## Filter extensibility
 
 `MetadataFilterCondition` does NOT carry a `extra` flatten field — the
 workspace extras-preservation policy explicitly excludes filter
 algebra (see workspace [AGENTS.md](../AGENTS.md) and bd JMAP-lbdy).
 Vendor extras that need to be filterable belong in an `Annotation`
 payload and are queried via the spec's own `textMatch` filter, not
-via a vendor-extended filter condition.
+via a vendor-extended filter condition. This crate IS the IETF-track
+escape hatch for the broader workspace filter-algebra exclusion —
+extension authors who would otherwise need to fork their per-crate
+`FilterCondition` can model the vendor schema as a Metadata
+`Annotation` and query it via `Metadata/query`.
 
 ## How to use
 
