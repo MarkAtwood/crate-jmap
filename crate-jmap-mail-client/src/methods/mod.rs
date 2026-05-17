@@ -47,7 +47,16 @@ pub struct EmailGetParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fetch_text_body_values: Option<bool>,
     /// If `true`, inline values for text/html body parts (RFC 8621 §4.1.8).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    ///
+    /// Wire name is `fetchHTMLBodyValues` (HTML uppercase) per RFC 8621
+    /// §4.2 line 2327 and the §4.2 example at line 2438. The default
+    /// camelCase serde rename would produce `fetchHtmlBodyValues`, which
+    /// a strict server treats as an unknown invocation argument and
+    /// silently drops, causing HTML body values to never be inlined.
+    #[serde(
+        rename = "fetchHTMLBodyValues",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub fetch_html_body_values: Option<bool>,
     /// If `true`, inline values for all body parts (RFC 8621 §4.1.8).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -265,7 +274,15 @@ pub struct EmailParseParams {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub fetch_text_body_values: Option<bool>,
     /// If `true`, inline values for text/html body parts (RFC 8621 §4.9).
-    #[serde(skip_serializing_if = "Option::is_none")]
+    ///
+    /// Wire name is `fetchHTMLBodyValues` (HTML uppercase) per RFC 8621
+    /// §4.9 line 3163. The default camelCase serde rename would produce
+    /// `fetchHtmlBodyValues`, which a strict server treats as an unknown
+    /// invocation argument and silently drops.
+    #[serde(
+        rename = "fetchHTMLBodyValues",
+        skip_serializing_if = "Option::is_none"
+    )]
     pub fetch_html_body_values: Option<bool>,
     /// If `true`, inline values for all body parts (RFC 8621 §4.9).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -738,7 +755,13 @@ mod tests {
             "bodyProperties"
         );
         assert_eq!(v["fetchTextBodyValues"], json!(true));
-        assert_eq!(v["fetchHtmlBodyValues"], json!(false));
+        // RFC 8621 §4.2 line 2327 — wire spelling is "fetchHTMLBodyValues"
+        // (HTML uppercase), NOT default camelCase "fetchHtmlBodyValues".
+        assert_eq!(v["fetchHTMLBodyValues"], json!(false));
+        assert!(
+            v.get("fetchHtmlBodyValues").is_none(),
+            "must NOT emit the lowercase-html wire key (RFC 8621 §4.2)"
+        );
         assert_eq!(v["fetchAllBodyValues"], json!(true));
         assert_eq!(v["maxBodyValueBytes"], json!(1024_u64));
     }
