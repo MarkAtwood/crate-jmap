@@ -506,6 +506,58 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
   Per-crate rustdoc / Gotchas need not call this out individually —
   every type crate that ships set-as-map fields can point to this
   AGENTS.md section.
+- **Public-API construction: deserialize-from-JSON is the canonical
+  path** (decided 2026-05-17, bd:JMAP-sgrr.27). Every public wire-
+  format struct in the workspace is `#[non_exhaustive]` per workspace
+  policy, which makes struct-literal construction (`Name { ... }`)
+  a compile error from outside the defining crate. The kit
+  deliberately does NOT compensate by adding `fn new(...) -> Self`
+  constructors on every type, and the omission is intentional, not a
+  gap.
+
+  External consumers construct wire-format values by deserializing
+  JSON: `serde_json::from_value::<Name>(json!({ "full": "..." }))`.
+  This is the spec-aligned path because:
+
+  1. **The spec is the construction oracle.** RFC examples ship as
+     JSON. Tests in this workspace deserialize hand-written JSON
+     fixtures from the RFC. A constructor would be the kit's
+     interpretation of the spec, layered on top of the spec; the
+     JSON path goes straight to the spec.
+
+  2. **Constructors and partial-response `Option` fields don't
+     compose.** Several mandatory-on-wire fields are modelled as
+     `Option<...>` (e.g. `Calendar.kind`, `Calendar.uri` — see
+     `crate-jmap-jscontact-types/src/lib.rs` "Design: optional
+     fields and `Option<...>`"). A `Calendar::new(...)` constructor
+     would either accept those fields (making the call site
+     verbose) or default them to `None` (defeating the
+     type-safety motive for having a constructor). The
+     deserialize path side-steps this because the JSON itself
+     carries the populated/omitted distinction.
+
+  3. **`#[non_exhaustive]` is forward-compat infrastructure.** It
+     exists so the kit can add fields without a breaking release.
+     A constructor crystallises the field set at the time of
+     authorship and either freezes the API (the kit can't add
+     mandatory fields without a major release) or omits new
+     fields (the constructor produces partial values silently). The
+     deserialize path adapts automatically because consumers
+     pin the kit version and serde handles new optional fields
+     transparently.
+
+  Per-crate `Default` impls MAY be added where the type has no
+  mandatory fields and the all-`None`/empty value is meaningful
+  (e.g. `Address::default()` for an empty address before
+  population). They are not required by this policy.
+
+  `#[doc(hidden)]` test-only constructors (e.g. `Email::new(...)`
+  in `jmap-mail-types`) are an internal-API allowance and are NOT
+  subject to this policy. They exist to support unit tests in the
+  same crate; they do not surface as public construction API.
+
+  Per-crate rustdoc need not call this out individually — every
+  type crate can point to this AGENTS.md section.
 - **TLS stack**: this workspace uses **rustls**, NOT native-tls / openssl.
   Both `reqwest` and `tokio-tungstenite` MUST be declared with
   `default-features = false` and only `rustls-tls-*` features enabled.
