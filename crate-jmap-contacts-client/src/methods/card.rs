@@ -32,9 +32,8 @@ impl super::SessionClient {
             args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
         }
         if let Some(props) = properties {
-            args["properties"] = serde_json::Value::Array(
-                props.iter().copied().map(serde_json::Value::from).collect(),
-            );
+            args["properties"] =
+                serde_json::to_value(props).expect("&[&str] Serialize is infallible");
         }
         let req = super::build_request("ContactCard/get", args, super::USING_CONTACTS);
         let resp = self.call_internal(api_url, &req).await?;
