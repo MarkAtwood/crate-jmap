@@ -4,6 +4,28 @@
 //! query and destroy them.  Any attempt to create or update a ShareNotification
 //! via `/set` MUST be rejected with `forbidden` at the handler layer — the
 //! backend never sees create or update calls for this type.
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by RFC 9670 §3. The returned `Value` is the
+//! corresponding method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside `/set`
+//! (including the destroy-only create-or-update `forbidden` rejection)
+//! surface in the `notCreated` / `notUpdated` / `notDestroyed` maps
+//! within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_sharing_types::ShareNotification;
 use jmap_types::{Id, Invocation, JmapError};
@@ -18,6 +40,12 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // ---------------------------------------------------------------------------
 
 /// Handle a `ShareNotification/get` method call (RFC 9670 §3.1).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_share_notification_get<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -31,6 +59,13 @@ pub async fn handle_share_notification_get<B: SharingBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ShareNotification/changes` method call (RFC 9670 §3.2).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_share_notification_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -45,10 +80,19 @@ pub async fn handle_share_notification_changes<B: SharingBackend>(
 
 /// Handle a `ShareNotification/set` method call (RFC 9670 §3.3).
 ///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
+///
 /// **Destroy-only enforcement**: RFC 9670 §3.3 states that only `destroy` is
 /// supported.  Any entries in the `create` or `update` maps receive an
 /// immediate `forbidden` SetError without touching the backend. The `destroy`
 /// list is forwarded to the backend normally.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_share_notification_set<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -187,6 +231,15 @@ pub async fn handle_share_notification_set<B: SharingBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ShareNotification/query` method call (RFC 9670 §3.4).
+///
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`); the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_share_notification_query<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -200,6 +253,15 @@ pub async fn handle_share_notification_query<B: SharingBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `ShareNotification/queryChanges` method call (RFC 9670 §3.5).
+///
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_share_notification_query_changes<B: SharingBackend>(
     backend: &B,
     caller: &B::CallerCtx,
