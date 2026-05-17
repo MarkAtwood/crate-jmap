@@ -226,7 +226,7 @@ where
 /// default `Option<T>` Deserialize impl would collapse a JSON `null` to
 /// `None`, making `null` and absent indistinguishable.
 #[non_exhaustive]
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MailboxFilterCondition {
     /// See type-level docs for three-way semantics.

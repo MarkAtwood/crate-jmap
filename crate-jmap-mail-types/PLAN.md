@@ -151,10 +151,10 @@ Out of scope (explicitly excluded by the workspace policy):
 - Newtypes (`Keyword`) — newtypes wrapping a single value have no
   field-shaped extension surface.
 - String enums (`MailboxRole`, `Delivered`, `Displayed`, `UndoStatus`,
-  `ActionMode`, `SendingMode`, `DispositionType`,
-  `EmailSubmissionState`) — these are result/control enums; the result
-  enums tracked by JMAP-lbdy receive `Other(String)` variants via the
-  separate enum-side propagation track, not the struct `extra` field.
+  `ActionMode`, `SendingMode`, `DispositionType`) — these are
+  result/control enums; the result enums tracked by JMAP-lbdy receive
+  `Other(String)` variants via the separate enum-side propagation
+  track, not the struct `extra` field.
 
 ### New-type rule
 
