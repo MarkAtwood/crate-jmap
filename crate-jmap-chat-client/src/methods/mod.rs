@@ -146,13 +146,93 @@ pub struct SpaceJoinResponse {
 /// - `default`: absent JSON key → `Patch::Keep` (no change).
 /// - `skip_serializing_if`: omits the key from the output when the value is `Keep`.
 ///
-/// Without `skip_serializing_if`, `Patch::Keep` serializes as a runtime error.
+/// Both attributes are required. Without `skip_serializing_if`, `Patch::Keep`
+/// serialises as a runtime error. Without `default`, an absent JSON key
+/// silently deserialises as `Patch::Clear` rather than `Patch::Keep` — a
+/// silent semantic corruption, not a parse error. See the doctest below
+/// for both failure modes.
 ///
 /// # Deserialization
 ///
 /// `Patch::Keep` is **not reachable from JSON deserialization**. The custom
 /// `Deserialize` impl maps JSON `null` → `Clear` and a JSON value → `Set(v)`.
 /// An absent key (via `#[serde(default)]`) produces `Keep` via `Default`.
+///
+/// # Failure modes if the attributes are wrong
+///
+/// The two `#[serde(...)]` attributes above are not enforced by the type
+/// system. Forgetting either of them produces a failure far from the
+/// declaration site — the doctest below documents what each failure looks
+/// like so downstream callers building their own `*Patch` structs can
+/// recognise them in production.
+///
+/// ```rust
+/// use jmap_chat_client::Patch;
+/// use serde::{Deserialize, Serialize};
+///
+/// // ── Correct: both attributes present ────────────────────────────────
+/// #[derive(Serialize, Deserialize, PartialEq, Debug)]
+/// struct GoodPatch {
+///     #[serde(default, skip_serializing_if = "Patch::is_keep")]
+///     name: Patch<String>,
+/// }
+///
+/// // `Patch::Keep` is the Default; absent JSON key deserialises to Keep.
+/// let v: GoodPatch = serde_json::from_str("{}").unwrap();
+/// assert_eq!(v.name, Patch::Keep);
+/// // `Patch::Keep` is omitted from the serialised output.
+/// assert_eq!(serde_json::to_string(&v).unwrap(), "{}");
+///
+/// // `Patch::Set(v)` serialises as `"name": v` and round-trips back.
+/// let v = GoodPatch { name: Patch::Set("Alice".into()) };
+/// let s = serde_json::to_string(&v).unwrap();
+/// assert_eq!(s, r#"{"name":"Alice"}"#);
+/// assert_eq!(serde_json::from_str::<GoodPatch>(&s).unwrap(), v);
+///
+/// // `Patch::Clear` serialises as `"name": null` and round-trips back.
+/// let v = GoodPatch { name: Patch::Clear };
+/// let s = serde_json::to_string(&v).unwrap();
+/// assert_eq!(s, r#"{"name":null}"#);
+/// assert_eq!(serde_json::from_str::<GoodPatch>(&s).unwrap(), v);
+///
+/// // ── Wrong: missing `default` ────────────────────────────────────────
+/// // Absent JSON key silently deserialises as `Patch::Clear` — NOT
+/// // `Patch::Keep` and NOT a missing-field error. This is the most
+/// // dangerous failure mode of the three because it surfaces no error
+/// // at all: a server response that omits an unchanged field is
+/// // interpreted by the client as "the server cleared this field".
+/// //
+/// // The mechanism: `Patch<T>`'s custom `Deserialize` impl calls
+/// // `Option::<T>::deserialize(d)`, and serde treats `Option`-shaped
+/// // deserializers as accepting absence by returning `None`. The custom
+/// // impl then maps `None` to `Patch::Clear`. `#[serde(default)]` is
+/// // what tells serde to skip calling the deserialize at all on absent
+/// // keys and use `Default::default()` (`Patch::Keep`) instead.
+/// #[derive(Deserialize, PartialEq, Debug)]
+/// struct MissingDefault {
+///     #[serde(skip_serializing_if = "Patch::is_keep")]
+///     name: Patch<String>,
+/// }
+/// let v: MissingDefault = serde_json::from_str("{}").unwrap();
+/// assert_eq!(v.name, Patch::Clear, "without #[serde(default)], absent key silently becomes Clear");
+///
+/// // ── Wrong: missing `skip_serializing_if` ───────────────────────────
+/// // The default `Patch::Keep` panics at serialise time with a custom
+/// // error from the `Serialize` impl in this crate. This surfaces every
+/// // time a caller builds a patch and leaves a field at its `Keep`
+/// // default — i.e. every partial update.
+/// #[derive(Serialize)]
+/// struct MissingSkip {
+///     #[serde(default)]
+///     name: Patch<String>,
+/// }
+/// let v = MissingSkip { name: Patch::Keep };
+/// let err = serde_json::to_string(&v).unwrap_err();
+/// assert!(
+///     err.to_string().contains("Patch::Keep cannot be serialized"),
+///     "expected Patch::Keep serialisation error, got: {err}"
+/// );
+/// ```
 ///
 /// # Closed enum (no `#[non_exhaustive]`)
 ///
