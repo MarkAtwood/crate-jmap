@@ -968,13 +968,13 @@ async fn message_create_with_body_type_rich_serialises_correct_wire_string() {
     );
 }
 
-/// `Message/set` update with `body_type: BodyType::Unknown(s)` must
+/// `Message/set` update with `body_type: BodyType::Other(s)` must
 /// serialise the literal wire string supplied by the caller
-/// (workspace `Unknown(String)` round-trip policy + BodyType::as_str
+/// (workspace `Other(String)` round-trip policy + BodyType::as_str
 /// lines 192-200). The vendor-defined wire string here cannot collide
 /// with any spec-defined value.
 #[tokio::test]
-async fn message_update_with_body_type_unknown_round_trips_wire_string() {
+async fn message_update_with_body_type_other_round_trips_wire_string() {
     let server = MockServer::start().await;
     let resp_body =
         set_update_response("Message/set", MESSAGE_STATE_OLD, MESSAGE_STATE_NEW, "msg-1");
@@ -984,7 +984,7 @@ async fn message_update_with_body_type_unknown_round_trips_wire_string() {
     let msg_id = Id::from("msg-1");
     let mut patch = jmap_chat_client::methods::MessagePatch::default();
     patch.body = Some("vendor-encoded body");
-    patch.body_type = Some(jmap_chat_client::types::BodyType::Unknown(
+    patch.body_type = Some(jmap_chat_client::types::BodyType::Other(
         "application/x-acme-rich".into(),
     ));
     let _ = sc
@@ -996,6 +996,6 @@ async fn message_update_with_body_type_unknown_round_trips_wire_string() {
     assert_eq!(
         args["update"]["msg-1"]["bodyType"],
         json!("application/x-acme-rich"),
-        "BodyType::Unknown must serialise the caller-supplied wire string verbatim"
+        "BodyType::Other must serialise the caller-supplied wire string verbatim"
     );
 }

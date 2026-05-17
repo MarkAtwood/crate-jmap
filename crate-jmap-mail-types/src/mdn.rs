@@ -178,10 +178,18 @@ pub struct Mdn {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub error: Option<Vec<String>>,
 
-    /// Extension fields from the MDN.
+    /// RFC 9007-defined MDN extension headers, keyed by header name.
     ///
     /// Wire name is `extensionFields` per RFC 9007 §2 (normative).
-    /// The §3.1 example incorrectly uses `extension`; the §2 definition is authoritative.
+    /// The §3.1 example incorrectly uses `extension`; the §2 definition
+    /// is authoritative.
+    ///
+    /// These values become MIME-level headers on the generated MDN
+    /// (e.g. `X-AcmeCorp-Tracking: abc123` here is emitted into the
+    /// `message/disposition-notification` MIME part). For vendor /
+    /// site fields that should live on the JMAP-level `Mdn` JSON
+    /// object instead — and not on the generated MIME — see
+    /// [`Self::extra`].
     #[serde(skip_serializing_if = "Option::is_none")]
     pub extension_fields: Option<HashMap<String, String>>,
     /// Catch-all for vendor / site / private extension fields not covered
@@ -189,9 +197,13 @@ pub struct Mdn {
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
     ///
-    /// Distinct from RFC 9007 `extensionFields` above: that field carries
-    /// RFC 9007-defined MDN extension headers; `extra` captures JMAP-level
-    /// vendor / site fields on the `Mdn` object itself.
+    /// Distinct from RFC 9007 [`Self::extension_fields`] above: that
+    /// field carries RFC 9007-defined MDN extension headers that the
+    /// server emits into the generated MIME-level
+    /// `message/disposition-notification` part; `extra` captures
+    /// JMAP-level vendor / site fields on the `Mdn` JSON object itself
+    /// (e.g. `acmeCorpSendPriority: "high"` as a server-side dispatch
+    /// hint that never leaves JMAP).
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }

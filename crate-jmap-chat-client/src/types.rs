@@ -116,7 +116,7 @@ impl<'de> serde::Deserialize<'de> for QuotaScope {
 /// Role of a participant in a group Chat.
 ///
 /// The spec defines two well-known values: `"admin"` and `"member"`.
-/// `Unknown(String)` preserves any unrecognized value for lossless round-trip.
+/// `Other(String)` preserves any unrecognized value for lossless round-trip.
 ///
 /// Wire strings: `"admin"`, `"member"`.
 #[non_exhaustive]
@@ -127,7 +127,7 @@ pub enum ChatMemberRole {
     /// Regular member.
     Member,
     /// Catch-all for any unrecognized wire value from a future spec version.
-    Unknown(String),
+    Other(String),
 }
 
 impl ChatMemberRole {
@@ -136,7 +136,7 @@ impl ChatMemberRole {
         match self {
             Self::Admin => "admin",
             Self::Member => "member",
-            Self::Unknown(s) => s.as_str(),
+            Self::Other(s) => s.as_str(),
         }
     }
 }
@@ -159,7 +159,7 @@ impl<'de> serde::Deserialize<'de> for ChatMemberRole {
         Ok(match raw.as_str() {
             "admin" => ChatMemberRole::Admin,
             "member" => ChatMemberRole::Member,
-            _ => ChatMemberRole::Unknown(raw),
+            _ => ChatMemberRole::Other(raw),
         })
     }
 }
@@ -170,7 +170,7 @@ impl<'de> serde::Deserialize<'de> for ChatMemberRole {
 
 /// MIME type for a message body.
 ///
-/// The spec defines three well-known values. `Unknown(String)` preserves any
+/// The spec defines three well-known values. `Other(String)` preserves any
 /// unrecognized MIME type for lossless round-trip.
 ///
 /// Wire strings: `"text/plain"`, `"text/markdown"`, `"application/jmap-chat-rich"`.
@@ -184,7 +184,7 @@ pub enum BodyType {
     /// `"application/jmap-chat-rich"` — structured rich text (spans array).
     Rich,
     /// Any unrecognized MIME type string, preserved as-is.
-    Unknown(String),
+    Other(String),
 }
 
 impl BodyType {
@@ -194,7 +194,7 @@ impl BodyType {
             Self::Plain => "text/plain",
             Self::Markdown => "text/markdown",
             Self::Rich => "application/jmap-chat-rich",
-            Self::Unknown(s) => s.as_str(),
+            Self::Other(s) => s.as_str(),
         }
     }
 }
@@ -218,7 +218,7 @@ impl<'de> serde::Deserialize<'de> for BodyType {
             "text/plain" => BodyType::Plain,
             "text/markdown" => BodyType::Markdown,
             "application/jmap-chat-rich" => BodyType::Rich,
-            _ => BodyType::Unknown(raw),
+            _ => BodyType::Other(raw),
         })
     }
 }
