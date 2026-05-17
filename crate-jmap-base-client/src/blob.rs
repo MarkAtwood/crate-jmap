@@ -45,6 +45,37 @@ pub struct DownloadBlobParams<'a> {
 }
 
 /// Response body returned by a successful blob upload (RFC 8620 §6.1).
+///
+/// # SemVer coupling with `jmap-cid-types` (bd:JMAP-6r7c.30)
+///
+/// The `sha256` field uses `jmap_cid_types::Sha256` — a workspace-sibling
+/// type, not a wrapped opaque type the way `reqwest::Error` is wrapped
+/// behind [`HttpError`](crate::HttpError). Consumers that touch
+/// `BlobUploadResponse.sha256` transitively depend on `jmap-cid-types` and
+/// must pin its major version alongside `jmap-base-client`.
+///
+/// The coupling is deliberate. `jmap-cid-types` is a workspace sibling of
+/// `jmap-base-client` (both live in the `crate-jmap` workspace) and ships
+/// in the same release cadence — every `jmap-cid-types` major bump is also
+/// a `jmap-base-client` major bump. The SemVer-isolation pattern that
+/// hides `reqwest::Error` behind [`HttpError`](crate::HttpError) is
+/// designed for *third-party* deps whose release cadence is uncorrelated
+/// with this crate's; workspace siblings do not need that isolation
+/// because the workspace-level major-version policy already coordinates
+/// them.
+///
+/// Third-party consumers picking up `jmap-base-client` from crates.io
+/// should declare both deps with matching majors:
+///
+/// ```toml
+/// [dependencies]
+/// jmap-base-client = "0.1"
+/// jmap-cid-types   = "0.1"
+/// ```
+///
+/// If you only ever pattern-match on `Option::Some(_)` (without naming the
+/// inner type) you can skip the explicit `jmap-cid-types` dep; touching
+/// `Sha256`'s methods or `AsRef<str>` impl requires it.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
