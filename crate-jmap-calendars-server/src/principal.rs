@@ -1,4 +1,24 @@
 //! Principal/* method handlers (draft-ietf-jmap-calendars-26 §2).
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding method shape defined by
+//! draft-ietf-jmap-calendars-26 §2 (which extends the RFC 8620 §5
+//! patterns). The returned `Value` is the corresponding method-response
+//! object per the same section refs. `Principal/getAvailability` (§2.2)
+//! is a Calendars-specific method with its own request/response shape
+//! (`accountId`, `id`, `utcStart`, `utcEnd`, optional `showDetails`,
+//! optional `eventProperties` → `accountId`, `list`).
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `serverFail`, plus the
+//! Calendars-specific `notFound` / `forbidden` shapes — per draft §2.2).
 
 use jmap_types::{Id, Invocation, JmapError, UTCDate};
 use serde_json::{json, Value};
@@ -14,10 +34,18 @@ use jmap_server::{bool_arg, server_fail_from_backend};
 /// Handle a `Principal/getAvailability` method call
 /// (draft-ietf-jmap-calendars-26 §2.2).
 ///
-/// Returns an array of [`BusyPeriod`](jmap_calendars_types::BusyPeriod) objects for the time range
+/// `args` is the draft §2.2 `Principal/getAvailability` request shape
+/// (`accountId`, `id` of the principal, `utcStart`, `utcEnd`, optional
+/// `showDetails`, optional `eventProperties`); the returned `Value` is
+/// the §2.2 response shape (`accountId`, `list` of
+/// [`BusyPeriod`](jmap_calendars_types::BusyPeriod) objects).
+///
+/// Returns an array of `BusyPeriod` objects for the time range
 /// `[utcStart, utcEnd)` for the identified principal.  If `showDetails` is
 /// `false` (the default), the `event` and `accountId` fields within each
 /// `BusyPeriod` are omitted even when the backend populates them.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_principal_get_availability<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,

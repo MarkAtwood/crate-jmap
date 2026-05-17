@@ -3,6 +3,26 @@
 //! `Calendar/set` has special logic: if `onDestroyRemoveEvents` is absent or
 //! `false`, destroying a Calendar that still has events is rejected with a
 //! `calendarHasEvent` SetError (not a top-level error).
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
+//! type-specific arguments defined by draft-ietf-jmap-calendars-26 §4.
+//! The returned `Value` is the corresponding method-response object
+//! per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `cannotCalculateChanges` — per RFC 8620 §3.6 and §5). Per-target
+//! failures inside `/set` surface in the `notCreated` / `notUpdated` /
+//! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_calendars_types::{Calendar, CalendarEvent, CalendarEventFilterCondition};
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
@@ -20,6 +40,12 @@ use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_bac
 // ---------------------------------------------------------------------------
 
 /// Handle a `Calendar/get` method call (draft-ietf-jmap-calendars-26 §4.1).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_get<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -33,6 +59,13 @@ pub async fn handle_calendar_get<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `Calendar/changes` method call (draft-ietf-jmap-calendars-26 §4.2).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -47,11 +80,21 @@ pub async fn handle_calendar_changes<B: CalendarsBackend>(
 
 /// Handle a `Calendar/set` method call (draft-ietf-jmap-calendars-26 §4.4).
 ///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps), augmented
+/// with the draft §4.4 `onDestroyRemoveEvents` and
+/// `onSuccessSetIsDefault` arguments; the returned `Value` is the §5.3
+/// `/set` response shape (`accountId`, `oldState`, `newState`, plus the
+/// per-operation `created` / `notCreated` / `updated` / `notUpdated` /
+/// `destroyed` / `notDestroyed` maps).
+///
 /// Special behaviour:
 /// - Parses `onDestroyRemoveEvents` (default `false`) from the request args.
 /// - If `false`, any calendar in the `destroy` list that still has events is
 ///   rejected with a `calendarHasEvent` SetError (draft §4.4.1).
 /// - Create and update are forwarded to the backend normally.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
