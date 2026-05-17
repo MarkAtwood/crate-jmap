@@ -24,6 +24,40 @@
 //!   assertion verifies that the type-level Debug-redaction landed in
 //!   bd:JMAP-sc1b.79 still defends when those shapes are added — i.e.
 //!   the canary literal does not leak through `?`-formatted args.
+//!
+//! ## Do not simplify the four-test structure (bd:JMAP-6r7c.15)
+//!
+//! This file deliberately ships **four** tests: a harness self-test
+//! (`log_capture_captures_traced_output`), a negative control
+//! (`log_capture_detects_a_leak_when_one_exists`), and two canaries
+//! (`auth_token_never_appears_in_tracing_capture`,
+//! `basic_auth_credentials_never_appear_in_tracing_capture`). A future
+//! contributor may look at this file and suggest "the first two tests
+//! are scaffolding — delete them, keep only the actual canaries." This
+//! is the wrong simplification.
+//!
+//! Without the harness self-test, a future regression in
+//! [`LogCapture`] (subscriber-install failure, `MakeWriter` mis-routing,
+//! `tracing_subscriber` feature-set drift) silently makes the canary
+//! tests pass *vacuously* — no captured output means the canary needle
+//! is not found means `assert_does_not_contain` passes for the wrong
+//! reason.
+//!
+//! Without the negative control, a future regression in the
+//! negative-assertion plumbing itself (e.g. a refactor that filters
+//! output before [`LogCapture::contents`] returns it, or a clippy-
+//! placating change that breaks the `?`-formatted Debug path) silently
+//! makes the canaries pass without actually defending anything.
+//!
+//! The canary tests themselves carry a per-test proof-of-capture
+//! (`assert_contains("constructed auth provider")` and
+//! `assert_contains("[REDACTED]")`) so each canary independently
+//! verifies the subscriber installed and the `?`-formatted args
+//! reached the buffer. This is the workspace AGENTS.md "Security
+//! testing" Pattern 2 executed correctly: harness self-test +
+//! negative control + per-test proof-of-capture + negative-assertion
+//! canary. All four are load-bearing. Removing any of them leaves the
+//! remaining tests defending nothing.
 
 mod common;
 
