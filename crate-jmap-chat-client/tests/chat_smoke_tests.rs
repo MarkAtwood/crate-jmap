@@ -770,8 +770,8 @@ async fn chat_update_patch_add_and_remove_members_serialises() {
 
 /// `Chat/set` update with `update_member_roles` must serialise an array
 /// of `{id, role}` objects. Confirms the `Member` wire string and the
-/// `Unknown(String)` round-trip (vendor-defined wire string is
-/// preserved verbatim per workspace `Unknown(String)` policy).
+/// `Other(String)` round-trip (vendor-defined wire string is preserved
+/// verbatim per workspace `Other(String)` policy).
 #[tokio::test]
 async fn chat_update_patch_update_member_roles_serialises() {
     let server = MockServer::start().await;
@@ -792,13 +792,13 @@ async fn chat_update_patch_update_member_roles_serialises() {
             &alice_id,
             jmap_chat_client::types::ChatMemberRole::Member,
         ),
-        // Vendor-defined role survives via Unknown(String) at the
+        // Vendor-defined role survives via Other(String) at the
         // serialize boundary; the wire string is whatever the caller
-        // supplied (workspace policy on Unknown(String) preservation
+        // supplied (workspace policy on Other(String) preservation
         // for round-trip).
         jmap_chat_client::methods::UpdateMemberRoleInput::new(
             &bob_id,
-            jmap_chat_client::types::ChatMemberRole::Unknown("moderator".into()),
+            jmap_chat_client::types::ChatMemberRole::Other("moderator".into()),
         ),
     ];
     let mut patch = jmap_chat_client::methods::ChatPatch::default();
@@ -815,6 +815,6 @@ async fn chat_update_patch_update_member_roles_serialises() {
             { "id": "u-alice", "role": "member" },
             { "id": "u-bob", "role": "moderator" }
         ]),
-        "updateMemberRoles must thread well-known + Unknown(String) wire strings"
+        "updateMemberRoles must thread well-known + Other(String) wire strings"
     );
 }
