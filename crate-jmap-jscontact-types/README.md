@@ -134,15 +134,18 @@ The same pattern works for `EmailAddress`, `Phone`, `Address`,
   a fresh value MUST populate these fields before serializing.
   Deserialize accepts partial inputs. See the crate-level rustdoc
   "Design: optional fields and `Option<...>`" section for the table.
-- `PartialDate.month` and `PartialDate.day` are `Option<u32>` with no
-  range validation. RFC 9553 §2.8.1 specifies `month` is `1..=12` and
-  `day` is `1..=31` (with month-specific cap of 28/29/30/31).
-  Deserialize accepts out-of-range values (`month: 13`, `day: 32`)
-  without complaint; callers MUST verify the values before treating
-  the `PartialDate` as RFC 9553-conformant. This matches the kit's
-  posture for the other unbounded spec-numeric fields (`pref` per
-  bd:JMAP-sgrr.14, `list_as` per bd:JMAP-sgrr.15): types model the
-  wire shape, semantic validity is the consumer's job.
+- Several numeric fields have RFC 9553 prescribed ranges that the
+  type system does NOT enforce: `pref` (1..=100, 13 sites), `list_as`
+  (`> 0`, 2 sites on `Directory` and `PersonalInfo`),
+  `PartialDate.month` (1..=12), and `PartialDate.day` (1..=31, with
+  month-specific cap). All are `u32` or `Option<u32>`; deserialize
+  accepts out-of-range values without complaint and callers building
+  a fresh value MUST verify the bound before serializing.  The
+  type-level alternatives (`Pref(NonZeroU8)` capped at 100,
+  `Option<NonZeroU32>` for `list_as`) would be public-API breaks the
+  kit is not taking. See the crate-level rustdoc "Design:
+  numeric-range bounds are not type-enforced" section for the full
+  table.
 - The Sloppy-Value pattern in `jmap-contacts-types` (per the workspace
   `AGENTS.md`) means consumers see some contact-card fields as
   `serde_json::Value` rather than typed sub-types from this crate. To
