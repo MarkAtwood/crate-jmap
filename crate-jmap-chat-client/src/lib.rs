@@ -29,6 +29,7 @@ pub mod utils;
 pub mod ws;
 
 pub use jmap_base_client::ClientError;
+pub use jmap_chat_types::BodyType;
 pub use methods::blob::{BlobConvertResponse, BlobLookupEntry, BlobLookupResponse, BlobObject};
 pub use methods::quota::Quota;
 pub use methods::{
@@ -45,7 +46,7 @@ pub use methods::{
 };
 pub use session::{ChatCapability, ChatPushCapability, ChatSessionExt};
 pub use sse::{parse_chat_sse_block, ChatSseEvent, ChatSseFrame};
-pub use types::{BodyType, ChatMemberRole, ContactPresenceFilter, QuotaResourceType, QuotaScope};
+pub use types::{ChatMemberRole, ContactPresenceFilter, QuotaResourceType, QuotaScope};
 pub use utils::{format_receipt_timestamp, format_receipt_timestamp_at};
 pub use ws::{ChatWsExt, ChatWsFrame};
 

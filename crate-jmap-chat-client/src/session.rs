@@ -6,141 +6,12 @@
 //!   - draft-atwood-jmap-chat-00 §3      (ChatCapability fields)
 //!   - draft-atwood-jmap-chat-push-00    (ChatPushCapability fields)
 //!   - draft-atwood-jmap-chat-wss-00     (supports_chat_websocket)
+//!
+//! [`ChatCapability`] and [`ChatPushCapability`] live in `jmap-chat-types`
+//! (the canonical home for chat wire-format types); this module re-exports
+//! them for ergonomic use from the trait signatures below.
 
-use serde::{Deserialize, Serialize};
-
-// ---------------------------------------------------------------------------
-// ChatCapability
-// ---------------------------------------------------------------------------
-
-/// Account-level capability object for `"urn:ietf:params:jmap:chat"`.
-///
-/// Found at `accounts[id].accountCapabilities["urn:ietf:params:jmap:chat"]`.
-///
-/// Spec: draft-atwood-jmap-chat-00 §3
-///
-/// # Strictness
-///
-/// The struct-level `#[serde(default)]` is deliberately NOT present:
-/// `max_body_bytes`, `max_attachment_bytes`, `max_attachments_per_message`,
-/// and `supports_threads` are spec-required fields (draft-atwood-jmap-chat-00
-/// §3 lines 171-184). A server returning `{}` for this capability is
-/// non-compliant, and the client surfaces that via a deserialize error
-/// rather than silently defaulting every field to `0` / `false` (which
-/// would cause callers to refuse to send any message because
-/// `max_body_bytes == 0`).
-///
-/// `supported_body_types` carries field-level `#[serde(default)]` only —
-/// see its rustdoc for the forward-compat tolerance rationale.
-#[non_exhaustive]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatCapability {
-    /// Maximum UTF-8 byte length of a Message body.
-    pub max_body_bytes: u64,
-    /// Maximum single attachment blob size in bytes.
-    pub max_attachment_bytes: u64,
-    /// Maximum number of attachments per message.
-    pub max_attachments_per_message: u64,
-    /// Whether the server supports the optional thread model.
-    pub supports_threads: bool,
-    /// The set of Message `bodyType` values this server understands
-    /// (draft-atwood-jmap-chat-00 §3).
-    ///
-    /// Spec requirements for compliant servers:
-    ///
-    /// - MUST include `BodyType::Plain` (`"text/plain"`).
-    /// - SHOULD include `BodyType::Markdown` (`"text/markdown"`,
-    ///   RFC 7763 CommonMark).
-    /// - SHOULD include `BodyType::Rich`
-    ///   (`"application/jmap-chat-rich"`).
-    /// - SHOULD include `BodyType::Other("application/mls-ciphertext".into())`
-    ///   for E2EE deployments.
-    /// - MAY include `BodyType::Other("application/mimi-content".into())`.
-    ///
-    /// An empty `Vec` is non-compliant per spec (`BodyType::Plain` is
-    /// mandatory) but the client tolerates it via `Default` — the
-    /// consumer is responsible for enforcing the MUST and acting
-    /// accordingly (e.g. refusing to send rich messages to a server
-    /// that does not advertise the matching variant).
-    ///
-    /// Element type is [`crate::types::BodyType`] rather than `String`
-    /// so callers can match on the typed variants directly; canonical
-    /// MIME-type wire strings deserialize to their typed variant and
-    /// any unknown wire string lands in `BodyType::Other(s)` per the
-    /// `impl_string_enum!` round-trip contract.
-    #[serde(default)]
-    pub supported_body_types: Vec<crate::types::BodyType>,
-    /// Catch-all for vendor / site / private extension fields not covered
-    /// by the typed fields above. Preserves unknown fields across
-    /// deserialize/serialize round-trip per workspace extras-preservation
-    /// policy (see workspace AGENTS.md).
-    ///
-    /// The five aggregate-count caps `maxGroupMembers`,
-    /// `maxSpaceMembers`, `maxRolesPerSpace`, `maxChannelsPerSpace`, and
-    /// `maxCategoriesPerSpace` are not advertised on this capability
-    /// in the current draft-atwood-jmap-chat-00 §3 — they are
-    /// implementation-defined and enforced via standard `overQuota`
-    /// SetError (RFC 8620 §5.3) at `Chat/set` and `Space/set` time.
-    /// Servers that still emit them will round-trip the values
-    /// harmlessly through `extra`.
-    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
-    pub extra: serde_json::Map<String, serde_json::Value>,
-}
-
-// ---------------------------------------------------------------------------
-// ChatPushCapability
-// ---------------------------------------------------------------------------
-
-/// Account-level capability object for `"urn:ietf:params:jmap:chat:push"`.
-///
-/// Found at `accounts[id].accountCapabilities["urn:ietf:params:jmap:chat:push"]`.
-///
-/// Spec: draft-atwood-jmap-chat-push-00
-///
-/// # Strictness
-///
-/// The struct-level `#[serde(default)]` is deliberately NOT present:
-/// `max_snippet_bytes` and `supported_urgency_values` are spec-required
-/// (draft-atwood-jmap-chat-push-00 lines 90-94). `max_messages_per_push`
-/// is the only optional field (line 96) and is already `Option<u64>`.
-/// A server returning `{}` for this capability is non-compliant; the
-/// client surfaces that via a deserialize error rather than silently
-/// defaulting `max_snippet_bytes` to `0` (which would force every
-/// `bodySnippet` to be truncated to nothing).
-#[non_exhaustive]
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ChatPushCapability {
-    /// Maximum byte length of a `bodySnippet` in `ChatMessagePush`.
-    /// Truncation occurs on a UTF-8 boundary.
-    pub max_snippet_bytes: u64,
-    /// Supported Web Push urgency values.
-    /// MUST include at least [`UrgencyLevel::Normal`] and
-    /// [`UrgencyLevel::High`].
-    ///
-    /// Element type is
-    /// [`jmap_chat_types::UrgencyLevel`]
-    /// rather than `String` so callers can match on the typed variants
-    /// directly. Canonical wire strings (`"very-low"`, `"low"`,
-    /// `"normal"`, `"high"`) deserialize to typed variants; unknown
-    /// wire strings land in `UrgencyLevel::Other(s)` per the
-    /// `impl_string_enum!` round-trip contract.
-    ///
-    /// [`UrgencyLevel::Normal`]: jmap_chat_types::UrgencyLevel::Normal
-    /// [`UrgencyLevel::High`]: jmap_chat_types::UrgencyLevel::High
-    pub supported_urgency_values: Vec<jmap_chat_types::UrgencyLevel>,
-    /// Maximum number of `ChatMessageEntry` objects per push payload.
-    /// `None` means the server does not impose a bound.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_messages_per_push: Option<u64>,
-    /// Catch-all for vendor / site / private extension fields not covered
-    /// by the typed fields above. Preserves unknown fields across
-    /// deserialize/serialize round-trip per workspace extras-preservation
-    /// policy (see workspace AGENTS.md).
-    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
-    pub extra: serde_json::Map<String, serde_json::Value>,
-}
+pub use jmap_chat_types::{ChatCapability, ChatPushCapability};
 
 // ---------------------------------------------------------------------------
 // ChatSessionExt
@@ -435,7 +306,7 @@ mod tests {
     /// trusts the server's advertised list verbatim.
     #[test]
     fn chat_capability_supported_body_types_round_trips() {
-        use crate::types::BodyType;
+        use jmap_chat_types::BodyType;
         let raw = json!({
             "maxBodyBytes": 65536,
             "maxAttachmentBytes": 10485760,
@@ -461,7 +332,7 @@ mod tests {
     /// `Vec<BodyType>`.
     #[test]
     fn chat_capability_supported_body_types_unknown_variant_round_trips() {
-        use crate::types::BodyType;
+        use jmap_chat_types::BodyType;
         let raw = json!({
             "maxBodyBytes": 65536,
             "maxAttachmentBytes": 10485760,

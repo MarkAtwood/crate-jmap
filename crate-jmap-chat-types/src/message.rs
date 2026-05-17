@@ -29,6 +29,59 @@ impl_string_enum!(DeliveryState, "a delivery state string",
     "received" => Received,
 );
 
+/// MIME type for a message body (draft-atwood-jmap-chat-00 §Message).
+///
+/// The spec defines three well-known values. `Other(String)` preserves any
+/// unrecognized MIME type for lossless round-trip.
+///
+/// Wire strings: `"text/plain"`, `"text/markdown"`, `"application/jmap-chat-rich"`.
+///
+/// # Forging caveat
+///
+/// `Other(String)` is `pub`, so callers can construct
+/// `BodyType::Other("text/plain".into())`. The custom serde impl emits the
+/// wrapped string verbatim on serialize and normalises canonical wire strings
+/// to their typed variant on deserialize. Consequences:
+/// * `BodyType::Other("text/plain".into()) != BodyType::Plain` on PartialEq,
+///   but both serialize to `"text/plain"`.
+/// * `Other("text/plain")` -> `"text/plain"` -> `Plain` is a lossy round-trip
+///   (the variant changes shape).
+///
+/// Reserve `Other(s)` for genuinely unrecognised MIME types. Comparing wire-
+/// string equality across two values requires matching on `as_str()`, not on
+/// `PartialEq`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq)]
+pub enum BodyType {
+    /// `"text/plain"` — unformatted UTF-8 text.
+    Plain,
+    /// `"text/markdown"` — CommonMark-formatted text.
+    Markdown,
+    /// `"application/jmap-chat-rich"` — structured rich text (spans array).
+    Rich,
+    /// Any unrecognized MIME type string, preserved as-is. See the "Forging
+    /// caveat" section in the enum-level rustdoc.
+    Other(String),
+}
+
+impl BodyType {
+    /// The canonical MIME type string for this body type.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Plain => "text/plain",
+            Self::Markdown => "text/markdown",
+            Self::Rich => "application/jmap-chat-rich",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(BodyType, "a BodyType MIME-string",
+    "text/plain"                 => Plain,
+    "text/markdown"              => Markdown,
+    "application/jmap-chat-rich" => Rich,
+);
+
 /// Why a recipient acknowledged a message (RFC-JMAP-Chat §ReadDisposition).
 ///
 /// `Other` preserves any unrecognized value for round-trip fidelity.
@@ -771,6 +824,36 @@ mod tests {
             let back = serde_json::to_string(&got).expect("serialize");
             assert_eq!(back, json_str, "reser {json_str}");
         }
+    }
+
+    /// BodyType canonical variants round-trip through their registered wire
+    /// strings. Oracle: draft-atwood-jmap-chat-00 §Message bodyType MIME
+    /// set `{text/plain, text/markdown, application/jmap-chat-rich}`.
+    #[test]
+    fn body_type_canonical_variants_round_trip() {
+        let cases: &[(&str, BodyType)] = &[
+            (r#""text/plain""#, BodyType::Plain),
+            (r#""text/markdown""#, BodyType::Markdown),
+            (r#""application/jmap-chat-rich""#, BodyType::Rich),
+        ];
+        for (raw, expected) in cases {
+            let parsed: BodyType = serde_json::from_str(raw).expect("must deserialize");
+            assert_eq!(&parsed, expected);
+            let back = serde_json::to_string(&parsed).expect("serialize");
+            assert_eq!(back.as_str(), *raw);
+        }
+    }
+
+    /// BodyType: unknown wire string round-trips via Other(s).
+    /// Oracle: `"application/x-acme"` is not in draft-atwood-jmap-chat-00
+    /// §Message body-type set and uses an `x-` prefix to make the
+    /// vendor-extension intent explicit.
+    #[test]
+    fn body_type_unknown_round_trips_via_other() {
+        let raw = r#""application/x-acme""#;
+        let parsed: BodyType = serde_json::from_str(raw).expect("must deserialize");
+        assert_eq!(parsed, BodyType::Other("application/x-acme".to_owned()));
+        assert_eq!(serde_json::to_string(&parsed).unwrap(), raw);
     }
 
     // ── Extras-preservation policy tests (JMAP-lbdy.3) ───────────────────
