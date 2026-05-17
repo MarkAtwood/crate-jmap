@@ -93,7 +93,8 @@ All 26 RFC 8621 method names are available as typed async methods on
 | `email_submission_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>` | `QueryResponse` |
 | `email_submission_query_changes` | `since_query_state: &State, max_changes: Option<u64>, filter: Option<Value>, sort: Option<Value>, up_to_id: Option<&Id>, calculate_total: Option<bool>` | `QueryChangesResponse` |
 | `email_submission_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>, if_in_state: Option<&State>, params: Option<EmailSubmissionSetParams>` | `SetResponse<EmailSubmission>` |
-| `vacation_response_get` | _(none)_ | `GetResponse<VacationResponse>` |
+| `vacation_response_get` | _(none)_ | `VacationResponse` (unwraps the spec-mandated singleton from the /get envelope) |
+| `vacation_response_get_envelope` | _(none)_ | `GetResponse<VacationResponse>` (envelope including `state` token for `ifInState` guards) |
 | `vacation_response_set` | `update: Option<HashMap<Id, PatchObject>>` | `SetResponse<VacationResponse>` |
 
 `Id` and `State` here are `jmap_types::Id` and `jmap_types::State`.
