@@ -595,6 +595,27 @@ impl MemoryBackend {
     ///   no per-account scoping. Lex-orderable globally within a process,
     ///   not repeatable across runs.
     ///
+    ///   The base is `SystemTime::now().duration_since(UNIX_EPOCH)` in
+    ///   nanos; if that subtraction fails (clock set before 1970-01-01),
+    ///   the base falls back to the literal `1_000_000_000` (1 second
+    ///   after epoch). The fallback path is reachable in practice only
+    ///   on a clock-skewed test rig — id `0x...3b9aca01` and adjacent
+    ///   values are the fallback signature.
+    ///
+    ///   `SystemTime` is documented as non-monotonic by `std`: NTP
+    ///   adjustments can move it backwards, and across process restarts
+    ///   a clock-skew correction can place T2 before T1 such that the
+    ///   T2 process mints ids inside the T1 process's range. The
+    ///   `OnceLock<u64>` caches the base for the lifetime of one
+    ///   process, so non-monotonicity only matters across restarts of
+    ///   the same demo binary — irrelevant for the reference impl's
+    ///   purpose but a footgun if this helper is copy-pasted into
+    ///   anything resembling production.
+    ///
+    ///   The atomic counter uses `wrapping_add`, which silently rolls
+    ///   over after 2^64 ids. A demo process running for ~584 years at
+    ///   1 id/ns would be needed; cosmetic concern only.
+    ///
     /// # Feature stability (bd:JMAP-ic0j.63)
     ///
     /// The exact id format produced by either mode is NOT part of the
