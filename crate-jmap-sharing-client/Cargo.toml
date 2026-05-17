@@ -18,4 +18,4 @@ serde_json = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-wiremock = "0.6"
+wiremock = { workspace = true }

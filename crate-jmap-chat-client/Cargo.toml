@@ -23,4 +23,4 @@ serde_json = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "io-util"] }
 tokio-tungstenite = { workspace = true }
 futures = { workspace = true }
-wiremock = "0.6"
+wiremock = { workspace = true }
