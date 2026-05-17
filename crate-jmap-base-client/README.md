@@ -26,25 +26,27 @@ this crate and add their method implementations as extension traits on
 The foundation client crate for the `jmap-*` family. Every extension client
 in the workspace (mail, chat, contacts, calendars, tasks, filenode, sharing,
 metadata) builds on this crate by adding its own `Jmap*Ext` extension trait
-on `JmapClient` plus a per-extension `SessionClient`. The private transport
-dependencies (`reqwest` for HTTP, `tokio-tungstenite` for WebSocket) are
-wrapped in opaque `HttpError`, `WebSocketError`, and
+on `JmapClient` plus a per-extension `SessionClient`. Dependencies flow
+downward only: `jmap-types` is the wire-format foundation with no async
+deps; this crate brings in `tokio`, `reqwest`, and `tokio-tungstenite`;
+extension client crates depend on this crate and add typed methods.
+
+The private transport dependencies (`reqwest` for HTTP, `tokio-tungstenite`
+for WebSocket) are wrapped in opaque `HttpError`, `WebSocketError`, and
 `InvalidHeaderValueError` types so they stay SemVer-isolated — those crates
 can be bumped or swapped without breaking downstream extensions.
 
 ---
 
-## Cargo.toml
+## How to use
+
+Add to `Cargo.toml`:
 
 ```toml
 [dependencies]
 jmap-base-client = { path = "../crate-jmap-base-client" }
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 ```
-
----
-
-## How to use
 
 ### Basic setup: construct client, fetch session, make a call
 
@@ -236,9 +238,7 @@ while let Some(frame) = ws.next_frame().await {
 }
 ```
 
----
-
-## Examples
+### Runnable example
 
 A runnable end-to-end demo lives in [`examples/session_fetch.rs`](examples/session_fetch.rs):
 
@@ -586,21 +586,6 @@ so the transport can be swapped or its major version bumped without
 breaking downstream callers (SemVer-isolation, bd:JMAP-6lsm.22). Use the
 wrappers' accessor methods rather than trying to extract the inner
 transport error type.
-
----
-
-## Crate family
-
-```
-jmap-types
-    └── jmap-base-client  (this crate)
-            ├── jmap-mail-client   RFC 8621 Email, Mailbox, Thread methods
-            └── jmap-chat-client   JMAP Chat extension methods
-```
-
-Dependencies flow downward only. Type crates (`jmap-types`, `jmap-mail-types`,
-`jmap-chat-types`) have no async dependencies. This crate brings in `tokio` and
-`reqwest`.
 
 ---
 

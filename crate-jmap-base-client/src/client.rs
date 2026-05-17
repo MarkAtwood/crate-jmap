@@ -414,6 +414,16 @@ impl JmapClient {
     /// a non-http scheme returns `ClientError::InvalidSession`.
     ///
     /// Returns `ClientError::AuthFailed` on HTTP 401 or 403.
+    ///
+    /// # Charset
+    ///
+    /// The response body MUST be UTF-8-encoded JSON (RFC 8259 §8.1). A server
+    /// that sends UTF-16 or UTF-32 JSON — even with a matching
+    /// `charset=utf-16` `Content-Type` parameter — will fail to parse as
+    /// `ClientError::Parse`; the error does not specifically call out the
+    /// charset mismatch. Every shipped JMAP server uses UTF-8, but a
+    /// non-conformant server can produce a confusing parse error
+    /// (bd:JMAP-6r7c.28).
     pub async fn fetch_session(&self) -> Result<Session, ClientError> {
         let limit = self.config.max_session_body;
         let url = self.base_url.join(".well-known/jmap").map_err(|e| {
@@ -457,6 +467,16 @@ impl JmapClient {
     /// if the server sends more.
     ///
     /// Returns `ClientError::AuthFailed` on HTTP 401 or 403.
+    ///
+    /// # Charset
+    ///
+    /// The response body MUST be UTF-8-encoded JSON (RFC 8259 §8.1). A server
+    /// that sends UTF-16 or UTF-32 JSON — even with a matching
+    /// `charset=utf-16` `Content-Type` parameter — will fail to parse as
+    /// `ClientError::Parse`; the error does not specifically call out the
+    /// charset mismatch. Every shipped JMAP server uses UTF-8, but a
+    /// non-conformant server can produce a confusing parse error
+    /// (bd:JMAP-6r7c.28).
     ///
     /// # See also
     ///
@@ -868,6 +888,17 @@ impl JmapClient {
 /// `resp.method_responses` directly. The field is public and the
 /// [`jmap_types::Invocation`] type is `(method, args, call_id)`.
 ///
+/// # Panics
+///
+/// This function does not catch panics from `T`'s [`serde::Deserialize`]
+/// implementation. If a custom `T` type's `deserialize` impl panics — e.g.
+/// because of an `.unwrap()` on a sub-field — the panic propagates through
+/// `extract_response` to the caller's await point. The standard derived
+/// `Deserialize` impls in the workspace type crates (`jmap-types`,
+/// `jmap-mail-types`, etc.) do not panic; this caveat only affects
+/// hand-rolled `Deserialize` impls outside the workspace
+/// (bd:JMAP-6r7c.44).
+///
 /// This function is `pub` so extension crates (`jmap-chat-client`,
 /// `jmap-mail-client`) can use it to extract typed results from a
 /// [`jmap_types::JmapResponse`] without depending on internal details.
@@ -931,7 +962,16 @@ fn decode_utf8_chunk(raw: &mut Vec<u8>, buf: &mut String) {
         }
         Err(e) => {
             let valid_up_to = e.valid_up_to();
-            // valid_up_to is always a char boundary by definition.
+            // valid_up_to is the documented prefix length that IS valid UTF-8
+            // by construction (std::str::Utf8Error contract). The crate-root
+            // #![forbid(unsafe_code)] rules out std::str::from_utf8_unchecked,
+            // which would be the canonical zero-cost path for "I have a slice
+            // I know is valid UTF-8 but the type system doesn't". With unsafe
+            // forbidden, .expect() is the cheapest legal alternative; the
+            // expect message tracks the soundness argument so a future
+            // reviewer does not "fix" this with unwrap_or_default()
+            // (which would silently drop valid UTF-8 prefix bytes on a
+            // hypothetical impossible failure path) (bd:JMAP-6r7c.54).
             buf.push_str(
                 std::str::from_utf8(&raw[..valid_up_to])
                     .expect("valid_up_to is a valid UTF-8 boundary"),
