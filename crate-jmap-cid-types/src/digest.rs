@@ -21,12 +21,17 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-/// Reason a candidate string failed to parse as a [`Sha256`].
+/// Parse error produced by [`Sha256::from_hex`] and the [`Sha256`]
+/// `Deserialize` impl.
 ///
-/// Returned inside [`Sha256DigestError`].
+/// The enum is `#[non_exhaustive]` at the type level and every
+/// variant is `#[non_exhaustive]` so future field additions and
+/// variant additions both remain semver-additive (bd:JMAP-sf5h.21
+/// ratified the single-tier shape — no wrapper struct is needed
+/// because no extra context lives on the wrapper).
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
-pub enum Sha256DigestErrorKind {
+pub enum Sha256DigestError {
     /// The candidate had a length other than 64 UTF-8 bytes.
     ///
     /// `got` is the actual byte length. The spec ABNF
@@ -71,7 +76,7 @@ pub enum Sha256DigestErrorKind {
     },
 }
 
-impl fmt::Display for Sha256DigestErrorKind {
+impl fmt::Display for Sha256DigestError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::WrongLength { got } => {
@@ -87,21 +92,6 @@ impl fmt::Display for Sha256DigestErrorKind {
                 )
             }
         }
-    }
-}
-
-/// Parse error produced by [`Sha256::from_hex`] and the [`Sha256`]
-/// `Deserialize` impl.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct Sha256DigestError {
-    /// Specific reason the candidate string failed to parse.
-    pub kind: Sha256DigestErrorKind,
-}
-
-impl fmt::Display for Sha256DigestError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        self.kind.fmt(f)
     }
 }
 
@@ -261,26 +251,22 @@ impl Sha256 {
     fn validate(s: &str) -> Result<(), Sha256DigestError> {
         let bytes = s.as_bytes();
         if bytes.len() != 64 {
-            return Err(Sha256DigestError {
-                kind: Sha256DigestErrorKind::WrongLength {
-                    got: u32::try_from(bytes.len()).unwrap_or(u32::MAX),
-                },
+            return Err(Sha256DigestError::WrongLength {
+                got: u32::try_from(bytes.len()).unwrap_or(u32::MAX),
             });
         }
         // ABNF `%x30-39 / %x61-66` — '0'..='9' or 'a'..='f'.
         for (i, b) in bytes.iter().enumerate() {
             let ok = b.is_ascii_digit() || (b'a'..=b'f').contains(b);
             if !ok {
-                return Err(Sha256DigestError {
-                    kind: Sha256DigestErrorKind::NonHexLowercase {
-                        // `i` is bounded by the 64-byte length check
-                        // above; the cast never saturates here, but
-                        // u32::try_from preserves the type-contract
-                        // posture if the length check is ever
-                        // relaxed.
-                        at: u32::try_from(i).unwrap_or(u32::MAX),
-                        byte: *b,
-                    },
+                return Err(Sha256DigestError::NonHexLowercase {
+                    // `i` is bounded by the 64-byte length check
+                    // above; the cast never saturates here, but
+                    // u32::try_from preserves the type-contract
+                    // posture if the length check is ever
+                    // relaxed.
+                    at: u32::try_from(i).unwrap_or(u32::MAX),
+                    byte: *b,
                 });
             }
         }
@@ -431,8 +417,8 @@ mod tests {
         // vector is 'e', upper-cased to 'E').
         let upper = VALID.to_ascii_uppercase();
         let err = Sha256::from_hex(&upper).expect_err("uppercase rejected");
-        match err.kind {
-            Sha256DigestErrorKind::NonHexLowercase { at: 0, byte: 0x45 } => {}
+        match err {
+            Sha256DigestError::NonHexLowercase { at: 0, byte: 0x45 } => {}
             other => panic!("expected NonHexLowercase {{ at: 0, byte: 0x45 }}, got {other:?}"),
         }
     }
@@ -446,8 +432,8 @@ mod tests {
         s.push('A');
         s.push_str(&VALID[32..]);
         let err = Sha256::from_hex(&s).expect_err("uppercase mid-string rejected");
-        match err.kind {
-            Sha256DigestErrorKind::NonHexLowercase { at: 31, byte: 0x41 } => {}
+        match err {
+            Sha256DigestError::NonHexLowercase { at: 31, byte: 0x41 } => {}
             other => panic!("expected NonHexLowercase {{ at: 31, byte: 0x41 }}, got {other:?}"),
         }
     }
@@ -456,7 +442,7 @@ mod tests {
     fn from_hex_rejects_short_length() {
         let s = &VALID[..63];
         let err = Sha256::from_hex(s).expect_err("63 chars rejected");
-        assert_eq!(err.kind, Sha256DigestErrorKind::WrongLength { got: 63 });
+        assert_eq!(err, Sha256DigestError::WrongLength { got: 63 });
     }
 
     #[test]
@@ -464,13 +450,13 @@ mod tests {
         let mut s = String::from(VALID);
         s.push('0');
         let err = Sha256::from_hex(&s).expect_err("65 chars rejected");
-        assert_eq!(err.kind, Sha256DigestErrorKind::WrongLength { got: 65 });
+        assert_eq!(err, Sha256DigestError::WrongLength { got: 65 });
     }
 
     #[test]
     fn from_hex_rejects_empty() {
         let err = Sha256::from_hex("").expect_err("empty rejected");
-        assert_eq!(err.kind, Sha256DigestErrorKind::WrongLength { got: 0 });
+        assert_eq!(err, Sha256DigestError::WrongLength { got: 0 });
     }
 
     #[test]
@@ -480,8 +466,8 @@ mod tests {
         s.push('g');
         let err = Sha256::from_hex(&s).expect_err("non-hex 'g' rejected");
         assert_eq!(
-            err.kind,
-            Sha256DigestErrorKind::NonHexLowercase { at: 63, byte: 0x67 }
+            err,
+            Sha256DigestError::NonHexLowercase { at: 63, byte: 0x67 }
         );
     }
 
@@ -657,18 +643,15 @@ mod tests {
 
     #[test]
     fn error_display_includes_position_and_byte() {
-        // Oracle: hand-constructed kind; Display must surface both
-        // the byte position and the offending byte value so the
-        // diagnostic is actionable without re-indexing the input.
-        let err = Sha256DigestError {
-            kind: Sha256DigestErrorKind::NonHexLowercase { at: 17, byte: 0x41 },
-        };
+        // Oracle: hand-constructed variant; Display must surface
+        // both the byte position and the offending byte value so
+        // the diagnostic is actionable without re-indexing the
+        // input.
+        let err = Sha256DigestError::NonHexLowercase { at: 17, byte: 0x41 };
         let msg = err.to_string();
         assert!(msg.contains("byte 17"), "{msg}");
         assert!(msg.contains("0x41"), "{msg}");
-        let err = Sha256DigestError {
-            kind: Sha256DigestErrorKind::WrongLength { got: 65 },
-        };
+        let err = Sha256DigestError::WrongLength { got: 65 };
         assert!(err.to_string().contains("65"));
     }
 }

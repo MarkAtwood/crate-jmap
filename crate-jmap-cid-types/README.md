@@ -80,10 +80,13 @@ map in `jmap-base-client`.
   parse step is needed because the output is always valid by
   construction. The name emphasises that the input is the output
   of a hash function — this crate carries no hash computation.
-- The error type [`Sha256DigestError`] carries a position-tracking
-  [`Sha256DigestErrorKind`] (`WrongLength { got }` or
-  `NonHexLowercase { at }`) so diagnostics can point at the bad
-  byte.
+- The error type [`Sha256DigestError`] is a single-tier enum
+  (`WrongLength { got }` or `NonHexLowercase { at, byte }`) with
+  `#[non_exhaustive]` at the type level and per-variant
+  `#[non_exhaustive]` so variant additions and per-variant field
+  additions both remain semver-additive. Diagnostics carry byte
+  position so callers can point at the bad byte without re-indexing
+  the input.
 - `#[non_exhaustive]` on every public struct and enum, so additive
   spec evolution stays a non-breaking change.
 - No async. `#[forbid(unsafe_code)]` at the crate root.

@@ -84,10 +84,11 @@ After bd:JMAP-v9py.12:
   `from_raw_digest(&[u8; 32])` (infallible nibble-formatter; the
   name disambiguates from `sha2::Sha256::digest`-style "compute the
   hash of these bytes" — see bd:JMAP-sf5h.4).
-- `pub enum Sha256DigestErrorKind { WrongLength { got }, NonHexLowercase { at } }`
-  and `pub struct Sha256DigestError { kind: Sha256DigestErrorKind }`
-  — both `#[non_exhaustive]`, position-tracking diagnostic for
-  failed parses.
+- `pub enum Sha256DigestError { WrongLength { got }, NonHexLowercase { at, byte } }`
+  — single-tier enum (bd:JMAP-sf5h.21 dropped the prior wrapper
+  struct); `#[non_exhaustive]` at the type level and per-variant
+  `#[non_exhaustive]`, position-tracking diagnostic for failed
+  parses.
 
 - `pub struct CidCapability` (landed under bd:JMAP-sf5h.6) — the
   value object of `urn:ietf:params:jmap:cid` (draft §3). Currently
@@ -213,8 +214,8 @@ wrapping a single value").
   Session advertisement detection in `jmap-base-client`
   (`crate-jmap-base-client/src/request.rs:226`).
 - bd:JMAP-sf5h is the post-landing review epic. Findings .11
-  (JMAP_CID_URI constant), .10 (per-variant non_exhaustive on
-  Sha256DigestErrorKind), .4 (from_bytes → from_raw_digest rename),
+  (JMAP_CID_URI constant), .10 (per-variant non_exhaustive on the
+  parse-error enum), .4 (from_bytes → from_raw_digest rename),
   .3 (serde_json → dev-dependencies), and .1 (this docs sweep)
   closed in the same pass; remaining children track API-contract
   forward-compat and idiom-pass findings.
