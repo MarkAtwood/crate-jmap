@@ -6,6 +6,28 @@
 //! - [`handle_metadata_set`]
 //! - [`handle_metadata_query`]
 //! - [`handle_metadata_query_changes`]
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by draft-ietf-jmap-metadata-01 §3. The returned
+//! `Value` is the corresponding method-response object per the same
+//! section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside `/set` surface
+//! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
+//! `Ok((Value, ...))`, not as `Err`.
 
 use jmap_metadata_types::{Metadata, MetadataFilterCondition};
 use jmap_types::{Filter, Id, Invocation, JmapError, PatchObject, State};
@@ -26,8 +48,14 @@ use jmap_server::{
 
 /// Handle a `Metadata/get` method call (draft-ietf-jmap-metadata-01 §3.2).
 ///
-/// Standard JMAP `/get` per RFC 8620 §5.1. The `ids` argument MAY be `null`
-/// to fetch all Metadata objects in the account at once (draft §3.2).
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// The `ids` argument MAY be `null` to fetch all Metadata objects in the
+/// account at once (draft §3.2).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_metadata_get<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -42,8 +70,9 @@ pub async fn handle_metadata_get<B: MetadataBackend>(
 
 /// Handle a `Metadata/changes` method call (draft-ietf-jmap-metadata-01 §3.3).
 ///
-/// Standard JMAP `/changes` per RFC 8620 §5.2, plus two Metadata-specific
-/// optional arguments:
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`), augmented with two
+/// Metadata-specific optional arguments defined by draft §3.3:
 ///
 /// - `filterRelatedType: String|null` — restrict the response's `created`
 ///   and `updated` arrays to Metadata objects with the given `relatedType`.
@@ -51,6 +80,10 @@ pub async fn handle_metadata_get<B: MetadataBackend>(
 /// - `filterMetadataType: String[]|null` — restrict to Metadata objects
 ///   whose `@type` value is in the array. Combined with `filterRelatedType`
 ///   via logical AND.
+///
+/// The returned `Value` is the §5.2 `/changes` response shape
+/// (`accountId`, `oldState`, `newState`, `hasMoreChanges`, `created`,
+/// `updated`, `destroyed`).
 ///
 /// # Conformance split (default impl vs override)
 ///
@@ -71,6 +104,8 @@ pub async fn handle_metadata_get<B: MetadataBackend>(
 /// for destroyed entries. Clients that need precise destroyed filtering
 /// against a default-impl backend can remember each Id's `relatedType` /
 /// `@type` from prior `/get` responses and filter client-side.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_metadata_changes<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -363,9 +398,15 @@ fn filter_array_via_lookup(
 
 /// Handle a `Metadata/set` method call (draft-ietf-jmap-metadata-01 §3.1).
 ///
-/// Standard JMAP `/set` per RFC 8620 §5.3 with the following Metadata-specific
-/// server-side constraints (enforced by the backend, surfaced via
-/// `BackendSetError::SetError`):
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
+///
+/// Metadata-specific server-side constraints enforced by the backend
+/// (surfaced via `BackendSetError::SetError`):
 ///
 /// - **Uniqueness** (§3.1): (relatedType, relatedId, `@type`, isPrivate)
 ///   tuple MUST be unique within the user's visible set →
@@ -379,6 +420,8 @@ fn filter_array_via_lookup(
 ///
 /// All four error categories are reported per-entry in `notCreated` /
 /// `notUpdated`; the handler itself is generic across these.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_metadata_set<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -814,16 +857,24 @@ fn walk_filter_for_related_ids_constraint(
 
 /// Handle a `Metadata/query` method call (draft-ietf-jmap-metadata-01 §3.4).
 ///
-/// Standard JMAP `/query` per RFC 8620 §5.5. The
-/// [`MetadataFilterCondition`]
-/// supports `@type`, `relatedType`, `relatedId`/`relatedIds`, `isPrivate`,
-/// and `textMatch` operators (§3.4.1). Per §3.4.2 the result is sortable on
-/// `id`, `@type`, `relatedType`, `relatedId`, and `isPrivate`.
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`); the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
+///
+/// The [`MetadataFilterCondition`] supports `@type`, `relatedType`,
+/// `relatedId`/`relatedIds`, `isPrivate`, and `textMatch` operators
+/// (§3.4.1). Per §3.4.2 the result is sortable on `id`, `@type`,
+/// `relatedType`, `relatedId`, and `isPrivate`.
 ///
 /// Cross-field validation per §3.4.1 (`relatedIds` requires `relatedType`)
 /// happens here, before delegating to the generic handler. Other validation
 /// (account existence, sort comparator shape, etc.) is handled by the
 /// generic.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_metadata_query<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -836,8 +887,17 @@ pub async fn handle_metadata_query<B: MetadataBackend>(
 /// Handle a `Metadata/queryChanges` method call
 /// (draft-ietf-jmap-metadata-01 §3.5).
 ///
-/// Standard JMAP `/queryChanges` per RFC 8620 §5.6. Same Metadata-specific
-/// cross-field filter validation as [`handle_metadata_query`].
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
+/// Same Metadata-specific cross-field filter validation as
+/// [`handle_metadata_query`].
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_metadata_query_changes<B: MetadataBackend>(
     backend: &B,
     caller: &B::CallerCtx,
