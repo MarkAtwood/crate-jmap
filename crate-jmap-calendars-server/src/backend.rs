@@ -391,6 +391,57 @@ pub trait CalendarsBackend: JmapBackend {
     /// - `event` — the event whose `start` and `duration` are to be converted.
     /// - `tz_hint` — an optional IANA time-zone override; if `None`, the event's
     ///   own `time_zone` field (if any) is used.
+    ///
+    /// # Contract: best-effort, three failure modes collapse to `None` (bd:JMAP-ic0j.58)
+    ///
+    /// The signature deliberately omits a [`Result`] return type. Three
+    /// semantically-distinct failure modes all surface as the same
+    /// `None` value for the corresponding field:
+    ///
+    /// 1. **Absent input**: the event has no `start` and/or `duration`
+    ///    (legitimate "this floating event isn't placeable in UTC").
+    ///    This is the spec-conformant happy path for an event the
+    ///    server cannot pin to a wall-clock time.
+    /// 2. **Transient backend failure**: a tz-database lookup is
+    ///    momentarily unavailable. The current contract permits the
+    ///    backend to return `None` in this case, which surfaces to the
+    ///    client as "no `utcStart` / `utcEnd` for this event" —
+    ///    indistinguishable from case 1. The client cannot retry on
+    ///    the basis of the response alone.
+    /// 3. **Caller bug — malformed input**: `tz_hint` is `Some("foo")`
+    ///    where `"foo"` is not a valid IANA zone, or the event's own
+    ///    `time_zone` field is malformed. The backend MAY return
+    ///    `None` (silent treatment) or implement out-of-band logging,
+    ///    but the trait does not require either.
+    ///
+    /// This is by design: `compute_utc_times` is a best-effort
+    /// projection used by `CalendarEvent/get` to populate `utcStart` /
+    /// `utcEnd` synthetic fields (draft §5.2). The spec permits these
+    /// to be absent. Adding a [`Result`] would force every caller —
+    /// including the inner-loop projection in `handle_calendar_event_get`
+    /// at `event.rs:118-128` — to handle a transient-error branch that
+    /// the spec already covers via "field absent".
+    ///
+    /// **Backend implementor guidance**:
+    /// - Backends that distinguish transient tz-database outages from
+    ///   spec-conformant `None`-returns SHOULD surface the distinction
+    ///   via an out-of-band channel (logging, metrics, alerting) — the
+    ///   trait does not give them an in-band channel.
+    /// - Backends MUST NOT panic on malformed `tz_hint` or malformed
+    ///   `event.time_zone`. Return `None` for both `utc_start` and
+    ///   `utc_end` instead.
+    /// - Backends that need to surface a transient failure to the
+    ///   client should do so via the methods that DO return [`Result`]
+    ///   (e.g. fail [`get_objects`] with an `Err`, which the handler
+    ///   redacts and routes through `serverFail`) — `compute_utc_times`
+    ///   is the wrong API to lean on for that.
+    ///
+    /// The trait shape is `0.x` pre-stable; switching to
+    /// `Result<UtcTimes, ComputeUtcError<Self::Error>>` is reserved as
+    /// a possible future API revision. See bd:JMAP-ic0j.58 for the
+    /// considered alternatives.
+    ///
+    /// [`get_objects`]: crate::JmapBackend::get_objects
     fn compute_utc_times(
         &self,
         _caller: &Self::CallerCtx,
