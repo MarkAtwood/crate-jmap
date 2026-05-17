@@ -97,14 +97,6 @@ strings round-trip back to the same wire value.
 - **`EphemeralMessage::Unknown` for forward compatibility.** Any WebSocket event type not recognized by this crate deserializes to `EphemeralMessage::Unknown { type_name, payload }`. Callers must handle this variant; match exhaustion without it will not compile.
 - **Draft spec only.** `draft-atwood-jmap-chat` has not been submitted to the IETF. Wire format and type names may change.
 
-## References
-
-| Document | Covers |
-|---|---|
-| [draft-atwood-jmap-chat-00] | Core objects: Chat, Message, Space, ChatContact, ReadPosition |
-| [draft-atwood-jmap-chat-push-00] | Push notification payloads |
-| [draft-atwood-jmap-chat-wss-00] | WebSocket ephemeral events |
-
 ## Crate family
 
 ```
@@ -113,6 +105,14 @@ jmap-types
             ├── jmap-chat-server
             └── jmap-chat-client
 ```
+
+## References
+
+| Document | Covers |
+|---|---|
+| [draft-atwood-jmap-chat-00] | Core objects: Chat, Message, Space, ChatContact, ReadPosition |
+| [draft-atwood-jmap-chat-push-00] | Push notification payloads |
+| [draft-atwood-jmap-chat-wss-00] | WebSocket ephemeral events |
 
 [draft-atwood-jmap-chat-00]: https://github.com/MarkAtwood/jmap-chat-spec
 [draft-atwood-jmap-chat-push-00]: https://github.com/MarkAtwood/jmap-chat-spec
