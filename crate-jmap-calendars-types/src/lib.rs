@@ -41,14 +41,29 @@ pub mod event;
 pub mod notification;
 pub mod participant_identity;
 
-/// Module alias re-exporting [`jmap_jscalendar_types`].
+/// Re-export module for JSCalendar sub-object types under the legacy
+/// nested path `jmap_calendars_types::jscalendar::*`.
 ///
 /// Preserved for backwards compatibility with consumers that imported
-/// JSCalendar types via the nested path `jmap_calendars_types::jscalendar::*`
-/// before the types were moved into their own crate. New code should prefer
-/// the top-level re-exports (`jmap_calendars_types::Location`, etc.) or the
+/// JSCalendar types via this path before the types were moved into the
+/// shared `jmap-jscalendar-types` crate. New code should prefer the
+/// top-level re-exports (`jmap_calendars_types::Location`, etc.) or the
 /// direct path `jmap_jscalendar_types::Location`.
-pub use jmap_jscalendar_types as jscalendar;
+///
+/// **Bounded surface.** This module re-exports exactly the same set of
+/// names as the top-level re-exports below — it does NOT alias the
+/// entire `jmap_jscalendar_types` crate. If a future addition to
+/// `jmap_jscalendar_types` (e.g. a task-specific sub-type) should also
+/// appear here, add it explicitly to both this module and the top-level
+/// re-export list, with an intentional choice. See bd:JMAP-1rwf.2 for
+/// the rationale.
+pub mod jscalendar {
+    pub use jmap_jscalendar_types::{
+        AbsoluteTrigger, Alert, AlertTrigger, Duration, Link, LocalDateTime, Location, NDay,
+        OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, TimeZone,
+        TimeZoneRule, VirtualLocation,
+    };
+}
 
 // ── Top-level re-exports ──────────────────────────────────────────────────────
 
