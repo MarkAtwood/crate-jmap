@@ -27,7 +27,7 @@ pub use jmap_chat_server::memory::{MemoryBackend, MemoryError};
 use jmap_chat_server::{
     BackendChangesError, BackendSetError, ChangesResult, ChatBackend, ChatLimits, EmojiSetOp,
     GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject, QueryResult,
-    SetObject, SlowModeError, SpacePatchOp,
+    SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
 use jmap_types::{Id, State, UTCDate};
 
@@ -204,8 +204,9 @@ pub struct TrackingBackend {
     /// `inner` (which is a no-op).
     slow_mode_block: Option<UTCDate>,
     /// When `true`, [`ChatBackend::may_set_custom_emoji`] returns
-    /// `Ok(false)` for every op (Create/Update/Destroy). When `false`,
-    /// forwards to `inner` (which returns `Ok(true)`).
+    /// `Ok(Err(SetError::new(SetErrorType::Forbidden)))` for every op
+    /// (Create/Update/Destroy). When `false`, forwards to `inner`
+    /// (which returns `Ok(Ok(()))`).
     emoji_set_deny: bool,
     /// Counter incremented every time
     /// [`ChatBackend::is_contact_blocked`] is invoked. Lets a test
@@ -237,8 +238,8 @@ impl TrackingBackend {
     }
 
     /// Configure the wrapper so [`ChatBackend::may_set_custom_emoji`]
-    /// returns `Ok(false)` for every op. The wrapped `MemoryBackend`
-    /// is otherwise functional.
+    /// returns a `Forbidden` SetError for every op. The wrapped
+    /// `MemoryBackend` is otherwise functional.
     pub fn with_emoji_set_denied() -> Self {
         Self {
             inner: MemoryBackend::new(),
@@ -434,9 +435,12 @@ impl ChatBackend for TrackingBackend {
         account_id: &Id,
         target_space_id: Option<&Id>,
         op: EmojiSetOp,
-    ) -> Result<bool, Self::Error> {
+    ) -> Result<Result<(), SetError>, Self::Error> {
         if self.emoji_set_deny {
-            Ok(false)
+            Ok(Err(SetError::new(SetErrorType::Forbidden)
+                .with_description(
+                    "TrackingBackend deny_set_custom_emoji: emoji authorization denied for test.",
+                )))
         } else {
             self.inner
                 .may_set_custom_emoji(caller, account_id, target_space_id, op)
@@ -702,7 +706,7 @@ impl ChatBackend for IdentityBackend {
         account_id: &Id,
         target_space_id: Option<&Id>,
         op: EmojiSetOp,
-    ) -> Result<bool, Self::Error> {
+    ) -> Result<Result<(), SetError>, Self::Error> {
         self.inner
             .may_set_custom_emoji(&(), account_id, target_space_id, op)
             .await
