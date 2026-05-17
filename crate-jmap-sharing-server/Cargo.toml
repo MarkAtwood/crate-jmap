@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Sharing method handlers — Principal and ShareNotification (RFC 9670)"
+description = "JMAP Sharing method handlers (RFC 9670 Principal/ShareNotification) — backend-agnostic, plugs into jmap-server Dispatcher"
 keywords = ["jmap", "rfc9670", "server", "sharing"]
 categories = ["network-programming", "web-programming::http-server"]
 
