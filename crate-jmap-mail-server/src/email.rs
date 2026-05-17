@@ -380,6 +380,34 @@ fn apply_header_form(raw_value: &str, form: &HeaderForm) -> Value {
 /// folding it knows how to recognise. A standalone `\r` is left alone:
 /// real wire bytes never contain it, and treating it as a fold separator
 /// could corrupt the rare CR-in-display-name case.
+///
+/// # Defense notes (bd:JMAP-q2wa.12)
+///
+/// A future contributor might "simplify" this to a single
+/// `raw_value.replace('\n', "\r\n")` call on the assumption that the
+/// stored Raw form is guaranteed pure-LF per RFC 8621 §4.1.3. Do not
+/// collapse:
+///
+///   1. The defensive collapse handles backends that store mixed-line-
+///      ending Raw values — a corrupt or mid-migration store could have
+///      either form, and a one-pass `\n → \r\n` over a `\r\n`-containing
+///      input produces `\r\r\n` which most parsers reject.
+///   2. Idempotence is testable: round-tripping any input through
+///      `restore_crlf` produces consistent output. The one-pass
+///      alternative is not idempotent under any input that already
+///      contains CRLF.
+///   3. mail-parser's tolerance for non-canonical line endings is
+///      documented, but the bidirectional bug is on the side of THIS
+///      function, not the parser — we can't push the brittleness
+///      downstream.
+///   4. The standalone `\r` case is explicitly handled by leaving it
+///      alone: real wire bytes never contain a bare CR, and treating
+///      one as a fold separator could corrupt the rare
+///      CR-in-display-name case.
+///
+/// This logic is one of the few that touch raw byte sequences (vs
+/// strings) and so deserves a defended status — wire-byte edge cases
+/// are exactly where future "simplifications" tend to regress.
 fn restore_crlf(raw_value: &str) -> Vec<u8> {
     // Two-pass replace to avoid expanding existing "\r\n" to "\r\r\n".
     // Step 1: collapse any stray "\r\n" already in the value back to "\n".
@@ -2543,4 +2571,78 @@ pub async fn handle_email_copy<B: MailBackend>(
     }
 
     Ok((resp, extra))
+}
+
+#[cfg(test)]
+mod restore_crlf_tests {
+    //! Tests pinning the [`restore_crlf`] defense-note claims (bd:JMAP-q2wa.12):
+    //! pure-LF input expands to CRLF; CRLF input passes through unchanged;
+    //! mixed input normalises to pure-CRLF; bare CR is left alone; and the
+    //! function is idempotent under repeated application.
+
+    use super::restore_crlf;
+
+    #[test]
+    fn pure_lf_input_expands_to_crlf() {
+        // Independent oracle: hand-written byte sequence. RFC 5322 §2.1
+        // requires CRLF line endings on the wire.
+        let input = "Subject: hello\nFrom: a@b\n\nbody\n";
+        let expected: &[u8] = b"Subject: hello\r\nFrom: a@b\r\n\r\nbody\r\n";
+        assert_eq!(restore_crlf(input), expected);
+    }
+
+    #[test]
+    fn crlf_input_passes_through_unchanged() {
+        // Independent oracle: a backend that stored a Raw value with CRLF
+        // line endings (e.g. mid-migration, non-conforming impl) must NOT
+        // be doubled into "\r\r\n". This is the core defense claim.
+        let input = "Subject: hello\r\nFrom: a@b\r\n\r\nbody\r\n";
+        let expected: &[u8] = b"Subject: hello\r\nFrom: a@b\r\n\r\nbody\r\n";
+        assert_eq!(restore_crlf(input), expected);
+    }
+
+    #[test]
+    fn mixed_line_endings_normalise_to_crlf() {
+        // Independent oracle: hand-written. A backend that stored a
+        // mixed-line-ending Raw value (one line LF, one line CRLF)
+        // must normalise the whole output to CRLF. The two-pass replace
+        // is what makes this safe — a one-pass `\n -> \r\n` would
+        // produce "\r\r\n" on the already-CRLF line.
+        let input = "Header-A: lf\nHeader-B: crlf\r\nbody\n";
+        let expected: &[u8] = b"Header-A: lf\r\nHeader-B: crlf\r\nbody\r\n";
+        assert_eq!(restore_crlf(input), expected);
+    }
+
+    #[test]
+    fn bare_cr_is_preserved_for_display_name_edge_case() {
+        // Independent oracle: the docstring claims bare CR is left alone
+        // because treating it as a fold separator could corrupt rare
+        // CR-in-display-name cases. Pin that behaviour: a standalone CR
+        // not followed by LF must survive intact.
+        let input = "Subject: hello\rweird\n";
+        let expected: &[u8] = b"Subject: hello\rweird\r\n";
+        assert_eq!(restore_crlf(input), expected);
+    }
+
+    #[test]
+    fn idempotent_under_repeated_application() {
+        // Independent oracle: the docstring claims idempotence. A
+        // function f is idempotent on input x iff f(f(x)) == f(x).
+        // Verify across pure-LF, pure-CRLF, and mixed inputs.
+        for input in [
+            "Subject: hello\nFrom: a@b\n\nbody\n",
+            "Subject: hello\r\nFrom: a@b\r\n\r\nbody\r\n",
+            "Header-A: lf\nHeader-B: crlf\r\nbody\n",
+            "Subject: hello\rweird\n",
+        ] {
+            let once = restore_crlf(input);
+            let once_str = std::str::from_utf8(&once)
+                .expect("restore_crlf output must be valid UTF-8 when input was");
+            let twice = restore_crlf(once_str);
+            assert_eq!(
+                once, twice,
+                "restore_crlf must be idempotent; input: {input:?}"
+            );
+        }
+    }
 }
