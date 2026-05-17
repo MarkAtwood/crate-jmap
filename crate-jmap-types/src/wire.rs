@@ -263,4 +263,63 @@ mod tests {
         assert!(obj.contains_key("using"));
         assert!(obj.contains_key("methodCalls"));
     }
+
+    /// Pins the workspace extras-preservation caller-contract for the
+    /// foundation envelope type [`JmapRequest`].
+    ///
+    /// Per workspace AGENTS.md "Caller contract — wire-key collisions"
+    /// (lines 292-312), callers MUST NOT insert keys into `extra` whose
+    /// names match a typed field on the same struct. The contract is
+    /// enforced at the doc/convention layer, not via a wrapper type.
+    /// This test locks in the current `#[serde(flatten)]` behavior so a
+    /// future serde change cannot silently alter the contract:
+    ///
+    /// 1. Serialize succeeds and emits BOTH the typed field's value and
+    ///    the colliding extras entry verbatim, producing JSON with two
+    ///    entries for the same key. RFC 8259 §4 calls this "unpredictable",
+    ///    and downstream parsers vary in which value wins.
+    /// 2. The crate's own `Deserialize` impl rejects the duplicate-key
+    ///    wire form with a "duplicate field" error, so a serialize +
+    ///    deserialize round-trip surfaces the contract violation rather
+    ///    than silently propagating it.
+    ///
+    /// Companion regression marker in the extension-types canonical:
+    /// `crate-jmap-mail-types/src/email.rs`
+    /// `extra_collision_with_typed_field_round_trip_fails`.
+    /// Filed under bd:JMAP-6xs8.4.
+    ///
+    /// Independent oracle: the expected duplicate-key count (two
+    /// `"methodCalls":` substring occurrences) is built by string
+    /// counting against the serialized bytes, not by the code under test.
+    #[test]
+    fn request_extra_collision_with_typed_field_round_trip_fails() {
+        let mut req = JmapRequest::new(
+            vec!["urn:ietf:params:jmap:core".into()],
+            vec![("real-method".into(), json!({}), "c-real".into())],
+            None,
+        );
+        // Caller-contract violation: inserting a key whose name matches
+        // a typed field on the same struct.
+        req.extra
+            .insert("methodCalls".into(), json!([["acmeFake", {}, "c-fake"]]));
+
+        // (1) Serialize succeeds and emits both keys.
+        let serialised = serde_json::to_string(&req).expect("serialize must succeed");
+        let occurrences = serialised.matches("\"methodCalls\":").count();
+        assert_eq!(
+            occurrences, 2,
+            "wire output must contain two duplicate methodCalls keys; \
+             got {serialised}"
+        );
+
+        // (2) Deserialize on the same bytes must reject with duplicate
+        // field. RFC 8259 §4 calls duplicate keys "unpredictable" and
+        // the workspace's strict-deserialize stance rejects them.
+        let err = serde_json::from_str::<JmapRequest>(&serialised)
+            .expect_err("deserialize must reject duplicate-key wire form");
+        assert!(
+            err.to_string().contains("duplicate field"),
+            "error must mention duplicate field; got: {err}"
+        );
+    }
 }
