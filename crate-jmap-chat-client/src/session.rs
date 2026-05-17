@@ -76,14 +76,14 @@ pub struct ChatCapability {
     /// deserialize/serialize round-trip per workspace extras-preservation
     /// policy (see workspace AGENTS.md).
     ///
-    /// Per draft-atwood-jmap-chat-00 §3 (revised 2026-05-11, spec commit
-    /// `80d5e11`), the five aggregate-count caps `maxGroupMembers`,
+    /// The five aggregate-count caps `maxGroupMembers`,
     /// `maxSpaceMembers`, `maxRolesPerSpace`, `maxChannelsPerSpace`, and
-    /// `maxCategoriesPerSpace` are no longer advertised on this
-    /// capability — they are implementation-defined and enforced via
-    /// standard `overQuota` SetError (RFC 8620 §5.3) at `Chat/set` and
-    /// `Space/set` time. Servers that still emit them will round-trip
-    /// the values harmlessly through `extra`.
+    /// `maxCategoriesPerSpace` are not advertised on this capability
+    /// in the current draft-atwood-jmap-chat-00 §3 — they are
+    /// implementation-defined and enforced via standard `overQuota`
+    /// SetError (RFC 8620 §5.3) at `Chat/set` and `Space/set` time.
+    /// Servers that still emit them will round-trip the values
+    /// harmlessly through `extra`.
     #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
