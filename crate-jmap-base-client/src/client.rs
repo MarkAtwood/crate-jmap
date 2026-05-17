@@ -40,6 +40,19 @@ pub struct ClientConfig {
     /// Does NOT apply to SSE or WebSocket streams (which are indefinite by nature).
     /// Must be > 0. Use `Duration::from_secs(30)` for a 30-second timeout.
     /// Default: 30 seconds.
+    ///
+    /// `Duration::ZERO` is forbidden because `reqwest::RequestBuilder::timeout`
+    /// treats `Duration::ZERO` as "no per-request timeout" (only the
+    /// client-level `connect_timeout` applies), not "instant fail". A future
+    /// maintainer who thinks "zero means disable timeout, why not allow it?"
+    /// is reading reqwest's semantics correctly but missing that **this
+    /// crate intentionally forbids the no-timeout configuration**: a
+    /// caller-visible 30-second-by-default timeout protects against
+    /// indefinite hangs on stalled servers and against a slowloris-style
+    /// resource leak in JMAP clients that hold one outstanding request per
+    /// account. `validate()` enforces the positive-timeout invariant
+    /// (bd:JMAP-6r7c.29). Do not relax this without re-deriving the
+    /// no-timeout DoS argument.
     pub request_timeout: std::time::Duration,
     /// Maximum response body for fetch_session. Default: 1 MiB.
     pub max_session_body: u64,
@@ -127,8 +140,12 @@ impl ClientConfig {
             ));
         }
         if self.request_timeout == std::time::Duration::ZERO {
+            // Duration::ZERO would let reqwest run requests without a
+            // per-request timeout (reqwest treats ZERO as "no timeout").
+            // Reject explicitly — see ClientConfig::request_timeout
+            // rustdoc for the DoS-resistance rationale (bd:JMAP-6r7c.29).
             return Err(ClientError::InvalidArgument(
-                "ClientConfig.request_timeout must be > 0; use Duration::from_secs(30) or similar"
+                "ClientConfig.request_timeout must be > 0; Duration::ZERO would disable the per-request timeout in reqwest, not 'fail immediately'. Use Duration::from_secs(30) or similar."
                     .into(),
             ));
         }
