@@ -140,11 +140,15 @@ impl CustomCaTransport {
         // responsibility (it happens at build_client time, where
         // reqwest::Certificate::from_der + ClientBuilder do the
         // actual rustls/native-tls parse).
-        let cert_bytes = parse_first_pem_cert(pem_bytes)
-            .ok_or_else(|| ClientError::InvalidArgument(
-                "CustomCaTransport::from_pem_bytes: no PEM-framed certificate found in input".into()
-            ))?;
-        Ok(Self { der_cert: cert_bytes })
+        let cert_bytes = parse_first_pem_cert(pem_bytes).ok_or_else(|| {
+            ClientError::InvalidArgument(
+                "CustomCaTransport::from_pem_bytes: no PEM-framed certificate found in input"
+                    .into(),
+            )
+        })?;
+        Ok(Self {
+            der_cert: cert_bytes,
+        })
     }
 }
 
@@ -778,8 +782,7 @@ mod tests {
 
     #[test]
     fn from_pem_bytes_rejects_empty_input() {
-        let err = CustomCaTransport::from_pem_bytes(b"")
-            .expect_err("empty input must be rejected");
+        let err = CustomCaTransport::from_pem_bytes(b"").expect_err("empty input must be rejected");
         assert!(
             matches!(err, ClientError::InvalidArgument(_)),
             "empty input must surface as InvalidArgument; got {err:?}"
@@ -799,9 +802,10 @@ mod tests {
     #[test]
     fn from_pem_bytes_rejects_pem_with_invalid_base64() {
         // PEM framing with junk inside — should fail base64 decode.
-        let bad = b"-----BEGIN CERTIFICATE-----\nNOT VALID BASE64 @#$%\n-----END CERTIFICATE-----\n";
-        let err = CustomCaTransport::from_pem_bytes(bad)
-            .expect_err("invalid base64 must be rejected");
+        let bad =
+            b"-----BEGIN CERTIFICATE-----\nNOT VALID BASE64 @#$%\n-----END CERTIFICATE-----\n";
+        let err =
+            CustomCaTransport::from_pem_bytes(bad).expect_err("invalid base64 must be rejected");
         assert!(
             matches!(err, ClientError::InvalidArgument(_)),
             "invalid-base64 PEM must surface as InvalidArgument; got {err:?}"
@@ -820,9 +824,7 @@ mod tests {
         // contract.
         let garbage_der = [0u8; 16];
         let body = base64::engine::general_purpose::STANDARD.encode(garbage_der);
-        let pem = format!(
-            "-----BEGIN CERTIFICATE-----\n{body}\n-----END CERTIFICATE-----\n"
-        );
+        let pem = format!("-----BEGIN CERTIFICATE-----\n{body}\n-----END CERTIFICATE-----\n");
         let transport = CustomCaTransport::from_pem_bytes(pem.as_bytes())
             .expect("PEM framing OK + base64 OK = constructor accepts");
         assert_eq!(

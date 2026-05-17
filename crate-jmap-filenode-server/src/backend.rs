@@ -366,8 +366,7 @@ pub trait FileNodeBackend: JmapBackend {
         account_id: &jmap_types::Id,
         root_ids: &[jmap_types::Id],
         max_depth: u64,
-    ) -> impl std::future::Future<Output = Result<Vec<jmap_types::Id>, Self::Error>> + Send
-    {
+    ) -> impl std::future::Future<Output = Result<Vec<jmap_types::Id>, Self::Error>> + Send {
         // Default: loop using query_objects with parentId filter per level.
         // This is correct but O(max_depth) in backend calls.
         let account_id = account_id.clone();
