@@ -36,7 +36,12 @@ pub use methods::{
 /// [`JmapCalendarsExt::with_calendars_session`].  The `SessionClient` binds the
 /// HTTP client to a fetched JMAP session, resolving the API URL and primary
 /// account id on every call.
-pub trait JmapCalendarsExt {
+/// This trait is **sealed**: implementations outside this crate are not
+/// permitted. The crate adds an `impl` only for
+/// [`jmap_base_client::JmapClient`]. Sealing prevents downstream
+/// divergence (e.g. `impl JmapCalendarsExt for MySimulator`) and keeps
+/// adding methods to the trait a non-breaking change.
+pub trait JmapCalendarsExt: sealed::Sealed {
     /// Bind this client to the given `session`, returning a [`SessionClient`]
     /// on which all 19 JMAP Calendars methods are available.
     ///
@@ -72,4 +77,10 @@ impl JmapCalendarsExt for jmap_base_client::JmapClient {
             session,
         }
     }
+}
+
+mod sealed {
+    /// Sealing-trait for [`super::JmapCalendarsExt`] — see the trait's rustdoc.
+    pub trait Sealed {}
+    impl Sealed for ::jmap_base_client::JmapClient {}
 }

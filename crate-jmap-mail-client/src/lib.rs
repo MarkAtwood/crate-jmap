@@ -35,7 +35,13 @@ pub use methods::{
 ///
 /// All JMAP Mail method calls are made through the [`SessionClient`] returned
 /// by [`with_mail_session`](JmapMailExt::with_mail_session).
-pub trait JmapMailExt {
+///
+/// This trait is **sealed**: implementations outside this crate are not
+/// permitted. The crate adds an `impl` only for
+/// [`jmap_base_client::JmapClient`]. Sealing prevents downstream
+/// divergence (e.g. `impl JmapMailExt for MySimulator`) and keeps
+/// adding methods to the trait a non-breaking change.
+pub trait JmapMailExt: sealed::Sealed {
     /// Create a [`SessionClient`] bound to this client and session.
     ///
     /// All JMAP Mail method calls are made through the returned [`SessionClient`].
@@ -83,4 +89,10 @@ impl JmapMailExt for jmap_base_client::JmapClient {
             session,
         }
     }
+}
+
+mod sealed {
+    /// Sealing-trait for [`super::JmapMailExt`] — see the trait's rustdoc.
+    pub trait Sealed {}
+    impl Sealed for ::jmap_base_client::JmapClient {}
 }
