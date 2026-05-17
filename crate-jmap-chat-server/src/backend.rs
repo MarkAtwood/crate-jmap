@@ -56,6 +56,18 @@ pub use jmap_server::{
 /// permission-diagnostic annotation). External consumers MUST construct
 /// instances via [`OpResult::ok`] or [`OpResult::err`] rather than
 /// field-init syntax.
+///
+/// # Field-addition policy
+///
+/// Future fields added to `OpResult` are an **additive non-breaking
+/// change**: the new field MUST have a `Default` value (typical for
+/// `Option` / `Vec` / `HashMap`) and the new field is exposed via a
+/// `with_*`-style builder setter rather than being appended as a third
+/// positional argument to [`OpResult::ok`] or [`OpResult::err`]. The
+/// `ok(op_index, id)` and `err(op_index, error)` constructors therefore
+/// stay stable across the crate's pre-1.0 lifetime, matching the
+/// [`ChatLimits`]-style canonical workspace pattern for
+/// `#[non_exhaustive]` types with builder setters.
 #[non_exhaustive]
 #[derive(Debug)]
 pub struct OpResult {
@@ -89,6 +101,29 @@ impl OpResult {
             op_index,
             outcome: Err(error),
         }
+    }
+
+    /// Builder-style setter for [`Self::op_index`].
+    ///
+    /// Lets callers update the originating op index after construction.
+    /// Useful when re-indexing a result produced for one op into the
+    /// position of another (e.g. when filtering a batch).
+    #[must_use]
+    pub fn with_op_index(mut self, op_index: usize) -> Self {
+        self.op_index = op_index;
+        self
+    }
+
+    /// Builder-style setter for [`Self::outcome`].
+    ///
+    /// Lets callers replace the outcome after construction. Useful for
+    /// retry / fallback flows that re-classify a transient error into a
+    /// success or vice versa before surfacing the result to the
+    /// handler.
+    #[must_use]
+    pub fn with_outcome(mut self, outcome: Result<Option<jmap_types::Id>, SetError>) -> Self {
+        self.outcome = outcome;
+        self
     }
 }
 
@@ -1257,5 +1292,50 @@ mod tests {
         let err = SlowModeError::new(UTCDate::from("2026-05-16T12:34:56Z"));
         let boxed: Box<dyn std::error::Error> = Box::new(err);
         assert!(boxed.to_string().contains("slow-mode rate limit"));
+    }
+
+    use super::OpResult;
+    use jmap_server::backend::{SetError, SetErrorType};
+
+    #[test]
+    fn op_result_ok_carries_op_index_and_optional_id() {
+        let r = OpResult::ok(3, Some(jmap_types::Id::from("space-1")));
+        assert_eq!(r.op_index, 3);
+        assert_eq!(r.outcome, Ok(Some(jmap_types::Id::from("space-1"))));
+    }
+
+    #[test]
+    fn op_result_ok_with_none_id_for_update_or_destroy() {
+        let r = OpResult::ok(0, None);
+        assert_eq!(r.op_index, 0);
+        assert_eq!(r.outcome, Ok(None));
+    }
+
+    #[test]
+    fn op_result_err_carries_op_index_and_set_error() {
+        let r = OpResult::err(7, SetError::new(SetErrorType::Forbidden));
+        assert_eq!(r.op_index, 7);
+        match r.outcome {
+            Err(e) => assert_eq!(e.error_type, SetErrorType::Forbidden),
+            Ok(_) => panic!("expected Err outcome"),
+        }
+    }
+
+    #[test]
+    fn op_result_with_op_index_replaces_field() {
+        let r = OpResult::ok(0, None).with_op_index(42);
+        assert_eq!(r.op_index, 42);
+        assert_eq!(r.outcome, Ok(None));
+    }
+
+    #[test]
+    fn op_result_with_outcome_replaces_field() {
+        let r =
+            OpResult::ok(0, None).with_outcome(Err(SetError::new(SetErrorType::InvalidProperties)));
+        assert_eq!(r.op_index, 0);
+        match r.outcome {
+            Err(e) => assert_eq!(e.error_type, SetErrorType::InvalidProperties),
+            Ok(_) => panic!("expected Err outcome after with_outcome"),
+        }
     }
 }
