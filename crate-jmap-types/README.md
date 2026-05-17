@@ -93,19 +93,21 @@ let raw: String = id.into_inner();
 ### Building a request
 
 ```rust
-use jmap_types::{JmapRequest, Invocation};
+use jmap_types::JmapRequest;
 use serde_json::json;
 
-let req = JmapRequest {
-    using: vec![
+// `JmapRequest::new` is required because the struct is `#[non_exhaustive]`
+// and cannot be built with a struct literal outside this crate.
+let req = JmapRequest::new(
+    vec![
         "urn:ietf:params:jmap:core".into(),
         "urn:ietf:params:jmap:mail".into(),
     ],
-    method_calls: vec![
+    vec![
         ("Email/get".into(), json!({"accountId": "u1", "ids": ["m1"]}), "c1".into()),
     ],
-    created_ids: None,
-};
+    None,
+);
 
 let json = serde_json::to_string(&req)?;
 // {"using":[...],"methodCalls":[["Email/get",{"accountId":"u1","ids":["m1"]},"c1"]]}
