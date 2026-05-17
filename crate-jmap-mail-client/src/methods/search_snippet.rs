@@ -1,9 +1,9 @@
 //! JMAP Mail — SearchSnippet/get method implementation on SessionClient.
 //!
-//! SearchSnippet/get (RFC 8621 §5) is not a standard /get method: it takes
-//! `filter` and either `threadIds` or `emailIds` instead of a plain `ids`
-//! array, and the response shape differs (no `state` field, no `notFound`).
-//! We therefore return `serde_json::Value` and let the caller deserialize.
+//! SearchSnippet/get (RFC 8621 §5.1) is not a standard /get method: it takes
+//! `filter` and `emailIds` instead of a plain `ids` array, and the response
+//! shape differs (no `state` field, but does include `notFound`). We
+//! therefore return `serde_json::Value` and let the caller deserialize.
 //!
 //! Each method follows the standard five-step pattern:
 //!   1. Validate arguments (defence-in-depth empty-state guards).
@@ -16,22 +16,26 @@
 use jmap_types::Id;
 
 impl super::SessionClient {
-    /// Fetch SearchSnippet objects (RFC 8621 §5 — SearchSnippet/get).
+    /// Fetch SearchSnippet objects (RFC 8621 §5.1 — SearchSnippet/get).
     ///
-    /// `filter` is the same filter object used in `Email/query`. Either
-    /// `thread_ids` or `email_ids` (or both) may be provided to scope the
-    /// snippets; the server returns one [`SearchSnippet`](jmap_mail_types::SearchSnippet) per email in the
-    /// result set.
+    /// `filter` is the same filter object used in `Email/query`. `email_ids`
+    /// is the spec-defined list of Email ids to fetch snippets for; the
+    /// server returns one [`SearchSnippet`](jmap_mail_types::SearchSnippet)
+    /// per email in the result set.
+    ///
+    /// Callers wishing to fetch snippets for all emails in a set of threads
+    /// must resolve the thread membership first via `Thread/get`, then pass
+    /// the resulting email ids here — RFC 8621 §5.1 does not define a
+    /// `threadIds` argument on this method.
     ///
     /// Returns the raw response value because the SearchSnippet/get response
-    /// shape differs from the standard /get shape (no `state`, no `notFound`).
+    /// shape differs from the standard /get shape (no `state`).
     /// Callers should deserialize into `Vec<jmap_mail_types::SearchSnippet>` via
     /// `response["list"].as_array()`.
     pub async fn search_snippet_get(
         &self,
         account_id: Option<&Id>,
         filter: serde_json::Value,
-        thread_ids: Option<&[Id]>,
         email_ids: Option<&[Id]>,
     ) -> Result<serde_json::Value, jmap_base_client::ClientError> {
         let (api_url, session_account_id) = self.session_parts()?;
@@ -41,10 +45,6 @@ impl super::SessionClient {
             "accountId": effective_account_id,
             "filter": filter,
         });
-        if let Some(tids) = thread_ids {
-            args["threadIds"] =
-                serde_json::to_value(tids).expect("Id slice Serialize is infallible");
-        }
         if let Some(eids) = email_ids {
             args["emailIds"] =
                 serde_json::to_value(eids).expect("Id slice Serialize is infallible");
@@ -72,20 +72,21 @@ mod tests {
     //   - search_snippet_get_with_thread_ids_request_shape
     // Each hand-built `args = json!({...})` and fed it to `build_request`,
     // never invoking the `search_snippet_get` production builder. Real
-    // production-path coverage for this method is tracked as a wiremock-smoke
-    // gap under JMAP-uuoi (no `tests/search_snippet_*.rs` smoke file exists
-    // yet). Specific-flag passthrough coverage that may be lost
-    // (`emailIds` vs `threadIds` scoping) is tracked under JMAP-uuoi for
-    // follow-up wiremock smoke tests.
+    // production-path coverage for this method is provided by the wiremock
+    // tests in `tests/search_snippet_smoke_tests.rs`.
+    //
+    // The non-spec `thread_ids` parameter that those deleted tests covered
+    // was itself removed in JMAP-tjvm.6: RFC 8621 §5.1 defines only
+    // `emailIds` on SearchSnippet/get.
     //
     // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
     // own focused tests in `methods/mod.rs`.
 
     /// Oracle: SearchSnippet response JSON deserializes into SearchSnippet list.
-    /// RFC 8621 §5 example response shape.
+    /// RFC 8621 §5.1 example response shape.
     #[test]
     fn search_snippet_response_deserializes() {
-        // SearchSnippet/get response uses "accountId" and "list" per RFC 8621 §5.
+        // SearchSnippet/get response uses "accountId" and "list" per RFC 8621 §5.1.
         let list_json = json!([
             {
                 "emailId": "e1",
