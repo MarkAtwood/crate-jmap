@@ -835,6 +835,95 @@ mod tests {
         assert_eq!(back["acmeCorpReplayToken"], "rt-99");
     }
 
+    /// Pins the `#[serde(flatten)] extra` interaction with the typed
+    /// `updated_properties: Option<Vec<String>>` field on `ChangesResponse`:
+    ///
+    /// - Wire `"updatedProperties": null` MUST be consumed by the typed
+    ///   field (deserialized as `None`) and MUST NOT leak into `extra`.
+    /// - Vendor fields at the top level — including ones whose value is
+    ///   a nested object — MUST land in `extra` and survive round-trip.
+    ///
+    /// Without this regression test, a future serde or `#[serde(flatten)]`
+    /// behavior change could silently move the null-valued typed key into
+    /// `extra` (or fail to consume it from `extra` on the serialize side),
+    /// breaking the wire-format contract for any caller relying on either
+    /// the absence of `updatedProperties` from `extra` after parse or on
+    /// vendor extras being preserved alongside an explicit null. Filed
+    /// under bd:JMAP-6xs8.8.
+    #[test]
+    fn changes_response_null_updated_properties_and_extras_coexist() {
+        let raw = json!({
+            "accountId": "A1",
+            "oldState": "s0",
+            "newState": "s1",
+            "hasMoreChanges": false,
+            "created": [],
+            "updated": ["B"],
+            "destroyed": [],
+            "updatedProperties": null,
+            "acmeCorpReplayToken": "rt-99",
+            "acmeCorpMetadata": { "requestId": "r1", "trace": "x" }
+        });
+
+        let resp: ChangesResponse =
+            serde_json::from_value(raw.clone()).expect("must deserialize");
+
+        // The typed field consumed the explicit null.
+        assert!(
+            resp.updated_properties.is_none(),
+            "explicit null updatedProperties must deserialize as None"
+        );
+
+        // The typed key MUST NOT have leaked into `extra` — flatten is
+        // supposed to visit only the keys the named fields did not
+        // consume, regardless of whether the consumed value was null.
+        assert!(
+            !resp.extra.contains_key("updatedProperties"),
+            "updatedProperties must not appear in extra after the typed \
+             field consumed it (was: {:?})",
+            resp.extra
+        );
+
+        // Top-level vendor fields land in `extra`, including one whose
+        // value is itself a nested object.
+        assert_eq!(
+            resp.extra
+                .get("acmeCorpReplayToken")
+                .and_then(|v| v.as_str()),
+            Some("rt-99")
+        );
+        let nested = resp
+            .extra
+            .get("acmeCorpMetadata")
+            .and_then(|v| v.as_object())
+            .expect("acmeCorpMetadata must be a nested object in extra");
+        assert_eq!(nested.get("requestId").and_then(|v| v.as_str()), Some("r1"));
+        assert_eq!(nested.get("trace").and_then(|v| v.as_str()), Some("x"));
+
+        // Round-trip: serialize and reparse, all three properties
+        // (None updatedProperties omitted, two vendor extras present)
+        // must survive.
+        let back = serde_json::to_value(&resp).expect("must serialize");
+
+        // None typed field is omitted via skip_serializing_if, so the
+        // serialized form should NOT contain updatedProperties at all.
+        assert!(
+            back.get("updatedProperties").is_none(),
+            "None updated_properties must not serialize an explicit null \
+             (skip_serializing_if = Option::is_none): {back}"
+        );
+        assert_eq!(back["acmeCorpReplayToken"], "rt-99");
+        assert_eq!(back["acmeCorpMetadata"]["requestId"], "r1");
+        assert_eq!(back["acmeCorpMetadata"]["trace"], "x");
+
+        // Reparse the serialized form and confirm equivalence on the
+        // typed surface + extras.
+        let resp2: ChangesResponse =
+            serde_json::from_value(back).expect("reparse must succeed");
+        assert!(resp2.updated_properties.is_none());
+        assert_eq!(resp2.extra, resp.extra);
+    }
+
     /// `SetResponse.extra` captures vendor fields and preserves them.
     #[test]
     fn set_response_preserves_vendor_extras() {
