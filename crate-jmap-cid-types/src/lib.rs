@@ -37,9 +37,12 @@
 //! - [`Sha256`] — the 64-character lowercase-hex `sha256-value`
 //!   from draft §2, with parse-time ABNF validation on construction
 //!   and on deserialize.
-//! - [`Sha256DigestError`] / [`Sha256DigestErrorKind`] — parse error
-//!   reported by [`Sha256::from_hex`] and the [`Sha256`]
-//!   `Deserialize` impl.
+//! - [`Sha256DigestError`] — parse error reported by
+//!   [`Sha256::from_hex`] and the [`Sha256`] `Deserialize` impl.
+//!   Single-tier enum (no wrapper struct); `#[non_exhaustive]` at
+//!   the type level plus per-variant `#[non_exhaustive]` keeps both
+//!   variant additions and per-variant field additions
+//!   semver-additive.
 //! - [`JMAP_CID_URI`] — the `urn:ietf:params:jmap:cid` capability
 //!   URI constant (draft §3).
 //! - [`CidCapability`] — the value object of the
@@ -68,4 +71,4 @@ pub mod capability;
 pub mod digest;
 
 pub use capability::{CidCapability, JMAP_CID_URI};
-pub use digest::{Sha256, Sha256DigestError, Sha256DigestErrorKind};
+pub use digest::{Sha256, Sha256DigestError};
