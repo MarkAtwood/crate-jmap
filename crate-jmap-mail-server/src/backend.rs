@@ -137,10 +137,124 @@ pub trait MailBackend: JmapBackend {
     // Mail-specific methods
     // -----------------------------------------------------------------------
 
-    /// Import a raw message blob as an Email (RFC 8621 §5.7).
+    /// Import a raw message blob as an Email (RFC 8621 §4.8 — `Email/import`).
     ///
     /// The blob must already be stored (uploaded via JMAP blob upload). Returns
     /// the assigned id and the created Email object.
+    ///
+    /// # Contract
+    ///
+    /// The handler in
+    /// [`handle_email_import`](crate::handle_email_import) parses and
+    /// validates the request, then calls this method once per
+    /// successfully-validated `EmailImport` entry. The contract is
+    /// designed so production backends (PostgreSQL, S3, Maildir,
+    /// IMAP-bridge, etc.) have a single canonical answer for each
+    /// question below.
+    ///
+    /// ## Argument preconditions
+    ///
+    /// The handler has already validated all of the following before
+    /// calling. Backends MAY assume these preconditions hold and SHOULD
+    /// NOT re-validate them (defense-in-depth checks that return
+    /// `BackendSetError::Other` on violation are acceptable but
+    /// redundant).
+    ///
+    /// - **`mailbox_ids` is non-empty.** RFC 8621 §4.8 requires at
+    ///   least one mailbox. The handler rejects an empty `mailboxIds`
+    ///   wire value with `invalidProperties` before reaching this
+    ///   method. The slice will never be empty at this entry point.
+    /// - **`mailbox_ids` syntax is valid.** Each id is a syntactically
+    ///   well-formed `Id` per RFC 8620 §1.2. The handler does NOT
+    ///   verify that each id refers to an existing Mailbox in
+    ///   `account_id` — the backend MUST do that and reject with
+    ///   `BackendSetError::SetError(SetError::new(SetErrorType::InvalidProperties))`
+    ///   (with `properties: ["mailboxIds"]`) if any referenced
+    ///   Mailbox is missing.
+    /// - **`keywords` syntax is valid.** Each `Keyword` has been
+    ///   parsed through `jmap_mail_types::Keyword` (RFC 8621 §4.1.1)
+    ///   and normalised to lowercase. The slice MAY be empty —
+    ///   empty `keywords` means the Email has no keywords set
+    ///   (RFC 8621 §4.8 default `{}`), NOT that the backend should
+    ///   apply a default like `$received`.
+    ///
+    /// ## `received_at: None` semantics
+    ///
+    /// RFC 8621 §4.8 specifies the default as "time of most recent
+    /// Received header, or time of import on server if none". When
+    /// the caller did not supply a `receivedAt` value, the handler
+    /// passes `None` through and leaves the policy decision to the
+    /// backend. A spec-compliant production backend SHOULD:
+    ///
+    /// 1. Parse the most recent `Received:` header from the blob
+    ///    and use its timestamp, if present and parseable.
+    /// 2. Otherwise, use the current server clock.
+    ///
+    /// The reference `MemoryBackend` (gated behind `feature = "memory"`)
+    /// uses the epoch (`1970-01-01T00:00:00Z`) as a deterministic
+    /// stand-in for tests; this is **not** spec-compliant production
+    /// behaviour. Production backends MUST NOT copy this fallback.
+    ///
+    /// ## Thread assignment
+    ///
+    /// The handler does NOT call
+    /// [`find_thread_by_message_ids`](MailBackend::find_thread_by_message_ids)
+    /// before this method — there is no `thread_id` argument and no
+    /// pre-computed thread hint. The backend is responsible for
+    /// parsing the blob's `Message-ID` / `In-Reply-To` /
+    /// `References` headers and joining or creating a thread.
+    /// Implementations SHOULD share the same thread-assignment logic
+    /// they use from `create_object::<Email>` so that the two entry
+    /// points produce identical thread graphs for the same input.
+    ///
+    /// ## Sentinel-replacement contract
+    ///
+    /// Unlike [`create_object`](MailBackend::create_object), this
+    /// method does NOT receive a partially-constructed `Email` with
+    /// placeholder values. The backend builds the full `Email` from
+    /// the raw blob and the four argument fields, and returns
+    /// `(assigned_id, email)` directly. The returned `Email` MUST
+    /// have correct `id`, `blob_id`, `thread_id`, and `size` —
+    /// these are the four server-set fields RFC 8621 §4.8 requires
+    /// in the `created` response map. The handler reads them out
+    /// of the returned struct and forwards them to the client.
+    ///
+    /// ## Error mapping
+    ///
+    /// The handler maps the returned `Result` to the wire as follows:
+    ///
+    /// | Return | Wire response |
+    /// |---|---|
+    /// | `Ok((id, email))` | `created[creationId] = { id, blobId, threadId, size }` |
+    /// | `Err(BackendSetError::SetError(e))` | `notCreated[creationId] = <SetError JSON>` |
+    /// | `Err(BackendSetError::Other(e))` | `notCreated[creationId] = { type: "serverFail", description: <e.to_string()> }` |
+    ///
+    /// Spec-defined `SetError` variants the backend SHOULD use:
+    ///
+    /// - **`BlobNotFound`** (`SetErrorType::BlobNotFound`) — the
+    ///   `blob_id` is not present in the account's blob store.
+    /// - **`AlreadyExists`** (`SetErrorType::AlreadyExists` with
+    ///   `existing_id`) — RFC 8621 §4.8 permits the server to
+    ///   forbid duplicate `Message-ID` values within an account.
+    ///   Backends that enforce this MUST include the existing
+    ///   Email id via
+    ///   `SetError::new(SetErrorType::AlreadyExists).with_existing_id(...)`.
+    /// - **`InvalidProperties`** (`SetErrorType::InvalidProperties`)
+    ///   — a referenced Mailbox id does not exist, or the blob is
+    ///   in the store but referenced fields are otherwise invalid.
+    /// - **`OverQuota`** (`SetErrorType::OverQuota`) — the import
+    ///   would push the account over its quota.
+    /// - **`InvalidEmail`** (`SetErrorType::InvalidEmail`) — the
+    ///   blob is not a valid RFC 5322 message and the backend
+    ///   declined to repair it.
+    ///
+    /// `BackendSetError::Other(e)` is reserved for unexpected
+    /// internal failures (disk I/O, deserialisation, etc.) that
+    /// should reach the client as `serverFail` so the client
+    /// knows to retry. Returning `Other` for a deterministic
+    /// failure that has a spec-defined `SetError` variant
+    /// surfaces as a non-retryable error and misleads the
+    /// client — prefer the spec variant whenever it applies.
     fn import_email(
         &self,
         caller: &Self::CallerCtx,
