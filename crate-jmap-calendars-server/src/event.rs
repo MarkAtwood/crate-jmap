@@ -1092,25 +1092,26 @@ pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    // blobIds is required; treat missing/null as empty to produce a valid response.
-    let blob_ids: Vec<Id> = args_map
-        .get("blobIds")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(Id::from))
-                .collect()
-        })
-        .unwrap_or_default();
+    // blobIds is spec-typed `Id[]` (draft-ietf-jmap-calendars-26 §5.13);
+    // treat missing/null as empty to produce a valid response, but reject
+    // any non-string entry with invalidArguments. Mirrors the canonical
+    // mail-server pattern at crate-jmap-mail-server/src/email.rs:2193
+    // (bd:JMAP-ic0j.46).
+    let blob_ids: Vec<Id> = match args_map.get("blobIds") {
+        None | Some(Value::Null) => Vec::new(),
+        Some(v) => serde_json::from_value(v.clone())
+            .map_err(|_| JmapError::invalid_arguments("blobIds must be an Id array"))?,
+    };
 
-    let properties: Option<Vec<String>> = args_map
-        .get("properties")
-        .and_then(|v| v.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_owned()))
-                .collect()
-        });
+    // properties is spec-typed `String[]`; mirror the same validation
+    // shape as blobIds above.
+    let properties: Option<Vec<String>> = match args_map.get("properties") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v.clone())
+                .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
+        ),
+    };
 
     match backend
         .parse_calendar_event_blobs(caller, &account_id, &blob_ids, properties.as_deref())
@@ -2223,6 +2224,57 @@ mod tests {
         assert_eq!(
             err.error_type.as_str(),
             "accountNotFound",
+            "wrong error type: {err:?}"
+        );
+    }
+
+    /// Regression for bd:JMAP-ic0j.46: a non-string entry inside `blobIds`
+    /// must be rejected at the handler boundary with `invalidArguments`,
+    /// not silently dropped via `filter_map`.
+    ///
+    /// Oracle: draft-ietf-jmap-calendars-26 §5.13 types `blobIds` as `Id[]`.
+    /// RFC 8620 §3.6.1 mandates `invalidArguments` for type-incorrect args.
+    /// The canonical sibling `jmap-mail-server::handle_email_parse`
+    /// (crate-jmap-mail-server/src/email.rs:2193) rejects with
+    /// `invalidArguments`; this test locks in the cookie-cutter alignment.
+    #[tokio::test]
+    async fn parse_non_string_blob_id_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "blobIds": ["blob1", 42, "blob2"]
+        });
+        let err = handle_calendar_event_parse(&backend, &(), args)
+            .await
+            .expect_err("non-string blobId entry must fail validation");
+        assert_eq!(
+            err.error_type.as_str(),
+            "invalidArguments",
+            "wrong error type: {err:?}"
+        );
+    }
+
+    /// Regression for bd:JMAP-ic0j.46: a non-string entry inside `properties`
+    /// must be rejected at the handler boundary with `invalidArguments`,
+    /// not silently dropped via `filter_map`.
+    ///
+    /// Oracle: draft-ietf-jmap-calendars-26 §5.13 types `properties` as
+    /// `String[]`. RFC 8620 §3.6.1 mandates `invalidArguments` for
+    /// type-incorrect args.
+    #[tokio::test]
+    async fn parse_non_string_property_returns_invalid_arguments() {
+        let backend = MockBackend::new_with_account("acc1");
+        let args = json!({
+            "accountId": "acc1",
+            "blobIds": ["blob1"],
+            "properties": ["title", null, "start"]
+        });
+        let err = handle_calendar_event_parse(&backend, &(), args)
+            .await
+            .expect_err("non-string properties entry must fail validation");
+        assert_eq!(
+            err.error_type.as_str(),
+            "invalidArguments",
             "wrong error type: {err:?}"
         );
     }
