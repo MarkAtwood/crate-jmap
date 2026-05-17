@@ -1817,3 +1817,55 @@ fn participant_identity_preserves_vendor_extras() {
     let back = serde_json::to_value(&pi).unwrap();
     assert_eq!(back["acmeCorpDeliveryHint"], "external");
 }
+
+// ── @type-default regression tests (bd:JMAP-ky8g.10) ──────────────────────
+//
+// CalendarAlert declares `@type` as a bare `String` with a serde-default
+// function returning the literal `"CalendarAlert"`. Deserialize MUST
+// succeed when `@type` is absent (spec-violating producer input or
+// partial fixture), populating the field with the literal. Serialize
+// MUST always emit the field. Mirrors the same regression contract on
+// the 12 JSCalendar sub-types in `jmap-jscalendar-types` (same bead)
+// and Person/CheckItem/Checklist/Comment in `jmap-tasks-types`
+// (bd:JMAP-ky8g.1).
+//
+// Independent oracle: hand-written JSON shaped against
+// draft-ietf-jmap-calendars-26 §6.4 example text with `@type` omitted.
+
+/// `CalendarAlert` deserialize succeeds when `@type` is absent and
+/// defaults to `"CalendarAlert"`. Re-serialize emits the field with
+/// the default value.
+#[test]
+fn calendar_alert_at_type_defaults_when_absent() {
+    let raw = serde_json::json!({
+        "accountId": "acc-1",
+        "calendarEventId": "ev-42",
+        "uid": "abc-uid-123",
+        "recurrenceId": null,
+        "alertId": "alert-1"
+    });
+    let alert: CalendarAlert = serde_json::from_value(raw).unwrap();
+    assert_eq!(alert.at_type, "CalendarAlert");
+    let back = serde_json::to_value(&alert).unwrap();
+    assert_eq!(back["@type"], "CalendarAlert");
+}
+
+/// Explicit non-default `@type` values round-trip verbatim — the
+/// serde-default does NOT overwrite an explicit wire value. Locks in
+/// the contract that a vendor shipping a non-conformant string is
+/// preserved end-to-end rather than silently normalised.
+#[test]
+fn calendar_alert_at_type_explicit_value_round_trips_verbatim() {
+    let raw = serde_json::json!({
+        "@type": "AcmeCorpAlert",
+        "accountId": "acc-1",
+        "calendarEventId": "ev-42",
+        "uid": "abc-uid-123",
+        "recurrenceId": null,
+        "alertId": "alert-1"
+    });
+    let alert: CalendarAlert = serde_json::from_value(raw).unwrap();
+    assert_eq!(alert.at_type, "AcmeCorpAlert");
+    let back = serde_json::to_value(&alert).unwrap();
+    assert_eq!(back["@type"], "AcmeCorpAlert");
+}

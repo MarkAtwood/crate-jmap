@@ -116,6 +116,18 @@ pub struct CalendarEventNotification {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+// Serde-default function for the `@type` discriminator on
+// CalendarAlert. draft-ietf-jmap-calendars-26 §6.4 marks the field as
+// mandatory on the wire; we supply the literal as a default so
+// deserialize is liberal in what it accepts (spec-violating vendor
+// input missing `@type` does not fail). Mirrors the same pattern in
+// `jmap-jscalendar-types` (bd:JMAP-ky8g.10) and `jmap-tasks-types`
+// (bd:JMAP-ky8g.1).
+
+fn calendar_alert_at_type_default() -> String {
+    "CalendarAlert".to_owned()
+}
+
 /// Push-notification payload emitted when a calendar alert fires
 /// (draft-ietf-jmap-calendars-26 §6.4).
 ///
@@ -131,7 +143,12 @@ pub struct CalendarEventNotification {
 #[serde(rename_all = "camelCase")]
 pub struct CalendarAlert {
     /// Object type discriminator; always `"CalendarAlert"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"CalendarAlert"` rather
+    /// than failing the whole parent object's deserialize. Serialize
+    /// always emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "calendar_alert_at_type_default")]
     pub at_type: String,
 
     /// The account that owns the calendar event.

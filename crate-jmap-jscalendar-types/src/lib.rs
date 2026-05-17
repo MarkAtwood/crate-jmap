@@ -322,6 +322,70 @@ impl std::fmt::Display for UTCOffset {
     }
 }
 
+// ── @type serde-default functions ─────────────────────────────────────────────
+//
+// RFC 8984 marks every `@type` discriminator as `(mandatory)`, but a
+// spec-violating vendor server, partial fixture, or sub-object built via
+// `serde_json::to_value` may omit the field. Without a serde default,
+// such input fails the whole parent object's deserialize (e.g. a Task
+// carrying a CheckItem whose @type was dropped).
+//
+// Each per-type function supplies the RFC 8984-mandated literal so
+// deserialize is liberal in what it accepts while serialize still always
+// emits the field. The shape stays bare `String` per this crate's
+// documented design decision (see crate-level rustdoc item 1 and
+// AGENTS.md). Mirrors the same pattern in the sibling
+// `jmap-tasks-types` (bd:JMAP-ky8g.1) for Person / CheckItem /
+// Checklist / Comment. See bd:JMAP-ky8g.10.
+
+fn n_day_at_type_default() -> String {
+    "NDay".to_owned()
+}
+
+fn recurrence_rule_at_type_default() -> String {
+    "RecurrenceRule".to_owned()
+}
+
+fn location_at_type_default() -> String {
+    "Location".to_owned()
+}
+
+fn virtual_location_at_type_default() -> String {
+    "VirtualLocation".to_owned()
+}
+
+fn link_at_type_default() -> String {
+    "Link".to_owned()
+}
+
+fn relation_at_type_default() -> String {
+    "Relation".to_owned()
+}
+
+fn participant_at_type_default() -> String {
+    "Participant".to_owned()
+}
+
+fn offset_trigger_at_type_default() -> String {
+    "OffsetTrigger".to_owned()
+}
+
+fn absolute_trigger_at_type_default() -> String {
+    "AbsoluteTrigger".to_owned()
+}
+
+fn alert_at_type_default() -> String {
+    "Alert".to_owned()
+}
+
+fn time_zone_rule_at_type_default() -> String {
+    "TimeZoneRule".to_owned()
+}
+
+fn time_zone_at_type_default() -> String {
+    "TimeZone".to_owned()
+}
+
 // ── RecurrenceRule ────────────────────────────────────────────────────────────
 
 /// The `nthOfPeriod` field of an [`NDay`] entry (RFC 8984 §4.3.3).
@@ -330,7 +394,12 @@ impl std::fmt::Display for UTCOffset {
 #[serde(rename_all = "camelCase")]
 pub struct NDay {
     /// Object type discriminator; always `"NDay"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"NDay"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "n_day_at_type_default")]
     pub at_type: String,
 
     /// Day of the week: `"mo"`, `"tu"`, `"we"`, `"th"`, `"fr"`, `"sa"`, `"su"`.
@@ -378,7 +447,12 @@ impl TypeDiscriminator for NDay {
 #[serde(rename_all = "camelCase")]
 pub struct RecurrenceRule {
     /// Object type discriminator; always `"RecurrenceRule"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"RecurrenceRule"` rather
+    /// than failing the whole parent object's deserialize. Serialize
+    /// always emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "recurrence_rule_at_type_default")]
     pub at_type: String,
 
     /// Recurrence frequency: `"yearly"`, `"monthly"`, `"weekly"`, `"daily"`,
@@ -501,7 +575,12 @@ impl TypeDiscriminator for RecurrenceRule {
 #[serde(rename_all = "camelCase")]
 pub struct Location {
     /// Object type discriminator; always `"Location"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"Location"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "location_at_type_default")]
     pub at_type: String,
 
     /// Human-readable name for this location.
@@ -577,7 +656,12 @@ impl TypeDiscriminator for Location {
 #[serde(rename_all = "camelCase")]
 pub struct VirtualLocation {
     /// Object type discriminator; always `"VirtualLocation"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"VirtualLocation"` rather
+    /// than failing the whole parent object's deserialize. Serialize
+    /// always emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "virtual_location_at_type_default")]
     pub at_type: String,
 
     /// Human-readable name for this virtual location.
@@ -659,7 +743,12 @@ impl TypeDiscriminator for VirtualLocation {
 #[serde(rename_all = "camelCase")]
 pub struct Link {
     /// Object type discriminator; always `"Link"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"Link"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "link_at_type_default")]
     pub at_type: String,
 
     /// URI from which the linked resource may be fetched (RFC 8984
@@ -840,7 +929,12 @@ impl TypeDiscriminator for Link {
 #[serde(rename_all = "camelCase")]
 pub struct Relation {
     /// Object type discriminator; always `"Relation"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"Relation"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "relation_at_type_default")]
     pub at_type: String,
 
     /// Map of relationship type URIs → `true`.
@@ -888,7 +982,12 @@ impl TypeDiscriminator for Relation {
 #[serde(rename_all = "camelCase")]
 pub struct Participant {
     /// Object type discriminator; always `"Participant"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"Participant"` rather
+    /// than failing the whole parent object's deserialize. Serialize
+    /// always emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "participant_at_type_default")]
     pub at_type: String,
 
     /// Display name of the participant.
@@ -1149,7 +1248,12 @@ impl TypeDiscriminator for Participant {
 #[serde(rename_all = "camelCase")]
 pub struct OffsetTrigger {
     /// Object type discriminator; always `"OffsetTrigger"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"OffsetTrigger"` rather
+    /// than failing the whole parent object's deserialize. Serialize
+    /// always emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "offset_trigger_at_type_default")]
     pub at_type: String,
 
     /// Duration offset from `relative_to`.
@@ -1195,7 +1299,12 @@ impl TypeDiscriminator for OffsetTrigger {
 #[serde(rename_all = "camelCase")]
 pub struct AbsoluteTrigger {
     /// Object type discriminator; always `"AbsoluteTrigger"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"AbsoluteTrigger"` rather
+    /// than failing the whole parent object's deserialize. Serialize
+    /// always emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "absolute_trigger_at_type_default")]
     pub at_type: String,
 
     /// The absolute UTC date-time at which to trigger the alert.
@@ -1313,7 +1422,12 @@ impl<'de> Deserialize<'de> for AlertTrigger {
 #[serde(rename_all = "camelCase")]
 pub struct Alert {
     /// Object type discriminator; always `"Alert"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"Alert"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "alert_at_type_default")]
     pub at_type: String,
 
     /// When to trigger the alert.
@@ -1373,7 +1487,12 @@ impl TypeDiscriminator for Alert {
 #[serde(rename_all = "camelCase")]
 pub struct TimeZoneRule {
     /// Object type discriminator; always `"TimeZoneRule"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"TimeZoneRule"` rather
+    /// than failing the whole parent object's deserialize. Serialize
+    /// always emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "time_zone_rule_at_type_default")]
     pub at_type: String,
 
     /// DTSTART from iCalendar — the local date-time the rule first applies.
@@ -1525,7 +1644,12 @@ impl TypeDiscriminator for TimeZoneRule {
 #[serde(rename_all = "camelCase")]
 pub struct TimeZone {
     /// Object type discriminator; always `"TimeZone"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"TimeZone"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.10.
+    #[serde(rename = "@type", default = "time_zone_at_type_default")]
     pub at_type: String,
 
     /// TZID from iCalendar — the time-zone identifier.
@@ -2278,6 +2402,226 @@ mod tests {
                 v.as_map().is_empty(),
                 "PatchObject value MUST be empty per RFC 8984 §4.7.2"
             );
+        }
+    }
+
+    // ── @type-default regression tests (bd:JMAP-ky8g.10) ──────────────────
+    //
+    // Every JSCalendar sub-type declares `@type` as a bare `String` with a
+    // serde-default function returning the RFC 8984-mandated literal.
+    // Deserialize MUST succeed when `@type` is absent (spec-violating
+    // producer input or partial fixture), populating the field with the
+    // literal. Serialize MUST always emit the field.
+    //
+    // Independent oracle: hand-written JSON shaped against RFC 8984 §4.x
+    // example text with `@type` omitted, plus the produced serialize-back
+    // JSON checked against the same RFC's mandated literal.
+    //
+    // The bead's acceptance criterion is "one regression test per type
+    // asserting (a) deserialize succeeds when `@type` is absent and the
+    // field equals the literal; (b) explicit non-default values round-trip
+    // verbatim". Per-type (a) tests follow. A representative (b) test on
+    // Participant covers the contract uniformly (the serde-default mechanism
+    // is the same across all 12 types; per-type duplication would not add
+    // signal). A nested-parent regression test covers the concrete failure
+    // mode the bead identifies.
+
+    /// `NDay` deserialize succeeds when `@type` is absent and defaults to
+    /// `"NDay"`. Re-serialize emits the field with the default value.
+    #[test]
+    fn n_day_at_type_defaults_when_absent() {
+        let raw = json!({ "day": "mo" });
+        let n: NDay = serde_json::from_value(raw).unwrap();
+        assert_eq!(n.at_type, "NDay");
+        let back = serde_json::to_value(&n).unwrap();
+        assert_eq!(back["@type"], "NDay");
+    }
+
+    /// `RecurrenceRule` deserialize succeeds when `@type` is absent and
+    /// defaults to `"RecurrenceRule"`. Re-serialize emits the field.
+    #[test]
+    fn recurrence_rule_at_type_defaults_when_absent() {
+        let raw = json!({ "frequency": "weekly" });
+        let r: RecurrenceRule = serde_json::from_value(raw).unwrap();
+        assert_eq!(r.at_type, "RecurrenceRule");
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["@type"], "RecurrenceRule");
+    }
+
+    /// `Location` deserialize succeeds when `@type` is absent and defaults
+    /// to `"Location"`. Re-serialize emits the field with the default.
+    #[test]
+    fn location_at_type_defaults_when_absent() {
+        let raw = json!({ "name": "HQ" });
+        let l: Location = serde_json::from_value(raw).unwrap();
+        assert_eq!(l.at_type, "Location");
+        let back = serde_json::to_value(&l).unwrap();
+        assert_eq!(back["@type"], "Location");
+    }
+
+    /// `VirtualLocation` deserialize succeeds when `@type` is absent and
+    /// defaults to `"VirtualLocation"`. Re-serialize emits the field.
+    #[test]
+    fn virtual_location_at_type_defaults_when_absent() {
+        let raw = json!({ "uri": "https://example.com/meet/abc" });
+        let v: VirtualLocation = serde_json::from_value(raw).unwrap();
+        assert_eq!(v.at_type, "VirtualLocation");
+        let back = serde_json::to_value(&v).unwrap();
+        assert_eq!(back["@type"], "VirtualLocation");
+    }
+
+    /// `Link` deserialize succeeds when `@type` is absent and defaults to
+    /// `"Link"`. Re-serialize emits the field with the default value.
+    #[test]
+    fn link_at_type_defaults_when_absent() {
+        let raw = json!({ "href": "https://example.com/attach.pdf" });
+        let l: Link = serde_json::from_value(raw).unwrap();
+        assert_eq!(l.at_type, "Link");
+        let back = serde_json::to_value(&l).unwrap();
+        assert_eq!(back["@type"], "Link");
+    }
+
+    /// `Relation` deserialize succeeds when `@type` is absent and defaults
+    /// to `"Relation"`. Re-serialize emits the field with the default.
+    #[test]
+    fn relation_at_type_defaults_when_absent() {
+        let raw = json!({ "relation": { "parent": true } });
+        let r: Relation = serde_json::from_value(raw).unwrap();
+        assert_eq!(r.at_type, "Relation");
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["@type"], "Relation");
+    }
+
+    /// `Participant` deserialize succeeds when `@type` is absent and
+    /// defaults to `"Participant"`. Re-serialize emits the field.
+    #[test]
+    fn participant_at_type_defaults_when_absent() {
+        let raw = json!({ "name": "Alice", "roles": { "attendee": true } });
+        let p: Participant = serde_json::from_value(raw).unwrap();
+        assert_eq!(p.at_type, "Participant");
+        let back = serde_json::to_value(&p).unwrap();
+        assert_eq!(back["@type"], "Participant");
+    }
+
+    /// `OffsetTrigger` deserialize succeeds when `@type` is absent and
+    /// defaults to `"OffsetTrigger"`. Re-serialize emits the field.
+    #[test]
+    fn offset_trigger_at_type_defaults_when_absent() {
+        let raw = json!({ "offset": "-PT5M" });
+        let t: OffsetTrigger = serde_json::from_value(raw).unwrap();
+        assert_eq!(t.at_type, "OffsetTrigger");
+        let back = serde_json::to_value(&t).unwrap();
+        assert_eq!(back["@type"], "OffsetTrigger");
+    }
+
+    /// `AbsoluteTrigger` deserialize succeeds when `@type` is absent and
+    /// defaults to `"AbsoluteTrigger"`. Re-serialize emits the field.
+    #[test]
+    fn absolute_trigger_at_type_defaults_when_absent() {
+        let raw = json!({ "when": "2024-01-19T18:00:00Z" });
+        let t: AbsoluteTrigger = serde_json::from_value(raw).unwrap();
+        assert_eq!(t.at_type, "AbsoluteTrigger");
+        let back = serde_json::to_value(&t).unwrap();
+        assert_eq!(back["@type"], "AbsoluteTrigger");
+    }
+
+    /// `Alert` deserialize succeeds when `@type` is absent and defaults to
+    /// `"Alert"`. Re-serialize emits the field with the default value.
+    ///
+    /// The nested `trigger` keeps its explicit `@type` here so the
+    /// `AlertTrigger` manual deserializer dispatches; the bead's hazard
+    /// is the wrapping object's `@type` being missing, not the nested
+    /// trigger's tag (which is required by the dispatch logic).
+    #[test]
+    fn alert_at_type_defaults_when_absent() {
+        let raw = json!({
+            "trigger": { "@type": "OffsetTrigger", "offset": "-PT5M" }
+        });
+        let a: Alert = serde_json::from_value(raw).unwrap();
+        assert_eq!(a.at_type, "Alert");
+        let back = serde_json::to_value(&a).unwrap();
+        assert_eq!(back["@type"], "Alert");
+    }
+
+    /// `TimeZoneRule` deserialize succeeds when `@type` is absent and
+    /// defaults to `"TimeZoneRule"`. Re-serialize emits the field.
+    #[test]
+    fn time_zone_rule_at_type_defaults_when_absent() {
+        let raw = json!({
+            "start": "1970-01-01T00:00:00",
+            "offsetFrom": "+0000",
+            "offsetTo": "+0000"
+        });
+        let r: TimeZoneRule = serde_json::from_value(raw).unwrap();
+        assert_eq!(r.at_type, "TimeZoneRule");
+        let back = serde_json::to_value(&r).unwrap();
+        assert_eq!(back["@type"], "TimeZoneRule");
+    }
+
+    /// `TimeZone` deserialize succeeds when `@type` is absent and defaults
+    /// to `"TimeZone"`. Re-serialize emits the field with the default.
+    #[test]
+    fn time_zone_at_type_defaults_when_absent() {
+        let raw = json!({ "tzId": "Etc/UTC" });
+        let z: TimeZone = serde_json::from_value(raw).unwrap();
+        assert_eq!(z.at_type, "TimeZone");
+        let back = serde_json::to_value(&z).unwrap();
+        assert_eq!(back["@type"], "TimeZone");
+    }
+
+    /// Explicit non-default `@type` values round-trip verbatim — the
+    /// serde-default does NOT overwrite an explicit wire value. Locks in
+    /// the contract that a vendor shipping a non-conformant string is
+    /// preserved end-to-end rather than silently normalised. The serde-
+    /// default mechanism is the same across all 12 sub-types; a single
+    /// representative test (Participant) covers the contract uniformly.
+    /// `validate_at_type()` is the strict-input path callers opt into.
+    #[test]
+    fn participant_at_type_explicit_value_round_trips_verbatim() {
+        let raw = json!({
+            "@type": "AcmeCorpParticipant",
+            "name": "Alice",
+            "roles": { "attendee": true }
+        });
+        let p: Participant = serde_json::from_value(raw).unwrap();
+        assert_eq!(p.at_type, "AcmeCorpParticipant");
+        let back = serde_json::to_value(&p).unwrap();
+        assert_eq!(back["@type"], "AcmeCorpParticipant");
+        // The strict-input path surfaces the mismatch when callers opt in.
+        assert!(p.validate_at_type().is_err());
+    }
+
+    /// A parent object (Alert wrapping OffsetTrigger; representative of
+    /// every JSCalendar parent-with-sub-objects case) deserializes
+    /// successfully when nested sub-objects omit their `@type`. This is
+    /// the concrete failure mode the bead identifies: a server response
+    /// missing `@type` on a sub-object would previously fail the whole
+    /// parent's deserialize.
+    ///
+    /// NOTE: `AlertTrigger` is the one exception — its manual
+    /// `Deserialize` dispatches on `@type` and so the discriminator MUST
+    /// be present on the trigger to select the variant. The bead's
+    /// fix-scope explicitly does not touch the dispatch logic (a
+    /// missing-`@type` trigger falls into `AlertTrigger::Unknown` by
+    /// design per RFC 8984 §4.5.2 preserve-mandate). The outer `Alert`
+    /// container's `@type` is what gains the default.
+    #[test]
+    fn alert_with_missing_outer_at_type_deserializes() {
+        let raw = json!({
+            "trigger": {
+                "@type": "OffsetTrigger",
+                "offset": "-PT15M"
+            },
+            "action": "display"
+        });
+        let a: Alert = serde_json::from_value(raw).unwrap();
+        assert_eq!(a.at_type, "Alert");
+        match a.trigger {
+            AlertTrigger::OffsetTrigger(ref t) => {
+                assert_eq!(t.at_type, "OffsetTrigger");
+                assert_eq!(t.offset.as_ref(), "-PT15M");
+            }
+            _ => panic!("trigger MUST deserialize as OffsetTrigger variant"),
         }
     }
 }
