@@ -165,6 +165,47 @@ fn test_new_accepts_https_origin() {
     assert!(result.is_ok(), "valid https origin must be accepted");
 }
 
+/// Oracle: bd:JMAP-6r7c.27 — `new_with_shared_auth` accepts a pre-built
+/// `Arc<dyn AuthProvider>` and shares it across multiple `JmapClient`
+/// instances. The strong-count assertions document the sharing contract.
+#[test]
+fn test_new_with_shared_auth_shares_the_arc() {
+    use std::sync::Arc;
+    let auth: Arc<dyn jmap_base_client::auth::AuthProvider> = Arc::new(NoneAuth);
+    assert_eq!(Arc::strong_count(&auth), 1, "fresh Arc starts at 1");
+
+    let client_a = JmapClient::new_with_shared_auth(
+        jmap_base_client::auth::DefaultTransport,
+        Arc::clone(&auth),
+        "https://a.example.com",
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("valid https origin must be accepted");
+    assert_eq!(
+        Arc::strong_count(&auth),
+        2,
+        "client A must hold the second strong reference"
+    );
+
+    let client_b = JmapClient::new_with_shared_auth(
+        jmap_base_client::auth::DefaultTransport,
+        Arc::clone(&auth),
+        "https://b.example.com",
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("valid https origin must be accepted");
+    assert_eq!(
+        Arc::strong_count(&auth),
+        3,
+        "client B must hold the third strong reference"
+    );
+
+    // Drop the test's local Arc; the two clients still share the remaining 2.
+    drop(auth);
+    drop(client_a);
+    drop(client_b);
+}
+
 /// Oracle: config validation — request_timeout == Duration::ZERO must be rejected.
 /// Duration::ZERO is version-dependent in reqwest: some versions treat it as "no timeout",
 /// others as "instant timeout". Reject explicitly to eliminate this footgun.
