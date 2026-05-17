@@ -101,11 +101,24 @@ pub trait ContactsBackend: JmapBackend {
     ///
     /// Called by `AddressBook/set` destroy processing when
     /// `onDestroyRemoveContents` is false (the default). If this returns
-    /// `true`, the destroy is rejected with `addressBookHasContents`.
+    /// `Ok(true)`, the destroy is rejected with `addressBookHasContents`.
+    ///
+    /// # Error contract
+    ///
+    /// Returning `Err(Self::Error)` signals that the backend could not
+    /// determine whether the AddressBook has contents — typically a
+    /// transient storage failure (DB unreachable, replica timeout, etc.).
+    /// The handler maps `Err` to a method-level `serverFail` rather than
+    /// proceeding with the destroy. Backends MUST NOT fail open by
+    /// returning `Ok(false)` when the underlying storage is degraded —
+    /// returning `Ok(false)` is a positive claim that the AddressBook is
+    /// empty, and the destroy will proceed unconditionally, silently
+    /// discarding any ContactCards the storage layer was unable to
+    /// enumerate. Surface the storage error via `Err` instead.
     fn address_book_has_contents(
         &self,
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         address_book_id: &jmap_types::Id,
-    ) -> impl std::future::Future<Output = bool> + Send;
+    ) -> impl std::future::Future<Output = Result<bool, Self::Error>> + Send;
 }

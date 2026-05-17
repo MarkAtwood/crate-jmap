@@ -198,6 +198,10 @@ pub(crate) mod test_support {
         nonempty_books: Arc<Mutex<std::collections::HashSet<String>>>,
         /// Whether copy_contact_card was called (for copy test verification).
         pub copy_called: Arc<Mutex<bool>>,
+        /// When set, `address_book_has_contents` returns `Err` instead of
+        /// `Ok(_)`, used to exercise the trait's storage-degraded path
+        /// (bd:JMAP-qz9v.27).
+        fail_has_contents: Arc<Mutex<bool>>,
     }
 
     impl MockBackend {
@@ -210,7 +214,14 @@ pub(crate) mod test_support {
                     s
                 })),
                 copy_called: Arc::new(Mutex::new(false)),
+                fail_has_contents: Arc::new(Mutex::new(false)),
             }
+        }
+
+        /// Make subsequent `address_book_has_contents` calls return
+        /// `Err(MockError)` to exercise the storage-degraded path.
+        pub fn set_fail_has_contents(&self, fail: bool) {
+            *self.fail_has_contents.lock().unwrap() = fail;
         }
 
         pub fn new_with_account(account_id: &str) -> Self {
@@ -491,11 +502,15 @@ pub(crate) mod test_support {
             _caller: &(),
             _account_id: &Id,
             address_book_id: &Id,
-        ) -> bool {
-            self.nonempty_books
+        ) -> Result<bool, Self::Error> {
+            if *self.fail_has_contents.lock().unwrap() {
+                return Err(MockError("simulated storage failure".to_owned()));
+            }
+            Ok(self
+                .nonempty_books
                 .lock()
                 .unwrap()
-                .contains(address_book_id.as_ref())
+                .contains(address_book_id.as_ref()))
         }
     }
 }
