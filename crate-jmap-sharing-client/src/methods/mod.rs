@@ -103,6 +103,42 @@ impl std::fmt::Debug for SessionClient {
 }
 
 impl SessionClient {
+    /// Borrow the underlying [`JmapClient`](jmap_base_client::JmapClient).
+    ///
+    /// Useful for ad-hoc operations outside the typed JMAP method surface —
+    /// for example, calling `JmapClient::upload` / `JmapClient::download_blob`,
+    /// or constructing a `JmapClient::event_source` subscription using the
+    /// bound session's `event_source_url`.
+    pub fn client(&self) -> &jmap_base_client::JmapClient {
+        &self.client
+    }
+
+    /// Borrow the captured [`Session`](jmap_base_client::Session).
+    ///
+    /// `SessionClient` captures the `Session` at construction time. After
+    /// re-fetching the session via `JmapClient::fetch_session`, callers
+    /// should construct a new `SessionClient`. This accessor lets a caller
+    /// compare the captured session's `state` field against a freshly
+    /// fetched session to detect staleness, or inspect
+    /// `accountCapabilities` / `primary_accounts` for capability-specific
+    /// metadata not exposed via the typed JMAP method surface.
+    pub fn session(&self) -> &jmap_base_client::Session {
+        &self.session
+    }
+
+    /// Return the primary account id for `urn:ietf:params:jmap:principals`,
+    /// or `Err(InvalidSession)` if the session has no primary account for
+    /// that capability.
+    pub fn principals_account_id(&self) -> Result<&str, jmap_base_client::ClientError> {
+        self.session
+            .primary_account_id("urn:ietf:params:jmap:principals")
+            .ok_or_else(|| {
+                jmap_base_client::ClientError::InvalidSession(
+                    "no primary account for urn:ietf:params:jmap:principals".into(),
+                )
+            })
+    }
+
     /// Extract `(api_url, principals_account_id)` from the bound session.
     ///
     /// Returns `Err(InvalidSession)` if there is no primary account for
