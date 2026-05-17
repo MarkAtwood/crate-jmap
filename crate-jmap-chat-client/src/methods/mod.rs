@@ -423,7 +423,7 @@ impl SessionClient {
 
 /// Input parameters for `Chat/query`.
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ChatQueryInput {
     /// Filter to chats of the given kind (`direct`, `group`, or `channel`).
     pub filter_kind: Option<jmap_chat_types::ChatKind>,
@@ -751,7 +751,7 @@ pub enum ContactSortProperty {
 ///
 /// All fields are optional; an empty filter shows all contacts.
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ChatContactQueryInput {
     /// Filter to blocked (`true`) or non-blocked (`false`) contacts.
     pub filter_blocked: Option<bool>,

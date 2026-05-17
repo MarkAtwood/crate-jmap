@@ -31,7 +31,7 @@ pub use jmap_types::{
 ///
 /// Both fields are optional. Pass `None` (or `Default::default()`) when not
 /// needed.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AddressBookSetParams {
     /// If `true`, ContactCards that belong *only* to a destroyed AddressBook

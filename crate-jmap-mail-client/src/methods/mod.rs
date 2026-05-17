@@ -37,7 +37,7 @@ pub use jmap_types::{
 /// Extra args for Email/get (RFC 8621 §4.1.8).
 ///
 /// Controls which body properties to fetch and whether to inline body values.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailGetParams {
     /// Override the set of body part properties returned (RFC 8621 §4.1.8).
@@ -73,7 +73,7 @@ pub struct EmailGetParams {
 }
 
 /// Extra args for Email/copy (RFC 8621 §4.7).
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailCopyParams {
     /// The account to copy from (RFC 8621 §4.7).
@@ -93,7 +93,7 @@ pub struct EmailCopyParams {
 }
 
 /// Extra args for Mailbox/set (RFC 8621 §2.5).
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MailboxSetParams {
     /// If `true`, destroy all emails in the mailbox when the mailbox itself is
@@ -117,7 +117,7 @@ pub struct MailboxSetParams {
 ///
 /// Example use case: remove the `$draft` keyword from the email after
 /// submission succeeds.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailSubmissionSetParams {
     /// Map of creation key → [`jmap_types::PatchObject`] to apply to the
@@ -259,7 +259,7 @@ pub struct EmailImportResponse {
 ///
 /// Mirrors the body-fetch options of [`EmailGetParams`] plus a `properties`
 /// override. All fields are optional; absent fields use server defaults.
-#[derive(Debug, Default, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailParseParams {
     /// Override the set of Email properties returned per parsed message
