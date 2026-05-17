@@ -95,11 +95,21 @@ pub enum CalendarEventProperty {
 /// underlying object. Backends serving multiple users SHOULD store these
 /// separately from the shared event body.
 ///
-/// This list mirrors the IANA-registered set in §10.8.2 of the draft and is
-/// intentionally not exposed as a typed enum because several of these
-/// properties — `keywords`, `color`, `freeBusyStatus`, `alerts` — are
-/// reserved as future additions to [`CalendarEventProperty`] but not yet
-/// enumerated there.
+/// This list mirrors the IANA-registered set in §10.8.2 of the draft.
+///
+/// **Maintainer note (internal layout).** Internally this list is split
+/// into two private halves — `PER_USER_PROPERTIES_IN_ENUM` and
+/// `PER_USER_PROPERTIES_NOT_YET_IN_ENUM` — because
+/// [`CalendarEventProperty`] is deliberately a subset of the spec
+/// property set: `keywords`, `color`, `freeBusyStatus`, and `alerts`
+/// are reserved as future additions but not yet enumerated. When you
+/// add one of those as a `CalendarEventProperty` variant, move its
+/// wire-name from `PER_USER_PROPERTIES_NOT_YET_IN_ENUM` to
+/// `PER_USER_PROPERTIES_IN_ENUM` in the same commit, and update the
+/// `classify` match in the drift-guard test
+/// `per_user_in_enum_matches_enum_variants`. The
+/// `per_user_const_is_union_of_two_halves` drift-guard test enforces
+/// that this public const equals the disjoint union of the two halves.
 pub const PER_USER_CALENDAR_EVENT_PROPERTIES: &[&str] = &[
     "keywords",
     "color",
@@ -107,6 +117,45 @@ pub const PER_USER_CALENDAR_EVENT_PROPERTIES: &[&str] = &[
     "useDefaultAlerts",
     "alerts",
 ];
+
+/// Wire-names of per-user [`CalendarEventProperty`] variants that already
+/// exist in the enum.
+///
+/// When you add a per-user property as a new `CalendarEventProperty`
+/// variant, move its wire-name string here from
+/// [`PER_USER_PROPERTIES_NOT_YET_IN_ENUM`].
+///
+/// Invariant (enforced by the `per_user_const_is_union_of_two_halves`
+/// drift-guard test):
+///
+/// ```text
+/// PER_USER_CALENDAR_EVENT_PROPERTIES
+///     = PER_USER_PROPERTIES_IN_ENUM ∪ PER_USER_PROPERTIES_NOT_YET_IN_ENUM
+/// ```
+///
+/// and the two halves are disjoint.
+///
+/// `#[allow(dead_code)]`: this const exists as the documented other half
+/// of the split layout; it is read by drift-guard tests but not by
+/// runtime code (the public [`PER_USER_CALENDAR_EVENT_PROPERTIES`] is
+/// the runtime source of truth).
+#[allow(dead_code)]
+const PER_USER_PROPERTIES_IN_ENUM: &[&str] = &["useDefaultAlerts"];
+
+/// Per-user property wire-names from draft-ietf-jmap-calendars-26 §5.4
+/// that do **not** yet have a corresponding [`CalendarEventProperty`]
+/// variant.
+///
+/// When you add one of these as a `CalendarEventProperty` variant, move
+/// its wire-name string out of this list and into
+/// [`PER_USER_PROPERTIES_IN_ENUM`], and add a `Variant => "wireName"`
+/// arm to the `classify` match in the drift-guard test
+/// `per_user_in_enum_matches_enum_variants`.
+///
+/// `#[allow(dead_code)]`: see [`PER_USER_PROPERTIES_IN_ENUM`].
+#[allow(dead_code)]
+const PER_USER_PROPERTIES_NOT_YET_IN_ENUM: &[&str] =
+    &["keywords", "color", "freeBusyStatus", "alerts"];
 
 /// Returns `true` if `name` is a per-user [`CalendarEvent`](crate::CalendarEvent)
 /// property name per draft-ietf-jmap-calendars-26 §5.4.
@@ -279,5 +328,138 @@ mod tests {
         // the routing logic must look at the top-level patch key after
         // expanding any nested path.
         assert!(!is_per_user_calendar_event_property("alerts/abc"));
+    }
+
+    /// Drift guard: the public [`PER_USER_CALENDAR_EVENT_PROPERTIES`]
+    /// const MUST equal the disjoint union of the two internal halves
+    /// [`PER_USER_PROPERTIES_IN_ENUM`] and
+    /// [`PER_USER_PROPERTIES_NOT_YET_IN_ENUM`].
+    ///
+    /// If this test fails, you have either:
+    /// - added a name to one half without removing it from the other (the
+    ///   disjointness assertion fires), or
+    /// - added a name to the public const without placing it in either
+    ///   half (the union assertion fires).
+    #[test]
+    fn per_user_const_is_union_of_two_halves() {
+        use std::collections::BTreeSet;
+
+        let in_enum: BTreeSet<&str> = PER_USER_PROPERTIES_IN_ENUM.iter().copied().collect();
+        let not_yet: BTreeSet<&str> = PER_USER_PROPERTIES_NOT_YET_IN_ENUM
+            .iter()
+            .copied()
+            .collect();
+        let public: BTreeSet<&str> = PER_USER_CALENDAR_EVENT_PROPERTIES.iter().copied().collect();
+
+        // Disjoint: a name MUST NOT appear in both halves.
+        let overlap: BTreeSet<&&str> = in_enum.intersection(&not_yet).collect();
+        assert!(
+            overlap.is_empty(),
+            "PER_USER_PROPERTIES_IN_ENUM and PER_USER_PROPERTIES_NOT_YET_IN_ENUM \
+             must be disjoint, but both contain: {overlap:?}. When you promote a \
+             property to the enum, move its string from NOT_YET_IN_ENUM to IN_ENUM, \
+             do not duplicate it."
+        );
+
+        // Union equals the public const.
+        let union: BTreeSet<&str> = in_enum.union(&not_yet).copied().collect();
+        assert_eq!(
+            union, public,
+            "PER_USER_CALENDAR_EVENT_PROPERTIES must equal the union of the two halves"
+        );
+    }
+
+    /// Drift guard: [`PER_USER_PROPERTIES_IN_ENUM`] MUST list exactly the
+    /// wire-names of [`CalendarEventProperty`] variants that the draft
+    /// classifies as per-user.
+    ///
+    /// The `match` below is exhaustive over the (intra-crate-visible)
+    /// `CalendarEventProperty` variants. When you add a new variant the
+    /// compiler will force you to add a match arm; classify it as
+    /// per-user (`true`) or shared (`false`) per the spec, then update
+    /// [`PER_USER_PROPERTIES_IN_ENUM`] (and remove from
+    /// [`PER_USER_PROPERTIES_NOT_YET_IN_ENUM`] if it was reserved there)
+    /// to match the new ground truth.
+    #[test]
+    fn per_user_in_enum_matches_enum_variants() {
+        use std::collections::BTreeSet;
+
+        // Wire-name + per-user classification for every CalendarEventProperty
+        // variant. Adding a variant without updating this match is a compile
+        // error in this same crate (#[non_exhaustive] only applies cross-crate).
+        fn classify(p: &CalendarEventProperty) -> (&'static str, bool) {
+            match p {
+                CalendarEventProperty::Id => ("id", false),
+                CalendarEventProperty::BaseEventId => ("baseEventId", false),
+                CalendarEventProperty::CalendarIds => ("calendarIds", false),
+                CalendarEventProperty::IsDraft => ("isDraft", false),
+                CalendarEventProperty::IsOrigin => ("isOrigin", false),
+                CalendarEventProperty::UtcStart => ("utcStart", false),
+                CalendarEventProperty::UtcEnd => ("utcEnd", false),
+                CalendarEventProperty::UseDefaultAlerts => ("useDefaultAlerts", true),
+                CalendarEventProperty::MayInviteSelf => ("mayInviteSelf", false),
+                CalendarEventProperty::MayInviteOthers => ("mayInviteOthers", false),
+                CalendarEventProperty::HideAttendees => ("hideAttendees", false),
+                CalendarEventProperty::BlobId => ("blobId", false),
+                CalendarEventProperty::Uid => ("uid", false),
+                CalendarEventProperty::Title => ("title", false),
+                CalendarEventProperty::Description => ("description", false),
+                CalendarEventProperty::Start => ("start", false),
+                CalendarEventProperty::Duration => ("duration", false),
+                CalendarEventProperty::Status => ("status", false),
+            }
+        }
+
+        // Every known variant in turn.
+        let variants = [
+            CalendarEventProperty::Id,
+            CalendarEventProperty::BaseEventId,
+            CalendarEventProperty::CalendarIds,
+            CalendarEventProperty::IsDraft,
+            CalendarEventProperty::IsOrigin,
+            CalendarEventProperty::UtcStart,
+            CalendarEventProperty::UtcEnd,
+            CalendarEventProperty::UseDefaultAlerts,
+            CalendarEventProperty::MayInviteSelf,
+            CalendarEventProperty::MayInviteOthers,
+            CalendarEventProperty::HideAttendees,
+            CalendarEventProperty::BlobId,
+            CalendarEventProperty::Uid,
+            CalendarEventProperty::Title,
+            CalendarEventProperty::Description,
+            CalendarEventProperty::Start,
+            CalendarEventProperty::Duration,
+            CalendarEventProperty::Status,
+        ];
+
+        let derived_per_user: BTreeSet<&str> = variants
+            .iter()
+            .filter_map(|p| {
+                let (wire, is_per_user) = classify(p);
+                is_per_user.then_some(wire)
+            })
+            .collect();
+        let declared_per_user: BTreeSet<&str> =
+            PER_USER_PROPERTIES_IN_ENUM.iter().copied().collect();
+
+        assert_eq!(
+            derived_per_user, declared_per_user,
+            "PER_USER_PROPERTIES_IN_ENUM ({declared_per_user:?}) must match the per-user \
+             variants derived from the CalendarEventProperty match in this test \
+             ({derived_per_user:?}). Update the const, the match, or both as the spec dictates."
+        );
+
+        // Sanity: every wire-name produced by classify() must be unique
+        // (a typo that maps two variants to the same wire-name would
+        // silently corrupt routing).
+        let mut wire_names = BTreeSet::new();
+        for p in &variants {
+            let (wire, _) = classify(p);
+            assert!(
+                wire_names.insert(wire),
+                "duplicate wire-name {wire:?} in classify(); a CalendarEventProperty \
+                 variant has the wrong wire-string"
+            );
+        }
     }
 }
