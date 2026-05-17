@@ -57,11 +57,12 @@ impl super::SessionClient {
         // in proxies / audit loggers.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] = serde_json::to_value(id_slice).expect("Id slice Serialize is infallible");
+            args["ids"] =
+                serde_json::to_value(id_slice).map_err(jmap_base_client::ClientError::Parse)?;
         }
         if let Some(props) = properties {
             args["properties"] =
-                serde_json::to_value(props).expect("&[&str] Serialize is infallible");
+                serde_json::to_value(props).map_err(jmap_base_client::ClientError::Parse)?;
         }
         let req = super::build_request("Chat/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -259,7 +260,8 @@ impl super::SessionClient {
             args["maxChanges"] = mc.into();
         }
         if let Some(uti) = up_to_id {
-            args["upToId"] = serde_json::to_value(uti).expect("Id Serialize is infallible");
+            args["upToId"] =
+                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::Parse)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
@@ -409,7 +411,7 @@ impl super::SessionClient {
         if let Some(ids) = patch.pinned_message_ids {
             patch_map.insert(
                 "pinnedMessageIds".into(),
-                serde_json::to_value(ids).expect("Id slice Serialize is infallible"),
+                serde_json::to_value(ids).map_err(jmap_base_client::ClientError::Parse)?,
             );
         }
         if let Some(entry) = patch
@@ -459,7 +461,7 @@ impl super::SessionClient {
             if !rm.is_empty() {
                 patch_map.insert(
                     "removeMembers".into(),
-                    serde_json::to_value(rm).expect("Id slice Serialize is infallible"),
+                    serde_json::to_value(rm).map_err(jmap_base_client::ClientError::Parse)?,
                 );
             }
         }
