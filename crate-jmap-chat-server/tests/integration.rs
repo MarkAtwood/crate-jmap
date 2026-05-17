@@ -277,6 +277,41 @@ async fn chat_set_create_missing_kind() {
     assert!(props.iter().any(|p| p == "kind"));
 }
 
+/// Oracle: Chat/set create with a kind value NOT in the spec
+/// (draft-atwood-jmap-chat-00 enumerates "direct", "group", "channel")
+/// is rejected with invalidProperties on the kind field. The
+/// ChatKind::Other(_) deserialize fallback is for round-trip fidelity
+/// when READING from a future-version server, not for accepting any
+/// client-supplied string on create (bd:JMAP-x2gd.12).
+#[tokio::test]
+async fn chat_set_create_unknown_kind_rejected() {
+    let backend = MemoryBackend::new();
+    let (resp, _) = handle_chat_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "c0": { "kind": "vampire", "name": "Junk" }
+            }
+        }),
+    )
+    .await
+    .expect("handle_chat_set");
+
+    assert!(resp["notCreated"]["c0"].is_object());
+    assert_eq!(resp["notCreated"]["c0"]["type"], "invalidProperties");
+    let props = resp["notCreated"]["c0"]["properties"]
+        .as_array()
+        .expect("properties");
+    assert!(
+        props.iter().any(|p| p == "kind"),
+        "expected 'kind' in properties, got {props:?}"
+    );
+    // And the bogus Chat must not be in storage.
+    assert!(resp["created"].as_object().is_none_or(|m| m.is_empty()));
+}
+
 /// Oracle: bd:JMAP-wlip.1 — a Chat/set update with a patch nested deeper
 /// than `MAX_MERGE_PATCH_DEPTH` (32 levels) MUST be rejected with
 /// `invalidPatch` rather than silently truncated. The stored object MUST

@@ -163,9 +163,24 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 }
             };
 
-            let kind: ChatKind = match serde_json::from_value(Value::String(kind_str.clone())) {
-                Ok(k) => k,
-                Err(_) => ChatKind::Other(kind_str),
+            // ChatKind::Other(_) is the deserialize-from-wire forward-compat
+            // catch-all: it preserves round-trip fidelity when reading data
+            // produced by a future server that knows a new spec variant. It
+            // is NOT a legitimate value on /set create — a client supplying
+            // an unrecognised kind must be rejected with invalidProperties,
+            // otherwise junk Chats end up in storage and break every
+            // downstream kind-dispatched invariant (kind-specific required
+            // field checks, /get response shape, Message/set chatId
+            // resolution, etc.).
+            let kind = match serde_json::from_value::<ChatKind>(Value::String(kind_str)) {
+                Ok(k) if !matches!(k, ChatKind::Other(_)) => k,
+                _ => {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "invalidProperties", "properties": ["kind"] }),
+                    );
+                    continue;
+                }
             };
 
             // Validate kind-specific required fields and extract per-kind state.
