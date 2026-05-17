@@ -73,9 +73,10 @@ impl JmapError {
 
 // Wire types (RFC 8620 §3)
 pub type Invocation = (String, serde_json::Value, String);
-pub struct JmapRequest  { pub using: Vec<String>, pub method_calls: Vec<Invocation> }
+pub struct JmapRequest  { pub using: Vec<String>, pub method_calls: Vec<Invocation>,
+                          pub created_ids: Option<HashMap<Id, Id>> }
 pub struct JmapResponse { pub method_responses: Vec<Invocation>, pub session_state: String,
-                          pub created_ids: Option<HashMap<String, String>> }
+                          pub created_ids: Option<HashMap<Id, Id>> }
 
 // ResultReference (RFC 8620 §9)
 pub struct ResultReference { pub result_of: String, pub name: String, pub path: String }
