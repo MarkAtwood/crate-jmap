@@ -437,7 +437,7 @@ pub struct ChatQueryInput {
 
 /// Input parameters for `Message/query`.
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct MessageQueryInput<'a> {
     /// Restrict to messages in a specific Chat.
     pub chat_id: Option<&'a Id>,
@@ -473,7 +473,7 @@ impl<'a> MessageQueryInput<'a> {
 
 /// Input parameters for `Message/set` create.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MessageCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
@@ -601,7 +601,7 @@ pub struct PresenceStatusPatch<'a> {
 
 /// Input parameters for `CustomEmoji/query`.
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct CustomEmojiQueryInput<'a> {
     /// Filter to a specific Space's custom emojis. `None` returns all emojis
     /// visible to the account (Space-specific + server-global).
@@ -614,7 +614,7 @@ pub struct CustomEmojiQueryInput<'a> {
 
 /// Parameters for creating one CustomEmoji via `CustomEmoji/set`.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CustomEmojiCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
@@ -646,7 +646,7 @@ impl<'a> CustomEmojiCreateInput<'a> {
 
 /// Parameters for creating one SpaceInvite via `SpaceInvite/set`.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceInviteCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
@@ -687,7 +687,7 @@ impl<'a> SpaceInviteCreateInput<'a> {
 
 /// Parameters for creating one SpaceBan via `SpaceBan/set`.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceBanCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
@@ -769,7 +769,7 @@ pub struct ChatContactQueryInput {
 
 /// Input parameters for `Space/set` create.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
@@ -801,7 +801,7 @@ impl<'a> SpaceCreateInput<'a> {
 
 /// Input parameters for `Space/query`.
 #[non_exhaustive]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SpaceQueryInput<'a> {
     /// Filter by substring match on Space name.
     pub filter_name: Option<&'a str>,
@@ -847,7 +847,7 @@ impl<'a> std::fmt::Debug for SpaceJoinInput<'a> {
 
 /// One entry in the `addMembers` patch key for `Chat/set` update.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AddMemberInput<'a> {
     /// ChatContact.id of the member to add.
     pub id: &'a Id,
@@ -870,7 +870,7 @@ impl<'a> AddMemberInput<'a> {
 
 /// One entry in the `updateMemberRoles` patch key for `Chat/set` update.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct UpdateMemberRoleInput<'a> {
     /// ChatContact.id of the member to update.
     pub id: &'a Id,
@@ -966,7 +966,7 @@ pub struct ChatPatch<'a> {
 
 /// One member to add in the `addMembers` patch key of `Space/set` update.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceAddMemberInput<'a> {
     /// ChatContact.id of the member to add.
     pub id: &'a Id,
@@ -983,7 +983,7 @@ impl<'a> SpaceAddMemberInput<'a> {
 
 /// One member update in the `updateMembers` patch key of `Space/set` update.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceUpdateMemberInput<'a> {
     /// ChatContact.id of the member to update.
     pub id: &'a Id,
@@ -1006,7 +1006,7 @@ impl<'a> SpaceUpdateMemberInput<'a> {
 
 /// One channel to add in the `addChannels` patch key of `Space/set` update.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceAddChannelInput<'a> {
     /// Channel display name.
     pub name: &'a str,
@@ -1037,7 +1037,7 @@ impl<'a> SpaceAddChannelInput<'a> {
 /// Hierarchy enforcement: a member may only add roles whose `position` is
 /// strictly less than their own highest-position role (server-enforced).
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceAddRoleInput<'a> {
     /// Human-readable role name.
     pub name: &'a str,
@@ -1075,7 +1075,7 @@ impl<'a> SpaceAddRoleInput<'a> {
 /// Hierarchy enforcement: a member may only modify roles whose `position` is
 /// strictly less than their own highest-position role (server-enforced).
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceUpdateRoleInput<'a> {
     /// SpaceRole.id to update.
     pub id: &'a Id,
@@ -1108,7 +1108,7 @@ impl<'a> SpaceUpdateRoleInput<'a> {
 /// Fields left at their default (`None` / [`Patch::Keep`]) are omitted from
 /// the wire patch and the server leaves the corresponding property unchanged.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceUpdateChannelInput<'a> {
     /// Channel Chat id (kind `"channel"`, `spaceId` is this Space).
     pub id: &'a Id,
@@ -1147,7 +1147,7 @@ impl<'a> SpaceUpdateChannelInput<'a> {
 ///
 /// The server assigns the category's ULID; the request never specifies an `id`.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceAddCategoryInput<'a> {
     /// Category display name.
     pub name: &'a str,
@@ -1174,7 +1174,7 @@ impl<'a> SpaceAddCategoryInput<'a> {
 /// Fields left at their default (`None`) are omitted from the wire patch and
 /// the server leaves the corresponding property unchanged.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct SpaceUpdateCategoryInput<'a> {
     /// Category id to update.
     pub id: &'a Id,
@@ -1251,7 +1251,7 @@ pub struct SpacePatch<'a> {
 ///
 /// `device_client_id` and `url` have no safe defaults and must always be supplied.
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PushSubscriptionCreateInput<'a> {
     /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
     pub client_id: Option<&'a str>,
