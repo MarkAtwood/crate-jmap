@@ -485,6 +485,37 @@ impl MemoryBackend {
     ///   process-start nanos as base, atomic counter, no type prefix,
     ///   no per-account scoping. Lex-orderable globally within a process,
     ///   not repeatable across runs.
+    ///
+    /// # Feature stability (bd:JMAP-ic0j.63 / bd:JMAP-qz9v.31)
+    ///
+    /// The exact id format produced by either mode is NOT part of the
+    /// public API surface. Switching the `realistic-demo-ids` feature
+    /// on or off across minor versions may silently change the format
+    /// (e.g. a future minor could swap "atomic counter base + offset"
+    /// for "ULID"); the format may also change within a single mode
+    /// across minor versions pre-1.0. The only guarantees are:
+    ///
+    /// - Ids are valid [`Id`](jmap_types::Id) values (opaque server
+    ///   strings per RFC 8620 §1.2).
+    /// - Within a single process, ids minted from this helper are
+    ///   collision-free (bd:JMAP-qz9v.14 — the deterministic-mode
+    ///   monotonic counter never recycles across deletes within the
+    ///   lifetime of one process).
+    ///
+    /// Downstream consumers MUST NOT depend on a specific id shape
+    /// from `MemoryBackend`. The deterministic-mode format
+    /// (`"<type><n:016x>"`) is reserved for use by this crate's own
+    /// unit tests under
+    /// `#[cfg(all(test, not(feature = "realistic-demo-ids")))]` —
+    /// where the test source IS the reference for what the format is.
+    ///
+    /// This feature has no analog in the canonical `jmap-mail-server`,
+    /// which mints unconditionally in the realistic mode. The
+    /// divergence is deliberate: the deterministic default makes test
+    /// debugging easier (repeatable ids in assertions) without
+    /// requiring a separate test backend. Do NOT propagate this
+    /// feature to extension-server siblings that do not already have
+    /// it (mail, filenode) as a canonical-template change.
     fn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {
         #[cfg(feature = "realistic-demo-ids")]
         {
