@@ -253,10 +253,14 @@ pub async fn handle_invite_set<B: ChatBackend>(
             let now_str = now_utc_string();
             let now: UTCDate = UTCDate::from(now_str.as_ref());
 
-            // Delegate code generation to the backend so production
-            // implementations can use a CSPRNG.  The default implementation
-            // is nanosecond-seeded and NOT cryptographically secure — see
-            // ChatBackend::generate_invite_code.
+            // Delegate code generation to the backend. The trait contract
+            // (`ChatBackend::generate_invite_code`) requires a CSPRNG with
+            // at least 128 bits of entropy and a fixed-length ASCII-safe
+            // encoding; the reference `MemoryBackend` uses `getrandom::fill`
+            // on a 16-byte buffer (bd:JMAP-sc1b.78, bd:JMAP-sc1b.93). The
+            // handler does NOT re-validate the output shape — a backend
+            // that fails the contract leaks the invite-code unguessability
+            // bound.
             let code = backend.generate_invite_code();
 
             // Security: createdBy MUST be set server-side from the caller's
