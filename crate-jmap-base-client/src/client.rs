@@ -457,6 +457,13 @@ impl JmapClient {
     /// if the server sends more.
     ///
     /// Returns `ClientError::AuthFailed` on HTTP 401 or 403.
+    ///
+    /// # See also
+    ///
+    /// Prefer [`JmapClient::call_session`] when you have a [`Session`] —
+    /// it picks the correct URL field automatically and prevents the
+    /// "I passed `session.upload_url` instead of `session.api_url`"
+    /// confusion (bd:JMAP-6r7c.39).
     pub async fn call(
         &self,
         api_url: &str,
@@ -490,6 +497,24 @@ impl JmapClient {
             serde_json::from_slice(&body).map_err(ClientError::Parse)?;
 
         Ok(jmap_resp)
+    }
+
+    /// POST a [`jmap_types::JmapRequest`] to the `api_url` field of `session`
+    /// and return the parsed response (bd:JMAP-6r7c.39).
+    ///
+    /// Type-safe alternative to [`JmapClient::call`]: takes a [`Session`]
+    /// reference and reads `session.api_url` internally. The
+    /// "I passed `session.upload_url` instead of `session.api_url`"
+    /// confusion is impossible at the call site because the caller does
+    /// not select a URL — only `Session::api_url` is used.
+    ///
+    /// Same body cap, auth, and error semantics as [`JmapClient::call`].
+    pub async fn call_session(
+        &self,
+        session: &Session,
+        req: &jmap_types::JmapRequest,
+    ) -> Result<jmap_types::JmapResponse, ClientError> {
+        self.call(&session.api_url, req).await
     }
 
     /// Open an SSE connection to `event_source_url` and return an async stream
