@@ -280,12 +280,50 @@ impl MemoryBackend {
     /// (UUIDs, hand-picked strings without the `node-` prefix or with a
     /// non-numeric suffix) are accepted unchanged and cannot collide
     /// with the allocator.
+    ///
+    /// # Caller-managed invariants
+    ///
+    /// `seed_node` is the test-fixture API — invariant checks the
+    /// production [`FileNodeBackend`] write path enforces are **NOT**
+    /// re-applied here. Test authors using `seed_node` are responsible
+    /// for the following (bd:JMAP-510h.42):
+    ///
+    /// - **Dangling `parent_id` is allowed**: a seeded node may
+    ///   reference a `parent_id` that has not been seeded. Some
+    ///   handler tests deliberately exploit this to construct
+    ///   "children-without-parent" states that exercise the
+    ///   `nodeHasChildren` guard, the cycle-detection fallback, and
+    ///   the `get_ancestors` short-circuit. Tests that rely on a
+    ///   complete tree must seed the full chain themselves.
+    /// - **Duplicate ids overwrite**: seeding the same id twice keeps
+    ///   the second value (HashMap::insert semantics).
+    /// - **No cycle check**: seeding A with parent=B and B with
+    ///   parent=A produces a 2-cycle. [`FileNodeBackend::get_ancestors`]
+    ///   uses a visited-set fallback so the walk terminates, but the
+    ///   resulting ancestor chain is "everything in the cycle is its
+    ///   own ancestor" — a wrong-shape chain. Avoid in tests that
+    ///   need a correct ancestor sequence.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `account_id` is not registered (call
+    /// [`Self::with_account`] first). Previously this was a silent
+    /// no-op — a test that calls `seed_node` before `with_account`
+    /// would produce a passing-but-empty backend; the panic surfaces
+    /// the setup mistake at the seed call site rather than as a
+    /// confusing "fixture vanished" later (bd:JMAP-510h.42).
     pub fn seed_node(&self, account_id: &str, node: FileNode) {
         let mut guard = self.inner.lock().unwrap();
-        if let Some(store) = guard.accounts.get_mut(account_id) {
-            store.sync_counter_with_seeded_id(&node.id);
-            store.nodes.insert(node.id.clone(), node);
-        }
+        let store = guard.accounts.get_mut(account_id).unwrap_or_else(|| {
+            panic!(
+                "seed_node: account_id {account_id:?} is not registered. \
+                 Call MemoryBackend::with_account({account_id:?}) before seeding. \
+                 Silently dropping the seed would produce a passing-but-empty \
+                 backend and a hard-to-debug test failure later."
+            )
+        });
+        store.sync_counter_with_seeded_id(&node.id);
+        store.nodes.insert(node.id.clone(), node);
     }
 }
 
@@ -1312,6 +1350,18 @@ mod tests {
             names.contains("freshly-created"),
             "the new node must be present: got {names:?}"
         );
+    }
+
+    /// Oracle: seed_node on an unknown account panics with an
+    /// actionable message rather than silently dropping the seed.
+    /// Regression guard for bd:JMAP-510h.42 — the previous shape
+    /// produced a passing-but-empty backend when a test forgot to
+    /// register the account first.
+    #[tokio::test]
+    #[should_panic(expected = "is not registered")]
+    async fn seed_node_on_unknown_account_panics() {
+        let backend = MemoryBackend::new(); // no with_account
+        backend.seed_node("forgotten-acc", make_filenode("node-1", "fixture"));
     }
 
     /// Oracle: a seed with a non-matching id (UUID, arbitrary string)
