@@ -7,6 +7,25 @@
 //!
 //! **No `AddressBook/query` or `AddressBook/queryChanges`** — the spec does
 //! not define these methods for AddressBook.
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3), with the
+//! type-specific arguments defined by RFC 9610 §2. The returned `Value`
+//! is the corresponding method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `cannotCalculateChanges` — per RFC 8620 §3.6 and §5). Per-target
+//! failures inside `/set` surface in the `notCreated` / `notUpdated` /
+//! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_contacts_types::{AddressBook, ContactCard, ContactCardFilterCondition};
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
@@ -21,6 +40,12 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // ---------------------------------------------------------------------------
 
 /// Handle an `AddressBook/get` method call (RFC 9610 §2.1).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_address_book_get<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -34,6 +59,13 @@ pub async fn handle_address_book_get<B: ContactsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle an `AddressBook/changes` method call (RFC 9610 §2.2).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_address_book_changes<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -48,6 +80,14 @@ pub async fn handle_address_book_changes<B: ContactsBackend>(
 
 /// Handle an `AddressBook/set` method call (RFC 9610 §2.3).
 ///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps), augmented
+/// with the RFC 9610 §2.3 `onDestroyRemoveContents` and
+/// `onSuccessSetIsDefault` arguments; the returned `Value` is the §5.3
+/// `/set` response shape (`accountId`, `oldState`, `newState`, plus the
+/// per-operation `created` / `notCreated` / `updated` / `notUpdated` /
+/// `destroyed` / `notDestroyed` maps).
+///
 /// Contacts-specific extensions:
 ///
 /// - **`onDestroyRemoveContents`** (bool, default `false`): if `false` and
@@ -60,6 +100,8 @@ pub async fn handle_address_book_changes<B: ContactsBackend>(
 ///   is patched with `{"isDefault": true}`.  Creation-id references (`#c1`)
 ///   are resolved to the server-assigned id.  Any error from this patch is
 ///   silently ignored per §2.3.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_address_book_set<B: ContactsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
