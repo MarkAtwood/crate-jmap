@@ -48,7 +48,9 @@ use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, filter_properties, finalize_set_response,
     set_error_value, SetAccumulators,
 };
-use jmap_server::{server_fail_from_backend, server_fail_value_from_backend, take_bool_arg};
+use jmap_server::{
+    resolve_query_offset, server_fail_from_backend, server_fail_value_from_backend, take_bool_arg,
+};
 
 /// Backend trait for `SieveScript/get`, `SieveScript/set`, `SieveScript/query`,
 /// and `SieveScript/validate` operations (RFC 9661).
@@ -1150,12 +1152,9 @@ pub async fn handle_sieve_query<B: MailBackend + SieveBackend>(
         // RFC 8620 §5.5: clamp to [0, len].
         let raw = anchor_idx as i64 + anchor_offset;
         raw.max(0).min(total_count as i64) as usize
-    } else if position >= 0 {
-        (position as usize).min(total_count)
     } else {
-        // Negative position: offset from the end.
-        let neg = position.saturating_neg() as usize;
-        total_count.saturating_sub(neg)
+        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset.
+        resolve_query_offset(position, total_count)
     };
 
     // Step 8: apply limit.

@@ -71,7 +71,7 @@ use crate::{
 // canonical RFC 7396 tests live with the function there (including the
 // bd:JMAP-sc1b.97 depth-cap and bd:JMAP-sc1b.87 absent-field regression
 // tests).
-use jmap_server::{json_merge_patch, MergePatchError};
+use jmap_server::{json_merge_patch, resolve_query_offset, MergePatchError};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -649,12 +649,8 @@ impl JmapBackend for MemoryBackend {
                 .as_str(),
         );
 
-        let start = if position >= 0 {
-            (position as usize).min(ids.len())
-        } else {
-            let neg = position.saturating_neg() as usize;
-            ids.len().saturating_sub(neg)
-        };
+        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset.
+        let start = resolve_query_offset(position, ids.len());
 
         ids = ids[start..]
             .iter()

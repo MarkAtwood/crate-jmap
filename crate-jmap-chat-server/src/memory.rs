@@ -58,7 +58,7 @@ use crate::{
     EmojiSetOp, GetObject, JmapBackend, JmapObject, OpResult, QueryChangesResult, QueryObject,
     QueryResult, SetError, SetErrorType, SetObject, SlowModeError, SpacePatchOp,
 };
-use jmap_server::{json_merge_patch, now_utc_string, MergePatchError};
+use jmap_server::{json_merge_patch, now_utc_string, resolve_query_offset, MergePatchError};
 use jmap_types::{Id, State};
 
 // ---------------------------------------------------------------------------
@@ -643,12 +643,8 @@ impl JmapBackend for MemoryBackend {
                 .to_string(),
         );
 
-        let start = if position >= 0 {
-            (position as usize).min(ids.len())
-        } else {
-            let neg = position.saturating_neg() as usize;
-            ids.len().saturating_sub(neg)
-        };
+        // bd:JMAP-qz9v.48 — centralized in jmap_server::resolve_query_offset.
+        let start = resolve_query_offset(position, ids.len());
 
         // `n.min(usize::MAX as u64) as usize` saturates rather than
         // truncates on 32-bit targets. Mirrors the canonical
