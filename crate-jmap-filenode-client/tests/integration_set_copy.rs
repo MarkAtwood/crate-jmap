@@ -12,7 +12,7 @@ use serde_json::json;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-use jmap_filenode_client::{FileNodeOnExists, FileNodeSetParams};
+use jmap_filenode_client::{FileNodeCopyParams, FileNodeOnExists, FileNodeSetParams};
 
 // ---------------------------------------------------------------------------
 // Test 1: FileNode/set with params — create with onDestroyRemoveChildren
@@ -235,13 +235,16 @@ async fn filenode_copy_with_on_exists_rename() {
     let sc = helpers::make_client(&server);
     let resp = sc
         .filenode_copy(
-            &Id::from("source-account"),
+            FileNodeCopyParams {
+                from_account_id: Id::from("source-account"),
+                on_destroy_remove_children: None,
+                on_exists: Some(FileNodeOnExists::Rename),
+                compare_case_insensitively: None,
+                extra: serde_json::Map::new(),
+            },
             json!({
                 "copy1": { "id": "original-node-x", "parentId": null }
             }),
-            None, // on_destroy_remove_children
-            Some(FileNodeOnExists::Rename),
-            None, // compare_case_insensitively
         )
         .await
         .expect("filenode_copy_with_on_exists_rename: must succeed");
