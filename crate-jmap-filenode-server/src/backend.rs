@@ -74,6 +74,43 @@ pub trait FileNodeBackend: JmapBackend {
     ///
     /// Returns `(assigned_id, created_object)` on success.  `create_id` is
     /// the client-side creation id from the `/set` request.
+    ///
+    /// # Invariants the backend MUST re-verify atomically with the insert
+    ///
+    /// The handler in [`crate::handle_filenode_set`] does best-effort
+    /// pre-checks before invoking `create_object`. These pre-checks are
+    /// **not transactional** with the insert — a concurrent client may
+    /// mutate the same parent between the pre-check and the insert. The
+    /// backend is the canonical enforcement point for the following
+    /// FileNode-specific invariants and MUST re-verify each one inside
+    /// the same atomic boundary as the insert (e.g. inside a single SQL
+    /// transaction with appropriate row locks, or under the same in-
+    /// memory lock for non-SQL backends):
+    ///
+    /// - **Name uniqueness under `parentId`** (draft-ietf-jmap-filenode-13
+    ///   §3.2.3): no two siblings may share the same `name` under the
+    ///   same `parentId`. The backend MUST return
+    ///   [`BackendSetError::SetError`] carrying `SetErrorType::AlreadyExists`
+    ///   (or the FileNode-specific equivalent the handler maps to wire) if
+    ///   the insert would violate this. The handler's `onExists` mode
+    ///   (`reject` / `replace` / `rename`) decides the pre-check shape;
+    ///   the backend's job is to refuse the actual collision.
+    ///
+    /// - **Blob existence when `blobId` is non-null** (§3.1, §3.2.3): if
+    ///   the requested node is a file referencing a blob, the backend
+    ///   MUST verify the blob exists at insert time. A pre-check via
+    ///   [`Self::blob_exists`] is not transactional with the insert.
+    ///
+    /// - **Parent existence and node-type compatibility** (§3.1): the
+    ///   parent referenced by `parentId` (when non-null) MUST exist at
+    ///   insert time and MUST be of node-type `directory`.
+    ///
+    /// A backend that follows the docstring literally — "if create
+    /// succeeds, return Ok" — and skips the atomic re-verification will
+    /// silently corrupt the FileNode invariants under concurrent writes.
+    /// MemoryBackend gets this right because the single in-memory lock
+    /// covers both the read pre-check and the insert; production SQL
+    /// backends MUST use explicit row locks or unique constraints.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -88,6 +125,34 @@ pub trait FileNodeBackend: JmapBackend {
     /// Returns `Some(updated_object)` if the backend modified properties
     /// beyond what the client requested (RFC 8620 §5.3 server-set field echo),
     /// or `None` if the patch was applied verbatim.
+    ///
+    /// # Invariants the backend MUST re-verify atomically with the update
+    ///
+    /// Like [`Self::create_object`], the handler's pre-checks are
+    /// best-effort and the backend is the canonical enforcement point.
+    /// When the patch mutates `parentId` and/or `name`, the backend MUST
+    /// re-verify the following invariants inside the same atomic
+    /// boundary as the write:
+    ///
+    /// - **Cycle prevention when `parentId` changes** (draft-ietf-jmap-
+    ///   filenode-13 §3.2.3): the new `parentId` MUST NOT be the node
+    ///   itself nor any of its descendants. A pre-check via
+    ///   [`Self::get_descendant_ids`] is not transactional with the
+    ///   update — a concurrent move could change the tree shape between
+    ///   the pre-check and the patch.
+    ///
+    /// - **Name uniqueness under the new (or unchanged) `parentId`**
+    ///   when `name` changes: same shape as the create-side invariant.
+    ///
+    /// - **Blob existence when `blobId` changes** to a non-null value:
+    ///   same shape as the create-side invariant.
+    ///
+    /// - **Immutable-property prevention**: certain fields (`id`,
+    ///   `nodeType`, `created`, server-managed timestamps) are
+    ///   immutable per the spec. The handler rejects patches that
+    ///   touch them with `invalidProperties` before reaching this
+    ///   method; the backend MAY assume the patch does not contain
+    ///   those keys.
     fn update_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
@@ -97,6 +162,30 @@ pub trait FileNodeBackend: JmapBackend {
     ) -> impl std::future::Future<Output = Result<Option<O>, BackendSetError<Self::Error>>> + Send;
 
     /// Destroy a FileNode by id.
+    ///
+    /// # Invariants the backend MUST re-verify atomically with the destroy
+    ///
+    /// - **`nodeHasChildren` guard**: when the FileNode has descendants
+    ///   AND the handler's `onDestroyRemoveChildren` flag is `false`,
+    ///   the destroy MUST be refused. The handler does a pre-check via
+    ///   [`Self::get_descendant_ids`] and returns the wire-level
+    ///   `nodeHasChildren` error before invoking this method, but the
+    ///   pre-check is not transactional. A backend that supports
+    ///   concurrent writers MUST re-verify atomically — either via
+    ///   referential-integrity constraints (FOREIGN KEY ... ON DELETE
+    ///   RESTRICT) or via an explicit re-check under the same lock as
+    ///   the row removal.
+    ///
+    /// - **Cascade destroy ordering**: when the handler invokes
+    ///   `destroy_object` as part of a cascade (handler has called
+    ///   [`Self::get_descendant_ids`] and is destroying descendants
+    ///   first, then the parent), the backend MUST NOT reject the
+    ///   parent destroy on `nodeHasChildren` grounds even if the
+    ///   descendants are not yet fully removed — the handler is
+    ///   coordinating the ordering. A backend that enforces
+    ///   `nodeHasChildren` purely via FK constraint will refuse the
+    ///   parent removal until the descendants are gone; this is
+    ///   acceptable because the handler destroys descendants first.
     fn destroy_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
