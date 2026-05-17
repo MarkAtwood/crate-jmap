@@ -634,13 +634,28 @@ mod tests {
 
         // Gap 3: byte-level from_str (not from_value) — exercises the
         // streaming tokenizer + serde-flatten's interaction with it.
-        let email: Email = serde_json::from_str(raw_str).expect("from_str must accept the wire form");
+        let email: Email =
+            serde_json::from_str(raw_str).expect("from_str must accept the wire form");
 
         // Gap 1: every vendor key must survive deserialize.
-        assert!(email.extra.contains_key("acmeCorpFoo"), "scalar vendor field lost");
-        assert!(email.extra.contains_key("siteHint"), "second scalar vendor field lost");
-        assert!(email.extra.contains_key("acmeCorpNested"), "nested vendor field lost");
-        assert_eq!(email.extra.len(), 3, "vendor key count must be exactly three; got {:?}", email.extra.keys().collect::<Vec<_>>());
+        assert!(
+            email.extra.contains_key("acmeCorpFoo"),
+            "scalar vendor field lost"
+        );
+        assert!(
+            email.extra.contains_key("siteHint"),
+            "second scalar vendor field lost"
+        );
+        assert!(
+            email.extra.contains_key("acmeCorpNested"),
+            "nested vendor field lost"
+        );
+        assert_eq!(
+            email.extra.len(),
+            3,
+            "vendor key count must be exactly three; got {:?}",
+            email.extra.keys().collect::<Vec<_>>()
+        );
 
         // Gap 2: nested object structure must be preserved verbatim.
         let nested = email
@@ -658,10 +673,17 @@ mod tests {
         // but every vendor key MUST be present on the second parse and
         // the nested structure MUST round-trip intact.
         let serialised = serde_json::to_string(&email).expect("to_string must succeed");
-        let reparsed: Email = serde_json::from_str(&serialised).expect("from_str must re-accept own output");
+        let reparsed: Email =
+            serde_json::from_str(&serialised).expect("from_str must re-accept own output");
         assert_eq!(reparsed.extra.len(), 3);
-        assert_eq!(reparsed.extra.get("acmeCorpFoo").and_then(|v| v.as_str()), Some("bar"));
-        assert_eq!(reparsed.extra.get("siteHint").and_then(|v| v.as_str()), Some("high-priority"));
+        assert_eq!(
+            reparsed.extra.get("acmeCorpFoo").and_then(|v| v.as_str()),
+            Some("bar")
+        );
+        assert_eq!(
+            reparsed.extra.get("siteHint").and_then(|v| v.as_str()),
+            Some("high-priority")
+        );
         let nested2 = reparsed.extra.get("acmeCorpNested").expect("present");
         assert_eq!(nested2["signed"][0]["by"], "alice");
         assert_eq!(nested2["tags"][2], "z");
