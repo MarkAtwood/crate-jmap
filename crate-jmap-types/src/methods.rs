@@ -248,6 +248,24 @@ impl SetError {
     /// crate, not linkable from here since `jmap-types` does not depend on
     /// `jmap-server`) — this type is deliberately String-typed for
     /// client-side parsing flexibility.
+    ///
+    /// # Caller contract — input is not validated
+    ///
+    /// `error_type` is stored verbatim. The constructor does not check
+    /// that the string is non-empty, that it matches an RFC 8620 §5.3
+    /// known type, or that the optional fields populated elsewhere on
+    /// the struct are consistent with the chosen type. `SetError::new("")`
+    /// succeeds and produces a wire-noncompliant `{"type":""}` shape.
+    ///
+    /// Callers who want compile-time guarantees should construct
+    /// `jmap_server::backend::SetError` (the typed enum) and convert,
+    /// rather than calling this constructor with a raw string. Callers
+    /// who do want raw-string construction (e.g. proxies forwarding an
+    /// upstream's error) MUST validate the input themselves before
+    /// passing it here. This matches the workspace pattern for the
+    /// other permissive constructors in this crate
+    /// ([`crate::Id::from`], [`crate::UTCDate::from`] — see the
+    /// jmap-types README "Gotchas" section).
     pub fn new(error_type: impl Into<String>) -> Self {
         Self {
             error_type: error_type.into(),
