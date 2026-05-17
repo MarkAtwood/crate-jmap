@@ -132,6 +132,30 @@ pub const JMAP_CALENDARS_URI: &str = "urn:ietf:params:jmap:calendars";
 /// found"). The client cannot distinguish "no notifications in this
 /// account" from "this server does not implement notifications" —
 /// both look like an empty response.
+///
+/// # Re-registration semantics (bd:JMAP-ic0j.34)
+///
+/// This function calls [`Dispatcher::register`] once per Calendars
+/// method name. `Dispatcher::register` **silently overwrites** any
+/// pre-existing handler under the same method name (the underlying
+/// primitive is `HashMap::insert`). Three consequences callers MUST
+/// be aware of:
+///
+/// - **Double-call**: invoking this function twice on the same
+///   dispatcher loses the first set's handlers. The second call wins.
+/// - **Custom overrides go LAST**: to replace a single handler (e.g.
+///   provide a custom `Calendar/get`), call this function FIRST, then
+///   `dispatcher.register("Calendar/get", my_override)`. The inverse
+///   order silently undoes the custom handler.
+/// - **No collision diagnostic**: there is no error or log when a
+///   handler is overwritten. The contract is "last register wins" and
+///   the caller is responsible for ordering.
+///
+/// Mirrors the canonical jmap-mail-server `register_mail_handlers`
+/// Re-registration semantics section at
+/// `crate-jmap-mail-server/src/lib.rs:133-148`.
+///
+/// [`Dispatcher::register`]: jmap_server::Dispatcher::register
 pub fn register_calendars_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: CalendarsBackend + 'static,

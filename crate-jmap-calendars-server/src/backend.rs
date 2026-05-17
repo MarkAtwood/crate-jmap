@@ -111,6 +111,27 @@ pub trait CalendarsBackend: JmapBackend {
     ///
     /// Returns `(assigned_id, created_object)` on success. `create_id` is the
     /// client-side creation id used in the `/set` request.
+    ///
+    /// # Sentinel fields the backend MUST replace
+    ///
+    /// The method handlers in this crate pass partially-constructed objects
+    /// with a sentinel value that the backend MUST replace with a real
+    /// value before storing:
+    ///
+    /// - **`id`**: The `id` field in the input object is always set to
+    ///   the sentinel string `"placeholder"` (private const
+    ///   `crate::helpers::PLACEHOLDER_ID`). The backend MUST replace it
+    ///   with a real, unique, account-scoped ID and return that ID as
+    ///   the first element of the result tuple.
+    ///
+    /// Failing to replace this sentinel will cause the client to receive
+    /// invalid wire values (`"placeholder"`).
+    ///
+    /// Mirrors the canonical jmap-mail-server `create_object` sentinel
+    /// contract at `crate-jmap-mail-server/src/backend.rs:64-87`
+    /// (bd:JMAP-ic0j.33). Calendars has no `blob_id` / `size` analogs and
+    /// no singleton types per the current draft, so this trait carries a
+    /// shorter contract than the canonical.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
