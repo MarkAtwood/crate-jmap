@@ -492,16 +492,14 @@ pub async fn handle_contact_card_copy<B: ContactsBackend>(
         for (create_id, spec_val) in create_map {
             // The copy spec is an object with an "id" of the source card and
             // optionally patch fields to apply after copy (RFC 8620 §6.3).
-            let source_id = match spec_val.get("id").and_then(|v| v.as_str()) {
-                Some(s) => Id::from(s),
-                None => {
-                    not_copied.insert(
-                        create_id,
-                        json!({ "type": "invalidProperties", "description": "id is required in copy spec" }),
-                    );
-                    continue;
-                }
+            let Some(source_id_str) = spec_val.get("id").and_then(|v| v.as_str()) else {
+                not_copied.insert(
+                    create_id,
+                    json!({ "type": "invalidProperties", "description": "id is required in copy spec" }),
+                );
+                continue;
             };
+            let source_id = Id::from(source_id_str);
 
             // Fetch the source card.
             let (mut cards, not_found) = backend

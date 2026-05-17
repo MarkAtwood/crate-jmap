@@ -541,16 +541,14 @@ pub async fn handle_task_copy<B: TasksBackend>(
             // The earlier handler silently invented a "placeholder" id when
             // the client omitted one, masking the missing-id case the spec
             // treats as a hard requirement.
-            let source_id: Id = match client_val.get("id").and_then(|v| v.as_str()) {
-                Some(s) => Id::from(s),
-                None => {
-                    not_created.insert(
-                        create_id,
-                        json!({"type": "invalidProperties", "properties": ["id"]}),
-                    );
-                    continue;
-                }
+            let Some(source_id_str) = client_val.get("id").and_then(|v| v.as_str()) else {
+                not_created.insert(
+                    create_id,
+                    json!({"type": "invalidProperties", "properties": ["id"]}),
+                );
+                continue;
             };
+            let source_id: Id = Id::from(source_id_str);
 
             // Fetch the source Task from `fromAccountId`. RFC 8620 §5.4 frames
             // /copy as a read-from-source-then-create-in-destination operation;
@@ -582,20 +580,16 @@ pub async fn handle_task_copy<B: TasksBackend>(
             // on the original." Serialize the source, overlay client-supplied
             // properties, strip the source id so the backend assigns a fresh
             // server id. Pattern mirrors jmap-calendars-server event.rs:610-642.
-            let mut merged: serde_json::Map<String, Value> =
-                match serde_json::to_value(&source_tasks[0]) {
-                    Ok(Value::Object(m)) => m,
-                    _ => {
-                        not_created.insert(
-                            create_id,
-                            json!({
-                                "type": "serverFail",
-                                "description": "failed to serialize source Task",
-                            }),
-                        );
-                        continue;
-                    }
-                };
+            let Ok(Value::Object(mut merged)) = serde_json::to_value(&source_tasks[0]) else {
+                not_created.insert(
+                    create_id,
+                    json!({
+                        "type": "serverFail",
+                        "description": "failed to serialize source Task",
+                    }),
+                );
+                continue;
+            };
             if let Value::Object(client_props) = client_val {
                 for (k, v) in client_props {
                     if k != "id" {

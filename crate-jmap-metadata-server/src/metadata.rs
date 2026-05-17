@@ -591,33 +591,31 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
         // would produce a misleading response.
         let mut id_strs: Vec<String> = Vec::with_capacity(destroy_arr.len());
         for id_val in &destroy_arr {
-            match id_val.as_str() {
-                Some(s) => id_strs.push(s.to_owned()),
-                None => {
-                    // Report only the JSON type tag, NOT the offending
-                    // value itself (bd:JMAP-ayoz.40). Echoing the raw
-                    // `id_val` via `Display` re-serialises arbitrary
-                    // attacker-controlled JSON (potentially megabytes of
-                    // nested objects) into the JMAP `description` field,
-                    // which RFC 8620 §3.6.1 specifies as "unstructured
-                    // English text suitable for displaying to a
-                    // developer". The type tag carries the actionable
-                    // diagnostic without echoing untrusted bytes.
-                    let type_name = match id_val {
-                        Value::Null => "null",
-                        Value::Bool(_) => "boolean",
-                        Value::Number(_) => "number",
-                        Value::Array(_) => "array",
-                        Value::Object(_) => "object",
-                        Value::String(_) => {
-                            unreachable!("as_str() returned None so id_val is not a JSON string")
-                        }
-                    };
-                    return Err(JmapError::invalid_arguments(format!(
-                        "destroy: every element must be a string Id; got {type_name}"
-                    )));
-                }
-            }
+            let Some(s) = id_val.as_str() else {
+                // Report only the JSON type tag, NOT the offending
+                // value itself (bd:JMAP-ayoz.40). Echoing the raw
+                // `id_val` via `Display` re-serialises arbitrary
+                // attacker-controlled JSON (potentially megabytes of
+                // nested objects) into the JMAP `description` field,
+                // which RFC 8620 §3.6.1 specifies as "unstructured
+                // English text suitable for displaying to a
+                // developer". The type tag carries the actionable
+                // diagnostic without echoing untrusted bytes.
+                let type_name = match id_val {
+                    Value::Null => "null",
+                    Value::Bool(_) => "boolean",
+                    Value::Number(_) => "number",
+                    Value::Array(_) => "array",
+                    Value::Object(_) => "object",
+                    Value::String(_) => {
+                        unreachable!("as_str() returned None so id_val is not a JSON string")
+                    }
+                };
+                return Err(JmapError::invalid_arguments(format!(
+                    "destroy: every element must be a string Id; got {type_name}"
+                )));
+            };
+            id_strs.push(s.to_owned());
         }
         for id_str in id_strs {
             let id = Id::from(id_str.as_str());
