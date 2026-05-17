@@ -960,6 +960,36 @@ impl ContactsBackend for MemoryBackend {
             }
         }
 
+        // bd:JMAP-qz9v.11 — AddressBook single-default invariant.
+        // If this patch made the target AddressBook the default,
+        // demote every other AddressBook in the same account in the
+        // same critical section so the invariant cannot be observed
+        // in violation. Matches the workspace canonical pattern of
+        // backends-are-canonical-for-enforcement (workspace AGENTS.md
+        // "Caller identity / Permission enforcement" guidance, applied
+        // here to RFC 9610 §2's at-most-one-default semantics).
+        //
+        // The patched object itself was not server-modified beyond the
+        // client's request — only OTHER books were demoted. Per RFC 8620
+        // §5.3, `Ok(None)` is the correct return shape for the patched
+        // book; the demoted-others-not-in-updated handler-side concern
+        // is tracked separately at bd:JMAP-qz9v.5.
+        let mut demoted_ids: Vec<Id> = Vec::new();
+        if O::TYPE_NAME == "AddressBook" && address_book_is_default(&current) {
+            let store = inner.objects_mut(O::TYPE_NAME, account_id.as_ref());
+            for (other_id, other_val) in store.iter_mut() {
+                if other_id == id {
+                    continue;
+                }
+                if address_book_is_default(other_val) {
+                    if let Some(map) = other_val.as_object_mut() {
+                        map.insert("isDefault".to_owned(), serde_json::Value::Bool(false));
+                        demoted_ids.push(other_id.clone());
+                    }
+                }
+            }
+        }
+
         let new_state = inner.bump_state(O::TYPE_NAME, account_id.as_ref());
         // bd:JMAP-ic0j.74 — for ContactCard, the incremental index
         // update needs both the pre-patch (`old_value`) and post-patch
@@ -975,15 +1005,26 @@ impl ContactsBackend for MemoryBackend {
         inner
             .objects_mut(O::TYPE_NAME, account_id.as_ref())
             .insert(id.clone(), current);
+        // Record the patched object plus any books demoted by the
+        // single-default invariant (bd:JMAP-qz9v.11) so AddressBook/changes
+        // surfaces all modified ids per RFC 8620 §5.2.
+        let mut updated_ids = vec![id.clone()];
+        updated_ids.extend(demoted_ids);
         inner
             .change_log_mut(O::TYPE_NAME, account_id.as_ref())
             .push(ChangeEntry {
                 new_state,
                 created: vec![],
-                updated: vec![id.clone()],
+                updated: updated_ids,
                 destroyed: vec![],
             });
 
+        // Ok(None) is workspace-canonical: per crate-jmap-mail-server's
+        // analogous comment ('MemoryBackend does not echo server-modified
+        // fields'), the reference impl never returns Ok(Some). The single-
+        // default demotion above changed OTHER objects, not this one, so
+        // RFC 8620 §5.3's Ok(Some)-for-server-set-fields contract does not
+        // fire here either way.
         Ok(None)
     }
 
@@ -1429,6 +1470,17 @@ fn contact_card_has_address_book_ids(card: &serde_json::Value) -> bool {
     card.get("addressBookIds")
         .and_then(|v| v.as_object())
         .is_some_and(|m| !m.is_empty())
+}
+
+/// True iff the serialized AddressBook value has `isDefault: true`.
+///
+/// Used to enforce RFC 9610 §2's at-most-one-default invariant
+/// inside `update_object` (bd:JMAP-qz9v.11). Treats missing or
+/// non-boolean `isDefault` as `false`.
+fn address_book_is_default(book: &serde_json::Value) -> bool {
+    book.get("isDefault")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
 }
 
 /// Look up whether any ContactCard in `account_id` (other than
