@@ -59,7 +59,7 @@ pub(crate) fn build_request(
 
 /// A `JmapClient` bound to a JMAP session.
 ///
-/// Obtain via [`JmapFileNodeExt::with_filenode_session`](crate::JmapFileNodeExt::with_filenode_session).
+/// Obtain via [`JmapFilenodeExt::with_filenode_session`](crate::JmapFilenodeExt::with_filenode_session).
 /// All JMAP FileNode methods are available on this type without needing to pass
 /// `&Session` on every call.
 ///
