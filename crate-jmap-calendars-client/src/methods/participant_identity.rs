@@ -9,6 +9,24 @@ use super::{ChangesResponse, GetResponse, SetResponse};
 impl super::SessionClient {
     /// Fetch `ParticipantIdentity` objects by IDs
     /// (draft-ietf-jmap-calendars-26 §3.1).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn participant_identity_get(
         &self,
         ids: Option<&[Id]>,
@@ -33,6 +51,20 @@ impl super::SessionClient {
 
     /// Fetch changes to `ParticipantIdentity` objects since `since_state`
     /// (draft-ietf-jmap-calendars-26 §3.2).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::participant_identity_get`].
     pub async fn participant_identity_changes(
         &self,
         since_state: &State,
@@ -73,6 +105,21 @@ impl super::SessionClient {
     ///   `ParticipantIdentity` state on the server or the method rejects
     ///   with `stateMismatch`. Pass the `newState` returned by a prior
     ///   /get or /set response.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if any key in `create` is the empty string (caller-precondition
+    ///   guard — RFC 8620 §5.3 requires non-empty creation ids), or if
+    ///   `serde_json::to_value` fails on the `create` or `update` map
+    ///   (pathological conditions only; see [`Self::calendar_set`] for
+    ///   the memory-cost discussion that applies identically here).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::participant_identity_get`].
     pub async fn participant_identity_set(
         &self,
         create: Option<HashMap<String, jmap_calendars_types::ParticipantIdentity>>,

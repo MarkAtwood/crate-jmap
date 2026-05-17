@@ -15,7 +15,25 @@ impl SessionClient {
     /// arguments.
     ///
     /// # Errors
-    /// Returns `ClientError::InvalidArgument` if `blob_ids` is an empty slice.
+    ///
+    /// - [`ClientError::InvalidArgument`] if `blob_ids` is empty, or if
+    ///   `params` is `Some` and serializing it to JSON fails
+    ///   (pathological conditions only — allocation failure, or a vendor
+    ///   value in `params.extra` that itself fails to serialize).
+    /// - [`ClientError::InvalidSession`] if the bound session has no
+    ///   primary account for `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](ClientError::Http),
+    ///   [`Parse`](ClientError::Parse),
+    ///   [`AuthFailed`](ClientError::AuthFailed),
+    ///   [`MethodError`](ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](ClientError::UnexpectedResponse).
     pub async fn calendar_event_parse(
         &self,
         blob_ids: &[Id],

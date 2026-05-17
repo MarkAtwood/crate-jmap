@@ -19,6 +19,24 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, the server returns all Principals for the account.
     /// Pass `properties: None` to return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn principal_get(
         &self,
         ids: Option<&[Id]>,
@@ -51,6 +69,24 @@ impl super::SessionClient {
     ///
     /// Note: servers backed by an external directory may return
     /// `cannotCalculateChanges` if change tracking is unavailable.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::principal_get`]. RFC 9670
+    ///   §2.2 also calls out `cannotCalculateChanges` (returned when
+    ///   the server's backing directory does not support change
+    ///   tracking); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn principal_changes(
         &self,
         since_state: &State,
@@ -91,6 +127,28 @@ impl super::SessionClient {
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `update` is `Some` and `serde_json::to_value` fails on the
+    ///   patch map (pathological conditions only — allocation failure,
+    ///   or a `PatchObject` whose JSON tree exceeds `serde_json`'s
+    ///   recursion limit). The transient memory peak for very large
+    ///   `update` maps is roughly 3-4× the `HashMap`'s in-memory size
+    ///   (source map + `serde_json::Value` tree + serialized `Vec<u8>`
+    ///   body); callers dealing with thousands of patches per call may
+    ///   prefer to batch.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::principal_get`]. Per the
+    ///   note above, many `principal_set` operations surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   with `error_type` `"forbidden"` because most fields on
+    ///   Principal are read-only or backed by an external directory.
     pub async fn principal_set(
         &self,
         create: Option<serde_json::Value>,
@@ -123,6 +181,19 @@ impl super::SessionClient {
     ///
     /// Pass `filter: None` and `sort: None` to return all Principals with
     /// server-default ordering. Use `position` and `limit` for pagination.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::principal_get`]. RFC 8620
+    ///   §5.5 defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn principal_query(
         &self,
         filter: Option<serde_json::Value>,
@@ -164,6 +235,22 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::principal_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::principal_get`]. RFC 8620
+    ///   §5.6 also defines `cannotCalculateChanges` (returned when the
+    ///   server cannot honour the request given the supplied filter /
+    ///   sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn principal_query_changes(
         &self,
         since_query_state: &State,

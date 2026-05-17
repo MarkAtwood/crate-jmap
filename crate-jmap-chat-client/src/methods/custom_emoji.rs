@@ -15,6 +15,24 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, returns all CustomEmoji objects visible to the account
     /// (Space-specific and server-global).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn custom_emoji_get(
         &self,
         ids: Option<&[Id]>,
@@ -38,6 +56,20 @@ impl super::SessionClient {
 
     /// Fetch changes to CustomEmoji objects since `since_state`
     /// (RFC 8620 §5.2 / JMAP Chat §4.16 CustomEmoji/changes).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::custom_emoji_get`].
     pub async fn custom_emoji_changes(
         &self,
         since_state: &State,
@@ -65,6 +97,21 @@ impl super::SessionClient {
     /// Create a CustomEmoji (RFC 8620 §5.3 / JMAP Chat §4.16 CustomEmoji/set create).
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `input.name` is empty (caller-precondition guard — emoji
+    ///   shortcodes require a non-empty name).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::custom_emoji_get`]. /set
+    ///   create errors (e.g. `invalidProperties`, `forbidden`,
+    ///   `alreadyExists`) appear in
+    ///   [`SetResponse::not_created`] rather than as [`Err`].
     pub async fn custom_emoji_create(
         &self,
         input: &CustomEmojiCreateInput<'_>,
@@ -95,6 +142,20 @@ impl super::SessionClient {
     /// Destroy CustomEmoji objects (RFC 8620 §5.3 / JMAP Chat §4.16 CustomEmoji/set destroy).
     ///
     /// `ids` must be non-empty; the guard fires before any network call.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `ids` is empty (caller-precondition guard — a no-op destroy
+    ///   is never useful).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::custom_emoji_get`]. /set
+    ///   destroy errors appear in
+    ///   [`SetResponse::not_destroyed`] rather than as [`Err`].
     pub async fn custom_emoji_destroy(
         &self,
         ids: &[Id],
@@ -115,6 +176,19 @@ impl super::SessionClient {
     }
 
     /// Query CustomEmoji IDs (RFC 8620 §5.5 / JMAP Chat §4.16 CustomEmoji/query).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::custom_emoji_get`]. RFC
+    ///   8620 §5.5 defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn custom_emoji_query(
         &self,
         input: &CustomEmojiQueryInput<'_>,
@@ -147,6 +221,22 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::custom_emoji_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::custom_emoji_get`]. RFC
+    ///   8620 §5.6 also defines `cannotCalculateChanges` (returned when
+    ///   the server cannot honour the request given the supplied
+    ///   filter / sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn custom_emoji_query_changes(
         &self,
         since_query_state: &State,

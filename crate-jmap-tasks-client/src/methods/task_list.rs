@@ -19,6 +19,24 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, the server returns all TaskLists for the account.
     /// Pass `properties: None` to return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:tasks`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn task_list_get(
         &self,
         ids: Option<&[Id]>,
@@ -48,6 +66,20 @@ impl super::SessionClient {
     ///
     /// If `has_more_changes` is true in the response, call again with `new_state`
     /// as `since_state` until the flag is false.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:tasks`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::task_list_get`].
     pub async fn task_list_changes(
         &self,
         since_state: &State,
@@ -88,6 +120,19 @@ impl super::SessionClient {
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:tasks`.
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `update` is `Some` and `serde_json::to_value` fails on the
+    ///   patch map (pathological conditions only; see [`Self::task_set`]
+    ///   for the memory-cost discussion that applies identically here).
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::task_list_get`].
     pub async fn task_list_set(
         &self,
         create: Option<serde_json::Value>,

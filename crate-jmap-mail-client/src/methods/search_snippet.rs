@@ -32,6 +32,31 @@ impl super::SessionClient {
     /// shape differs from the standard /get shape (no `state`).
     /// Callers should deserialize into `Vec<jmap_mail_types::SearchSnippet>` via
     /// `response["list"].as_array()`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`. Note that this check fires
+    ///   unconditionally even when the caller passes `Some(account_id)`
+    ///   to override the session-derived id — the session-derived id
+    ///   is still required as the fallback. (See bd:JMAP-tjvm.30 for
+    ///   the open contract question on whether the override should
+    ///   continue to exist.)
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`, and the
+    ///   /query-shape errors `unsupportedFilter` / `unsupportedSort`
+    ///   per RFC 8621 §5.1),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn search_snippet_get(
         &self,
         account_id: Option<&Id>,

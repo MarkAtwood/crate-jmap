@@ -21,6 +21,24 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, the server returns all ShareNotifications for the account.
     /// Pass `properties: None` to return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn share_notification_get(
         &self,
         ids: Option<&[Id]>,
@@ -47,6 +65,20 @@ impl super::SessionClient {
     ///
     /// If `has_more_changes` is true in the response, call again with `new_state`
     /// as `since_state` until the flag is false.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::share_notification_get`].
     pub async fn share_notification_changes(
         &self,
         since_state: &State,
@@ -82,6 +114,15 @@ impl super::SessionClient {
     ///
     /// Pass `destroy: None` to send an empty destroy list (no-op). Pass
     /// `destroy: Some(ids)` to dismiss the listed notifications.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::share_notification_get`].
     pub async fn share_notification_set(
         &self,
         destroy: Option<Vec<Id>>,
@@ -105,6 +146,19 @@ impl super::SessionClient {
     /// The server MUST support the `created` comparator property (RFC 9670 §3.4.1).
     /// Pass `filter: None` and `sort: None` to return all notifications with
     /// server-default ordering. Use `position` and `limit` for pagination.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::share_notification_get`].
+    ///   RFC 8620 §5.5 defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn share_notification_query(
         &self,
         filter: Option<serde_json::Value>,
@@ -146,6 +200,22 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::share_notification_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:principals`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::share_notification_get`].
+    ///   RFC 8620 §5.6 also defines `cannotCalculateChanges` (returned
+    ///   when the server cannot honour the request given the supplied
+    ///   filter / sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn share_notification_query_changes(
         &self,
         since_query_state: &State,

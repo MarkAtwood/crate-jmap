@@ -64,8 +64,27 @@ impl super::SessionClient {
     /// [`quota_changes`](Self::quota_changes) delta-sync support.
     ///
     /// Only call when [`crate::session::ChatSessionExt::supports_quotas`]
-    /// returns `true`.  Returns `ClientError::InvalidSession` if the session
-    /// has no primary JMAP Chat account.
+    /// returns `true`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`; servers
+    ///   that do not advertise `urn:ietf:params:jmap:quota` return
+    ///   `unknownCapability`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn quota_get(&self) -> Result<GetResponse<Quota>, jmap_base_client::ClientError> {
         let (api_url, account_id) = self.session_parts()?;
         let args = serde_json::json!({
@@ -93,9 +112,21 @@ impl super::SessionClient {
     /// honour a `max_changes` hint exactly.
     ///
     /// Only call when [`crate::session::ChatSessionExt::supports_quotas`]
-    /// returns `true`. Returns [`jmap_base_client::ClientError::InvalidArgument`]
-    /// if `since_state` is empty, or [`jmap_base_client::ClientError::InvalidSession`]
-    /// if the session has no primary JMAP Chat account.
+    /// returns `true`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::quota_get`].
     pub async fn quota_changes(
         &self,
         since_state: &State,
