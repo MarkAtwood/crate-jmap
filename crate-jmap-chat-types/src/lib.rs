@@ -36,6 +36,7 @@
 #![forbid(unsafe_code)]
 
 pub mod backend;
+pub mod capability;
 pub mod chat;
 pub mod clearable;
 pub mod contact;
@@ -54,6 +55,7 @@ pub use backend::{
     PresenceStatusProperty, ReadPositionProperty, SpaceBanProperty, SpaceInviteProperty,
     SpaceProperty,
 };
+pub use capability::{ChatCapability, ChatPushCapability, JMAP_CHAT_PUSH_URI, JMAP_CHAT_URI};
 pub use chat::{ChannelPermission, Chat, ChatKind, ChatMember};
 pub use clearable::Clearable;
 pub use contact::{ChatContact, Endpoint};
@@ -62,8 +64,8 @@ pub use ephemeral::{
     ChatPresenceEvent, ChatStreamDisable, ChatStreamEnable, ChatTypingEvent, EphemeralMessage,
 };
 pub use message::{
-    Attachment, DeliveryReceipt, DeliveryState, Mention, Message, MessageAction, MessageRevision,
-    Reaction, ReadDisposition, SenderId,
+    Attachment, BodyType, DeliveryReceipt, DeliveryState, Mention, Message, MessageAction,
+    MessageRevision, Reaction, ReadDisposition, SenderId,
 };
 pub use position::ReadPosition;
 pub use presence::{Presence, PresenceStatus};

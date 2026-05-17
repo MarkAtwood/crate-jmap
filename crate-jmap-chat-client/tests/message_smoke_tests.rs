@@ -420,7 +420,7 @@ async fn message_create_serializes_create_object() {
     let input = jmap_chat_client::methods::MessageCreateInput::new(
         &chat_id,
         "hello world",
-        jmap_chat_client::types::BodyType::Plain,
+        jmap_chat_client::BodyType::Plain,
         &sent_at,
     )
     .with_client_id("client-msg-1");
@@ -482,7 +482,7 @@ async fn message_create_rate_limited_surfaces_as_error() {
     let input = jmap_chat_client::methods::MessageCreateInput::new(
         &chat_id,
         "hello",
-        jmap_chat_client::types::BodyType::Plain,
+        jmap_chat_client::BodyType::Plain,
         &sent_at,
     )
     .with_client_id("client-msg-1");
@@ -534,7 +534,7 @@ async fn message_update_body_patch_serializes() {
     let msg_id = Id::from("msg-1");
     let mut patch = jmap_chat_client::methods::MessagePatch::default();
     patch.body = Some("edited body");
-    patch.body_type = Some(jmap_chat_client::types::BodyType::Markdown);
+    patch.body_type = Some(jmap_chat_client::BodyType::Markdown);
     let _ = sc
         .message_update(&msg_id, &patch)
         .await
@@ -958,7 +958,7 @@ async fn message_create_with_body_type_rich_serialises_correct_wire_string() {
     let input = jmap_chat_client::methods::MessageCreateInput::new(
         &chat_id,
         "[{\"type\":\"text\",\"value\":\"hi\"}]",
-        jmap_chat_client::types::BodyType::Rich,
+        jmap_chat_client::BodyType::Rich,
         &sent_at,
     )
     .with_client_id("client-msg-rich");
@@ -992,7 +992,7 @@ async fn message_update_with_body_type_other_round_trips_wire_string() {
     let msg_id = Id::from("msg-1");
     let mut patch = jmap_chat_client::methods::MessagePatch::default();
     patch.body = Some("vendor-encoded body");
-    patch.body_type = Some(jmap_chat_client::types::BodyType::Other(
+    patch.body_type = Some(jmap_chat_client::BodyType::Other(
         "application/x-acme-rich".into(),
     ));
     let _ = sc

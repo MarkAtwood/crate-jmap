@@ -634,7 +634,7 @@ pub struct MessageCreateInput<'a> {
     /// rejection.
     pub body: &'a str,
     /// MIME type for the message body.
-    pub body_type: crate::types::BodyType,
+    pub body_type: jmap_chat_types::BodyType,
     /// RFC 3339 timestamp.
     ///
     /// [`UTCDate`](jmap_types::UTCDate) is a transparent newtype around
@@ -653,7 +653,7 @@ impl<'a> MessageCreateInput<'a> {
     pub fn new(
         chat_id: &'a Id,
         body: &'a str,
-        body_type: crate::types::BodyType,
+        body_type: jmap_chat_types::BodyType,
         sent_at: &'a jmap_types::UTCDate,
     ) -> Self {
         Self {
@@ -734,7 +734,7 @@ pub struct MessagePatch<'a> {
     /// New message body text (author-only edit).
     pub body: Option<&'a str>,
     /// MIME type for `body`. Set alongside `body` in author-only edits.
-    pub body_type: Option<crate::types::BodyType>,
+    pub body_type: Option<jmap_chat_types::BodyType>,
     /// Reaction changes to apply. `None` (default) = no reaction changes.
     pub reaction_changes: Option<&'a [ReactionChange<'a>]>,
     /// Set the read-receipt timestamp (`Message.readAt`).

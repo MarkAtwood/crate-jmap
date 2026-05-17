@@ -199,55 +199,6 @@ impl_string_enum!(ChatMemberRole, "a ChatMemberRole wire string",
 );
 
 // ---------------------------------------------------------------------------
-// BodyType
-// ---------------------------------------------------------------------------
-
-/// MIME type for a message body.
-///
-/// The spec defines three well-known values. `Other(String)` preserves any
-/// unrecognized MIME type for lossless round-trip.
-///
-/// Wire strings: `"text/plain"`, `"text/markdown"`, `"application/jmap-chat-rich"`.
-#[non_exhaustive]
-#[derive(Debug, Clone, PartialEq)]
-pub enum BodyType {
-    /// `"text/plain"` — unformatted UTF-8 text.
-    Plain,
-    /// `"text/markdown"` — CommonMark-formatted text.
-    Markdown,
-    /// `"application/jmap-chat-rich"` — structured rich text (spans array).
-    Rich,
-    /// Any unrecognized MIME type string, preserved as-is.
-    ///
-    /// **Forging caveat**: see [`QuotaScope::Other`] for the full
-    /// discussion. Constructing `BodyType::Other("text/plain".into())`
-    /// produces a value that is unequal to `BodyType::Plain` on
-    /// `PartialEq` but serialises to the same wire string and
-    /// round-trips back to `BodyType::Plain`. Reserve `Other(s)` for
-    /// genuinely unrecognised MIME types; compare wire equality via
-    /// `as_str()`, not `PartialEq`.
-    Other(String),
-}
-
-impl BodyType {
-    /// The canonical MIME type string for this body type.
-    pub fn as_str(&self) -> &str {
-        match self {
-            Self::Plain => "text/plain",
-            Self::Markdown => "text/markdown",
-            Self::Rich => "application/jmap-chat-rich",
-            Self::Other(s) => s.as_str(),
-        }
-    }
-}
-
-impl_string_enum!(BodyType, "a BodyType MIME-string",
-    "text/plain"                 => Plain,
-    "text/markdown"              => Markdown,
-    "application/jmap-chat-rich" => Rich,
-);
-
-// ---------------------------------------------------------------------------
 // Wire-enum round-trip preservation tests
 // ---------------------------------------------------------------------------
 //
@@ -303,19 +254,6 @@ mod tests {
         assert_eq!(serde_json::to_string(&parsed).unwrap(), raw);
     }
 
-    /// BodyType: unknown wire string round-trips via Other(s).
-    /// Oracle: `"application/x-acme"` is not in draft-atwood-jmap-chat-00
-    /// §Message body-type set `{text/plain, text/markdown,
-    /// application/jmap-chat-rich}` and uses an `x-` prefix to make
-    /// the vendor-extension intent explicit.
-    #[test]
-    fn body_type_unknown_round_trips_via_other() {
-        let raw = r#""application/x-acme""#;
-        let parsed: BodyType = serde_json::from_str(raw).expect("must deserialize");
-        assert_eq!(parsed, BodyType::Other("application/x-acme".to_owned()));
-        assert_eq!(serde_json::to_string(&parsed).unwrap(), raw);
-    }
-
     /// QuotaScope canonical variants round-trip correctly to/from their
     /// registered wire strings.
     #[test]
@@ -327,29 +265,6 @@ mod tests {
         ];
         for (raw, expected) in cases {
             let parsed: QuotaScope = serde_json::from_str(raw).expect("must deserialize");
-            assert_eq!(
-                &parsed, expected,
-                "wire {raw} must deserialise to {expected:?}"
-            );
-            assert_eq!(
-                serde_json::to_string(&parsed).unwrap(),
-                *raw,
-                "wire {raw} must round-trip"
-            );
-        }
-    }
-
-    /// BodyType canonical variants round-trip correctly to/from their
-    /// registered wire strings.
-    #[test]
-    fn body_type_canonical_variants_round_trip() {
-        let cases: &[(&str, BodyType)] = &[
-            (r#""text/plain""#, BodyType::Plain),
-            (r#""text/markdown""#, BodyType::Markdown),
-            (r#""application/jmap-chat-rich""#, BodyType::Rich),
-        ];
-        for (raw, expected) in cases {
-            let parsed: BodyType = serde_json::from_str(raw).expect("must deserialize");
             assert_eq!(
                 &parsed, expected,
                 "wire {raw} must deserialise to {expected:?}"
