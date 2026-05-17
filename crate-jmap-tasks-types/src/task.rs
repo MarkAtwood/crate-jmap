@@ -39,6 +39,29 @@ impl_string_enum!(TaskProgress, "a JSCalendar Task progress string",
     "cancelled"    => Cancelled,
 );
 
+// Serde-default functions for the `@type` discriminator on Person /
+// CheckItem / Checklist / Comment. draft-tasks-06 §4.2.3 / §4.2.4
+// mandate the literal type-name string on the wire; we supply it as a
+// default so deserialize is liberal in what it accepts (spec-violating
+// vendor input missing `@type` does not fail the whole parent's
+// deserialize). See bd:JMAP-ky8g.1.
+
+fn person_at_type_default() -> String {
+    "Person".to_owned()
+}
+
+fn check_item_at_type_default() -> String {
+    "CheckItem".to_owned()
+}
+
+fn checklist_at_type_default() -> String {
+    "Checklist".to_owned()
+}
+
+fn comment_at_type_default() -> String {
+    "Comment".to_owned()
+}
+
 /// A person reference used in CheckItem assignee and Comment author fields
 /// (draft-tasks-06 §4.2.3).
 ///
@@ -49,7 +72,12 @@ impl_string_enum!(TaskProgress, "a JSCalendar Task progress string",
 #[serde(rename_all = "camelCase")]
 pub struct Person {
     /// Object type discriminator; MUST be `"Person"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"Person"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.1.
+    #[serde(rename = "@type", default = "person_at_type_default")]
     pub at_type: String,
 
     /// Display name of the person.
@@ -78,7 +106,12 @@ pub struct Person {
 #[serde(rename_all = "camelCase")]
 pub struct CheckItem {
     /// Object type discriminator; MUST be `"CheckItem"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"CheckItem"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.1.
+    #[serde(rename = "@type", default = "check_item_at_type_default")]
     pub at_type: String,
 
     /// Title / description of this checklist item.
@@ -113,7 +146,12 @@ pub struct CheckItem {
 #[serde(rename_all = "camelCase")]
 pub struct Checklist {
     /// Object type discriminator; MUST be `"Checklist"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"Checklist"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.1.
+    #[serde(rename = "@type", default = "checklist_at_type_default")]
     pub at_type: String,
 
     /// Optional title for the checklist.
@@ -138,7 +176,12 @@ pub struct Checklist {
 #[serde(rename_all = "camelCase")]
 pub struct Comment {
     /// Object type discriminator; MUST be `"Comment"` on the wire.
-    #[serde(rename = "@type")]
+    ///
+    /// Deserialize is liberal: if `@type` is absent (spec-violating
+    /// vendor input), this field defaults to `"Comment"` rather than
+    /// failing the whole parent object's deserialize. Serialize always
+    /// emits the field. See bd:JMAP-ky8g.1.
+    #[serde(rename = "@type", default = "comment_at_type_default")]
     pub at_type: String,
 
     /// The comment text.
