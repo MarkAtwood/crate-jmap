@@ -304,6 +304,48 @@ impl std::error::Error for SlowModeError {}
 ///
 /// This trait is not object-safe by design (generic methods). Use
 /// `Arc<impl ChatBackend>` when sharing across tasks.
+///
+/// # Async vs sync method convention
+///
+/// `ChatBackend` carves its methods into two groups:
+///
+/// 1. **Mutation / hot-path hooks are async.** [`ChatBackend::create_object`],
+///    [`ChatBackend::update_object`], [`ChatBackend::destroy_object`],
+///    [`ChatBackend::apply_space_patch`],
+///    [`ChatBackend::apply_space_metadata_patch`],
+///    [`ChatBackend::expire_message`],
+///    [`ChatBackend::slow_mode_check`],
+///    [`ChatBackend::is_contact_blocked`], and
+///    [`ChatBackend::may_set_custom_emoji`] all return
+///    `impl Future + Send`. These methods consult per-account state,
+///    may issue I/O, and run on the JMAP request hot path; the async
+///    signature lets production backends `.await` storage / cache /
+///    policy lookups without runtime-pinning hazards.
+///
+/// 2. **Policy / capability hooks are sync.** [`ChatBackend::supports_type`],
+///    [`ChatBackend::generate_invite_code`], [`ChatBackend::limits`],
+///    [`ChatBackend::protect_last_admin`], and
+///    [`ChatBackend::retains_edit_history`] are synchronous methods.
+///    These hooks answer deployment-policy or capability questions
+///    whose answer SHOULD be derivable from in-process state (a
+///    startup-loaded config snapshot, a cached per-account record, a
+///    CSPRNG handle). The sync shape keeps the trait surface easy to
+///    implement for single-process and reference backends, which are
+///    the dominant use case for a kit crate.
+///
+/// The carve-up is intentional and is NOT a "we forgot to async these"
+/// regression. Production backends that need to consult an async
+/// source for any of the five sync hooks have two options: (a)
+/// pre-cache the answer at startup or on a background refresh; or (b)
+/// file a follow-up bead proposing the conversion for that specific
+/// method, with the production constraint documented. Per-method
+/// rustdoc notes ("`# Why sync, not async`" / "`# Fallibility and
+/// async — known limitations`") spell out the workaround on each
+/// affected method. Flipping any of the sync hooks to async is a
+/// major-version breaking change for downstream implementors;
+/// converting them all preemptively for hypothetical multi-tenant
+/// SaaS deployments would over-engineer the kit-vs-product posture
+/// described in workspace `AGENTS.md`.
 pub trait ChatBackend: JmapBackend {
     /// Create a new object.
     ///
@@ -359,6 +401,24 @@ pub trait ChatBackend: JmapBackend {
     /// Called by the server consumer (e.g. the session capability builder) —
     /// NOT called internally by the handler library. Backends that support all
     /// types unconditionally can return `true` always.
+    ///
+    /// # Why sync, not async
+    ///
+    /// Type-support is a startup-time deployment capability question,
+    /// not a per-request decision. Backends that vary supported types
+    /// per-tenant (e.g. "Pro tier exposes `CustomEmoji`") SHOULD load
+    /// the tenant configuration once at startup and answer from the
+    /// in-memory snapshot. See the trait-level "Async vs sync method
+    /// convention" section above for the workspace rationale.
+    ///
+    /// # Known limitation: no args
+    ///
+    /// This method takes no `caller` / `account_id` arguments, so a
+    /// multi-tenant backend cannot vary the answer per tenant from
+    /// inside this method alone — it must funnel all per-tenant
+    /// capability variation through `&self` state. Adding the
+    /// arguments would be a non-breaking signature widening; that
+    /// proposal is tracked separately.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
     /// Generate a cryptographically random invite code.
@@ -459,6 +519,16 @@ pub trait ChatBackend: JmapBackend {
     /// quickly (in-process struct construction, possibly off a cached
     /// per-account record) — this method is called on the hot
     /// `Space/set` path.
+    ///
+    /// # Why sync, not async
+    ///
+    /// `Space/set` calls this once per request before dispatching the
+    /// mutation; an async `.await` here would add a roundtrip to the
+    /// hot path of every Space mutation. Production backends with
+    /// per-tenant caps SHOULD cache the resolved [`ChatLimits`] for
+    /// each account on first use and serve from the cache thereafter.
+    /// See the trait-level "Async vs sync method convention" section
+    /// above for the workspace rationale.
     ///
     /// Workspace cross-extension pattern: see `AGENTS.md` "Backend
     /// caps and limits".
@@ -801,6 +871,15 @@ pub trait ChatBackend: JmapBackend {
     /// all ops in the patch (member adds/removes, role-id changes,
     /// permission edits), and rejects the whole update target with a
     /// `Forbidden` SetError if zero admins would remain.
+    ///
+    /// # Why sync, not async
+    ///
+    /// This predicate is a deployment-policy flag: a backend either
+    /// enforces the last-admin invariant or it does not. Backends
+    /// that consult an external admin-tracking service to derive the
+    /// answer SHOULD cache the per-account boolean and answer from
+    /// the cache. See the trait-level "Async vs sync method
+    /// convention" section above for the workspace rationale.
     fn protect_last_admin(&self, caller: &Self::CallerCtx, account_id: &jmap_types::Id) -> bool {
         let _ = (caller, account_id);
         true
