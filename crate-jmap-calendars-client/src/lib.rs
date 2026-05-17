@@ -1,7 +1,7 @@
 //! jmap-calendars-client — JMAP Calendars method implementations.
 //!
 //! Depends on jmap-base-client for transport, auth, and session.
-//! Implements the 18-method surface described in draft-ietf-jmap-calendars-26.
+//! Implements the 19-method surface described in draft-ietf-jmap-calendars-26.
 //!
 //! # Usage
 //!
@@ -38,7 +38,7 @@ pub use methods::{
 /// account id on every call.
 pub trait JmapCalendarsExt {
     /// Bind this client to the given `session`, returning a [`SessionClient`]
-    /// on which all 18 JMAP Calendars methods are available.
+    /// on which all 19 JMAP Calendars methods are available.
     ///
     /// Re-create the `SessionClient` after each `fetch_session` call; a stale
     /// session will produce `unknownAccount` or similar errors.
