@@ -487,6 +487,39 @@ impl JmapClient {
                     //     is 1 byte — covered by the 3-byte overlap.
                     // Since \r and \n are single-byte UTF-8 codepoints, 3 bytes back
                     // is always a valid char boundary — no adjustment needed.
+                    //
+                    // Do not simplify to "rescan the whole buffer" (bd:JMAP-6r7c.19).
+                    // The four-delimiter min_by_key + 3-byte overlap pattern is
+                    // load-bearing for four independent reasons:
+                    //
+                    //   1. Overlap-rescan is O(chunk_size) per chunk; whole-buffer
+                    //      rescan is O(n) per chunk, i.e. O(n²) over the lifetime
+                    //      of a long-lived SSE stream. JMAP push streams can run
+                    //      for hours with thousands of small events; the
+                    //      difference is measurable.
+                    //   2. All four delimiter forms are necessary. The WHATWG
+                    //      EventSource spec + RFC 8895 line-terminator rules let
+                    //      a single server emit mixed line endings within one
+                    //      frame. min_by_key over all four catches the mixed
+                    //      `\n\r\n` case that neither `\n\n` nor `\r\n\r\n`
+                    //      alone catches. Removing forms produces silent
+                    //      frame-misalignment on those servers.
+                    //   3. The walk-back to a UTF-8 char boundary on the
+                    //      `scan_from = old_len.saturating_sub(3)` assignment
+                    //      below is needed because the byte preceding scan_from
+                    //      might be in the middle of a multi-byte codepoint;
+                    //      `buf[scan_from..]` would panic on the next `.find()`
+                    //      without it.
+                    //   4. Tests in tests/client_tests.rs pin all three line-
+                    //      ending variants against hand-crafted server bodies:
+                    //      `test_subscribe_events_crlf_line_endings`,
+                    //      `test_subscribe_events_lf_crlf_frame_delimiter`,
+                    //      and `test_subscribe_events_cr_line_endings`. The
+                    //      mixed `\n\r\n` case (the second test) is the
+                    //      trickiest and is the canonical example of why all
+                    //      four delimiter searches are present.
+                    //
+                    // Resist the "just rescan the whole buffer" refactor.
                     let frame_end = [
                         buf[scan_from..]
                             .find("\r\n\r\n")
