@@ -5125,6 +5125,97 @@ async fn position_set_create_success() {
     assert_eq!(resp["created"]["rp0"]["chatId"], "c1");
 }
 
+/// Oracle: Two sequential ReadPosition/set creates for the same chatId
+/// reject the second with `alreadyExists`, naming the canonical id of
+/// the existing record. The (account, chatId) uniqueness invariant
+/// (position.rs module-doc) is enforced by the handler so a retried
+/// client call doesn't produce two ReadPosition rows (bd:JMAP-x2gd.13).
+#[tokio::test]
+async fn position_set_create_duplicate_chat_id_sequential_rejected() {
+    let backend = MemoryBackend::new();
+    let (first, _) = handle_position_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "rp0": { "chatId": "c1" } }
+        }),
+    )
+    .await
+    .expect("first create");
+    let canonical_id = first["created"]["rp0"]["id"]
+        .as_str()
+        .expect("first id")
+        .to_owned();
+
+    let (second, _) = handle_position_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": { "rp1": { "chatId": "c1" } }
+        }),
+    )
+    .await
+    .expect("second create");
+
+    assert!(second["notCreated"]["rp1"].is_object());
+    assert_eq!(second["notCreated"]["rp1"]["type"], "alreadyExists");
+    assert_eq!(
+        second["notCreated"]["rp1"]["existingId"], canonical_id,
+        "expected the existingId to name the canonical pre-existing ReadPosition"
+    );
+    assert!(second["created"].as_object().is_none_or(|m| m.is_empty()));
+}
+
+/// Oracle: Two creates for the same chatId in a single /set batch reject
+/// the second with `alreadyExists`, naming the id of the one that did
+/// succeed. Mirrors Chat/set Direct intra-batch dedup at chat.rs.
+#[tokio::test]
+async fn position_set_create_duplicate_chat_id_intra_batch_rejected() {
+    let backend = MemoryBackend::new();
+    let (resp, _) = handle_position_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "create": {
+                "rp0": { "chatId": "c1" },
+                "rp1": { "chatId": "c1" }
+            }
+        }),
+    )
+    .await
+    .expect("handle_position_set");
+
+    // Exactly one of rp0/rp1 should be in `created`; the other should be
+    // in `notCreated` with alreadyExists pointing at the winner's id.
+    let created_keys: Vec<&str> = resp["created"]
+        .as_object()
+        .map(|m| m.keys().map(String::as_str).collect())
+        .unwrap_or_default();
+    let not_created_keys: Vec<&str> = resp["notCreated"]
+        .as_object()
+        .map(|m| m.keys().map(String::as_str).collect())
+        .unwrap_or_default();
+    assert_eq!(created_keys.len(), 1, "exactly one create should succeed");
+    assert_eq!(
+        not_created_keys.len(),
+        1,
+        "exactly one create should be rejected"
+    );
+
+    let winner = created_keys[0];
+    let loser = not_created_keys[0];
+    assert_ne!(winner, loser);
+    let canonical_id = resp["created"][winner]["id"]
+        .as_str()
+        .expect("winner id")
+        .to_owned();
+    assert_eq!(resp["notCreated"][loser]["type"], "alreadyExists");
+    assert_eq!(resp["notCreated"][loser]["existingId"], canonical_id);
+}
+
 /// Oracle: ReadPosition/set update of chatId is rejected (immutable).
 #[tokio::test]
 async fn position_set_update_chat_id_rejected() {

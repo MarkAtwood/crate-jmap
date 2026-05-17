@@ -9,7 +9,7 @@ use jmap_chat_types::ReadPosition;
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
 use serde_json::{json, Value};
 
-use crate::backend::{BackendSetError, ChatBackend};
+use crate::backend::{BackendSetError, ChatBackend, SetError, SetErrorType};
 use crate::helpers::{
     enforce_max_objects_in_set, extract_account_id, finalize_set_response, not_found_json,
     serialize_value, set_error_value, SetAccumulators,
@@ -150,6 +150,28 @@ pub async fn handle_position_set<B: ChatBackend>(
     // create
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
+        // The (account, chatId) -> ReadPosition uniqueness invariant (this
+        // module's top-level doc) is enforced here in the handler. Without
+        // this check, a client calling ReadPosition/set create twice for
+        // the same chatId — common on retry paths — would produce two
+        // ReadPosition records, leaving Chat.unreadCount derivation
+        // (draft-atwood-jmap-chat-00 §Chat) ambiguous. The hoisted fetch
+        // is paid only when the batch contains at least one create, and
+        // the in-batch HashMap covers multiple creates that target the
+        // same chatId in a single request. Production backends still need
+        // to re-verify atomically on the create_object call to defend
+        // against concurrent /set requests racing the pre-check.
+        let mut existing_positions: Vec<ReadPosition> = Vec::new();
+        if !create_map.is_empty() {
+            let (positions, _) = backend
+                .get_objects::<ReadPosition>(caller, &account_id, None, None)
+                .await
+                .map_err(|e| server_fail_from_backend(&e))?;
+            existing_positions = positions;
+        }
+        let mut batch_chat_ids: std::collections::HashMap<String, Id> =
+            std::collections::HashMap::new();
+
         for (create_id, obj_val) in create_map {
             let chat_id = match obj_val.get("chatId").and_then(|v| v.as_str()) {
                 Some(s) => Id::from(s),
@@ -162,7 +184,37 @@ pub async fn handle_position_set<B: ChatBackend>(
                 }
             };
 
-            let mut position = ReadPosition::new(Id::from("placeholder"), chat_id);
+            // Reject if a ReadPosition already exists for this chatId
+            // (either pre-existing or created earlier in this batch). Per
+            // the Chat/set Direct dedup pattern, return alreadyExists with
+            // the canonical id so the caller can re-target the existing
+            // record via ReadPosition/set update.
+            if let Some(dup) = existing_positions
+                .iter()
+                .find(|p| p.chat_id.as_ref() == chat_id.as_ref())
+            {
+                not_created.insert(
+                    create_id.clone(),
+                    serde_json::to_value(
+                        SetError::new(SetErrorType::AlreadyExists).with_existing_id(dup.id.clone()),
+                    )
+                    .expect("derive(Serialize) on plain data is infallible"),
+                );
+                continue;
+            }
+            if let Some(prior_id) = batch_chat_ids.get(chat_id.as_ref()) {
+                not_created.insert(
+                    create_id.clone(),
+                    serde_json::to_value(
+                        SetError::new(SetErrorType::AlreadyExists)
+                            .with_existing_id(prior_id.clone()),
+                    )
+                    .expect("derive(Serialize) on plain data is infallible"),
+                );
+                continue;
+            }
+
+            let mut position = ReadPosition::new(Id::from("placeholder"), chat_id.clone());
 
             if let Some(msg_id) = obj_val.get("lastReadMessageId").and_then(|v| v.as_str()) {
                 position.last_read_message_id = Some(Id::from(msg_id));
@@ -192,8 +244,12 @@ pub async fn handle_position_set<B: ChatBackend>(
                 .create_object::<ReadPosition>(caller, &account_id, create_id, position)
                 .await
             {
-                Ok((_server_id, created_obj)) => {
+                Ok((server_id, created_obj)) => {
                     mutated = true;
+                    // Record the just-assigned id so later iterations in
+                    // this same batch can detect duplicates targeting the
+                    // same chatId.
+                    batch_chat_ids.insert(chat_id.as_ref().to_owned(), server_id);
                     created.insert(
                         create_id.clone(),
                         serde_json::to_value(&created_obj)
