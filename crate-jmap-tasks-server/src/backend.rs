@@ -246,15 +246,62 @@ pub trait TasksBackend: JmapBackend {
         self.update_object::<jmap_tasks_types::Task>(caller, account_id, id, patch)
     }
 
-    /// Returns `true` if this backend enforces the `isDraft` immutability invariant
-    /// atomically in `update_object` (by returning `SetError { error_type: InvalidProperties,
-    /// properties: ["isDraft"] }` when a patch attempts to set `isDraft: true` on a
-    /// published task).
+    /// Declares which side of the draft-tasks-06 §4 (`isDraft` paragraph)
+    /// immutability invariant enforcement contract this backend honours.
     ///
-    /// When `true`, the handler skips the `get_objects` pre-fetch in `Task/set` update
-    /// processing, saving one backend round-trip per update that contains `isDraft: true`.
+    /// This is a **correctness-handover contract**, not a performance flag.
+    /// The invariant is: once a Task transitions to `isDraft: false`, the
+    /// value MUST NOT be updated back to `true`. Exactly one of the handler
+    /// or the backend is responsible for rejecting such a revert with
+    /// [`SetErrorType::InvalidProperties`] (`properties: ["isDraft"]`); this
+    /// method tells the handler which side owns enforcement on this backend.
     ///
-    /// Default: `false` — pre-fetch is always performed.
+    /// # Returning `false` (default)
+    ///
+    /// The handler in `Task/set` performs a `get_objects` pre-fetch on every
+    /// update that contains `isDraft: true`, inspects the current value, and
+    /// rejects the revert before calling [`Self::update_object`]. The backend
+    /// is then free to apply the patch verbatim — it will never receive a
+    /// spec-violating patch.
+    ///
+    /// # Returning `true`
+    ///
+    /// Implementor commits to **atomically rejecting** the
+    /// `isDraft: false → true` revert inside [`Self::update_object`] (and
+    /// [`Self::update_task_per_user`] if applicable), in the same critical
+    /// section as the read-and-write that applies the patch. The handler
+    /// skips its pre-fetch and forwards the raw patch.
+    ///
+    /// **Returning `true` without actually performing the atomic re-check is
+    /// a spec violation that silently corrupts data.** The pre-fetch
+    /// fast-path is removed under the assumption the backend will catch
+    /// the revert; if it does not, draft-tasks-06 §4 immutability is broken
+    /// with no client-visible signal. Workspace test-integrity rules
+    /// (`AGENTS.md` "Permission enforcement: backend canonical") make the
+    /// backend the canonical enforcement point regardless of which value
+    /// is returned here — a `true` return value is opting OUT of the
+    /// handler's defense-in-depth pre-check, not opting INTO enforcement
+    /// the handler would otherwise do alone.
+    ///
+    /// # Performance is a side effect
+    ///
+    /// The handler's pre-fetch costs one extra `get_objects` round-trip per
+    /// update that contains `isDraft: true`. Returning `true` eliminates
+    /// that round-trip. This is real, but the reason to return `true` is
+    /// that the backend genuinely enforces the invariant atomically — the
+    /// round-trip saving alone is not a sufficient reason to flip the flag.
+    ///
+    /// # Reference impl
+    ///
+    /// The `memory` feature's `MemoryBackend` returns `true` and enforces
+    /// the revert atomically in [`Self::update_object`] under the same lock
+    /// that applies the patch. See `memory.rs` for the shape a production
+    /// backend should mirror.
+    ///
+    /// # Default
+    ///
+    /// `false` — pre-fetch is always performed. Safe default for backends
+    /// that have not yet wired atomic isDraft re-checking.
     fn enforce_is_draft_atomically(&self) -> bool {
         false
     }
