@@ -20,9 +20,9 @@ use serde::{Deserialize, Serialize};
 /// # Excluded from extras preservation
 ///
 /// This enum is **out of scope** for the workspace extras-preservation policy:
-/// it carries no `Unknown(String)` catch-all variant, and backends must
+/// it carries no `Other(String)` catch-all variant, and backends must
 /// dispatch on its known variants (`AND`, `OR`, `NOT`) to evaluate a filter
-/// tree. An `Unknown` operator would be meaningless — a server that cannot
+/// tree. An `Other` operator would be meaningless — a server that cannot
 /// interpret the operator cannot evaluate the filter, and silently round-
 /// tripping it back to the client would yield wrong query results.
 ///
