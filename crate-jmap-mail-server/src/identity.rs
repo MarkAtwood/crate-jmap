@@ -54,9 +54,9 @@ pub async fn handle_identity_get<B: MailBackend>(
     }
 
     // ids: absent or null means "return all"; Some([]) means "return nothing".
-    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
+    let ids: Option<Vec<Id>> = match args.remove("ids") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
             serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
@@ -64,9 +64,9 @@ pub async fn handle_identity_get<B: MailBackend>(
 
     // RFC 8620 §5.1: when `properties` is specified return only those fields
     // (plus `id` which is always included). `None` means return all fields.
-    let properties: Option<Vec<String>> = match args.remove("properties").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
+    let properties: Option<Vec<String>> = match args.remove("properties") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
             serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
         ),

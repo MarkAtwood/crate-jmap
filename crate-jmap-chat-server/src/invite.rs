@@ -53,9 +53,9 @@ pub async fn handle_invite_get<B: ChatBackend>(
 ) -> Result<(Value, Vec<Invocation>), JmapError> {
     let (account_id, mut args) = extract_account_id(args)?;
 
-    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
+    let ids: Option<Vec<Id>> = match args.remove("ids") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
             serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),

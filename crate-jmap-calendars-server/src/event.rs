@@ -84,17 +84,17 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     }
 
     // Standard /get parameters (RFC 8620 §5.1).
-    let ids: Option<Vec<Id>> = match args.remove("ids").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
+    let ids: Option<Vec<Id>> = match args.remove("ids") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
             serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("ids must be an Id array"))?,
         ),
     };
 
-    let properties: Option<Vec<String>> = match args.remove("properties").unwrap_or(Value::Null) {
-        Value::Null => None,
-        v => Some(
+    let properties: Option<Vec<String>> = match args.remove("properties") {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
             serde_json::from_value(v)
                 .map_err(|_| JmapError::invalid_arguments("properties must be a string array"))?,
         ),
@@ -903,22 +903,22 @@ pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     // (the typed struct here accepts every spec-defined clause, so any
     // failure is structural).
     let filter: Option<jmap_calendars_types::CalendarEventFilterCondition> =
-        match args.remove("filter").unwrap_or(Value::Null) {
-            Value::Null => None,
-            v => Some(
+        match args.remove("filter") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(
                 serde_json::from_value(v)
                     .map_err(|e| JmapError::invalid_arguments(format!("filter: {e}")))?,
             ),
         };
 
-    let sort: Option<Vec<jmap_calendars_types::CalendarEventComparator>> =
-        match args.remove("sort").unwrap_or(Value::Null) {
-            Value::Null => None,
-            v => Some(
-                serde_json::from_value(v)
-                    .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
-            ),
-        };
+    let sort: Option<Vec<jmap_calendars_types::CalendarEventComparator>> = match args.remove("sort")
+    {
+        None | Some(Value::Null) => None,
+        Some(v) => Some(
+            serde_json::from_value(v)
+                .map_err(|_| JmapError::invalid_arguments("sort must be an array"))?,
+        ),
+    };
 
     // §5.11 extras.
     let expand_recurrences = bool_arg(&args, "expandRecurrences", false);
