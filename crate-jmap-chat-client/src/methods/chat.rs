@@ -18,7 +18,12 @@ use super::{
 impl super::SessionClient {
     /// Fetch Chat objects by IDs (RFC 8620 §5.1 / JMAP Chat §Chat/get).
     ///
-    /// If `ids` is `None`, the server returns all Chats for the account.
+    /// If `ids` is `None`, the server returns all Chats for the account,
+    /// SUBJECT TO the server's `maxObjectsInGet` cap (RFC 8620 §5.1).
+    /// For production use, scope the result set via the corresponding
+    /// /query method first and pass explicit ids here to avoid
+    /// `requestTooLarge` errors when the account holds more objects
+    /// than the cap.
     /// Pass `properties: None` to return all fields.
     ///
     /// # Errors

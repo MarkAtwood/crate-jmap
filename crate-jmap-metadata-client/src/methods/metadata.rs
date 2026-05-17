@@ -43,11 +43,18 @@ fn merge_extras(args: &mut serde_json::Value, extras: serde_json::Map<String, se
 impl super::SessionClient {
     /// Fetch Metadata objects by IDs (draft-ietf-jmap-metadata-01 §3.2).
     ///
-    /// If `ids` is `None`, the server returns all Metadata objects for the
-    /// account in one response. Pass `properties: None` to return all
-    /// fields. Pass `params: Some(MetadataGetParams { extra: ... })` to
-    /// inject vendor / site / private method-level extension args; pass
-    /// `None` (or `Some(Default::default())`) for the standard wire shape.
+    /// If `ids` is `None`, the server returns all Metadata objects for
+    /// the account, SUBJECT TO the server's `maxObjectsInGet` cap (RFC
+    /// 8620 §5.1). For production use, scope the result set via
+    /// [`Self::metadata_query`] first and pass explicit ids here to
+    /// avoid `requestTooLarge` errors when the account holds more
+    /// objects than the cap.
+    ///
+    /// Pass `properties: None` to return all fields. Pass
+    /// `params: Some(MetadataGetParams { extra: ... })` to inject
+    /// vendor / site / private method-level extension args; pass
+    /// `None` (or `Some(Default::default())`) for the standard wire
+    /// shape.
     pub async fn metadata_get(
         &self,
         ids: Option<&[Id]>,
