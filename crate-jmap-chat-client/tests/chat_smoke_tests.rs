@@ -404,7 +404,7 @@ async fn chat_query_changes_since_query_state_passthrough() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs-old");
     let _ = sc
-        .chat_query_changes(&since, None)
+        .chat_query_changes(&since, None, None, None, None, None)
         .await
         .expect("chat_query_changes: must succeed");
 

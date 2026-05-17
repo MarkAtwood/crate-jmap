@@ -342,7 +342,15 @@ async fn metadata_query_changes_round_trip() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .metadata_query_changes(&jmap_types::State::from("qs1"), None, None)
+        .metadata_query_changes(
+            &jmap_types::State::from("qs1"),
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+        )
         .await
         .expect("metadata_query_changes_round_trip: must succeed");
 

@@ -114,12 +114,28 @@ impl super::SessionClient {
 
     /// Fetch query-result changes for EmailSubmission since `since_query_state`
     /// (RFC 8621 §7.4 — EmailSubmission/queryChanges).
+    ///
+    /// `filter` and `sort` MUST match the `filter` / `sort` passed to the
+    /// original `EmailSubmission/query` call that returned
+    /// `since_query_state` — RFC 8620 §5.6 is explicit that the server
+    /// uses them to compute which entries entered or left the result set.
+    /// Omitting them when the original query had a non-trivial filter or
+    /// sort gives the wrong added/removed deltas (or
+    /// `cannotCalculateChanges`).
+    ///
+    /// `up_to_id` is the highest-index id the client has cached
+    /// (RFC 8620 §5.6); the server may use it to omit changes past that
+    /// point when both `filter` and `sort` are on immutable properties.
+    ///
+    /// `calculate_total` requests the new total result count.
     pub async fn email_submission_query_changes(
         &self,
         since_query_state: &State,
         max_changes: Option<u64>,
         filter: Option<serde_json::Value>,
         sort: Option<serde_json::Value>,
+        up_to_id: Option<&Id>,
+        calculate_total: Option<bool>,
     ) -> Result<QueryChangesResponse, jmap_base_client::ClientError> {
         // Defence-in-depth: see `thread_changes`.
         if since_query_state.as_ref().is_empty() {
@@ -132,14 +148,20 @@ impl super::SessionClient {
             "accountId": account_id,
             "sinceQueryState": since_query_state,
         });
-        if let Some(mc) = max_changes {
-            args["maxChanges"] = mc.into();
-        }
         if let Some(f) = filter {
             args["filter"] = f;
         }
         if let Some(s) = sort {
             args["sort"] = s;
+        }
+        if let Some(mc) = max_changes {
+            args["maxChanges"] = mc.into();
+        }
+        if let Some(uti) = up_to_id {
+            args["upToId"] = serde_json::to_value(uti).expect("Id Serialize is infallible");
+        }
+        if let Some(ct) = calculate_total {
+            args["calculateTotal"] = ct.into();
         }
         let req = super::build_request("EmailSubmission/queryChanges", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;

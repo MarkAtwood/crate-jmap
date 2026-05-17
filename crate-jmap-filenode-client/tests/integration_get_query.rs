@@ -320,7 +320,7 @@ async fn file_node_query_changes_returns_added_and_removed() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .file_node_query_changes(&State::from("qs1"), None)
+        .file_node_query_changes(&State::from("qs1"), None, None, None, None, None)
         .await
         .expect("file_node_query_changes_returns_added_and_removed: must succeed");
 

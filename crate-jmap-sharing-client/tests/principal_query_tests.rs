@@ -101,7 +101,7 @@ async fn principal_query_changes_round_trip() {
 
     let sc = common::make_client(&server);
     let resp = sc
-        .principal_query_changes(&State::from("qs1"), None)
+        .principal_query_changes(&State::from("qs1"), None, None, None, None, None)
         .await
         .expect("principal_query_changes_round_trip: must succeed");
 

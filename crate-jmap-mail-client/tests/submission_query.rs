@@ -142,7 +142,7 @@ async fn email_submission_query_changes_round_trip() {
     let sc = helpers::make_client(&server);
     let since = State::from("qs1");
     let resp = sc
-        .email_submission_query_changes(&since, None, None, None)
+        .email_submission_query_changes(&since, None, None, None, None, None)
         .await
         .expect("email_submission_query_changes_round_trip: must succeed");
 
@@ -191,16 +191,19 @@ async fn email_submission_query_changes_with_filter_and_sort() {
 
     let sc = helpers::make_client(&server);
     let since = State::from("qs5");
+    let up_to = jmap_types::Id::from("ES-100");
     sc.email_submission_query_changes(
         &since,
         None,
         Some(json!({"undoStatus": "pending"})),
         Some(json!([{"property": "sentAt", "isAscending": false}])),
+        Some(&up_to),
+        Some(true),
     )
     .await
     .expect("email_submission_query_changes_with_filter_and_sort: must succeed");
 
-    // Verify both filter and sort are present in the request.
+    // Verify all four RFC 8620 §5.6 queryChanges args are present in the request.
     let reqs = server
         .received_requests()
         .await
@@ -217,5 +220,70 @@ async fn email_submission_query_changes_with_filter_and_sort() {
         args["sort"][0]["property"],
         json!("sentAt"),
         "sort[0].property must be 'sentAt' (RFC 8621 §7.3 line 4513)"
+    );
+    assert_eq!(
+        args["upToId"],
+        json!("ES-100"),
+        "upToId must be on the wire (RFC 8620 §5.6)"
+    );
+    assert_eq!(
+        args["calculateTotal"],
+        json!(true),
+        "calculateTotal must be on the wire (RFC 8620 §5.6)"
+    );
+}
+
+/// Test 5: EmailSubmission/queryChanges with all None optional args must NOT
+/// emit any of filter/sort/upToId/calculateTotal on the wire.
+///
+/// Oracle: RFC 8620 §5.6 — all four are optional; the wire shape with `None`
+/// for each must be byte-identical to the minimal `sinceQueryState`-only call.
+#[tokio::test]
+async fn email_submission_query_changes_all_none_omits_optional_wire_keys() {
+    let server = MockServer::start().await;
+    let resp_body = json!({
+        "sessionState": "s1",
+        "methodResponses": [[
+            "EmailSubmission/queryChanges",
+            {
+                "accountId": "A13824",
+                "oldQueryState": "qs5",
+                "newQueryState": "qs6",
+                "total": 0,
+                "removed": [],
+                "added": []
+            },
+            "r1"
+        ]]
+    });
+    Mock::given(method("POST"))
+        .and(path("/api/"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
+        .mount(&server)
+        .await;
+
+    let sc = helpers::make_client(&server);
+    let since = State::from("qs5");
+    sc.email_submission_query_changes(&since, None, None, None, None, None)
+        .await
+        .expect("must succeed");
+
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be JSON");
+    let args = &body["methodCalls"][0][1];
+    assert!(args.get("filter").is_none(), "filter must be omitted");
+    assert!(args.get("sort").is_none(), "sort must be omitted");
+    assert!(args.get("upToId").is_none(), "upToId must be omitted");
+    assert!(
+        args.get("calculateTotal").is_none(),
+        "calculateTotal must be omitted"
+    );
+    assert!(
+        args.get("maxChanges").is_none(),
+        "maxChanges must be omitted"
     );
 }
