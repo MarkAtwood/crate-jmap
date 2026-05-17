@@ -221,6 +221,49 @@ impl AuthProvider for NoneAuth {
 /// Callers that hold the original token string SHOULD also store it in a
 /// `Zeroizing<String>` or equivalent — the zeroization here is bounded by
 /// what this type owns.
+///
+/// # Do not move validation from construction to per-request (bd:JMAP-6r7c.18)
+///
+/// A future contributor may suggest "just store the token field and call
+/// `HeaderValue::from_str` in `auth_header` on each request". This is the
+/// wrong simplification for both `BearerAuth` and `BasicAuth`. Five
+/// reasons:
+///
+/// 1. **Fail-fast at auth setup.** Validation at construction means
+///    invalid credentials surface at `BearerAuth::new()` return value —
+///    the caller fails near the bug source (their auth-setup code).
+///    Per-request validation pushes failures to the first
+///    `JmapClient::call()` or `fetch_session()`, far from the bug and
+///    harder to debug.
+/// 2. **Hot-path performance.** `auth_header` is called on every HTTP
+///    request and every WebSocket connection. `HeaderValue::from_str`
+///    walks the string and rejects on the first non-VCHAR/SP/HTAB
+///    octet (RFC 7230 §3.2.6) — non-trivial work for a hot path.
+///    Pre-validation moves that work out of every request.
+/// 3. **Infallible accessor signature.** Pre-validation lets
+///    `auth_header` keep the signature
+///    `fn auth_header(&self) -> Option<(&str, &str)>` — infallible.
+///    Per-request validation would require
+///    `Result<Option<(&str, &str)>, ClientError>`, propagating an
+///    extra error layer through every call site (HTTP `call`, blob
+///    upload/download, WebSocket connect, session fetch).
+/// 4. **Borrow simplicity.** Storing as `Zeroizing<String>` lets
+///    `auth_header` return borrows directly without ownership tricks
+///    (`Cow`, `Box<str>`, etc.). The borrow checker stays simple, the
+///    call sites stay readable.
+/// 5. **Debug-redaction tripwire compatibility.** The manual `Debug`
+///    impls on `BearerAuth` and `BasicAuth` (auth.rs further below)
+///    target the stored field. A future contributor adding
+///    `#[derive(Debug)]` instead of the manual impl is caught
+///    immediately by the existing canary tests
+///    `bearer_auth_debug_does_not_leak_token` and
+///    `basic_auth_debug_does_not_leak_credentials` (bd:JMAP-sc1b.79).
+///    Moving to per-request validation requires the field shape to
+///    change in a way that re-derives the canary contract — extra
+///    surface area for review without buying anything.
+///
+/// This is the same pre-validate-at-construction pattern `rustls` and
+/// `reqwest` use for their own type designs. It is not over-engineering.
 #[derive(Clone)]
 pub struct BearerAuth {
     // Pre-validated at construction and stored as String: avoids per-request
