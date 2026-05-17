@@ -16,7 +16,15 @@ use serde::{Deserialize, Serialize};
 #[serde(rename_all = "camelCase")]
 pub struct ParticipantIdentity {
     /// Server-assigned immutable identifier.
-    pub id: Id,
+    ///
+    /// `Option<Id>` with `skip_serializing_if` so /set create payloads
+    /// constructed by a typed caller do NOT emit a client-supplied `id`
+    /// on the wire. Per RFC 8620 §5.3, the `id` property MUST NOT be set
+    /// in the create object — the server assigns it. Matches the
+    /// in-crate sibling `CalendarEvent.id`
+    /// (crate-jmap-calendars-types/src/event.rs:43-44).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<Id>,
 
     /// Display name to use when adding this identity as a participant
     /// (default `""`).

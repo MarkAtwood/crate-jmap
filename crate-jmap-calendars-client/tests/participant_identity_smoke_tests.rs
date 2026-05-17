@@ -65,7 +65,15 @@ async fn participant_identity_get_basic_shape() {
         .await
         .expect("participant_identity_get: must succeed");
     assert_eq!(resp.list.len(), 2, "two identities expected");
-    assert_eq!(resp.list[0].id.as_ref(), "pi-1", "id mismatch");
+    assert_eq!(
+        resp.list[0]
+            .id
+            .as_ref()
+            .expect("participant identity id must be present in /get response")
+            .as_ref(),
+        "pi-1",
+        "id mismatch"
+    );
     assert_eq!(resp.list[0].name, "Jane Doe", "name mismatch");
     assert_eq!(
         resp.list[0].calendar_address, "mailto:jane@example.com",
@@ -204,7 +212,11 @@ async fn participant_identity_set_create_round_trip() {
         "created must contain 'newPi' creation-id key"
     );
     assert_eq!(
-        created["newPi"].id.as_ref(),
+        created["newPi"]
+            .id
+            .as_ref()
+            .expect("server-assigned id must be present in created entry")
+            .as_ref(),
         "pi-new",
         "server-assigned id mismatch"
     );

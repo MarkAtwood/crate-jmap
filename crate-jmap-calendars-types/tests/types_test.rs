@@ -53,7 +53,8 @@ fn calendar_deserialize_full() {
 
     let cal: Calendar = serde_json::from_str(json).expect("Calendar deserialize");
 
-    assert_eq!(cal.id.as_ref(), "cal-001");
+    let id_val = cal.id.as_ref().expect("id present");
+    assert_eq!(id_val.as_ref(), "cal-001");
     assert_eq!(cal.name, "Personal");
     assert_eq!(cal.description.as_deref(), Some("My personal calendar"));
     assert_eq!(cal.color.as_deref(), Some("#4287f5"));
@@ -104,6 +105,52 @@ fn calendar_roundtrip() {
     let serialized = serde_json::to_string(&original).expect("serialize");
     let recovered: Calendar = serde_json::from_str(&serialized).expect("second deserialize");
     assert_eq!(original, recovered);
+}
+
+/// `Calendar.id` is `Option<Id>` with `skip_serializing_if` so a typed
+/// /set create payload (where the caller has no server-assigned id yet)
+/// does NOT emit `id` on the wire.
+///
+/// Oracle: RFC 8620 §5.3 — "The id property MUST NOT be set in the
+/// create object." This test asserts the wire shape directly: a Calendar
+/// deserialized from JSON without `id` must serialize back without `id`.
+/// Independent of the code under test — the JSON input is hand-written.
+#[test]
+fn calendar_id_absent_when_none() {
+    // JSON without an `id` field (matches /set create payload shape).
+    let json = r#"{
+        "name": "Pending",
+        "description": null,
+        "color": null,
+        "sortOrder": 0,
+        "isSubscribed": false,
+        "isVisible": true,
+        "isDefault": false,
+        "includeInAvailability": "none",
+        "defaultAlertsWithTime": null,
+        "defaultAlertsWithoutTime": null,
+        "timeZone": null,
+        "shareWith": null,
+        "myRights": {
+            "mayReadFreeBusy": false,
+            "mayReadItems": false,
+            "mayWriteAll": false,
+            "mayWriteOwn": false,
+            "mayUpdatePrivate": false,
+            "mayRSVP": false,
+            "mayShare": false,
+            "mayDelete": false
+        }
+    }"#;
+    let cal: Calendar = serde_json::from_str(json).expect("Calendar must deserialize without id");
+    assert!(cal.id.is_none(), "id must be None when absent from input");
+
+    let out = serde_json::to_value(&cal).expect("serialize");
+    let obj = out.as_object().expect("object");
+    assert!(
+        !obj.contains_key("id"),
+        "id must be absent from wire when None (RFC 8620 §5.3 create payload contract): {out}"
+    );
 }
 
 /// shareWith with actual rights deserializes correctly.
@@ -669,7 +716,8 @@ fn participant_identity_roundtrip() {
 
     let pi: ParticipantIdentity = serde_json::from_str(json).expect("ParticipantIdentity");
 
-    assert_eq!(pi.id.as_ref(), "pi-001");
+    let id_val = pi.id.as_ref().expect("id present");
+    assert_eq!(id_val.as_ref(), "pi-001");
     assert_eq!(pi.name, "Joe Bloggs");
     assert_eq!(pi.calendar_address, "mailto:joe@example.com");
     assert!(pi.is_default);
@@ -696,6 +744,35 @@ fn participant_identity_wire_names() {
     assert_eq!(out["name"], "Jane Doe");
     assert_eq!(out["calendarAddress"], "mailto:jane@example.com");
     assert_eq!(out["isDefault"], false);
+}
+
+/// `ParticipantIdentity.id` is `Option<Id>` with `skip_serializing_if` so
+/// a typed /set create payload (where the caller has no server-assigned
+/// id yet) does NOT emit `id` on the wire.
+///
+/// Oracle: RFC 8620 §5.3 — "The id property MUST NOT be set in the
+/// create object." This test asserts the wire shape directly: a
+/// ParticipantIdentity deserialized from JSON without `id` must serialize
+/// back without `id`. Independent of the code under test — JSON is
+/// hand-written.
+#[test]
+fn participant_identity_id_absent_when_none() {
+    // JSON without an `id` field (matches /set create payload shape).
+    let json = r#"{
+        "name": "Joe (work)",
+        "calendarAddress": "mailto:joe@work.example.com",
+        "isDefault": false
+    }"#;
+    let pi: ParticipantIdentity =
+        serde_json::from_str(json).expect("ParticipantIdentity must deserialize without id");
+    assert!(pi.id.is_none(), "id must be None when absent from input");
+
+    let out = serde_json::to_value(&pi).expect("serialize");
+    let obj = out.as_object().expect("object");
+    assert!(
+        !obj.contains_key("id"),
+        "id must be absent from wire when None (RFC 8620 §5.3 create payload contract): {out}"
+    );
 }
 
 // ─── Capability ───────────────────────────────────────────────────────────────
