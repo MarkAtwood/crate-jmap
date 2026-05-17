@@ -799,22 +799,41 @@ impl FileNodeBackend for MemoryBackend {
             None => return Ok(vec![]),
         };
 
-        // BFS over all nodes, following nodes where parent_id == current frontier.
-        // Visited-set keys by Id (Hash + Eq) — consistent with the
-        // FileNodeBackend::query_subtree default impl in src/backend.rs.
+        // bd:JMAP-510h.17 — build a parent_id → children index in a single
+        // O(N) pass, then BFS over that index. Previous impl scanned all
+        // nodes per frontier id (O(N*D) where N=total nodes, D=tree depth).
+        // The reference impl is documented as guidance for production
+        // backend authors; an O(N*D) tree traversal copied verbatim would
+        // become a real perf bug.
+        let mut children_by_parent: std::collections::HashMap<&Id, Vec<&Id>> =
+            std::collections::HashMap::new();
+        for node in store.nodes.values() {
+            if let Some(parent_id) = node.parent_id.as_ref() {
+                children_by_parent
+                    .entry(parent_id)
+                    .or_default()
+                    .push(&node.id);
+            }
+        }
+
+        // BFS via the index. Visited-set keys by Id (Hash + Eq) —
+        // consistent with the FileNodeBackend::query_subtree default impl
+        // in src/backend.rs. Visited-set guards against cycles introduced
+        // by malformed fixtures (see seed_node's caller-managed-invariants
+        // rustdoc, bd:JMAP-510h.42).
         let mut result: Vec<Id> = Vec::new();
-        let mut frontier: Vec<Id> = vec![id.clone()];
+        let mut frontier: Vec<&Id> = vec![id];
         let mut visited: std::collections::HashSet<Id> = std::iter::once(id.clone()).collect();
 
         while !frontier.is_empty() {
-            let mut next_frontier: Vec<Id> = Vec::new();
+            let mut next_frontier: Vec<&Id> = Vec::new();
             for current_id in &frontier {
-                for node in store.nodes.values() {
-                    if node.parent_id.as_ref() == Some(current_id)
-                        && visited.insert(node.id.clone())
-                    {
-                        result.push(node.id.clone());
-                        next_frontier.push(node.id.clone());
+                if let Some(children) = children_by_parent.get(*current_id) {
+                    for child_id in children {
+                        if visited.insert((*child_id).clone()) {
+                            result.push((*child_id).clone());
+                            next_frontier.push(*child_id);
+                        }
                     }
                 }
             }
