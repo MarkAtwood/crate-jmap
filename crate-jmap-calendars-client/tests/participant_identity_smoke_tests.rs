@@ -191,8 +191,9 @@ async fn participant_identity_set_create_round_trip() {
         .await;
 
     let sc = helpers::make_client(&server);
+    // Construct without an `id` field; ParticipantIdentity.id is Option<Id>
+    // and on /set create the server assigns the id (RFC 8620 §5.3).
     let identity: jmap_calendars_types::ParticipantIdentity = serde_json::from_value(json!({
-        "id": "placeholder",
         "name": "Jane (work)",
         "calendarAddress": "mailto:jane@work.example.com",
         "isDefault": false
@@ -239,6 +240,16 @@ async fn participant_identity_set_create_round_trip() {
         create["newPi"]["calendarAddress"],
         json!("mailto:jane@work.example.com"),
         "calendarAddress passthrough mismatch"
+    );
+    // RFC 8620 §5.3: id MUST NOT be set by the client on creation. The
+    // server-side handler will reject any present id with invalidProperties.
+    // Pinning the wire shape here so a regression that re-adds id to the
+    // create-map (e.g. by making ParticipantIdentity.id required again) is
+    // caught immediately rather than at deploy time against a strict server.
+    assert!(
+        create["newPi"].get("id").is_none(),
+        "id must not be set by client on creation per RFC 8620 §5.3, got: {}",
+        create["newPi"]
     );
     assert!(
         args.get("update").is_none(),

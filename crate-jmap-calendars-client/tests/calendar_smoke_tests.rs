@@ -164,6 +164,27 @@ async fn calendar_event_set_smoke() {
         "server-ev-id",
         "server-assigned id mismatch"
     );
+
+    // RFC 8620 §5.3: id MUST NOT be set by the client on creation. The
+    // server-side handler will reject any present id with invalidProperties.
+    // Pinning the wire shape here so a regression that re-adds id to the
+    // create-map (e.g. by making CalendarEvent.id required again) is
+    // caught immediately rather than at deploy time against a strict server.
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
+    let args = &body["methodCalls"][0][1];
+    let create = args["create"]
+        .as_object()
+        .expect("create must be a JSON object");
+    assert!(
+        create["newEv"].get("id").is_none(),
+        "id must not be set by client on creation per RFC 8620 §5.3, got: {}",
+        create["newEv"]
+    );
 }
 
 /// Test JMAP-7i4v.4 #3 — CalendarEvent/parse smoke: notParsable returned for bad blob.
