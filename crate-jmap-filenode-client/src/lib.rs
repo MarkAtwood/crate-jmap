@@ -22,7 +22,9 @@
 pub mod methods;
 
 pub use jmap_base_client::ClientError;
-pub use methods::filenode::{FileNodeCopyParams, FileNodeOnExists, FileNodeSetParams};
+pub use methods::filenode::{
+    FileNodeCopyParams, FileNodeGetParams, FileNodeOnExists, FileNodeSetParams,
+};
 pub use methods::{
     AddedItem, ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, SessionClient,
     SetError, SetResponse,
