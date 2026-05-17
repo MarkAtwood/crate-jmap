@@ -227,7 +227,7 @@ pub trait MailBackend: JmapBackend {
     /// |---|---|
     /// | `Ok((id, email))` | `created[creationId] = { id, blobId, threadId, size }` |
     /// | `Err(BackendSetError::SetError(e))` | `notCreated[creationId] = <SetError JSON>` |
-    /// | `Err(BackendSetError::Other(e))` | `notCreated[creationId] = { type: "serverFail", description: <e.to_string()> }` |
+    /// | `Err(BackendSetError::Other(e))` | `notCreated[creationId] = server_fail_value_from_backend(&e)` (a `serverFail` with the fixed `"internal error"` description per the bd:JMAP-wlip.2 / bd:JMAP-jfia.1 redaction contract — the backend `Display` output is **never** interpolated into the wire `description`, to prevent credential / blob / PII leaks) |
     ///
     /// Spec-defined `SetError` variants the backend SHOULD use:
     ///
