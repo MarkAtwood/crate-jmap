@@ -536,4 +536,85 @@ mod tests {
         );
         assert!(obj.contains_key("email"));
     }
+
+    /// Stress test for the workspace extras-preservation contract.
+    ///
+    /// The per-type `*_preserves_vendor_extras` tests above each insert one
+    /// scalar/shallow vendor field. This test exercises three round-trip
+    /// paths that the per-type tests do not:
+    ///
+    /// 1. **Multiple vendor fields on the same object** — if serde-flatten
+    ///    + Map had a single-key happy-path bias, a two-key bug would slip
+    ///    past the per-type tests.
+    /// 2. **Nested-object + nested-array extras** — exercises
+    ///    `serde_json::Value`'s recursive round-trip beyond one level of
+    ///    depth.
+    /// 3. **Byte-level string round-trip** — every per-type test uses
+    ///    `from_value` / `to_value`, which skips the tokenizer. This test
+    ///    goes through `to_string` → `from_str` → `to_string` and asserts
+    ///    every vendor field key is preserved on both serialisations.
+    ///
+    /// `Email` is the canonical extension-types template (workspace
+    /// AGENTS.md "Canonical Templates"), so one comprehensive test here
+    /// covers every cookie-cut sibling that follows the same pattern.
+    ///
+    /// Independent oracle: hand-written JSON; assertions compare keys
+    /// and shape, not byte equality (object key order is not guaranteed
+    /// to be preserved across HashMap iteration, but every key MUST be
+    /// retained).
+    #[test]
+    fn email_extras_multi_field_nested_and_string_roundtrip() {
+        let raw_str = r#"{
+            "id": "e1",
+            "blobId": "b1",
+            "threadId": "t1",
+            "mailboxIds": {"m1": true},
+            "size": 1024,
+            "receivedAt": "2024-06-01T00:00:00Z",
+            "acmeCorpFoo": "bar",
+            "siteHint": "high-priority",
+            "acmeCorpNested": {
+                "version": 2,
+                "signed": [
+                    {"by": "alice", "at": "2024-06-01T00:00:00Z"},
+                    {"by": "bob", "at": "2024-06-01T00:01:00Z"}
+                ],
+                "tags": ["x", "y", "z"]
+            }
+        }"#;
+
+        // Gap 3: byte-level from_str (not from_value) — exercises the
+        // streaming tokenizer + serde-flatten's interaction with it.
+        let email: Email = serde_json::from_str(raw_str).expect("from_str must accept the wire form");
+
+        // Gap 1: every vendor key must survive deserialize.
+        assert!(email.extra.contains_key("acmeCorpFoo"), "scalar vendor field lost");
+        assert!(email.extra.contains_key("siteHint"), "second scalar vendor field lost");
+        assert!(email.extra.contains_key("acmeCorpNested"), "nested vendor field lost");
+        assert_eq!(email.extra.len(), 3, "vendor key count must be exactly three; got {:?}", email.extra.keys().collect::<Vec<_>>());
+
+        // Gap 2: nested object structure must be preserved verbatim.
+        let nested = email
+            .extra
+            .get("acmeCorpNested")
+            .expect("acmeCorpNested key present");
+        assert_eq!(nested["version"], 2);
+        assert_eq!(nested["signed"][0]["by"], "alice");
+        assert_eq!(nested["signed"][1]["by"], "bob");
+        assert_eq!(nested["tags"][2], "z");
+
+        // Gap 3 (cont.): byte-level to_string → from_str → re-parse must
+        // preserve every vendor key. We do not assert byte equality on
+        // the serialised string (HashMap iteration order is not stable),
+        // but every vendor key MUST be present on the second parse and
+        // the nested structure MUST round-trip intact.
+        let serialised = serde_json::to_string(&email).expect("to_string must succeed");
+        let reparsed: Email = serde_json::from_str(&serialised).expect("from_str must re-accept own output");
+        assert_eq!(reparsed.extra.len(), 3);
+        assert_eq!(reparsed.extra.get("acmeCorpFoo").and_then(|v| v.as_str()), Some("bar"));
+        assert_eq!(reparsed.extra.get("siteHint").and_then(|v| v.as_str()), Some("high-priority"));
+        let nested2 = reparsed.extra.get("acmeCorpNested").expect("present");
+        assert_eq!(nested2["signed"][0]["by"], "alice");
+        assert_eq!(nested2["tags"][2], "z");
+    }
 }
