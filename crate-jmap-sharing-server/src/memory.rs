@@ -180,14 +180,24 @@ impl MemoryBackend {
         Self::default()
     }
 
-    /// Register an account as known even if it has no objects yet.
-    /// Use this in tests that need an empty-but-valid account.
+    /// Test-only entry point that registers an account as known even
+    /// if it has no objects yet. Production callers must not use this
+    /// method; the API stability disclaimer on the `memory` feature
+    /// applies doubly here.
+    ///
+    /// The name is retained (not renamed to `register_account_for_test`)
+    /// for backward compatibility with the workspace's existing
+    /// integration test suite, which calls this method through the
+    /// public API surface. `#[doc(hidden)]` removes it from `cargo doc`
+    /// output so downstream consumers do not see it as a documented
+    /// part of the surface.
     ///
     /// Matches the canonical [`jmap_mail_server::memory::MemoryBackend::register_account`](https://docs.rs/jmap-mail-server)
     /// shape (`&self` + `&Id`). Prefer this over the legacy
     /// [`Self::new_with_accounts`] constructor in new code — it composes
     /// with `Arc<MemoryBackend>` since it takes `&self`, and accepts the
     /// strongly-typed [`Id`] rather than a raw `&str`.
+    #[doc(hidden)]
     pub fn register_account(&self, account_id: &Id) {
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.as_ref().to_owned());

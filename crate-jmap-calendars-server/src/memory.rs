@@ -373,9 +373,19 @@ impl MemoryBackend {
         self
     }
 
-    /// Register an account as known even if it has no objects yet.
+    /// Test-only entry point that registers an account as known even
+    /// if it has no objects yet. Production callers must not use this
+    /// method; the API stability disclaimer on the `memory` feature
+    /// applies doubly here.
     ///
-    /// # Invariants (bd:JMAP-ic0j.65)
+    /// The name is retained (not renamed to `register_account_for_test`)
+    /// for backward compatibility with the workspace's existing
+    /// integration test suite, which calls this method through the
+    /// public API surface. `#[doc(hidden)]` removes it from `cargo doc`
+    /// output so downstream consumers do not see it as a documented
+    /// part of the surface.
+    ///
+    /// # Invariants
     ///
     /// - **No Id validation**: the `account_id` argument is stored
     ///   verbatim. The caller is responsible for validating that the id
@@ -387,6 +397,7 @@ impl MemoryBackend {
     /// - **Idempotent**: registering the same account multiple times is
     ///   safe and has no additional effect. The auxiliary
     ///   `AccountAux` slot is created only on first registration.
+    #[doc(hidden)]
     pub fn register_account(&self, account_id: &Id) {
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
