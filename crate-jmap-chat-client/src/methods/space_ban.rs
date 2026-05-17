@@ -11,6 +11,24 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, returns all SpaceBan objects for the account.
     /// Pass `properties: None` to return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn space_ban_get(
         &self,
         ids: Option<&[Id]>,
@@ -36,6 +54,18 @@ impl super::SessionClient {
     ///
     /// Only members with `"ban"` permission in the Space see all changes;
     /// other members see changes to their own bans only.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth
+    ///   empty-state guard).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_ban_get`].
     pub async fn space_ban_changes(
         &self,
         since_state: &State,
@@ -63,6 +93,17 @@ impl super::SessionClient {
     /// Create a SpaceBan (RFC 8620 §5.3 / SpaceBan/set create).
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_ban_get`]. /set
+    ///   create errors (e.g. `invalidProperties`, `forbidden`) appear
+    ///   in [`SetResponse::not_created`] rather than as [`Err`].
     pub async fn space_ban_create(
         &self,
         input: &SpaceBanCreateInput<'_>,
@@ -91,6 +132,19 @@ impl super::SessionClient {
     /// Destroy SpaceBan objects (RFC 8620 §5.3 / SpaceBan/set destroy).
     ///
     /// `ids` must be non-empty; the guard fires before any network call.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `ids` is empty (caller-precondition guard).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_ban_get`]. /set
+    ///   destroy errors appear in [`SetResponse::not_destroyed`]
+    ///   rather than as [`Err`].
     pub async fn space_ban_destroy(
         &self,
         ids: &[Id],

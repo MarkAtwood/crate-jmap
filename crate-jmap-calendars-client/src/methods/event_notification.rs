@@ -12,6 +12,24 @@ use super::{ChangesResponse, GetResponse, QueryChangesResponse, QueryResponse, S
 impl super::SessionClient {
     /// Fetch `CalendarEventNotification` objects by IDs
     /// (draft-ietf-jmap-calendars-26 §7.1).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn calendar_event_notification_get(
         &self,
         ids: Option<&[Id]>,
@@ -42,6 +60,21 @@ impl super::SessionClient {
 
     /// Fetch changes to `CalendarEventNotification` objects since `since_state`
     /// (draft-ietf-jmap-calendars-26 §7.2).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on
+    ///   [`Self::calendar_event_notification_get`].
     pub async fn calendar_event_notification_changes(
         &self,
         since_state: &State,
@@ -107,6 +140,16 @@ impl super::SessionClient {
     ///   `CalendarEventNotification` state on the server or the method
     ///   rejects with `stateMismatch`. Pass the `newState` returned by
     ///   a prior /get response.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on
+    ///   [`Self::calendar_event_notification_get`].
     pub async fn calendar_event_notification_set(
         &self,
         destroy: Option<&[Id]>,
@@ -141,6 +184,25 @@ impl super::SessionClient {
     ///   type in `jmap-calendars-types` is `serde_json::Value` because the
     ///   spec's sort properties for notifications are minimal (just
     ///   `created`); the slice is forwarded as-is.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `filter` is `Some` and serializing it fails (pathological
+    ///   conditions only — `NotificationFilterCondition` is a typed
+    ///   wire shape, so serde failure indicates allocation pressure
+    ///   rather than malformed input).
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on
+    ///   [`Self::calendar_event_notification_get`]. RFC 8620 §5.5
+    ///   defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn calendar_event_notification_query(
         &self,
         filter: Option<&NotificationFilterCondition>,
@@ -187,6 +249,24 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see
+    ///   [`Self::calendar_event_notification_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on
+    ///   [`Self::calendar_event_notification_get`]. RFC 8620 §5.6 also
+    ///   defines `cannotCalculateChanges` (returned when the server
+    ///   cannot honour the request given the supplied filter / sort);
+    ///   it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn calendar_event_notification_query_changes(
         &self,
         since_query_state: &State,

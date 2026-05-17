@@ -20,6 +20,27 @@ impl SessionClient {
     /// and thread vendor / site extension fields through the wire request
     /// via the struct's `extra` flatten map. Pass `None` to omit all
     /// optional arguments.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`] if the bound session has no
+    ///   primary account for `urn:ietf:params:jmap:calendars`.
+    /// - [`ClientError::InvalidArgument`] if `params` is `Some` and
+    ///   serializing it to JSON fails (pathological conditions only —
+    ///   allocation failure, or a vendor value in `params.extra` that
+    ///   itself fails to serialize).
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](ClientError::Http),
+    ///   [`Parse`](ClientError::Parse),
+    ///   [`AuthFailed`](ClientError::AuthFailed),
+    ///   [`MethodError`](ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](ClientError::UnexpectedResponse).
     pub async fn principal_get_availability(
         &self,
         principal_id: &Id,

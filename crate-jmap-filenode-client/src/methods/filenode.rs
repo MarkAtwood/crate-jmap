@@ -83,6 +83,24 @@ impl super::SessionClient {
     /// Pass `properties: None` to return all fields.
     /// If `fetch_parents` is `Some(true)`, the server also returns all ancestor
     /// nodes of the requested IDs.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:filenode`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn file_node_get(
         &self,
         ids: Option<&[Id]>,
@@ -117,6 +135,20 @@ impl super::SessionClient {
     ///
     /// If `has_more_changes` is true in the response, call again with
     /// `new_state` as `since_state` until the flag is false.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:filenode`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::file_node_get`].
     pub async fn file_node_changes(
         &self,
         since_state: &State,
@@ -155,6 +187,24 @@ impl super::SessionClient {
     ///
     /// Use `params` to set FileNode-specific top-level arguments
     /// (`onDestroyRemoveChildren`, `onExists`, `compareCaseInsensitively`).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:filenode`.
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `serde_json::to_value` fails on the `update` patch map or on
+    ///   `params` (pathological conditions only — allocation failure,
+    ///   or a vendor value in `params.extra` or a `PatchObject` whose
+    ///   JSON tree exceeds `serde_json`'s recursion limit). The
+    ///   transient memory peak for very large `update` maps is roughly
+    ///   3-4× the `HashMap`'s in-memory size (source map +
+    ///   `serde_json::Value` tree + serialized `Vec<u8>` body); callers
+    ///   dealing with thousands of patches per call may prefer to batch.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::file_node_get`].
     pub async fn file_node_set(
         &self,
         create: Option<serde_json::Value>,
@@ -217,6 +267,22 @@ impl super::SessionClient {
     ///   source node are also removed (§3.2.4, §3.2.3).
     /// - `on_exists`: collision policy at the destination.
     /// - `compare_case_insensitively`: case-folding for name collisions.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:filenode`.
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `on_exists` is `Some` and serializing it fails (pathological
+    ///   conditions only).
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::file_node_get`]. RFC 8620
+    ///   §5.4 /copy adds method-level errors `fromAccountNotFound`,
+    ///   `fromAccountNotSupportedByMethod`, and `anchorNotFound`; they
+    ///   surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn file_node_copy(
         &self,
         from_account_id: &Id,
@@ -254,6 +320,19 @@ impl super::SessionClient {
     ///
     /// The `depth` parameter controls recursive descent: `None` or `Some(0)`
     /// means no recursion; `Some(n)` recurses `n` levels into subdirectories.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:filenode`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::file_node_get`]. RFC 8620
+    ///   §5.5 defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn file_node_query(
         &self,
         filter: Option<serde_json::Value>,
@@ -299,6 +378,22 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::file_node_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:filenode`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::file_node_get`]. RFC 8620
+    ///   §5.6 also defines `cannotCalculateChanges` (returned when the
+    ///   server cannot honour the request given the supplied filter /
+    ///   sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn file_node_query_changes(
         &self,
         since_query_state: &State,

@@ -13,6 +13,24 @@ impl super::SessionClient {
     /// Fetch ChatContact objects by IDs (JMAP Chat §5 ChatContact/get).
     ///
     /// If `ids` is `None`, returns all ChatContacts for the account.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn chat_contact_get(
         &self,
         ids: Option<&[Id]>,
@@ -35,6 +53,20 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to ChatContact objects since `since_state` (RFC 8620 §5.2).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_contact_get`].
     pub async fn chat_contact_changes(
         &self,
         since_state: &State,
@@ -63,6 +95,21 @@ impl super::SessionClient {
     ///
     /// Supports `blocked` (Boolean) and `displayName` (nullable String).
     /// Create and destroy are not supported by spec; the server returns `forbidden`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing the typed `display_name` Clearable entry fails
+    ///   (pathological conditions only).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_contact_get`]. /set
+    ///   update errors appear in
+    ///   [`SetResponse::not_updated`] rather than as
+    ///   [`Err`].
     pub async fn chat_contact_update(
         &self,
         id: &Id,
@@ -97,6 +144,22 @@ impl super::SessionClient {
     ///
     /// Supported filter keys: `blocked`, `presence`. Supported sort properties:
     /// `"lastSeenAt"`, `"login"`, `"lastActiveAt"`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing the typed `filter_presence` enum or
+    ///   `sort_property` enum fails (pathological conditions only).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_contact_get`]. RFC
+    ///   8620 §5.5 defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn chat_contact_query(
         &self,
         input: &ChatContactQueryInput,
@@ -150,6 +213,22 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::chat_contact_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_contact_get`]. RFC
+    ///   8620 §5.6 also defines `cannotCalculateChanges` (returned when
+    ///   the server cannot honour the request given the supplied
+    ///   filter / sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn chat_contact_query_changes(
         &self,
         since_query_state: &State,

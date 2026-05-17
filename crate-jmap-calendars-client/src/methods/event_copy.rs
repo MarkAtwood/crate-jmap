@@ -19,6 +19,27 @@ impl super::SessionClient {
     ///   the source `id` field (RFC 8620 §5.4 — `id` is the source record).
     ///
     /// The target account is the primary Calendars account from the session.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if any key in `create` is the empty string (caller-precondition
+    ///   guard — RFC 8620 §5.3 requires non-empty creation ids), or if
+    ///   `serde_json::to_value` fails on the `create` map (pathological
+    ///   conditions only — allocation failure or a `CalendarEvent`
+    ///   whose JSON tree exceeds `serde_json`'s recursion limit).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
+    ///   RFC 8620 §5.4 /copy adds method-level errors
+    ///   `fromAccountNotFound`, `fromAccountNotSupportedByMethod`, and
+    ///   `anchorNotFound`.
     pub async fn calendar_event_copy(
         &self,
         from_account_id: &Id,

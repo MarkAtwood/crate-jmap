@@ -22,6 +22,24 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, the server returns all Mailboxes for the account.
     /// Pass `properties: None` to return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn mailbox_get(
         &self,
         ids: Option<&[Id]>,
@@ -44,6 +62,20 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to Mailbox objects since `since_state` (RFC 8621 §2.2 — Mailbox/changes).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::mailbox_get`].
     pub async fn mailbox_changes(
         &self,
         since_state: &State,
@@ -78,6 +110,19 @@ impl super::SessionClient {
     /// format is unchanged from a plain JSON object because [`PatchObject`]
     /// is `#[serde(transparent)]`; the typed parameter binds the JSON Pointer
     /// key + null-leaf removal contract to the type system.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`.
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `update` is `Some` and `serde_json::to_value` fails on the
+    ///   patch map (pathological conditions only; see [`Self::email_set`]
+    ///   for the memory-cost discussion that applies identically here).
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::mailbox_get`].
     pub async fn mailbox_set(
         &self,
         create: Option<serde_json::Value>,
@@ -132,6 +177,19 @@ impl super::SessionClient {
     ///
     /// Pass `filter: None` and `sort: None` to return all Mailboxes with
     /// server-default ordering. Use `position` and `limit` for pagination.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::mailbox_get`]. RFC 8620 §5.5
+    ///   defines additional /query method-level errors (`anchorNotFound`,
+    ///   `unsupportedFilter`, `unsupportedSort`, `tooManyChanges`) that
+    ///   surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn mailbox_query(
         &self,
         filter: Option<serde_json::Value>,
@@ -175,6 +233,22 @@ impl super::SessionClient {
     /// point when both `filter` and `sort` are on immutable properties.
     ///
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::mailbox_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::mailbox_get`]. RFC 8620 §5.6
+    ///   also defines `cannotCalculateChanges` (returned when the
+    ///   server cannot honour the request given the supplied filter /
+    ///   sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn mailbox_query_changes(
         &self,
         since_query_state: &State,

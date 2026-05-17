@@ -144,6 +144,28 @@ impl super::SessionClient {
     /// Security: blobs that are inaccessible or nonexistent are returned with
     /// empty `matchedIds` arrays rather than an error (draft-ietf-jmap-blobext
     /// §6), to avoid information leakage.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `blob_ids` is empty (caller-precondition guard — a no-op
+    ///   lookup is never useful).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors; servers that do
+    ///   not advertise `urn:ietf:params:jmap:blob2` return
+    ///   `unknownCapability` here),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn blob_lookup(
         &self,
         blob_ids: &[Id],
@@ -178,6 +200,24 @@ impl super::SessionClient {
     /// On success the converted blob is in
     /// `response.created[CALL_ID]`.  On failure the error is in
     /// `response.not_created[CALL_ID]`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `content_type` is empty (caller-precondition guard — a
+    ///   conversion target without a MIME type is meaningless).
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing the typed `ImageConvertRecipe` fails (pathological
+    ///   conditions only).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::blob_lookup`]. Per-creation
+    ///   failures (e.g. `invalidArguments`, `unsupportedMediaType`)
+    ///   appear in [`BlobConvertResponse::not_created`] rather than
+    ///   as [`Err`].
     pub async fn blob_convert(
         &self,
         from_blob_id: &Id,

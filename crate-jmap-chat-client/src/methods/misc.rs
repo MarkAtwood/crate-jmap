@@ -16,6 +16,24 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, returns all ReadPosition records for the account.
     /// The server creates one ReadPosition per Chat automatically.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn read_position_get(
         &self,
         ids: Option<&[Id]>,
@@ -40,6 +58,17 @@ impl super::SessionClient {
     /// recomputes `Chat.unreadCount`.
     ///
     /// `create` and `destroy` are forbidden by the spec; only `update` is issued.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::read_position_get`]. /set
+    ///   update errors appear in [`SetResponse::not_updated`] rather
+    ///   than as [`Err`].
     pub async fn read_position_update(
         &self,
         read_position_id: &Id,
@@ -61,6 +90,15 @@ impl super::SessionClient {
     ///
     /// Per spec there is exactly one PresenceStatus per account; `ids: null`
     /// retrieves it.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::read_position_get`].
     pub async fn presence_status_get(
         &self,
     ) -> Result<GetResponse<jmap_chat_types::PresenceStatus>, jmap_base_client::ClientError> {
@@ -77,6 +115,20 @@ impl super::SessionClient {
     /// Fetch changes to ReadPosition records since `since_state` (JMAP Chat §5 ReadPosition/changes).
     ///
     /// `max_changes` may be `None` to let the server choose the limit (RFC 8620 §5.2).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::read_position_get`].
     pub async fn read_position_changes(
         &self,
         since_state: &State,
@@ -106,6 +158,21 @@ impl super::SessionClient {
     /// Only `update` is issued; `create` and `destroy` are forbidden by the spec.
     /// Fields absent from `patch` (i.e. `Patch::Keep` or `None`) are omitted from
     /// the patch and left unchanged server-side.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing the typed `presence` enum or any `Clearable`
+    ///   entry (`status_text`, `status_emoji`, `expires_at`) fails
+    ///   (pathological conditions only).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::read_position_get`]. /set
+    ///   update errors appear in [`SetResponse::not_updated`] rather
+    ///   than as [`Err`].
     pub async fn presence_status_update(
         &self,
         id: &Id,
@@ -159,6 +226,18 @@ impl super::SessionClient {
     /// Fetch changes to PresenceStatus records since `since_state` (JMAP Chat §5 PresenceStatus/changes).
     ///
     /// `max_changes` may be `None` to let the server choose the limit (RFC 8620 §5.2).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth
+    ///   empty-state guard).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::read_position_get`].
     pub async fn presence_status_changes(
         &self,
         since_state: &State,
@@ -198,6 +277,36 @@ impl super::SessionClient {
     /// unsubscribe, use [`push_subscription_destroy`](Self::push_subscription_destroy).
     ///
     /// When `input.client_id` is `None`, a ULID is generated automatically.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `input.device_client_id` or `input.url` is empty
+    ///   (caller-precondition guards), or if `input.chat_push` carries
+    ///   duplicate `accountId` keys in the slice.
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing any typed [`ChatPushConfig`](jmap_chat_types::ChatPushConfig)
+    ///   value fails (pathological conditions only).
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors; servers that do
+    ///   not advertise the `chatPush` capability return
+    ///   `unknownCapability` when the input includes a chat-push
+    ///   sub-object),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
+    ///
+    /// Note: `push_subscription_*` methods are not account-scoped (RFC
+    /// 8620 §7.2) and therefore do NOT call `session_parts()`. The
+    /// session-derived account check that other `Self::*` methods make
+    /// before any wire call is skipped here; missing-account problems
+    /// surface only as transport / method-level errors from the server.
     pub async fn push_subscription_create(
         &self,
         input: &PushSubscriptionCreateInput<'_>,
@@ -263,9 +372,20 @@ impl super::SessionClient {
     ///
     /// # Errors
     ///
-    /// Returns [`jmap_base_client::ClientError::InvalidArgument`] if `id` is
-    /// empty or if `patch.chat_push` is [`Patch::Set`] and the slice
-    /// contains duplicate `accountId` keys.
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `id` is empty (defence-in-depth — typed `&Id` does not
+    ///   itself prevent empty values), or if `patch.chat_push` is
+    ///   [`Patch::Set`] and the slice contains duplicate `accountId`
+    ///   keys.
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing the `expires` `Clearable` entry or any
+    ///   [`ChatPushConfig`](jmap_chat_types::ChatPushConfig) value
+    ///   fails (pathological conditions only).
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::push_subscription_create`].
+    ///   /set update errors appear in [`SetResponse::not_updated`]
+    ///   rather than as [`Err`].
     pub async fn push_subscription_update(
         &self,
         id: &Id,
@@ -337,13 +457,21 @@ impl super::SessionClient {
     /// — destroying never requires the chatPush capability since it is a
     /// property-blind operation.
     ///
-    /// Returns [`jmap_base_client::ClientError::InvalidArgument`] if `ids` is
-    /// empty (a destroy call with no ids would be a no-op round-trip).
-    ///
     /// Clients SHOULD NOT destroy a PushSubscription they did not create —
     /// RFC 8620 §7.2 reserves that to clients that recognise the
     /// `deviceClientId`. This client does not enforce that rule; the server
     /// may reject the call.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `ids` is empty (a destroy call with no ids would be a no-op
+    ///   round-trip).
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::push_subscription_create`].
+    ///   /set destroy errors appear in [`SetResponse::not_destroyed`]
+    ///   rather than as [`Err`].
     pub async fn push_subscription_destroy(
         &self,
         ids: &[Id],

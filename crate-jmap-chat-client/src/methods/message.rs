@@ -23,6 +23,27 @@ impl super::SessionClient {
     ///
     /// `ids` is required (non-empty); fetching all messages is impractical.
     /// Pass `properties: None` to return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `ids` is empty (caller-precondition guard — fetching all
+    ///   messages is impractical and explicitly disallowed).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn message_get(
         &self,
         ids: &[Id],
@@ -59,6 +80,22 @@ impl super::SessionClient {
     /// newest first). With `position:0, limit:N` and `sort_ascending:false`, the
     /// server returns the N most recent message IDs. Callers displaying messages
     /// chronologically should set `sort_ascending:true` or reverse after fetching.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if neither `input.chat_id` nor `input.has_mention == Some(true)`
+    ///   is provided (spec requires at least one to scope the query).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::message_get`]. RFC 8620
+    ///   §5.5 defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn message_query(
         &self,
         input: &MessageQueryInput<'_>,
@@ -113,6 +150,20 @@ impl super::SessionClient {
     }
 
     /// Fetch changes to Message objects since `since_state` (RFC 8620 §5.2 / Message/changes).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::message_get`].
     pub async fn message_changes(
         &self,
         since_state: &State,
@@ -159,6 +210,29 @@ impl super::SessionClient {
     /// this method returns `Ok(set_resp)` with the error recorded in
     /// `set_resp.not_created`. **Callers MUST inspect `not_created` on every `Ok`
     /// response to confirm the message was actually created.**
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing the typed `body_type` enum fails (pathological
+    ///   conditions only).
+    /// - [`ClientError::RateLimited`](jmap_base_client::ClientError::RateLimited)
+    ///   if the server rejects the message with `error_type ==
+    ///   "rateLimited"` and supplies a valid `serverRetryAfter`
+    ///   timestamp. The `retry_after` field carries the server-supplied
+    ///   deadline.
+    /// - [`ClientError::UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse)
+    ///   if the server emits a `rateLimited` SetError without
+    ///   `serverRetryAfter`, or with a malformed timestamp value.
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::message_get`]. All other
+    ///   per-creation failures (e.g. `invalidProperties`, `forbidden`)
+    ///   appear in [`SetResponse::not_created`] on a successful
+    ///   [`Ok`] response (see the "Return value" note above).
     pub async fn message_create(
         &self,
         input: &MessageCreateInput<'_>,
@@ -221,6 +295,25 @@ impl super::SessionClient {
     /// If all optional fields are `None`, an empty patch object is sent. RFC 8620
     /// §5.3 permits this; the server treats it as a no-op but still returns the
     /// object in `updated`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if any [`ReactionChange`] entry carries an empty
+    ///   `sender_reaction_id`, or one containing `/` or `~`
+    ///   (RFC 6901 JSON Pointer reserved characters that would
+    ///   misinterpret the patch path).
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing the typed `body_type` or `read_disposition` enums
+    ///   fails (pathological conditions only).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::message_get`]. /set update
+    ///   errors appear in [`SetResponse::not_updated`] rather than
+    ///   as [`Err`].
     pub async fn message_update(
         &self,
         id: &Id,
@@ -313,6 +406,19 @@ impl super::SessionClient {
     ///
     /// Permanently removes the listed message IDs from the account.
     /// `ids` must be non-empty; the guard fires before any network call.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `ids` is empty (caller-precondition guard).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::message_get`]. /set destroy
+    ///   errors appear in [`SetResponse::not_destroyed`] rather
+    ///   than as [`Err`].
     pub async fn message_destroy(
         &self,
         ids: &[Id],
@@ -345,6 +451,22 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::message_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::message_get`]. RFC 8620
+    ///   §5.6 also defines `cannotCalculateChanges` (returned when the
+    ///   server cannot honour the request given the supplied filter /
+    ///   sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn message_query_changes(
         &self,
         since_query_state: &State,

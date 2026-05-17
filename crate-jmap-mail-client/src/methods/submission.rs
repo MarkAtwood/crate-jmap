@@ -30,6 +30,26 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, the server returns all submissions for the account.
     /// Pass `properties: None` to return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`. (EmailSubmission/* uses
+    ///   `urn:ietf:params:jmap:submission` in its `using` array but is
+    ///   keyed on the mail primary account.)
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn email_submission_get(
         &self,
         ids: Option<&[Id]>,
@@ -53,6 +73,20 @@ impl super::SessionClient {
 
     /// Fetch changes to EmailSubmission objects since `since_state`
     /// (RFC 8621 §7.2 — EmailSubmission/changes).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::email_submission_get`].
     pub async fn email_submission_changes(
         &self,
         since_state: &State,
@@ -83,6 +117,19 @@ impl super::SessionClient {
     /// The sort property for this object type is `"sentAt"` (RFC 8621 §7.3, line 4513),
     /// not `"sendAt"` (which is an object field).  Callers constructing the sort
     /// argument should use `"sentAt"` as the property name.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::email_submission_get`].
+    ///   RFC 8620 §5.5 defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn email_submission_query(
         &self,
         filter: Option<serde_json::Value>,
@@ -127,6 +174,22 @@ impl super::SessionClient {
     /// point when both `filter` and `sort` are on immutable properties.
     ///
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::email_submission_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::email_submission_get`].
+    ///   RFC 8620 §5.6 also defines `cannotCalculateChanges` (returned
+    ///   when the server cannot honour the request given the supplied
+    ///   filter / sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn email_submission_query_changes(
         &self,
         since_query_state: &State,
@@ -182,6 +245,20 @@ impl super::SessionClient {
     /// - `on_success_destroy_email` — IDs (or `#`-reference creation keys) of
     ///   Email objects to destroy when the submission is created successfully
     ///   (RFC 8621 §7.5).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:mail`.
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `serde_json::to_value` fails on `update` or on
+    ///   `params.on_success_update_email` (pathological conditions only;
+    ///   see [`Self::email_set`] for the memory-cost discussion that
+    ///   applies identically here).
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::email_submission_get`].
     pub async fn email_submission_set(
         &self,
         create: Option<serde_json::Value>,

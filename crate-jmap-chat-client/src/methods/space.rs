@@ -23,6 +23,24 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, the server returns all Spaces for the account.
     /// Pass `properties: None` to return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn space_get(
         &self,
         ids: Option<&[Id]>,
@@ -48,6 +66,20 @@ impl super::SessionClient {
     ///
     /// If `has_more_changes` is true in the response, call again with `new_state`
     /// as `since_state` until the flag is false.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_get`].
     pub async fn space_changes(
         &self,
         since_state: &State,
@@ -76,6 +108,19 @@ impl super::SessionClient {
     ///
     /// Permanently removes the listed Space IDs from the account.
     /// `ids` must be non-empty; the guard fires before any network call.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `ids` is empty (caller-precondition guard).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_get`]. /set destroy
+    ///   errors appear in [`SetResponse::not_destroyed`] rather than
+    ///   as [`Err`].
     pub async fn space_destroy(
         &self,
         ids: &[Id],
@@ -99,6 +144,19 @@ impl super::SessionClient {
     ///
     /// Only keys that are `Some` in `input` are included in the filter object;
     /// an empty filter is sent as JSON `null`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_get`]. RFC 8620 §5.5
+    ///   defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn space_query(
         &self,
         input: &SpaceQueryInput<'_>,
@@ -144,6 +202,22 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::space_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_get`]. RFC 8620 §5.6
+    ///   also defines `cannotCalculateChanges` (returned when the
+    ///   server cannot honour the request given the supplied filter /
+    ///   sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn space_query_changes(
         &self,
         since_query_state: &State,
@@ -189,6 +263,21 @@ impl super::SessionClient {
     /// When `input.client_id` is `None`, a ULID is generated automatically.
     /// The server maps the creation key to the server-assigned Space id in
     /// `SetResponse.created`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `input.name` is empty (caller-precondition guard — Space
+    ///   names cannot be empty).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_get`]. /set create
+    ///   errors (e.g. `invalidProperties`, `forbidden`, `overQuota`)
+    ///   appear in [`SetResponse::not_created`] rather than as
+    ///   [`Err`].
     pub async fn space_create(
         &self,
         input: &SpaceCreateInput<'_>,
@@ -220,6 +309,22 @@ impl super::SessionClient {
     ///
     /// `input` selects exactly one join path; the enum makes invalid inputs
     /// unrepresentable at the type level.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `input` is `SpaceJoinInput::InviteCode("")` (empty code is
+    ///   never useful and `Id::new_validated("")` is rejected at type
+    ///   construction for the other variant).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_get`]. Server-side
+    ///   rejections (`invalidArguments` for unknown invite codes,
+    ///   `forbidden` for non-public Spaces) surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn space_join(
         &self,
         input: &SpaceJoinInput<'_>,
@@ -259,6 +364,26 @@ impl super::SessionClient {
     /// (`addRoles`, `removeRoles`, `updateRoles`, `manage_roles`); and
     /// categories (`addCategories`, `removeCategories`, `updateCategories`,
     /// `manage_channels`).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if any new channel, role, or category in the patch has an
+    ///   empty `name` (caller-precondition guards on `add_channels`,
+    ///   `add_roles`, `add_categories`).
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing a typed sub-field (a `Clearable` entry on
+    ///   `description` / `icon_blob_id` / `update_*.*` / role color, a
+    ///   typed `permission_overrides` value, etc.) fails (pathological
+    ///   conditions only).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::space_get`]. /set update
+    ///   errors appear in [`SetResponse::not_updated`] rather than as
+    ///   [`Err`].
     pub async fn space_update(
         &self,
         id: &Id,

@@ -19,6 +19,24 @@ impl super::SessionClient {
     ///
     /// Pass `ids: None` to fetch all calendars. Pass `properties: None` to
     /// return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn calendar_get(
         &self,
         ids: Option<&[Id]>,
@@ -46,6 +64,20 @@ impl super::SessionClient {
 
     /// Fetch changes to Calendar objects since `since_state`
     /// (draft-ietf-jmap-calendars-26 §4.2).
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::calendar_get`].
     pub async fn calendar_changes(
         &self,
         since_state: &State,
@@ -89,6 +121,25 @@ impl super::SessionClient {
     ///   §5.3. If supplied, the value must equal the current Calendar state
     ///   on the server or the method rejects with `stateMismatch`. Pass the
     ///   `newState` returned by a prior /get or /set response.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if any key in `create` is the empty string (caller-precondition
+    ///   guard — RFC 8620 §5.3 requires non-empty creation ids), or if
+    ///   `serde_json::to_value` fails on the `create` or `update` map
+    ///   (pathological conditions only — allocation failure, a
+    ///   `Calendar` value or a `PatchObject` whose JSON tree exceeds
+    ///   `serde_json`'s recursion limit). The transient memory peak for
+    ///   very large maps is roughly 3-4× the source map's in-memory
+    ///   size (source map + `serde_json::Value` tree + serialized
+    ///   `Vec<u8>` body); callers may prefer to batch.
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:calendars`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::calendar_get`].
     pub async fn calendar_set(
         &self,
         create: Option<HashMap<String, jmap_calendars_types::Calendar>>,

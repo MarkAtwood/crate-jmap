@@ -20,6 +20,24 @@ impl super::SessionClient {
     ///
     /// If `ids` is `None`, the server returns all Chats for the account.
     /// Pass `properties: None` to return all fields.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
+    ///   [`Http`](jmap_base_client::ClientError::Http),
+    ///   [`Parse`](jmap_base_client::ClientError::Parse),
+    ///   [`AuthFailed`](jmap_base_client::ClientError::AuthFailed),
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError)
+    ///   (wraps RFC 8620 §3.6.2 method-level errors such as
+    ///   `accountNotFound`, `invalidArguments`, `serverFail`),
+    ///   [`MethodNotFound`](jmap_base_client::ClientError::MethodNotFound),
+    ///   [`ResponseTooLarge`](jmap_base_client::ClientError::ResponseTooLarge),
+    ///   or
+    ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn chat_get(
         &self,
         ids: Option<&[Id]>,
@@ -49,6 +67,22 @@ impl super::SessionClient {
     ///
     /// Only keys that are `Some` in `input` are included in the filter object;
     /// an empty filter object is sent as JSON `null`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing the typed `filter_kind` enum fails (pathological
+    ///   conditions only).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_get`]. RFC 8620 §5.5
+    ///   defines additional /query method-level errors
+    ///   (`anchorNotFound`, `unsupportedFilter`, `unsupportedSort`,
+    ///   `tooManyChanges`) that surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn chat_query(
         &self,
         input: &ChatQueryInput,
@@ -86,6 +120,20 @@ impl super::SessionClient {
     ///
     /// If `has_more_changes` is true in the response, call again with `new_state`
     /// as `since_state` until the flag is false.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_state` is the empty string (defence-in-depth —
+    ///   `State` constructed via [`State::from`](jmap_types::State::from)
+    ///   accepts empty strings, but an empty `sinceState` is never
+    ///   useful and would otherwise generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_get`].
     pub async fn chat_changes(
         &self,
         since_state: &State,
@@ -122,6 +170,15 @@ impl super::SessionClient {
     /// account per chat per 3 seconds — excess calls MAY be silently discarded.
     /// Debouncing (send once per keypress, stop event on idle) is the caller's
     /// responsibility.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_get`].
     pub async fn chat_typing(
         &self,
         chat_id: &Id,
@@ -151,6 +208,22 @@ impl super::SessionClient {
     ///
     /// `up_to_id` is the highest-index id the client has cached;
     /// `calculate_total` requests the new total result count.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `since_query_state` is the empty string (defence-in-depth
+    ///   empty-state guard; see [`Self::chat_changes`]).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_get`]. RFC 8620 §5.6
+    ///   also defines `cannotCalculateChanges` (returned when the
+    ///   server cannot honour the request given the supplied filter /
+    ///   sort); it surfaces as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn chat_query_changes(
         &self,
         since_query_state: &State,
@@ -206,6 +279,24 @@ impl super::SessionClient {
     /// `Space/set` with the `addChannels` patch key. Use
     /// [`super::SessionClient::space_update`] with
     /// [`super::SpacePatch::add_channels`] to create a Channel.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `input` is a `Group` variant with an empty `name`
+    ///   (caller-precondition guard — Group chats require a non-empty
+    ///   display name).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_get`]. JMAP Chat-spec
+    ///   /set errors (`invalidProperties`, `forbidden`, `overQuota`,
+    ///   etc.) on a single creation appear in
+    ///   [`SetResponse::not_created`] rather than as
+    ///   [`Err`]; only method-level failures surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn chat_create(
         &self,
         input: &ChatCreateInput<'_>,
@@ -272,6 +363,23 @@ impl super::SessionClient {
     /// If all fields are `Keep`/`None`, an empty patch is sent — RFC 8620 §5.3
     /// permits this; the server treats it as a no-op but still returns the chat
     /// in `updated`.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::Parse`](jmap_base_client::ClientError::Parse) if
+    ///   serializing a typed sub-field of `patch` fails — specifically a
+    ///   `Clearable` entry's value, a member `role` enum, or the
+    ///   `update_member_roles` entries (pathological conditions only).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_get`]. JMAP Chat-spec
+    ///   /set update errors appear in
+    ///   [`SetResponse::not_updated`] rather than as
+    ///   [`Err`]; only method-level failures surface as
+    ///   [`MethodError`](jmap_base_client::ClientError::MethodError).
     pub async fn chat_update(
         &self,
         id: &Id,
@@ -384,6 +492,21 @@ impl super::SessionClient {
     ///
     /// Permanently removes the listed Chat IDs from the account.
     /// `ids` must be non-empty; the guard fires before any network call.
+    ///
+    /// # Errors
+    ///
+    /// - [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument)
+    ///   if `ids` is empty (caller-precondition guard — a no-op destroy
+    ///   is never useful and would generate a wasted round-trip).
+    /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
+    ///   if the bound session has no primary account for
+    ///   `urn:ietf:params:jmap:chat`.
+    /// - Any transport / protocol variant returned by
+    ///   [`JmapClient::call`](jmap_base_client::JmapClient::call) — see
+    ///   the matching error list on [`Self::chat_get`]. JMAP Chat-spec
+    ///   /set destroy errors appear in
+    ///   [`SetResponse::not_destroyed`] rather than as
+    ///   [`Err`].
     pub async fn chat_destroy(
         &self,
         ids: &[Id],
