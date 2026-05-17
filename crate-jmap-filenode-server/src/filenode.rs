@@ -3191,6 +3191,14 @@ mod tests {
     /// Oracle: create with no nodeType, blobId, or target → inferred as
     /// "directory" and succeeds (no consistency error).
     /// Source: draft-ietf-jmap-filenode-13 §3.1.
+    ///
+    /// The previous assertion shape (`notCreated.is_null() &&
+    /// created.is_object()`) did not isolate the handler's nodeType
+    /// inference branch from the rest of the pipeline — any branch
+    /// that produced `nodeType="directory"` somewhere in the round
+    /// trip (handler inference, serde default, backend echo) would
+    /// satisfy it. Strengthened to assert on the concrete value
+    /// reaching the wire response per bd:JMAP-510h.25.
     #[tokio::test]
     async fn set_create_directory_without_blobid_infers_directory_type() {
         let backend = MemoryBackend::new().with_account("acc1");
@@ -3209,8 +3217,19 @@ mod tests {
             "directory inference must not produce an error: {resp}"
         );
         assert!(
-            resp["created"].is_object(),
-            "created must be present: {resp}"
+            resp["created"].is_object() && resp["created"]["c1"].is_object(),
+            "created.c1 must be present: {resp}"
+        );
+        // The inferred nodeType MUST be "directory" (§3.1 inference rule:
+        // when nodeType, blobId, and target are all absent/null, the
+        // server infers directory). Assert on the concrete wire value
+        // so a regression that returns the input as-is (no inference)
+        // would surface as a missing-nodeType failure, not as a
+        // silently-passing test.
+        let created_obj = &resp["created"]["c1"];
+        assert_eq!(
+            created_obj["nodeType"], "directory",
+            "nodeType must be inferred as 'directory' on the wire: {resp}"
         );
     }
 
