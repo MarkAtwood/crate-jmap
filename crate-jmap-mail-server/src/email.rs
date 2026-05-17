@@ -209,10 +209,41 @@ fn parse_header_property(prop: &str) -> Result<HeaderPropertyRequest, String> {
 /// RFC 8621 §4.1.2: when a server recognises a header as having a specific
 /// semantic type and the client requests an incompatible form, the server MUST
 /// return `invalidArguments`.
+///
+/// # Defense notes (bd:JMAP-q2wa.11)
+///
+/// The four `const` arrays below enumerate the well-known headers whose
+/// permitted forms are spec-pinned by RFC 8621 §4.1.2 subsections:
+///
+///   - `DATE_HEADERS`     — §4.1.2.4 (date-form headers)
+///   - `ADDR_HEADERS`     — §4.1.2.3 (address-form headers)
+///   - `MSGID_HEADERS`    — §4.1.2.5 (message-id-form headers)
+///   - `URL_HEADERS`      — §4.1.2.7 (URL-form headers)
+///
+/// A future contributor might suggest collapsing these into one big
+/// `match name_lower` arm, or moving them into a `HashMap` or `phf`
+/// table for "cleanliness". Do not collapse:
+///
+///   1. Const arrays of `&str` literals are zero runtime overhead and
+///      compile-time discoverable; a code search for `"list-help"`
+///      instantly lands on `URL_HEADERS`.
+///   2. The four-arm `matches!` checks below directly correspond to
+///      the four RFC 8621 §4.1.2.X subsections. Reorganizing breaks
+///      the spec correspondence and makes spec-conformance review
+///      harder.
+///   3. A `HashMap` or `phf` table adds runtime lookup cost (and a
+///      build-time dep for `phf`) for a list that fits in cache and
+///      runs at most once per `Email/get` property selector.
+///   4. The error messages below cite the header class (date /
+///      address / message-id / URL); a one-big-match would have to
+///      recover the class via post-hoc dispatch, losing the spec
+///      traceability the current shape carries naturally.
 fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Result<(), String> {
     use HeaderForm::*;
 
+    // RFC 8621 §4.1.2.4 — date-form headers
     const DATE_HEADERS: &[&str] = &["date", "resent-date"];
+    // RFC 8621 §4.1.2.3 — address-form headers
     const ADDR_HEADERS: &[&str] = &[
         "from",
         "to",
@@ -227,12 +258,14 @@ fn validate_header_form(name_lower: &str, form: &HeaderForm) -> Result<(), Strin
         "resent-sender",
         "resent-reply-to",
     ];
+    // RFC 8621 §4.1.2.5 — message-id-form headers
     const MSGID_HEADERS: &[&str] = &[
         "message-id",
         "in-reply-to",
         "references",
         "resent-message-id",
     ];
+    // RFC 8621 §4.1.2.7 — URL-form headers
     const URL_HEADERS: &[&str] = &[
         "list-help",
         "list-unsubscribe",
