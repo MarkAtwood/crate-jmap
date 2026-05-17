@@ -18,9 +18,41 @@
 //! RFC 9553 marks most fields optional, and JMAP `properties` arguments
 //! permit partial responses. Every optional field is `Option<...>` with
 //! `#[serde(skip_serializing_if = "Option::is_none")]` so partial inputs
-//! round-trip unchanged. Mandatory fields per the RFC are kept as bare
-//! types (not `Option`) to express the requirement at the type level —
-//! callers building a fresh sub-object must populate them.
+//! round-trip unchanged.
+//!
+//! Mandatory fields per the RFC are normally kept as bare types (not
+//! `Option`) to express the requirement at the type level — callers
+//! building a fresh sub-object must populate them. The exception is
+//! the `Resource`-derived types ([`Calendar`], [`CryptoKey`],
+//! [`Directory`], [`Link`], [`Media`]), whose RFC-mandatory `kind` and
+//! `uri` fields are modelled as `Option` to permit partial-response
+//! deserialization (a JMAP client requesting `properties: ["kind"]` on
+//! a `Calendar` legitimately receives a JSON object with no `uri` and
+//! must round-trip it unchanged).
+//!
+//! The trade-off: callers can construct, e.g.,
+//! `Calendar { kind: None, uri: None, ... }` and serialize a wire
+//! object that no spec-conformant peer can validate. The type system
+//! does not catch this; the kit's posture is "types model the wire
+//! shape; semantic validity is the consumer's job" (see the kit-vs-jig
+//! section in the workspace `AGENTS.md`). Callers building a fresh
+//! value for emission MUST populate the mandatory-on-wire fields
+//! themselves before serializing.
+//!
+//! Mandatory-on-wire fields modelled as `Option` (8 sites across 5
+//! types), gathered into one place so each consumer does not have to
+//! re-derive them from the per-field rustdoc:
+//!
+//! | Struct | Mandatory field | RFC section |
+//! |---|---|---|
+//! | [`Calendar`] | `kind` | RFC 9553 §2.4.1 |
+//! | [`Calendar`] | `uri` | RFC 9553 §1.4.4 |
+//! | [`CryptoKey`] | `uri` | RFC 9553 §1.4.4 |
+//! | [`Directory`] | `kind` | RFC 9553 §2.6.2 |
+//! | [`Directory`] | `uri` | RFC 9553 §1.4.4 |
+//! | [`Link`] | `uri` | RFC 9553 §1.4.4 |
+//! | [`Media`] | `kind` | RFC 9553 §2.6.4 |
+//! | [`Media`] | `uri` | RFC 9553 §1.4.4 |
 //!
 //! ## Design: cross-field invariants are not type-enforced
 //!
@@ -516,6 +548,12 @@ pub struct LanguagePref {
 /// Extends the abstract [Resource](crate#design-resource-derived-types)
 /// type with a mandatory `kind` value of either `"calendar"` or `"freeBusy"`.
 ///
+/// `kind` and `uri` are mandatory on the wire but modelled as `Option`
+/// to permit partial-response deserialization; callers building a fresh
+/// `Calendar` MUST populate both fields. See the crate-level
+/// [Design: optional fields and `Option<...>`](crate#design-optional-fields-and-option)
+/// section.
+///
 /// Distinct from the JMAP Calendars binding object
 /// [`jmap_calendars_types::Calendar`](https://docs.rs/jmap-calendars-types):
 /// that type is a top-level JMAP wire object with `id`, `name`,
@@ -710,6 +748,12 @@ pub struct AddressComponent {
 
 /// A cryptographic key or certificate associated with a Card
 /// (RFC 9553 §2.6.1). Extends the abstract Resource type.
+///
+/// `uri` is mandatory on the wire but modelled as `Option` to permit
+/// partial-response deserialization; callers building a fresh
+/// `CryptoKey` MUST populate it. See the crate-level
+/// [Design: optional fields and `Option<...>`](crate#design-optional-fields-and-option)
+/// section.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -757,6 +801,12 @@ pub struct CryptoKey {
 ///
 /// Extends the abstract Resource type with a mandatory `kind` value of
 /// either `"directory"` or `"entry"`, and an extra `list_as` ordering hint.
+///
+/// `kind` and `uri` are mandatory on the wire but modelled as `Option`
+/// to permit partial-response deserialization; callers building a fresh
+/// `Directory` MUST populate both fields. See the crate-level
+/// [Design: optional fields and `Option<...>`](crate#design-optional-fields-and-option)
+/// section.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -811,6 +861,12 @@ pub struct Directory {
 /// Extends the abstract Resource type. The `kind` value is optional;
 /// when set, the only enumerated value is `"contact"`.
 ///
+/// `uri` is mandatory on the wire but modelled as `Option` to permit
+/// partial-response deserialization; callers building a fresh `Link`
+/// MUST populate it. See the crate-level
+/// [Design: optional fields and `Option<...>`](crate#design-optional-fields-and-option)
+/// section.
+///
 /// Distinct from JSCalendar's `Link` type ([`jmap_jscalendar_types::Link`](https://docs.rs/jmap-jscalendar-types));
 /// the two are unrelated wire-format types.
 #[non_exhaustive]
@@ -860,6 +916,12 @@ pub struct Link {
 ///
 /// Extends the abstract Resource type with a mandatory `kind` value of
 /// `"photo"`, `"sound"`, or `"logo"`.
+///
+/// `kind` and `uri` are mandatory on the wire but modelled as `Option`
+/// to permit partial-response deserialization; callers building a fresh
+/// `Media` MUST populate both fields. See the crate-level
+/// [Design: optional fields and `Option<...>`](crate#design-optional-fields-and-option)
+/// section.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

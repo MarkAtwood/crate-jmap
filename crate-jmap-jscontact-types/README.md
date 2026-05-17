@@ -124,6 +124,16 @@ The same pattern works for `EmailAddress`, `Phone`, `Address`,
   apply only when emitting a fresh value. Callers MUST validate
   before serializing. See the crate-level rustdoc "Cross-field
   invariants" section for the table.
+- Eight fields across the five Resource-derived types (`Calendar.kind`,
+  `Calendar.uri`, `CryptoKey.uri`, `Directory.kind`, `Directory.uri`,
+  `Link.uri`, `Media.kind`, `Media.uri`) are mandatory on the wire per
+  RFC 9553 but modelled as `Option<...>` so partial-response inputs
+  round-trip. The type system therefore does NOT prevent constructing
+  e.g. `Calendar { kind: None, uri: None, ... }` and serializing a
+  wire object no spec-conformant peer can validate. Callers building
+  a fresh value MUST populate these fields before serializing.
+  Deserialize accepts partial inputs. See the crate-level rustdoc
+  "Design: optional fields and `Option<...>`" section for the table.
 - The Sloppy-Value pattern in `jmap-contacts-types` (per the workspace
   `AGENTS.md`) means consumers see some contact-card fields as
   `serde_json::Value` rather than typed sub-types from this crate. To
