@@ -453,6 +453,59 @@ For Rust crates not in `~/PROJECT`, check `~/GIT` and `~/WORK` before reaching f
     `JMAP-sc1b.111`).
   - `JMAP-sc1b.108` — the parallel jscontact-types propagation that
     triggered this policy discussion.
+- **Set-as-map idiom on the wire stays as `HashMap<String, bool>`**
+  (decided 2026-05-17, bd:JMAP-sgrr.18). Several IETF JMAP-family
+  specs use the set-as-map idiom — a JSON object whose keys carry
+  the meaning and whose values are always the literal `true` — for
+  fields that semantically represent a set of strings. Examples:
+  RFC 9553 §1.5.1 `contexts` on most JSContact sub-objects;
+  RFC 9553 `Phone.features`; RFC 9553 `Relation.relation`; the
+  analogous shapes in RFC 8984 JSCalendar; the keyword / member /
+  addressBookIds maps on JMAP Contacts; etc.
+
+  Workspace type crates model these fields as
+  `Option<HashMap<String, bool>>` (or `HashMap<String, bool>` when
+  mandatory), NOT as `HashSet<String>` with a serde adapter. The
+  spec wire form permits the construction. Callers building a fresh
+  value MUST set every value to `true` (per RFC 9553 §1.5.1 et al.);
+  deserialize does not reject inputs that include `false` values,
+  but downstream code that iterates the map should match on the key
+  alone and treat the value as a redundant assertion.
+
+  Why not `HashSet<String>` with a `{key: true}` serde adapter:
+
+  1. **Cross-crate breaking change is large.** The idiom appears on
+     16+ fields in `jmap-jscontact-types` alone, plus an unknown
+     count across `jmap-jscalendar-types`, `jmap-contacts-types`,
+     `jmap-calendars-types`, `jmap-mail-types`, `jmap-chat-types`,
+     etc. A workspace-wide migration would be a coordinated
+     breaking release across ~30 crates for a defensive-typing
+     improvement.
+
+  2. **The wire shape is the source of truth.** The kit's posture
+     (types model the wire shape; semantic validity is the
+     consumer's job) is consistent across other shape decisions
+     (Sloppy-Value pattern, mandatory-as-Option for partial
+     responses, externally-owned classifier-string exclusion).
+     Tightening this one field shape would be the outlier.
+
+  3. **The defensive cost of the current shape is low.** Iterating
+     `HashMap<&String, &bool>` and matching on the key is no harder
+     than iterating `HashSet<&String>`. Code that asserts
+     `value == true` before treating the key as set-membership is a
+     three-character match-arm.
+
+  Future work: if a downstream consumer accumulates enough evidence
+  that `false`-valued wire inputs cause real bugs, the right
+  follow-up is a custom serde adapter at the kit level
+  (`jmap-types`) that maps `HashMap<String, bool>` → `HashSet<String>`
+  on deserialize-and-back. That would be a separate workspace epic
+  driven by `jmap-mail-types` as the canonical extension-types
+  template; do not start a piecemeal per-crate migration.
+
+  Per-crate rustdoc / Gotchas need not call this out individually —
+  every type crate that ships set-as-map fields can point to this
+  AGENTS.md section.
 - **TLS stack**: this workspace uses **rustls**, NOT native-tls / openssl.
   Both `reqwest` and `tokio-tungstenite` MUST be declared with
   `default-features = false` and only `rustls-tls-*` features enabled.
