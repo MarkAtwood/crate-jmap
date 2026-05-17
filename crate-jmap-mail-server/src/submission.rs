@@ -6,6 +6,30 @@
 //! - `EmailSubmission/query` (§7.3)
 //! - `EmailSubmission/queryChanges` (§7.4)
 //! - `EmailSubmission/set` (§7.5) — also handles `onSuccessUpdateEmail`
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by RFC 8621 §7. The returned `Value` is the
+//! corresponding method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3).
+//! For the `/get`, `/changes`, `/query`, and `/queryChanges` handlers in
+//! this module the vector is **always empty**. `handle_submission_set`
+//! is the one exception: it MAY emit one `Email/set` follow-up
+//! invocation when `onSuccessUpdateEmail` is present (RFC 8621 §7.5).
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside `/set` surface
+//! in the `notCreated` / `notUpdated` / `notDestroyed` maps within
+//! `Ok((Value, ...))`, not as `Err`.
 
 use std::collections::{HashMap, HashSet};
 
@@ -31,7 +55,11 @@ use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_bac
 
 /// Handle an `EmailSubmission/get` method call (RFC 8621 §7.1).
 ///
-/// Returns `(response_args, extra_invocations)`. Extra invocations are always empty.
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_submission_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -84,7 +112,14 @@ pub async fn handle_submission_get<B: MailBackend>(
 // EmailSubmission/changes
 // ---------------------------------------------------------------------------
 
-/// Handle an `EmailSubmission/changes` method call (RFC 8620 §5.2 / RFC 8621 §7.2).
+/// Handle an `EmailSubmission/changes` method call (RFC 8621 §7.2).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_submission_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -99,7 +134,14 @@ pub async fn handle_submission_changes<B: MailBackend>(
 
 /// Handle an `EmailSubmission/query` method call (RFC 8621 §7.3).
 ///
-/// Returns `(response_args, extra_invocations)`. Extra invocations are always empty.
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`); the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_submission_query<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -243,7 +285,14 @@ pub async fn handle_submission_query<B: MailBackend>(
 
 /// Handle an `EmailSubmission/queryChanges` method call (RFC 8621 §7.4).
 ///
-/// Returns `(response_args, extra_invocations)`. Extra invocations are always empty.
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_submission_query_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -324,6 +373,14 @@ pub async fn handle_submission_query_changes<B: MailBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle an `EmailSubmission/set` method call (RFC 8621 §7.5).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps),
+/// augmented with the RFC 8621 §7.5 `onSuccessUpdateEmail` and
+/// `onSuccessDestroyEmail` arguments; the returned `Value` is the §5.3
+/// `/set` response shape (`accountId`, `oldState`, `newState`, plus the
+/// per-operation `created` / `notCreated` / `updated` / `notUpdated` /
+/// `destroyed` / `notDestroyed` maps).
 ///
 /// Returns `(response_args, extra_invocations)`. When `onSuccessUpdateEmail` is
 /// present, extra_invocations will contain one `Email/set` invocation.

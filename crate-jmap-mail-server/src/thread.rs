@@ -1,4 +1,21 @@
 //! Thread/get and Thread/changes method handlers (RFC 8621 §3).
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2), with the type-specific arguments
+//! defined by RFC 8621 §3. The returned `Value` is the corresponding
+//! method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3);
+//! for the handlers in this module the vector is **always empty**.
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `cannotCalculateChanges` — per RFC 8620 §3.6 and §5).
 
 use std::collections::HashSet;
 
@@ -11,8 +28,11 @@ use jmap_server::server_fail_from_backend;
 
 /// Handle a `Thread/get` method call (RFC 8621 §3.1).
 ///
-/// Returns `(response_args, extra_invocations)`. For Thread/get the extra
-/// invocations list is always empty.
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_thread_get<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -88,7 +108,14 @@ pub async fn handle_thread_get<B: MailBackend>(
     Ok((resp, vec![]))
 }
 
-/// Handle a `Thread/changes` method call (RFC 8620 §5.2, as applied to Thread).
+/// Handle a `Thread/changes` method call (RFC 8621 §3.2).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_thread_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,

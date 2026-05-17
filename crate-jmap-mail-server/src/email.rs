@@ -1,5 +1,30 @@
 //! Email/get, Email/changes, Email/query, Email/queryChanges, Email/set,
-//! Email/copy, Email/import, Email/parse method handlers (RFC 8621 §4–5).
+//! Email/copy, Email/import, Email/parse method handlers (RFC 8621 §4).
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3, `/copy` → §5.4,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by RFC 8621 §4. The returned `Value` is the
+//! corresponding method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3).
+//! For the standard `/get`, `/changes`, `/query`, `/queryChanges`,
+//! `/set`, `/import`, and `/parse` handlers in this module the vector
+//! is **always empty**. `handle_email_copy` is the one exception: it MAY
+//! emit `Email/set` follow-up invocations when `onSuccessDestroyOriginal`
+//! is true or `onSuccessUpdateOriginal` is non-null (RFC 8620 §5.4).
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside a `/set` or
+//! `/copy` call surface in the `notCreated` / `notUpdated` /
+//! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use std::collections::{HashMap, HashSet};
 
@@ -536,10 +561,17 @@ fn extract_header_values(email_json: &Value, req: &HeaderPropertyRequest) -> Val
 }
 
 // ---------------------------------------------------------------------------
-// Email/get (RFC 8621 §5.1)
+// Email/get (RFC 8621 §4.2)
 // ---------------------------------------------------------------------------
 
-/// Handle an `Email/get` method call (RFC 8621 §5.1).
+/// Handle an `Email/get` method call (RFC 8621 §4.2).
+///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`), augmented with the RFC 8621 §4.2
+/// Email-specific arguments (`bodyProperties`, `fetchTextBodyValues`,
+/// `fetchHTMLBodyValues`, `fetchAllBodyValues`, `maxBodyValueBytes`); the
+/// returned `Value` is the §5.1 `/get` response shape (`accountId`,
+/// `state`, `list`, `notFound`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_get<B: MailBackend>(
@@ -699,10 +731,17 @@ pub async fn handle_email_get<B: MailBackend>(
 }
 
 // ---------------------------------------------------------------------------
-// Email/changes (RFC 8620 §5.2, as applied to Email)
+// Email/changes (RFC 8621 §4.3)
 // ---------------------------------------------------------------------------
 
-/// Handle an `Email/changes` method call (RFC 8620 §5.2).
+/// Handle an `Email/changes` method call (RFC 8621 §4.3).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_changes<B: MailBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -716,6 +755,14 @@ pub async fn handle_email_changes<B: MailBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle an `Email/query` method call (RFC 8621 §4.4).
+///
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`),
+/// augmented with the RFC 8621 §4.4.3 Email-specific `collapseThreads`
+/// argument; the returned `Value` is the §5.5 `/query` response shape
+/// (`accountId`, `queryState`, `canCalculateChanges`, `position`, `ids`,
+/// optional `total`, optional `limit`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query<B: MailBackend>(
@@ -943,10 +990,18 @@ pub async fn handle_email_query<B: MailBackend>(
 }
 
 // ---------------------------------------------------------------------------
-// Email/queryChanges (RFC 8620 §5.6, as applied to Email)
+// Email/queryChanges (RFC 8621 §4.5)
 // ---------------------------------------------------------------------------
 
-/// Handle an `Email/queryChanges` method call.
+/// Handle an `Email/queryChanges` method call (RFC 8621 §4.5).
+///
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`),
+/// augmented with the RFC 8621 §4.4.3 Email-specific `collapseThreads`
+/// argument; the returned `Value` is the §5.6 `/queryChanges` response
+/// shape (`accountId`, `oldQueryState`, `newQueryState`, optional
+/// `total`, `removed`, `added`).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_query_changes<B: MailBackend>(
@@ -1058,10 +1113,17 @@ pub async fn handle_email_query_changes<B: MailBackend>(
 }
 
 // ---------------------------------------------------------------------------
-// Email/set (RFC 8621 §5.5)
+// Email/set (RFC 8621 §4.6)
 // ---------------------------------------------------------------------------
 
-/// Handle an `Email/set` method call (RFC 8621 §5.5).
+/// Handle an `Email/set` method call (RFC 8621 §4.6).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation `created` /
+/// `notCreated` / `updated` / `notUpdated` / `destroyed` / `notDestroyed`
+/// maps).
 ///
 /// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_email_set<B: MailBackend>(
@@ -1948,10 +2010,16 @@ async fn collapse_by_thread<B: MailBackend>(
 }
 
 // ---------------------------------------------------------------------------
-// Email/import (RFC 8621 §5.7)
+// Email/import (RFC 8621 §4.8)
 // ---------------------------------------------------------------------------
 
-/// Handle an `Email/import` method call (RFC 8621 §5.7).
+/// Handle an `Email/import` method call (RFC 8621 §4.8).
+///
+/// `args` is the RFC 8621 §4.8 `Email/import` request shape (`accountId`,
+/// optional `ifInState`, `emails` map of creationId → EmailImport object —
+/// each carrying a `blobId`, `mailboxIds`, optional `keywords`, optional
+/// `receivedAt`); the returned `Value` is the §4.8 response shape
+/// (`accountId`, `oldState`, `newState`, `created` / `notCreated` maps).
 ///
 /// Each entry in `emails` must name a blob already uploaded to the account.
 /// The backend parses the raw bytes, assigns a thread, and stores the new email.
@@ -2089,13 +2157,20 @@ pub async fn handle_email_import<B: MailBackend>(
 }
 
 // ---------------------------------------------------------------------------
-// Email/parse (RFC 8621 §5.8)
+// Email/parse (RFC 8621 §4.9)
 // ---------------------------------------------------------------------------
 
-/// Handle an `Email/parse` method call (RFC 8621 §5.8).
+/// Handle an `Email/parse` method call (RFC 8621 §4.9).
+///
+/// `args` is the RFC 8621 §4.9 `Email/parse` request shape (`accountId`,
+/// `blobIds`, optional `properties`, optional `bodyProperties`, optional
+/// `fetchTextBodyValues` / `fetchHTMLBodyValues` / `fetchAllBodyValues`,
+/// optional `maxBodyValueBytes`); the returned `Value` is the §4.9
+/// response shape (`accountId`, `parsed` map, `notParsable` Id[],
+/// `notFound` Id[]).
 ///
 /// Parses the blobs identified by `blobIds` and returns Email objects without
-/// storing them (RFC 8621 §5.8).
+/// storing them.
 ///
 /// Blobs that exist but cannot be parsed → `notParsable`.
 /// Blobs that do not exist → `notFound`.
@@ -2272,10 +2347,18 @@ pub async fn handle_email_parse<B: MailBackend>(
 }
 
 // ---------------------------------------------------------------------------
-// Email/copy (RFC 8621 §6.1 / RFC 8620 §6.3)
+// Email/copy (RFC 8621 §4.7 / RFC 8620 §5.4)
 // ---------------------------------------------------------------------------
 
-/// Handle an `Email/copy` method call (RFC 8621 §6.1).
+/// Handle an `Email/copy` method call (RFC 8621 §4.7).
+///
+/// `args` is the RFC 8620 §5.4 `/copy` request shape (`fromAccountId`,
+/// optional `ifFromInState`, `accountId`, optional `ifInState`, `create`
+/// map of creationId → object, optional `onSuccessDestroyOriginal`,
+/// optional `destroyFromIfInState`); the returned `Value` is the §5.4
+/// `/copy` response shape (`fromAccountId`, `accountId`, `oldState`,
+/// `newState`, `created` / `notCreated` maps). RFC 8621 §4.7 adds
+/// `onSuccessUpdateOriginal` to the standard request.
 ///
 /// Copies one or more emails from `fromAccountId` into the current account.
 /// Supports `onSuccessDestroyOriginal` and `onSuccessUpdateOriginal`.
