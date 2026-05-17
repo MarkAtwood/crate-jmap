@@ -16,6 +16,12 @@ pub use jmap_types::query::{Filter, FilterOperator, Operator};
 /// Concrete filter type for Email/query (RFC 8621 §4.4).
 pub type EmailFilter = Filter<EmailFilterCondition>;
 
+/// Concrete filter type for Mailbox/query (RFC 8621 §2.3).
+///
+/// The condition struct ([`crate::mailbox::MailboxFilterCondition`])
+/// lives in [`crate::mailbox`] alongside the other Mailbox types.
+pub type MailboxFilter = Filter<crate::mailbox::MailboxFilterCondition>;
+
 /// Concrete filter type for EmailSubmission/query (RFC 8621 §7.3).
 ///
 /// The condition struct ([`crate::submission::EmailSubmissionFilterCondition`])

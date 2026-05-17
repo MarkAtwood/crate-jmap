@@ -524,6 +524,16 @@ pub struct ContactCardFilterCondition {
     pub note: Option<String>,
 }
 
+/// Concrete filter type for ContactCard/query (RFC 9610 §3.3).
+///
+/// Alias for `jmap_types::query::Filter<ContactCardFilterCondition>`
+/// provided so callers do not have to reach into `jmap-types` directly.
+/// Mirrors the canonical [`jmap_mail_types::EmailFilter`] shape from the
+/// workspace canonical extension-types template.
+///
+/// [`jmap_mail_types::EmailFilter`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/type.EmailFilter.html
+pub type ContactCardFilter = jmap_types::query::Filter<ContactCardFilterCondition>;
+
 /// Comparator for `ContactCard/query` sort order (RFC 9610 §3.3.2).
 ///
 /// The `property` field holds the sort key string. RFC 9610 §3.3.2 declares

@@ -42,5 +42,17 @@ pub use backend::{PrincipalProperty, ShareNotificationProperty};
 pub use capability::{
     PrincipalsCapability, PrincipalsOwnerCapability, JMAP_PRINCIPALS_OWNER_URI, JMAP_PRINCIPALS_URI,
 };
-pub use notification::{ChangedBy, ShareNotification, ShareNotificationFilterCondition};
-pub use principal::{Principal, PrincipalFilterCondition, PrincipalType};
+pub use notification::{
+    ChangedBy, ShareNotification, ShareNotificationFilter, ShareNotificationFilterCondition,
+};
+pub use principal::{Principal, PrincipalFilter, PrincipalFilterCondition, PrincipalType};
+
+/// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
+///
+/// Re-exported here so callers of `jmap-sharing-types` do not need a
+/// direct dependency on `jmap-types`. Mirrors the canonical
+/// [`jmap_mail_types::query`] re-exports from the workspace canonical
+/// extension-types template.
+///
+/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
+pub use jmap_types::query::{Filter, FilterOperator, Operator};

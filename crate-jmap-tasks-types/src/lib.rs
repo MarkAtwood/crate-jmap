@@ -62,6 +62,20 @@ pub use jmap_jscalendar_types::{
     OffsetTrigger, Participant, RecurrenceRule, Relation, SignedDuration, TimeZone, TimeZoneRule,
     VirtualLocation,
 };
-pub use notification::{NotificationType, TaskNotification, TaskNotificationFilterCondition};
-pub use task::{CheckItem, Checklist, Comment, Person, Task, TaskFilterCondition, TaskProgress};
+pub use notification::{
+    NotificationType, TaskNotification, TaskNotificationFilter, TaskNotificationFilterCondition,
+};
+pub use task::{
+    CheckItem, Checklist, Comment, Person, Task, TaskFilter, TaskFilterCondition, TaskProgress,
+};
 pub use task_list::{TaskList, TaskListRole, TaskRights};
+
+/// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
+///
+/// Re-exported here so callers of `jmap-tasks-types` do not need a direct
+/// dependency on `jmap-types`. Mirrors the canonical
+/// [`jmap_mail_types::query`] re-exports from the workspace canonical
+/// extension-types template.
+///
+/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
+pub use jmap_types::query::{Filter, FilterOperator, Operator};

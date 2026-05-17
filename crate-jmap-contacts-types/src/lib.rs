@@ -116,12 +116,22 @@ pub use jmap_jscontact_types as jscontact;
 pub use addressbook::{AddressBook, AddressBookRights};
 pub use backend::{AddressBookProperty, ContactCardProperty};
 pub use capability::{ContactsAccountCapability, ContactsCapability, JMAP_CONTACTS_URI};
-pub use card::{ContactCard, ContactCardComparator, ContactCardFilterCondition};
+pub use card::{ContactCard, ContactCardComparator, ContactCardFilter, ContactCardFilterCondition};
 pub use collision::CollisionError;
 
 /// Constant identifiers for [`ContactCardComparator::property`] sort keys
 /// (re-export of [`card::prop`]).
 pub use card::prop as comparator_prop;
+
+/// Generic filter algebra from `jmap-types::query` (RFC 8620 §5.5).
+///
+/// Re-exported here so callers of `jmap-contacts-types` do not need a
+/// direct dependency on `jmap-types`. Mirrors the canonical
+/// [`jmap_mail_types::query`] re-exports from the workspace canonical
+/// extension-types template.
+///
+/// [`jmap_mail_types::query`]: https://docs.rs/jmap-mail-types/latest/jmap_mail_types/query/index.html
+pub use jmap_types::query::{Filter, FilterOperator, Operator};
 
 // ── JSContact sub-object re-exports (RFC 9553) ───────────────────────────────
 //
