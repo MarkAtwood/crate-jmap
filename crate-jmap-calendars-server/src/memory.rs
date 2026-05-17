@@ -807,51 +807,52 @@ impl JmapBackend for MemoryBackend {
         }
 
         // bd:JMAP-ic0j.50 — port the canonical jmap-mail-server HashMap+IdFate
-        // dedup pattern, but PRESERVE the previous semantic: create+destroy
-        // within one window → `destroyed` only (the previous Vec-based code's
-        // behavior, which is RFC 8620 §5.2 "MAY include it in just the
-        // 'destroyed' list", a valid choice under the SHOULD/MAY hierarchy).
-        // The canonical mail-server uses the SHOULD-preferred "omit from both"
-        // path; calendars-server's MAY path was a pre-existing choice and
-        // changing it is a semantic shift out of scope for this idiom fix.
-        // Only the dedup data structure is changed here: Vec::contains O(n)
-        // membership tests → HashMap O(1) lookups (idiom intent of the bead).
+        // dedup pattern.
+        //
+        // bd:JMAP-ic0j.75 — align with the canonical SHOULD-preferred path of
+        // RFC 8620 §5.2: "If a record was created and destroyed within the
+        // window, the server SHOULD remove the id from the response entirely."
+        // The canonical jmap-mail-server at crate-jmap-mail-server/src/memory/
+        // mod.rs:670-680 chose this path (1). calendars-server previously chose
+        // the MAY-path (path 2, "include it in just the 'destroyed' list") as a
+        // pre-existing carryover from the Vec-based code; this aligns with the
+        // canonical per the workspace cookie-cutter consistency rule.
+        //
+        // bd:JMAP-ic0j.15 recycling-detection: the SHOULD-preferred destroy arm
+        // REMOVES the `Created` fate from the map, so a recycled-create from a
+        // later entry would no longer find a `Destroyed` sentinel and the
+        // original `debug_assert!` would miss the bug. To preserve the
+        // recycling invariant check independently of the dedup state, track a
+        // separate `ever_destroyed` set that records every id that appeared
+        // in a `destroyed` list within the window. The assertion fires when a
+        // later `created` or `updated` entry references an id already in
+        // `ever_destroyed`.
         let mut fates: HashMap<Id, IdFate> = HashMap::new();
+        let mut ever_destroyed: HashSet<Id> = HashSet::new();
         for entry in &relevant {
             for id in &entry.created {
-                // bd:JMAP-ic0j.15 — guard against id recycling.
-                //
                 // Under bd:JMAP-ic0j.2's monotonic-counter invariant a
                 // mint-after-destroy never re-uses an id, so a `created` id
-                // whose existing fate is `Destroyed` would mean a later entry
-                // minted the same id as an earlier `destroyed` entry. This
-                // `debug_assert!` trips immediately in tests if a future
-                // regression in id minting re-introduces recycling, surfacing
-                // what would otherwise be a silent-drop bug — the dedup pass
-                // below would clobber the `Destroyed` fate with `Created` in
-                // release builds.
+                // that has already appeared in a `destroyed` list within this
+                // window would mean a later entry minted the same id as an
+                // earlier `destroyed` entry. This `debug_assert!` trips
+                // immediately in tests if a future regression in id minting
+                // re-introduces recycling.
                 debug_assert!(
-                    !matches!(fates.get(id), Some(IdFate::Destroyed)),
+                    !ever_destroyed.contains(id),
                     "MemoryBackend change_log invariant violated: id {id} \
                      appears in entry.created after appearing in an earlier \
                      entry.destroyed. This indicates id recycling in the \
-                     demo id minter (regression of bd:JMAP-ic0j.2). The \
-                     dedup pass below silently clobbers the destroy in \
-                     release builds."
+                     demo id minter (regression of bd:JMAP-ic0j.2)."
                 );
-                // Preserve previous-Vec-behavior: if already classified as
-                // Destroyed, the destroy wins (a no-op create on a
-                // destroyed-then-re-destroyed flow). Otherwise mark Created.
-                if !matches!(fates.get(id), Some(IdFate::Destroyed)) {
-                    fates.insert(id.clone(), IdFate::Created);
-                }
+                fates.insert(id.clone(), IdFate::Created);
             }
             for id in &entry.updated {
                 // Same recycling guard for updated. An update on a
                 // previously-destroyed id is equally impossible under
                 // the monotonic-counter invariant.
                 debug_assert!(
-                    !matches!(fates.get(id), Some(IdFate::Destroyed)),
+                    !ever_destroyed.contains(id),
                     "MemoryBackend change_log invariant violated: id {id} \
                      appears in entry.updated after appearing in an earlier \
                      entry.destroyed. This indicates id recycling in the \
@@ -865,11 +866,19 @@ impl JmapBackend for MemoryBackend {
                 fates.insert(id.clone(), fate);
             }
             for id in &entry.destroyed {
-                // Destroy supersedes Created/Updated: matches the previous
-                // Vec-based code's `created.retain + destroyed.push` shape
-                // (RFC 8620 §5.2 MAY path: "include it in just the
-                // 'destroyed' list").
-                fates.insert(id.clone(), IdFate::Destroyed);
+                // bd:JMAP-ic0j.75 — RFC 8620 §5.2 SHOULD-preferred path: if an
+                // id was created within this window and is now destroyed, omit
+                // it from BOTH `created` and `destroyed` lists. The client
+                // never knew about it (its `since` predates the create).
+                // Otherwise (updated-in-window, or fresh destroy of a record
+                // the client knew about), include in `destroyed`.
+                match fates.remove(id) {
+                    Some(IdFate::Created) => {} // created+destroyed in window → omit
+                    Some(_) | None => {
+                        fates.insert(id.clone(), IdFate::Destroyed);
+                    }
+                }
+                ever_destroyed.insert(id.clone());
             }
         }
 
@@ -1523,18 +1532,24 @@ mod change_log_dedup_tests {
             .await
             .expect("must not error");
 
-        // id_a was created and then destroyed within the window → final
-        // classification is destroyed only. id_b was created in the
-        // window → final classification is created only.
-        assert_eq!(
-            result.destroyed,
-            vec![id_a],
-            "destroyed-then-not-recreated id stays in destroyed"
+        // bd:JMAP-ic0j.75 — RFC 8620 §5.2 SHOULD-preferred path. id_a was
+        // both created and destroyed within the window, so it MUST be
+        // omitted from BOTH `created` and `destroyed`: the client (since=0)
+        // never knew about it. id_b was created in the window with no
+        // matching destroy → final classification is `created`.
+        //
+        // Oracle: RFC 8620 §5.2 verbatim — "If a record was created and
+        // then destroyed within the window … the server SHOULD remove the
+        // id from the response entirely."
+        assert!(
+            result.destroyed.is_empty(),
+            "create+destroy-in-window id must be omitted from destroyed: got {:?}",
+            result.destroyed
         );
         assert_eq!(
             result.created,
             vec![id_b],
-            "newly-minted id appears in created"
+            "newly-minted id appears in created (create+destroy-in-window id is omitted)"
         );
     }
 }
