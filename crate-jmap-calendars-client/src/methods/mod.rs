@@ -106,6 +106,44 @@ pub struct PrincipalGetAvailabilityResponse {
 }
 
 // ---------------------------------------------------------------------------
+// Calendar/set extra parameters
+// ---------------------------------------------------------------------------
+
+/// Extra method-level arguments for `Calendar/set`
+/// (draft-ietf-jmap-calendars-26 §4.4).
+///
+/// All fields are optional. Pass `None` (or `Default::default()`) when not
+/// needed. The `if_in_state` optimistic-concurrency guard remains a
+/// separate inline argument on
+/// [`SessionClient::calendar_set`](SessionClient::calendar_set), matching
+/// the canonical `email_submission_set` shape in `jmap-mail-client`.
+#[derive(Debug, Default, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CalendarSetParams {
+    /// If `true`, destroying a calendar also destroys all its events
+    /// (draft-ietf-jmap-calendars-26 §4.4). Server default: false (the
+    /// server MUST reject a destroy on a calendar with events,
+    /// returning the `calendarHasEvent` SetError).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub on_destroy_remove_events: Option<bool>,
+
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    ///
+    /// **Constraint**: keys in `extra` MUST NOT collide with the
+    /// typed-field wire names above (the camelCase spelling — e.g.
+    /// `"accountId"`, `"ids"`, `"properties"`, `"blobIds"`,
+    /// `"fromAccountId"`, etc.). On collision the typed-field value
+    /// wins on the wire and the `extra` value is silently dropped at
+    /// serialization. Place vendor extensions under vendor-prefixed
+    /// keys (e.g. `"acmeCorpFoo"`) to avoid the collision class.
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+// ---------------------------------------------------------------------------
 // CalendarEvent/get extra parameters
 // ---------------------------------------------------------------------------
 
@@ -727,5 +765,44 @@ mod tests {
         let out = serde_json::to_value(&params).expect("Serialize is infallible for plain data");
         assert_eq!(out["expandRecurrences"], json!(true));
         assert_eq!(out["acmeCorpDebug"], json!(true));
+    }
+
+    /// Oracle: CalendarSetParams with on_destroy_remove_events serializes
+    /// the field at the expected camelCase wire name.
+    /// Expected field name "onDestroyRemoveEvents" from
+    /// draft-ietf-jmap-calendars-26 §4.4.
+    #[test]
+    fn calendar_set_params_on_destroy_remove_events_serializes() {
+        let params = CalendarSetParams {
+            on_destroy_remove_events: Some(true),
+            extra: serde_json::Map::new(),
+        };
+        let out = serde_json::to_value(&params).expect("serialize CalendarSetParams");
+        assert_eq!(out["onDestroyRemoveEvents"], json!(true));
+    }
+
+    /// Oracle: CalendarSetParams default (all-None) serializes to an empty
+    /// object — every typed field is `skip_serializing_if = "Option::is_none"`
+    /// and `extra` is `skip_serializing_if = "Map::is_empty"`.
+    #[test]
+    fn calendar_set_params_default_serializes_empty() {
+        let params = CalendarSetParams::default();
+        let out = serde_json::to_value(&params).expect("serialize CalendarSetParams::default");
+        let obj = out.as_object().expect("must be Object");
+        assert!(
+            obj.is_empty(),
+            "all-None default must serialize to empty object, got: {out}"
+        );
+    }
+
+    /// `CalendarSetParams.extra` flattens into serialized JSON.
+    #[test]
+    fn calendar_set_params_propagates_vendor_extras() {
+        let mut params = CalendarSetParams::default();
+        params
+            .extra
+            .insert("acmeCorpCascade".into(), json!("strict"));
+        let v = serde_json::to_value(&params).expect("serialize CalendarSetParams");
+        assert_eq!(v["acmeCorpCascade"], json!("strict"));
     }
 }

@@ -8,6 +8,7 @@
 #[path = "helpers.rs"]
 mod helpers;
 
+use jmap_tasks_client::TaskListSetParams;
 use jmap_types::{Id, State};
 use serde_json::json;
 use wiremock::matchers::{method, path};
@@ -201,7 +202,15 @@ async fn task_list_set_on_destroy_remove_tasks_round_trip() {
 
     let sc = helpers::make_client(&server);
     let resp = sc
-        .task_list_set(None, None, Some(vec![Id::from("list1")]), Some(true))
+        .task_list_set(
+            None,
+            None,
+            Some(vec![Id::from("list1")]),
+            Some(TaskListSetParams {
+                on_destroy_remove_tasks: Some(true),
+                ..Default::default()
+            }),
+        )
         .await
         .expect("task_list_set_on_destroy_remove_tasks_round_trip: must succeed");
 

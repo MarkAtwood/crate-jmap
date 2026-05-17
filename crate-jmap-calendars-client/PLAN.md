@@ -141,7 +141,8 @@ impl SessionClient {
         create: Option<HashMap<String, Calendar>>,
         update: Option<HashMap<Id, PatchObject>>,
         destroy: Option<&[Id]>,
-        on_destroy_remove_events: Option<bool>,
+        if_in_state: Option<&State>,
+        params: Option<CalendarSetParams>,
     ) -> Result<SetResponse<Calendar>, ClientError>;
 
     // ── CalendarEvent (7 methods) ───────────────────────────────────────

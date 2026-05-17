@@ -1248,6 +1248,7 @@ dependencies = [
  "jmap-base-client",
  "jmap-tasks-types",
  "jmap-types",
+ "serde",
  "serde_json",
  "tokio",
  "wiremock",
