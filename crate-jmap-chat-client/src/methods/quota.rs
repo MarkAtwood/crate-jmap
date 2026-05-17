@@ -31,6 +31,16 @@ pub struct Quota {
     /// Resource type: `"octets"` (byte-based) or `"count"` (object-count-based).
     pub resource_type: String,
     /// Data type names covered by this quota (e.g. `["Message", "Chat"]`).
+    ///
+    /// Element type is `String` rather than a typed `DataTypeName` enum
+    /// because no such enum exists in the workspace foundation today —
+    /// JMAP data-type names span every extension (RFC 8621 Email,
+    /// Mailbox, Thread; draft-atwood-jmap-chat Chat, Message, Space;
+    /// RFC 8984/9425 Calendars; RFC 9553 Contacts; etc.) and a
+    /// cross-cutting enum would belong in `jmap-types` rather than
+    /// any single extension. Compare against the literal wire-form
+    /// type name (e.g. `"Message"`, `"Chat"`), or against constants
+    /// the consuming application maintains.
     pub types: Vec<String>,
     /// Bytes currently consumed.
     pub used: u64,
