@@ -10,8 +10,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, CalendarsBackend, SetError, SetErrorType};
 use crate::helpers::{
-    apply_default_change_to_response, extract_account_id, finalize_set_response,
-    resolve_on_success_set_is_default, set_error_value, SetAccumulators,
+    apply_default_change_to_response, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
 };
 use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -69,6 +69,10 @@ pub async fn handle_calendar_set<B: CalendarsBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.4). Reject
+    // unbounded /set batches before touching the storage layer.
+    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
     let on_destroy_remove_events = bool_arg(&args, "onDestroyRemoveEvents", false);
 
