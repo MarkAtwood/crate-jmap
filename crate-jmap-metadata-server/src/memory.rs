@@ -212,14 +212,15 @@ use jmap_types::{Id, State};
 /// `related_type` and `type_name` are populated at log-push time when the
 /// stored object is Metadata. For change log entries belonging to other
 /// JmapObject types (none in this crate today; MemoryBackend only supports
-/// Metadata) the strings are empty — those entries are never consumed by
+/// Metadata) both fields are `None` — those entries are never consumed by
 /// [`MemoryBackend::get_metadata_changes`], which filters on the
-/// type-keyed log directly.
+/// type-keyed log directly. Closes bd:JMAP-ayoz.11 (replaced the
+/// previous empty-string sentinel with typed `Option<String>`).
 #[derive(Clone, Debug)]
 struct ChangeRecord {
     id: Id,
-    related_type: String,
-    type_name: String,
+    related_type: Option<String>,
+    type_name: Option<String>,
 }
 
 impl ChangeRecord {
@@ -238,23 +239,21 @@ impl ChangeRecord {
     /// inline call sites into this helper.
     ///
     /// Non-Metadata object types stored in this MemoryBackend
-    /// (currently none, but the storage shape is generic) carry empty
-    /// strings for both fields; the get-changes override only
-    /// inspects them when the change-log key matches
-    /// `Metadata::TYPE_NAME`, so the empty-string fallback is a wash.
+    /// (currently none, but the storage shape is generic) leave both
+    /// fields as `None`; the get-changes override only inspects them
+    /// when the change-log key matches `Metadata::TYPE_NAME`, so a
+    /// `None` snapshot for a non-Metadata entry never reaches a
+    /// filter predicate. The typed `Option` makes the
+    /// "unset means not-applicable" contract structural rather than
+    /// a sentinel-string convention (bd:JMAP-ayoz.11).
     fn from_stored_value(id: Id, val: &serde_json::Value) -> Self {
         Self {
             id,
             related_type: val
                 .get("relatedType")
                 .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_owned(),
-            type_name: val
-                .get("@type")
-                .and_then(|v| v.as_str())
-                .unwrap_or("")
-                .to_owned(),
+                .map(str::to_owned),
+            type_name: val.get("@type").and_then(|v| v.as_str()).map(str::to_owned),
         }
     }
 }
@@ -1259,12 +1258,15 @@ impl MetadataBackend for MemoryBackend {
 
         let record_matches = |rec: &ChangeRecord| -> bool {
             if let Some(rt) = filter_related_type {
-                if rec.related_type != rt {
+                if rec.related_type.as_deref() != Some(rt) {
                     return false;
                 }
             }
             if let Some(types) = filter_metadata_type {
-                if !types.iter().any(|t| t == &rec.type_name) {
+                if !types
+                    .iter()
+                    .any(|t| rec.type_name.as_deref() == Some(t.as_str()))
+                {
                     return false;
                 }
             }
