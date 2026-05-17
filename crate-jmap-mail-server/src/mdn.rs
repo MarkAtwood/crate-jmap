@@ -19,7 +19,7 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 /// Per-send-attempt result returned by [`MdnBackend::send_mdns`].
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MdnSendResult {
     /// Successfully sent MDNs. Key = client creation ID. Value = [`Mdn`]
     /// with server-set fields populated (finalRecipient, originalMessageId, etc.).
@@ -29,18 +29,54 @@ pub struct MdnSendResult {
 }
 
 impl MdnSendResult {
-    /// Construct an `MdnSendResult`.
+    /// Construct an `MdnSendResult` with the two result maps in declaration
+    /// order: `sent`, `not_sent`.
     ///
-    /// Required because the struct is `#[non_exhaustive]` — external crates
-    /// cannot use struct-literal syntax.
+    /// The struct is `#[non_exhaustive]` so external crates (production
+    /// `MdnBackend` impls) cannot use struct-literal syntax. This
+    /// constructor takes the two currently-defined fields positionally.
+    ///
+    /// # Field-addition policy
+    ///
+    /// Future fields added to `MdnSendResult` are an **additive
+    /// non-breaking change**: the new field MUST have a `Default` value
+    /// (typical for `HashMap` / `Vec` / `Option`) and the new field is
+    /// exposed via a `with_*`-style builder setter rather than being
+    /// appended as a third positional argument to this constructor.
+    /// `new(sent, not_sent)` therefore stays stable across the crate's
+    /// pre-1.0 lifetime, matching the
+    /// `jmap_chat_server::ChatLimits`-style canonical workspace
+    /// pattern for `#[non_exhaustive]` types with builder setters.
     pub fn new(sent: HashMap<String, Mdn>, not_sent: HashMap<String, SetError>) -> Self {
         Self { sent, not_sent }
+    }
+
+    /// Builder-style setter for [`Self::sent`].
+    ///
+    /// Lets callers update the `sent` map after construction without
+    /// rebuilding the whole struct. Useful when accumulating results
+    /// across multiple internal phases.
+    #[must_use]
+    pub fn with_sent(mut self, sent: HashMap<String, Mdn>) -> Self {
+        self.sent = sent;
+        self
+    }
+
+    /// Builder-style setter for [`Self::not_sent`].
+    ///
+    /// Lets callers update the `not_sent` map after construction without
+    /// rebuilding the whole struct. Useful when accumulating results
+    /// across multiple internal phases.
+    #[must_use]
+    pub fn with_not_sent(mut self, not_sent: HashMap<String, SetError>) -> Self {
+        self.not_sent = not_sent;
+        self
     }
 }
 
 /// Per-parse result returned by [`MdnBackend::parse_mdns`].
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct MdnParseResult {
     /// Successfully parsed MDN blobs. Key = blob ID. Value = [`Mdn`].
     pub parsed: HashMap<Id, Mdn>,
@@ -51,16 +87,52 @@ pub struct MdnParseResult {
 }
 
 impl MdnParseResult {
-    /// Construct an `MdnParseResult`.
+    /// Construct an `MdnParseResult` with the three result collections
+    /// in declaration order: `parsed`, `not_parsable`, `not_found`.
     ///
-    /// Required because the struct is `#[non_exhaustive]` — external crates
-    /// cannot use struct-literal syntax.
+    /// The struct is `#[non_exhaustive]` so external crates (production
+    /// `MdnBackend` impls) cannot use struct-literal syntax. This
+    /// constructor takes the three currently-defined fields
+    /// positionally.
+    ///
+    /// # Field-addition policy
+    ///
+    /// Future fields added to `MdnParseResult` are an **additive
+    /// non-breaking change**: the new field MUST have a `Default` value
+    /// and the new field is exposed via a `with_*`-style builder setter
+    /// rather than being appended as a fourth positional argument to
+    /// this constructor. `new(parsed, not_parsable, not_found)`
+    /// therefore stays stable across the crate's pre-1.0 lifetime,
+    /// matching the `jmap_chat_server::ChatLimits`-style canonical
+    /// workspace pattern for `#[non_exhaustive]` types with builder
+    /// setters.
     pub fn new(parsed: HashMap<Id, Mdn>, not_parsable: Vec<Id>, not_found: Vec<Id>) -> Self {
         Self {
             parsed,
             not_parsable,
             not_found,
         }
+    }
+
+    /// Builder-style setter for [`Self::parsed`].
+    #[must_use]
+    pub fn with_parsed(mut self, parsed: HashMap<Id, Mdn>) -> Self {
+        self.parsed = parsed;
+        self
+    }
+
+    /// Builder-style setter for [`Self::not_parsable`].
+    #[must_use]
+    pub fn with_not_parsable(mut self, not_parsable: Vec<Id>) -> Self {
+        self.not_parsable = not_parsable;
+        self
+    }
+
+    /// Builder-style setter for [`Self::not_found`].
+    #[must_use]
+    pub fn with_not_found(mut self, not_found: Vec<Id>) -> Self {
+        self.not_found = not_found;
+        self
     }
 }
 
@@ -603,4 +675,93 @@ pub async fn handle_mdn_parse<B: MailBackend + MdnBackend>(
 
     // Step 6: return with no extra invocations.
     Ok((response_json, vec![]))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use jmap_mail_types::mdn::{ActionMode, Disposition, DispositionType, SendingMode};
+
+    fn sample_mdn() -> Mdn {
+        Mdn::new(Disposition::new(
+            ActionMode::AutomaticAction,
+            SendingMode::MdnSentAutomatically,
+            DispositionType::Displayed,
+        ))
+    }
+
+    #[test]
+    fn mdn_send_result_default_is_empty() {
+        let r = MdnSendResult::default();
+        assert!(r.sent.is_empty());
+        assert!(r.not_sent.is_empty());
+    }
+
+    #[test]
+    fn mdn_send_result_new_populates_both_maps() {
+        let mut sent = HashMap::new();
+        sent.insert("c1".to_owned(), sample_mdn());
+        let mut not_sent = HashMap::new();
+        not_sent.insert(
+            "c2".to_owned(),
+            SetError::new(SetErrorType::InvalidProperties),
+        );
+        let r = MdnSendResult::new(sent, not_sent);
+        assert_eq!(r.sent.len(), 1);
+        assert!(r.sent.contains_key("c1"));
+        assert_eq!(r.not_sent.len(), 1);
+        assert!(r.not_sent.contains_key("c2"));
+    }
+
+    #[test]
+    fn mdn_send_result_with_setters_replace_fields() {
+        let mut sent = HashMap::new();
+        sent.insert("c1".to_owned(), sample_mdn());
+        let mut not_sent = HashMap::new();
+        not_sent.insert("c2".to_owned(), SetError::new(SetErrorType::Forbidden));
+        let r = MdnSendResult::default()
+            .with_sent(sent)
+            .with_not_sent(not_sent);
+        assert_eq!(r.sent.len(), 1);
+        assert!(r.sent.contains_key("c1"));
+        assert_eq!(r.not_sent.len(), 1);
+        assert!(r.not_sent.contains_key("c2"));
+    }
+
+    #[test]
+    fn mdn_parse_result_default_is_empty() {
+        let r = MdnParseResult::default();
+        assert!(r.parsed.is_empty());
+        assert!(r.not_parsable.is_empty());
+        assert!(r.not_found.is_empty());
+    }
+
+    #[test]
+    fn mdn_parse_result_new_populates_all_three() {
+        let mut parsed = HashMap::new();
+        parsed.insert(Id::from("blob-1"), sample_mdn());
+        let not_parsable = vec![Id::from("blob-2")];
+        let not_found = vec![Id::from("blob-3")];
+        let r = MdnParseResult::new(parsed, not_parsable, not_found);
+        assert_eq!(r.parsed.len(), 1);
+        assert_eq!(r.not_parsable.len(), 1);
+        assert_eq!(r.not_found.len(), 1);
+        assert!(r.parsed.contains_key(&Id::from("blob-1")));
+        assert_eq!(r.not_parsable[0], Id::from("blob-2"));
+        assert_eq!(r.not_found[0], Id::from("blob-3"));
+    }
+
+    #[test]
+    fn mdn_parse_result_with_setters_replace_fields() {
+        let mut parsed = HashMap::new();
+        parsed.insert(Id::from("blob-a"), sample_mdn());
+        let r = MdnParseResult::default()
+            .with_parsed(parsed)
+            .with_not_parsable(vec![Id::from("blob-b")])
+            .with_not_found(vec![Id::from("blob-c")]);
+        assert_eq!(r.parsed.len(), 1);
+        assert!(r.parsed.contains_key(&Id::from("blob-a")));
+        assert_eq!(r.not_parsable, vec![Id::from("blob-b")]);
+        assert_eq!(r.not_found, vec![Id::from("blob-c")]);
+    }
 }
