@@ -49,20 +49,28 @@ pub struct ChatCapability {
     ///
     /// Spec requirements for compliant servers:
     ///
-    /// - MUST include `"text/plain"`.
-    /// - SHOULD include `"text/markdown"` (RFC 7763 CommonMark).
-    /// - SHOULD include `"application/jmap-chat-rich"`.
-    /// - SHOULD include `"application/mls-ciphertext"` for E2EE
-    ///   deployments.
-    /// - MAY include `"application/mimi-content"`.
+    /// - MUST include `BodyType::Plain` (`"text/plain"`).
+    /// - SHOULD include `BodyType::Markdown` (`"text/markdown"`,
+    ///   RFC 7763 CommonMark).
+    /// - SHOULD include `BodyType::Rich`
+    ///   (`"application/jmap-chat-rich"`).
+    /// - SHOULD include `BodyType::Other("application/mls-ciphertext".into())`
+    ///   for E2EE deployments.
+    /// - MAY include `BodyType::Other("application/mimi-content".into())`.
     ///
-    /// An empty `Vec` is non-compliant per spec (`"text/plain"` is
+    /// An empty `Vec` is non-compliant per spec (`BodyType::Plain` is
     /// mandatory) but the client tolerates it via `Default` — the
     /// consumer is responsible for enforcing the MUST and acting
     /// accordingly (e.g. refusing to send rich messages to a server
-    /// that does not advertise the matching `bodyType`).
+    /// that does not advertise the matching variant).
+    ///
+    /// Element type is [`crate::types::BodyType`] rather than `String`
+    /// so callers can match on the typed variants directly; canonical
+    /// MIME-type wire strings deserialize to their typed variant and
+    /// any unknown wire string lands in `BodyType::Other(s)` per the
+    /// `impl_string_enum!` round-trip contract.
     #[serde(default)]
-    pub supported_body_types: Vec<String>,
+    pub supported_body_types: Vec<crate::types::BodyType>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -108,8 +116,20 @@ pub struct ChatPushCapability {
     /// Truncation occurs on a UTF-8 boundary.
     pub max_snippet_bytes: u64,
     /// Supported Web Push urgency values.
-    /// MUST include at least `"normal"` and `"high"`.
-    pub supported_urgency_values: Vec<String>,
+    /// MUST include at least [`UrgencyLevel::Normal`] and
+    /// [`UrgencyLevel::High`].
+    ///
+    /// Element type is
+    /// [`jmap_chat_types::UrgencyLevel`]
+    /// rather than `String` so callers can match on the typed variants
+    /// directly. Canonical wire strings (`"very-low"`, `"low"`,
+    /// `"normal"`, `"high"`) deserialize to typed variants; unknown
+    /// wire strings land in `UrgencyLevel::Other(s)` per the
+    /// `impl_string_enum!` round-trip contract.
+    ///
+    /// [`UrgencyLevel::Normal`]: jmap_chat_types::UrgencyLevel::Normal
+    /// [`UrgencyLevel::High`]: jmap_chat_types::UrgencyLevel::High
+    pub supported_urgency_values: Vec<jmap_chat_types::UrgencyLevel>,
     /// Maximum number of `ChatMessageEntry` objects per push payload.
     /// `None` means the server does not impose a bound.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -408,12 +428,14 @@ mod tests {
     // test-integrity rule).
 
     /// Oracle: `supportedBodyTypes` on the wire deserializes into
-    /// `ChatCapability.supported_body_types: Vec<String>` preserving
-    /// order. The spec (draft-atwood-jmap-chat-00 §3) mandates
-    /// "text/plain" and recommends a defined set of additional values;
-    /// the client trusts the server's advertised list verbatim.
+    /// `ChatCapability.supported_body_types: Vec<BodyType>` preserving
+    /// order, with canonical wire strings mapped to typed variants.
+    /// The spec (draft-atwood-jmap-chat-00 §3) mandates "text/plain"
+    /// and recommends a defined set of additional values; the client
+    /// trusts the server's advertised list verbatim.
     #[test]
     fn chat_capability_supported_body_types_round_trips() {
+        use crate::types::BodyType;
         let raw = json!({
             "maxBodyBytes": 65536,
             "maxAttachmentBytes": 10485760,
@@ -429,12 +451,36 @@ mod tests {
             serde_json::from_value(raw).expect("ChatCapability must deserialize");
         assert_eq!(
             cap.supported_body_types,
+            vec![BodyType::Plain, BodyType::Markdown, BodyType::Rich],
+            "supported_body_types must preserve wire order and map canonical strings to typed variants"
+        );
+    }
+
+    /// Oracle: unknown body-type wire strings round-trip via the
+    /// `impl_string_enum!` `Other(String)` catch-all when nested inside
+    /// `Vec<BodyType>`.
+    #[test]
+    fn chat_capability_supported_body_types_unknown_variant_round_trips() {
+        use crate::types::BodyType;
+        let raw = json!({
+            "maxBodyBytes": 65536,
+            "maxAttachmentBytes": 10485760,
+            "maxAttachmentsPerMessage": 10,
+            "supportsThreads": true,
+            "supportedBodyTypes": [
+                "text/plain",
+                "application/mls-ciphertext"
+            ]
+        });
+        let cap: ChatCapability =
+            serde_json::from_value(raw).expect("ChatCapability must deserialize");
+        assert_eq!(
+            cap.supported_body_types,
             vec![
-                "text/plain".to_owned(),
-                "text/markdown".to_owned(),
-                "application/jmap-chat-rich".to_owned(),
+                BodyType::Plain,
+                BodyType::Other("application/mls-ciphertext".to_owned()),
             ],
-            "supported_body_types must preserve wire order"
+            "unknown wire strings must land in BodyType::Other preserving the original string"
         );
     }
 
@@ -576,7 +622,10 @@ mod tests {
         assert_eq!(cap.max_snippet_bytes, 256);
         assert_eq!(
             cap.supported_urgency_values,
-            vec!["normal".to_owned(), "high".to_owned()]
+            vec![
+                jmap_chat_types::UrgencyLevel::Normal,
+                jmap_chat_types::UrgencyLevel::High,
+            ]
         );
         assert!(
             cap.max_messages_per_push.is_none(),
