@@ -1370,6 +1370,40 @@ impl TypeDiscriminator for AbsoluteTrigger {
 /// well-typed `AlertTrigger` variant only ever displaces input that
 /// previously matched on `@type` exactly, so this permissive behaviour is
 /// forward-compatible with the spec's evolution.
+///
+/// # Maintainer note: do NOT "clean up" this enum
+///
+/// The `Unknown(serde_json::Value)` variant exists because RFC 8984 §4.5.2
+/// requires preservation of unrecognised trigger types. The following
+/// three "cleanups" all violate that MUST and break the regression tests
+/// `alert_trigger_unknown_dispatch_on_hostile_input` and
+/// `alert_trigger_unknown_round_trips_through_serialize` (both in this
+/// file), as well as `alert_unknown_trigger_roundtrip` in
+/// `crate-jmap-calendars-types/tests/types_test.rs`:
+///
+/// 1. **Remove the `Unknown` variant.** An exhaustive enum forces
+///    deserialize to either fail on an unknown `@type` (data loss + error)
+///    or silently drop the input (data loss). Both violate
+///    `MUST preserve them`.
+///
+/// 2. **Replace `Unknown(Value)` with `#[serde(other)]` on a unit variant.**
+///    A unit variant discards the carried JSON payload. The spec preserve-
+///    mandate requires the *bytes* round-trip, not just the variant
+///    discriminator. `Unknown(String)` and `Unknown { at_type: String }`
+///    have the same defect — they drop the inner fields.
+///
+/// 3. **Add `#[serde(deny_unknown_fields)]` to `AlertTrigger` or to
+///    `OffsetTrigger` / `AbsoluteTrigger`.** A peer that emits an extension
+///    field on a known trigger type (e.g. `OffsetTrigger` with a vendor
+///    field) would fail to deserialize entirely. The catch-all `extra`
+///    map on the inner structs is the workspace's
+///    extras-preservation mechanism for that case; `deny_unknown_fields`
+///    fights it.
+///
+/// If you are reading this comment because you have a fourth "cleanup"
+/// in mind: confirm against the regression test and the spec passage
+/// (RFC 8984 §4.5.2) before proposing it. The design defense is
+/// bd:JMAP-1rwf.8.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq)]
 pub enum AlertTrigger {
