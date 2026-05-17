@@ -261,6 +261,18 @@ impl super::SessionClient {
         if let Some(v) = params.destroy_from_if_in_state {
             args["destroyFromIfInState"] = v.as_ref().into();
         }
+        // Route caller-supplied vendor extras onto the wire (workspace
+        // extras-preservation policy). Use `entry().or_insert()` so a
+        // caller who put a typed wire key into `params.extra` cannot
+        // silently clobber the typed value — typed wins on collision.
+        if !params.extra.is_empty() {
+            let args_obj = args
+                .as_object_mut()
+                .expect("email_copy: args is constructed as Object");
+            for (k, v) in params.extra {
+                args_obj.entry(k).or_insert(v);
+            }
+        }
         let req = super::build_request("Email/copy", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)

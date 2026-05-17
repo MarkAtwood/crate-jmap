@@ -90,9 +90,13 @@ impl super::SessionClient {
         let mut args = serde_json::json!({
             "accountId": account_id,
         });
+        let mut params_extra: Option<serde_json::Map<String, serde_json::Value>> = None;
         if let Some(p) = params {
             if let Some(v) = p.on_destroy_remove_emails {
                 args["onDestroyRemoveEmails"] = v.into();
+            }
+            if !p.extra.is_empty() {
+                params_extra = Some(p.extra);
             }
         }
         if let Some(c) = create {
@@ -107,6 +111,18 @@ impl super::SessionClient {
         }
         if let Some(d) = destroy {
             args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
+        }
+        // Route caller-supplied vendor extras onto the wire (workspace
+        // extras-preservation policy). Use `entry().or_insert()` so a
+        // caller who put a typed wire key into `params.extra` cannot
+        // silently clobber the typed value — typed wins on collision.
+        if let Some(extra) = params_extra {
+            let args_obj = args
+                .as_object_mut()
+                .expect("mailbox_set: args is constructed as Object");
+            for (k, v) in extra {
+                args_obj.entry(k).or_insert(v);
+            }
         }
         let req = super::build_request("Mailbox/set", args, super::USING_MAIL);
         let resp = self.call_internal(api_url, &req).await?;
