@@ -8,9 +8,8 @@
 
 use std::collections::HashMap;
 
-use jmap_types::{Id, PatchObject};
+use jmap_types::{Id, PatchObject, SetError};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 
 /// Capability URI for JMAP MDN (RFC 9007 §2).
 pub const JMAP_MDN_URI: &str = "urn:ietf:params:jmap:mdn";
@@ -244,12 +243,17 @@ pub struct MdnSendRequest {
     pub send: HashMap<String, Mdn>,
     /// Patches to apply to Email objects on successful send.
     ///
-    /// Keys are Email IDs (or `#creationId` references resolved by the
-    /// dispatcher); values are PatchObjects (RFC 8620 §5.3). Both
-    /// [`Id`] and [`PatchObject`] are `#[serde(transparent)]`, so the
-    /// wire format is byte-identical to a `HashMap<String, Object>`.
+    /// Keys are Email IDs OR `#creationId` references that the
+    /// dispatcher resolves to real Email IDs (RFC 8620 §5.7). The map
+    /// is keyed by `String` rather than [`Id`] because `Id`'s contract
+    /// (RFC 8620 §1.2: URL-safe base64 alphabet) does not admit the
+    /// `#`-prefix used by creation-id references; values are
+    /// [`PatchObject`] (RFC 8620 §5.3). This matches the canonical
+    /// SetResponse pattern in `jmap-types::methods` where
+    /// creation-id-keyed maps use `HashMap<String, _>` and
+    /// real-id-keyed maps use `HashMap<Id, _>`.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub on_success_update_email: Option<HashMap<Id, PatchObject>>,
+    pub on_success_update_email: Option<HashMap<String, PatchObject>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -275,10 +279,6 @@ impl MdnSendRequest {
 }
 
 /// Response object for `MDN/send` (RFC 9007 §3.1).
-///
-/// The `notSent` map values are JMAP SetError objects (RFC 8620 §5.3) serialized
-/// as JSON objects; they are typed as [`Value`] here to avoid an upward dependency
-/// on the server crate.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -288,9 +288,14 @@ pub struct MdnSendResponse {
     /// Map of client creation IDs to the MDN objects that were successfully sent.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub sent: Option<HashMap<String, Mdn>>,
-    /// Map of client creation IDs to SetError objects for MDNs that could not be sent.
+    /// Map of client creation IDs to [`SetError`] objects for MDNs that
+    /// could not be sent. Matches the canonical
+    /// `SetResponse.not_created: HashMap<String, SetError>` pattern in
+    /// `jmap-types::methods`. The keys are creation IDs (clients
+    /// assign them via the request's `send` map), which is why the
+    /// key type is `String` rather than [`Id`].
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub not_sent: Option<HashMap<String, Value>>,
+    pub not_sent: Option<HashMap<String, SetError>>,
     /// Catch-all for vendor / site / private extension fields not covered
     /// by the typed fields above. Preserves unknown fields across
     /// deserialize/serialize round-trip per workspace extras-preservation
@@ -552,14 +557,15 @@ mod tests {
         }"##;
         let req: MdnSendRequest = serde_json::from_str(json).unwrap();
 
-        // Verify the typed shape: Id key, PatchObject value.
+        // Verify the typed shape: String key (creation-id may carry
+        // `#`-prefix per RFC 8620 §5.7; `Id` would lie about its
+        // alphabet contract), PatchObject value.
         let patches = req
             .on_success_update_email
             .as_ref()
             .expect("onSuccessUpdateEmail must deserialize as Some");
-        let key = Id::from("#k1");
         let patch = patches
-            .get(&key)
+            .get("#k1")
             .expect("patch for #k1 must be present after round-trip");
         assert_eq!(
             patch.as_map().get("keywords/$mdnsent"),
@@ -573,9 +579,8 @@ mod tests {
         // pre-existing `Mdn::include_original_message` serialise-default
         // behaviour, which is unrelated to this migration.
         //
-        // Equality of these two subtrees proves that both `Id`
-        // (the map key type) and `PatchObject` (the map value type) are
-        // wire-byte-identical to plain `String` and `Object` — i.e. that
+        // Equality of these two subtrees proves that `PatchObject` is
+        // wire-byte-identical to a plain `Object` — i.e. that
         // `#[serde(transparent)]` is doing what we claim it does.
         let re_serialized = serde_json::to_value(&req).unwrap();
         let original: serde_json::Value = serde_json::from_str(json).unwrap();
@@ -583,7 +588,7 @@ mod tests {
             re_serialized.get("onSuccessUpdateEmail"),
             original.get("onSuccessUpdateEmail"),
             "onSuccessUpdateEmail must round-trip wire-byte-identical \
-             through HashMap<Id, PatchObject>"
+             through HashMap<String, PatchObject>"
         );
     }
 
