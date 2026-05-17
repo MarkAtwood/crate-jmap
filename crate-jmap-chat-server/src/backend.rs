@@ -402,6 +402,45 @@ pub trait ChatBackend: JmapBackend {
     /// invalid wire value (`"placeholder"`) as the assigned id of every
     /// created `Space`, `Chat`, `Message`, `SpaceInvite`, `SpaceBan`,
     /// `CustomEmoji`, and `ReadPosition`.
+    ///
+    /// # Per-type uniqueness contracts
+    ///
+    /// For most types the (id) primary key is the only uniqueness
+    /// invariant the backend must enforce, and the backend's normal
+    /// server-assigned-id discipline closes that. A few types carry
+    /// additional uniqueness invariants on non-id fields that the
+    /// backend MUST enforce atomically with the create — the handler
+    /// pre-checks defensively but cannot close the
+    /// two-concurrent-requests race window.
+    ///
+    /// - **`ReadPosition`** — at most one record per
+    ///   `(account_id, chat_id)`. The handler at
+    ///   [`crate::position::handle_position_set`] pre-checks via a
+    ///   sequential scan and rejects sequential / intra-batch
+    ///   duplicates with `alreadyExists`, but two concurrent
+    ///   `ReadPosition/set` requests for the same `chatId` can both
+    ///   pass the pre-check and then both reach `create_object`. The
+    ///   backend MUST enforce a unique constraint on
+    ///   `(account_id, chat_id)` at the storage layer (typically a
+    ///   composite unique index in a database backend) and surface a
+    ///   duplicate as `BackendSetError::SetError(SetError::new(
+    ///   SetErrorType::AlreadyExists).with_existing_id(canonical))`.
+    ///   See draft-atwood-jmap-chat-00 §ReadPosition.
+    /// - **`Chat`** with `kind == Direct` — at most one direct chat
+    ///   per `(account_id, contact_id)`. The handler at
+    ///   [`crate::chat::handle_chat_set`] uses optimistic
+    ///   create-then-validate with rollback; backends MAY enforce a
+    ///   storage-level unique constraint to eliminate the rollback
+    ///   path entirely, but it is not required because the
+    ///   handler's rollback closes the race correctly. See
+    ///   draft-atwood-jmap-chat-00 §Chat.
+    ///
+    /// The reference [`crate::memory::MemoryBackend`] does NOT
+    /// enforce the `ReadPosition` `(account, chatId)` uniqueness
+    /// constraint at the storage layer — it is single-Mutex
+    /// per-call so concurrent racing cannot occur in practice, but a
+    /// production backend that holds different locks per record (or
+    /// no lock at all between read and write) MUST.
     fn create_object<O: SetObject + Send + Sync>(
         &self,
         caller: &Self::CallerCtx,
