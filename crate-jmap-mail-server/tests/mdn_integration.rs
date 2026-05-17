@@ -8,9 +8,7 @@
 mod common;
 
 use common::{MemoryBackend, INVALID_MDN_BLOB, VALID_MDN_BLOB};
-use jmap_mail_server::{
-    handle_mdn_parse, handle_mdn_send, mdn::MDN_PARSE_MAX_BLOB_IDS, JmapBackend, MailBackend,
-};
+use jmap_mail_server::{handle_mdn_parse, handle_mdn_send, JmapBackend, MailBackend};
 use jmap_mail_types::Identity;
 use jmap_types::Id;
 
@@ -336,7 +334,7 @@ async fn mdn_parse_unknown_account_returns_account_not_found() {
         "blobIds": ["any-blob"]
     });
 
-    let err = handle_mdn_parse(&backend, &(), args, MDN_PARSE_MAX_BLOB_IDS)
+    let err = handle_mdn_parse(&backend, &(), args)
         .await
         .expect_err("unknown accountId must return Err");
 
@@ -468,7 +466,7 @@ async fn mdn_parse_valid() {
         "blobIds": [blob_id.as_ref()]
     });
 
-    let (resp, extra) = handle_mdn_parse(&backend, &(), args, MDN_PARSE_MAX_BLOB_IDS)
+    let (resp, extra) = handle_mdn_parse(&backend, &(), args)
         .await
         .expect("mdn_parse_valid: handle_mdn_parse must succeed");
 
@@ -535,7 +533,7 @@ async fn mdn_parse_not_found() {
         "blobIds": [missing_id]
     });
 
-    let (resp, extra) = handle_mdn_parse(&backend, &(), args, MDN_PARSE_MAX_BLOB_IDS)
+    let (resp, extra) = handle_mdn_parse(&backend, &(), args)
         .await
         .expect("mdn_parse_not_found: handle_mdn_parse must succeed");
 
@@ -584,7 +582,7 @@ async fn mdn_parse_not_parsable() {
         "blobIds": [blob_id.as_ref()]
     });
 
-    let (resp, extra) = handle_mdn_parse(&backend, &(), args, MDN_PARSE_MAX_BLOB_IDS)
+    let (resp, extra) = handle_mdn_parse(&backend, &(), args)
         .await
         .expect("mdn_parse_not_parsable: handle_mdn_parse must succeed");
 
@@ -659,5 +657,37 @@ async fn mdn_send_null_for_email_id() {
     assert!(
         extra.is_empty(),
         "no Email/set companion when nothing was sent"
+    );
+}
+
+/// Test: MDN/parse with more blob IDs than the backend-advertised cap must
+/// return method-level `requestTooLarge` (RFC 8620 §5.1).
+///
+/// Oracle: jmap-mail-server::mdn::MDN_PARSE_MAX_BLOB_IDS = 16 is the default
+/// returned by MdnBackend::max_mdn_parse_blob_ids. Sending 17 blob IDs MUST
+/// exceed the cap; the handler MUST short-circuit before any per-blob work.
+#[tokio::test]
+async fn mdn_parse_blob_ids_over_default_cap_returns_request_too_large() {
+    let backend = MemoryBackend::new();
+    let account_id = Id::from("account1");
+    // Ensure the account exists so we don't hit accountNotFound first.
+    let _ = setup_mdn_email(&backend, &account_id).await;
+
+    // 17 blob IDs — one over the default cap of 16.
+    let blob_ids: Vec<String> = (0..17).map(|i| format!("blob-{i}")).collect();
+    let args = serde_json::json!({
+        "accountId": account_id.as_ref(),
+        "blobIds": blob_ids,
+    });
+
+    let err = handle_mdn_parse(&backend, &(), args)
+        .await
+        .expect_err("17 blob IDs must exceed default cap of 16");
+
+    assert_eq!(
+        err.error_type.as_str(),
+        "requestTooLarge",
+        "exceeding the default cap must return requestTooLarge per RFC 8620 §5.1; got: {:?}",
+        err.error_type
     );
 }
