@@ -710,6 +710,20 @@ fn validate_metadata_filter(args: &serde_json::Map<String, Value>) -> Result<(),
     // value of a known field is the wrong JSON type (e.g.
     // `relatedIds: 42`) — let the generic handler surface that as
     // `unsupportedFilter` per its own contract.
+    //
+    // This is a non-local invariant: the cross-crate contract is that
+    // `jmap_server::helpers::optional_arg` maps a `serde_json::from_value`
+    // failure on the `filter` arg to `JmapError::unsupported_filter` via
+    // the closure passed from the generic `handle_query` /
+    // `handle_query_changes`. If a future refactor of the generic
+    // handler ever silent-OKs a malformed filter shape, this silent-Ok
+    // becomes a pass-through bug. The end-to-end regression tests at
+    // `tests/metadata_tests.rs`
+    // (`query_filter_known_field_wrong_value_type_returns_unsupported_filter`,
+    // `query_changes_filter_known_field_wrong_value_type_returns_unsupported_filter`)
+    // pin the contract; if they fail loudly, the failure is a signal
+    // to revisit this silent-Ok and the generic deserialize path
+    // together (bd:JMAP-ayoz.38).
     let filter: Filter<MetadataFilterCondition> = match serde_json::from_value(filter_val.clone()) {
         Ok(f) => f,
         Err(_) => return Ok(()),

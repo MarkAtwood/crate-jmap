@@ -1314,3 +1314,94 @@ async fn query_positive_position_beyond_bounds_clamps_to_len() {
         "response echoes position=len=2 for over-large positive offset: {args}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// Filter contract regression (bd:JMAP-ayoz.38)
+// ---------------------------------------------------------------------------
+
+/// Oracle: bd:JMAP-ayoz.38 — `validate_metadata_filter` silently
+/// returns `Ok(())` when the filter passes the unknown-keys walk but
+/// fails typed deserialize (a known field has the wrong VALUE shape,
+/// e.g. `relatedIds: 42` instead of an array of Id strings). The
+/// contract is that the downstream generic `/query` handler will
+/// surface this as `unsupportedFilter` via its own `optional_arg` →
+/// `serde_json::from_value` → error mapping at
+/// `jmap_server::helpers::optional_arg` (cross-crate non-local
+/// invariant).
+///
+/// This test pins that contract end-to-end through the registered
+/// dispatcher. If a future refactor of `jmap_server::handlers::handle_query`
+/// or `optional_arg` ever silent-OK's a wrong-type filter field (e.g.
+/// via `#[serde(default)]` on `Filter<T>` or a switch to a value-tree
+/// walk that ignores type mismatches on known fields), the silent-Ok in
+/// `validate_metadata_filter` becomes a pass-through bug — and this
+/// test fails loudly.
+///
+/// The `accountId` is known (so the account-existence check passes)
+/// and the filter object carries no §3.4.1 cross-field violation; the
+/// only failure mode is the wrong-type-on-a-known-field path.
+#[tokio::test]
+async fn query_filter_known_field_wrong_value_type_returns_unsupported_filter() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    // `relatedIds` is a recognised MetadataFilterCondition field
+    // (passes the unknown-keys walk) but its expected wire shape is
+    // an array of Id strings. Supplying an integer fails typed
+    // deserialize.
+    let req = single_call(
+        "Metadata/query",
+        json!({
+            "accountId": "acc1",
+            "filter": { "relatedIds": 42 }
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (method_name, args, _) = &resp.method_responses[0];
+    assert_eq!(
+        method_name, "error",
+        "wrong-type filter field must produce an error invocation: {args}",
+    );
+    assert_eq!(
+        args["type"], "unsupportedFilter",
+        "wrong-type filter field MUST surface as `unsupportedFilter` \
+         per the validate_metadata_filter contract (bd:JMAP-ayoz.38): \
+         {args}",
+    );
+}
+
+/// Oracle: bd:JMAP-ayoz.38 companion — same contract on
+/// `Metadata/queryChanges`. The two methods share the
+/// `validate_metadata_filter` precheck and the generic
+/// `optional_arg`-based deserialize, so the contract must hold on
+/// both.
+#[tokio::test]
+async fn query_changes_filter_known_field_wrong_value_type_returns_unsupported_filter() {
+    let backend = Arc::new(MemoryBackend::new_with_accounts(&["acc1"]));
+    let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+    register_metadata_handlers(&mut dispatcher, Arc::clone(&backend));
+
+    let req = single_call(
+        "Metadata/queryChanges",
+        json!({
+            "accountId": "acc1",
+            "sinceQueryState": "0",
+            "filter": { "relatedIds": 42 }
+        }),
+        "c0",
+    );
+    let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+    let (method_name, args, _) = &resp.method_responses[0];
+    assert_eq!(
+        method_name, "error",
+        "wrong-type filter field must produce an error invocation: {args}",
+    );
+    assert_eq!(
+        args["type"], "unsupportedFilter",
+        "wrong-type filter field MUST surface as `unsupportedFilter` \
+         per the validate_metadata_filter contract (bd:JMAP-ayoz.38): \
+         {args}",
+    );
+}
