@@ -83,6 +83,34 @@
 //! fields. The constraint applies only to emitting fresh values. See
 //! `bd:JMAP-sgrr.30`.
 //!
+//! ## Design: numeric-range bounds are not type-enforced
+//!
+//! RFC 9553 specifies bounded ranges for several numeric fields, but
+//! the kit models them as bare `u32` (or `Option<u32>`) without
+//! type-level guarantees. Deserialize accepts out-of-range values
+//! without complaint; callers building a fresh value MUST verify the
+//! bound themselves before serializing. The kit's posture — types
+//! model the wire shape, semantic validity is the consumer's job —
+//! takes precedence over the `NonZeroU32` / `BoundedU8` patterns that
+//! would push validation into the type system but require breaking
+//! API changes to introduce later.
+//!
+//! Affected fields, gathered into one place:
+//!
+//! | Field(s) | RFC bound | RFC section |
+//! |---|---|---|
+//! | `.pref` on [`Nickname`], [`Pronouns`], [`EmailAddress`], [`OnlineService`], [`Phone`], [`LanguagePref`], [`Calendar`], [`SchedulingAddress`], [`Address`], [`CryptoKey`], [`Directory`], [`Link`], [`Media`] (13 sites) | `1..=100`, lower = more preferred | RFC 9553 §1.5.3 |
+//! | [`Directory::list_as`] | `> 0` | RFC 9553 §2.6.2 |
+//! | [`PersonalInfo::list_as`] | `> 0` | RFC 9553 §2.8.4 |
+//! | [`PartialDate::month`] | `1..=12` | RFC 9553 §2.8.1 |
+//! | [`PartialDate::day`] | `1..=31` (with month-specific cap) | RFC 9553 §2.8.1 |
+//!
+//! Newtypes like `Pref(NonZeroU8)` capped at 100 or
+//! `Option<NonZeroU32>` for `list_as` would express the contract at
+//! the type level, but adopting them is a public-API break the kit
+//! is not taking; see `bd:JMAP-sgrr.14`, `bd:JMAP-sgrr.15`, and
+//! `bd:JMAP-sgrr.22`.
+//!
 //! ## Design: `@type` discriminator
 //!
 //! Every RFC 9553 sub-object has an `@type` discriminator on the wire.
