@@ -6,7 +6,7 @@ repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Object Metadata method handlers — Metadata/get/changes/set/query/queryChanges (draft-ietf-jmap-metadata-01)"
+description = "JMAP Object Metadata method handlers (draft-ietf-jmap-metadata) — backend-agnostic, plugs into jmap-server Dispatcher"
 keywords = ["jmap", "draft-jmap-metadata", "server", "metadata"]
 categories = ["network-programming", "web-programming::http-server"]
 
