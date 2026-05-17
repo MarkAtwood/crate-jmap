@@ -259,8 +259,14 @@ Backends that don't need an auth identity use `type CallerCtx = ();` and a
   in the number of address books. Backends with many books should implement the
   single-default invariant atomically in `update_object` and return the demoted
   book in the `Some(obj)` response.
-- No storage backend ships with this crate. The in-memory `MemoryBackend` in
-  `tests/` is a test harness only.
+- **`memory::MemoryBackend` is a reference implementation, not production.**
+  Gated behind `feature = "memory"` (off by default). State is held in
+  `HashMap`s behind a `std::sync::Mutex`; persistence is not implemented; a
+  number of RFC 9610 edge cases are simplified. Intended for integration
+  tests, smoke tests, examples, and as source-readable study material for
+  downstream contributors writing a real (database-backed) backend. See the
+  module docs in `src/memory.rs` for the explicit non-production caveats
+  and the `realistic-demo-ids` feature flag for id-shape choice.
 
 ## Crate family
 
