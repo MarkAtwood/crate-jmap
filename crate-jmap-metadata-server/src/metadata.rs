@@ -551,8 +551,27 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
             match id_val.as_str() {
                 Some(s) => id_strs.push(s.to_owned()),
                 None => {
+                    // Report only the JSON type tag, NOT the offending
+                    // value itself (bd:JMAP-ayoz.40). Echoing the raw
+                    // `id_val` via `Display` re-serialises arbitrary
+                    // attacker-controlled JSON (potentially megabytes of
+                    // nested objects) into the JMAP `description` field,
+                    // which RFC 8620 §3.6.1 specifies as "unstructured
+                    // English text suitable for displaying to a
+                    // developer". The type tag carries the actionable
+                    // diagnostic without echoing untrusted bytes.
+                    let type_name = match id_val {
+                        Value::Null => "null",
+                        Value::Bool(_) => "boolean",
+                        Value::Number(_) => "number",
+                        Value::Array(_) => "array",
+                        Value::Object(_) => "object",
+                        Value::String(_) => {
+                            unreachable!("as_str() returned None so id_val is not a JSON string")
+                        }
+                    };
                     return Err(JmapError::invalid_arguments(format!(
-                        "destroy: every element must be a string Id; got {id_val}"
+                        "destroy: every element must be a string Id; got {type_name}"
                     )));
                 }
             }
@@ -1173,6 +1192,75 @@ mod tests {
         let result = handle_metadata_set(&backend, &(), args).await;
         let err = result.expect_err("must return top-level error");
         assert_eq!(err.error_type.as_str(), "invalidArguments");
+    }
+
+    /// Oracle: bd:JMAP-ayoz.40 — the `invalidArguments` description for
+    /// a malformed destroy-array element MUST NOT re-serialise the
+    /// attacker-controlled JSON value. Only the JSON type tag is
+    /// allowed in the diagnostic. Defence-in-depth against
+    /// response-size amplification within the consumer's HTTP body cap
+    /// and against logging-pipeline pollution.
+    #[tokio::test]
+    async fn set_destroy_non_string_element_does_not_echo_value_in_description() {
+        let backend = MockBackend::new_with_account("acc1");
+        // Construct a JSON object whose `Display` would produce a
+        // recognisable canary substring. A real attack would use a much
+        // larger payload, but a small unique marker proves the
+        // no-echo property without inflating the test fixture.
+        let canary = "AYOZ_40_DESTROY_LEAK_CANARY";
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": [
+                { "leak": canary }
+            ]
+        });
+        let result = handle_metadata_set(&backend, &(), args).await;
+        let err = result.expect_err("must return top-level error");
+        assert_eq!(err.error_type.as_str(), "invalidArguments");
+        let desc = err.description.as_deref().unwrap_or("");
+        assert!(
+            !desc.contains(canary),
+            "description MUST NOT echo the malformed JSON value; \
+             expected only the JSON type tag, got: {desc}",
+        );
+        // Positive control: the description does identify the JSON
+        // type so a developer reading the error can diagnose the
+        // shape issue.
+        assert!(
+            desc.contains("object"),
+            "description SHOULD identify the JSON type tag of the \
+             offending element (here: object); got: {desc}",
+        );
+    }
+
+    /// Oracle: bd:JMAP-ayoz.40 — the type-tag mapping covers every
+    /// non-string JSON shape, not just objects. Smoke-tests the full
+    /// match arm with null / boolean / number / array / object inputs.
+    #[tokio::test]
+    async fn set_destroy_non_string_element_reports_each_json_type_tag() {
+        let backend = MockBackend::new_with_account("acc1");
+        for (wire_value, expected_tag) in [
+            (json!(null), "null"),
+            (json!(true), "boolean"),
+            (json!(42), "number"),
+            (json!([]), "array"),
+            (json!({}), "object"),
+        ] {
+            let args = json!({
+                "accountId": "acc1",
+                "destroy": [wire_value.clone()]
+            });
+            let err = handle_metadata_set(&backend, &(), args)
+                .await
+                .expect_err("must return top-level error");
+            assert_eq!(err.error_type.as_str(), "invalidArguments");
+            let desc = err.description.as_deref().unwrap_or("");
+            assert!(
+                desc.contains(expected_tag),
+                "destroy element {wire_value:?} should report type \
+                 tag {expected_tag:?}, got: {desc}",
+            );
+        }
     }
 
     /// Oracle: RFC 8620 §5.3 — update with a non-object patch →
