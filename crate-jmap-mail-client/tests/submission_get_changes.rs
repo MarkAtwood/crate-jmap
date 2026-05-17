@@ -60,6 +60,27 @@ async fn email_submission_get_round_trip() {
     assert_eq!(resp.state, "s5", "state mismatch");
     assert_eq!(resp.list.len(), 1, "list must have 1 submission");
     assert_eq!(resp.list[0].id.as_ref(), "ES-1", "submission id mismatch");
+
+    // RFC 8621 §1.3.2: EmailSubmission requires `urn:ietf:params:jmap:submission`.
+    // The client must include this URI in the `using` array, plus `:mail`
+    // (EmailSubmission references mail-typed emailId / threadId) and `:core`.
+    let reqs = server
+        .received_requests()
+        .await
+        .expect("must have recorded requests");
+    let body: serde_json::Value =
+        serde_json::from_slice(&reqs[0].body).expect("request body must be JSON");
+    let using = body["using"].as_array().expect("using must be array");
+    assert!(
+        using.contains(&json!("urn:ietf:params:jmap:submission")),
+        "EmailSubmission/get must send urn:ietf:params:jmap:submission \
+         (RFC 8621 §1.3.2); got: {using:?}"
+    );
+    assert!(
+        using.contains(&json!("urn:ietf:params:jmap:mail")),
+        "EmailSubmission/get must send urn:ietf:params:jmap:mail \
+         (EmailSubmission references mail-typed fields); got: {using:?}"
+    );
 }
 
 /// Test 2: EmailSubmission/get with specific ids sends them in the request.

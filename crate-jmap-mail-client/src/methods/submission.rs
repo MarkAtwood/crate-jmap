@@ -6,7 +6,7 @@
 //!   1. Validate arguments (defence-in-depth empty-state guards).
 //!   2. Call `self.session_parts()?` → `(api_url, account_id)`.
 //!   3. Build args JSON with `serde_json::json!({…})`.
-//!   4. Call `build_request(method_name, args, USING_MAIL)`.
+//!   4. Call `build_request(method_name, args, USING_SUBMISSION)`.
 //!   5. Call `self.call_internal(api_url, &req).await?`.
 //!   6. Call `jmap_base_client::extract_response(&resp, CALL_ID)?`.
 //!
@@ -47,7 +47,7 @@ impl super::SessionClient {
                 props.iter().copied().map(serde_json::Value::from).collect(),
             );
         }
-        let req = super::build_request("EmailSubmission/get", args, super::USING_MAIL);
+        let req = super::build_request("EmailSubmission/get", args, super::USING_SUBMISSION);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -73,7 +73,7 @@ impl super::SessionClient {
         if let Some(mc) = max_changes {
             args["maxChanges"] = mc.into();
         }
-        let req = super::build_request("EmailSubmission/changes", args, super::USING_MAIL);
+        let req = super::build_request("EmailSubmission/changes", args, super::USING_SUBMISSION);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -107,7 +107,7 @@ impl super::SessionClient {
         if let Some(l) = limit {
             args["limit"] = l.into();
         }
-        let req = super::build_request("EmailSubmission/query", args, super::USING_MAIL);
+        let req = super::build_request("EmailSubmission/query", args, super::USING_SUBMISSION);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -163,7 +163,11 @@ impl super::SessionClient {
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
         }
-        let req = super::build_request("EmailSubmission/queryChanges", args, super::USING_MAIL);
+        let req = super::build_request(
+            "EmailSubmission/queryChanges",
+            args,
+            super::USING_SUBMISSION,
+        );
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -223,7 +227,7 @@ impl super::SessionClient {
         if let Some(d) = destroy {
             args["destroy"] = serde_json::to_value(&d).expect("Id Vec Serialize is infallible");
         }
-        let req = super::build_request("EmailSubmission/set", args, super::USING_MAIL);
+        let req = super::build_request("EmailSubmission/set", args, super::USING_SUBMISSION);
         let resp = self.call_internal(api_url, &req).await?;
         jmap_base_client::extract_response(&resp, super::CALL_ID)
     }
@@ -280,7 +284,7 @@ mod tests {
     // there is no current wiremock test that asserts the
     // `onSuccessDestroyEmail` array field reaches the wire.
     //
-    // `build_request`, `CALL_ID`, and `USING_MAIL` themselves have their
+    // `build_request`, `CALL_ID`, and `USING_SUBMISSION` themselves have their
     // own focused tests in `methods/mod.rs`.
 
     // ── Response deserialization tests ───────────────────────────────────────

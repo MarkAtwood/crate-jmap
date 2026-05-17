@@ -113,6 +113,21 @@ async fn vacation_response_set_patch_passthrough() {
     // is a singleton — see RFC 8621 §8.2).
     assert!(args.get("create").is_none(), "create must be omitted");
     assert!(args.get("destroy").is_none(), "destroy must be omitted");
+
+    // RFC 8621 §1.3.3: VacationResponse requires
+    // `urn:ietf:params:jmap:vacationresponse` and is independent of
+    // `urn:ietf:params:jmap:mail` (no mail-typed references).
+    let using = body["using"].as_array().expect("using must be array");
+    assert!(
+        using.contains(&json!("urn:ietf:params:jmap:vacationresponse")),
+        "VacationResponse/set must send urn:ietf:params:jmap:vacationresponse \
+         (RFC 8621 §1.3.3); got: {using:?}"
+    );
+    assert!(
+        !using.contains(&json!("urn:ietf:params:jmap:mail")),
+        "VacationResponse/set must NOT send urn:ietf:params:jmap:mail \
+         (VacationResponse is a standalone capability); got: {using:?}"
+    );
 }
 
 /// VacationResponse/set with `update: None` must omit the `update` wire key
