@@ -1193,8 +1193,32 @@ pub async fn handle_space_set<B: ChatBackend>(
                 continue;
             }
 
+            // Decode the wire patch's metadata-key subset into the typed
+            // SpaceMetadataPatch shape (bd:JMAP-x2gd.39). The handler has
+            // already filtered to METADATA_FIELDS, so unknown-key
+            // rejection is impossible here; the remaining failure mode is
+            // a wire `null` on a non-nullable field (`isPublic` /
+            // `isPubliclyPreviewable`) which surfaces as
+            // `invalidProperties` naming the offending key. The error
+            // message names the field that failed to deserialize, which
+            // is sufficient for a client to act on.
+            let typed_patch: jmap_chat_types::SpaceMetadataPatch =
+                match serde_json::from_value(Value::Object(clean_patch)) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        not_updated.insert(
+                            id_str,
+                            json!({
+                                "type": "invalidProperties",
+                                "description": format!("metadata patch failed to deserialize: {e}"),
+                            }),
+                        );
+                        continue;
+                    }
+                };
+
             match backend
-                .apply_space_metadata_patch(caller, &account_id, &id, clean_patch)
+                .apply_space_metadata_patch(caller, &account_id, &id, typed_patch)
                 .await
             {
                 Ok(Some(obj)) => {

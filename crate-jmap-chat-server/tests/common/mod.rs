@@ -175,7 +175,7 @@ impl ChatBackend for FaultyBackend {
         _caller: &(),
         _account_id: &Id,
         _space_id: &Id,
-        _patch_map: serde_json::Map<String, serde_json::Value>,
+        _patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
         Err(BackendSetError::Other(MemoryError(
             "storage unavailable".to_owned(),
@@ -406,10 +406,10 @@ impl ChatBackend for TrackingBackend {
         caller: &(),
         account_id: &Id,
         space_id: &Id,
-        patch_map: serde_json::Map<String, serde_json::Value>,
+        patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
         self.inner
-            .apply_space_metadata_patch(caller, account_id, space_id, patch_map)
+            .apply_space_metadata_patch(caller, account_id, space_id, patch)
             .await
     }
 
@@ -678,7 +678,7 @@ impl ChatBackend for IdentityBackend {
         caller: &Id,
         account_id: &Id,
         space_id: &Id,
-        patch_map: serde_json::Map<String, serde_json::Value>,
+        patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
         // Mirror the apply_space_patch routing: hand the resolved
         // caller id to the test-only entry on `MemoryBackend` so the
@@ -687,7 +687,7 @@ impl ChatBackend for IdentityBackend {
             Some(caller),
             account_id,
             space_id,
-            patch_map,
+            patch,
         )
     }
 

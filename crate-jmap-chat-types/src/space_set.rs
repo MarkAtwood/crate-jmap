@@ -290,6 +290,97 @@ pub struct CategoryPatch {
     pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
+/// A typed view of the five top-level metadata fields that
+/// `Space/set` `update` can mutate (draft-atwood-jmap-chat-00
+/// §Space/set, fields `name`, `description`, `iconBlobId`, `isPublic`,
+/// `isPubliclyPreviewable`).
+///
+/// Server-side handlers parse the wire patch's metadata-key subset
+/// into this struct (stripping structural mutation keys like
+/// `addRoles` first), then hand it to
+/// `ChatBackend::apply_space_metadata_patch`. Each field is `Option<_>`;
+/// `None` means the field is absent from the wire patch and the
+/// corresponding `Space` property is left unchanged. Nullable target
+/// fields ([`description`](Self::description),
+/// [`icon_blob_id`](Self::icon_blob_id)) use
+/// `Option<Clearable<T>>` so a wire `null` clears the value while
+/// absence leaves it untouched.
+///
+/// `is_public` and `is_publicly_previewable` are `Option<bool>`
+/// (not `Option<Clearable<bool>>`) because the corresponding Space
+/// fields are non-nullable booleans: a wire `null` on either is
+/// invalid and the handler rejects it before this struct is
+/// constructed.
+///
+/// Replaces the earlier `serde_json::Map<String, serde_json::Value>`
+/// trait surface (bd:JMAP-x2gd.39) so the public API no longer leaks
+/// the upstream serde_json type into every `ChatBackend` impl.
+#[non_exhaustive]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SpaceMetadataPatch {
+    /// The `name` property (draft-atwood-jmap-chat-00 §Space/set
+    /// — top-level metadata).
+    ///
+    /// `Space.name` is non-nullable (`String`), so the wire patch
+    /// value MUST be a string when present; `null` is invalid and
+    /// is rejected at the handler boundary.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    /// The `description` property (draft-atwood-jmap-chat-00 §Space/set
+    /// — top-level metadata).
+    ///
+    /// `null` clears the description; absent leaves it unchanged.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "some_clearable"
+    )]
+    pub description: Option<Clearable<String>>,
+    /// The `iconBlobId` property (draft-atwood-jmap-chat-00 §Space/set
+    /// — top-level metadata).
+    ///
+    /// `null` clears the icon; absent leaves it unchanged.
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "some_clearable"
+    )]
+    pub icon_blob_id: Option<Clearable<Id>>,
+    /// The `isPublic` property (draft-atwood-jmap-chat-00 §Space/set
+    /// — top-level metadata).
+    ///
+    /// Non-nullable target field; wire `null` is invalid.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_public: Option<bool>,
+    /// The `isPubliclyPreviewable` property
+    /// (draft-atwood-jmap-chat-00 §Space/set — top-level metadata).
+    ///
+    /// Non-nullable target field; wire `null` is invalid.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub is_publicly_previewable: Option<bool>,
+    /// Catch-all for vendor / site / private extension fields not covered
+    /// by the typed fields above. Preserves unknown fields across
+    /// deserialize/serialize round-trip per workspace extras-preservation
+    /// policy (see workspace AGENTS.md).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
+}
+
+impl SpaceMetadataPatch {
+    /// Returns `true` if the patch carries no metadata mutations and
+    /// no extras. Empty patches are valid no-ops at the wire level.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.name.is_none()
+            && self.description.is_none()
+            && self.icon_blob_id.is_none()
+            && self.is_public.is_none()
+            && self.is_publicly_previewable.is_none()
+            && self.extra.is_empty()
+    }
+}
+
 /// A single Space/set update mutation operation.
 ///
 /// Server-side handlers parse the wire JSON patch object (which has 12
@@ -508,6 +599,79 @@ mod tests {
         assert_eq!(c.category_id, None);
         assert_eq!(c.position, None);
         assert_eq!(c.topic, None);
+    }
+
+    // Oracle: spec §Space/set top-level metadata mutation — every field
+    // round-trips, including the Clearable null-vs-set distinction.
+    #[test]
+    fn space_metadata_patch_full_roundtrip() {
+        let json = r#"{
+            "name": "New Name",
+            "description": "A new description",
+            "iconBlobId": "blob-1",
+            "isPublic": true,
+            "isPubliclyPreviewable": false
+        }"#;
+        let p: SpaceMetadataPatch =
+            serde_json::from_str(json).expect("deserialize SpaceMetadataPatch");
+        let re = serde_json::to_string(&p).expect("serialize SpaceMetadataPatch");
+        let p2: SpaceMetadataPatch =
+            serde_json::from_str(&re).expect("re-deserialize SpaceMetadataPatch");
+        assert_eq!(p, p2);
+        assert_eq!(p.name.as_deref(), Some("New Name"));
+        assert_eq!(
+            p.description,
+            Some(Clearable::Set("A new description".into()))
+        );
+        assert_eq!(p.icon_blob_id, Some(Clearable::Set(Id::from("blob-1"))));
+        assert_eq!(p.is_public, Some(true));
+        assert_eq!(p.is_publicly_previewable, Some(false));
+    }
+
+    // Oracle: wire `null` on a nullable field decodes to Clearable::Clear
+    // (clear semantic). Absent fields decode to None (unchanged semantic).
+    #[test]
+    fn space_metadata_patch_null_clears_description() {
+        let json = r#"{"description": null}"#;
+        let p: SpaceMetadataPatch =
+            serde_json::from_str(json).expect("deserialize SpaceMetadataPatch");
+        assert_eq!(p.description, Some(Clearable::Clear));
+        assert_eq!(p.name, None);
+        assert_eq!(p.icon_blob_id, None);
+        assert_eq!(p.is_public, None);
+        assert_eq!(p.is_publicly_previewable, None);
+        // The Clear value re-serializes back to a wire null.
+        let re = serde_json::to_string(&p).expect("serialize");
+        assert!(
+            re.contains(r#""description":null"#),
+            "Clearable::Clear must serialize back to null, got {re}"
+        );
+    }
+
+    // Oracle: an empty wire patch decodes to a fully-absent struct that
+    // SpaceMetadataPatch::is_empty() agrees is empty.
+    #[test]
+    fn space_metadata_patch_empty_is_empty() {
+        let p: SpaceMetadataPatch = serde_json::from_str("{}").expect("deserialize empty");
+        assert!(p.is_empty());
+        assert_eq!(p, SpaceMetadataPatch::default());
+    }
+
+    // Oracle: vendor extras round-trip per workspace extras-preservation policy.
+    #[test]
+    fn space_metadata_patch_preserves_vendor_extras() {
+        let json = r#"{"name":"X","vendorCustomMetadata":42}"#;
+        let p: SpaceMetadataPatch = serde_json::from_str(json).expect("deserialize with extras");
+        assert_eq!(p.name.as_deref(), Some("X"));
+        assert_eq!(
+            p.extra.get("vendorCustomMetadata"),
+            Some(&serde_json::Value::from(42))
+        );
+        let re = serde_json::to_string(&p).expect("re-serialize");
+        assert!(
+            re.contains(r#""vendorCustomMetadata":42"#),
+            "vendor extras must round-trip, got {re}"
+        );
     }
 
     // Compile-only: SpacePatchOp enum has all 12 variants and constructs cleanly.
