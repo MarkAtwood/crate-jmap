@@ -113,6 +113,29 @@ pub struct Session {
     pub primary_accounts: HashMap<String, String>,
 
     /// Username associated with the current credentials (RFC 8620 §2).
+    ///
+    /// # ⚠ PII — handle with the same care as a credential (bd:JMAP-6r7c.35)
+    ///
+    /// This field is typically an email address and is therefore PII under
+    /// GDPR / CCPA. The `Session` Debug impl redacts this field to
+    /// `"[REDACTED]"`, but the redaction only catches `{:?}`-format paths.
+    /// Common ways callers accidentally leak the raw value:
+    ///
+    /// - `println!("User: {}", session.username)` — `Display`, not redacted.
+    /// - `format!("hello {}", session.username)` — `Display`, not redacted.
+    /// - `tracing::info!(user = %session.username, ...)` — `%` invokes
+    ///   `Display`, not `Debug`.
+    /// - `serde_json::to_string(&session)?` — emits the raw value verbatim
+    ///   because `Session` derives `Serialize` for wire round-trip.
+    /// - `session.username.clone().into_inner()` (no such method exists
+    ///   today, but a future newtype migration would expose one) —
+    ///   intentional exposure path.
+    ///
+    /// Do not log this field, do not include it in error messages, do not
+    /// serialize it to disk or another network endpoint. If you need a
+    /// non-PII session-scoped identifier, prefer
+    /// [`primary_accounts`](Session::primary_accounts) account IDs
+    /// (RFC 8620 §2's `accountId` is server-opaque and is not PII).
     pub username: String,
 
     /// URL for JMAP API POST requests (RFC 8620 §2).
@@ -273,6 +296,16 @@ impl std::fmt::Debug for Session {
 #[serde(rename_all = "camelCase")]
 pub struct AccountInfo {
     /// Human-readable account name (e.g. the owner's email address).
+    ///
+    /// # ⚠ PII — same handling rules as [`Session::username`] (bd:JMAP-6r7c.35)
+    ///
+    /// This field is typically an email address and is therefore PII under
+    /// GDPR / CCPA. The `AccountInfo` Debug impl redacts this field to
+    /// `"[REDACTED]"`, but the redaction only catches `{:?}`-format paths.
+    /// `Display`, `format!("{}")`, `serde_json::to_string`, and
+    /// `tracing::info!(name = %account.name, ...)` all leak the raw value.
+    /// See [`Session::username`] for the full list of accidental-leak paths
+    /// and recommended replacement identifiers.
     pub name: String,
 
     /// `true` if this is the authenticated user's own personal account.
