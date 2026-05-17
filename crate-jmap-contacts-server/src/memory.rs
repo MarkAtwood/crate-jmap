@@ -377,22 +377,84 @@ impl MemoryBackend {
     }
 
     /// Seed a pre-existing object into the store without bumping the state
-    /// counter or recording a change-log entry. Intended for test fixture
-    /// setup; the `type_name` must match `O::TYPE_NAME` of the type being
-    /// seeded (e.g. `"AddressBook"`, `"ContactCard"`).
+    /// counter or recording a change-log entry.
+    ///
+    /// Intended for test fixture setup. The `type_name` must be exactly one
+    /// of the two `O::TYPE_NAME` values defined by `jmap-contacts-types`:
+    /// `"AddressBook"` or `"ContactCard"`. The `value` must be a JSON object
+    /// whose `id` field matches the `id` argument.
+    ///
+    /// # Panics
+    ///
+    /// Panics with a clear message if either precondition is violated:
+    ///
+    /// - `type_name` is not one of the two known values — catches typos
+    ///   like `"Addressbook"` (lowercase 'b') or `"contact_card"` that would
+    ///   otherwise silently insert into a dead namespace.
+    /// - `value` is not a JSON object, or its `id` field is missing or does
+    ///   not equal `id` — catches mistakes like `json!(42)`, `json!({})`,
+    ///   or `json!({"id": "wrong-id"})` that would otherwise surface much
+    ///   later as opaque `MemoryError("deserialize ...")` from `get_objects`.
+    ///
+    /// bd:JMAP-qz9v.35 (mirrors the canonical jmap-calendars-server pattern
+    /// established by bd:JMAP-ic0j.32 / bd:JMAP-ic0j.69). The fixture-setup
+    /// contract is documented in two places (this rustdoc + the panic
+    /// messages) so a test author who hits the panic at runtime gets
+    /// actionable guidance without having to read the source.
     pub fn seed_object(
         &self,
         account_id: &str,
-        type_name: &'static str,
+        type_name: &str,
         id: &str,
         value: serde_json::Value,
     ) {
+        // Catch typos in `type_name` at the seed boundary rather than
+        // letting them silently corrupt the fixture into a dead namespace.
+        //
+        // The `type_name` parameter is `&str` (not `&'static str`) so test
+        // authors can pass computed values from parameterised fixtures.
+        // The inner storage keys require `&'static str` though, so the
+        // dispatch below rebinds the accepted input to the matching
+        // `&'static str` literal (mirrors jmap-calendars-server).
+        const ADDRESS_BOOK: &str = "AddressBook";
+        const CONTACT_CARD: &str = "ContactCard";
+        const KNOWN_TYPES: &[&str] = &[ADDRESS_BOOK, CONTACT_CARD];
+        let static_type_name: &'static str = match type_name {
+            ADDRESS_BOOK => ADDRESS_BOOK,
+            CONTACT_CARD => CONTACT_CARD,
+            _ => panic!(
+                "seed_object: type_name {type_name:?} is not one of the known \
+                 jmap-contacts-types TYPE_NAME values {KNOWN_TYPES:?}. \
+                 Likely a typo — the lookup would silently store into a dead \
+                 namespace no method reads from."
+            ),
+        };
+
+        // Validate the value's shape at the seed boundary so a malformed
+        // fixture fails fast HERE, not in the get_objects deserialize path.
+        let obj = value.as_object().unwrap_or_else(|| {
+            panic!(
+                "seed_object: value must be a JSON object with an `id` field, \
+                 got {value:?}"
+            )
+        });
+        let value_id = obj.get("id").and_then(|v| v.as_str()).unwrap_or_else(|| {
+            panic!("seed_object: value must contain an `id` string field; got value = {value:?}")
+        });
+        assert_eq!(
+            value_id, id,
+            "seed_object: value's `id` field {value_id:?} does not match the \
+             `id` argument {id:?} — the object would be reachable by the arg \
+             id but its serialized form would carry the value-id, breaking \
+             round-trip"
+        );
+
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.to_owned());
         inner
-            .objects_mut(type_name, account_id)
+            .objects_mut(static_type_name, account_id)
             .insert(Id::from(id), value);
-        if type_name == "ContactCard" {
+        if static_type_name == CONTACT_CARD {
             // bd:JMAP-ic0j.74 — `seed_object` bypasses the trait-impl
             // mutators that maintain the incremental reverse index, so
             // fall back to a full rebuild of `address_book_card_counts`.
@@ -2465,5 +2527,99 @@ mod address_book_card_counts_tests {
             inner.apply_contact_card_index_delta("acc1", Some(&with_ids), Some(&bare));
         }
         assert!(!has_key(&backend, "acc1", "book1"));
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Tests for seed_object validation (bd:JMAP-qz9v.35)
+//
+// Mirrors the canonical pattern established by jmap-calendars-server
+// (bd:JMAP-ic0j.32 + bd:JMAP-ic0j.69). The seed boundary is where a
+// malformed fixture must fail loudly — silent corruption into a dead
+// namespace or storing a value whose `id` doesn't match the arg
+// produces opaque get_objects deserialize errors far from the call
+// site, wasting test-debug time.
+// ---------------------------------------------------------------------------
+#[cfg(test)]
+mod seed_object_validation_tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Regression for bd:JMAP-qz9v.35: an unknown `type_name` panics
+    /// rather than silently corrupting the fixture into a namespace
+    /// no method reads from. The only known values for contacts are
+    /// the two `O::TYPE_NAME` constants defined in
+    /// `jmap_contacts_types::backend` (AddressBook, ContactCard).
+    /// Anything else is a test-author typo.
+    #[test]
+    #[should_panic(expected = "not one of the known")]
+    fn seed_object_rejects_unknown_type_name() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "addressbook", "ab1", json!({"id": "ab1"}));
+    }
+
+    /// Regression for bd:JMAP-qz9v.35: a non-object value panics
+    /// instead of silently storing data that get_objects cannot
+    /// deserialize.
+    #[test]
+    #[should_panic(expected = "must be a JSON object")]
+    fn seed_object_rejects_non_object_value() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "AddressBook", "ab1", json!(42));
+    }
+
+    /// Regression for bd:JMAP-qz9v.35: a value missing the `id` field
+    /// panics instead of storing a fixture whose `id` field will be
+    /// absent on read-back.
+    #[test]
+    #[should_panic(expected = "must contain an `id` string field")]
+    fn seed_object_rejects_value_without_id_field() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "AddressBook", "ab1", json!({"name": "Work"}));
+    }
+
+    /// Regression for bd:JMAP-qz9v.35: a value whose `id` field does
+    /// not match the `id` argument panics rather than producing a
+    /// fixture that's reachable by one id but serializes with another.
+    #[test]
+    #[should_panic(expected = "does not match the `id` argument")]
+    fn seed_object_rejects_id_mismatch() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "AddressBook", "ab1", json!({"id": "ab2"}));
+    }
+
+    /// Positive control: the happy path still works for each of the
+    /// two known type_name values.
+    #[test]
+    fn seed_object_accepts_known_type_names() {
+        let backend = MemoryBackend::new();
+        backend.seed_object("acc1", "AddressBook", "ab1", json!({"id": "ab1"}));
+        backend.seed_object(
+            "acc1",
+            "ContactCard",
+            "card1",
+            json!({"id": "card1", "addressBookIds": {"ab1": true}}),
+        );
+    }
+
+    /// Regression for the type_name parameter relaxation (mirrors
+    /// bd:JMAP-ic0j.69 in calendars-server): a non-`'static` `&str`
+    /// (e.g. a `String` slice produced by `format!`) is now accepted.
+    /// The original signature `type_name: &'static str` forced every
+    /// caller to use a string literal; the new signature lets
+    /// parameterised fixtures factor out their type names.
+    #[test]
+    fn seed_object_accepts_non_static_type_name() {
+        let backend = MemoryBackend::new();
+        // Compute the type name at runtime — would have failed to
+        // compile against the previous `&'static str` signature.
+        let prefix = "Contact";
+        let kind = format!("{prefix}Card");
+        backend.seed_object(
+            "acc1",
+            &kind,
+            "card1",
+            json!({"id": "card1", "addressBookIds": {"ab1": true}}),
+        );
     }
 }
