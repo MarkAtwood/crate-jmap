@@ -2,6 +2,31 @@
 //!
 //! Task/set enforces the `isDraft` immutability constraint: once set to false,
 //! it cannot be set back to true.
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3, `/copy` → §5.4,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by draft-tasks-06 §4. The returned `Value` is the
+//! corresponding method-response object per the same section refs.
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3).
+//! For the standard `/get`, `/changes`, `/set`, `/query`, and
+//! `/queryChanges` handlers in this module the vector is **always
+//! empty**. `handle_task_copy` is the one exception: it MAY emit
+//! `Task/set` follow-up invocations when `onSuccessDestroyOriginal` is
+//! true (RFC 8620 §5.4).
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside a `/set` or
+//! `/copy` call surface in the `notCreated` / `notUpdated` /
+//! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_tasks_types::Task;
 use jmap_types::{Id, Invocation, JmapError, PatchObject};
@@ -18,10 +43,16 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
 /// Handle a `Task/get` method call (draft-tasks-06 §4.5).
 ///
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`); the returned `Value` is the §5.1
+/// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
+///
 /// If `"utcStart"` or `"utcDue"` appear in the requested `properties` (or if
 /// `properties` is `null` — meaning all fields), [`TasksBackend::compute_task_utc_times`]
 /// is called for each returned task and the computed values are merged in
 /// (draft-tasks-06 §4, utcStart/utcDue paragraphs).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_get<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -65,6 +96,13 @@ pub async fn handle_task_get<B: TasksBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `Task/changes` method call (draft-tasks-06 §4.6).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the §5.2
+/// `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -79,6 +117,11 @@ pub async fn handle_task_changes<B: TasksBackend>(
 
 /// Handle a `Task/set` method call (draft-tasks-06 §4.7).
 ///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps); the
+/// returned `Value` is the §5.3 `/set` response shape (`accountId`,
+/// `oldState`, `newState`, plus the per-operation result maps).
+///
 /// **isDraft immutability**: If a patch contains `"isDraft": true` and the
 /// current stored object has `isDraft = false`, the update is rejected with
 /// `invalidProperties`. The current object must be fetched from the backend
@@ -89,6 +132,8 @@ pub async fn handle_task_changes<B: TasksBackend>(
 /// instead, backends are expected to enforce this constraint and return
 /// `invalidProperties` from `update_object` when the patch violates it.
 /// The handler also does a best-effort check on the patch itself.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_set<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -382,9 +427,25 @@ pub async fn handle_task_set<B: TasksBackend>(
 
 /// Handle a `Task/copy` method call (draft-tasks-06 §4.8).
 ///
+/// `args` is the RFC 8620 §5.4 `/copy` request shape (`fromAccountId`,
+/// optional `ifFromInState`, `accountId`, optional `ifInState`, `create`
+/// map, optional `onSuccessDestroyOriginal`, optional
+/// `destroyFromIfInState`); the returned `Value` is the §5.4 `/copy`
+/// response shape (`fromAccountId`, `accountId`, optional `oldState`,
+/// `newState`, optional `created`, optional `notCreated`).
+///
+/// `call_id` is the request's method-call id, used to construct any
+/// follow-up `Task/set` invocations injected when
+/// `onSuccessDestroyOriginal` is true (RFC 8620 §5.4 + §6.3).
+///
 /// Copies tasks from `fromAccountId` into the current account. The `create`
 /// map keys are client-side creation ids; the backend assigns new server-side
 /// ids.
+///
+/// Returns `(response_args, extra_invocations)`. The extra invocation list
+/// is populated with a follow-up `Task/set` invocation when
+/// `onSuccessDestroyOriginal` is true (RFC 8620 §5.4); otherwise it is
+/// empty.
 pub async fn handle_task_copy<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -694,6 +755,15 @@ pub async fn handle_task_copy<B: TasksBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `Task/query` method call (draft-tasks-06 §4.13).
+///
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`,
+/// optional `filter`, optional `sort`, optional `position`, optional
+/// `anchor`, optional `anchorOffset`, optional `limit`, optional
+/// `calculateTotal`); the returned `Value` is the §5.5 `/query`
+/// response shape (`accountId`, `queryState`, `canCalculateChanges`,
+/// `position`, `ids`, optional `total`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_query<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -707,6 +777,15 @@ pub async fn handle_task_query<B: TasksBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `Task/queryChanges` method call (draft-tasks-06 §4.14).
+///
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_task_query_changes<B: TasksBackend>(
     backend: &B,
     caller: &B::CallerCtx,
