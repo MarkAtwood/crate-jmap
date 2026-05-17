@@ -70,5 +70,6 @@ pub use presence::{Presence, PresenceStatus};
 pub use push::{ChatMessageEntry, ChatMessagePush, ChatPushConfig, UrgencyLevel};
 pub use space::{Category, Space, SpaceBan, SpaceInvite, SpaceMember, SpaceRole};
 pub use space_set::{
-    CategoryPatch, ChannelCreate, ChannelPatch, MemberCreate, MemberPatch, RolePatch, SpacePatchOp,
+    CategoryPatch, ChannelCreate, ChannelPatch, MemberCreate, MemberPatch, RolePatch,
+    SpaceMetadataPatch, SpacePatchOp,
 };

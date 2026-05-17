@@ -13,7 +13,7 @@
 pub use jmap_chat_types::backend::{
     ChatContactProperty, ChatProperty, MessageProperty, ReadPositionProperty, SpaceProperty,
 };
-pub use jmap_chat_types::space_set::SpacePatchOp;
+pub use jmap_chat_types::space_set::{SpaceMetadataPatch, SpacePatchOp};
 pub use jmap_server::{
     AddedItem, BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
     JmapObject, QueryChangesResult, QueryObject, QueryResult, SetError, SetErrorType, SetObject,
@@ -756,14 +756,18 @@ pub trait ChatBackend: JmapBackend {
     /// the permission gate, and apply the merge patch in one
     /// critical section. Backend canonical per workspace AGENTS.md.
     ///
-    /// # `patch_map` shape
+    /// # `patch` shape
     ///
-    /// The handler builds `patch_map` by walking the wire patch and
-    /// keeping only the keys in `METADATA_FIELDS` (`name`,
-    /// `description`, `iconBlobId`, `isPublic`,
-    /// `isPubliclyPreviewable`). Backends MAY validate the values
-    /// further (e.g. reject `iconBlobId` referencing a non-existent
-    /// blob) and surface those as [`SetError`] returns.
+    /// The handler decodes the wire patch's metadata-key subset
+    /// (`name`, `description`, `iconBlobId`, `isPublic`,
+    /// `isPubliclyPreviewable`) into a [`SpaceMetadataPatch`],
+    /// stripping structural mutation keys (`addRoles` etc.) before
+    /// building it. Each field is `Option<_>`; nullable target fields
+    /// use `Option<Clearable<T>>` so the backend can distinguish
+    /// "wire null" (clear) from "absent" (unchanged). Backends MAY
+    /// validate the values further (e.g. reject an `icon_blob_id`
+    /// referencing a non-existent blob) and surface those as
+    /// [`SetError`] returns.
     ///
     /// # Return value
     ///
@@ -788,7 +792,7 @@ pub trait ChatBackend: JmapBackend {
     /// that contains the literal `"manage_space"`).
     ///
     /// Future blob-validation rejections (e.g. `iconBlobId`
-    /// referencing a non-existent blob, see the `patch_map` shape
+    /// referencing a non-existent blob, see the `patch` shape
     /// section above) SHOULD surface as
     /// `SetErrorType::InvalidProperties` with
     /// `properties: ["iconBlobId"]` and a description that names
@@ -808,7 +812,7 @@ pub trait ChatBackend: JmapBackend {
         caller: &Self::CallerCtx,
         account_id: &jmap_types::Id,
         space_id: &jmap_types::Id,
-        patch_map: serde_json::Map<String, serde_json::Value>,
+        patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> impl std::future::Future<
         Output = Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>>,
     > + Send;

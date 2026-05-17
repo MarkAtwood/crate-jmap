@@ -342,8 +342,9 @@ impl MemoryBackend {
         caller_id: Option<&Id>,
         account_id: &Id,
         space_id: &Id,
-        patch_map: serde_json::Map<String, serde_json::Value>,
+        patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<MemoryError>> {
+        let patch_map = space_metadata_patch_to_map(patch);
         let mut inner = self.inner.lock().unwrap();
         apply_space_metadata_patch_impl(&mut inner, caller_id, account_id, space_id, patch_map)
     }
@@ -961,9 +962,10 @@ impl ChatBackend for MemoryBackend {
         caller: &(),
         account_id: &Id,
         space_id: &Id,
-        patch_map: serde_json::Map<String, serde_json::Value>,
+        patch: jmap_chat_types::SpaceMetadataPatch,
     ) -> Result<Option<jmap_chat_types::Space>, BackendSetError<Self::Error>> {
         let caller_id_owned = <Self as JmapBackend>::principal_id(caller).cloned();
+        let patch_map = space_metadata_patch_to_map(patch);
         let mut inner = self.inner.lock().unwrap();
         apply_space_metadata_patch_impl(
             &mut inner,
@@ -1294,6 +1296,28 @@ fn apply_space_patch_impl(
     }
 
     Ok(results)
+}
+
+/// Convert a typed [`jmap_chat_types::SpaceMetadataPatch`] into the
+/// `serde_json::Map<String, Value>` shape the internal
+/// [`apply_space_metadata_patch_impl`] consumes. The reference impl
+/// continues to apply changes via `json_merge_patch` on a stored
+/// JSON value; the typed trait surface is a public-API hygiene
+/// improvement (bd:JMAP-x2gd.39) — the internal merge-patch path is
+/// unchanged.
+fn space_metadata_patch_to_map(
+    patch: jmap_chat_types::SpaceMetadataPatch,
+) -> serde_json::Map<String, serde_json::Value> {
+    // The struct's derive(Serialize) already emits camelCase keys,
+    // collapses `Clearable::Clear` to `null`, and skips `None`
+    // fields. We just need an Object out of it.
+    match serde_json::to_value(&patch).expect("derive(Serialize) on plain data is infallible") {
+        serde_json::Value::Object(map) => map,
+        // Unreachable: SpaceMetadataPatch serializes as an object
+        // (all fields are object-keyed, `extra` is `#[serde(flatten)]`
+        // and `SpaceMetadataPatch` itself is a struct).
+        _ => serde_json::Map::new(),
+    }
 }
 
 /// Backend-canonical impl of
