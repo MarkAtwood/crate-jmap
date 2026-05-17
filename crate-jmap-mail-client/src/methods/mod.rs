@@ -153,7 +153,7 @@ pub struct EmailSubmissionSetParams {
 /// supplied; the empty case is rejected by `email_import` as `InvalidArgument`.
 ///
 /// [RFC 5322]: https://www.rfc-editor.org/rfc/rfc5322
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailImportInput<'a> {
     /// Blob id of the uploaded raw RFC 5322 message.
