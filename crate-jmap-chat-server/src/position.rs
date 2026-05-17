@@ -2,8 +2,19 @@
 //!
 //! ReadPosition tracks how far a user has read in a given Chat. There is at
 //! most one ReadPosition per (account, chat) pair. Create and destroy are
-//! supported (unlike singletons), but each chat's read position is unique —
-//! backends must enforce the (account, chatId) uniqueness constraint.
+//! supported (unlike singletons), but each chat's read position is unique.
+//!
+//! # Uniqueness contract
+//!
+//! The handler in this module pre-checks the (account, chatId) uniqueness
+//! invariant on every create — see the create branch of
+//! [`handle_position_set`] — and rejects sequential and intra-batch
+//! duplicates with `alreadyExists`. The pre-check is defense-in-depth only:
+//! two concurrent `ReadPosition/set` requests for the same chatId can both
+//! pass the pre-check, so backends MUST enforce the uniqueness constraint
+//! atomically with the create. See the "Per-type uniqueness contracts"
+//! section on [`crate::backend::ChatBackend::create_object`] for the full
+//! contract.
 
 use jmap_chat_types::ReadPosition;
 use jmap_types::{Id, Invocation, JmapError, PatchObject, State};
