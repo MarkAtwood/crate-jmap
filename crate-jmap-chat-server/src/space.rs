@@ -839,27 +839,38 @@ async fn check_space_count_limits<B: ChatBackend>(
     // The handler emits a single error per target, so we surface the
     // first cap to trip; a client retry after fixing that collection
     // would expose any second offender on the next request.
-    let exceeded = |label: &'static str, current: u32, add: u32, cap: u32| -> Option<SetError> {
-        if add == 0 {
-            return None;
-        }
-        let proposed = current.saturating_add(add);
-        if proposed > cap {
-            Some(
-                SetError::new(SetErrorType::OverQuota).with_description(format!(
-                    "{label}: would have {proposed} after adding {add} (existing {current}, cap {cap})"
-                )),
-            )
-        } else {
-            None
-        }
-    };
+    //
+    // Per-aggregate static description — names which aggregate was
+    // exceeded without disclosing the per-Space count or the per-account
+    // cap value. See bd:JMAP-x2gd.107: leaking either through an error
+    // description back-channels deployment policy and membership counts
+    // to any caller who can propose a /set patch. The aggregate name
+    // alone is enough for a client to know which collection to retry
+    // without; numeric counts and caps are deployment-private. Byte-
+    // identical to the backend-canonical description in
+    // [`crate::memory::check_count_caps`] for response-shape parity.
+    let exceeded =
+        |description: &'static str, current: u32, add: u32, cap: u32| -> Option<SetError> {
+            if add == 0 {
+                return None;
+            }
+            if current.saturating_add(add) > cap {
+                Some(SetError::new(SetErrorType::OverQuota).with_description(description))
+            } else {
+                None
+            }
+        };
 
-    if let Some(e) = exceeded("roles", cur_roles, add_roles, limits.max_roles_per_space) {
+    if let Some(e) = exceeded(
+        "too many roles",
+        cur_roles,
+        add_roles,
+        limits.max_roles_per_space,
+    ) {
         return Ok(Some(e));
     }
     if let Some(e) = exceeded(
-        "members",
+        "too many members",
         cur_members,
         add_members,
         limits.max_space_members,
@@ -867,7 +878,7 @@ async fn check_space_count_limits<B: ChatBackend>(
         return Ok(Some(e));
     }
     if let Some(e) = exceeded(
-        "channels",
+        "too many channels",
         cur_channels,
         add_channels,
         limits.max_channels_per_space,
@@ -875,7 +886,7 @@ async fn check_space_count_limits<B: ChatBackend>(
         return Ok(Some(e));
     }
     if let Some(e) = exceeded(
-        "categories",
+        "too many categories",
         cur_categories,
         add_categories,
         limits.max_categories_per_space,

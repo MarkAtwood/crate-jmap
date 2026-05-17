@@ -2781,27 +2781,35 @@ fn check_count_caps(
         .unwrap_or(0);
     let cur_channels = u32::try_from(uncategorized + categorized).unwrap_or(u32::MAX);
 
-    let exceeded = |label: &'static str, current: u32, add: u32, cap: u32| -> Option<SetError> {
-        if add == 0 {
-            return None;
-        }
-        let proposed = current.saturating_add(add);
-        if proposed > cap {
-            Some(
-                SetError::new(SetErrorType::OverQuota).with_description(format!(
-                    "{label}: would have {proposed} after adding {add} (existing {current}, cap {cap})"
-                )),
-            )
-        } else {
-            None
-        }
-    };
+    // Per-aggregate static description — names which aggregate was
+    // exceeded without disclosing the per-Space count or the per-account
+    // cap value. See bd:JMAP-x2gd.107: leaking either through an error
+    // description back-channels deployment policy and membership counts
+    // to any caller who can propose a /set patch. The aggregate name
+    // alone is enough for a client to know which collection to retry
+    // without; numeric counts and caps are deployment-private.
+    let exceeded =
+        |description: &'static str, current: u32, add: u32, cap: u32| -> Option<SetError> {
+            if add == 0 {
+                return None;
+            }
+            if current.saturating_add(add) > cap {
+                Some(SetError::new(SetErrorType::OverQuota).with_description(description))
+            } else {
+                None
+            }
+        };
 
-    if let Some(e) = exceeded("roles", cur_roles, add_roles, limits.max_roles_per_space) {
+    if let Some(e) = exceeded(
+        "too many roles",
+        cur_roles,
+        add_roles,
+        limits.max_roles_per_space,
+    ) {
         return Some(e);
     }
     if let Some(e) = exceeded(
-        "members",
+        "too many members",
         cur_members,
         add_members,
         limits.max_space_members,
@@ -2809,7 +2817,7 @@ fn check_count_caps(
         return Some(e);
     }
     if let Some(e) = exceeded(
-        "channels",
+        "too many channels",
         cur_channels,
         add_channels,
         limits.max_channels_per_space,
@@ -2817,7 +2825,7 @@ fn check_count_caps(
         return Some(e);
     }
     if let Some(e) = exceeded(
-        "categories",
+        "too many categories",
         cur_categories,
         add_categories,
         limits.max_categories_per_space,

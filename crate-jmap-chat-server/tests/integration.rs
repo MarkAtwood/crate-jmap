@@ -7195,3 +7195,148 @@ async fn apply_space_patch_direct_call_no_add_ops_bypasses_cap_check() {
         Err(other) => panic!("unexpected backend error: {other:?}"),
     }
 }
+
+/// Regression canary for bd:JMAP-x2gd.107.
+///
+/// The overQuota SetError emitted on per-Space aggregate cap violations
+/// MUST name the offending aggregate but MUST NOT disclose:
+///   - the current per-Space count (membership / role count / etc.)
+///   - the per-account cap value (deployment policy, possibly tier-derived)
+///   - any numeric quantity that lets a caller infer either
+///
+/// Both the handler-side defense-in-depth pre-flight
+/// (`crate::space::check_space_count_limits`) and the backend-canonical
+/// (`crate::memory::check_count_caps`) descriptions must satisfy this.
+///
+/// Oracle: independent of the code under test. We seed a Space with a
+/// known small count, configure a known cap, send an over-cap add,
+/// then assert structural invariants on the wire description: no ASCII
+/// digit appears, and none of the back-channel keywords
+/// (`existing`, `cap`, `would have`, `adding`) appear.
+#[tokio::test]
+async fn space_set_overquota_description_does_not_leak_counts_or_caps() {
+    let backend = MemoryBackend::new();
+    backend.set_limits_for_test(Some(
+        jmap_chat_server::ChatLimits::default().with_max_categories_per_space(1),
+    ));
+    let space_id = make_space(&backend, "Leak Canary").await;
+
+    // First add lands at-cap.
+    let _ = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [
+                        { "id": "p1", "name": "First", "position": 0, "channelIds": [] }
+                    ]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("first add");
+
+    // Second add is over-cap and is rejected.
+    let (resp, _) = handle_space_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "a1",
+            "update": {
+                &space_id: {
+                    "addCategories": [
+                        { "id": "p2", "name": "Second", "position": 1, "channelIds": [] }
+                    ]
+                }
+            }
+        }),
+    )
+    .await
+    .expect("second add");
+
+    assert_eq!(resp["notUpdated"][&space_id]["type"], "overQuota");
+    let desc = resp["notUpdated"][&space_id]["description"]
+        .as_str()
+        .expect("description");
+
+    // Structural invariant: the description must NOT contain any ASCII
+    // digit. A numeric leak (cap value or current count) would manifest
+    // as a digit run in the wire payload.
+    assert!(
+        !desc.chars().any(|c| c.is_ascii_digit()),
+        "overQuota description must not contain ASCII digits (would leak count/cap): {desc:?}"
+    );
+
+    // Structural invariant: none of the pre-fix keywords appear. These
+    // are the exact tokens the leaky format string contained — a
+    // regression to that shape would surface here.
+    for forbidden in &["existing", "cap", "would have", "adding"] {
+        assert!(
+            !desc.contains(forbidden),
+            "overQuota description must not contain back-channel token {forbidden:?}: {desc:?}"
+        );
+    }
+
+    // Positive check: the aggregate name is still surfaced for the
+    // client's retry hint.
+    assert!(
+        desc.contains("categories"),
+        "overQuota description must still name the offending aggregate: {desc:?}"
+    );
+}
+
+/// Sibling regression canary for the backend-canonical path
+/// (`apply_space_patch_with_caller_id` direct call). Same invariant as
+/// the handler-side test above; both descriptions must be the same
+/// shape for response-shape parity per bd:JMAP-x2gd.107.
+#[tokio::test]
+async fn apply_space_patch_direct_call_overquota_description_does_not_leak_counts_or_caps() {
+    use jmap_chat_server::SpacePatchOp;
+
+    let backend = MemoryBackend::new();
+    backend.set_limits_for_test(Some(jmap_chat_server::ChatLimits::new(0, 0, 0, 0)));
+    let space_id = make_space(&backend, "Direct Leak Canary").await;
+
+    let role_to_add = serde_json::from_value::<jmap_chat_types::SpaceRole>(json!({
+        "id": "role-creation-1",
+        "name": "Moderator",
+        "permissions": [],
+        "position": 1,
+    }))
+    .expect("SpaceRole deserialize");
+    let ops = vec![SpacePatchOp::AddRole(role_to_add)];
+
+    let result = backend.apply_space_patch_with_caller_id(
+        None,
+        &Id::from("a1"),
+        &Id::from(space_id.as_str()),
+        ops,
+    );
+
+    match result {
+        Err(jmap_chat_server::BackendSetError::SetError(set_err)) => {
+            let v = serde_json::to_value(&set_err).expect("set_err serializes");
+            assert_eq!(v["type"], "overQuota");
+            let desc = v["description"].as_str().expect("description");
+
+            assert!(
+                !desc.chars().any(|c| c.is_ascii_digit()),
+                "overQuota description must not contain ASCII digits: {desc:?}"
+            );
+            for forbidden in &["existing", "cap", "would have", "adding"] {
+                assert!(
+                    !desc.contains(forbidden),
+                    "overQuota description must not contain back-channel token {forbidden:?}: {desc:?}"
+                );
+            }
+            assert!(
+                desc.contains("roles"),
+                "overQuota description must still name the offending aggregate: {desc:?}"
+            );
+        }
+        other => panic!("expected overQuota SetError, got {other:?}"),
+    }
+}
