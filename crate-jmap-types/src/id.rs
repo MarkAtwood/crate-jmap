@@ -158,8 +158,11 @@ impl_string_newtype!(State);
 
 /// Validate an [`Id`] string per RFC 8620 §1.2.
 ///
-/// SAFE-CHAR = %x21 / %x23-7E (visible ASCII, no SPACE, no DEL, no DQUOTE).
-/// Must be non-empty and at most 255 bytes.
+/// RFC 8620 §1.2 requires Ids to use the "URL and Filename Safe" base64
+/// alphabet defined in RFC 4648 §5, excluding the pad character `=`.
+/// That is: ASCII alphanumeric characters (`A-Z`, `a-z`, `0-9`), hyphen
+/// (`-`), and underscore (`_`). The string must also be non-empty and
+/// at most 255 bytes.
 fn validate_id(s: &str) -> Result<(), ValidationError> {
     if s.is_empty() {
         return Err(ValidationError("Id must not be empty".into()));
@@ -171,12 +174,12 @@ fn validate_id(s: &str) -> Result<(), ValidationError> {
         )));
     }
     for ch in s.chars() {
-        let b = ch as u32;
-        // SAFE-CHAR: 0x21 through 0x7E, excluding 0x22 (DQUOTE).
-        if !(0x21..=0x7E).contains(&b) || b == 0x22 {
+        // RFC 4648 §5 URL-safe base64 alphabet, minus the pad `=`:
+        // A-Z, a-z, 0-9, '-', '_'.
+        if !ch.is_ascii_alphanumeric() && ch != '-' && ch != '_' {
             return Err(ValidationError(format!(
-                "Id contains invalid character {:?} (U+{b:04X})",
-                ch
+                "Id contains invalid character {:?} (U+{:04X})",
+                ch, ch as u32
             )));
         }
     }
@@ -235,9 +238,23 @@ fn validate_state(s: &str) -> Result<(), ValidationError> {
 impl Id {
     /// Construct an [`Id`] with RFC 8620 §1.2 syntax validation.
     ///
-    /// Rejects empty strings, strings longer than 255 bytes, and strings
-    /// containing characters outside the SAFE-CHAR set (`%x21 / %x23-7E` —
-    /// visible ASCII excluding `"`).
+    /// RFC 8620 §1.2 restricts Ids to the URL-safe base64 alphabet defined
+    /// in RFC 4648 §5, excluding the pad character `=`. The permitted
+    /// characters are therefore the ASCII alphanumerics (`A-Z`, `a-z`,
+    /// `0-9`), hyphen (`-`), and underscore (`_`). The string must also
+    /// be non-empty and at most 255 bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ValidationError`] when the input does not satisfy
+    /// RFC 8620 §1.2. The error description contains a category keyword
+    /// that callers can match on if they need finer-grained handling:
+    ///
+    /// - `"empty"` — the input was an empty string;
+    /// - `"exceeds 255 bytes"` — the input was longer than the spec
+    ///   maximum;
+    /// - `"invalid character"` — the input contained at least one
+    ///   character outside `A-Z`, `a-z`, `0-9`, `-`, `_`.
     ///
     /// Use [`Id::from`] when the value is known to be valid (e.g. a string
     /// received from a JMAP server response).
@@ -477,25 +494,55 @@ mod tests {
         assert!(err.0.contains("empty"), "error must mention 'empty': {err}");
     }
 
-    /// Oracle: RFC 8620 §1.2 SAFE-CHAR — space (0x20) is not allowed.
+    /// Oracle: RFC 8620 §1.2 URL-safe base64 alphabet — space (0x20) is
+    /// not in `A-Za-z0-9-_`.
     #[test]
     fn id_new_validated_space_fails() {
         let err = Id::new_validated("has space").unwrap_err();
         assert!(err.0.contains("invalid character"), "{err}");
     }
 
-    /// Oracle: RFC 8620 §1.2 SAFE-CHAR — double-quote (0x22) is excluded.
+    /// Oracle: RFC 8620 §1.2 URL-safe base64 alphabet — double-quote
+    /// (0x22) is not in `A-Za-z0-9-_`.
     #[test]
     fn id_new_validated_dquote_fails() {
         let err = Id::new_validated("has\"quote").unwrap_err();
         assert!(err.0.contains("invalid character"), "{err}");
     }
 
-    /// Oracle: control character (0x01) is not in SAFE-CHAR.
+    /// Oracle: RFC 8620 §1.2 URL-safe base64 alphabet — a control
+    /// character (0x01) is not in `A-Za-z0-9-_`.
     #[test]
     fn id_new_validated_control_char_fails() {
         let err = Id::new_validated("has\x01ctrl").unwrap_err();
         assert!(err.0.contains("invalid character"), "{err}");
+    }
+
+    /// Oracle: RFC 8620 §1.2 URL-safe base64 alphabet (RFC 4648 §5) —
+    /// every visible-ASCII character outside `A-Za-z0-9-_` MUST be
+    /// rejected. These characters were accepted by the previous
+    /// (incorrect) `SAFE-CHAR` validator; this test pins the spec-
+    /// conforming rejection (bd:JMAP-6xs8.19).
+    #[test]
+    fn id_new_validated_rejects_non_url_safe_base64_chars() {
+        // Representative sample of characters that are visible ASCII
+        // (the old SAFE-CHAR set) but NOT in the RFC 4648 §5 URL-safe
+        // base64 alphabet. Each MUST be rejected with category
+        // "invalid character".
+        let rejected = [
+            '!', '#', '$', '%', '&', '\'', '(', ')', '*', '+', ',', '.', '/',
+            ':', ';', '<', '=', '>', '?', '@', '[', '\\', ']', '^', '`', '{',
+            '|', '}', '~',
+        ];
+        for ch in rejected {
+            let input = format!("a{ch}z");
+            let err = Id::new_validated(&input).unwrap_err();
+            assert!(
+                err.0.contains("invalid character"),
+                "char {ch:?} (input {input:?}) must be rejected with \
+                 'invalid character', got: {err}"
+            );
+        }
     }
 
     /// Oracle: RFC 8620 §1.2 — max length 255 bytes.
