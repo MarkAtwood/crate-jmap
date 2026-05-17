@@ -26,8 +26,9 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, CalendarsBackend};
 use crate::helpers::{
-    apply_default_change_to_response, extract_account_id, finalize_set_response,
-    resolve_on_success_set_is_default, set_error_value, SetAccumulators, PLACEHOLDER_ID,
+    apply_default_change_to_response, enforce_max_objects_in_set, extract_account_id,
+    finalize_set_response, resolve_on_success_set_is_default, set_error_value, SetAccumulators,
+    PLACEHOLDER_ID,
 };
 use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 
@@ -102,6 +103,10 @@ pub async fn handle_participant_identity_set<B: CalendarsBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ops7.31). Reject
+    // unbounded /set batches before touching the storage layer.
+    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
     // §3.3: onSuccessSetIsDefault — Id|null. Captured here so we can resolve
     // a possible "#createId" reference against the post-create state. The

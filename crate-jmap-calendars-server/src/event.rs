@@ -36,7 +36,8 @@ use crate::backend::{
     CalendarsBackend, QueryCalendarEventsError,
 };
 use crate::helpers::{
-    extract_account_id, finalize_set_response, set_error_value, SetAccumulators, PLACEHOLDER_ID,
+    enforce_max_objects_in_set, extract_account_id, finalize_set_response, set_error_value,
+    SetAccumulators, PLACEHOLDER_ID,
 };
 use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_backend};
 
@@ -242,6 +243,10 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ops7.31). Reject
+    // unbounded /set batches before touching the storage layer.
+    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
     let old_state = backend
         .get_state::<CalendarEvent>(caller, &account_id)
