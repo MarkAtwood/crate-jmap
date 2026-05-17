@@ -921,8 +921,7 @@ mod tests {
             "acmeCorpMetadata": { "requestId": "r1", "trace": "x" }
         });
 
-        let resp: ChangesResponse =
-            serde_json::from_value(raw.clone()).expect("must deserialize");
+        let resp: ChangesResponse = serde_json::from_value(raw.clone()).expect("must deserialize");
 
         // The typed field consumed the explicit null.
         assert!(
@@ -974,8 +973,7 @@ mod tests {
 
         // Reparse the serialized form and confirm equivalence on the
         // typed surface + extras.
-        let resp2: ChangesResponse =
-            serde_json::from_value(back).expect("reparse must succeed");
+        let resp2: ChangesResponse = serde_json::from_value(back).expect("reparse must succeed");
         assert!(resp2.updated_properties.is_none());
         assert_eq!(resp2.extra, resp.extra);
     }

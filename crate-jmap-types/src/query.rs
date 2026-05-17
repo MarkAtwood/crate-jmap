@@ -272,13 +272,11 @@ mod tests {
 
         // Variant 2: capitalised `O` typoed as `Operator`.
         let raw_capitalised = r#"{"Operator":"AND","conditions":[]}"#;
-        let f2: Filter<Cond> = serde_json::from_str(raw_capitalised)
-            .expect("capitalised typo must also fall through");
+        let f2: Filter<Cond> =
+            serde_json::from_str(raw_capitalised).expect("capitalised typo must also fall through");
         match f2 {
             Filter::Condition(c) => assert!(c.has_keyword.is_none()),
-            Filter::Operator(_) => panic!(
-                "expected silent fallthrough to Condition, got Operator"
-            ),
+            Filter::Operator(_) => panic!("expected silent fallthrough to Condition, got Operator"),
         }
     }
 
