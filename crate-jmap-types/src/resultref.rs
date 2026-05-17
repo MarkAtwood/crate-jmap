@@ -104,7 +104,8 @@ impl ResultReference {
 ///   `"ids": [...]`  →  Argument::Value([...])
 ///   `"#ids": {...}` →  Argument::Ref(ResultReference { ... })
 ///
-/// The resolver in kith-jmap evaluates Ref variants before method dispatch.
+/// The dispatcher in `jmap-server` evaluates `Ref` variants before
+/// invoking the method handler.
 ///
 /// # Deserialization note
 /// Uses `#[serde(untagged)]` which tries to deserialize as T first.
