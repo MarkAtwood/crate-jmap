@@ -405,8 +405,15 @@ async fn calendar_set_on_destroy_remove_events_none_omits_field() {
         .await;
 
     let sc = helpers::make_client(&server);
+    // Need at least one of create/update/destroy to be Some — the
+    // all-None /set is rejected client-side by the defence-in-depth
+    // guard (bd:JMAP-tjvm.24). A non-empty destroy slice is the
+    // smallest "valid input"; the test's actual oracle is the
+    // *absence* of onDestroyRemoveEvents from the wire, which still
+    // holds when destroy is Some.
+    let destroy_ids = [jmap_types::Id::from("c-doomed")];
     let _ = sc
-        .calendar_set(None, None, None, None, None)
+        .calendar_set(None, None, Some(&destroy_ids), None, None)
         .await
         .expect("calendar_set: must succeed");
 

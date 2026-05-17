@@ -471,8 +471,14 @@ async fn metadata_set_propagates_params_extras() {
     let sc = helpers::make_client(&server);
     let mut params = jmap_metadata_client::MetadataSetParams::default();
     params.extra.insert("acmeCorpAuditFlag".into(), json!(true));
+    // Need at least one of create/update/destroy to be Some — the
+    // all-None /set is rejected client-side by the defence-in-depth
+    // guard (bd:JMAP-tjvm.24). An empty destroy Vec is the smallest
+    // valid input; the test's actual oracle (params.extra reaches
+    // the wire) is preserved.
+    let destroy_ids: Vec<jmap_types::Id> = vec![];
     let _resp = sc
-        .metadata_set(None, None, None, None, Some(params))
+        .metadata_set(None, None, Some(destroy_ids), None, Some(params))
         .await
         .expect("metadata_set_propagates_params_extras: must succeed");
 
@@ -527,8 +533,14 @@ async fn metadata_set_params_extras_do_not_overwrite_account_id() {
     let mut params = jmap_metadata_client::MetadataSetParams::default();
     // Caller-supplied extras attempt to overwrite a typed field.
     params.extra.insert("accountId".into(), json!("HIJACKED"));
+    // Need at least one of create/update/destroy to be Some — the
+    // all-None /set is rejected client-side by the defence-in-depth
+    // guard (bd:JMAP-tjvm.24). An empty destroy Vec is the smallest
+    // valid input; the test's actual oracle (extras MUST NOT overwrite
+    // the typed accountId) is preserved.
+    let destroy_ids: Vec<jmap_types::Id> = vec![];
     let _resp = sc
-        .metadata_set(None, None, None, None, Some(params))
+        .metadata_set(None, None, Some(destroy_ids), None, Some(params))
         .await
         .expect("metadata_set_params_extras_do_not_overwrite_account_id: must succeed");
 

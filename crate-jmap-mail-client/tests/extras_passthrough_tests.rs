@@ -144,7 +144,15 @@ async fn mailbox_set_routes_vendor_extras_to_wire() {
     params
         .extra
         .insert("acmeCorpCascade".into(), json!("strict"));
-    sc.mailbox_set(None, None, None, Some(params))
+    // Pass Some(empty HashMap) for update to satisfy the
+    // 'at least one of create/update/destroy must be Some' guard
+    // (bd:JMAP-tjvm.24). The test's oracle — that vendor extras reach
+    // the wire — is preserved; an empty update map serialises as
+    // "update": {} which does not change the assertion about
+    // acmeCorpCascade.
+    let update: std::collections::HashMap<jmap_types::Id, jmap_types::PatchObject> =
+        std::collections::HashMap::new();
+    sc.mailbox_set(None, Some(update), None, Some(params))
         .await
         .expect("must succeed");
 
