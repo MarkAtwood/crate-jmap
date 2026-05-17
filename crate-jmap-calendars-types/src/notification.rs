@@ -166,6 +166,24 @@ pub struct CalendarAlert {
     /// Serializes as `null` when `None` — intentionally NOT marked
     /// `skip_serializing_if` so the receiver can distinguish recurring from
     /// non-recurring events.
+    ///
+    /// **Maintainer note: do NOT add `#[serde(skip_serializing_if = "Option::is_none")]`
+    /// to this field.** Adding it would silently break the spec contract:
+    /// per draft-ietf-jmap-calendars-26 §6.4, the receiver uses the
+    /// **presence** of `recurrenceId` to determine whether the alert
+    /// fired for a recurring or non-recurring event. An omitted field
+    /// is indistinguishable from a sender that forgot to include it; an
+    /// explicit `null` carries the "non-recurring" signal. This is the
+    /// same "required-and-nullable" wire shape used by
+    /// `PrincipalCalendarsCapability.account_id` in `capability.rs:121`.
+    ///
+    /// A "clippy clean-up", "consistency PR", or pattern-based code
+    /// audit may flag this field as inconsistent with neighbours that
+    /// use `skip_serializing_if` and propose to "fix" it. That is a
+    /// silent wire-protocol break. The regression test
+    /// `calendar_alert_recurrence_id_null_for_non_recurring` (in
+    /// `tests/types_test.rs`) pins the current behavior. Design defense:
+    /// bd:JMAP-1rwf.7.
     pub recurrence_id: Option<String>,
 
     /// Id of the [`Alert`](crate::Alert) object within the CalendarEvent that is firing.
