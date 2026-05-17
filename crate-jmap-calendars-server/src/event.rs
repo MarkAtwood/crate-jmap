@@ -1,4 +1,31 @@
 //! CalendarEvent/* method handlers (draft-ietf-jmap-calendars-26 §5).
+//!
+//! # Wire-shape contract
+//!
+//! Every `handle_*` function in this module conforms to the canonical JMAP
+//! method shape. The `args: serde_json::Value` parameter MUST be a JSON
+//! Object whose fields match the corresponding RFC 8620 §5 method shape
+//! (`/get` → §5.1, `/changes` → §5.2, `/set` → §5.3, `/copy` → §5.4,
+//! `/query` → §5.5, `/queryChanges` → §5.6), with the type-specific
+//! arguments defined by draft-ietf-jmap-calendars-26 §5. The returned
+//! `Value` is the corresponding method-response object per the same
+//! section refs. `CalendarEvent/parse` (draft §5.13) is a Calendars-
+//! specific method with its own request/response shape (`accountId`,
+//! `blobIds` → `parsed` / `notParsable` / `notFound`).
+//!
+//! The returned `Vec<Invocation>` carries any back-reference invocations
+//! that this handler injected into the request stream (RFC 8620 §6.3).
+//! For most handlers in this module the vector is **always empty**.
+//! `handle_calendar_event_copy` is the one exception: it MAY emit
+//! `CalendarEvent/set` follow-up invocations when
+//! `onSuccessDestroyOriginal` is true (RFC 8620 §5.4).
+//!
+//! Each handler returns `Err(JmapError)` for method-level failures
+//! (`accountNotFound`, `invalidArguments`, `stateMismatch`, `serverFail`,
+//! `unsupportedFilter`, `unsupportedSort`, `cannotCalculateChanges` —
+//! per RFC 8620 §3.6 and §5). Per-target failures inside a `/set` or
+//! `/copy` call surface in the `notCreated` / `notUpdated` /
+//! `notDestroyed` maps within `Ok((Value, ...))`, not as `Err`.
 
 use jmap_calendars_types::CalendarEvent;
 use jmap_types::{Id, Invocation, JmapError, PatchObject, UTCDate};
@@ -17,8 +44,13 @@ use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_bac
 
 /// Handle a `CalendarEvent/get` method call (draft-ietf-jmap-calendars-26 §5.7).
 ///
-/// Implements the standard `/get` envelope (RFC 8620 §5.1) plus the §5.7
-/// extra arguments:
+/// `args` is the RFC 8620 §5.1 `/get` request shape (`accountId`, optional
+/// `ids`, optional `properties`), augmented with the draft §5.7
+/// CalendarEvent-specific arguments described below; the returned
+/// `Value` is the §5.1 `/get` response shape (`accountId`, `state`,
+/// `list`, `notFound`).
+///
+/// Draft §5.7 extra arguments:
 ///
 /// - `recurrenceOverridesBefore`: UTCDateTime|null — filter overrides by
 ///   upper recurrence-id bound (forwarded to the backend).
@@ -33,6 +65,8 @@ use jmap_server::{bool_arg, server_fail_from_backend, server_fail_value_from_bac
 ///   so a backend that doesn't override
 ///   [`get_calendar_events`](crate::CalendarsBackend::get_calendar_events)
 ///   still produces correct UTC fields for the requested time zone.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_get<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -161,6 +195,13 @@ pub async fn handle_calendar_event_get<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEvent/changes` method call (draft-ietf-jmap-calendars-26 §5.5).
+///
+/// `args` is the RFC 8620 §5.2 `/changes` request shape (`accountId`,
+/// `sinceState`, optional `maxChanges`); the returned `Value` is the
+/// §5.2 `/changes` response shape (`accountId`, `oldState`, `newState`,
+/// `hasMoreChanges`, `created`, `updated`, `destroyed`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -174,6 +215,16 @@ pub async fn handle_calendar_event_changes<B: CalendarsBackend>(
 // ---------------------------------------------------------------------------
 
 /// Handle a `CalendarEvent/set` method call (draft-ietf-jmap-calendars-26 §5.6).
+///
+/// `args` is the RFC 8620 §5.3 `/set` request shape (`accountId`, optional
+/// `ifInState`, optional `create` / `update` / `destroy` maps), augmented
+/// with the draft §5.6 CalendarEvent-specific arguments (e.g. participant
+/// scheduling controls); the returned `Value` is the §5.3 `/set` response
+/// shape (`accountId`, `oldState`, `newState`, plus the per-operation
+/// `created` / `notCreated` / `updated` / `notUpdated` / `destroyed` /
+/// `notDestroyed` maps).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_set<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -494,9 +545,19 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
 
 /// Handle a `CalendarEvent/copy` method call (draft-ietf-jmap-calendars-26 §5.7).
 ///
-/// RFC 8620 §5.4: fetches each source event from `fromAccountId`, merges
-/// client-supplied property overrides, then creates the result in `accountId`.
+/// `args` is the RFC 8620 §5.4 `/copy` request shape (`fromAccountId`,
+/// optional `ifFromInState`, `accountId`, optional `ifInState`, `create`
+/// map of creationId → object, optional `onSuccessDestroyOriginal`,
+/// optional `destroyFromIfInState`); the returned `Value` is the §5.4
+/// `/copy` response shape (`fromAccountId`, `accountId`, `oldState`,
+/// `newState`, `created` / `notCreated` maps).
+///
+/// Fetches each source event from `fromAccountId`, merges client-supplied
+/// property overrides, then creates the result in `accountId`.
 /// Supports `ifFromInState`, `ifInState`, and `onSuccessDestroyOriginal`.
+///
+/// Returns `(response_args, extra_invocations)`. Extra invocations are
+/// generated when `onSuccessDestroyOriginal: true`, per RFC 8620 §6.3.
 pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -749,8 +810,15 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 
 /// Handle a `CalendarEvent/query` method call (draft-ietf-jmap-calendars-26 §5.11).
 ///
-/// Implements the standard `/query` envelope (RFC 8620 §5.5) plus the §5.11
-/// extra arguments:
+/// `args` is the RFC 8620 §5.5 `/query` request shape (`accountId`, optional
+/// `filter`, optional `sort`, optional `position` / `anchor` /
+/// `anchorOffset`, optional `limit`, optional `calculateTotal`),
+/// augmented with the draft §5.11 extra arguments described below; the
+/// returned `Value` is the §5.5 `/query` response shape (`accountId`,
+/// `queryState`, `canCalculateChanges`, `position`, `ids`, optional
+/// `total`, optional `limit`).
+///
+/// Draft §5.11 extra arguments:
 ///
 /// - `expandRecurrences`: Boolean, default `false`. When `true`, the filter
 ///   MUST be a single FilterCondition (not a FilterOperator) carrying both
@@ -765,6 +833,8 @@ pub async fn handle_calendar_event_copy<B: CalendarsBackend>(
 ///   `maxExpandedQueryDuration` capability.
 /// - `cannotCalculateOccurrences` — when the backend cannot expand a
 ///   recurrence required to return results.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_query<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -974,6 +1044,15 @@ fn expand_duration_seconds(
 
 /// Handle a `CalendarEvent/queryChanges` method call
 /// (draft-ietf-jmap-calendars-26 §5.12).
+///
+/// `args` is the RFC 8620 §5.6 `/queryChanges` request shape (`accountId`,
+/// optional `filter`, optional `sort`, `sinceQueryState`, optional
+/// `maxChanges`, optional `upToId`, optional `calculateTotal`); the
+/// returned `Value` is the §5.6 `/queryChanges` response shape
+/// (`accountId`, `oldQueryState`, `newQueryState`, optional `total`,
+/// `removed`, `added`).
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
@@ -988,9 +1067,16 @@ pub async fn handle_calendar_event_query_changes<B: CalendarsBackend>(
 
 /// Handle a `CalendarEvent/parse` method call (draft-ietf-jmap-calendars-26 §5.13).
 ///
+/// `args` is the draft §5.13 `CalendarEvent/parse` request shape
+/// (`accountId`, `blobIds`); the returned `Value` is the §5.13 response
+/// shape (`accountId`, `parsed` map, `notParsable` Id[], `notFound`
+/// Id[]).
+///
 /// Parses raw iCalendar blobs identified by `blobIds` and returns the resulting
 /// [`CalendarEvent`] objects, or classifies each blob as `notFound` /
 /// `notParsable`.
+///
+/// Returns `(response_args, extra_invocations)`. The extra list is always empty.
 pub async fn handle_calendar_event_parse<B: CalendarsBackend>(
     backend: &B,
     caller: &B::CallerCtx,
