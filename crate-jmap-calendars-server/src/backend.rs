@@ -773,12 +773,13 @@ impl CalendarsLimits {
 /// Marked `#[non_exhaustive]` so future calendars-draft revisions (e.g. an
 /// iCalendar parse-warnings vector or a per-blob error map) can be added
 /// without a SemVer break for backends that construct the struct directly.
-/// External crates must use [`CalendarEventParseResult::new`] rather than struct-literal
-/// syntax. The object-prefix naming mirrors the `MdnParseResult` precedent in
+/// External crates must use [`CalendarEventParseResult::new`] or
+/// [`CalendarEventParseResult::default`] rather than struct-literal syntax.
+/// The object-prefix naming mirrors the `MdnParseResult` precedent in
 /// the canonical sister crate `jmap-mail-server` (see
 /// `crate-jmap-mail-server/src/mdn.rs`).
 #[non_exhaustive]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct CalendarEventParseResult {
     /// Successfully parsed: blobId → list of parsed [`CalendarEvent`](jmap_calendars_types::CalendarEvent)s.
     pub parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
@@ -789,10 +790,26 @@ pub struct CalendarEventParseResult {
 }
 
 impl CalendarEventParseResult {
-    /// Construct a `CalendarEventParseResult`.
+    /// Construct a `CalendarEventParseResult` with the three result
+    /// collections in declaration order: `parsed`, `not_found`,
+    /// `not_parsable`.
     ///
-    /// Required because the struct is `#[non_exhaustive]` — external crates
-    /// cannot use struct-literal syntax.
+    /// The struct is `#[non_exhaustive]` so external crates (production
+    /// `CalendarsBackend` impls) cannot use struct-literal syntax. This
+    /// constructor takes the three currently-defined fields positionally.
+    ///
+    /// # Field-addition policy
+    ///
+    /// Future fields added to `CalendarEventParseResult` are an
+    /// **additive non-breaking change**: the new field MUST have a
+    /// `Default` value (typical for `HashMap` / `Vec` / `Option`) and
+    /// the new field is exposed via a `with_*`-style builder setter
+    /// rather than being appended as a fourth positional argument to
+    /// this constructor. `new(parsed, not_found, not_parsable)`
+    /// therefore stays stable across the crate's pre-1.0 lifetime,
+    /// matching the `jmap_chat_server::ChatLimits`-style canonical
+    /// workspace pattern for `#[non_exhaustive]` types with builder
+    /// setters.
     pub fn new(
         parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
         not_found: Vec<jmap_types::Id>,
@@ -803,6 +820,30 @@ impl CalendarEventParseResult {
             not_found,
             not_parsable,
         }
+    }
+
+    /// Builder-style setter for [`Self::parsed`].
+    #[must_use]
+    pub fn with_parsed(
+        mut self,
+        parsed: std::collections::HashMap<jmap_types::Id, Vec<jmap_calendars_types::CalendarEvent>>,
+    ) -> Self {
+        self.parsed = parsed;
+        self
+    }
+
+    /// Builder-style setter for [`Self::not_found`].
+    #[must_use]
+    pub fn with_not_found(mut self, not_found: Vec<jmap_types::Id>) -> Self {
+        self.not_found = not_found;
+        self
+    }
+
+    /// Builder-style setter for [`Self::not_parsable`].
+    #[must_use]
+    pub fn with_not_parsable(mut self, not_parsable: Vec<jmap_types::Id>) -> Self {
+        self.not_parsable = not_parsable;
+        self
     }
 }
 
@@ -817,7 +858,7 @@ impl CalendarEventParseResult {
 /// fields without a SemVer break for backends that construct the struct
 /// directly. External backend implementors use
 /// [`SetDefaultResult::new`] (preferred) or [`SetDefaultResult::default`]
-/// followed by individual field assignments.
+/// followed by individual field assignments or `with_*` builder setters.
 #[non_exhaustive]
 #[derive(Debug, Clone, Default)]
 pub struct SetDefaultResult {
@@ -833,12 +874,27 @@ pub struct SetDefaultResult {
 }
 
 impl SetDefaultResult {
-    /// Construct a `SetDefaultResult` (bd:JMAP-ic0j.60).
+    /// Construct a `SetDefaultResult` (bd:JMAP-ic0j.60) with the two
+    /// `Option<Id>` fields in declaration order: `new_default`,
+    /// `previous_default`.
     ///
-    /// Required because the struct is `#[non_exhaustive]` — external
-    /// crates cannot use struct-literal syntax. Mirrors the sibling
-    /// [`CalendarEventParseResult::new`] constructor in the same
-    /// file (which carries the same `#[non_exhaustive]` constraint).
+    /// The struct is `#[non_exhaustive]` so external crates (production
+    /// `CalendarsBackend` impls) cannot use struct-literal syntax.
+    /// This constructor takes the two currently-defined fields
+    /// positionally. Mirrors the sibling
+    /// [`CalendarEventParseResult::new`] constructor in the same file
+    /// (which carries the same `#[non_exhaustive]` constraint).
+    ///
+    /// # Field-addition policy
+    ///
+    /// Future fields added to `SetDefaultResult` are an **additive
+    /// non-breaking change**: the new field MUST have a `Default` value
+    /// and the new field is exposed via a `with_*`-style builder setter
+    /// rather than being appended as a third positional argument to
+    /// this constructor. `new(new_default, previous_default)` therefore
+    /// stays stable across the crate's pre-1.0 lifetime, matching the
+    /// `jmap_chat_server::ChatLimits`-style canonical workspace
+    /// pattern for `#[non_exhaustive]` types with builder setters.
     pub fn new(
         new_default: Option<jmap_types::Id>,
         previous_default: Option<jmap_types::Id>,
@@ -847,6 +903,20 @@ impl SetDefaultResult {
             new_default,
             previous_default,
         }
+    }
+
+    /// Builder-style setter for [`Self::new_default`].
+    #[must_use]
+    pub fn with_new_default(mut self, new_default: Option<jmap_types::Id>) -> Self {
+        self.new_default = new_default;
+        self
+    }
+
+    /// Builder-style setter for [`Self::previous_default`].
+    #[must_use]
+    pub fn with_previous_default(mut self, previous_default: Option<jmap_types::Id>) -> Self {
+        self.previous_default = previous_default;
+        self
     }
 }
 
@@ -1041,5 +1111,66 @@ mod tests {
     fn calendars_limits_derives_compile() {
         fn assert_traits<T: std::fmt::Debug + Clone + Copy + PartialEq + Eq>() {}
         assert_traits::<CalendarsLimits>();
+    }
+
+    #[test]
+    fn calendar_event_parse_result_default_is_empty() {
+        let r = CalendarEventParseResult::default();
+        assert!(r.parsed.is_empty());
+        assert!(r.not_found.is_empty());
+        assert!(r.not_parsable.is_empty());
+    }
+
+    #[test]
+    fn calendar_event_parse_result_new_populates_all_three() {
+        let mut parsed = std::collections::HashMap::new();
+        parsed.insert(jmap_types::Id::from("blob-1"), vec![]);
+        let not_found = vec![jmap_types::Id::from("blob-2")];
+        let not_parsable = vec![jmap_types::Id::from("blob-3")];
+        let r = CalendarEventParseResult::new(parsed, not_found, not_parsable);
+        assert_eq!(r.parsed.len(), 1);
+        assert!(r.parsed.contains_key(&jmap_types::Id::from("blob-1")));
+        assert_eq!(r.not_found.len(), 1);
+        assert_eq!(r.not_parsable.len(), 1);
+    }
+
+    #[test]
+    fn calendar_event_parse_result_with_setters_replace_fields() {
+        let mut parsed = std::collections::HashMap::new();
+        parsed.insert(jmap_types::Id::from("blob-a"), vec![]);
+        let r = CalendarEventParseResult::default()
+            .with_parsed(parsed)
+            .with_not_found(vec![jmap_types::Id::from("blob-b")])
+            .with_not_parsable(vec![jmap_types::Id::from("blob-c")]);
+        assert_eq!(r.parsed.len(), 1);
+        assert!(r.parsed.contains_key(&jmap_types::Id::from("blob-a")));
+        assert_eq!(r.not_found, vec![jmap_types::Id::from("blob-b")]);
+        assert_eq!(r.not_parsable, vec![jmap_types::Id::from("blob-c")]);
+    }
+
+    #[test]
+    fn set_default_result_default_is_none() {
+        let r = SetDefaultResult::default();
+        assert!(r.new_default.is_none());
+        assert!(r.previous_default.is_none());
+    }
+
+    #[test]
+    fn set_default_result_new_populates_both_options() {
+        let r = SetDefaultResult::new(
+            Some(jmap_types::Id::from("cal-1")),
+            Some(jmap_types::Id::from("cal-0")),
+        );
+        assert_eq!(r.new_default, Some(jmap_types::Id::from("cal-1")));
+        assert_eq!(r.previous_default, Some(jmap_types::Id::from("cal-0")));
+    }
+
+    #[test]
+    fn set_default_result_with_setters_replace_fields() {
+        let r = SetDefaultResult::default()
+            .with_new_default(Some(jmap_types::Id::from("cal-2")))
+            .with_previous_default(Some(jmap_types::Id::from("cal-1")));
+        assert_eq!(r.new_default, Some(jmap_types::Id::from("cal-2")));
+        assert_eq!(r.previous_default, Some(jmap_types::Id::from("cal-1")));
     }
 }
