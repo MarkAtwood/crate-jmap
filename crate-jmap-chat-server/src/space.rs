@@ -21,6 +21,70 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 // Space/set structural-mutation parsing
 // ---------------------------------------------------------------------------
 
+/// The 12 structural mutation keys on a Space patch
+/// (draft-atwood-jmap-chat-00 §Space/set). Each variant maps one-to-one
+/// to a family of [`SpacePatchOp`] values.
+///
+/// Used to type-dispatch wire-key classification and per-key parsing
+/// without stringly-typed matches in the hot path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StructuralKey {
+    AddRoles,
+    UpdateRoles,
+    RemoveRoles,
+    AddMembers,
+    UpdateMembers,
+    RemoveMembers,
+    AddChannels,
+    UpdateChannels,
+    RemoveChannels,
+    AddCategories,
+    UpdateCategories,
+    RemoveCategories,
+}
+
+impl StructuralKey {
+    /// Parse a wire-format key string into a [`StructuralKey`]. Returns
+    /// `None` if the key is not one of the 12 structural keys (callers
+    /// then classify it as metadata or unknown).
+    fn from_wire(key: &str) -> Option<Self> {
+        Some(match key {
+            "addRoles" => Self::AddRoles,
+            "updateRoles" => Self::UpdateRoles,
+            "removeRoles" => Self::RemoveRoles,
+            "addMembers" => Self::AddMembers,
+            "updateMembers" => Self::UpdateMembers,
+            "removeMembers" => Self::RemoveMembers,
+            "addChannels" => Self::AddChannels,
+            "updateChannels" => Self::UpdateChannels,
+            "removeChannels" => Self::RemoveChannels,
+            "addCategories" => Self::AddCategories,
+            "updateCategories" => Self::UpdateCategories,
+            "removeCategories" => Self::RemoveCategories,
+            _ => return None,
+        })
+    }
+
+    /// The canonical wire-format spelling of this key, for use in error
+    /// messages and `invalidProperties.properties` payloads.
+    fn wire_name(self) -> &'static str {
+        match self {
+            Self::AddRoles => "addRoles",
+            Self::UpdateRoles => "updateRoles",
+            Self::RemoveRoles => "removeRoles",
+            Self::AddMembers => "addMembers",
+            Self::UpdateMembers => "updateMembers",
+            Self::RemoveMembers => "removeMembers",
+            Self::AddChannels => "addChannels",
+            Self::UpdateChannels => "updateChannels",
+            Self::RemoveChannels => "removeChannels",
+            Self::AddCategories => "addCategories",
+            Self::UpdateCategories => "updateCategories",
+            Self::RemoveCategories => "removeCategories",
+        }
+    }
+}
+
 /// Parse one structural wire key's payload
 /// (draft-atwood-jmap-chat-00 §Space/set) into a `Vec<SpacePatchOp>`.
 ///
@@ -32,10 +96,8 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 /// returned error is fatal for the containing update target — the handler
 /// inserts the failing wire key into `notUpdated[id].properties` and skips
 /// any remaining keys.
-fn parse_structural_entries(
-    canonical: &'static str,
-    value: Value,
-) -> Result<Vec<SpacePatchOp>, String> {
+fn parse_structural_entries(key: StructuralKey, value: Value) -> Result<Vec<SpacePatchOp>, String> {
+    let canonical = key.wire_name();
     let arr = match value {
         Value::Array(a) => a,
         other => {
@@ -48,41 +110,48 @@ fn parse_structural_entries(
 
     let mut out = Vec::with_capacity(arr.len());
     for (idx, entry) in arr.into_iter().enumerate() {
-        let op = match canonical {
-            "addRoles" => SpacePatchOp::AddRole(parse_entry::<SpaceRole>(canonical, idx, entry)?),
-            "removeRoles" => SpacePatchOp::RemoveRole(parse_id_entry(canonical, idx, entry)?),
-            "updateRoles" => {
+        let op = match key {
+            StructuralKey::AddRoles => {
+                SpacePatchOp::AddRole(parse_entry::<SpaceRole>(canonical, idx, entry)?)
+            }
+            StructuralKey::RemoveRoles => {
+                SpacePatchOp::RemoveRole(parse_id_entry(canonical, idx, entry)?)
+            }
+            StructuralKey::UpdateRoles => {
                 let (id, patch) = parse_update_entry::<RolePatch>(canonical, idx, entry)?;
                 SpacePatchOp::UpdateRole { id, patch }
             }
-            "addMembers" => {
+            StructuralKey::AddMembers => {
                 let (user_id, role_ids) = parse_add_member_entry(canonical, idx, entry)?;
                 SpacePatchOp::AddMember(jmap_chat_types::MemberCreate::new(user_id, role_ids))
             }
-            "removeMembers" => SpacePatchOp::RemoveMember(parse_id_entry(canonical, idx, entry)?),
-            "updateMembers" => {
+            StructuralKey::RemoveMembers => {
+                SpacePatchOp::RemoveMember(parse_id_entry(canonical, idx, entry)?)
+            }
+            StructuralKey::UpdateMembers => {
                 let (id, patch) = parse_update_entry::<MemberPatch>(canonical, idx, entry)?;
                 SpacePatchOp::UpdateMember { user_id: id, patch }
             }
-            "addChannels" => {
+            StructuralKey::AddChannels => {
                 SpacePatchOp::AddChannel(parse_entry::<ChannelCreate>(canonical, idx, entry)?)
             }
-            "removeChannels" => SpacePatchOp::RemoveChannel(parse_id_entry(canonical, idx, entry)?),
-            "updateChannels" => {
+            StructuralKey::RemoveChannels => {
+                SpacePatchOp::RemoveChannel(parse_id_entry(canonical, idx, entry)?)
+            }
+            StructuralKey::UpdateChannels => {
                 let (id, patch) = parse_update_entry::<ChannelPatch>(canonical, idx, entry)?;
                 SpacePatchOp::UpdateChannel { id, patch }
             }
-            "addCategories" => {
+            StructuralKey::AddCategories => {
                 SpacePatchOp::AddCategory(parse_entry::<Category>(canonical, idx, entry)?)
             }
-            "removeCategories" => {
+            StructuralKey::RemoveCategories => {
                 SpacePatchOp::RemoveCategory(parse_id_entry(canonical, idx, entry)?)
             }
-            "updateCategories" => {
+            StructuralKey::UpdateCategories => {
                 let (id, patch) = parse_update_entry::<CategoryPatch>(canonical, idx, entry)?;
                 SpacePatchOp::UpdateCategory { id, patch }
             }
-            _ => return Err(format!("internal: unhandled structural key {canonical}")),
         };
         out.push(op);
     }
@@ -939,47 +1008,27 @@ pub async fn handle_space_set<B: ChatBackend>(
                 "isPubliclyPreviewable",
             ];
 
-            // Structural mutation keys (draft-atwood-jmap-chat-00 §Space/set).
-            // Each maps to one family of `SpacePatchOp` variants. The order
-            // here defines the wire-level apply order when multiple keys are
-            // present in a single patch: roles before members (because
-            // member-add may reference newly-created roles), channels before
-            // categories (because category-update may reference channel
-            // ids), and add before update before remove within each family.
-            // Per draft §Space/set, the ordering is implementation-defined;
-            // the reference handler picks the order that minimizes
-            // cross-key dangling-reference errors.
-            const STRUCTURAL_KEYS: &[&str] = &[
-                "addRoles",
-                "updateRoles",
-                "removeRoles",
-                "addMembers",
-                "updateMembers",
-                "removeMembers",
-                "addChannels",
-                "updateChannels",
-                "removeChannels",
-                "addCategories",
-                "updateCategories",
-                "removeCategories",
-            ];
-
             // Walk every key on the patch object and bucket it as:
-            //   - structural (parsed into SpacePatchOp values),
+            //   - structural (parsed into SpacePatchOp values via the
+            //     StructuralKey enum, defined at module top),
             //   - metadata (forwarded to update_object),
             //   - unknown (rejected as invalidProperties).
             // Any parse error on a structural entry is fatal for this target.
+            //
+            // Note: per draft §Space/set the wire-level apply order across
+            // keys is implementation-defined. The backend's apply_space_patch
+            // (not this loop) is canonical for ordering semantics.
             let mut ops: Vec<SpacePatchOp> = Vec::new();
             let mut clean_patch = serde_json::Map::new();
             let mut unknown_keys: Vec<String> = Vec::new();
             let mut bad_structural_key: Option<(&'static str, String)> = None;
 
             for (key, value) in std::mem::take(&mut patch_map) {
-                if let Some(&canonical) = STRUCTURAL_KEYS.iter().find(|&&k| k == key) {
-                    match parse_structural_entries(canonical, value) {
+                if let Some(structural) = StructuralKey::from_wire(&key) {
+                    match parse_structural_entries(structural, value) {
                         Ok(parsed) => ops.extend(parsed),
                         Err(reason) => {
-                            bad_structural_key = Some((canonical, reason));
+                            bad_structural_key = Some((structural.wire_name(), reason));
                             break;
                         }
                     }
