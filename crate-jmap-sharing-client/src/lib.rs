@@ -37,6 +37,26 @@ pub trait JmapSharingExt {
     /// Create a [`SessionClient`] bound to this client and session.
     ///
     /// All JMAP Sharing method calls are made through the returned [`SessionClient`].
+    ///
+    /// # Deferred session-capability validation
+    ///
+    /// This constructor accepts ANY [`jmap_base_client::Session`],
+    /// including one whose advertised capabilities do not include
+    /// `urn:ietf:params:jmap:principals` or whose `primaryAccounts`
+    /// map has no entry for the principals capability. The
+    /// constructor performs no up-front validation and never fails —
+    /// its return type is the infallible
+    /// [`methods::SessionClient`], not a `Result`.
+    ///
+    /// Capability and primary-account validation is deferred to every
+    /// individual method call on the returned [`SessionClient`]. If
+    /// the session is unsuitable, those per-method calls return
+    /// [`ClientError::InvalidSession`] with a description like
+    /// `"no primary account for urn:ietf:params:jmap:principals"`.
+    ///
+    /// Callers that want to guard at the binding site can pre-check
+    /// the session before calling this method via
+    /// [`session.primary_account_id("urn:ietf:params:jmap:principals")`](jmap_base_client::Session::primary_account_id).
     fn with_sharing_session(&self, session: jmap_base_client::Session) -> methods::SessionClient;
 }
 
