@@ -109,6 +109,51 @@ impl_string_enum!(QuotaScope, "a QuotaScope wire string",
 );
 
 // ---------------------------------------------------------------------------
+// QuotaResourceType
+// ---------------------------------------------------------------------------
+
+/// RFC 9425 §3.2 ResourceType — the unit of measure for a quota.
+///
+/// Wire strings: `"count"`, `"octets"`.
+/// `Other(String)` preserves any unrecognized value for lossless round-trip.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum QuotaResourceType {
+    /// Quota measured in number of data-type objects.
+    Count,
+    /// Quota measured in size (octets / bytes).
+    Octets,
+    /// Catch-all for any unrecognized wire value from a future spec version.
+    /// The original wire value is preserved for lossless round-trip.
+    ///
+    /// **Forging caveat**: see [`QuotaScope::Other`] for the full
+    /// discussion. Constructing
+    /// `QuotaResourceType::Other("count".into())` produces a value
+    /// that is unequal to `QuotaResourceType::Count` on `PartialEq`
+    /// but serialises to the same wire string and round-trips back
+    /// to `QuotaResourceType::Count`. Reserve `Other(s)` for
+    /// genuinely unrecognised wire strings; compare wire equality
+    /// via `as_str()`, not `PartialEq`.
+    Other(String),
+}
+
+impl QuotaResourceType {
+    /// The canonical wire string for this resource type.
+    pub fn as_str(&self) -> &str {
+        match self {
+            Self::Count => "count",
+            Self::Octets => "octets",
+            Self::Other(s) => s.as_str(),
+        }
+    }
+}
+
+impl_string_enum!(QuotaResourceType, "a QuotaResourceType wire string",
+    "count"  => Count,
+    "octets" => Octets,
+);
+
+// ---------------------------------------------------------------------------
 // ChatMemberRole
 // ---------------------------------------------------------------------------
 

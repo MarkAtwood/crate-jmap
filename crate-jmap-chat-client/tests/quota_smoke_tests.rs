@@ -101,7 +101,14 @@ async fn quota_get_decodes_populated_quota() {
         "scope 'account' must deserialise to QuotaScope::Account, got {:?}",
         q.scope
     );
-    assert_eq!(q.resource_type, "octets", "resource_type mismatch");
+    assert!(
+        matches!(
+            q.resource_type,
+            jmap_chat_client::types::QuotaResourceType::Octets
+        ),
+        "resource_type 'octets' must deserialise to QuotaResourceType::Octets, got {:?}",
+        q.resource_type
+    );
     assert_eq!(q.types, vec!["Message", "Chat"], "types mismatch");
     assert_eq!(q.used, 1024, "used mismatch");
     assert_eq!(q.hard_limit, 1048576, "hard_limit mismatch");
@@ -154,6 +161,50 @@ async fn quota_scope_other_round_trips_unknown_wire_string() {
             );
         }
         other => panic!("expected QuotaScope::Other, got {other:?}"),
+    }
+}
+
+/// `Quota.resourceType = "count"` MUST deserialise to
+/// `QuotaResourceType::Count` and an unknown wire string MUST
+/// deserialise to `QuotaResourceType::Other(s)` preserving the literal
+/// for round-trip. Independent oracle: the chosen unknown string
+/// `vendorUnit-decibels` is not in the RFC 9425 §3.2 set
+/// `{count, octets}`.
+#[tokio::test]
+async fn quota_resource_type_other_round_trips_unknown_wire_string() {
+    let server = MockServer::start().await;
+    let resp_body = jmap_response(
+        "Quota/get",
+        json!({
+            "accountId": TEST_ACCOUNT_ID,
+            "state": "q-state-4",
+            "list": [
+                {
+                    "id": "Q3",
+                    "name": "Vendor quota",
+                    "scope": "account",
+                    "resourceType": "vendorUnit-decibels",
+                    "types": ["Email"],
+                    "used": 0,
+                    "hardLimit": 1000
+                }
+            ],
+            "notFound": []
+        }),
+    );
+    mock_jmap_post(&server, resp_body).await;
+
+    let sc = helpers::make_client(&server);
+    let resp = sc.quota_get().await.expect("quota_get: must succeed");
+    let q = &resp.list[0];
+    match &q.resource_type {
+        jmap_chat_client::types::QuotaResourceType::Other(s) => {
+            assert_eq!(
+                s, "vendorUnit-decibels",
+                "Other(_) must preserve the unknown wire string verbatim"
+            );
+        }
+        other => panic!("expected QuotaResourceType::Other, got {other:?}"),
     }
 }
 
