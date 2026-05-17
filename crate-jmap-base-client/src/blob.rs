@@ -6,6 +6,7 @@ use jmap_types::Id;
 use reqwest::header::{HeaderValue, CONTENT_TYPE};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
+use subtle::ConstantTimeEq;
 
 use crate::client::{read_capped_body, JmapClient};
 use crate::error::ClientError;
@@ -287,7 +288,10 @@ impl JmapClient {
             // Uppercase-hex from a non-conformant server is rejected
             // at deserialize per draft-atwood-jmap-cid-00 §2 ABNF and
             // surfaces as ClientError::Parse before this branch runs.
-            if local_sha256 != server_sha256.as_str() {
+            //
+            // Constant-time compare via `hex_digest_eq` (bd:JMAP-6r7c.61):
+            // both sides are canonical 64-char lowercase hex by construction.
+            if !hex_digest_eq(&local_sha256, server_sha256.as_str()) {
                 return Err(ClientError::BlobIntegrityMismatch {
                     expected: local_sha256,
                     actual: server_sha256.as_str().to_owned(),
@@ -359,7 +363,11 @@ impl JmapClient {
             // Normalize expected to lowercase; callers may hold uppercase hex from
             // a server or external source. Both represent the same digest.
             let expected_lower = expected.to_ascii_lowercase();
-            if actual != expected_lower {
+            // Constant-time compare via `hex_digest_eq` (bd:JMAP-6r7c.61):
+            // `actual` is canonical lowercase from `compute_sha256_hex`;
+            // `expected_lower` was validated as 64-char hex by
+            // `is_valid_sha256_hex` above and lowercased here.
+            if !hex_digest_eq(&actual, &expected_lower) {
                 return Err(ClientError::BlobIntegrityMismatch {
                     expected: expected_lower,
                     actual,
@@ -389,6 +397,33 @@ fn compute_sha256_hex(data: &[u8]) -> String {
         s.push(hex_nibble_lower(*b & 0x0f));
     }
     s
+}
+
+/// Constant-time equality for two 64-character lowercase SHA-256 hex digests
+/// (bd:JMAP-6r7c.61).
+///
+/// Both upload-side and download-side integrity checks compare hex digests
+/// that have been independently normalized to canonical 64-char lowercase
+/// form before reaching this helper: `compute_sha256_hex` always emits 64
+/// lowercase nibbles, `jmap_cid_types::Sha256` enforces the ABNF at
+/// deserialize, and the download path applies `to_ascii_lowercase` plus
+/// `is_valid_sha256_hex` (length-64) before calling in. Length-discrimination
+/// is therefore not an information leak at these call sites.
+///
+/// Using `subtle::ConstantTimeEq::ct_eq` over `==` is discipline-propagation,
+/// not a defense against a concrete JMAP threat: SHA-256 of blob bytes is
+/// not a secret (the attacker can fetch the same blob), so a timing oracle
+/// on the digest comparison reveals nothing exploitable in the upload-side
+/// case. The download-side `expected_sha256` argument is caller-supplied
+/// and *could* in principle come from a private channel (signed manifest,
+/// end-to-end attestation); the constant-time compare closes that residual
+/// channel for callers who want it.
+///
+/// Matches the workspace's RustCrypto-first stance and the precedent set by
+/// `crate-jmap-chat-server` (invite-code lookup) and `crate-jmap-testjig`
+/// (bearer-token check).
+fn hex_digest_eq(a: &str, b: &str) -> bool {
+    a.as_bytes().ct_eq(b.as_bytes()).into()
 }
 
 #[cfg(test)]
@@ -659,5 +694,41 @@ mod tests {
             msg.contains("non-lowercase-hex") || msg.contains("at") || msg.contains("hex"),
             "error must explain the hex constraint: {msg}"
         );
+    }
+
+    // bd:JMAP-6r7c.61 — behavioral round-trip for the constant-time hex
+    // digest comparison helper. We cannot assert side-channel resistance
+    // from a unit test (only the compiler/CPU pipeline can); these tests
+    // assert the semantic equality contract still holds after swapping
+    // `String ==` for `subtle::ConstantTimeEq::ct_eq`. Oracle: NIST
+    // FIPS 180-4 Appendix A example 1 (SHA-256 of "abc") and the
+    // widely-published SHA-256 of the empty string (RFC 6234
+    // implementations, NIST CAVS test vectors) — both hand-typed from
+    // external sources, not computed by this crate.
+    #[test]
+    fn hex_digest_eq_matches_identical_canonical_digests() {
+        // NIST FIPS 180-4 Appendix A example 1: SHA-256("abc").
+        let abc_sha256_nist = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        assert!(hex_digest_eq(abc_sha256_nist, abc_sha256_nist));
+    }
+
+    #[test]
+    fn hex_digest_eq_rejects_one_byte_mismatch() {
+        let abc_sha256_nist = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        // Flip the final nibble (d -> c). Distance: 1 hex char, well
+        // inside what a byte-by-byte == would have caught.
+        let one_byte_off = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ac";
+        assert!(!hex_digest_eq(abc_sha256_nist, one_byte_off));
+    }
+
+    #[test]
+    fn hex_digest_eq_rejects_complete_mismatch() {
+        // NIST FIPS 180-4 Appendix A example 1: SHA-256("abc").
+        let abc_sha256_nist = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        // SHA-256 of the empty string (widely-published canonical value;
+        // RFC 6234, NIST CAVS, etc.).
+        let empty_sha256_canonical =
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        assert!(!hex_digest_eq(abc_sha256_nist, empty_sha256_canonical));
     }
 }
