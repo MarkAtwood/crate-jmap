@@ -33,6 +33,37 @@ struct SseStreamState<S> {
 /// This type is `#[non_exhaustive]`: callers outside this crate must use
 /// `..ClientConfig::default()` when constructing it, allowing new fields to
 /// be added in minor versions without breaking callers.
+///
+/// # Field-type rationale (bd:JMAP-6r7c.21)
+///
+/// The fields mix `u64` and `usize` integer types. The split is deliberate
+/// and tracks the underlying transport's expectations:
+///
+/// - **HTTP body caps are `u64`** (`max_session_body`, `max_call_body`,
+///   `max_download_body`, `max_upload_response_body`). `reqwest` reports
+///   `Content-Length` as `u64`, and an HTTP body can in principle exceed
+///   `usize::MAX` on a 32-bit target (4 GiB) without exceeding 64-bit
+///   limits; the cap comparison happens before accumulation.
+/// - **In-memory frame/message caps are `usize`** (`max_sse_frame`,
+///   `max_ws_message`). These bound a `Vec<u8>` or `String` that must
+///   fit in process memory; `usize` is the address-space-native type
+///   and matches what `tokio_tungstenite::tungstenite::protocol::WebSocketConfig`
+///   expects.
+///
+/// A future minor release MAY consolidate on `u64` with internal
+/// `usize::try_from` casts at the call sites that need it. The mixed-int
+/// API is a small ergonomic cost (callers cannot pass the same untyped
+/// integer literal to both kinds of field without a `_u64` or `_usize`
+/// suffix or `as usize` cast) traded for transparency to the underlying
+/// transport's contract.
+///
+/// # No cross-field invariants are enforced
+///
+/// `validate()` checks each field independently. There is intentionally
+/// no constraint that `max_sse_frame <= max_call_body` or similar — they
+/// govern different threats (per-frame buffer cap vs whole-body cap)
+/// and a deployment may rationally configure them in either order.
+/// Document the chosen values in your own deployment notes.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ClientConfig {
