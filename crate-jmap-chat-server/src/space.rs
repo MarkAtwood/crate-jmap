@@ -168,6 +168,34 @@ fn parse_entry<T: serde::de::DeserializeOwned>(
         .map_err(|e| format!("{canonical}[{idx}]: failed to parse entry: {e}"))
 }
 
+/// Remove duplicate member entries whose `id` matches `caller_identity`,
+/// keeping the first such entry. Other members are passed through unchanged.
+///
+/// Used by [`handle_space_join`]'s TOCTOU recovery when two concurrent
+/// joins from the same caller both wrote member entries. Per RFC 8620
+/// §1.6's forward-compat posture, the join is idempotent: repeated writes
+/// that converge on the same state are not failures. After dedup the
+/// caller appears exactly once in the members list, which is the join's
+/// contract.
+fn dedup_caller_members(members: Vec<Value>, caller_identity: &str) -> Vec<Value> {
+    let mut seen_ours = false;
+    members
+        .into_iter()
+        .filter(|m| {
+            if m.get("id").and_then(|v| v.as_str()) == Some(caller_identity) {
+                if seen_ours {
+                    false
+                } else {
+                    seen_ours = true;
+                    true
+                }
+            } else {
+                true
+            }
+        })
+        .collect()
+}
+
 /// Parse one Remove* entry — a bare string id.
 fn parse_id_entry(canonical: &'static str, idx: usize, entry: Value) -> Result<Id, String> {
     match entry {
@@ -1536,38 +1564,41 @@ pub async fn handle_space_join<B: ChatBackend>(
         .filter(|m| m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref()))
         .count();
     if duplicate_count > 1 {
-        // We lost the race — undo our write by removing the specific entry we added.
-        // Match by both id AND joinedAt so we remove our entry, not the winner's.
-        let deduped: Vec<Value> = {
-            let mut removed_ours = false;
-            post_members
-                .into_iter()
-                .filter(|m| {
-                    if !removed_ours
-                        && m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref())
-                        && m.get("joinedAt").and_then(|v| v.as_str()) == Some(now_str.as_ref())
-                    {
-                        removed_ours = true;
-                        false
-                    } else {
-                        true
-                    }
-                })
-                .collect()
-        };
+        // Same-caller TOCTOU: two concurrent Space/join requests from this
+        // caller both passed the pre-check (line 1474-1481) and both wrote a
+        // member entry. The filter keys on caller_identity, so duplicate_count
+        // > 1 strictly implies same-caller — different-account races can
+        // never hit this branch.
+        //
+        // Both winning and losing writes inserted bit-identical entries
+        // (same id, same roleIds, possibly-millisecond-coincident joinedAt).
+        // The previous recovery filter matched on (id, joinedAt) and dropped
+        // serverFail in the caller's face — but if the joinedAt strings
+        // collided at millisecond resolution, the filter could match either
+        // entry, and either way the user IS a member after dedup. The
+        // serverFail return forced the caller into a confusing retry path
+        // where the pre-check then rejected as already-a-member.
+        //
+        // Idempotent join: dedup the extras down to a single entry and
+        // succeed. Per RFC 8620 §1.6's forward-compat posture, repeated
+        // identical writes that converge on the same state are not failures.
+        // The unique-key constraint at the storage layer remains the
+        // authoritative guard (see write comment at line 1488); this code
+        // is best-effort self-healing.
+        let deduped = dedup_caller_members(post_members, caller_identity.as_ref());
         let mut deduped_patch = serde_json::Map::new();
         deduped_patch.insert("members".to_owned(), json!(deduped));
-        let _ = backend
+        backend
             .update_object::<Space>(
                 caller,
                 &account_id,
                 &space_id,
                 PatchObject::from_map(deduped_patch),
             )
-            .await;
-        return Err(JmapError::server_fail(
-            "concurrent join detected; please retry",
-        ));
+            .await
+            .map_err(|e: jmap_server::BackendSetError<_>| server_fail_from_backend(&e))?;
+        // Fall through to the invite-uses increment and success return —
+        // the caller is a member of the Space, which is the join's contract.
     }
 
     // Apply the invite uses increment only on the success path (after TOCTOU check passes).
@@ -1593,4 +1624,96 @@ pub async fn handle_space_join<B: ChatBackend>(
         json!({ "accountId": account_id.as_ref(), "spaceId": space_id.as_ref() }),
         vec![],
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // Oracles in this module are hand-built per workspace test-integrity
+    // policy: the assertion uses a wire shape independent of the dedup
+    // helper under test. Each case asserts both the resulting Vec length
+    // and the resulting member ids in order, matching a JMAP wire view
+    // a real backend would produce.
+
+    /// A single-entry list with the caller's id is untouched.
+    #[test]
+    fn dedup_caller_members_keeps_single_entry() {
+        let input = vec![json!({"id": "a1", "joinedAt": "2026-01-01T00:00:00.000Z"})];
+        let out = dedup_caller_members(input, "a1");
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0]["id"], "a1");
+    }
+
+    /// Two entries with the caller's id collapse to one; the first is kept.
+    /// This is the bug fix surface for bd:JMAP-x2gd.11.
+    #[test]
+    fn dedup_caller_members_collapses_duplicates() {
+        let input = vec![
+            json!({"id": "a1", "joinedAt": "2026-01-01T00:00:00.000Z"}),
+            json!({"id": "a1", "joinedAt": "2026-01-01T00:00:00.001Z"}),
+        ];
+        let out = dedup_caller_members(input, "a1");
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0]["id"], "a1");
+        // First entry wins; the second's joinedAt is dropped.
+        assert_eq!(out[0]["joinedAt"], "2026-01-01T00:00:00.000Z");
+    }
+
+    /// Three duplicates collapse to one — the kit's recovery is unbounded
+    /// in the count of duplicates a backend may report.
+    #[test]
+    fn dedup_caller_members_collapses_three_duplicates() {
+        let input = vec![
+            json!({"id": "a1"}),
+            json!({"id": "a1"}),
+            json!({"id": "a1"}),
+        ];
+        let out = dedup_caller_members(input, "a1");
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0]["id"], "a1");
+    }
+
+    /// Other members are preserved verbatim, in order. Only the caller's
+    /// duplicates are deduplicated; bystander members are untouched.
+    #[test]
+    fn dedup_caller_members_preserves_other_members() {
+        let input = vec![
+            json!({"id": "u2"}),
+            json!({"id": "a1"}),
+            json!({"id": "u3"}),
+            json!({"id": "a1"}),
+            json!({"id": "u4"}),
+        ];
+        let out = dedup_caller_members(input, "a1");
+        assert_eq!(out.len(), 4);
+        let ids: Vec<&str> = out
+            .iter()
+            .filter_map(|m| m.get("id").and_then(|v| v.as_str()))
+            .collect();
+        assert_eq!(ids, vec!["u2", "a1", "u3", "u4"]);
+    }
+
+    /// An empty members list is returned unchanged.
+    #[test]
+    fn dedup_caller_members_empty() {
+        let out = dedup_caller_members(vec![], "a1");
+        assert!(out.is_empty());
+    }
+
+    /// Members whose id field is missing or non-string don't match — they
+    /// pass through to the result. This protects against malformed data
+    /// in storage (which the kit should not produce but a misbehaving
+    /// backend might).
+    #[test]
+    fn dedup_caller_members_skips_malformed_entries() {
+        let input = vec![
+            json!({"joinedAt": "2026-01-01T00:00:00.000Z"}), // no id field
+            json!({"id": 42}),                               // non-string id
+            json!({"id": "a1"}),
+        ];
+        let out = dedup_caller_members(input, "a1");
+        assert_eq!(out.len(), 3);
+    }
 }
