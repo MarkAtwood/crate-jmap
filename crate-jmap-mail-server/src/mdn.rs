@@ -358,8 +358,9 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
             Some(patches) => {
                 for creation_id in req.send.keys() {
                     let key = format!("#{creation_id}");
-                    // `patches` is `HashMap<Id, PatchObject>`; `Id: Borrow<str>`
-                    // lets us look up by `&str` without allocating an `Id`.
+                    // `patches` is `HashMap<String, PatchObject>`. `String:
+                    // Borrow<str>` lets us look up by `&str` without
+                    // allocating a `String`.
                     match patches.get(key.as_str()) {
                         None => {
                             return Err(JmapError::invalid_arguments(
@@ -537,8 +538,10 @@ pub async fn handle_mdn_send<B: MailBackend + MdnBackend>(
 
             for (creation_id_str, sent_mdn) in &sent_mdns {
                 let patch_key = format!("#{creation_id_str}");
-                // `patches` is `HashMap<Id, PatchObject>`; `Id: Borrow<str>`
-                // lets us look up by `&str` without allocating an `Id`.
+                // `patches` is `HashMap<String, PatchObject>` — keys can be
+                // `#creationId` references per RFC 8620 §5.7; `Id`'s alphabet
+                // contract forbids `#`. `String: Borrow<str>` (built-in) lets
+                // us look up by `&str` without allocating a `String`.
                 let patch_obj = match patches.get(patch_key.as_str()) {
                     Some(p) => p.clone(),
                     None => continue,
