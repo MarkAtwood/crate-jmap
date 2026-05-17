@@ -131,27 +131,23 @@ pub async fn handle_ban_set<B: ChatBackend>(
     // -----------------------------------------------------------------------
     if let Some(create_map) = args.get("create").and_then(|v| v.as_object()) {
         for (create_id, obj_val) in create_map {
-            let space_id = match obj_val.get("spaceId").and_then(|v| v.as_str()) {
-                Some(s) => Id::from(s),
-                None => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["spaceId"] }),
-                    );
-                    continue;
-                }
+            let Some(space_id_str) = obj_val.get("spaceId").and_then(|v| v.as_str()) else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["spaceId"] }),
+                );
+                continue;
             };
+            let space_id = Id::from(space_id_str);
 
-            let user_id = match obj_val.get("userId").and_then(|v| v.as_str()) {
-                Some(s) => Id::from(s),
-                None => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["userId"] }),
-                    );
-                    continue;
-                }
+            let Some(user_id_str) = obj_val.get("userId").and_then(|v| v.as_str()) else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["userId"] }),
+                );
+                continue;
             };
+            let user_id = Id::from(user_id_str);
 
             // bannedBy is always the acting caller's resolved identity
             // (foundation seam) — never from the client body. See
@@ -183,16 +179,14 @@ pub async fn handle_ban_set<B: ChatBackend>(
             // shape via UTCDate::new_validated; a malformed value produces
             // invalidProperties rather than storing an unparseable string.
             if let Some(expires) = obj_val.get("expiresAt").and_then(|v| v.as_str()) {
-                match UTCDate::new_validated(expires) {
-                    Ok(d) => ban.expires_at = Some(d),
-                    Err(_) => {
-                        not_created.insert(
-                            create_id.clone(),
-                            json!({ "type": "invalidProperties", "properties": ["expiresAt"] }),
-                        );
-                        continue;
-                    }
-                }
+                let Ok(d) = UTCDate::new_validated(expires) else {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({ "type": "invalidProperties", "properties": ["expiresAt"] }),
+                    );
+                    continue;
+                };
+                ban.expires_at = Some(d);
             }
 
             match backend

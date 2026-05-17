@@ -224,38 +224,34 @@ pub async fn handle_identity_set<B: MailBackend>(
                 .map(|v| v.take())
                 .filter(|v| !v.is_null())
             {
-                match serde_json::from_value(rt) {
-                    Ok(v) => identity.reply_to = v,
-                    Err(_) => {
-                        not_created.insert(
-                            create_id,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["replyTo"],
-                            }),
-                        );
-                        continue;
-                    }
-                }
+                let Ok(v) = serde_json::from_value(rt) else {
+                    not_created.insert(
+                        create_id,
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["replyTo"],
+                        }),
+                    );
+                    continue;
+                };
+                identity.reply_to = v;
             }
             if let Some(bcc) = obj_val
                 .get_mut("bcc")
                 .map(|v| v.take())
                 .filter(|v| !v.is_null())
             {
-                match serde_json::from_value(bcc) {
-                    Ok(v) => identity.bcc = v,
-                    Err(_) => {
-                        not_created.insert(
-                            create_id,
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["bcc"],
-                            }),
-                        );
-                        continue;
-                    }
-                }
+                let Ok(v) = serde_json::from_value(bcc) else {
+                    not_created.insert(
+                        create_id,
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["bcc"],
+                        }),
+                    );
+                    continue;
+                };
+                identity.bcc = v;
             }
 
             match backend
@@ -414,12 +410,9 @@ pub async fn handle_identity_set<B: MailBackend>(
             }
 
             // found should have exactly one entry.
-            let identity = match found.into_iter().next() {
-                Some(i) => i,
-                None => {
-                    not_destroyed.insert(id_str, json!({ "type": "notFound" }));
-                    continue;
-                }
+            let Some(identity) = found.into_iter().next() else {
+                not_destroyed.insert(id_str, json!({ "type": "notFound" }));
+                continue;
             };
 
             if !identity.may_delete {

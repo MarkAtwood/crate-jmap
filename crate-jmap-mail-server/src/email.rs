@@ -1991,16 +1991,14 @@ pub async fn handle_email_import<B: MailBackend>(
     let mut not_created = serde_json::Map::new();
 
     for (import_id, entry) in emails {
-        let blob_id: Id = match entry.get("blobId").and_then(|v| v.as_str()) {
-            Some(s) => Id::from(s),
-            None => {
-                not_created.insert(
-                    import_id,
-                    json!({"type": "invalidProperties", "properties": ["blobId"]}),
-                );
-                continue;
-            }
+        let Some(s) = entry.get("blobId").and_then(|v| v.as_str()) else {
+            not_created.insert(
+                import_id,
+                json!({"type": "invalidProperties", "properties": ["blobId"]}),
+            );
+            continue;
         };
+        let blob_id: Id = Id::from(s);
 
         // Only include mailboxIds whose value is true (RFC 8621 §5.7 requires at least one).
         let mailbox_ids = match parse_mailbox_ids(&entry, "RFC 8621 §5.7") {
@@ -2353,16 +2351,14 @@ pub async fn handle_email_copy<B: MailBackend>(
     let mut copied_source_ids: Vec<(String, Id)> = Vec::new(); // (copy_id, source_id)
 
     for (copy_id, entry) in create {
-        let source_id: Id = match entry.get("id").and_then(|v| v.as_str()) {
-            Some(s) => Id::from(s),
-            None => {
-                not_created.insert(
-                    copy_id,
-                    json!({"type": "invalidProperties", "properties": ["id"]}),
-                );
-                continue;
-            }
+        let Some(s) = entry.get("id").and_then(|v| v.as_str()) else {
+            not_created.insert(
+                copy_id,
+                json!({"type": "invalidProperties", "properties": ["id"]}),
+            );
+            continue;
         };
+        let source_id: Id = Id::from(s);
 
         // Only include mailboxIds whose value is true (RFC 8621 §6.1 requires at least one).
         let mailbox_ids = match parse_mailbox_ids(&entry, "RFC 8621 §6.1") {

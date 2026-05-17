@@ -2219,40 +2219,37 @@ fn apply_update_channel(
             }
 
             // Add to new home.
-            match &new_category_id {
-                Some(new_cat) => {
-                    let cats = space_val
-                        .get_mut("categories")
-                        .and_then(|v| v.as_array_mut())
-                        .ok_or_else(|| {
-                            SetError::new(SetErrorType::Forbidden)
-                                .with_description("internal: Space.categories not an array")
-                        })?;
-                    for cat in cats.iter_mut() {
-                        if cat.get("id").and_then(|s| s.as_str()) == Some(new_cat.as_ref()) {
-                            let ch_ids = cat
-                                .get_mut("channelIds")
-                                .and_then(|v| v.as_array_mut())
-                                .ok_or_else(|| {
+            if let Some(new_cat) = &new_category_id {
+                let cats = space_val
+                    .get_mut("categories")
+                    .and_then(|v| v.as_array_mut())
+                    .ok_or_else(|| {
+                        SetError::new(SetErrorType::Forbidden)
+                            .with_description("internal: Space.categories not an array")
+                    })?;
+                for cat in cats.iter_mut() {
+                    if cat.get("id").and_then(|s| s.as_str()) == Some(new_cat.as_ref()) {
+                        let ch_ids = cat
+                            .get_mut("channelIds")
+                            .and_then(|v| v.as_array_mut())
+                            .ok_or_else(|| {
                                 SetError::new(SetErrorType::Forbidden)
                                     .with_description("internal: Category.channelIds not an array")
                             })?;
-                            ch_ids.push(serde_json::Value::String(id.as_ref().to_owned()));
-                            break;
-                        }
+                        ch_ids.push(serde_json::Value::String(id.as_ref().to_owned()));
+                        break;
                     }
                 }
-                None => {
-                    let unc = space_val
-                        .get_mut("uncategorizedChannelIds")
-                        .and_then(|v| v.as_array_mut())
-                        .ok_or_else(|| {
-                            SetError::new(SetErrorType::Forbidden).with_description(
-                                "internal: Space.uncategorizedChannelIds not an array",
-                            )
-                        })?;
-                    unc.push(serde_json::Value::String(id.as_ref().to_owned()));
-                }
+            } else {
+                let unc = space_val
+                    .get_mut("uncategorizedChannelIds")
+                    .and_then(|v| v.as_array_mut())
+                    .ok_or_else(|| {
+                        SetError::new(SetErrorType::Forbidden).with_description(
+                            "internal: Space.uncategorizedChannelIds not an array",
+                        )
+                    })?;
+                unc.push(serde_json::Value::String(id.as_ref().to_owned()));
             }
 
             inner

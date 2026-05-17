@@ -184,16 +184,14 @@ pub async fn handle_position_set<B: ChatBackend>(
             std::collections::HashMap::new();
 
         for (create_id, obj_val) in create_map {
-            let chat_id = match obj_val.get("chatId").and_then(|v| v.as_str()) {
-                Some(s) => Id::from(s),
-                None => {
-                    not_created.insert(
-                        create_id.clone(),
-                        json!({ "type": "invalidProperties", "properties": ["chatId"] }),
-                    );
-                    continue;
-                }
+            let Some(chat_id_str) = obj_val.get("chatId").and_then(|v| v.as_str()) else {
+                not_created.insert(
+                    create_id.clone(),
+                    json!({ "type": "invalidProperties", "properties": ["chatId"] }),
+                );
+                continue;
             };
+            let chat_id = Id::from(chat_id_str);
 
             // Reject if a ReadPosition already exists for this chatId
             // (either pre-existing or created earlier in this batch). Per
@@ -236,19 +234,17 @@ pub async fn handle_position_set<B: ChatBackend>(
             // invalidProperties rather than silently flowing through
             // to storage with undefined comparison ordering.
             if let Some(at) = obj_val.get("lastReadAt").and_then(|v| v.as_str()) {
-                match jmap_types::UTCDate::new_validated(at) {
-                    Ok(d) => position.last_read_at = Some(d),
-                    Err(_) => {
-                        not_created.insert(
-                            create_id.clone(),
-                            json!({
-                                "type": "invalidProperties",
-                                "properties": ["lastReadAt"],
-                            }),
-                        );
-                        continue;
-                    }
-                }
+                let Ok(d) = jmap_types::UTCDate::new_validated(at) else {
+                    not_created.insert(
+                        create_id.clone(),
+                        json!({
+                            "type": "invalidProperties",
+                            "properties": ["lastReadAt"],
+                        }),
+                    );
+                    continue;
+                };
+                position.last_read_at = Some(d);
             }
 
             match backend

@@ -2293,12 +2293,11 @@ fn email_matches_condition(
         // Email must be in at least one mailbox NOT in the exclusion list.
         // Use the pre-built set when available; build on demand otherwise.
         let on_demand: std::collections::HashSet<&Id>;
-        let set: &std::collections::HashSet<&Id> = match excluded_set {
-            Some(s) => s,
-            None => {
-                on_demand = exclude_ids.iter().collect();
-                &on_demand
-            }
+        let set: &std::collections::HashSet<&Id> = if let Some(s) = excluded_set {
+            s
+        } else {
+            on_demand = exclude_ids.iter().collect();
+            &on_demand
         };
         let in_other = email.mailbox_ids.keys().any(|id| !set.contains(id));
         if !in_other {
@@ -2736,19 +2735,13 @@ impl MdnBackend for MemoryBackend {
 
                     // Parse the Disposition: field.
                     // Format per RFC 8098: action-mode/sending-mode; disposition-type
-                    let disposition_str = match find_header_value(&text, "Disposition") {
-                        Some(s) => s,
-                        None => {
-                            not_parsable.push(blob_id);
-                            continue;
-                        }
+                    let Some(disposition_str) = find_header_value(&text, "Disposition") else {
+                        not_parsable.push(blob_id);
+                        continue;
                     };
-                    let disposition_val = match parse_disposition_field(&disposition_str) {
-                        Some(v) => v,
-                        None => {
-                            not_parsable.push(blob_id);
-                            continue;
-                        }
+                    let Some(disposition_val) = parse_disposition_field(&disposition_str) else {
+                        not_parsable.push(blob_id);
+                        continue;
                     };
 
                     // Correlate original_message_id → for_email_id via message_id_index.

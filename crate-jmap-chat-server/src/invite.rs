@@ -182,21 +182,20 @@ pub async fn handle_invite_set<B: ChatBackend>(
             // shape via UTCDate::new_validated; a malformed value produces
             // invalidProperties rather than storing an unparseable string.
             let expires_at: Option<UTCDate> =
-                match obj_val.get("expiresAt").and_then(|v| v.as_str()) {
-                    Some(s) => match UTCDate::new_validated(s) {
-                        Ok(d) => Some(d),
-                        Err(_) => {
-                            not_created.insert(
-                                create_id.clone(),
-                                json!({
-                                    "type": "invalidProperties",
-                                    "properties": ["expiresAt"],
-                                }),
-                            );
-                            continue;
-                        }
-                    },
-                    None => None,
+                if let Some(s) = obj_val.get("expiresAt").and_then(|v| v.as_str()) {
+                    let Ok(d) = UTCDate::new_validated(s) else {
+                        not_created.insert(
+                            create_id.clone(),
+                            json!({
+                                "type": "invalidProperties",
+                                "properties": ["expiresAt"],
+                            }),
+                        );
+                        continue;
+                    };
+                    Some(d)
+                } else {
+                    None
                 };
 
             let max_uses: Option<u64> = obj_val.get("maxUses").and_then(|v| v.as_u64());
