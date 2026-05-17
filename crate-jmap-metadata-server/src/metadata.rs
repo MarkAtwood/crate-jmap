@@ -35,8 +35,8 @@ use serde_json::{json, Value};
 
 use crate::backend::{BackendSetError, MetadataBackend};
 use crate::helpers::{
-    extract_account_id, finalize_set_response, metadata_value, set_error_value,
-    unhandled_backend_set_error, SetAccumulators,
+    enforce_max_objects_in_set, extract_account_id, finalize_set_response, metadata_value,
+    set_error_value, unhandled_backend_set_error, SetAccumulators,
 };
 use jmap_server::{
     server_fail_from_backend, server_fail_value_from_backend, SetError, SetErrorType,
@@ -435,6 +435,10 @@ pub async fn handle_metadata_set<B: MetadataBackend>(
     {
         return Err(JmapError::account_not_found());
     }
+
+    // RFC 8620 §5.3 maxObjectsInSet (bd:JMAP-ayoz.41.9). Reject
+    // unbounded /set batches before touching the storage layer.
+    enforce_max_objects_in_set(&args, backend.max_objects_in_set(caller, &account_id))?;
 
     let old_state = backend
         .get_state::<Metadata>(caller, &account_id)
