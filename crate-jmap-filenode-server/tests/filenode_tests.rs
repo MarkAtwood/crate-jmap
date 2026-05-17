@@ -1715,3 +1715,169 @@ async fn filenode_query_body_filter_returns_server_fail() {
          silently match-all); got: {err:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// FileNode/set + FileNode/changes — state monotonicity invariants.
+// Oracle: PLAN.md FileNodeBackend invariant ('State monotonicity:
+// get_state returns a different token after every successful mutation.
+// Token does not change on failure.'); RFC 8620 §5.2 + §5.3 oldState /
+// newState semantics. Regression guards for bd:JMAP-510h.27.
+// ---------------------------------------------------------------------------
+
+#[tokio::test]
+async fn filenode_set_state_advances_on_successful_create() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": { "name": "first", "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("set must succeed");
+
+    let old = resp["oldState"]
+        .as_str()
+        .expect("oldState must be a string");
+    let new = resp["newState"]
+        .as_str()
+        .expect("newState must be a string");
+    assert_ne!(
+        old, new,
+        "state MUST advance on a successful create (RFC 8620 §5.3 + \
+         PLAN.md FileNodeBackend monotonicity invariant): old={old}, new={new}, resp={resp}"
+    );
+    assert!(
+        resp["created"].is_object() && resp["created"]["c1"].is_object(),
+        "the create itself must have succeeded: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_set_state_stays_when_all_creates_fail() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // A file node without blobId is invalidProperties per draft §3.1.
+    // The whole /set has no successful mutation, so state MUST NOT
+    // advance.
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "c1": {
+                    "name": "bad-file",
+                    "parentId": null,
+                    "role": null,
+                    "nodeType": "file"
+                    // intentionally missing blobId
+                }
+            }
+        }),
+    )
+    .await
+    .expect("set must not return top-level error");
+
+    let old = resp["oldState"]
+        .as_str()
+        .expect("oldState must be a string");
+    let new = resp["newState"]
+        .as_str()
+        .expect("newState must be a string");
+    assert_eq!(
+        old, new,
+        "state MUST NOT advance when no creation succeeded (PLAN.md \
+         FileNodeBackend monotonicity invariant: 'Token does not change \
+         on failure'): old={old}, new={new}, resp={resp}"
+    );
+    assert!(
+        resp["created"].is_null(),
+        "the create must have failed: {resp}"
+    );
+    assert!(
+        resp["notCreated"].is_object(),
+        "the failure must surface in notCreated: {resp}"
+    );
+}
+
+#[tokio::test]
+async fn filenode_set_state_advances_exactly_once_on_mixed_success() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Mixed batch: one valid directory create (will succeed), one file
+    // without blobId (will fail with invalidProperties). State must
+    // advance exactly once — not zero (one create succeeded), not
+    // twice (the per-failed-target is not a mutation).
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "c_good": { "name": "valid-dir", "parentId": null, "role": null },
+                "c_bad": {
+                    "name": "bad-file",
+                    "parentId": null,
+                    "role": null,
+                    "nodeType": "file"
+                    // intentionally missing blobId
+                }
+            }
+        }),
+    )
+    .await
+    .expect("set must not return top-level error");
+
+    let old = resp["oldState"].as_str().expect("oldState").to_owned();
+    let new = resp["newState"].as_str().expect("newState").to_owned();
+    assert_ne!(
+        old, new,
+        "mixed /set with at least one successful create MUST advance state: {resp}"
+    );
+    assert!(
+        resp["created"].is_object(),
+        "good create must succeed: {resp}"
+    );
+    assert!(
+        resp["notCreated"].is_object(),
+        "bad create must surface in notCreated: {resp}"
+    );
+
+    // Run a follow-up changes call with sinceState=new. Since no further
+    // mutations happened, the changes response MUST be empty (no new
+    // tokens, no created/updated/destroyed deltas).
+    let (ch_resp, _) = handle_filenode_changes(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "sinceState": &new
+        }),
+    )
+    .await
+    .expect("changes must succeed");
+
+    assert_eq!(
+        ch_resp["oldState"].as_str().expect("oldState"),
+        new.as_str(),
+        "changes since the just-emitted newState must have oldState==newState: {ch_resp}"
+    );
+    assert_eq!(
+        ch_resp["newState"].as_str().expect("newState"),
+        new.as_str(),
+        "changes since the just-emitted newState must have no further state advance: {ch_resp}"
+    );
+    let created_arr = ch_resp["created"].as_array().expect("created array");
+    let updated_arr = ch_resp["updated"].as_array().expect("updated array");
+    let destroyed_arr = ch_resp["destroyed"].as_array().expect("destroyed array");
+    assert!(
+        created_arr.is_empty() && updated_arr.is_empty() && destroyed_arr.is_empty(),
+        "changes since the just-emitted newState must have empty deltas: {ch_resp}"
+    );
+}
