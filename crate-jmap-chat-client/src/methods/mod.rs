@@ -610,15 +610,32 @@ impl<'a> MessageQueryInput<'a> {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct MessageCreateInput<'a> {
-    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
+    /// is generated automatically. An empty `Some("")` is treated the same
+    /// as `None`, not as a rejection; callers must not assume the wire
+    /// echoes a caller-supplied empty string.
     pub client_id: Option<&'a str>,
     /// The Chat this message belongs to.
     pub chat_id: &'a Id,
     /// Message body text (interpreted per `body_type`).
+    ///
+    /// Length is not checked on the client. The server enforces
+    /// [`ChatCapability::max_body_bytes`](crate::ChatCapability) (UTF-8
+    /// byte count for `text/*` body types, raw byte count otherwise);
+    /// oversize bodies surface as a server-side `tooLarge`
+    /// [`SetError`] on the `created` entry, not as a client-side
+    /// rejection.
     pub body: &'a str,
     /// MIME type for the message body.
     pub body_type: crate::types::BodyType,
     /// RFC 3339 timestamp.
+    ///
+    /// [`UTCDate`](jmap_types::UTCDate) is a transparent newtype around
+    /// `String` and does not validate the RFC 3339 format at
+    /// construction time. A malformed value forwards to the server,
+    /// which rejects it with `invalidArguments`. Construct values via a
+    /// validating helper (e.g. `chrono::DateTime::<Utc>::to_rfc3339`)
+    /// rather than from arbitrary strings.
     pub sent_at: &'a jmap_types::UTCDate,
     /// When `Some`, marks this message as a reply to the given message id.
     pub reply_to: Option<&'a Id>,
@@ -660,12 +677,28 @@ impl<'a> MessageCreateInput<'a> {
 /// The patch key is `reactions/<senderReactionId>` (JSON Pointer).
 /// `senderReactionId` is a caller-generated ID (e.g. ULID) that uniquely
 /// identifies this reaction slot for the sending user in this message.
+///
+/// # Precondition: `sender_reaction_id`
+///
+/// On both variants, `sender_reaction_id` is embedded in a JSON Pointer
+/// (RFC 6901) as the patch key `reactions/<id>`.
+/// [`SessionClient::message_update`](crate::SessionClient::message_update)
+/// rejects an `Add` or `Remove` whose `sender_reaction_id` is empty, or
+/// contains `/` or `~`, with
+/// [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument).
+/// The slash/tilde restriction is unintuitive — emoji-shortcode systems
+/// (e.g. `:slight_smile:/+1`) and any user-supplied string source naturally
+/// produce these characters. Generate IDs from a constrained alphabet
+/// (ULID, UUID v4, base64url) rather than from user input.
 #[non_exhaustive]
 #[derive(Debug)]
 pub enum ReactionChange<'a> {
     /// Add a reaction. Patch value: `{emoji, sentAt}`.
     Add {
         /// Caller-generated id (e.g. ULID) identifying this reaction slot.
+        ///
+        /// **Precondition**: must be non-empty and must NOT contain `/`
+        /// or `~`. See the enum-level "Precondition" section.
         sender_reaction_id: &'a str,
         /// Emoji shortcode or Unicode emoji to react with.
         emoji: &'a str,
@@ -675,6 +708,9 @@ pub enum ReactionChange<'a> {
     /// Remove a reaction. Patch value: null.
     Remove {
         /// Caller-generated id identifying the reaction slot to remove.
+        ///
+        /// **Precondition**: must be non-empty and must NOT contain `/`
+        /// or `~`. See the enum-level "Precondition" section.
         sender_reaction_id: &'a str,
     },
 }
@@ -751,7 +787,10 @@ pub struct CustomEmojiQueryInput<'a> {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct CustomEmojiCreateInput<'a> {
-    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
+    /// is generated automatically. An empty `Some("")` is treated the same
+    /// as `None`, not as a rejection; callers must not assume the wire
+    /// echoes a caller-supplied empty string.
     pub client_id: Option<&'a str>,
     /// Shortcode name without colons (e.g., `catjam`).
     pub name: &'a str,
@@ -783,7 +822,10 @@ impl<'a> CustomEmojiCreateInput<'a> {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceInviteCreateInput<'a> {
-    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
+    /// is generated automatically. An empty `Some("")` is treated the same
+    /// as `None`, not as a rejection; callers must not assume the wire
+    /// echoes a caller-supplied empty string.
     pub client_id: Option<&'a str>,
     /// The Space this invite grants access to.
     pub space_id: &'a Id,
@@ -824,7 +866,10 @@ impl<'a> SpaceInviteCreateInput<'a> {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceBanCreateInput<'a> {
-    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
+    /// is generated automatically. An empty `Some("")` is treated the same
+    /// as `None`, not as a rejection; callers must not assume the wire
+    /// echoes a caller-supplied empty string.
     pub client_id: Option<&'a str>,
     /// The Space this ban applies to.
     pub space_id: &'a Id,
@@ -906,7 +951,10 @@ pub struct ChatContactQueryInput {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct SpaceCreateInput<'a> {
-    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
+    /// is generated automatically. An empty `Some("")` is treated the same
+    /// as `None`, not as a rejection; callers must not assume the wire
+    /// echoes a caller-supplied empty string.
     pub client_id: Option<&'a str>,
     /// Display name for the Space.
     pub name: &'a str,
@@ -966,8 +1014,20 @@ pub enum SpaceJoinInput<'a> {
     /// Redeem a SpaceInvite by its `code` field (not its `id`).
     ///
     /// Unguessable secret — redacted by the [`std::fmt::Debug`] impl on this enum.
+    ///
+    /// **Precondition**: must be non-empty.
+    /// [`Self::space_join`](crate::SessionClient::space_join) rejects
+    /// an empty value client-side with
+    /// [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument).
     InviteCode(&'a str),
     /// Join a public Space directly by its JMAP id.
+    ///
+    /// **Precondition**: must be a non-empty Id. [`Id::from`] is the
+    /// lenient constructor and accepts any string including `""`;
+    /// `Id::new_validated` is the strict one. An empty Id forwards to
+    /// the server unchanged, which rejects it with `invalidArguments`.
+    /// Construct Ids via the validating path when the value comes from
+    /// untrusted input.
     SpaceId(&'a Id),
 }
 
@@ -1024,7 +1084,8 @@ impl<'a> UpdateMemberRoleInput<'a> {
 ///
 /// Discriminates the two user-creatable Chat kinds from the spec. Each
 /// variant carries the fields required for that kind plus an optional
-/// `client_id`; when `None`, a ULID is generated automatically.
+/// `client_id`; when `None` — or `Some("")` — a ULID is generated
+/// automatically (see the per-variant `client_id` doc).
 ///
 /// Channel Chats are NOT created via `Chat/set`. Per
 /// draft-atwood-jmap-chat-00 §Chat (line 436), Channel Chats are created
@@ -1037,14 +1098,18 @@ impl<'a> UpdateMemberRoleInput<'a> {
 pub enum ChatCreateInput<'a> {
     /// Create a direct (one-to-one) chat.
     Direct {
-        /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+        /// Caller-supplied creation key. When `None` — **or `Some("")`** —
+        /// a ULID is generated automatically. An empty `Some("")` is
+        /// treated the same as `None`, not as a rejection.
         client_id: Option<&'a str>,
         /// ChatContact.id of the other participant.
         contact_id: &'a Id,
     },
     /// Create a group chat.
     Group {
-        /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+        /// Caller-supplied creation key. When `None` — **or `Some("")`** —
+        /// a ULID is generated automatically. An empty `Some("")` is
+        /// treated the same as `None`, not as a rejection.
         client_id: Option<&'a str>,
         /// Display name for the group.
         name: &'a str,
@@ -1388,11 +1453,27 @@ pub struct SpacePatch<'a> {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct PushSubscriptionCreateInput<'a> {
-    /// Caller-supplied creation key. When `None`, a ULID is generated automatically.
+    /// Caller-supplied creation key. When `None` — **or `Some("")`** — a ULID
+    /// is generated automatically. An empty `Some("")` is treated the same
+    /// as `None`, not as a rejection; callers must not assume the wire
+    /// echoes a caller-supplied empty string.
     pub client_id: Option<&'a str>,
     /// Stable client device identifier, used by the server to deduplicate subscriptions.
+    ///
+    /// **Precondition**: must be non-empty.
+    /// [`Self::push_subscription_create`](crate::SessionClient::push_subscription_create)
+    /// rejects an empty value client-side with
+    /// [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument).
     pub device_client_id: &'a str,
     /// Push endpoint URL registered with the platform push service.
+    ///
+    /// **Precondition**: must be non-empty.
+    /// [`Self::push_subscription_create`](crate::SessionClient::push_subscription_create)
+    /// rejects an empty value client-side with
+    /// [`ClientError::InvalidArgument`](jmap_base_client::ClientError::InvalidArgument).
+    /// Malformed-but-non-empty URLs forward to the server, which rejects
+    /// them with a `setError` on the creation entry. No client-side URL
+    /// syntax check is performed.
     pub url: &'a str,
     /// Subscription expiry time. `None` lets the server choose.
     pub expires: Option<&'a jmap_types::UTCDate>,
