@@ -106,13 +106,11 @@ impl super::SessionClient {
         if_in_state: Option<&State>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
-        if let Some(ref m) = create {
-            for k in m.keys() {
-                if k.is_empty() {
-                    return Err(jmap_base_client::ClientError::InvalidArgument(
-                        "calendar_event_set: create map key (creation id) may not be empty".into(),
-                    ));
-                }
+        if let Some(m) = &create {
+            if m.keys().any(|k| k.is_empty()) {
+                return Err(jmap_base_client::ClientError::InvalidArgument(
+                    "calendar_event_set: create map key (creation id) may not be empty".into(),
+                ));
             }
         }
         let (api_url, account_id) = self.session_parts()?;

@@ -25,12 +25,10 @@ impl super::SessionClient {
         create: HashMap<String, jmap_calendars_types::CalendarEvent>,
     ) -> Result<SetResponse<jmap_calendars_types::CalendarEvent>, jmap_base_client::ClientError>
     {
-        for k in create.keys() {
-            if k.is_empty() {
-                return Err(jmap_base_client::ClientError::InvalidArgument(
-                    "calendar_event_copy: create map key (creation id) may not be empty".into(),
-                ));
-            }
+        if create.keys().any(|k| k.is_empty()) {
+            return Err(jmap_base_client::ClientError::InvalidArgument(
+                "calendar_event_copy: create map key (creation id) may not be empty".into(),
+            ));
         }
         let (api_url, account_id) = self.session_parts()?;
         let create_val = serde_json::to_value(&create).map_err(|e| {
