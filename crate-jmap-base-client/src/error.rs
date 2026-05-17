@@ -16,6 +16,51 @@
 //! [`ClientError`] (`from_reqwest`, `from_ws`, `from_invalid_header`) —
 //! downstream consumers cannot construct the transport-error variants and
 //! never need to.
+//!
+//! # Do not simplify the wrappers (bd:JMAP-6r7c.16)
+//!
+//! A future contributor reading this module may suggest "just put
+//! `reqwest::Error` in the variant — downstream users want the full
+//! `reqwest` API". That is the wrong simplification. The wrapper-types
+//! pattern is load-bearing for five independent reasons; all five must
+//! be re-derived from first principles before the wrappers can be
+//! removed:
+//!
+//! 1. **SemVer-bump isolation.** `reqwest::Error` and
+//!    `tungstenite::Error` are `#[non_exhaustive]` from third-party
+//!    crates that bump major versions independently of this crate.
+//!    Exposing them in this crate's public API turns every transitive
+//!    `reqwest` major bump into a SemVer break for every downstream
+//!    extension client (`jmap-mail-client`, `jmap-chat-client`,
+//!    `jmap-calendars-client`, etc., all eight planned extensions).
+//! 2. **Transport replaceability.** This crate may swap the HTTP /
+//!    WebSocket transport entirely — `ureq`, `hyper-util` directly, a
+//!    `curl`-backed transport for an unusual deployment — without
+//!    breaking downstream. The only thing downstream binds to is the
+//!    wrapper's accessor signature; the wrapped type is private and
+//!    can be replaced in-place.
+//! 3. **Curated accessor surface.** Not every `reqwest::Error` method
+//!    is mirrored. Adding new diagnostic surface (e.g.
+//!    `WebSocketError::close_code()`) requires a deliberate
+//!    `pub fn` decision in this file, which surfaces in code review.
+//!    An unwrapped error would silently grow the surface every
+//!    `reqwest` minor release.
+//! 4. **Opaque construction.** The `pub(crate) from_reqwest` /
+//!    `from_ws` / `from_invalid_header` helpers on `ClientError`
+//!    mean downstream cannot construct the transport-error variants
+//!    even if they wanted to. That keeps the variants genuinely
+//!    opaque — no "well, the public field is a `reqwest::Error`, so
+//!    downstream can match on it" loophole.
+//! 5. **Workspace policy alignment.** This crate's `AGENTS.md`
+//!    "Design Constraints" table documents the wrappers as settled
+//!    after bd:JMAP-6lsm.22. The workspace `AGENTS.md` "TLS stack"
+//!    rule additionally forbids native-tls / openssl; allowing
+//!    `reqwest::Error` to leak would re-couple downstream to the
+//!    `reqwest` feature-set decisions this crate has already made.
+//!
+//! The accessor set on each wrapper is deliberately minimal. Resist
+//! requests to "just expose `reqwest::Error`" without re-arguing all
+//! five reasons above.
 
 use std::error::Error as StdError;
 use std::fmt;
