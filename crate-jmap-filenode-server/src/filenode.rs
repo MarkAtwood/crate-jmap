@@ -1772,6 +1772,11 @@ mod tests {
         /// across calls (not consumed) — simulates a backend that
         /// normalises names systematically rather than per-call.
         create_object_override_name: Option<String>,
+        /// Running count of `destroy_object` invocations on this backend.
+        /// Lets tests positively assert handler-side guard ordering
+        /// (e.g. `nodeHasChildren` short-circuit must NOT call destroy
+        /// on the parent).
+        destroy_object_calls: u64,
     }
 
     struct QueryObjectsErrConfig {
@@ -1835,6 +1840,16 @@ mod tests {
         #[allow(dead_code)]
         fn seed_node(&self, account_id: &str, node: FileNode) {
             self.inner.seed_node(account_id, node);
+        }
+
+        /// Running total of `destroy_object` invocations seen by this
+        /// backend wrapper. Lets tests positively assert handler-side
+        /// guard ordering (e.g. that the `nodeHasChildren` short-circuit
+        /// in `FileNode/set` destroy does NOT delegate to the backend
+        /// for the parent).
+        #[allow(dead_code)]
+        fn destroy_object_call_count(&self) -> u64 {
+            self.faults.lock().unwrap().destroy_object_calls
         }
     }
 
@@ -1990,6 +2005,10 @@ mod tests {
             account_id: &Id,
             id: &Id,
         ) -> Result<(), BackendSetError<Self::Error>> {
+            {
+                let mut guard = self.faults.lock().unwrap();
+                guard.destroy_object_calls = guard.destroy_object_calls.saturating_add(1);
+            }
             self.inner.destroy_object::<O>(&(), account_id, id).await
         }
 
@@ -2830,6 +2849,15 @@ mod tests {
     /// is false (the default) returns notDestroyed with type "nodeHasChildren".
     ///
     /// Source: draft-ietf-jmap-filenode-13 §3.2.3.
+    ///
+    /// Positively asserts handler-side guard ordering: the
+    /// `nodeHasChildren` short-circuit MUST fire before any
+    /// `destroy_object` call reaches the backend. Without the
+    /// `destroy_object_call_count()` check, a future regression where
+    /// the guard fires AND the backend is also called (e.g. a
+    /// belt-and-suspenders impl that ignores the early return) would
+    /// still pass the `notDestroyed.type == "nodeHasChildren"`
+    /// assertion. Regression guard for bd:JMAP-510h.24.
     #[tokio::test]
     async fn set_destroy_node_with_children_returns_node_has_children() {
         let backend = FaultyBackend::new_with_account("acc1");
@@ -2860,6 +2888,16 @@ mod tests {
         assert_eq!(
             not_destroyed["dir1"]["type"], "nodeHasChildren",
             "must return nodeHasChildren error: {resp}"
+        );
+        // Positive guard-ordering assertion: the handler's
+        // `nodeHasChildren` short-circuit must fire before any
+        // `destroy_object` call reaches the backend.
+        assert_eq!(
+            backend.destroy_object_call_count(),
+            0,
+            "nodeHasChildren guard must short-circuit before destroy_object: \
+             expected 0 destroy_object calls, got {}",
+            backend.destroy_object_call_count()
         );
     }
 
