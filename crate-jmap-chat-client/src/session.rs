@@ -7,7 +7,7 @@
 //!   - draft-atwood-jmap-chat-push-00    (ChatPushCapability fields)
 //!   - draft-atwood-jmap-chat-wss-00     (supports_chat_websocket)
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 // ---------------------------------------------------------------------------
 // ChatCapability
@@ -33,7 +33,7 @@ use serde::Deserialize;
 /// `supported_body_types` carries field-level `#[serde(default)]` only —
 /// see its rustdoc for the forward-compat tolerance rationale.
 #[non_exhaustive]
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatCapability {
     /// Maximum UTF-8 byte length of a Message body.
@@ -109,7 +109,7 @@ pub struct ChatCapability {
 /// defaulting `max_snippet_bytes` to `0` (which would force every
 /// `bodySnippet` to be truncated to nothing).
 #[non_exhaustive]
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ChatPushCapability {
     /// Maximum byte length of a `bodySnippet` in `ChatMessagePush`.
@@ -504,7 +504,8 @@ mod tests {
         );
     }
 
-    /// `ChatCapability.extra` captures unknown fields on deserialize.
+    /// `ChatCapability.extra` captures unknown fields on deserialize
+    /// AND survives serialize round-trip.
     #[test]
     fn chat_capability_preserves_vendor_extras() {
         let raw = json!({
@@ -515,16 +516,43 @@ mod tests {
             "acmeCorpFeatureFlag": "beta"
         });
         let obj: ChatCapability =
-            serde_json::from_value(raw).expect("ChatCapability must deserialize");
+            serde_json::from_value(raw.clone()).expect("ChatCapability must deserialize");
         assert_eq!(
             obj.extra
                 .get("acmeCorpFeatureFlag")
                 .and_then(|v| v.as_str()),
             Some("beta")
         );
+
+        // Serialize round-trip: the vendor field must survive to the
+        // wire and the typed fields must NOT be duplicated into extra
+        // (no `maxBodyBytes` key inside the flattened-extra payload).
+        let reserialized = serde_json::to_value(&obj).expect("ChatCapability must serialize");
+        assert_eq!(
+            reserialized
+                .get("acmeCorpFeatureFlag")
+                .and_then(|v| v.as_str()),
+            Some("beta"),
+            "vendor field must survive deserialize -> serialize"
+        );
+        assert_eq!(
+            reserialized.get("maxBodyBytes").and_then(|v| v.as_u64()),
+            Some(65536),
+            "typed field must round-trip with its typed value"
+        );
+        // No duplication: extra must NOT have shadowed any typed key.
+        assert!(
+            obj.extra.get("maxBodyBytes").is_none(),
+            "typed field maxBodyBytes must NOT be duplicated into extra"
+        );
+        assert!(
+            obj.extra.get("supportsThreads").is_none(),
+            "typed field supportsThreads must NOT be duplicated into extra"
+        );
     }
 
-    /// `ChatPushCapability.extra` captures unknown fields on deserialize.
+    /// `ChatPushCapability.extra` captures unknown fields on deserialize
+    /// AND survives serialize round-trip.
     #[test]
     fn chat_push_capability_preserves_vendor_extras() {
         let raw = json!({
@@ -534,10 +562,33 @@ mod tests {
             "acmeCorpPushTier": "gold"
         });
         let obj: ChatPushCapability =
-            serde_json::from_value(raw).expect("ChatPushCapability must deserialize");
+            serde_json::from_value(raw.clone()).expect("ChatPushCapability must deserialize");
         assert_eq!(
             obj.extra.get("acmeCorpPushTier").and_then(|v| v.as_str()),
             Some("gold")
+        );
+
+        // Serialize round-trip + no-duplication into extra.
+        let reserialized = serde_json::to_value(&obj).expect("ChatPushCapability must serialize");
+        assert_eq!(
+            reserialized
+                .get("acmeCorpPushTier")
+                .and_then(|v| v.as_str()),
+            Some("gold"),
+            "vendor field must survive deserialize -> serialize"
+        );
+        assert_eq!(
+            reserialized.get("maxSnippetBytes").and_then(|v| v.as_u64()),
+            Some(256),
+            "typed field must round-trip with its typed value"
+        );
+        assert!(
+            obj.extra.get("maxSnippetBytes").is_none(),
+            "typed field maxSnippetBytes must NOT be duplicated into extra"
+        );
+        assert!(
+            obj.extra.get("supportedUrgencyValues").is_none(),
+            "typed field supportedUrgencyValues must NOT be duplicated into extra"
         );
     }
 
