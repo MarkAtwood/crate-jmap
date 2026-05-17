@@ -316,17 +316,32 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                     not_destroyed.insert(id_str, cascade_err);
                     continue;
                 }
-            } else if backend
-                .address_book_has_contents(caller, &account_id, &id)
-                .await
-            {
-                not_destroyed.insert(
-                    id_str,
-                    set_error_value(&SetError::new(SetErrorType::Custom(
-                        "addressBookHasContents".to_owned(),
-                    ))),
-                );
-                continue;
+            } else {
+                match backend
+                    .address_book_has_contents(caller, &account_id, &id)
+                    .await
+                {
+                    Ok(true) => {
+                        not_destroyed.insert(
+                            id_str,
+                            set_error_value(&SetError::new(SetErrorType::Custom(
+                                "addressBookHasContents".to_owned(),
+                            ))),
+                        );
+                        continue;
+                    }
+                    Ok(false) => {
+                        // Proceed to destroy_object below.
+                    }
+                    // Backend signalled it could not determine whether the
+                    // AddressBook has contents (e.g. storage degraded).
+                    // Per the trait contract, surface as serverFail rather
+                    // than fail-open by proceeding with destroy.
+                    Err(e) => {
+                        not_destroyed.insert(id_str, server_fail_value_from_backend(&e));
+                        continue;
+                    }
+                }
             }
 
             match backend
@@ -607,6 +622,41 @@ mod tests {
         assert!(
             resp["destroyed"].is_null(),
             "destroyed must be null when blocked: {resp}"
+        );
+    }
+
+    /// Oracle: bd:JMAP-qz9v.27 — when `address_book_has_contents` returns
+    /// `Err`, the destroy MUST be reported as `serverFail` rather than
+    /// fail-open (proceeding) or fail-closed-as-`addressBookHasContents`
+    /// (mis-attributing the error).
+    ///
+    /// Independent check: the mock backend is forced into the Err branch
+    /// via `set_fail_has_contents(true)`; the handler is expected to map
+    /// that to `serverFail` per the ContactsBackend trait contract.
+    #[tokio::test]
+    async fn set_destroy_when_has_contents_errs_returns_server_fail() {
+        let backend = MockBackend::new_with_account("acc1");
+        backend.set_fail_has_contents(true);
+        let args = json!({
+            "accountId": "acc1",
+            "destroy": ["ab-anything"]
+        });
+        let (resp, _) = handle_address_book_set(&backend, &(), args)
+            .await
+            .expect("must not return top-level error");
+
+        let not_destroyed = &resp["notDestroyed"];
+        assert!(
+            not_destroyed.is_object(),
+            "notDestroyed must be present when has_contents errs: {resp}"
+        );
+        assert_eq!(
+            not_destroyed["ab-anything"]["type"], "serverFail",
+            "Err from address_book_has_contents must surface as serverFail, not addressBookHasContents or silent destroy: {resp}"
+        );
+        assert!(
+            resp["destroyed"].is_null(),
+            "destroyed must be null when has_contents errs (fail-open is a bug): {resp}"
         );
     }
 

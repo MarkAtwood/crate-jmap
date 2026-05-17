@@ -122,14 +122,16 @@ pub trait ContactsBackend: JmapBackend {
 
     /// Check whether an AddressBook has any ContactCards in it.
     /// Called by AddressBook/set destroy processing when onDestroyRemoveContents
-    /// is false (the default). If this returns true, the destroy is rejected
-    /// with addressBookHasContents.
+    /// is false (the default). If this returns Ok(true), the destroy is rejected
+    /// with addressBookHasContents; Err is surfaced to the client as serverFail.
+    /// Backends MUST NOT fail open by returning Ok(false) when storage is
+    /// degraded — return Err instead.
     fn address_book_has_contents(
         &self,
         caller: &Self::CallerCtx,
         account_id: &Id,
         address_book_id: &Id,
-    ) -> impl Future<Output = bool> + Send;
+    ) -> impl Future<Output = Result<bool, Self::Error>> + Send;
 }
 ```
 
@@ -199,8 +201,10 @@ contains ContactCards, the handler:
 - Patches `addressBookIds/{id}: null` on cards shared with other address books.
 
 When `onDestroyRemoveContents` is absent or false (the default) and the book
-is non-empty, `address_book_has_contents` is called. If it returns `true`, the
-destroy is rejected with an `addressBookHasContents` SetError.
+is non-empty, `address_book_has_contents` is called. If it returns `Ok(true)`,
+the destroy is rejected with an `addressBookHasContents` SetError; if it returns
+`Err`, the destroy fails with `serverFail` (the backend signalled it could not
+determine whether the book is empty).
 
 ### ContactCard/copy — JSON Pointer patch semantics
 

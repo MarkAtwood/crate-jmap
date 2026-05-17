@@ -1092,15 +1092,20 @@ impl ContactsBackend for MemoryBackend {
         _caller: &(),
         account_id: &Id,
         address_book_id: &Id,
-    ) -> bool {
+    ) -> Result<bool, Self::Error> {
         let inner = self.inner.lock().unwrap();
         // bd:JMAP-ic0j.74 — `address_book_card_counts` entries are
         // deleted when the count reaches 0, so `contains_key` is a
         // valid "has any ContactCards?" test without needing to read
         // the count value.
-        inner
+        //
+        // The reference impl is in-memory and cannot fail; production
+        // backends MUST surface storage errors via `Err` rather than
+        // fail-open `Ok(false)` per the trait contract on
+        // [`ContactsBackend::address_book_has_contents`].
+        Ok(inner
             .aux_ref(account_id.as_ref())
-            .is_some_and(|a| a.address_book_card_counts.contains_key(address_book_id))
+            .is_some_and(|a| a.address_book_card_counts.contains_key(address_book_id)))
     }
 }
 
