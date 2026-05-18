@@ -225,11 +225,12 @@ async fn address_book_set_unknown_account_returns_account_not_found() {
         .await
         .expect_err("unknown accountId must produce method-level error");
 
-    let err_str = format!("{err:?}");
-    assert!(
-        err_str.contains("accountNotFound") || err_str.contains("AccountNotFound"),
-        "must be accountNotFound: {err_str}"
-    );
+    // Typed assertion against the RFC 8620 §3.6.2 wire-format string.
+    // Matches the inline-test idiom used throughout `src/addressbook.rs` and
+    // `src/card.rs` (e.g. addressbook.rs:817, card.rs:774). Debug-format
+    // substring matching is not part of the JmapError API contract per
+    // workspace AGENTS.md (bd:JMAP-qz9v.56).
+    assert_eq!(err.error_type.as_str(), "accountNotFound");
 }
 
 // ---------------------------------------------------------------------------
