@@ -145,11 +145,25 @@ pub trait ContactsBackend: JmapBackend {
         id: &jmap_types::Id,
     ) -> impl std::future::Future<Output = Result<(), BackendSetError<Self::Error>>> + Send;
 
-    /// Returns true if this account supports the given JMAP object type.
+    /// Returns `true` if this backend implementation supports the given
+    /// JMAP object type.
     ///
-    /// Called by the server consumer (e.g. the session capability builder) —
-    /// NOT called internally by the handler library. Backends that support all
-    /// types unconditionally can return `true` always.
+    /// The answer is **global per backend instance** — the signature has
+    /// no `caller` or `account_id` parameter, so a backend cannot make
+    /// the answer depend on the calling principal or target account.
+    /// Backends that support all types unconditionally can return `true`
+    /// always.
+    ///
+    /// Consumers needing per-account or per-caller feature gating
+    /// (multi-tenant SaaS with paid contacts tiers, etc.) must implement
+    /// the gating at the session-capability-builder layer outside this
+    /// trait, or wrap the backend in per-tenant instances and dispatch
+    /// per request — neither is supported by the current trait surface.
+    /// The workspace-design discussion for adding `caller` / `account_id`
+    /// parameters is tracked at bd:JMAP-qz9v.30 follow-up.
+    ///
+    /// Called by the server consumer (e.g. the session capability
+    /// builder) — NOT called internally by the handler library.
     fn supports_type<O: JmapObject>(&self) -> bool;
 
     /// Copy a ContactCard from one account to another.
