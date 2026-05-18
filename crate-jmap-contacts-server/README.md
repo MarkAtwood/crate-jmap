@@ -150,6 +150,95 @@ HTTP middleware authenticates before invoking dispatch.
 - `BackendSetError::Other(E)` — a storage-layer error that becomes a
   `serverFail` response
 
+## Permission enforcement responsibilities
+
+The handlers in this crate do **no** permission checking. Per the
+workspace AGENTS.md "Caller identity (foundation seam)" rule, backends
+are canonical for authorization: the handler computes the candidate
+mutation and the backend's `/set` impl is the canonical point of
+enforcement. Caller identity is read via
+`JmapBackend::principal_id` on the `caller: &Self::CallerCtx`
+parameter every backend method receives.
+
+The reference `memory::MemoryBackend` does **not** implement any of
+the checks below — it returns `None` from `principal_id` and stores
+whatever the handler hands it. Production backends MUST implement each
+of the following or they will silently accept JMAP requests that
+RFC 9610 mandates the server to reject.
+
+### AddressBook/set ([RFC 9610] §2.3)
+
+1. **`shareWith` write requires the `mayShare` right.** When the
+   create or update payload sets `shareWith` (to a non-null value, or
+   modifies an existing share map), the backend MUST verify that the
+   caller already has `mayShare` on the target AddressBook. Reject
+   with a `forbidden` SetError otherwise.
+
+2. **`shareWith` rights-cross-validation.** When the caller modifies
+   `shareWith` to grant right *R* to Principal *P*, the operation is
+   permitted only if *P* already has *R*, **or** the caller also has
+   *R*. Granting a right that neither *P* already has nor the caller
+   holds MUST be rejected with a `forbidden` SetError.
+
+3. **`isSubscribed` policy hook (optional).** The server MAY forbid
+   subscribing to specific AddressBooks even when the caller has
+   permission to see them — for example, mandatory-membership system
+   books that the server forces to `isSubscribed: true`. Backends
+   that exercise this policy reject the update with a `forbidden`
+   SetError.
+
+4. **General `create` / `update` / `destroy` ACL.** [RFC 9610] §6
+   requires the server to enforce the ACLs (`mayRead`, `mayWrite`,
+   `mayShare`, `mayDelete`) declared in `AddressBookRights`. The
+   backend MUST reject `update_object<AddressBook>` calls when the
+   caller lacks `mayWrite` on the target book, and
+   `destroy_object<AddressBook>` calls when the caller lacks
+   `mayDelete`. Use `forbidden` SetError for ACL denials and
+   `notFound` to mask the existence of books the caller cannot
+   `mayRead`.
+
+5. **`addressBookHasContents` storage error contract.** Distinct from
+   ACL enforcement: `address_book_has_contents` MUST return
+   `Err(Self::Error)` (mapped to `serverFail`) when the backend
+   cannot determine emptiness due to a transient storage failure.
+   Returning `Ok(false)` is a positive claim that the AddressBook is
+   empty and will let a destroy proceed unconditionally — see the
+   `address_book_has_contents` rustdoc for the full contract.
+
+### ContactCard/set and ContactCard/copy ([RFC 9610] §3, §6)
+
+[RFC 9610] §3 does not define ContactCard-specific `forbidden`-class
+errors, but §6 requires backends to enforce the AddressBook ACLs
+transitively through any ContactCard mutation:
+
+6. **`addressBookIds` write requires `mayWrite` on every book.**
+   `create_object<ContactCard>` and `update_object<ContactCard>` MUST
+   reject the operation with a `forbidden` SetError when the
+   resulting `addressBookIds` set contains any AddressBook on which
+   the caller does not hold `mayWrite`. This includes adds, removes,
+   and the initial create.
+
+7. **`destroy_object<ContactCard>` requires `mayDelete` on every
+   book the card belongs to.** A card that lives in two AddressBooks
+   can only be destroyed by a caller with `mayDelete` on both.
+
+8. **`copy_contact_card` requires `mayWrite` on every destination
+   AddressBook**, and `mayRead` on the source card's AddressBooks.
+   Reject the destination half with a `forbidden` SetError;
+   `notFound` on the source half if the caller cannot see the source
+   account or card.
+
+### Caller-identity-less backends
+
+The reference `MemoryBackend` returns `None` from `principal_id` and
+is intentionally permissive — it is suitable for single-user dev
+servers, fixtures, and the workspace's own integration tests, but
+NOT for any deployment where more than one principal can reach the
+JMAP dispatcher. A deployment that needs ACL enforcement MUST
+override `JmapBackend::principal_id` and implement each of the
+checks above; the workspace ships no production-grade reference
+impl.
+
 ## How it works
 
 ### Registration
