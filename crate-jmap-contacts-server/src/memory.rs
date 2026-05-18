@@ -352,8 +352,24 @@ impl MemoryBackend {
 
     /// Register an account as known even if it has no objects yet.
     /// Returns `self` for builder-style chaining.
+    ///
+    /// # Panics
+    ///
+    /// In debug builds: panics if `account_id` is the empty string.
+    /// `Id::from("")` is infallible (the [`jmap_types::Id`] newtype
+    /// accepts any `&str`) and would silently register a "phantom"
+    /// account that subsequent `AddressBook/get {accountId: ""}`
+    /// calls would resolve against — useful for nothing, a likely
+    /// copy-paste hazard in tests (bd:JMAP-qz9v.17). The check is
+    /// `debug_assert!` so release builds remain permissive for the
+    /// rare case a test deliberately exercises the empty-id edge.
     #[must_use]
     pub fn with_account(self, account_id: &str) -> Self {
+        debug_assert!(
+            !account_id.is_empty(),
+            "with_account: account_id must not be the empty string \
+             (bd:JMAP-qz9v.17)"
+        );
         self.register_account(&Id::from(account_id));
         self
     }
@@ -369,8 +385,18 @@ impl MemoryBackend {
     /// public API surface. `#[doc(hidden)]` removes it from `cargo doc`
     /// output so downstream consumers do not see it as a documented
     /// part of the surface.
+    ///
+    /// # Panics
+    ///
+    /// In debug builds: panics if `account_id` is the empty string. See
+    /// [`Self::with_account`] for the rationale (bd:JMAP-qz9v.17).
     #[doc(hidden)]
     pub fn register_account(&self, account_id: &Id) {
+        debug_assert!(
+            !account_id.as_ref().is_empty(),
+            "register_account: account_id must not be the empty string \
+             (bd:JMAP-qz9v.17)"
+        );
         let mut inner = self.inner.lock().unwrap();
         inner.known_accounts.insert(account_id.as_ref().to_owned());
         inner.aux.entry(account_id.as_ref().to_owned()).or_default();
