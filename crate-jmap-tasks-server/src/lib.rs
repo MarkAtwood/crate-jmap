@@ -69,6 +69,11 @@ pub use jmap_tasks_types::JMAP_TASKS_URI;
 /// Register all JMAP Tasks method handlers with `dispatcher`.
 ///
 /// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
+/// You may pass any `Arc<B>` — the function clones it internally into each
+/// registered handler closure. Sharing the same `Arc<B>` across this call
+/// and other application-level uses of the backend is a memory
+/// optimization, not a correctness requirement; separate `Arc<B>` instances
+/// pointing at the same underlying backend would also work.
 ///
 /// After this call, the dispatcher handles:
 /// `TaskList/get`, `TaskList/changes`, `TaskList/set`,
@@ -77,6 +82,26 @@ pub use jmap_tasks_types::JMAP_TASKS_URI;
 /// `TaskNotification/get`, `TaskNotification/changes`,
 /// `TaskNotification/set`, `TaskNotification/query`,
 /// `TaskNotification/queryChanges`.
+///
+/// # Re-registration semantics
+///
+/// This function calls [`Dispatcher::register`] once per
+/// draft-ietf-jmap-tasks-06 method name. `Dispatcher::register`
+/// **silently overwrites** any pre-existing handler under the same
+/// method name (the underlying primitive is `HashMap::insert`). Three
+/// consequences callers MUST be aware of:
+///
+/// - **Double-call**: invoking this function twice on the same
+///   dispatcher loses the first set's handlers. The second call wins.
+/// - **Custom overrides go LAST**: to replace a single handler (e.g.
+///   provide a custom `Task/get`), call this function FIRST, then
+///   `dispatcher.register("Task/get", my_override)`. The inverse
+///   order silently undoes the custom handler.
+/// - **No collision diagnostic**: there is no error or log when a
+///   handler is overwritten. The contract is "last register wins" and
+///   the caller is responsible for ordering.
+///
+/// [`Dispatcher::register`]: jmap_server::Dispatcher::register
 pub fn register_tasks_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: TasksBackend + 'static,

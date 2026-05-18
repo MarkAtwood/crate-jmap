@@ -122,8 +122,11 @@ pub use jmap_server::ClosureHandler;
 /// Register all RFC 9670 JMAP Sharing method handlers with `dispatcher`.
 ///
 /// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
-/// Pass the same `Arc<B>` to both this function and any application-level code
-/// that needs to access the backend.
+/// You may pass any `Arc<B>` — the function clones it internally into each
+/// registered handler closure. Sharing the same `Arc<B>` across this call
+/// and other application-level uses of the backend is a memory
+/// optimization, not a correctness requirement; separate `Arc<B>` instances
+/// pointing at the same underlying backend would also work.
 ///
 /// After this call, the dispatcher handles:
 /// `Principal/get`, `Principal/changes`, `Principal/set`,

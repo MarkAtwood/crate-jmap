@@ -88,6 +88,11 @@ pub const JMAP_CALENDARS_URI: &str = "urn:ietf:params:jmap:calendars";
 /// Register all JMAP Calendars method handlers with `dispatcher`.
 ///
 /// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
+/// You may pass any `Arc<B>` — the function clones it internally into each
+/// registered handler closure. Sharing the same `Arc<B>` across this call
+/// and other application-level uses of the backend is a memory
+/// optimization, not a correctness requirement; separate `Arc<B>` instances
+/// pointing at the same underlying backend would also work.
 ///
 /// After this call, the dispatcher handles all 19 Calendars methods
 /// (bd:JMAP-ic0j.7 — `Calendar/query` and `Calendar/queryChanges` are
