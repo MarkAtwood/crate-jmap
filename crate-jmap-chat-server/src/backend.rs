@@ -870,10 +870,33 @@ pub trait ChatBackend: JmapBackend {
     ///
     /// # Return value
     ///
-    /// `Ok(Some(updated_space))` if the backend modified any
-    /// properties beyond what the client requested (RFC 8620 §5.3
-    /// server-set field echo, e.g. a normalised `name` or a derived
-    /// `iconBlobId`). `Ok(None)` if the patch was applied verbatim.
+    /// The discriminator between `Ok(Some(space))` and `Ok(None)` is
+    /// the **wire-visible Space shape**:
+    ///
+    /// - Return `Ok(None)` if the wire-visible `Space` (the shape
+    ///   `Space/get` would serialise after applying this patch) is
+    ///   identical to the result of mechanically applying the patch
+    ///   keys to the prior state with no additional server-side
+    ///   modification. The handler can then build the `/set` `updated`
+    ///   entry from the input patch alone with no extra fetch.
+    /// - Return `Ok(Some(space))` if the backend modified any
+    ///   wire-visible property beyond what the client requested
+    ///   (RFC 8620 §5.3 server-set field echo, e.g. a normalised
+    ///   `name`, a derived `iconBlobId`, a server-bumped
+    ///   `memberCount`, or any spec-defined server-set field that
+    ///   `Space/get` would return). The handler echoes the returned
+    ///   `Space` to the client.
+    ///
+    /// Server-internal bookkeeping that is NOT part of the
+    /// wire-visible `Space` shape (e.g. private last-touched
+    /// timestamps used only for `/changes` cache-keying, internal
+    /// sequence numbers) MUST NOT itself drive the `Some` path —
+    /// the discriminator is "would `Space/get` return a different
+    /// shape?", not "did the backend touch anything internally?".
+    /// A backend that bumps an internal timestamp on every metadata
+    /// patch correctly returns `Ok(None)` when the wire shape is
+    /// otherwise unchanged.
+    ///
     /// `Err(BackendSetError::SetError(e))` with `e.kind ==
     /// SetErrorType::Forbidden` when the caller fails the
     /// `manage_space` gate.
