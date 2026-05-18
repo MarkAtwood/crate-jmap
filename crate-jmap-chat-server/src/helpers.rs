@@ -128,9 +128,21 @@ pub(crate) fn filter_properties(
 /// `"2025-06-01T12:00:00.000Z"`) do not corrupt the result.  The
 /// plain-ASCII lexicographic order of the ISO 8601 prefix is identical to
 /// chronological order for well-formed UTC timestamps.
-pub(crate) fn iso8601_before(a: &str, b: &str) -> bool {
-    let a_sec = &a[..a.len().min(19)];
-    let b_sec = &b[..b.len().min(19)];
+///
+/// Takes [`UTCDate`] by reference rather than `&str` to enforce the
+/// "ASCII-only, validated by [`UTCDate`] construction" precondition at
+/// the type system. A plain `&str` parameter would compile under
+/// hypothetical multi-byte UTF-8 input that intersected byte index 19;
+/// the byte-index slice below would panic at that boundary. The
+/// [`UTCDate`] newtype carries the ASCII invariant from its
+/// construction site, so the slice cannot panic here.
+///
+/// [`UTCDate`]: jmap_types::UTCDate
+pub(crate) fn iso8601_before(a: &jmap_types::UTCDate, b: &jmap_types::UTCDate) -> bool {
+    let a_str: &str = a.as_ref();
+    let b_str: &str = b.as_ref();
+    let a_sec = &a_str[..a_str.len().min(19)];
+    let b_sec = &b_str[..b_str.len().min(19)];
     a_sec < b_sec
 }
 

@@ -1504,7 +1504,7 @@ pub async fn handle_space_join<B: ChatBackend>(
                 // fractional-second timestamps ('.' < 'Z' in ASCII).
                 if let Some(expires_at) = &invite.expires_at {
                     let now = now_utc_string();
-                    if !iso8601_before(now.as_ref(), expires_at.as_ref()) {
+                    if !iso8601_before(&now, expires_at) {
                         return Err(JmapError::invalid_arguments("invite has expired"));
                     }
                 }

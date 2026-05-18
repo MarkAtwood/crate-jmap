@@ -485,7 +485,7 @@ pub async fn handle_message_set<B: ChatBackend>(
 
             if let Some(ref expires_at) = sender_expires_at {
                 let now = now_utc_string();
-                if !iso8601_before(now.as_ref(), expires_at.as_ref()) {
+                if !iso8601_before(&now, expires_at) {
                     not_created.insert(
                         create_id.clone(),
                         json!({ "type": "invalidProperties", "properties": ["senderExpiresAt"] }),
