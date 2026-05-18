@@ -859,7 +859,14 @@ pub trait ChatBackend: JmapBackend {
     /// "wire null" (clear) from "absent" (unchanged). Backends MAY
     /// validate the values further (e.g. reject an `icon_blob_id`
     /// referencing a non-existent blob) and surface those as
-    /// [`SetError`] returns.
+    /// [`SetError`] returns. The expected `SetErrorType` for
+    /// value-level validation failures is
+    /// [`SetErrorType::InvalidProperties`] with the offending field
+    /// name in `properties` — see the "Diagnostic content
+    /// convention" section below for the blob-not-found shape
+    /// specifically. (RFC 8620 §5.3 defines `blobNotFound` only as
+    /// a method-level error; at the SetError level it surfaces as
+    /// `InvalidProperties` naming the offending blob-id field.)
     ///
     /// # Return value
     ///
