@@ -1544,8 +1544,9 @@ pub async fn handle_space_join<B: ChatBackend>(
                             .map(serde_json::to_value)
                             .collect::<Result<Vec<_>, _>>()
                     })
-                    .unwrap_or(Ok(vec![]))
-                    .map_err(|e| server_fail_from_backend(&e))?;
+                    .transpose()
+                    .map_err(|e| server_fail_from_backend(&e))?
+                    .unwrap_or_default();
 
                 (space_id, members, Some((invite_id, new_uses)))
             }
@@ -1651,8 +1652,9 @@ pub async fn handle_space_join<B: ChatBackend>(
                 .map(serde_json::to_value)
                 .collect::<Result<Vec<_>, _>>()
         })
-        .unwrap_or(Ok(vec![]))
-        .map_err(|e| server_fail_from_backend(&e))?;
+        .transpose()
+        .map_err(|e| server_fail_from_backend(&e))?
+        .unwrap_or_default();
     let duplicate_count = post_members
         .iter()
         .filter(|m| m.get("id").and_then(|v| v.as_str()) == Some(caller_identity.as_ref()))
