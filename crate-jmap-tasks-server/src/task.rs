@@ -51,7 +51,7 @@ use jmap_server::{server_fail_from_backend, server_fail_value_from_backend};
 /// `/get` response shape (`accountId`, `state`, `list`, `notFound`).
 ///
 /// If `"utcStart"` or `"utcDue"` appear in the requested `properties` (or if
-/// `properties` is `null` — meaning all fields), [`TasksBackend::compute_task_utc_times`]
+/// `properties` is `null` — meaning all fields), [`TasksBackend::compute_utc_times`]
 /// is called for each returned task and the computed values are merged in
 /// (draft-tasks-06 §4, utcStart/utcDue paragraphs).
 ///
@@ -70,6 +70,20 @@ pub async fn handle_task_get<B: TasksBackend>(
         _ => false,
     };
 
+    // Peek accountId to thread through compute_utc_times (bd:JMAP-ops7.25).
+    // handle_get re-extracts and re-validates idempotently below; a malformed
+    // or missing accountId surfaces here as invalidArguments before the
+    // delegate call.
+    let account_id: Id = args
+        .get("accountId")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| JmapError::invalid_arguments("accountId is required"))
+        .and_then(|s| {
+            Id::new_validated(s).map_err(|e| {
+                JmapError::invalid_arguments(format!("accountId is not a valid Id: {e}"))
+            })
+        })?;
+
     // Delegate to the generic get handler.
     let (mut response, tail) =
         jmap_server::handlers::handle_get::<Task, B>(backend, caller, args).await?;
@@ -79,7 +93,9 @@ pub async fn handle_task_get<B: TasksBackend>(
         if let Some(Value::Array(list)) = response.get_mut("list") {
             for item in list.iter_mut() {
                 if let Ok(task) = Task::deserialize(&*item) {
-                    let (utc_start, utc_due) = backend.compute_task_utc_times(&task, None);
+                    let (utc_start, utc_due) = backend
+                        .compute_utc_times(caller, &account_id, &task, None)
+                        .await;
                     if let Some(s) = utc_start {
                         item["utcStart"] = Value::String(s.into_inner());
                     }
@@ -1175,7 +1191,7 @@ mod tests {
         }
     }
 
-    // ── compute_task_utc_times / utcStart wiring (draft-tasks-06 §4 (utcStart/utcDue paragraphs)) ─
+    // ── compute_utc_times / utcStart wiring (draft-tasks-06 §4 (utcStart/utcDue paragraphs)) ─
 
     /// Oracle: draft-tasks-06 §4 — utcStart is not returned unless explicitly
     /// requested in `properties`.  The default impl returns None so it must be
@@ -1205,7 +1221,7 @@ mod tests {
     }
 
     /// Oracle: draft-tasks-06 §4 — when utcStart is in properties, the handler
-    /// calls compute_task_utc_times. The default impl returns (None, None) so
+    /// calls compute_utc_times. The default impl returns (None, None) so
     /// no utcStart key is injected, but no error is raised either.
     #[tokio::test]
     async fn get_with_utc_start_in_properties_does_not_error() {

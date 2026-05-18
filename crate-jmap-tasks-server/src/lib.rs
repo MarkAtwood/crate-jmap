@@ -798,7 +798,7 @@ mod tests {
     }
 
     /// Oracle: draft-tasks-06 §4 — when utcStart is explicitly requested,
-    /// the handler invokes compute_task_utc_times (default: returns None, so
+    /// the handler invokes compute_utc_times (default: returns None, so
     /// no value injected), but no error is raised.
     #[tokio::test]
     async fn utcstart_returned_when_requested() {
@@ -820,6 +820,211 @@ mod tests {
         assert!(
             args.get("type").is_none(),
             "Task/get with utcStart must not error: {args}"
+        );
+    }
+
+    /// Oracle: bd:JMAP-ops7.25 — the `account_id` argument plumbed into
+    /// `TasksBackend::compute_utc_times` matches the request's `accountId`
+    /// and is delivered as a validated [`Id`]. Locks in the args-threading
+    /// contract: a backend that overrides `compute_utc_times` can rely on
+    /// receiving the caller-validated account id.
+    #[tokio::test]
+    async fn compute_utc_times_receives_validated_account_id() {
+        use std::sync::Mutex;
+
+        use jmap_server::{
+            BackendChangesError, BackendSetError, ChangesResult, GetObject, JmapBackend,
+            JmapObject, QueryChangesResult, QueryObject, QueryResult, SetObject,
+        };
+        use jmap_tasks_types::Task;
+        use jmap_types::{Id, UTCDate};
+
+        use crate::backend::TasksBackend;
+        use crate::test_support::MockError;
+
+        /// Minimal recording backend that returns exactly one Task on
+        /// `get_objects::<Task>` (so the handler's augmentation loop fires
+        /// once) and captures the `account_id` argument that `compute_utc_times`
+        /// receives.
+        struct AccountIdRecorder {
+            observed: Mutex<Vec<Id>>,
+        }
+
+        impl JmapBackend for AccountIdRecorder {
+            type Error = MockError;
+            type CallerCtx = ();
+
+            async fn account_exists(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<bool, Self::Error> {
+                Ok(true)
+            }
+
+            async fn get_objects<O: GetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _ids: Option<&[Id]>,
+                _properties: Option<&[String]>,
+            ) -> Result<(Vec<O>, Vec<Id>), Self::Error> {
+                // Synthesize one Task via JSON round-trip. Non-Task types
+                // get back an empty list (handler exercise here is
+                // Task/get only).
+                let item = json!({ "id": "t1" });
+                match serde_json::from_value::<O>(item) {
+                    Ok(obj) => Ok((vec![obj], vec![])),
+                    Err(_) => Ok((vec![], vec![])),
+                }
+            }
+
+            async fn get_state<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+            ) -> Result<State, Self::Error> {
+                Ok(State::from("s0"))
+            }
+
+            async fn get_changes<O: JmapObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _since_state: &State,
+                _max_changes: Option<u64>,
+            ) -> Result<ChangesResult, BackendChangesError<Self::Error>> {
+                Ok(ChangesResult::new(
+                    vec![],
+                    vec![],
+                    vec![],
+                    false,
+                    State::from("s0"),
+                ))
+            }
+
+            async fn query_objects<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _limit: Option<u64>,
+                _position: i64,
+            ) -> Result<QueryResult, Self::Error> {
+                Ok(QueryResult::new(
+                    vec![],
+                    0,
+                    Some(0),
+                    State::from("s0"),
+                    false,
+                ))
+            }
+
+            async fn query_changes<O: QueryObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                since_query_state: &State,
+                _filter: Option<&O::Filter>,
+                _sort: Option<&[O::Comparator]>,
+                _max_changes: Option<u64>,
+                _up_to_id: Option<&Id>,
+                _collapse_threads: bool,
+            ) -> Result<QueryChangesResult, BackendChangesError<Self::Error>> {
+                Ok(QueryChangesResult::new(
+                    since_query_state.clone(),
+                    State::from("s0"),
+                    Some(0),
+                    vec![],
+                    vec![],
+                ))
+            }
+        }
+
+        impl TasksBackend for AccountIdRecorder {
+            async fn create_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _create_id: &str,
+                obj: O,
+            ) -> Result<(Id, O), BackendSetError<Self::Error>> {
+                Ok((Id::from("t1"), obj))
+            }
+
+            async fn update_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+                _patch: O::Patch,
+            ) -> Result<Option<O>, BackendSetError<Self::Error>> {
+                Ok(None)
+            }
+
+            async fn destroy_object<O: SetObject + Send + Sync>(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _id: &Id,
+            ) -> Result<(), BackendSetError<Self::Error>> {
+                Ok(())
+            }
+
+            fn supports_type<O: JmapObject>(&self) -> bool {
+                true
+            }
+
+            async fn task_list_has_tasks(
+                &self,
+                _caller: &(),
+                _account_id: &Id,
+                _task_list_id: &Id,
+            ) -> bool {
+                false
+            }
+
+            async fn compute_utc_times(
+                &self,
+                _caller: &(),
+                account_id: &Id,
+                _task: &Task,
+                _tz_hint: Option<&str>,
+            ) -> (Option<UTCDate>, Option<UTCDate>) {
+                self.observed.lock().unwrap().push(account_id.clone());
+                (None, None)
+            }
+        }
+
+        let backend = Arc::new(AccountIdRecorder {
+            observed: Mutex::new(Vec::new()),
+        });
+        let mut dispatcher: Dispatcher<()> = Dispatcher::new();
+        register_tasks_handlers(&mut dispatcher, Arc::clone(&backend));
+
+        let req = single_call(
+            "Task/get",
+            json!({
+                "accountId": "acc1",
+                "ids": null,
+                "properties": ["id", "utcStart"]
+            }),
+            "c0",
+        );
+        let resp = dispatcher.dispatch(req, (), State::from("s0")).await;
+        let (_, args, _) = &resp.method_responses[0];
+        assert!(
+            args.get("type").is_none(),
+            "Task/get with utcStart must not error: {args}"
+        );
+
+        let seen = backend.observed.lock().unwrap().clone();
+        assert_eq!(
+            seen,
+            vec![Id::from("acc1")],
+            "compute_utc_times must receive the request's accountId exactly once \
+             (one Task synthesized, utcStart requested)"
         );
     }
 

@@ -16,7 +16,7 @@
 //! behind a `std::sync::Mutex`, persistence is not implemented, and a number
 //! of draft-ietf-jmap-tasks-06 edge cases are simplified (see source
 //! comments). In particular, UTC-time conversion
-//! ([`compute_task_utc_times`](crate::TasksBackend::compute_task_utc_times))
+//! ([`compute_utc_times`](crate::TasksBackend::compute_utc_times))
 //! and the per-user property routing
 //! ([`update_task_per_user`](crate::TasksBackend::update_task_per_user))
 //! inherit the trait's default implementations (no time-zone conversion;

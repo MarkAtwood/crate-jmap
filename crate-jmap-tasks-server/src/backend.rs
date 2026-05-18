@@ -319,15 +319,30 @@ pub trait TasksBackend: JmapBackend {
     /// omit both fields.  Backends with full tz support should override this.
     ///
     /// # Parameters
+    /// - `caller` — the caller context. The default implementation ignores it,
+    ///   but backends MAY use [`JmapBackend::principal_id`] to resolve the
+    ///   caller's preferred default time zone when `tz_hint` is `None`.
+    /// - `account_id` — the target account. The default implementation ignores
+    ///   it, but backends MAY use it to look up an account-scoped tz database
+    ///   or per-account default time zone.
     /// - `task` — the task whose `start` and `due` fields are to be converted.
     /// - `tz_hint` — an optional IANA time-zone override; if `None`, the task's
     ///   own `time_zone` field (if any) is used.
-    fn compute_task_utc_times(
+    ///
+    /// Naming and signature mirror the canonical
+    /// [`CalendarsBackend::compute_utc_times`](https://docs.rs/jmap-calendars-server/latest/jmap_calendars_server/trait.CalendarsBackend.html#method.compute_utc_times)
+    /// (bd:JMAP-ops7.25).
+    ///
+    /// [`JmapBackend::principal_id`]: jmap_server::JmapBackend::principal_id
+    fn compute_utc_times(
         &self,
+        _caller: &Self::CallerCtx,
+        _account_id: &jmap_types::Id,
         _task: &jmap_tasks_types::Task,
         _tz_hint: Option<&str>,
-    ) -> (Option<jmap_types::UTCDate>, Option<jmap_types::UTCDate>) {
+    ) -> impl std::future::Future<Output = (Option<jmap_types::UTCDate>, Option<jmap_types::UTCDate>)>
+           + Send {
         // Default: no UTC conversion capability; callers omit utcStart/utcDue.
-        (None, None)
+        async { (None, None) }
     }
 }
