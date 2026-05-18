@@ -1168,3 +1168,84 @@ pub fn seed_with_non_admin_caller(backend: &IdentityBackend, caller_id: &str) {
         ]),
     );
 }
+
+// ---------------------------------------------------------------------------
+// Builder helpers: create-as-prerequisite for tests-of-something-else.
+//
+// These helpers exist to collapse the recurring 14-line boilerplate of
+// "call handle_*_set in create-mode, extract the server-assigned id"
+// at sites where the create is a fixture step, not the subject of the
+// test. Tests that exercise the create path itself MUST call the
+// underlying `handle_*_set` directly so the JSON shape under test
+// remains visible at the call site (bd:JMAP-x2gd.82).
+// ---------------------------------------------------------------------------
+
+/// Create a Space with the given name in [`ACCOUNT_ID`] and return its
+/// server-assigned id. Goes through the `handle_space_set` create flow.
+///
+/// The placeholder client id is `"s0"`. Only `name` is set on the
+/// create object. For non-default props (e.g. `isPublic: true`), see
+/// [`make_space_with_props`].
+pub async fn make_space(backend: &MemoryBackend, name: &str) -> String {
+    let (resp, _) = jmap_chat_server::handle_space_set(
+        backend,
+        &(),
+        serde_json::json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "s0": { "name": name } }
+        }),
+    )
+    .await
+    .expect("make_space: handle_space_set");
+    resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("make_space: server-assigned id")
+        .to_owned()
+}
+
+/// Create a Space with custom props in [`ACCOUNT_ID`] and return its
+/// server-assigned id. `props` is the body of the create object — for
+/// example `serde_json::json!({"name": "X", "isPublic": true})`.
+///
+/// Use this when [`make_space`]'s name-only shape is insufficient.
+pub async fn make_space_with_props(backend: &MemoryBackend, props: serde_json::Value) -> String {
+    let (resp, _) = jmap_chat_server::handle_space_set(
+        backend,
+        &(),
+        serde_json::json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "s0": props }
+        }),
+    )
+    .await
+    .expect("make_space_with_props: handle_space_set");
+    resp["created"]["s0"]["id"]
+        .as_str()
+        .expect("make_space_with_props: server-assigned id")
+        .to_owned()
+}
+
+/// Create a Chat with `kind: "group"` and the given name in
+/// [`ACCOUNT_ID`] and return its server-assigned id. Goes through the
+/// `handle_chat_set` create flow.
+///
+/// The placeholder client id is `"c0"`. For Chats with other kinds
+/// (`"direct"` / `"channel"`) or extra props (`contactId`, `spaceId`),
+/// call `handle_chat_set` directly so the JSON shape under test
+/// remains visible at the call site.
+pub async fn make_chat_group(backend: &MemoryBackend, name: &str) -> String {
+    let (resp, _) = jmap_chat_server::handle_chat_set(
+        backend,
+        &(),
+        serde_json::json!({
+            "accountId": ACCOUNT_ID,
+            "create": { "c0": { "kind": "group", "name": name } }
+        }),
+    )
+    .await
+    .expect("make_chat_group: handle_chat_set");
+    resp["created"]["c0"]["id"]
+        .as_str()
+        .expect("make_chat_group: server-assigned id")
+        .to_owned()
+}

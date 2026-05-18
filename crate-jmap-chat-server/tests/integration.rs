@@ -6,7 +6,10 @@
 
 mod common;
 
-use common::{FaultyBackend, MemoryBackend, TrackingBackend};
+use common::{
+    make_chat_group, make_space, make_space_with_props, FaultyBackend, MemoryBackend,
+    TrackingBackend,
+};
 use jmap_chat_server::{
     handle_ban_get, handle_ban_set, handle_chat_changes, handle_chat_get, handle_chat_query,
     handle_chat_query_changes, handle_chat_set, handle_contact_changes, handle_contact_get,
@@ -328,20 +331,7 @@ async fn chat_set_create_unknown_kind_rejected() {
 async fn chat_set_update_too_deep_patch_rejected_not_silently_truncated() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_chat_set(
-        &backend,
-        &(),
-        json!({
-            "accountId": "a1",
-            "create": { "c0": { "kind": "group", "name": "Original" } }
-        }),
-    )
-    .await
-    .expect("create");
-    let chat_id = create_resp["created"]["c0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let chat_id = make_chat_group(&backend, "Original").await;
 
     // Build a 200-level-deep nested patch object. The patch field name
     // is arbitrary — it does not matter for the depth-cap test whether
@@ -398,17 +388,7 @@ async fn chat_set_update_readonly_field_rejected() {
     let backend = MemoryBackend::new();
 
     // Create a chat first.
-    let (create_resp, _) = handle_chat_set(
-        &backend,
-        &(),
-        json!({
-            "accountId": "a1",
-            "create": { "c0": { "kind": "group", "name": "G" } }
-        }),
-    )
-    .await
-    .expect("create");
-    let chat_id = create_resp["created"]["c0"]["id"].as_str().expect("id");
+    let chat_id = make_chat_group(&backend, "G").await;
 
     let (resp, _) = handle_chat_set(
         &backend,
@@ -416,15 +396,15 @@ async fn chat_set_update_readonly_field_rejected() {
         json!({
             "accountId": "a1",
             "update": {
-                chat_id: { "createdAt": "2020-01-01T00:00:00Z" }
+                &chat_id: { "createdAt": "2020-01-01T00:00:00Z" }
             }
         }),
     )
     .await
     .expect("update");
 
-    assert!(resp["notUpdated"][chat_id].is_object());
-    assert_eq!(resp["notUpdated"][chat_id]["type"], "invalidProperties");
+    assert!(resp["notUpdated"][&chat_id].is_object());
+    assert_eq!(resp["notUpdated"][&chat_id]["type"], "invalidProperties");
 }
 
 /// Oracle: Chat/set destroy removes the object.
@@ -432,20 +412,7 @@ async fn chat_set_update_readonly_field_rejected() {
 async fn chat_set_destroy() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_chat_set(
-        &backend,
-        &(),
-        json!({
-            "accountId": "a1",
-            "create": { "c0": { "kind": "group", "name": "Temp" } }
-        }),
-    )
-    .await
-    .expect("create");
-    let chat_id = create_resp["created"]["c0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let chat_id = make_chat_group(&backend, "Temp").await;
 
     let (destroy_resp, _) = handle_chat_set(
         &backend,
@@ -2876,17 +2843,7 @@ async fn space_set_create_success() {
 async fn space_get_returns_created() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "The Space" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "The Space").await;
 
     let (get_resp, _) = handle_space_get(
         &backend,
@@ -2904,17 +2861,7 @@ async fn space_get_returns_created() {
 async fn space_set_update_readonly_fields_rejected() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Readonly Test" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Readonly Test").await;
 
     for field in &["roles", "members", "categories", "uncategorizedChannelIds"] {
         let (resp, _) = handle_space_set(
@@ -2958,17 +2905,7 @@ async fn space_set_update_readonly_fields_rejected() {
 async fn space_set_update_role_member_variants_dispatch_to_backend() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Mutation Test" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Mutation Test").await;
 
     // AddRole then references the assigned id on the subsequent ops.
     let (add_role_resp, _) = handle_space_set(
@@ -3115,17 +3052,7 @@ async fn space_set_update_role_member_variants_dispatch_to_backend() {
 async fn space_set_update_structural_empty_array_is_empty_patch() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Empty Test" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Empty Test").await;
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -3150,17 +3077,7 @@ async fn space_set_update_structural_empty_array_is_empty_patch() {
 async fn space_set_update_malformed_structural_rejected() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Malformed Test" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Malformed Test").await;
 
     // addRoles wants an array of objects; a bare string is malformed.
     let (resp, _) = handle_space_set(
@@ -3209,17 +3126,7 @@ async fn space_set_update_malformed_structural_rejected() {
 #[tokio::test]
 async fn space_set_add_roles_position_zero_rejected() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Test" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Test").await;
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -3270,17 +3177,7 @@ async fn space_set_add_roles_position_zero_rejected() {
 #[tokio::test]
 async fn space_set_add_roles_position_one_passes_handler_check() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Test" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Test").await;
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -3324,17 +3221,7 @@ async fn space_set_add_roles_position_one_passes_handler_check() {
 #[tokio::test]
 async fn space_set_update_roles_position_zero_rejected() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Test" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Test").await;
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -3367,17 +3254,7 @@ async fn space_set_update_roles_position_zero_rejected() {
 #[tokio::test]
 async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
     let backend = MemoryBackend::new();
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Atomic" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Atomic").await;
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -3429,17 +3306,7 @@ async fn space_set_add_roles_position_zero_rejects_whole_target_atomically() {
 async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Original Name" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Original Name").await;
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -3483,17 +3350,7 @@ async fn space_set_update_mixed_structural_and_metadata_partial_fail() {
 async fn space_set_update_unknown_property_rejected() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Unknown Property Test" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Unknown Property Test").await;
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -3533,21 +3390,6 @@ async fn space_set_update_unknown_property_rejected() {
 // Space-side categories[].channel_ids on add/update) are exercised by
 // driving Chat/set channels alongside the category ops.
 // ---------------------------------------------------------------------------
-
-/// Helper: create a Space and return its server-assigned id.
-async fn make_space(backend: &MemoryBackend, name: &str) -> String {
-    let (resp, _) = handle_space_set(
-        backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": name } } }),
-    )
-    .await
-    .expect("create space");
-    resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("space id")
-        .to_owned()
-}
 
 /// Helper: directly seed a channel-kind Chat in the in-memory backend so
 /// Category cascade tests have channels to reassign without needing a
@@ -4975,17 +4817,7 @@ async fn space_set_channel_changelog_dedups_create_then_destroy() {
 async fn space_set_update_metadata_success() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
-        &backend,
-        &(),
-        json!({ "accountId": "a1", "create": { "s0": { "name": "Original Name" } } }),
-    )
-    .await
-    .expect("create");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    let space_id = make_space(&backend, "Original Name").await;
 
     let (resp, _) = handle_space_set(
         &backend,
@@ -6655,20 +6487,11 @@ async fn space_join_invite_at_max_uses_rejected() {
 async fn space_join_private_space_forbidden() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
+    let space_id = make_space_with_props(
         &backend,
-        &(),
-        json!({
-            "accountId": "a1",
-            "create": { "s0": { "name": "Private Space", "isPublic": false } }
-        }),
+        json!({ "name": "Private Space", "isPublic": false }),
     )
-    .await
-    .expect("create Space");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    .await;
 
     let err = handle_space_join(
         &backend,
@@ -6689,20 +6512,11 @@ async fn space_join_private_space_forbidden() {
 async fn space_join_public_space_success() {
     let backend = MemoryBackend::new();
 
-    let (create_resp, _) = handle_space_set(
+    let space_id = make_space_with_props(
         &backend,
-        &(),
-        json!({
-            "accountId": "a1",
-            "create": { "s0": { "name": "Public Space", "isPublic": true } }
-        }),
+        json!({ "name": "Public Space", "isPublic": true }),
     )
-    .await
-    .expect("create Space");
-    let space_id = create_resp["created"]["s0"]["id"]
-        .as_str()
-        .expect("id")
-        .to_owned();
+    .await;
 
     let (resp, invocations) = handle_space_join(
         &backend,
