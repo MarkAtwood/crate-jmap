@@ -84,7 +84,8 @@ pub use error::{
 };
 pub use push::StateChange;
 pub use request::{
-    AccountInfo, JmapRequestBuilder, JmapUrl, JmapUrlTemplate, Session, WebSocketCapability,
+    AccountInfo, AccountName, JmapRequestBuilder, JmapUrl, JmapUrlTemplate, Session, Username,
+    WebSocketCapability,
 };
 pub use sse::{parse_sse_block, SseEvent, SseFrame};
 pub use ws::{connect_ws, WsFrame, WsReceiver, WsSender, WsSession};

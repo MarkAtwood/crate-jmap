@@ -64,6 +64,7 @@ mod common;
 use base64::prelude::*;
 use common::log_capture::LogCapture;
 use jmap_base_client::auth::{BasicAuth, BearerAuth};
+use jmap_base_client::{AccountName, Username};
 
 /// Sanity check: the [`LogCapture`] harness actually captures the
 /// output of `tracing::*` calls emitted while it is installed.
@@ -167,4 +168,47 @@ fn basic_auth_credentials_never_appear_in_tracing_capture() {
     // surfacing the base64-encoded credentials.
     let base64_pair = BASE64_STANDARD.encode(format!("{CANARY_USER}:{CANARY_PASS}"));
     capture.assert_does_not_contain(&base64_pair);
+}
+
+/// bd:JMAP-6r7c.63 — [`Username`] is a PII wrapper for `Session.username`.
+/// Both `Display` and `Debug` MUST redact the raw value to `[REDACTED]`.
+/// A `tracing::info!(user = %session.username, ...)` line — `%` invokes
+/// `Display` — and `tracing::debug!("...{user:?}", user = session.username)`
+/// — `?` invokes `Debug` — MUST NOT surface the PII canary literal.
+#[test]
+fn username_never_appears_in_tracing_capture() {
+    const CANARY: &str = "CANARY-LOG-USERNAME-DO-NOT-LEAK";
+    let capture = LogCapture::new();
+    let username = Username::new(CANARY);
+
+    // Exercise both Display (%) and Debug (?) paths, the two
+    // formatter shapes a future contributor adding instrumentation is
+    // likely to write against a `Session.username` field.
+    tracing::info!(user = %username, "constructed username");
+    tracing::debug!("username Display path: {username}");
+    tracing::trace!(?username, "username Debug path");
+    tracing::warn!("username via mixed Debug: {username:?}");
+
+    capture.assert_contains("constructed username");
+    capture.assert_contains("[REDACTED]");
+    capture.assert_does_not_contain(CANARY);
+}
+
+/// bd:JMAP-6r7c.63 — [`AccountName`] mirror of the Username canary.
+/// `AccountInfo.name` (also typically PII) must not leak through any
+/// `tracing::*` formatter path either.
+#[test]
+fn account_name_never_appears_in_tracing_capture() {
+    const CANARY: &str = "CANARY-LOG-ACCOUNT-NAME-DO-NOT-LEAK";
+    let capture = LogCapture::new();
+    let account_name = AccountName::new(CANARY);
+
+    tracing::info!(name = %account_name, "constructed account name");
+    tracing::debug!("account name Display path: {account_name}");
+    tracing::trace!(?account_name, "account name Debug path");
+    tracing::warn!("account name via mixed Debug: {account_name:?}");
+
+    capture.assert_contains("constructed account name");
+    capture.assert_contains("[REDACTED]");
+    capture.assert_does_not_contain(CANARY);
 }

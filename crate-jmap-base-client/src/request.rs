@@ -169,6 +169,168 @@ impl PartialEq<JmapUrlTemplate> for &str {
 }
 
 // ---------------------------------------------------------------------------
+// Username / AccountName (bd:JMAP-6r7c.63)
+// ---------------------------------------------------------------------------
+
+/// The authenticated user's username (RFC 8620 §2 `username` field).
+///
+/// Typically an email address, and therefore PII under GDPR / CCPA.
+/// The wrapper exists to centralise PII handling at the type level:
+///
+/// - **`Display` redacts to `"[REDACTED]"`.** `println!("{}", username)`,
+///   `format!("{username}")`, and `tracing::info!(user = %username, ...)`
+///   all hit `Display` and therefore the redaction. The pre-bd:JMAP-6r7c.63
+///   shape (`pub username: String`) leaked the raw value through every
+///   `Display`-bearing path.
+/// - **`Debug` redacts to `Username("[REDACTED]")`.** Pre-existing
+///   `Session::Debug` already redacted explicitly; keeping the wrapper's
+///   own redaction makes the field safe to print even outside the
+///   `Session::Debug` path (e.g. if a caller stores the `Username` in
+///   a struct of their own and derives `Debug` on it).
+/// - **`Serialize` emits the raw value verbatim** because the wire
+///   format requires it for round-trip. Callers who want to scrub the
+///   field before serialising MUST do so explicitly.
+/// - **[`expose_unredacted`](Self::expose_unredacted)** is the only path
+///   to the raw string. The accessor name is deliberately explicit so
+///   the intent is visible at the call site in code review.
+///
+/// Construct via [`Username::new`] or via deserialize.
+#[non_exhaustive]
+#[derive(Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct Username(String);
+
+impl Username {
+    /// Wrap a string as a [`Username`].
+    pub fn new(username: impl Into<String>) -> Self {
+        Self(username.into())
+    }
+
+    /// Return the raw, un-redacted username string.
+    ///
+    /// **Do not log this return value.** This is the only path to the
+    /// raw PII; the explicit accessor name surfaces the intent in code
+    /// review. Use only when the wire format requires the raw value
+    /// (e.g. constructing an `Authorization` header that re-uses the
+    /// username, building an audit log under a separate PII-handling
+    /// policy).
+    pub fn expose_unredacted(&self) -> &str {
+        &self.0
+    }
+
+    /// Consume the wrapper and return the inner `String`.
+    ///
+    /// Same handling guidance as
+    /// [`expose_unredacted`](Self::expose_unredacted) — the caller now
+    /// owns a raw `String` and must handle PII manually from that
+    /// point on.
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl std::fmt::Display for Username {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("[REDACTED]")
+    }
+}
+
+impl std::fmt::Debug for Username {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Username").field(&"[REDACTED]").finish()
+    }
+}
+
+impl PartialEq<str> for Username {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl PartialEq<&str> for Username {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<Username> for str {
+    fn eq(&self, other: &Username) -> bool {
+        self == other.0
+    }
+}
+
+impl PartialEq<Username> for &str {
+    fn eq(&self, other: &Username) -> bool {
+        *self == other.0
+    }
+}
+
+/// The human-readable account name (RFC 8620 §2 `name` field on the
+/// per-account object).
+///
+/// Typically the owner's email address, and therefore PII. Shape
+/// mirrors [`Username`]; see that type for the PII-handling rationale.
+#[non_exhaustive]
+#[derive(Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct AccountName(String);
+
+impl AccountName {
+    /// Wrap a string as an [`AccountName`].
+    pub fn new(name: impl Into<String>) -> Self {
+        Self(name.into())
+    }
+
+    /// Return the raw, un-redacted account name. Same handling
+    /// guidance as [`Username::expose_unredacted`].
+    pub fn expose_unredacted(&self) -> &str {
+        &self.0
+    }
+
+    /// Consume the wrapper and return the inner `String`. Same
+    /// handling guidance as [`Username::into_inner`].
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl std::fmt::Display for AccountName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("[REDACTED]")
+    }
+}
+
+impl std::fmt::Debug for AccountName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("AccountName").field(&"[REDACTED]").finish()
+    }
+}
+
+impl PartialEq<str> for AccountName {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl PartialEq<&str> for AccountName {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<AccountName> for str {
+    fn eq(&self, other: &AccountName) -> bool {
+        self == other.0
+    }
+}
+
+impl PartialEq<AccountName> for &str {
+    fn eq(&self, other: &AccountName) -> bool {
+        *self == other.0
+    }
+}
+
+// ---------------------------------------------------------------------------
 // JmapRequestBuilder (RFC 8620 §3.3)
 // ---------------------------------------------------------------------------
 
@@ -272,29 +434,35 @@ pub struct Session {
 
     /// Username associated with the current credentials (RFC 8620 §2).
     ///
-    /// # ⚠ PII — handle with the same care as a credential (bd:JMAP-6r7c.35)
+    /// # ⚠ PII — handle with the same care as a credential (bd:JMAP-6r7c.35, bd:JMAP-6r7c.63)
     ///
-    /// This field is typically an email address and is therefore PII under
-    /// GDPR / CCPA. The `Session` Debug impl redacts this field to
-    /// `"[REDACTED]"`, but the redaction only catches `{:?}`-format paths.
-    /// Common ways callers accidentally leak the raw value:
+    /// This field is typically an email address and is therefore PII
+    /// under GDPR / CCPA. The [`Username`] wrapper redacts both
+    /// `Display` and `Debug`:
     ///
-    /// - `println!("User: {}", session.username)` — `Display`, not redacted.
-    /// - `format!("hello {}", session.username)` — `Display`, not redacted.
-    /// - `tracing::info!(user = %session.username, ...)` — `%` invokes
-    ///   `Display`, not `Debug`.
-    /// - `serde_json::to_string(&session)?` — emits the raw value verbatim
-    ///   because `Session` derives `Serialize` for wire round-trip.
-    /// - `session.username.clone().into_inner()` (no such method exists
-    ///   today, but a future newtype migration would expose one) —
-    ///   intentional exposure path.
+    /// - `println!("User: {}", session.username)` — `Display` renders
+    ///   `"[REDACTED]"` (per [`Username`]'s impl).
+    /// - `format!("hello {}", session.username)` — same.
+    /// - `tracing::info!(user = %session.username, ...)` — same.
+    /// - `format!("{:?}", session.username)` — `Debug` renders
+    ///   `Username("[REDACTED]")`.
     ///
-    /// Do not log this field, do not include it in error messages, do not
-    /// serialize it to disk or another network endpoint. If you need a
-    /// non-PII session-scoped identifier, prefer
+    /// Two paths still expose the raw value, both deliberately
+    /// explicit at the call site:
+    ///
+    /// - [`Username::expose_unredacted`] returns `&str`. Use only when
+    ///   the wire requires it (constructing an `Authorization` header
+    ///   that re-uses the username, audit logging under a separate
+    ///   policy).
+    /// - `serde_json::to_string(&session)?` — `Session` derives
+    ///   `Serialize` for wire round-trip and emits the raw value
+    ///   verbatim. Callers who want to scrub PII before serialising
+    ///   MUST replace or clear the field first.
+    ///
+    /// If you need a non-PII session-scoped identifier, prefer
     /// [`primary_accounts`](Session::primary_accounts) account IDs
     /// (RFC 8620 §2's `accountId` is server-opaque and is not PII).
-    pub username: String,
+    pub username: Username,
 
     /// URL for JMAP API POST requests (RFC 8620 §2).
     ///
@@ -478,16 +646,18 @@ impl std::fmt::Debug for Session {
 pub struct AccountInfo {
     /// Human-readable account name (e.g. the owner's email address).
     ///
-    /// # ⚠ PII — same handling rules as [`Session::username`] (bd:JMAP-6r7c.35)
+    /// # ⚠ PII — same handling rules as [`Session::username`] (bd:JMAP-6r7c.35, bd:JMAP-6r7c.63)
     ///
-    /// This field is typically an email address and is therefore PII under
-    /// GDPR / CCPA. The `AccountInfo` Debug impl redacts this field to
-    /// `"[REDACTED]"`, but the redaction only catches `{:?}`-format paths.
-    /// `Display`, `format!("{}")`, `serde_json::to_string`, and
-    /// `tracing::info!(name = %account.name, ...)` all leak the raw value.
-    /// See [`Session::username`] for the full list of accidental-leak paths
-    /// and recommended replacement identifiers.
-    pub name: String,
+    /// Typed as [`AccountName`] (PII wrapper) so `Display`, `Debug`,
+    /// `format!`, and `tracing::*` paths all redact to `"[REDACTED]"`
+    /// rather than leaking the raw value. The only paths that surface
+    /// the raw string are [`AccountName::expose_unredacted`] (explicit
+    /// caller intent) and `serde_json::to_string(&account)?` (wire
+    /// round-trip).
+    ///
+    /// See [`Session::username`] for the full PII discussion and
+    /// recommended non-PII replacement identifiers.
+    pub name: AccountName,
 
     /// `true` if this is the authenticated user's own personal account.
     pub is_personal: bool,
