@@ -73,8 +73,8 @@ pub mod sse;
 pub mod ws;
 
 pub use auth::{
-    AuthHeader, AuthProvider, BasicAuth, BearerAuth, CustomCaTransport, DefaultTransport,
-    HttpClient, NoneAuth, TransportConfig,
+    AuthHeader, AuthProvider, BasicAuth, BearerAuth, BuilderTransport, CustomCaTransport,
+    CustomTransportBuilder, DefaultTransport, HttpClient, NoneAuth, TransportConfig,
 };
 pub use blob::{
     expand_url_template, BlobUploadResponse, DownloadBlobParams, DownloadBlobSessionParams,
