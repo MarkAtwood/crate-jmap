@@ -56,7 +56,27 @@ pub use card::{
     handle_contact_card_query, handle_contact_card_query_changes, handle_contact_card_set,
 };
 
-/// Capability URI for `urn:ietf:params:jmap:contacts`.
+/// Capability URI for the JMAP for Contacts extension (RFC 9610 §1.4.1).
+///
+/// Advertise this string in the consumer's Session object `capabilities`
+/// map (RFC 8620 §2.1) to expose AddressBook and ContactCard support to
+/// clients. Typically combined with `urn:ietf:params:jmap:core` (RFC 8620
+/// §2.1.1), which the consumer ships separately — the foundation
+/// `jmap-server` crate does not export a core-URI constant.
+///
+/// The URI is normatively stable: RFC 9610 §1.4.1 registers it with IANA
+/// under the "JMAP Capabilities" registry; revisions to the contacts
+/// spec keep the same string.
+///
+/// Re-exported from `jmap-contacts-types` so the wire-format constant is
+/// declared once (bd:JMAP-qz9v.32 tracks the canonical-template question
+/// of whether server crates should re-export their type crate's URI or
+/// declare their own — mail-server, the canonical, declares its own).
+///
+/// ```
+/// use jmap_contacts_server::JMAP_CONTACTS_URI;
+/// assert_eq!(JMAP_CONTACTS_URI, "urn:ietf:params:jmap:contacts");
+/// ```
 pub use jmap_contacts_types::JMAP_CONTACTS_URI;
 
 // ---------------------------------------------------------------------------

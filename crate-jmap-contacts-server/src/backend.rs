@@ -42,8 +42,9 @@ pub use jmap_server::{
 /// exist.
 ///
 /// Backends that have not wired identity (test fixtures, single-user dev
-/// servers — including the in-crate [`crate::memory::MemoryBackend`])
-/// return `None` from `principal_id`. Such backends CANNOT correctly
+/// servers — including the in-crate `memory::MemoryBackend`, gated behind
+/// `feature = "memory"`) return `None` from `principal_id`. Such
+/// backends CANNOT correctly
 /// implement AddressBook ACLs or any other identity-sensitive contacts
 /// surface; the workspace AGENTS.md per-extension implication for
 /// contacts is recorded in `crate-jmap-contacts-server/AGENTS.md`
