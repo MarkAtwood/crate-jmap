@@ -26,6 +26,36 @@
 //! API stability is opt-in via this feature and may break across minor
 //! versions while the crate is pre-1.0.
 //!
+//! # `realistic-demo-ids` feature (test-id format toggle)
+//!
+//! The `realistic-demo-ids` feature changes the id-minting format
+//! that [`memory::MemoryBackend`] uses for server-assigned object
+//! ids. It requires `memory` to be enabled (the feature only
+//! affects the in-memory reference backend; no other code path
+//! observes it).
+//!
+//! - **Default (feature OFF):** deterministic, lex-orderable
+//!   per-(type, account) ids of the form `"<type><n:016x>"`. Easy
+//!   to read in test debug output. Load-bearing for
+//!   draft-atwood-jmap-chat-00 `Chat.unreadCount` semantics (count
+//!   of `Message`s whose id is lex-greater than
+//!   `lastReadMessageId`).
+//! - **Feature ON:** mail-server-style timestamp+counter ids of
+//!   the form `"{n:016x}"`. Lex-orderable globally within a
+//!   process, not repeatable across runs.
+//!
+//! **Cargo feature unification hazard.** The output format of
+//! every `MemoryBackend`-minted id depends on this feature, and
+//! cargo unifies features across the dep graph. If crate A's
+//! tests activate `realistic-demo-ids` for realism and crate B's
+//! tests consume `MemoryBackend` expecting the deterministic
+//! format, a unified workspace build silently switches B to the
+//! realistic format and B's tests break. Crates that depend on
+//! a specific id format MUST NOT rely on the *absence* of the
+//! feature elsewhere in the dep graph — they MUST encode the
+//! expected format in their own tests via fixture matching or
+//! prefix assertions rather than literal id comparison.
+//!
 //! # Permission enforcement: backend canonical
 //!
 //! All Space/set permission gates live in the backend's

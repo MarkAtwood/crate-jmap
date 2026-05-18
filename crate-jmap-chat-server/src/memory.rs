@@ -207,6 +207,15 @@ impl MemoryBackend {
     ///   process-start nanos as base, atomic counter, no type prefix,
     ///   no per-account scoping. Lex-orderable globally within a process,
     ///   not repeatable across runs.
+    ///
+    /// **Cargo feature unification hazard.** The output format here
+    /// depends on the `realistic-demo-ids` feature, which cargo
+    /// unifies across the dep graph. Downstream crates whose tests
+    /// consume `MemoryBackend` ids MUST NOT rely on the absence of
+    /// the feature — a sibling test crate that activates it for
+    /// realism switches every consumer to the realistic format. See
+    /// the crate-level `# `realistic-demo-ids` feature` heading for
+    /// the full hazard discussion.
     fn demo_next_id(inner: &mut Inner, type_name: &'static str, account_id: &str) -> Id {
         #[cfg(feature = "realistic-demo-ids")]
         {
