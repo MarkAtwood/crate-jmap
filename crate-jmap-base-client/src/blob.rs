@@ -149,6 +149,13 @@ pub struct UploadBlobParams<'a> {
 /// If you only ever pattern-match on `Option::Some(_)` (without naming the
 /// inner type) you can skip the explicit `jmap-cid-types` dep; touching
 /// `Sha256`'s methods or `AsRef<str>` impl requires it.
+///
+/// # `extra` equality is feature-flag-dependent (bd:JMAP-6r7c.43)
+///
+/// The derived `PartialEq` / `Eq` impl's behaviour on the `extra` field
+/// depends on the global `serde_json/preserve_order` feature flag — see
+/// the [crate-level note](crate#extra-field-equality-and-the-serde_jsonpreserve_order-feature-bdjmap-6r7c43)
+/// for the canonical statement and the workspace posture.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
