@@ -571,9 +571,8 @@ pub async fn handle_submission_set<B: MailBackend>(
             )));
         }
         for id_val in destroy_ids {
-            let id_str = match id_val.as_str() {
-                Some(s) => s,
-                None => continue, // unreachable: validated above
+            let Some(id_str) = id_val.as_str() else {
+                continue; // unreachable: validated above
             };
             let id = Id::from(id_str);
             match backend
@@ -727,9 +726,8 @@ pub async fn handle_submission_set<B: MailBackend>(
         // onSuccessDestroyEmail
         if let Some(destroy_keys) = args.get("onSuccessDestroyEmail").and_then(|v| v.as_array()) {
             for key_val in destroy_keys {
-                let sub_key = match key_val.as_str() {
-                    Some(s) => s,
-                    None => continue,
+                let Some(sub_key) = key_val.as_str() else {
+                    continue;
                 };
                 let email_id = match submission_email_id_map.get(sub_key) {
                     Some(id) => id.clone(),
