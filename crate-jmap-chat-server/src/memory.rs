@@ -265,12 +265,28 @@ impl MemoryBackend {
         }
     }
 
+    // -------------------------------------------------------------------
+    // Test-only helpers
+    //
+    // All methods in this section are `#[doc(hidden)]` and carry the
+    // "Production callers must not use this method; the API stability
+    // disclaimer on the `memory` feature applies doubly here" banner.
+    // The canonical-template pattern across the workspace's reference
+    // backends is `#[doc(hidden)] + descriptive name + banner` rather
+    // than a `_for_test` rename. Several existing methods here carry a
+    // `_for_test` suffix as a name-stability concession; new helpers
+    // SHOULD prefer descriptive names without the suffix per the
+    // canonical mail-server pattern (bd:JMAP-x2gd.49).
+    // -------------------------------------------------------------------
+
     /// Test-only: flip the [`ChatBackend::retains_edit_history`] flag.
     ///
     /// Pass `true` to make `Message/get` return `editHistory` on
     /// fetched messages, or `false` to omit it. The default is
     /// `false`, matching the trait default (the reference backend
-    /// does not retain edit history out of the box).
+    /// does not retain edit history out of the box). Production
+    /// callers must not use this method; the API stability disclaimer
+    /// on the `memory` feature applies doubly here.
     #[doc(hidden)]
     pub fn set_retains_edit_history_for_test(&self, retain: bool) {
         let mut inner = self.inner.lock().unwrap();
@@ -404,7 +420,9 @@ impl MemoryBackend {
 
     /// Test-only: return the first Category id stored on the given Space.
     /// Used by Space/set Category tests that need to refer back to a
-    /// server-assigned category id.
+    /// server-assigned category id. Production callers must not use
+    /// this method; the API stability disclaimer on the `memory`
+    /// feature applies doubly here.
     ///
     /// Panics if the Space has no categories or does not exist.
     #[doc(hidden)]
@@ -434,7 +452,9 @@ impl MemoryBackend {
 
     /// Test-only: return a snapshot of the named Chat's JSON value.
     /// Used to assert cross-reference fields like `categoryId` after
-    /// Space/set Category mutations have cascaded.
+    /// Space/set Category mutations have cascaded. Production callers
+    /// must not use this method; the API stability disclaimer on the
+    /// `memory` feature applies doubly here.
     ///
     /// Panics if the Chat does not exist.
     #[doc(hidden)]
