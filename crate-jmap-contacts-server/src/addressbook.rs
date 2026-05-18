@@ -477,10 +477,10 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                 if updated.contains_key(&book_id_str) || created.contains_key(&book_id_str) {
                     continue; // already authoritatively recorded
                 }
-                if let Ok(v) = serde_json::to_value(&book) {
-                    updated.insert(book_id_str, v);
-                    mutated = true;
-                }
+                let v = serde_json::to_value(&book)
+                    .expect("derive(Serialize) on plain data is infallible");
+                updated.insert(book_id_str, v);
+                mutated = true;
             }
         }
     }
@@ -524,7 +524,8 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                         mutated = true;
                         updated.insert(
                             target_id.to_string(),
-                            serde_json::to_value(&obj).unwrap_or(Value::Null),
+                            serde_json::to_value(&obj)
+                                .expect("derive(Serialize) on plain data is infallible"),
                         );
                         // RFC 8620 §5.3: all changed objects must appear in
                         // updated.  When isDefault transfers, the backend clears
@@ -542,9 +543,9 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
                                 // returned here whose is_default is now false was
                                 // implicitly demoted.
                                 if !book.is_default {
-                                    if let Ok(v) = serde_json::to_value(&book) {
-                                        updated.insert(book_id.to_string(), v);
-                                    }
+                                    let v = serde_json::to_value(&book)
+                                        .expect("derive(Serialize) on plain data is infallible");
+                                    updated.insert(book_id.to_string(), v);
                                 }
                             }
                         }
