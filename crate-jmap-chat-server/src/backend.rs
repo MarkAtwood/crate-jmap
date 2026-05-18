@@ -84,7 +84,7 @@ impl OpResult {
     /// create (the kit's response includes it under `created[create_id].id`);
     /// pass `None` for updates and destroys, which have no id to surface.
     #[must_use]
-    pub fn ok(op_index: usize, id: Option<jmap_types::Id>) -> Self {
+    pub const fn ok(op_index: usize, id: Option<jmap_types::Id>) -> Self {
         Self {
             op_index,
             outcome: Ok(id),
@@ -96,7 +96,7 @@ impl OpResult {
     /// The kit's `handle_space_set` surfaces this error to the JMAP
     /// `notUpdated` map for the containing update target.
     #[must_use]
-    pub fn err(op_index: usize, error: SetError) -> Self {
+    pub const fn err(op_index: usize, error: SetError) -> Self {
         Self {
             op_index,
             outcome: Err(error),
@@ -109,7 +109,7 @@ impl OpResult {
     /// Useful when re-indexing a result produced for one op into the
     /// position of another (e.g. when filtering a batch).
     #[must_use]
-    pub fn with_op_index(mut self, op_index: usize) -> Self {
+    pub const fn with_op_index(mut self, op_index: usize) -> Self {
         self.op_index = op_index;
         self
     }
@@ -204,7 +204,7 @@ impl ChatLimits {
     /// [`Self::with_max_channels_per_space`] /
     /// [`Self::with_max_categories_per_space`] and a future analogous
     /// setter.
-    pub fn new(
+    pub const fn new(
         max_roles_per_space: u32,
         max_space_members: u32,
         max_channels_per_space: u32,
@@ -220,28 +220,28 @@ impl ChatLimits {
 
     /// Builder-style setter for [`Self::max_roles_per_space`].
     #[must_use]
-    pub fn with_max_roles_per_space(mut self, max: u32) -> Self {
+    pub const fn with_max_roles_per_space(mut self, max: u32) -> Self {
         self.max_roles_per_space = max;
         self
     }
 
     /// Builder-style setter for [`Self::max_space_members`].
     #[must_use]
-    pub fn with_max_space_members(mut self, max: u32) -> Self {
+    pub const fn with_max_space_members(mut self, max: u32) -> Self {
         self.max_space_members = max;
         self
     }
 
     /// Builder-style setter for [`Self::max_channels_per_space`].
     #[must_use]
-    pub fn with_max_channels_per_space(mut self, max: u32) -> Self {
+    pub const fn with_max_channels_per_space(mut self, max: u32) -> Self {
         self.max_channels_per_space = max;
         self
     }
 
     /// Builder-style setter for [`Self::max_categories_per_space`].
     #[must_use]
-    pub fn with_max_categories_per_space(mut self, max: u32) -> Self {
+    pub const fn with_max_categories_per_space(mut self, max: u32) -> Self {
         self.max_categories_per_space = max;
         self
     }
@@ -307,7 +307,7 @@ impl SlowModeError {
     ///
     /// [`UTCDate`]: jmap_types::UTCDate
     #[must_use]
-    pub fn new(retry_after: jmap_types::UTCDate) -> Self {
+    pub const fn new(retry_after: jmap_types::UTCDate) -> Self {
         Self { retry_after }
     }
 }
@@ -1377,4 +1377,35 @@ mod tests {
             Ok(_) => panic!("expected Err outcome after with_outcome"),
         }
     }
+
+    // Const-context smoke tests — lock in the const fn markers so a
+    // future refactor that accidentally drops `const` from any of
+    // these constructors / builders is caught at compile time
+    // (bd:JMAP-x2gd.79).
+
+    use super::ChatLimits;
+
+    /// `OpResult::ok` is callable in const context.
+    #[test]
+    fn op_result_ok_is_const_fn() {
+        const _R: OpResult = OpResult::ok(0, None);
+    }
+
+    /// `ChatLimits::new` plus all four `with_*` setters chain in const
+    /// context — proves the entire builder pipeline stays const.
+    #[test]
+    fn chat_limits_builder_is_const_fn() {
+        const _LIMITS: ChatLimits = ChatLimits::new(1, 2, 3, 4)
+            .with_max_roles_per_space(10)
+            .with_max_space_members(20)
+            .with_max_channels_per_space(30)
+            .with_max_categories_per_space(40);
+    }
+
+    // Note: `SlowModeError::new` is `const fn` (clippy::nursery
+    // `missing_const_for_fn` would re-fire if the marker were dropped),
+    // but a const-context smoke test cannot be authored without a
+    // const-constructible `UTCDate`. `UTCDate` wraps a `String`, and
+    // `String` is not const-constructible from a non-empty literal in
+    // stable Rust today. The clippy lint covers the regression case.
 }
