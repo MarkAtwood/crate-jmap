@@ -150,7 +150,7 @@ impl ChatWsExt for WsSession {
         // input). Surface as ClientError::Parse to preserve the structured
         // serde_json::Error rather than dropping it into a String via
         // InvalidArgument.
-        let text = serde_json::to_string(&msg).map_err(ClientError::Parse)?;
+        let text = serde_json::to_string(&msg).map_err(ClientError::from_parse)?;
         self.send_text(text).await
     }
 
@@ -160,9 +160,9 @@ impl ChatWsExt for WsSession {
         // (the literal is built byte-for-byte above), so ClientError::Parse
         // preserves the structured error for debugging without conflating it
         // with caller-supplied InvalidArgument.
-        let msg: EphemeralMessage =
-            serde_json::from_str(r#"{"@type":"ChatStreamDisable"}"#).map_err(ClientError::Parse)?;
-        let text = serde_json::to_string(&msg).map_err(ClientError::Parse)?;
+        let msg: EphemeralMessage = serde_json::from_str(r#"{"@type":"ChatStreamDisable"}"#)
+            .map_err(ClientError::from_parse)?;
+        let text = serde_json::to_string(&msg).map_err(ClientError::from_parse)?;
         self.send_text(text).await
     }
 }

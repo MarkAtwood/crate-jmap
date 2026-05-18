@@ -326,7 +326,8 @@ impl WsSession {
             id,
             inner: req,
         };
-        let text = serde_json::to_string(&frame).map_err(crate::error::ClientError::Serialize)?;
+        let text =
+            serde_json::to_string(&frame).map_err(crate::error::ClientError::from_serialize)?;
         self.sink
             .send(Message::Text(text.into()))
             .await
@@ -352,7 +353,7 @@ impl WsSession {
 /// checker no longer needs ownership tricks (bd:JMAP-6lsm.11).
 fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
     let val: serde_json::Value =
-        serde_json::from_str(text).map_err(crate::error::ClientError::Parse)?;
+        serde_json::from_str(text).map_err(crate::error::ClientError::from_parse)?;
 
     let type_name = val
         .get("@type")

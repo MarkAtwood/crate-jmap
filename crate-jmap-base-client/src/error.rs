@@ -1,6 +1,7 @@
 //! [`ClientError`] and the opaque wrapper types ([`HttpError`],
-//! [`WebSocketError`], [`InvalidHeaderValueError`]) that hide
-//! [`reqwest`] and [`tokio_tungstenite`] from this crate's public API.
+//! [`WebSocketError`], [`InvalidHeaderValueError`], [`ParseError`],
+//! [`SerializeError`]) that hide [`reqwest`], [`tokio_tungstenite`], and
+//! the underlying JSON parser from this crate's public API.
 //!
 //! # SemVer policy
 //!
@@ -16,6 +17,31 @@
 //! [`ClientError`] (`from_reqwest`, `from_ws`, `from_invalid_header`) —
 //! downstream consumers cannot construct the transport-error variants and
 //! never need to.
+//!
+//! # `serde_json` is a partially-wrapped dependency (bd:JMAP-6r7c.26)
+//!
+//! [`ParseError`] and [`SerializeError`] wrap [`serde_json::Error`] for the
+//! [`Parse`](ClientError::Parse) and [`Serialize`](ClientError::Serialize)
+//! variant payloads. The wrappers expose only primitive accessors
+//! ([`line`](ParseError::line), [`column`](ParseError::column),
+//! [`classify`](ParseError::classify) returning the workspace-local
+//! [`ParseCategory`] enum), so pattern-matching code on these variants
+//! is insulated from a future JSON-parser swap (e.g. `simd-json`,
+//! `serde_json_lenient`) — the variant payload type is stable across
+//! such a swap.
+//!
+//! The asymmetry with `HttpError` / `WebSocketError`: extension client
+//! crates (`jmap-mail-client`, `jmap-chat-client`, etc.) need to surface
+//! their own JSON parse / serialize failures as [`ClientError::Parse`]
+//! and [`ClientError::Serialize`], so this crate publishes
+//! [`ClientError::from_parse`] and [`ClientError::from_serialize`] as
+//! the construction path. Those constructors take a
+//! [`serde_json::Error`] in their signature, so `serde_json` remains a
+//! transitively-public dependency for crates that call those helpers
+//! directly. A future JSON-parser swap would deprecate
+//! `from_parse(serde_json::Error)` in favor of an analogous helper for
+//! the new parser; the variant payload type ([`ParseError`]) does not
+//! change.
 //!
 //! # Do not simplify the wrappers (bd:JMAP-6r7c.16)
 //!
@@ -396,6 +422,161 @@ impl fmt::Debug for InvalidHeaderValueError {
 impl StdError for InvalidHeaderValueError {}
 
 // ---------------------------------------------------------------------------
+// ParseError / SerializeError — opaque wrappers around serde_json::Error
+// ---------------------------------------------------------------------------
+
+/// JSON deserialize / parse error reported by the underlying JSON parser.
+///
+/// The inner third-party error type is private; callers diagnose the
+/// failure via the accessor methods on this wrapper, all of which return
+/// primitive types or the workspace-local [`ParseCategory`] enum. The
+/// wrapper exists so that the [`ClientError::Parse`] variant payload is
+/// insulated from a future JSON-parser swap (bd:JMAP-6r7c.26).
+///
+/// Construct via [`ClientError::from_parse`] (the common path) or
+/// [`ParseError::from_serde_json`] (the low-level path that returns a
+/// wrapper without classifying it into a [`ClientError`] variant).
+#[non_exhaustive]
+pub struct ParseError(serde_json::Error);
+
+impl ParseError {
+    /// Wrap a [`serde_json::Error`] into a [`ParseError`].
+    ///
+    /// Most callers want [`ClientError::from_parse`] which wraps and
+    /// classifies in one step; this lower-level constructor is for
+    /// callers that need to hold a [`ParseError`] before deciding
+    /// whether to surface it as [`ClientError::Parse`] or in some
+    /// other variant.
+    pub fn from_serde_json(e: serde_json::Error) -> Self {
+        Self(e)
+    }
+
+    /// One-based line number where parsing failed, or `0` if the parser
+    /// does not report a line number for this error category.
+    pub fn line(&self) -> usize {
+        self.0.line()
+    }
+
+    /// One-based column number where parsing failed, or `0` if the parser
+    /// does not report a column number for this error category.
+    pub fn column(&self) -> usize {
+        self.0.column()
+    }
+
+    /// Coarse-grained category of the failure.
+    ///
+    /// See [`ParseCategory`] for the variant set and what each one means.
+    pub fn classify(&self) -> ParseCategory {
+        ParseCategory::from(self.0.classify())
+    }
+}
+
+impl fmt::Display for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl fmt::Debug for ParseError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("ParseError").field(&self.0).finish()
+    }
+}
+
+impl StdError for ParseError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(&self.0)
+    }
+}
+
+/// JSON serialize error reported by the underlying JSON serializer.
+///
+/// Shape mirrors [`ParseError`]; see that type for the SemVer-isolation
+/// rationale. Indicates a caller bug — the data structure passed to a
+/// serializer contains non-serializable values (`f64::NAN`, a map keyed
+/// by a non-stringifiable type, etc.).
+#[non_exhaustive]
+pub struct SerializeError(serde_json::Error);
+
+impl SerializeError {
+    /// Wrap a [`serde_json::Error`] into a [`SerializeError`].
+    ///
+    /// Most callers want [`ClientError::from_serialize`] which wraps and
+    /// classifies in one step.
+    pub fn from_serde_json(e: serde_json::Error) -> Self {
+        Self(e)
+    }
+
+    /// One-based line number where serialization failed, or `0` if the
+    /// serializer does not report a line for this category.
+    pub fn line(&self) -> usize {
+        self.0.line()
+    }
+
+    /// One-based column number where serialization failed, or `0` if the
+    /// serializer does not report a column for this category.
+    pub fn column(&self) -> usize {
+        self.0.column()
+    }
+
+    /// Coarse-grained category of the failure.
+    pub fn classify(&self) -> ParseCategory {
+        ParseCategory::from(self.0.classify())
+    }
+}
+
+impl fmt::Display for SerializeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        fmt::Display::fmt(&self.0, f)
+    }
+}
+
+impl fmt::Debug for SerializeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("SerializeError").field(&self.0).finish()
+    }
+}
+
+impl StdError for SerializeError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        Some(&self.0)
+    }
+}
+
+/// Classification of a [`ParseError`] / [`SerializeError`] failure.
+///
+/// Maps onto the four `serde_json::error::Category` variants without
+/// re-exporting the third-party enum; the workspace-local enum is what
+/// callers pattern-match on, insulating them from a future JSON-parser
+/// swap.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum ParseCategory {
+    /// The error was caused by a failure to read or write bytes on an
+    /// I/O stream.
+    Io,
+    /// The error was caused by input that was not syntactically valid
+    /// JSON.
+    Syntax,
+    /// The error was caused by input data that was semantically incorrect
+    /// (e.g. a JSON value of the wrong type for the target Rust type).
+    Data,
+    /// The error was caused by prematurely-terminated input.
+    Eof,
+}
+
+impl From<serde_json::error::Category> for ParseCategory {
+    fn from(cat: serde_json::error::Category) -> Self {
+        match cat {
+            serde_json::error::Category::Io => Self::Io,
+            serde_json::error::Category::Syntax => Self::Syntax,
+            serde_json::error::Category::Data => Self::Data,
+            serde_json::error::Category::Eof => Self::Eof,
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
 // ClientError
 // ---------------------------------------------------------------------------
 
@@ -438,9 +619,15 @@ pub enum ClientError {
     /// shape. Indicates the server sent a malformed response. Not retriable
     /// without a server fix.
     ///
-    /// Construct explicitly: `.map_err(ClientError::Parse)`.
+    /// The payload is an opaque [`ParseError`] that does not expose the
+    /// underlying JSON parser's error type — the variant is insulated from
+    /// a future parser swap. Construct explicitly:
+    /// `.map_err(ClientError::from_parse)` (or
+    /// `.map_err(jmap_base_client::ClientError::from_parse)` from outside
+    /// the crate). Pattern-match via `ClientError::Parse(e) => e.line()`,
+    /// `e.column()`, `e.classify()` — see [`ParseError`].
     #[error("parse error: {0}")]
-    Parse(serde_json::Error),
+    Parse(ParseError),
 
     /// Blob SHA-256 mismatch on upload or download. Indicates in-transit
     /// corruption or a misbehaving server. Not retriable without re-fetching
@@ -517,9 +704,13 @@ pub enum ClientError {
     /// `call()` path delegates serialization to reqwest, which surfaces
     /// serialization failures as [`ClientError::Http`].
     ///
-    /// Construct explicitly: `.map_err(ClientError::Serialize)`.
+    /// The payload is an opaque [`SerializeError`] that does not expose the
+    /// underlying JSON serializer's error type. Construct explicitly:
+    /// `.map_err(ClientError::from_serialize)`. Pattern-match via
+    /// `ClientError::Serialize(e) => e.line()`, `e.column()`, `e.classify()`
+    /// — see [`SerializeError`].
     #[error("serialization error: {0}")]
-    Serialize(serde_json::Error),
+    Serialize(SerializeError),
 
     /// An SSE frame exceeded the configured buffer limit
     /// ([`ClientConfig::max_sse_frame`](crate::ClientConfig::max_sse_frame)). The stream is terminated after this
@@ -639,6 +830,35 @@ impl ClientError {
         Self::InvalidHeaderValue(InvalidHeaderValueError {
             message: e.to_string(),
         })
+    }
+
+    /// Convert a [`serde_json::Error`] from a deserialize / parse step
+    /// into a [`ClientError::Parse`] variant carrying an opaque
+    /// [`ParseError`] payload (bd:JMAP-6r7c.26).
+    ///
+    /// Public because extension client crates (`jmap-mail-client`,
+    /// `jmap-chat-client`, etc.) need to surface their own JSON parse
+    /// failures as [`ClientError::Parse`]. Use in `.map_err`:
+    ///
+    /// ```rust,ignore
+    /// let val: T = serde_json::from_slice(&bytes)
+    ///     .map_err(jmap_base_client::ClientError::from_parse)?;
+    /// ```
+    ///
+    /// A future JSON-parser swap would deprecate this constructor in
+    /// favor of an analogous one for the new parser; the variant
+    /// payload type ([`ParseError`]) stays stable.
+    pub fn from_parse(e: serde_json::Error) -> Self {
+        Self::Parse(ParseError(e))
+    }
+
+    /// Convert a [`serde_json::Error`] from a serialize step into a
+    /// [`ClientError::Serialize`] variant carrying an opaque
+    /// [`SerializeError`] payload (bd:JMAP-6r7c.26).
+    ///
+    /// Public for the same reason as [`from_parse`](Self::from_parse).
+    pub fn from_serialize(e: serde_json::Error) -> Self {
+        Self::Serialize(SerializeError(e))
     }
 }
 
@@ -790,6 +1010,118 @@ mod tests {
         assert_error::<HttpError>();
         assert_error::<WebSocketError>();
         assert_error::<InvalidHeaderValueError>();
+        assert_error::<ParseError>();
+        assert_error::<SerializeError>();
+    }
+
+    // bd:JMAP-6r7c.26 — wrapping serde_json::Error behind ParseError and
+    // SerializeError. Independent oracles below: hand-crafted JSON inputs
+    // whose serde_json::Error categorisation is well-documented.
+
+    /// `ClientError::from_parse` wraps a syntax-error JSON failure into a
+    /// `ClientError::Parse` carrying a `ParseError` whose `classify()` reports
+    /// `ParseCategory::Syntax`. Oracle: `{` alone is documented as a syntax
+    /// failure by serde_json (premature `{` with no member).
+    #[test]
+    fn parse_error_classifies_syntax_failure() {
+        let inner =
+            serde_json::from_str::<serde_json::Value>("{").expect_err("must fail to parse '{'");
+        let ce = ClientError::from_parse(inner);
+        let ClientError::Parse(pe) = &ce else {
+            panic!("must be Parse variant, got {ce:?}");
+        };
+        // Serde-json reports EOF for an unclosed object on a stream that
+        // contains nothing after `{` — the input was prematurely
+        // terminated. Either Syntax or Eof is acceptable here; both are
+        // structural-parse failures. Lock both as valid outcomes so a
+        // future serde_json upgrade that flips classification does not
+        // wrongly fail this test.
+        assert!(
+            matches!(pe.classify(), ParseCategory::Syntax | ParseCategory::Eof),
+            "expected Syntax or Eof, got {:?}",
+            pe.classify()
+        );
+        // line/column are 1-based and non-zero for any parse failure
+        // with a position; the unclosed `{` has a position.
+        assert!(pe.line() > 0, "line must be 1-based and non-zero");
+    }
+
+    /// `ClientError::from_parse` on a type-mismatch error reports
+    /// `ParseCategory::Data`. Oracle: feeding `"not a number"` to
+    /// `serde_json::from_str::<u32>` is documented as a Data error
+    /// (semantic mismatch, not syntax).
+    #[test]
+    fn parse_error_classifies_data_failure() {
+        let inner = serde_json::from_str::<u32>("\"not a number\"")
+            .expect_err("string must fail to deserialise as u32");
+        let ce = ClientError::from_parse(inner);
+        let ClientError::Parse(pe) = &ce else {
+            panic!("must be Parse variant, got {ce:?}");
+        };
+        assert_eq!(pe.classify(), ParseCategory::Data);
+    }
+
+    /// `ClientError::from_serialize` wraps a `serde_json::Error` from a
+    /// serialise step into a `ClientError::Serialize` carrying an opaque
+    /// `SerializeError`. Oracle: a `BTreeMap` whose keys are a tuple
+    /// type cannot serialise as JSON because JSON object keys MUST be
+    /// strings — serde_json documents this as `Error::key_must_be_a_string`.
+    #[test]
+    fn serialize_error_wraps_non_string_map_key() {
+        let mut map: std::collections::BTreeMap<(i32, i32), &str> =
+            std::collections::BTreeMap::new();
+        map.insert((1, 2), "value");
+        let inner = serde_json::to_string(&map)
+            .expect_err("tuple-keyed map must not serialise as a JSON object");
+        let ce = ClientError::from_serialize(inner);
+        let ClientError::Serialize(se) = &ce else {
+            panic!("must be Serialize variant, got {ce:?}");
+        };
+        // Display surface is non-empty (the underlying serde_json::Error
+        // produces a diagnostic).
+        assert!(
+            !se.to_string().is_empty(),
+            "SerializeError Display must be non-empty"
+        );
+    }
+
+    /// `ParseError`'s `Debug` output formats as `ParseError(...)` with the
+    /// inner serde_json::Error nested, NOT as a bare serde_json::Error.
+    /// This locks in the wrapper-rename for any code that pattern-matches
+    /// on Debug output (e.g. a snapshot test) without exposing the inner
+    /// type as the top-level shape.
+    #[test]
+    fn parse_error_debug_format_uses_wrapper_name() {
+        let inner =
+            serde_json::from_str::<serde_json::Value>("{").expect_err("must fail to parse '{'");
+        let ce = ClientError::from_parse(inner);
+        let ClientError::Parse(pe) = &ce else {
+            panic!("must be Parse variant");
+        };
+        let debug = format!("{pe:?}");
+        assert!(
+            debug.starts_with("ParseError("),
+            "Debug must use the wrapper tuple-struct name: {debug}"
+        );
+    }
+
+    /// `SerializeError` Debug format mirror.
+    #[test]
+    fn serialize_error_debug_format_uses_wrapper_name() {
+        let mut map: std::collections::BTreeMap<(i32, i32), &str> =
+            std::collections::BTreeMap::new();
+        map.insert((1, 2), "value");
+        let inner = serde_json::to_string(&map)
+            .expect_err("tuple-keyed map must not serialise as a JSON object");
+        let ce = ClientError::from_serialize(inner);
+        let ClientError::Serialize(se) = &ce else {
+            panic!("must be Serialize variant");
+        };
+        let debug = format!("{se:?}");
+        assert!(
+            debug.starts_with("SerializeError("),
+            "Debug must use the wrapper tuple-struct name: {debug}"
+        );
     }
 
     /// bd:JMAP-6r7c.34 — verify every HttpErrorKind variant by exhaustive

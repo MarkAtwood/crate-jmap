@@ -387,7 +387,7 @@ impl JmapClient {
         // or omits Content-Length can force unbounded allocation here.
         let bytes = read_capped_body(resp, upload_limit).await?;
         let upload_resp: BlobUploadResponse =
-            serde_json::from_slice(&bytes).map_err(ClientError::Parse)?;
+            serde_json::from_slice(&bytes).map_err(ClientError::from_parse)?;
 
         // Defense-in-depth: cross-check the server's reported size against the
         // bytes we actually uploaded (bd:JMAP-6lsm.8). When sha256 is present

@@ -43,8 +43,8 @@ impl super::SessionClient {
         // the rationale. ReadPosition/get has no `properties` parameter.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] =
-                serde_json::to_value(id_slice).map_err(jmap_base_client::ClientError::Parse)?;
+            args["ids"] = serde_json::to_value(id_slice)
+                .map_err(jmap_base_client::ClientError::from_parse)?;
         }
         let req = super::build_request("ReadPosition/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -184,27 +184,27 @@ impl super::SessionClient {
         if let Some(p) = &patch.presence {
             patch_map.insert(
                 "presence".into(),
-                serde_json::to_value(p).map_err(jmap_base_client::ClientError::Parse)?,
+                serde_json::to_value(p).map_err(jmap_base_client::ClientError::from_parse)?,
             );
         }
         if let Some(entry) = patch
             .status_text
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("statusText".into(), entry);
         }
         if let Some(entry) = patch
             .status_emoji
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("statusEmoji".into(), entry);
         }
         if let Some(entry) = patch
             .expires_at
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("expiresAt".into(), entry);
         }
@@ -407,7 +407,7 @@ impl super::SessionClient {
         if let Some(entry) = patch
             .expires
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("expires".into(), entry);
         }
@@ -517,7 +517,8 @@ fn build_chat_push_map(
     let mut chat_push_map = serde_json::Map::new();
     for (account_id, config) in cp {
         let key = account_id.as_ref().to_owned();
-        let value = serde_json::to_value(config).map_err(jmap_base_client::ClientError::Parse)?;
+        let value =
+            serde_json::to_value(config).map_err(jmap_base_client::ClientError::from_parse)?;
         if chat_push_map.insert(key, value).is_some() {
             return Err(jmap_base_client::ClientError::InvalidArgument(format!(
                 "{context}: duplicate accountId '{account_id}' in chat_push"

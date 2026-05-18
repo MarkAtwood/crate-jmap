@@ -276,7 +276,7 @@ impl super::SessionClient {
             m.insert(
                 super::CALL_ID.to_owned(),
                 serde_json::to_value(&create_entry)
-                    .map_err(jmap_base_client::ClientError::Parse)?,
+                    .map_err(jmap_base_client::ClientError::from_parse)?,
             );
             m
         };
