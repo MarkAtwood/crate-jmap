@@ -703,7 +703,8 @@ async fn test_upload_blob_typed_params_round_trip() {
     )
     .expect("client construction must succeed");
 
-    let template = format!("{}/upload/{{accountId}}/", server.uri());
+    let template =
+        jmap_base_client::JmapUrlTemplate::new(format!("{}/upload/{{accountId}}/", server.uri()));
     let resp = client
         .upload_blob(jmap_base_client::UploadBlobParams {
             upload_url_template: &template,
@@ -741,7 +742,8 @@ async fn test_upload_blob_response_size_cap() {
     )
     .expect("client construction must succeed");
 
-    let template = format!("{}/upload/{{accountId}}/", server.uri());
+    let template =
+        jmap_base_client::JmapUrlTemplate::new(format!("{}/upload/{{accountId}}/", server.uri()));
     let err = client
         .upload_blob(jmap_base_client::UploadBlobParams {
             upload_url_template: &template,
@@ -785,7 +787,8 @@ async fn test_upload_blob_rejects_size_mismatch() {
     )
     .expect("client construction must succeed");
 
-    let template = format!("{}/upload/{{accountId}}/", server.uri());
+    let template =
+        jmap_base_client::JmapUrlTemplate::new(format!("{}/upload/{{accountId}}/", server.uri()));
     let err = client
         .upload_blob(jmap_base_client::UploadBlobParams {
             upload_url_template: &template,
@@ -833,10 +836,10 @@ async fn test_download_blob_size_cap() {
     )
     .expect("client construction must succeed");
 
-    let template = format!(
+    let template = jmap_base_client::JmapUrlTemplate::new(format!(
         "{}/download/{{accountId}}/{{blobId}}/{{name}}",
         server.uri()
-    );
+    ));
     let err = client
         .download_blob(jmap_base_client::DownloadBlobParams {
             download_url_template: &template,
@@ -1378,10 +1381,10 @@ async fn download_blob_with_typed_sha256_matches_succeeds() {
     )
     .expect("NIST oracle digest must parse as canonical Sha256");
 
-    let template = format!(
+    let template = jmap_base_client::JmapUrlTemplate::new(format!(
         "{}/download/{{accountId}}/{{blobId}}/{{name}}",
         server.uri()
-    );
+    ));
     let bytes = client
         .download_blob(jmap_base_client::DownloadBlobParams {
             download_url_template: &template,
@@ -1428,10 +1431,10 @@ async fn download_blob_with_typed_sha256_mismatch_returns_integrity_error() {
     let expected = jmap_cid_types::Sha256::from_hex(empty_sha256_hex)
         .expect("RFC 6234 oracle digest must parse as canonical Sha256");
 
-    let template = format!(
+    let template = jmap_base_client::JmapUrlTemplate::new(format!(
         "{}/download/{{accountId}}/{{blobId}}/{{name}}",
         server.uri()
-    );
+    ));
     let err = client
         .download_blob(jmap_base_client::DownloadBlobParams {
             download_url_template: &template,

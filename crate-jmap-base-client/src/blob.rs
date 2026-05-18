@@ -46,7 +46,10 @@ use crate::error::ClientError;
 #[derive(Debug, Clone, Copy)]
 pub struct DownloadBlobParams<'a> {
     /// URL template from `Session.download_url`.
-    pub download_url_template: &'a str,
+    ///
+    /// Typed as `&JmapUrlTemplate` (bd:JMAP-6r7c.40) so the compiler
+    /// refuses an accidental `&session.api_url` (a plain `JmapUrl`).
+    pub download_url_template: &'a crate::request::JmapUrlTemplate,
     /// Account ID that owns the blob.
     pub account_id: &'a str,
     /// Server-assigned blob identifier.
@@ -101,7 +104,10 @@ pub struct DownloadBlobParams<'a> {
 pub struct UploadBlobParams<'a> {
     /// URL template from `Session.upload_url`. `{accountId}` is the only
     /// template variable substituted before the POST request.
-    pub upload_url_template: &'a str,
+    ///
+    /// Typed as `&JmapUrlTemplate` (bd:JMAP-6r7c.40) so the compiler
+    /// refuses an accidental `&session.api_url` (a plain `JmapUrl`).
+    pub upload_url_template: &'a crate::request::JmapUrlTemplate,
     /// Account ID that will own the uploaded blob; substituted for
     /// `{accountId}` in the URL template.
     pub account_id: &'a str,
@@ -360,10 +366,10 @@ impl JmapClient {
             content_type,
             data,
         } = params;
-        crate::client::require_http_url(upload_url_template)?;
+        crate::client::require_http_url(upload_url_template.as_str())?;
         let ct_hv =
             HeaderValue::from_str(content_type).map_err(ClientError::from_invalid_header)?;
-        let url = expand_url_template(upload_url_template, &[("accountId", account_id)])?;
+        let url = expand_url_template(upload_url_template.as_str(), &[("accountId", account_id)])?;
 
         // Compute SHA-256 and capture size before handing ownership of data
         // to the request body. local_size is used to cross-check the server's
@@ -463,7 +469,7 @@ impl JmapClient {
             accept_type,
             expected_sha256,
         } = params;
-        crate::client::require_http_url(download_url_template)?;
+        crate::client::require_http_url(download_url_template.as_str())?;
         let vars = [
             ("accountId", account_id),
             ("blobId", blob_id),
@@ -473,7 +479,7 @@ impl JmapClient {
             // the unexpanded-placeholder error.
             ("type", accept_type.unwrap_or("")),
         ];
-        let url = expand_url_template(download_url_template, &vars)?;
+        let url = expand_url_template(download_url_template.as_str(), &vars)?;
 
         let req = self.inject_auth(self.http.get(&url).timeout(self.config.request_timeout));
 

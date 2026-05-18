@@ -83,6 +83,8 @@ pub use error::{
     WebSocketError,
 };
 pub use push::StateChange;
-pub use request::{AccountInfo, JmapRequestBuilder, Session, WebSocketCapability};
+pub use request::{
+    AccountInfo, JmapRequestBuilder, JmapUrl, JmapUrlTemplate, Session, WebSocketCapability,
+};
 pub use sse::{parse_sse_block, SseEvent, SseFrame};
 pub use ws::{connect_ws, WsFrame, WsReceiver, WsSender, WsSession};
