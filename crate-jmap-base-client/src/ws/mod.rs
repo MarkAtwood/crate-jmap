@@ -152,7 +152,30 @@ type Inner =
 /// on any partial frame that was being read; the next `next_frame` call
 /// starts from the next complete message.
 pub struct WsSession {
+    sender: WsSender,
+    receiver: WsReceiver,
+}
+
+/// Owning send-half of a WebSocket connection (bd:JMAP-6r7c.31).
+///
+/// Returned from [`WsSession::split`]. Holds the underlying tungstenite
+/// sink and exposes the per-direction send methods that the unified
+/// [`WsSession`] previously bundled with the receive half. Use with
+/// [`WsReceiver`] in two-task topologies (one task in a `next_frame` loop,
+/// one task occasionally sending requests) — the previous unified shape
+/// required serialising send and receive through a single `&mut WsSession`
+/// borrow, which made concurrent send-while-receiving impossible without a
+/// `Mutex` that holds across `.await`.
+pub struct WsSender {
     sink: futures::stream::SplitSink<Inner, Message>,
+}
+
+/// Owning receive-half of a WebSocket connection (bd:JMAP-6r7c.31).
+///
+/// Returned from [`WsSession::split`]. Holds the underlying tungstenite
+/// stream and exposes [`next_frame`](WsReceiver::next_frame). See
+/// [`WsSender`] for the companion type and the concurrency rationale.
+pub struct WsReceiver {
     stream: futures::stream::SplitStream<Inner>,
 }
 
@@ -238,7 +261,7 @@ enum MessageDisposition {
     Skip,
 }
 
-impl WsSession {
+impl WsReceiver {
     /// Receive the next parsed frame from the server.
     ///
     /// Returns `None` when the server has cleanly closed the connection.
@@ -291,7 +314,9 @@ impl WsSession {
             }
         }
     }
+}
 
+impl WsSender {
     /// Send a raw text frame over the WebSocket connection.
     ///
     /// Used by extension crates to send non-JMAP frames (e.g., JMAP Chat
@@ -332,6 +357,59 @@ impl WsSession {
             .send(Message::Text(text.into()))
             .await
             .map_err(crate::error::ClientError::from_ws)
+    }
+}
+
+impl WsSession {
+    /// Receive the next parsed frame from the server.
+    ///
+    /// Delegates to [`WsReceiver::next_frame`]. Use this unified handle when
+    /// a single task drives both send and receive; for the
+    /// receive-loop-in-a-separate-task topology, call [`split`](Self::split)
+    /// to get owned [`WsReceiver`] / [`WsSender`] halves.
+    pub async fn next_frame(&mut self) -> Option<Result<WsFrame, crate::error::ClientError>> {
+        self.receiver.next_frame().await
+    }
+
+    /// Send a raw text frame over the WebSocket connection.
+    ///
+    /// Delegates to [`WsSender::send_text`].
+    pub async fn send_text(&mut self, text: String) -> Result<(), crate::error::ClientError> {
+        self.sender.send_text(text).await
+    }
+
+    /// Send a JMAP request over the WebSocket connection.
+    ///
+    /// Delegates to [`WsSender::send_request`].
+    pub async fn send_request(
+        &mut self,
+        req: &jmap_types::JmapRequest,
+        id: Option<&str>,
+    ) -> Result<(), crate::error::ClientError> {
+        self.sender.send_request(req, id).await
+    }
+
+    /// Consume the session and return its owned send and receive halves
+    /// (bd:JMAP-6r7c.31).
+    ///
+    /// Use this when a caller needs to drive the receive loop and the
+    /// send path concurrently — typically from two `tokio::spawn`-ed
+    /// tasks, one running a `while let Some(...) = receiver.next_frame()
+    /// .await` loop and one occasionally sending requests via
+    /// `sender.send_request(...)`. The unified `WsSession` API requires
+    /// `&mut self` for both directions and therefore cannot service them
+    /// concurrently; `split` is the explicit opt-in.
+    ///
+    /// The two halves are independent owners of their tungstenite
+    /// sub-streams. Dropping one half does not close the connection until
+    /// the other half is also dropped (tungstenite's `WebSocketStream`
+    /// only initiates the close handshake when both halves are gone). To
+    /// initiate a clean shutdown from a split session, drop the sender
+    /// after sending a final request and read from the receiver until it
+    /// returns `None`.
+    pub fn split(self) -> (WsSender, WsReceiver) {
+        let WsSession { sender, receiver } = self;
+        (sender, receiver)
     }
 }
 
@@ -518,12 +596,27 @@ pub async fn connect_ws_with_limit(
     let (ws_stream, _response) = connect_result.map_err(crate::error::ClientError::from_ws)?;
 
     let (sink, stream) = ws_stream.split();
-    Ok(WsSession { sink, stream })
+    Ok(WsSession {
+        sender: WsSender { sink },
+        receiver: WsReceiver { stream },
+    })
 }
 
 impl std::fmt::Debug for WsSession {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("WsSession").finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for WsSender {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WsSender").finish_non_exhaustive()
+    }
+}
+
+impl std::fmt::Debug for WsReceiver {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WsReceiver").finish_non_exhaustive()
     }
 }
 
@@ -797,5 +890,22 @@ mod tests {
             "Response variant Debug must surface session_state for \
              diagnostics; got: {rendered}"
         );
+    }
+
+    /// bd:JMAP-6r7c.31 — WsSender and WsReceiver must each be `Send` so a
+    /// caller can move one half into a separate tokio task while keeping
+    /// the other half in the current task. The whole point of the split
+    /// is two-task concurrent send-while-receiving; if either half were
+    /// `!Send`, the split would not enable it. Compile-time check only —
+    /// nothing to assert at runtime.
+    #[test]
+    fn ws_sender_and_receiver_are_send() {
+        fn assert_send<T: Send>() {}
+        assert_send::<WsSender>();
+        assert_send::<WsReceiver>();
+        // The unified session was already Send before the split landed;
+        // assert here as a regression guard so a future refactor that
+        // accidentally introduces a `!Send` field in WsSession is caught.
+        assert_send::<WsSession>();
     }
 }
