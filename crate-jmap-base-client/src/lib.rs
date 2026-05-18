@@ -35,7 +35,7 @@ pub use auth::{
     AuthProvider, BasicAuth, BearerAuth, CustomCaTransport, DefaultTransport, NoneAuth,
     TransportConfig,
 };
-pub use blob::{expand_url_template, BlobUploadResponse, DownloadBlobParams};
+pub use blob::{expand_url_template, BlobUploadResponse, DownloadBlobParams, UploadBlobParams};
 pub use client::{extract_response, ClientConfig, JmapClient};
 pub use error::{ClientError, HttpError, InvalidHeaderValueError, WebSocketError};
 pub use push::StateChange;

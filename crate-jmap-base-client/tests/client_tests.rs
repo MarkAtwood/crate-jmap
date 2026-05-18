@@ -671,6 +671,55 @@ async fn test_call_401_returns_auth_failed() {
 // upload_blob
 // ---------------------------------------------------------------------------
 
+/// Oracle: bd:JMAP-6r7c.50 — `upload_blob` accepts a typed `UploadBlobParams`
+/// struct literal (not four positional `&str`-ish args). The wire request
+/// reaches the server at `Session.upload_url` with `{accountId}` expanded,
+/// carries the supplied `Content-Type` header, and posts the supplied bytes.
+/// On the matched expected response, the client returns a parsed
+/// `BlobUploadResponse` carrying the same account id, blob id, content
+/// type, and size — independent oracle for the round-trip.
+#[tokio::test]
+async fn test_upload_blob_typed_params_round_trip() {
+    use wiremock::matchers::{body_bytes, header};
+
+    let payload: &[u8] = b"hello world";
+    let server = MockServer::start().await;
+
+    Mock::given(method("POST"))
+        .and(path("/upload/account1/"))
+        .and(header("Content-Type", "application/octet-stream"))
+        .and(body_bytes(payload.to_vec()))
+        .respond_with(ResponseTemplate::new(200).set_body_string(
+            r#"{"accountId":"account1","blobId":"B-typed-1","type":"application/octet-stream","size":11}"#,
+        ))
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let template = format!("{}/upload/{{accountId}}/", server.uri());
+    let resp = client
+        .upload_blob(jmap_base_client::UploadBlobParams {
+            upload_url_template: &template,
+            account_id: "account1",
+            content_type: "application/octet-stream",
+            data: bytes::Bytes::copy_from_slice(payload),
+        })
+        .await
+        .expect("typed upload must succeed");
+
+    assert_eq!(resp.account_id, "account1");
+    assert_eq!(resp.blob_id, "B-typed-1");
+    assert_eq!(resp.content_type, "application/octet-stream");
+    assert_eq!(resp.size, payload.len() as u64);
+}
+
 /// Oracle: security requirement — upload_blob response body capped at 1 MiB.
 /// A server returning an oversized upload response must yield ResponseTooLarge.
 #[tokio::test]
@@ -694,12 +743,12 @@ async fn test_upload_blob_response_size_cap() {
 
     let template = format!("{}/upload/{{accountId}}/", server.uri());
     let err = client
-        .upload_blob(
-            &template,
-            "account1",
-            bytes::Bytes::from(b"hello".to_vec()),
-            "application/octet-stream",
-        )
+        .upload_blob(jmap_base_client::UploadBlobParams {
+            upload_url_template: &template,
+            account_id: "account1",
+            content_type: "application/octet-stream",
+            data: bytes::Bytes::from(b"hello".to_vec()),
+        })
         .await
         .expect_err("oversized upload response must fail");
     assert!(
@@ -738,12 +787,12 @@ async fn test_upload_blob_rejects_size_mismatch() {
 
     let template = format!("{}/upload/{{accountId}}/", server.uri());
     let err = client
-        .upload_blob(
-            &template,
-            "account1",
-            bytes::Bytes::from(b"hello".to_vec()), // 5 bytes
-            "application/octet-stream",
-        )
+        .upload_blob(jmap_base_client::UploadBlobParams {
+            upload_url_template: &template,
+            account_id: "account1",
+            content_type: "application/octet-stream",
+            data: bytes::Bytes::from(b"hello".to_vec()), // 5 bytes
+        })
         .await
         .expect_err("size mismatch must surface as an error");
     match err {

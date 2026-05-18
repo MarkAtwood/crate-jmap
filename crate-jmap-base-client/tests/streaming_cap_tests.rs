@@ -238,12 +238,12 @@ async fn upload_blob_streams_with_cap_against_chunked_hostile_server() {
 
     let result = timeout(
         Duration::from_secs(2),
-        client.upload_blob(
-            &upload_url,
-            "account1",
-            bytes::Bytes::from_static(b"payload"),
-            "application/octet-stream",
-        ),
+        client.upload_blob(jmap_base_client::UploadBlobParams {
+            upload_url_template: &upload_url,
+            account_id: "account1",
+            content_type: "application/octet-stream",
+            data: bytes::Bytes::from_static(b"payload"),
+        }),
     )
     .await;
 
