@@ -68,16 +68,18 @@ pub use card::{
 /// under the "JMAP Capabilities" registry; revisions to the contacts
 /// spec keep the same string.
 ///
-/// Re-exported from `jmap-contacts-types` so the wire-format constant is
-/// declared once (bd:JMAP-qz9v.32 tracks the canonical-template question
-/// of whether server crates should re-export their type crate's URI or
-/// declare their own — mail-server, the canonical, declares its own).
+/// Declared as a local `pub const` (not re-exported from
+/// `jmap-contacts-types`) to match the canonical jmap-mail-server
+/// pattern (`JMAP_MAIL_URI`, `JMAP_SUBMISSION_URI`,
+/// `JMAP_VACATION_RESPONSE_URI` at `crate-jmap-mail-server/src/lib.rs`)
+/// and to decouple this crate's public API from the types crate's
+/// public-symbol set (bd:JMAP-qz9v.32).
 ///
 /// ```
 /// use jmap_contacts_server::JMAP_CONTACTS_URI;
 /// assert_eq!(JMAP_CONTACTS_URI, "urn:ietf:params:jmap:contacts");
 /// ```
-pub use jmap_contacts_types::JMAP_CONTACTS_URI;
+pub const JMAP_CONTACTS_URI: &str = "urn:ietf:params:jmap:contacts";
 
 // ---------------------------------------------------------------------------
 // register_contacts_handlers — the main entry point for consumers
