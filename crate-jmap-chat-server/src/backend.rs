@@ -1259,15 +1259,20 @@ pub trait ChatBackend: JmapBackend {
     /// If the message no longer exists — because a previous
     /// `expire_message` call or an atomic `update_object`
     /// implementation has already deleted it — this method MUST
-    /// return `Ok(())`. Expiry events are inherently retry-friendly
-    /// (a scheduler may re-fire if it crashed mid-batch) and the
-    /// burn-on-read handler integration also treats a not-found
-    /// backend response as a no-op. The return type is
-    /// `Result<(), Self::Error>` (not `BackendSetError`) precisely
-    /// to prevent a `NotFound` SetError construction on this path:
-    /// expiry is an internal scheduler hook, not a `/set`-shaped
-    /// call, and there is no JMAP wire surface for per-message
-    /// expiry rejection.
+    /// return `Ok(())`, AND MUST NOT bump the per-account `Message`
+    /// state token in that case. The no-op case must be
+    /// observationally indistinguishable from "the scheduler never
+    /// fired" for `Message/changes` subscribers; a state bump on the
+    /// retry path would surface a spurious empty change set on every
+    /// re-fire and induce a poll storm. Expiry events are
+    /// inherently retry-friendly (a scheduler may re-fire if it
+    /// crashed mid-batch) and the burn-on-read handler integration
+    /// also treats a not-found backend response as a no-op. The
+    /// return type is `Result<(), Self::Error>` (not
+    /// `BackendSetError`) precisely to prevent a `NotFound`
+    /// SetError construction on this path: expiry is an internal
+    /// scheduler hook, not a `/set`-shaped call, and there is no
+    /// JMAP wire surface for per-message expiry rejection.
     ///
     /// # Atomicity with `Message/set` update
     ///
