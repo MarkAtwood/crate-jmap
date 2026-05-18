@@ -458,6 +458,37 @@ const NON_MEMBER_PREVIEWABLE_FIELDS: &[&str] = &[
     "isPubliclyPreviewable",
 ];
 
+/// Server-set or directly-overwritable Space fields that a `Space/set`
+/// `update` patch MUST NOT carry.
+///
+/// `roles`, `members`, `categories`, and `uncategorizedChannelIds` are
+/// managed through named semantic mutations (`addRoles` / `removeRoles`
+/// / etc.) and MUST never be overwritten directly via a JSON Merge
+/// Patch. `id`, `createdAt`, and `memberCount` are server-set.
+const SPACE_READONLY: &[&str] = &[
+    "id",
+    "createdAt",
+    "memberCount",
+    "roles",
+    "members",
+    "categories",
+    "uncategorizedChannelIds",
+];
+
+/// Allowed top-level metadata fields on a `Space/set` `update` patch
+/// (RFC 8620 §5.3 partial update on server-managed properties).
+///
+/// These reach `update_object` via a JSON Merge Patch. Structural
+/// mutation keys (`addRoles` / `addMembers` / etc.) are handled via
+/// the [`StructuralKey`] enum and `apply_space_patch` instead.
+const SPACE_METADATA_FIELDS: &[&str] = &[
+    "name",
+    "description",
+    "iconBlobId",
+    "isPublic",
+    "isPubliclyPreviewable",
+];
+
 /// Apply the JMAP `/get` `properties` filter plus the
 /// non-member-previewable field trim to a single Space object before
 /// it lands in the response `list`.
@@ -1046,18 +1077,7 @@ pub async fn handle_space_set<B: ChatBackend>(
             let id = Id::from(id_str.as_str());
 
             // Reject patches that include server-set or directly-overwritable fields.
-            // `roles`, `members`, `categories`, and `uncategorizedChannelIds` are
-            // managed through named semantic mutations (addRoles/removeRoles, etc.)
-            // and must never be overwritten directly via a JSON Merge Patch.
-            const SPACE_READONLY: &[&str] = &[
-                "id",
-                "createdAt",
-                "memberCount",
-                "roles",
-                "members",
-                "categories",
-                "uncategorizedChannelIds",
-            ];
+            // See module-level `SPACE_READONLY` for the field list and rationale.
             let bad_props: Vec<&str> = SPACE_READONLY
                 .iter()
                 .copied()
@@ -1080,17 +1100,6 @@ pub async fn handle_space_set<B: ChatBackend>(
                 );
                 continue;
             };
-
-            // Allowed metadata fields (RFC 8620 §5.3 partial update on
-            // server-managed properties). These reach `update_object` via a
-            // JSON Merge Patch.
-            const METADATA_FIELDS: &[&str] = &[
-                "name",
-                "description",
-                "iconBlobId",
-                "isPublic",
-                "isPubliclyPreviewable",
-            ];
 
             // Walk every key on the patch object and bucket it as:
             //   - structural (parsed into SpacePatchOp values via the
@@ -1116,7 +1125,7 @@ pub async fn handle_space_set<B: ChatBackend>(
                             break;
                         }
                     }
-                } else if METADATA_FIELDS.contains(&key.as_str()) {
+                } else if SPACE_METADATA_FIELDS.contains(&key.as_str()) {
                     clean_patch.insert(key, value);
                 } else {
                     unknown_keys.push(key);
