@@ -954,9 +954,8 @@ pub async fn handle_message_set<B: ChatBackend>(
             )));
         }
         for id_val in destroy_arr {
-            let id_str = match id_val.as_str() {
-                Some(s) => s,
-                None => continue, // unreachable: validated above
+            let Some(id_str) = id_val.as_str() else {
+                continue; // unreachable: validated above
             };
             let id = Id::from(id_str);
 

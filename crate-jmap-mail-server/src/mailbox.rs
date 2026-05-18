@@ -979,9 +979,8 @@ pub async fn handle_mailbox_set<B: MailBackend>(
             .map_err(|e| server_fail_from_backend(&e))?;
 
         for id_val in destroy_ids {
-            let id_str = match id_val.as_str() {
-                Some(s) => s,
-                None => continue, // unreachable: validated above
+            let Some(id_str) = id_val.as_str() else {
+                continue; // unreachable: validated above
             };
             let id = Id::from(id_str);
 

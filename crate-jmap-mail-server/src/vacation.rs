@@ -368,9 +368,8 @@ pub async fn handle_vacation_set<B: MailBackend>(
         }
 
         for id_val in destroy {
-            let id = match id_val.as_str() {
-                Some(s) => s,
-                None => continue, // unreachable: validated above
+            let Some(id) = id_val.as_str() else {
+                continue; // unreachable: validated above
             };
             let err = SetError::new(SetErrorType::Singleton)
                 .with_description("VacationResponse is a singleton; cannot destroy");

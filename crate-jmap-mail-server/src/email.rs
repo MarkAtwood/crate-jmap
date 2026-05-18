@@ -1332,9 +1332,8 @@ pub async fn handle_email_set<B: MailBackend>(
             )));
         }
         for id_val in destroy_arr {
-            let id_str = match id_val.as_str() {
-                Some(s) => s,
-                None => continue,
+            let Some(id_str) = id_val.as_str() else {
+                continue;
             };
             let id = Id::from(id_str);
 
@@ -2043,9 +2042,8 @@ pub async fn handle_email_import<B: MailBackend>(
         return Err(JmapError::account_not_found());
     }
 
-    let emails = match args.remove("emails") {
-        Some(Value::Object(m)) => m,
-        _ => return Err(JmapError::invalid_arguments("emails is required")),
+    let Some(Value::Object(emails)) = args.remove("emails") else {
+        return Err(JmapError::invalid_arguments("emails is required"));
     };
 
     let old_state = backend
@@ -2403,9 +2401,8 @@ pub async fn handle_email_copy<B: MailBackend>(
         return Err(JmapError::from_account_not_found());
     }
 
-    let create = match args.remove("create") {
-        Some(Value::Object(m)) => m,
-        _ => return Err(JmapError::invalid_arguments("create is required")),
+    let Some(Value::Object(create)) = args.remove("create") else {
+        return Err(JmapError::invalid_arguments("create is required"));
     };
 
     let on_success_destroy_original: bool = bool_arg(&args, "onSuccessDestroyOriginal", false);

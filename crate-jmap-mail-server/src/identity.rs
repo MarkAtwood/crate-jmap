@@ -420,9 +420,8 @@ pub async fn handle_identity_set<B: MailBackend>(
             )));
         }
         for id_val in destroy_arr {
-            let id_str = match id_val {
-                Value::String(s) => s,
-                _ => continue, // unreachable: validated above
+            let Value::String(id_str) = id_val else {
+                continue; // unreachable: validated above
             };
             let id = Id::from(id_str.as_str());
 
