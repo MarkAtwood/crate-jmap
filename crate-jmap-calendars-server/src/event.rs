@@ -283,11 +283,10 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
         for (create_id, obj_val) in create_map {
             // §5.9: client cannot set both utcStart and start simultaneously,
             // or both utcEnd and duration.
-            let obj_json = &obj_val;
-            let has_utc_start = obj_json.get("utcStart").is_some_and(|v| !v.is_null());
-            let has_start = obj_json.get("start").is_some_and(|v| !v.is_null());
-            let has_utc_end = obj_json.get("utcEnd").is_some_and(|v| !v.is_null());
-            let has_duration = obj_json.get("duration").is_some_and(|v| !v.is_null());
+            let has_utc_start = obj_val.get("utcStart").is_some_and(|v| !v.is_null());
+            let has_start = obj_val.get("start").is_some_and(|v| !v.is_null());
+            let has_utc_end = obj_val.get("utcEnd").is_some_and(|v| !v.is_null());
+            let has_duration = obj_val.get("duration").is_some_and(|v| !v.is_null());
 
             if has_utc_start && has_start {
                 not_created.insert(
