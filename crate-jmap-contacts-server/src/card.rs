@@ -278,10 +278,10 @@ pub async fn handle_contact_card_set<B: ContactsBackend>(
             )));
         }
         for id_val in destroy_arr {
-            let id_str = match id_val.as_str() {
-                Some(s) => s.to_owned(),
-                None => continue, // unreachable: validated above
+            let Some(s) = id_val.as_str() else {
+                continue; // unreachable: validated above
             };
+            let id_str = s.to_owned();
             let id = Id::from(id_str.as_str());
 
             match backend
