@@ -494,7 +494,7 @@ fn parse_ws_frame(text: &str) -> Result<WsFrame, crate::error::ClientError> {
 /// [`crate::auth::BearerAuth`] token.
 pub async fn connect_ws(
     ws_url: &str,
-    auth_header: Option<(&str, &str)>,
+    auth_header: Option<crate::auth::AuthHeader<'_>>,
 ) -> Result<WsSession, crate::error::ClientError> {
     connect_ws_with_limit(ws_url, auth_header, DEFAULT_WS_MAX_MESSAGE_BYTES).await
 }
@@ -522,7 +522,7 @@ pub async fn connect_ws(
 /// avoid printing or storing the `auth_header` they passed in.
 pub async fn connect_ws_with_limit(
     ws_url: &str,
-    auth_header: Option<(&str, &str)>,
+    auth_header: Option<crate::auth::AuthHeader<'_>>,
     max_message_bytes: usize,
 ) -> Result<WsSession, crate::error::ClientError> {
     if max_message_bytes == 0 {
@@ -550,7 +550,7 @@ pub async fn connect_ws_with_limit(
         .into_client_request()
         .map_err(crate::error::ClientError::from_ws)?;
 
-    if let Some((name, value)) = auth_header {
+    if let Some(header) = auth_header {
         // Both arms construct ClientError::InvalidArgument with a fixed
         // string and deliberately discard the http-crate's Display output
         // for the inner error. The original `name` / `value` bytes are
@@ -558,10 +558,10 @@ pub async fn connect_ws_with_limit(
         // the value, but a future http-crate version could begin echoing
         // bytes in its Display impl). Defense-in-depth: keep neither in
         // the error chain.
-        let hdr_name = http::HeaderName::from_str(name).map_err(|_| {
+        let hdr_name = http::HeaderName::from_str(header.name()).map_err(|_| {
             crate::error::ClientError::InvalidArgument("invalid auth header name".to_owned())
         })?;
-        let hdr_value = http::HeaderValue::from_str(value).map_err(|_| {
+        let hdr_value = http::HeaderValue::from_str(header.expose_value()).map_err(|_| {
             crate::error::ClientError::InvalidArgument("invalid auth header value".to_owned())
         })?;
         request.headers_mut().insert(hdr_name, hdr_value);

@@ -299,6 +299,76 @@ impl TransportConfig for CustomCaTransport {
 // AuthProvider — per-request credential injection (Authorization header)
 // ---------------------------------------------------------------------------
 
+/// Single HTTP `(name, value)` header pair, returned by
+/// [`AuthProvider::auth_header`] (bd:JMAP-6r7c.62, bd:JMAP-6r7c.20).
+///
+/// The wrapper exists for two purposes:
+///
+/// 1. **Compile-time secret-typing.** [`AuthHeader`]'s `Debug` impl
+///    redacts the header value to `"[REDACTED]"`. A future
+///    [`AuthProvider`] impl that writes
+///    `tracing::trace!(?header, "injecting")` cannot leak the credential
+///    through that path because the wrapper's `Debug` output never
+///    contains the value bytes. The pre-bd:JMAP-6r7c.62 shape
+///    (`Option<(&str, &str)>`) had no such guard — a string tuple
+///    formats verbatim via `?`-syntax.
+/// 2. **Bounded API surface.** The wrapper packages exactly one
+///    `(name, value)` pair. The trait's signature does not admit a
+///    list, a sequence, or a per-request-computed value. This is the
+///    intentional limitation: `AuthProvider` covers "static,
+///    per-connection single-header auth schemes" only (Bearer, Basic,
+///    mTLS via [`TransportConfig`]). Schemes that need multiple
+///    request-dependent headers (AWS SigV4, OAuth request signing) or
+///    async credential refresh require a different abstraction —
+///    currently, custom [`TransportConfig`] impls that wire per-request
+///    middleware (bd:JMAP-6r7c.20).
+///
+/// Construct via [`AuthHeader::new`] — both `name` and `value` are
+/// caller-supplied borrows; the wrapper stashes them as-is. The
+/// constructor does not validate HTTP-header-value syntax; downstream
+/// consumers (e.g. [`connect_ws`](crate::ws::connect_ws)) validate at
+/// the call site and surface [`ClientError::InvalidArgument`] for
+/// invalid bytes.
+#[non_exhaustive]
+#[derive(Clone, Copy)]
+pub struct AuthHeader<'a> {
+    name: &'a str,
+    value: &'a str,
+}
+
+impl<'a> AuthHeader<'a> {
+    /// Construct an [`AuthHeader`] from a header name and value borrow.
+    pub fn new(name: &'a str, value: &'a str) -> Self {
+        Self { name, value }
+    }
+
+    /// Borrow the header name. Lowercase-ASCII per RFC 9110 §5.1.
+    pub fn name(&self) -> &'a str {
+        self.name
+    }
+
+    /// Borrow the header value.
+    ///
+    /// **Do not log this return value.** The value is credential
+    /// material; see the type-level rustdoc. The constructor name is
+    /// deliberately explicit ([`expose_value`](Self::expose_value)) so a
+    /// call site reveals the intent — a `tracing::*` line that
+    /// references `header.expose_value()` is visible in code review,
+    /// whereas a `?header` formatter is not.
+    pub fn expose_value(&self) -> &'a str {
+        self.value
+    }
+}
+
+impl std::fmt::Debug for AuthHeader<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("AuthHeader")
+            .field("name", &self.name)
+            .field("value", &"[REDACTED]")
+            .finish()
+    }
+}
+
 /// Injects per-request authentication credentials.
 ///
 /// Separate from transport configuration ([`TransportConfig`]) so any
@@ -310,9 +380,47 @@ impl TransportConfig for CustomCaTransport {
 /// [`BasicAuth`] cover the common cases.
 ///
 /// Implementations **must not** log the return value of [`auth_header`];
-/// it contains credentials.
+/// it contains credentials. The [`AuthHeader`] return type provides a
+/// compile-time guard against the most common leak path — its `Debug`
+/// impl redacts the value bytes — but the explicit
+/// [`expose_value`](AuthHeader::expose_value) accessor must not be fed
+/// into a `tracing::*` argument either.
 ///
 /// [`auth_header`]: AuthProvider::auth_header
+///
+/// # Intentional limitation: static single-header per-connection schemes (bd:JMAP-6r7c.20)
+///
+/// The trait shape commits the kit to "static, per-connection,
+/// single-header auth schemes" — bearer-token, HTTP Basic, mTLS via
+/// [`TransportConfig`]. Three constraints follow from the
+/// [`AuthHeader`] return type:
+///
+/// 1. **One header per request.** A scheme that needs to attach
+///    multiple headers per request (AWS SigV4 carries
+///    `Authorization`, `X-Amz-Date`, and `X-Amz-Security-Token`
+///    together) cannot be expressed by this trait.
+/// 2. **No per-request signature.** [`auth_header`] takes `&self`
+///    only — there is no access to the request URL, method, or body.
+///    Schemes that compute an HMAC over the request body (SigV4,
+///    OAuth request signing) cannot be expressed.
+/// 3. **No async refresh.** [`auth_header`] is sync. A scheme that
+///    needs to refresh an expired OAuth token before returning
+///    cannot await inside this method.
+///
+/// Workaround for callers who need any of the three: implement a
+/// custom [`TransportConfig`] that wires per-request middleware into
+/// the [`HttpClient`] it returns from
+/// [`build_client`](TransportConfig::build_client). The middleware can
+/// observe the full request, compute signatures, and refresh tokens
+/// asynchronously. The cost is the awkward layering inversion — TLS
+/// config and credential injection conceptually belong to different
+/// traits — but it does compose against the existing
+/// [`AuthProvider::auth_header`] trait without breakage.
+///
+/// A future reshape that supports the three constraints (likely a
+/// new trait, not a backward-compatible widening of this one) would
+/// not deprecate `AuthProvider`. The current trait stays as the
+/// "fast path for the common case" alongside any richer abstraction.
 ///
 /// # Credential lifetime
 ///
@@ -334,15 +442,15 @@ impl TransportConfig for CustomCaTransport {
 /// blanket method silently breaks one of those shapes without breaking
 /// the other.
 pub trait AuthProvider: Send + Sync {
-    /// Return an optional `(header-name, header-value)` pair to attach to
-    /// every request.
+    /// Return an optional [`AuthHeader`] to attach to every request.
     ///
     /// Returns `None` when no `Authorization` header is required.
     ///
-    /// Both strings borrow from `self` and must live at least as long as the
-    /// `&self` borrow.  Implementations that pre-compute the values at
-    /// construction time can return `&self.field` directly, avoiding any
-    /// per-request allocation.
+    /// The header name and value both borrow from `self` and must live
+    /// at least as long as the `&self` borrow. Implementations that
+    /// pre-compute the values at construction time can return
+    /// `AuthHeader::new("authorization", &self.field)` directly,
+    /// avoiding any per-request allocation.
     ///
     /// # Implementation contract
     ///
@@ -359,7 +467,7 @@ pub trait AuthProvider: Send + Sync {
     /// an `InvalidArgument` — the error type differs between the two paths.
     /// Test all custom `AuthProvider` implementations against both HTTP and
     /// WebSocket call paths.
-    fn auth_header(&self) -> Option<(&str, &str)>;
+    fn auth_header(&self) -> Option<AuthHeader<'_>>;
 }
 
 /// No authentication: no `Authorization` header.
@@ -367,7 +475,7 @@ pub trait AuthProvider: Send + Sync {
 pub struct NoneAuth;
 
 impl AuthProvider for NoneAuth {
-    fn auth_header(&self) -> Option<(&str, &str)> {
+    fn auth_header(&self) -> Option<AuthHeader<'_>> {
         None
     }
 }
@@ -405,7 +513,7 @@ impl AuthProvider for NoneAuth {
 ///    Pre-validation moves that work out of every request.
 /// 3. **Infallible accessor signature.** Pre-validation lets
 ///    `auth_header` keep the signature
-///    `fn auth_header(&self) -> Option<(&str, &str)>` — infallible.
+///    `fn auth_header(&self) -> Option<AuthHeader<'_>>` — infallible.
 ///    Per-request validation would require
 ///    `Result<Option<(&str, &str)>, ClientError>`, propagating an
 ///    extra error layer through every call site (HTTP `call`, blob
@@ -471,8 +579,8 @@ impl std::fmt::Debug for BearerAuth {
 }
 
 impl AuthProvider for BearerAuth {
-    fn auth_header(&self) -> Option<(&str, &str)> {
-        Some(("authorization", &self.header_string))
+    fn auth_header(&self) -> Option<AuthHeader<'_>> {
+        Some(AuthHeader::new("authorization", &self.header_string))
     }
 }
 
@@ -540,8 +648,8 @@ impl std::fmt::Debug for BasicAuth {
 }
 
 impl AuthProvider for BasicAuth {
-    fn auth_header(&self) -> Option<(&str, &str)> {
-        Some(("authorization", &self.header_string))
+    fn auth_header(&self) -> Option<AuthHeader<'_>> {
+        Some(AuthHeader::new("authorization", &self.header_string))
     }
 }
 
@@ -587,7 +695,7 @@ impl TransportConfig for Box<dyn TransportConfig> {
 //
 // Maintenance cost: every method added to `AuthProvider` must be mirrored here.
 impl AuthProvider for Arc<dyn AuthProvider> {
-    fn auth_header(&self) -> Option<(&str, &str)> {
+    fn auth_header(&self) -> Option<AuthHeader<'_>> {
         (**self).auth_header()
     }
 }
@@ -602,7 +710,7 @@ impl AuthProvider for Arc<dyn AuthProvider> {
 //
 // Maintenance cost: every method added to `AuthProvider` must be mirrored here.
 impl AuthProvider for Box<dyn AuthProvider> {
-    fn auth_header(&self) -> Option<(&str, &str)> {
+    fn auth_header(&self) -> Option<AuthHeader<'_>> {
         (**self).auth_header()
     }
 }
@@ -632,9 +740,9 @@ mod tests {
     #[test]
     fn bearer_auth_header() {
         let auth = BearerAuth::new("tok123").expect("valid ASCII token must construct");
-        let (name, value) = auth.auth_header().expect("BearerAuth must return a header");
-        assert_eq!(name, "authorization");
-        assert_eq!(value, "Bearer tok123");
+        let header = auth.auth_header().expect("BearerAuth must return a header");
+        assert_eq!(header.name(), "authorization");
+        assert_eq!(header.expose_value(), "Bearer tok123");
     }
 
     /// Oracle: BearerAuth constructor rejects tokens containing C0 control characters.
@@ -677,9 +785,9 @@ mod tests {
     #[test]
     fn basic_auth_header() {
         let auth = BasicAuth::new("alice", "s3cr3t").expect("valid credentials must construct");
-        let (name, value) = auth.auth_header().expect("BasicAuth must return a header");
-        assert_eq!(name, "authorization");
-        assert_eq!(value, "Basic YWxpY2U6czNjcjN0");
+        let header = auth.auth_header().expect("BasicAuth must return a header");
+        assert_eq!(header.name(), "authorization");
+        assert_eq!(header.expose_value(), "Basic YWxpY2U6czNjcjN0");
     }
 
     /// Oracle: CustomCaTransport injects no auth header — it is a transport only.
@@ -776,6 +884,45 @@ mod tests {
         StubTransport
             .build_client()
             .expect("custom transport must build the opaque HttpClient");
+    }
+
+    /// bd:JMAP-6r7c.62 — `AuthHeader`'s `Debug` impl MUST redact the value
+    /// bytes to "[REDACTED]". This is the compile-time guard against a
+    /// future `AuthProvider` impl that writes `tracing::trace!(?header,
+    /// ...)`. The pre-bd:JMAP-6r7c.62 shape `Option<(&str, &str)>` would
+    /// have rendered the value verbatim via `?`-formatter. The canary
+    /// literal is the test's independent oracle, never derived from
+    /// `AuthHeader`'s internal state.
+    #[test]
+    fn auth_header_debug_redacts_value() {
+        const CANARY: &str = "CANARY-AUTH-VALUE-DO-NOT-LEAK-456";
+        let header = AuthHeader::new("authorization", CANARY);
+        let dbg = format!("{header:?}");
+        assert!(
+            !dbg.contains(CANARY),
+            "AuthHeader Debug must not contain the canary value: {dbg}"
+        );
+        assert!(
+            dbg.contains("[REDACTED]"),
+            "AuthHeader Debug must render '[REDACTED]' for the value field: {dbg}"
+        );
+        // The name is non-sensitive and may surface to aid diagnostics.
+        assert!(
+            dbg.contains("authorization"),
+            "AuthHeader Debug should include the header name for diagnostic value: {dbg}"
+        );
+    }
+
+    /// bd:JMAP-6r7c.62 — `expose_value` is the only path to the credential
+    /// bytes, so the call-site name (`expose_value`) is the visible
+    /// signal in code review. This test pins the accessor name + return
+    /// value, so a future rename of the accessor breaks the test loudly.
+    #[test]
+    fn auth_header_expose_value_returns_credential_bytes() {
+        const VALUE: &str = "Bearer some-token-123";
+        let header = AuthHeader::new("authorization", VALUE);
+        assert_eq!(header.name(), "authorization");
+        assert_eq!(header.expose_value(), VALUE);
     }
 
     /// Oracle: BearerAuth's Debug impl never reveals the underlying token.
