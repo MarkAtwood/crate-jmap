@@ -13,7 +13,7 @@ use crate::error::ClientError;
 
 /// Parameters for [`JmapClient::download_blob`].
 ///
-/// Use a struct literal to avoid confusion between the six string-typed fields:
+/// Use a struct literal to avoid confusion between the string-typed fields:
 ///
 /// ```rust,ignore
 /// client.download_blob(DownloadBlobParams {
@@ -23,6 +23,24 @@ use crate::error::ClientError;
 ///     name: "attachment.pdf",
 ///     accept_type: Some("application/pdf"),
 ///     expected_sha256: None,
+/// }).await?;
+/// ```
+///
+/// To request integrity verification, construct a typed
+/// [`jmap_cid_types::Sha256`] and pass a borrow:
+///
+/// ```rust,ignore
+/// let expected = jmap_cid_types::Sha256::from_hex(
+///     "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+/// )?;
+/// client.download_blob(DownloadBlobParams {
+///     // ... other fields ...
+///     expected_sha256: Some(&expected),
+///     # download_url_template: "",
+///     # account_id: "",
+///     # blob_id: "",
+///     # name: "",
+///     # accept_type: None,
 /// }).await?;
 /// ```
 #[derive(Debug, Clone, Copy)]
@@ -39,9 +57,18 @@ pub struct DownloadBlobParams<'a> {
     /// Pass `None` when no content-type preference is needed; `{type}` expands to an
     /// empty string.
     pub accept_type: Option<&'a str>,
-    /// Optional expected SHA-256 hex digest for integrity verification.
+    /// Optional expected SHA-256 digest for integrity verification.
     /// Pass `None` to skip the check.
-    pub expected_sha256: Option<&'a str>,
+    ///
+    /// The typed [`jmap_cid_types::Sha256`] wrapper guarantees the value is
+    /// exactly 64 characters of lowercase hex per draft-atwood-jmap-cid-00 §2 ABNF.
+    /// Construction is the only validation point: callers build the
+    /// [`Sha256`](jmap_cid_types::Sha256) via [`from_hex`](jmap_cid_types::Sha256::from_hex)
+    /// or deserialize and propagate the [`Sha256DigestError`](jmap_cid_types::Sha256DigestError);
+    /// `download_blob` itself does not re-validate, so the `&str`-validation
+    /// branch and its [`ClientError::InvalidArgument`] mapping no longer exist
+    /// (bd:JMAP-6r7c.48, bd:JMAP-6r7c.53).
+    pub expected_sha256: Option<&'a jmap_cid_types::Sha256>,
 }
 
 /// Response body returned by a successful blob upload (RFC 8620 §6.1).
@@ -103,14 +130,15 @@ pub struct BlobUploadResponse {
     /// representation here is `None`.
     ///
     /// History: bd:JMAP-v9py.13 promoted this field from a permissive
-    /// `Option<String>` to the typed `Option<jmap_cid_types::Sha256>`.
-    /// The previous implementation tolerated uppercase hex via a
-    /// permissive `is_valid_sha256_hex` validator that accepted
-    /// ASCII hex of either case plus a normalize-to-lowercase
-    /// step before integrity comparison. The typed path is strict;
-    /// the inter-op question (whether to recover the uppercase
-    /// tolerance via a custom Deserialize wrapper) is tracked by
-    /// bd:JMAP-noz7.
+    /// `Option<String>` to the typed `Option<jmap_cid_types::Sha256>`,
+    /// and bd:JMAP-6r7c.48 propagated the same typed shape to the
+    /// download-side [`DownloadBlobParams::expected_sha256`](crate::DownloadBlobParams::expected_sha256)
+    /// caller-supplied argument. The previous implementation tolerated
+    /// uppercase hex via a permissive ad-hoc validator and a normalize-
+    /// to-lowercase step before integrity comparison; the typed path is
+    /// strict on every construction site. The inter-op question (whether
+    /// to recover the uppercase tolerance via a custom Deserialize wrapper)
+    /// is tracked by bd:JMAP-noz7.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub sha256: Option<jmap_cid_types::Sha256>,
 
@@ -364,8 +392,8 @@ impl JmapClient {
     /// `{type}` from the `download_url` template in the Session document.
     ///
     /// If `params.expected_sha256` is `Some`, the downloaded bytes are verified
-    /// against the hex digest and `ClientError::BlobIntegrityMismatch` is
-    /// returned on mismatch.
+    /// against the typed [`jmap_cid_types::Sha256`] digest and
+    /// `ClientError::BlobIntegrityMismatch` is returned on mismatch.
     pub async fn download_blob(
         &self,
         params: DownloadBlobParams<'_>,
@@ -406,22 +434,17 @@ impl JmapClient {
         let bytes = bytes::Bytes::from(read_capped_body(resp, download_limit).await?);
 
         if let Some(expected) = expected_sha256 {
-            if !is_valid_sha256_hex(expected) {
-                return Err(ClientError::InvalidArgument(format!(
-                    "expected_sha256 is not 64-char hex: {expected:?}"
-                )));
-            }
+            // The typed `jmap_cid_types::Sha256` enforces the canonical
+            // 64-char lowercase-hex ABNF at construction (bd:JMAP-6r7c.48),
+            // so the runtime length/charset check and the
+            // `to_ascii_lowercase` normalize step the previous
+            // `Option<&str>` shape required (bd:JMAP-6r7c.53) are gone.
             let actual = compute_sha256_hex(&bytes);
-            // Normalize expected to lowercase; callers may hold uppercase hex from
-            // a server or external source. Both represent the same digest.
-            let expected_lower = expected.to_ascii_lowercase();
             // Constant-time compare via `hex_digest_eq` (bd:JMAP-6r7c.61):
-            // `actual` is canonical lowercase from `compute_sha256_hex`;
-            // `expected_lower` was validated as 64-char hex by
-            // `is_valid_sha256_hex` above and lowercased here.
-            if !hex_digest_eq(&actual, &expected_lower) {
+            // both sides are canonical 64-char lowercase hex by construction.
+            if !hex_digest_eq(&actual, expected.as_str()) {
                 return Err(ClientError::BlobIntegrityMismatch {
-                    expected: expected_lower,
+                    expected: expected.as_str().to_owned(),
                     actual,
                 });
             }
@@ -429,15 +452,6 @@ impl JmapClient {
 
         Ok(bytes)
     }
-}
-
-/// Returns `true` if `s` is exactly 64 hex characters (uppercase or lowercase).
-///
-/// Callers are responsible for producing the appropriate [`ClientError`] variant:
-/// - server-provided digest (upload response `sha256` field) → [`ClientError::InvalidSession`]
-/// - caller-supplied expected digest (`download_blob` `expected_sha256` arg) → [`ClientError::InvalidArgument`]
-fn is_valid_sha256_hex(s: &str) -> bool {
-    s.len() == 64 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
 /// Compute SHA-256 of `data` and return as 64-char lowercase hex string.
@@ -455,12 +469,11 @@ fn compute_sha256_hex(data: &[u8]) -> String {
 /// (bd:JMAP-6r7c.61).
 ///
 /// Both upload-side and download-side integrity checks compare hex digests
-/// that have been independently normalized to canonical 64-char lowercase
-/// form before reaching this helper: `compute_sha256_hex` always emits 64
-/// lowercase nibbles, `jmap_cid_types::Sha256` enforces the ABNF at
-/// deserialize, and the download path applies `to_ascii_lowercase` plus
-/// `is_valid_sha256_hex` (length-64) before calling in. Length-discrimination
-/// is therefore not an information leak at these call sites.
+/// that are guaranteed-canonical by construction before reaching this
+/// helper: `compute_sha256_hex` always emits 64 lowercase nibbles, and
+/// `jmap_cid_types::Sha256` enforces the 64-char lowercase-hex ABNF on
+/// every construction path (deserialize, `from_hex`, etc.). Length-
+/// discrimination is therefore not an information leak at these call sites.
 ///
 /// Using `subtle::ConstantTimeEq::ct_eq` over `==` is discipline-propagation,
 /// not a defense against a concrete JMAP threat: SHA-256 of blob bytes is

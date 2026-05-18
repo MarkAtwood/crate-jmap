@@ -1296,3 +1296,116 @@ fn test_extract_response_error_after_multiple_successes() {
         "expected MethodError{{rateLimit}}, got {err:?}"
     );
 }
+
+// ---------------------------------------------------------------------------
+// download_blob — typed expected_sha256 integrity contract (bd:JMAP-6r7c.48)
+// ---------------------------------------------------------------------------
+
+/// Oracle: NIST FIPS 180-4 Appendix A, example 1 — SHA-256("abc") =
+/// ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad.
+/// The hex digest is hand-typed from the NIST publication; the test
+/// server returns the literal three bytes "abc", and the typed
+/// `jmap_cid_types::Sha256` is the caller-supplied integrity expectation.
+/// A successful match means `download_blob` returns the bytes verbatim.
+#[tokio::test]
+async fn download_blob_with_typed_sha256_matches_succeeds() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/download/account1/blob-abc/file.bin"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"abc".to_vec()))
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let expected = jmap_cid_types::Sha256::from_hex(
+        "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+    )
+    .expect("NIST oracle digest must parse as canonical Sha256");
+
+    let template = format!(
+        "{}/download/{{accountId}}/{{blobId}}/{{name}}",
+        server.uri()
+    );
+    let bytes = client
+        .download_blob(jmap_base_client::DownloadBlobParams {
+            download_url_template: &template,
+            account_id: "account1",
+            blob_id: "blob-abc",
+            name: "file.bin",
+            accept_type: None,
+            expected_sha256: Some(&expected),
+        })
+        .await
+        .expect("integrity-matched download must succeed");
+    assert_eq!(bytes.as_ref(), b"abc");
+}
+
+/// Oracle: a server returning bytes "abc" with a caller-supplied
+/// `expected_sha256` that is canonical SHA-256("") — the empty-string
+/// digest `e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`
+/// (RFC 6234, NIST CAVS) — must return
+/// `ClientError::BlobIntegrityMismatch` with `expected` carrying the
+/// caller's typed-canonical digest unchanged. The pre-bd:JMAP-6r7c.48
+/// `&str` path applied `to_ascii_lowercase` before populating `expected`;
+/// the typed path does not (the wrapper already enforces canonical
+/// lowercase at construction). Asserting on the exact wire string locks
+/// in the new contract.
+#[tokio::test]
+async fn download_blob_with_typed_sha256_mismatch_returns_integrity_error() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/download/account1/blob-abc/file.bin"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"abc".to_vec()))
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    // SHA-256("") canonical — does not match SHA-256("abc").
+    let empty_sha256_hex = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+    let expected = jmap_cid_types::Sha256::from_hex(empty_sha256_hex)
+        .expect("RFC 6234 oracle digest must parse as canonical Sha256");
+
+    let template = format!(
+        "{}/download/{{accountId}}/{{blobId}}/{{name}}",
+        server.uri()
+    );
+    let err = client
+        .download_blob(jmap_base_client::DownloadBlobParams {
+            download_url_template: &template,
+            account_id: "account1",
+            blob_id: "blob-abc",
+            name: "file.bin",
+            accept_type: None,
+            expected_sha256: Some(&expected),
+        })
+        .await
+        .expect_err("mismatched integrity check must fail");
+
+    match err {
+        ClientError::BlobIntegrityMismatch { expected, actual } => {
+            assert_eq!(
+                expected, empty_sha256_hex,
+                "expected must carry the typed caller-supplied digest verbatim"
+            );
+            assert_eq!(
+                actual, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+                "actual must be SHA-256(\"abc\") per NIST FIPS 180-4 Appendix A"
+            );
+        }
+        other => panic!("expected BlobIntegrityMismatch, got {other:?}"),
+    }
+}

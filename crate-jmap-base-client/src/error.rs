@@ -461,7 +461,7 @@ pub enum ClientError {
     /// | Call site | `expected` | `actual` |
     /// |---|---|---|
     /// | [`JmapClient::upload_blob`](crate::JmapClient::upload_blob) | client's own SHA-256 of the bytes about to be uploaded | server's reported SHA-256 in the upload response |
-    /// | [`JmapClient::download_blob`](crate::JmapClient::download_blob) | `DownloadBlobParams::expected_sha256` supplied by the caller (normalized to lowercase) | client's SHA-256 of the actually-received bytes |
+    /// | [`JmapClient::download_blob`](crate::JmapClient::download_blob) | `DownloadBlobParams::expected_sha256` supplied by the caller (typed [`jmap_cid_types::Sha256`], guaranteed canonical lowercase) | client's SHA-256 of the actually-received bytes |
     ///
     /// Both digests are canonical 64-character lowercase hex (per
     /// draft-atwood-jmap-cid-00 §2 ABNF).
@@ -471,7 +471,7 @@ pub enum ClientError {
         /// On upload, this is the client's own pre-upload computation; on
         /// download, this is the caller-supplied
         /// [`DownloadBlobParams::expected_sha256`](crate::DownloadBlobParams::expected_sha256)
-        /// (normalized to lowercase).
+        /// (typed [`jmap_cid_types::Sha256`], guaranteed canonical lowercase).
         expected: String,
         /// Freshly-observed SHA-256 hex digest. On upload, this is the
         /// server-reported digest from the upload response. On download,
