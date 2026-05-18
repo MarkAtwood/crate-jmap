@@ -32,7 +32,7 @@ pub mod sse;
 pub mod ws;
 
 pub use auth::{
-    AuthProvider, BasicAuth, BearerAuth, CustomCaTransport, DefaultTransport, NoneAuth,
+    AuthProvider, BasicAuth, BearerAuth, CustomCaTransport, DefaultTransport, HttpClient, NoneAuth,
     TransportConfig,
 };
 pub use blob::{expand_url_template, BlobUploadResponse, DownloadBlobParams, UploadBlobParams};

@@ -18,7 +18,71 @@ use crate::error::ClientError;
 // TransportConfig — HTTP client construction (TLS, timeouts, trust roots)
 // ---------------------------------------------------------------------------
 
-/// Controls how the underlying [`reqwest::Client`] is constructed.
+/// Opaque HTTP client returned by [`TransportConfig::build_client`]
+/// (bd:JMAP-6r7c.36).
+///
+/// The inner third-party type is private; the wrapper exists so the JMAP
+/// transport identity does not leak through the public trait signature.
+/// A future swap of the underlying HTTP library (e.g. `ureq`, `hyper-util`
+/// directly, `curl`) replaces the wrapped type without breaking any
+/// downstream extension client or custom `TransportConfig` impl that
+/// returns `Result<HttpClient, ClientError>` from `build_client`.
+///
+/// Custom transports construct via [`HttpClient::new`] — that signature
+/// still references [`reqwest::Client`] (the only construction path the
+/// kit knows how to make HTTP requests against). The partial-wrap
+/// argument mirrors [`ParseError`](crate::error::ParseError) /
+/// [`SerializeError`](crate::error::SerializeError): the variant
+/// payload / return type is opaque, but the construction signature still
+/// names the third-party type so callers have a way in. A future
+/// transport swap would deprecate this constructor in favor of an
+/// analogous one for the new HTTP client; the wrapper type itself
+/// stays stable.
+#[non_exhaustive]
+pub struct HttpClient(reqwest::Client);
+
+impl HttpClient {
+    /// Wrap a [`reqwest::Client`] into an opaque [`HttpClient`].
+    ///
+    /// Custom [`TransportConfig`] impls use this constructor to wrap a
+    /// reqwest client they built with their own TLS / proxy / timeout
+    /// configuration:
+    ///
+    /// ```rust,ignore
+    /// impl TransportConfig for MyCustomTransport {
+    ///     fn build_client(&self) -> Result<HttpClient, ClientError> {
+    ///         let client = reqwest::ClientBuilder::new()
+    ///             .proxy(...)
+    ///             .build()
+    ///             .map_err(ClientError::from_reqwest)?;
+    ///         Ok(HttpClient::new(client))
+    ///     }
+    /// }
+    /// ```
+    pub fn new(client: reqwest::Client) -> Self {
+        Self(client)
+    }
+
+    /// Consume the wrapper and return the inner [`reqwest::Client`].
+    ///
+    /// `pub(crate)` so only this crate's [`JmapClient`](crate::JmapClient)
+    /// construction path can unwrap — external code cannot reach inside
+    /// the opaque wrapper. A future swap of the HTTP transport would
+    /// change the return type here without affecting external callers
+    /// (who only see the typed `Result<HttpClient, _>` from
+    /// [`TransportConfig::build_client`]).
+    pub(crate) fn into_inner(self) -> reqwest::Client {
+        self.0
+    }
+}
+
+impl std::fmt::Debug for HttpClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("HttpClient").finish()
+    }
+}
+
+/// Controls how the underlying [`HttpClient`] is constructed.
 ///
 /// Implementations configure TLS trust roots, client certificates, and
 /// connect timeouts. This is separate from credential injection
@@ -29,6 +93,12 @@ use crate::error::ClientError;
 /// implement [`AuthProvider`] instead.  [`DefaultTransport`] covers the common
 /// case of publicly-trusted TLS with no custom certificates.
 ///
+/// **Return type contract (bd:JMAP-6r7c.36).** `build_client` returns an
+/// opaque [`HttpClient`] wrapper, not a bare [`reqwest::Client`]. Custom
+/// impls construct via [`HttpClient::new`] after building their reqwest
+/// client; the wrapper insulates the trait's public surface from a
+/// future HTTP-transport swap.
+///
 /// **Maintainer note (bd:JMAP-6lsm.19):** if you add a new method to this
 /// trait, update the manual blanket impl for `Box<dyn TransportConfig>` at
 /// the bottom of this file. The crate ships a hand-written forwarding impl
@@ -37,8 +107,8 @@ use crate::error::ClientError;
 /// mirroring it on the blanket impl silently breaks the
 /// `JmapClient::new(Box::<dyn TransportConfig>::new(...))` call shape.
 pub trait TransportConfig: Send + Sync {
-    /// Build the [`reqwest::Client`] for this transport configuration.
-    fn build_client(&self) -> Result<reqwest::Client, ClientError>;
+    /// Build the [`HttpClient`] for this transport configuration.
+    fn build_client(&self) -> Result<HttpClient, ClientError>;
 }
 
 /// Standard reqwest client with a 10-second connect timeout; no custom TLS.
@@ -49,8 +119,8 @@ pub trait TransportConfig: Send + Sync {
 pub struct DefaultTransport;
 
 impl TransportConfig for DefaultTransport {
-    fn build_client(&self) -> Result<reqwest::Client, ClientError> {
-        default_reqwest_client()
+    fn build_client(&self) -> Result<HttpClient, ClientError> {
+        default_reqwest_client().map(HttpClient::new)
     }
 }
 
@@ -207,7 +277,7 @@ impl std::fmt::Debug for CustomCaTransport {
 }
 
 impl TransportConfig for CustomCaTransport {
-    fn build_client(&self) -> Result<reqwest::Client, ClientError> {
+    fn build_client(&self) -> Result<HttpClient, ClientError> {
         let cert =
             reqwest::Certificate::from_der(&self.der_cert).map_err(ClientError::from_reqwest)?;
         // Replace (not augment) the trust root set with the configured
@@ -221,7 +291,7 @@ impl TransportConfig for CustomCaTransport {
             .add_root_certificate(cert)
             .build()
             .map_err(ClientError::from_reqwest)?;
-        Ok(client)
+        Ok(HttpClient::new(client))
     }
 }
 
@@ -503,7 +573,7 @@ fn default_reqwest_client() -> Result<reqwest::Client, ClientError> {
 //
 // Maintenance cost: every method added to `TransportConfig` must be mirrored here.
 impl TransportConfig for Box<dyn TransportConfig> {
-    fn build_client(&self) -> Result<reqwest::Client, ClientError> {
+    fn build_client(&self) -> Result<HttpClient, ClientError> {
         (**self).build_client()
     }
 }
@@ -661,6 +731,51 @@ mod tests {
         DefaultTransport
             .build_client()
             .expect("DefaultTransport::build_client must succeed");
+    }
+
+    /// bd:JMAP-6r7c.36 — `TransportConfig::build_client` now returns
+    /// `Result<HttpClient, _>`, not `Result<reqwest::Client, _>`. The
+    /// wrapper exists so the trait's public signature does not name the
+    /// underlying HTTP library, insulating extension clients and custom
+    /// transport impls from a future transport swap.
+    ///
+    /// The compile-time witness below pins the new shape; if a future
+    /// refactor accidentally widens the return type back to
+    /// `reqwest::Client`, the explicit typed `let` binding here breaks
+    /// the build.
+    #[tokio::test]
+    async fn build_client_returns_opaque_http_client() {
+        let result: Result<HttpClient, ClientError> = DefaultTransport.build_client();
+        let http = result.expect("DefaultTransport::build_client must succeed");
+        // Debug output is opaque — no inner reqwest::Client representation.
+        let dbg = format!("{http:?}");
+        assert_eq!(
+            dbg, "HttpClient",
+            "HttpClient Debug must be opaque; the wrapper is the only public surface"
+        );
+    }
+
+    /// bd:JMAP-6r7c.36 — A custom `TransportConfig` impl constructs the
+    /// returned `HttpClient` via `HttpClient::new(reqwest::Client)`. This
+    /// pins the public construction path; if the constructor signature
+    /// changes, the custom-impl pattern below fails to compile and
+    /// downstream consumers will pick up the same migration signal at
+    /// build time.
+    #[test]
+    fn http_client_new_is_callable_from_custom_transport_impl() {
+        struct StubTransport;
+        impl TransportConfig for StubTransport {
+            fn build_client(&self) -> Result<HttpClient, ClientError> {
+                let client = reqwest::ClientBuilder::new()
+                    .build()
+                    .map_err(ClientError::from_reqwest)?;
+                Ok(HttpClient::new(client))
+            }
+        }
+
+        StubTransport
+            .build_client()
+            .expect("custom transport must build the opaque HttpClient");
     }
 
     /// Oracle: BearerAuth's Debug impl never reveals the underlying token.

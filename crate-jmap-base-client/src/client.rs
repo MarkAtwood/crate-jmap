@@ -249,7 +249,13 @@ impl JmapClient {
         // a procedure (bd:JMAP-6lsm.26).
         let parsed = parse_base_url(base_url)?;
         config.validate()?;
-        let http = transport.build_client()?;
+        // Unwrap the opaque HttpClient at construction time (bd:JMAP-6r7c.36).
+        // The wrapper exists to keep reqwest::Client out of the
+        // TransportConfig trait signature; once the client is owned by
+        // JmapClient, the inner reqwest::Client is the working type for
+        // internal request building. into_inner is pub(crate) so external
+        // code cannot reach inside the opaque wrapper.
+        let http = transport.build_client()?.into_inner();
         Ok(Self {
             base_url: parsed,
             auth: Arc::new(auth),
@@ -322,7 +328,8 @@ impl JmapClient {
     ) -> Result<Self, ClientError> {
         let parsed = parse_base_url(base_url)?;
         config.validate()?;
-        let http = transport.build_client()?;
+        // Unwrap the opaque HttpClient at construction time (bd:JMAP-6r7c.36).
+        let http = transport.build_client()?.into_inner();
         Ok(Self {
             base_url: parsed,
             auth,
