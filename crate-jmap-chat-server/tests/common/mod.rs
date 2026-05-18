@@ -1079,8 +1079,13 @@ impl ChatBackend for InjectableBackend {
 // categories/channels) and stays local to that file.
 // ---------------------------------------------------------------------------
 
-/// Default account id used by the apply_space_patch test suites.
+/// Default account id used by the apply_space_patch test suites and
+/// by the bulk of [`integration.rs`](file://./integration.rs).
 pub const ACCOUNT_ID: &str = "a1";
+
+/// Secondary account id used by integration.rs cross-account
+/// isolation tests. Sibling apply-test files do not use this.
+pub const ACCOUNT_ID_B: &str = "a2";
 
 /// Default Space id used by the apply_space_patch test suites.
 pub const SPACE_ID: &str = "s1";
