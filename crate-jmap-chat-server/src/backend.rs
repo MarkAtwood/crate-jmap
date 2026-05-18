@@ -730,6 +730,22 @@ pub trait ChatBackend: JmapBackend {
     /// rotation rates proportional to client-visible mutations rather
     /// than to internal op count.
     ///
+    /// # Server-set field invariants
+    ///
+    /// Server-set fields on the target Space (`memberCount`,
+    /// `updatedAt`, and any future analogous cached aggregates) MUST
+    /// be kept consistent with the post-mutation state. Specifically,
+    /// after any combination of `AddMember` and `RemoveMember` ops,
+    /// `Space.memberCount` MUST equal `Space.members.len()` as
+    /// observed by the next `Space/get`. Backends MAY store these as
+    /// cached values that they recompute on every mutation, or MAY
+    /// compute them lazily at read time; either is acceptable as
+    /// long as `Space/get` returns values consistent with the
+    /// returned `members` array. The natural-minimal "persist
+    /// memberCount once and trust it" implementation is **not**
+    /// correct: subsequent mutations to `members` would let
+    /// `memberCount` drift silently.
+    ///
     /// # Per-op error semantics
     ///
     /// Backend rejections that originate from a single op carry both
