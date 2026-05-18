@@ -223,7 +223,15 @@ impl MemoryBackend {
             use std::sync::OnceLock;
             use std::time::{SystemTime, UNIX_EPOCH};
 
-            let _ = (inner, type_name, account_id);
+            // Under this cfg, the realistic-demo-ids generator
+            // produces a process-global timestamp+counter id that does
+            // not consult the per-(type, account) object map; the three
+            // function parameters are dead in this arm. Discard each
+            // individually so a reader doesn't have to parse a single
+            // tuple-discard line as load-bearing.
+            let _ = inner;
+            let _ = type_name;
+            let _ = account_id;
             static COUNTER: AtomicU64 = AtomicU64::new(0);
             static BASE: OnceLock<u64> = OnceLock::new();
             let base = *BASE.get_or_init(|| {
