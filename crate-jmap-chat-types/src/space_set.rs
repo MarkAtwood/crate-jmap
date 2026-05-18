@@ -419,8 +419,13 @@ impl SpaceMetadataPatch {
 pub enum SpacePatchOp {
     /// Add a new role to the Space (one entry from wire key `addRoles`).
     ///
-    /// The contained [`SpaceRole`]'s `id` is a placeholder; the server
-    /// replaces it with a ULID before storing.
+    /// The contained [`SpaceRole`]'s `id` is a **client-side
+    /// placeholder**. The backend MUST mint its own server-assigned id
+    /// (the reference implementation uses a ULID) and surface it via
+    /// the per-op result. Clients SHOULD treat the placeholder as
+    /// opaque and rely on the returned id for subsequent references.
+    /// Backends that honor the client-supplied id break server-side
+    /// id minting and are spec-noncompliant.
     AddRole(SpaceRole),
     /// Remove a role from the Space (one entry from wire key `removeRoles`).
     ///
@@ -449,8 +454,13 @@ pub enum SpacePatchOp {
     UpdateChannel { id: Id, patch: ChannelPatch },
     /// Add a category to the Space (one entry from wire key `addCategories`).
     ///
-    /// The contained [`Category`]'s `id` is a placeholder; the server
-    /// replaces it with a ULID before storing.
+    /// The contained [`Category`]'s `id` is a **client-side
+    /// placeholder**. The backend MUST mint its own server-assigned id
+    /// (the reference implementation uses a ULID) and surface it via
+    /// the per-op result. Clients SHOULD treat the placeholder as
+    /// opaque and rely on the returned id for subsequent references.
+    /// Backends that honor the client-supplied id break server-side
+    /// id minting and are spec-noncompliant.
     AddCategory(Category),
     /// Remove a category from the Space (one entry from wire key `removeCategories`).
     ///
