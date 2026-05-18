@@ -254,6 +254,43 @@ fn parse_first_pem_cert(input: &[u8]) -> Option<Vec<u8>> {
         .ok()
 }
 
+/// Extract the DER bytes of every PEM-framed certificate in `input`,
+/// in input order (bd:JMAP-6r7c.65).
+///
+/// Iterates `-----BEGIN ... -----` / `-----END ... -----` frames and
+/// decodes each base64 body. Skips frames that fail to decode (matches
+/// `parse_first_pem_cert`'s lenient posture: DER semantic validity is
+/// checked later by the underlying transport at `build_client` time).
+/// Returns an empty `Vec` if no PEM frame is found.
+fn parse_all_pem_certs(input: &[u8]) -> Vec<Vec<u8>> {
+    use base64::Engine as _;
+    let Ok(text) = std::str::from_utf8(input) else {
+        return Vec::new();
+    };
+    let mut out = Vec::new();
+    let mut rest = text;
+    while let Some(begin_idx) = rest.find("-----BEGIN ") {
+        let after_begin = &rest[begin_idx + "-----BEGIN ".len()..];
+        let Some(begin_eol) = after_begin.find('\n') else {
+            break;
+        };
+        let label = after_begin[..begin_eol].trim().trim_end_matches('-').trim();
+        let end_marker = format!("-----END {label}-----");
+        let body_start = begin_idx + "-----BEGIN ".len() + begin_eol + 1;
+        let Some(end_offset) = rest[body_start..].find(end_marker.as_str()) else {
+            break;
+        };
+        let body = &rest[body_start..body_start + end_offset];
+        let body_no_ws: String = body.chars().filter(|c| !c.is_whitespace()).collect();
+        if let Ok(der) = base64::engine::general_purpose::STANDARD.decode(body_no_ws) {
+            out.push(der);
+        }
+        let consumed = body_start + end_offset + end_marker.len();
+        rest = &rest[consumed..];
+    }
+    out
+}
+
 /// Manual `Debug` impl that redacts the DER-encoded CA bytes
 /// (bd:JMAP-6r7c.13).
 ///
@@ -291,6 +328,225 @@ impl TransportConfig for CustomCaTransport {
             .add_root_certificate(cert)
             .build()
             .map_err(ClientError::from_reqwest)?;
+        Ok(HttpClient::new(client))
+    }
+}
+
+// ---------------------------------------------------------------------------
+// CustomTransportBuilder (bd:JMAP-6r7c.65)
+// ---------------------------------------------------------------------------
+
+/// Builder for a [`TransportConfig`] with multi-root trust chains and
+/// optional mTLS client certificate (bd:JMAP-6r7c.65).
+///
+/// [`CustomCaTransport`] is single-root and has no mTLS support; the
+/// builder is the richer-configuration counterpart. Common cases:
+///
+/// - **Private PKI with root + intermediate.** Add both via
+///   [`add_root_pem`](Self::add_root_pem) (single cert) or
+///   [`add_roots_pem_bundle`](Self::add_roots_pem_bundle) (bundle of
+///   roots + intermediates).
+/// - **Mutual TLS.** Add a client cert + key via
+///   [`with_client_cert`](Self::with_client_cert).
+/// - **Both.** Compose freely; the builder is chainable.
+///
+/// Like [`CustomCaTransport`], the resulting transport **replaces**
+/// the bundled webpki-roots with the configured trust roots. A
+/// "hybrid" deployment that wants both the bundled public roots AND
+/// custom roots is not currently supported; implement
+/// [`TransportConfig`] directly with the additive behaviour
+/// (`reqwest::ClientBuilder::add_root_certificate` is additive by
+/// default — a hand-rolled impl that omits
+/// `.tls_built_in_root_certs(false)` keeps the bundled roots).
+///
+/// # Usage
+///
+/// ```rust,ignore
+/// use jmap_base_client::auth::CustomTransportBuilder;
+///
+/// let transport = CustomTransportBuilder::new()
+///     .add_root_pem(&std::fs::read("ca-root.pem")?)?
+///     .add_root_pem(&std::fs::read("ca-intermediate.pem")?)?
+///     .with_client_cert(
+///         std::fs::read("client.pem")?,
+///         std::fs::read("client.key.pem")?,
+///     )
+///     .build();
+///
+/// let client = JmapClient::new(
+///     transport,
+///     BearerAuth::new(token)?,
+///     "https://internal-jmap.corp",
+///     ClientConfig::default(),
+/// )?;
+/// ```
+#[derive(Default)]
+pub struct CustomTransportBuilder {
+    roots_der: Vec<Vec<u8>>,
+    // (cert_pem, key_pem) pair — concatenated into a single PEM bundle
+    // for reqwest::Identity::from_pem at build_client time.
+    client_identity: Option<(Vec<u8>, Vec<u8>)>,
+}
+
+impl CustomTransportBuilder {
+    /// Construct an empty builder. A builder with no trust roots and
+    /// no client identity will produce a transport that rejects
+    /// every TLS connection (no trust roots configured); add at
+    /// least one root before [`build`](Self::build).
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Add a DER-encoded trust-root certificate.
+    ///
+    /// Validation of the DER bytes is deferred to
+    /// [`build`](Self::build) (same posture as
+    /// [`CustomCaTransport::new`]). Invalid DER surfaces as
+    /// [`ClientError::Http`] at `JmapClient::new` time.
+    pub fn add_root_der(mut self, der: Vec<u8>) -> Self {
+        self.roots_der.push(der);
+        self
+    }
+
+    /// Add a PEM-encoded trust-root certificate. The first
+    /// PEM-framed certificate in `pem` is consumed; embedded
+    /// chains require [`add_roots_pem_bundle`](Self::add_roots_pem_bundle).
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidArgument`] if `pem` does not
+    /// contain a recognisable PEM-framed certificate.
+    pub fn add_root_pem(self, pem: &[u8]) -> Result<Self, ClientError> {
+        let der = parse_first_pem_cert(pem).ok_or_else(|| {
+            ClientError::InvalidArgument(
+                "CustomTransportBuilder::add_root_pem: no PEM-framed certificate found in input"
+                    .into(),
+            )
+        })?;
+        Ok(self.add_root_der(der))
+    }
+
+    /// Add every PEM-framed certificate in a multi-cert bundle.
+    ///
+    /// A typical private-PKI deployment ships a bundle containing
+    /// the root plus one or more intermediates as concatenated PEM
+    /// blocks. This method iterates each `-----BEGIN CERTIFICATE-----`
+    /// block in input order and adds each to the trust set.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ClientError::InvalidArgument`] if no PEM-framed
+    /// certificate is found in the bundle.
+    pub fn add_roots_pem_bundle(mut self, pem_bundle: &[u8]) -> Result<Self, ClientError> {
+        let ders = parse_all_pem_certs(pem_bundle);
+        if ders.is_empty() {
+            return Err(ClientError::InvalidArgument(
+                "CustomTransportBuilder::add_roots_pem_bundle: no PEM-framed \
+                 certificates found in bundle"
+                    .into(),
+            ));
+        }
+        self.roots_der.extend(ders);
+        Ok(self)
+    }
+
+    /// Configure a client certificate + private key for mutual TLS.
+    ///
+    /// Replaces any previously-configured client identity. The two
+    /// PEM byte slices are stored verbatim and concatenated at
+    /// [`build`](Self::build) time into a single PEM bundle that
+    /// [`reqwest::Identity::from_pem`] consumes.
+    ///
+    /// `cert_pem` may contain a single client cert or a cert +
+    /// intermediates chain. `key_pem` carries the private key
+    /// (PKCS#1 or PKCS#8, RSA or ECDSA — whatever reqwest's rustls
+    /// build supports).
+    pub fn with_client_cert(mut self, cert_pem: Vec<u8>, key_pem: Vec<u8>) -> Self {
+        self.client_identity = Some((cert_pem, key_pem));
+        self
+    }
+
+    /// Consume the builder and return a [`TransportConfig`]
+    /// implementation that produces a [`reqwest::Client`] configured
+    /// with the accumulated trust roots and optional client identity.
+    ///
+    /// Behaves identically to [`CustomCaTransport::build_client`] for
+    /// single-root use; the additional functionality (multi-root +
+    /// mTLS) kicks in when the builder was configured with more than
+    /// one root or a client identity.
+    pub fn build(self) -> BuilderTransport {
+        BuilderTransport {
+            roots_der: self.roots_der,
+            client_identity: self.client_identity,
+        }
+    }
+}
+
+/// Concrete [`TransportConfig`] produced by [`CustomTransportBuilder::build`].
+///
+/// Stores the accumulated trust roots and optional client identity by
+/// value. Cloneable so consumers that need multiple `JmapClient` instances
+/// sharing the same transport configuration can do so without rebuilding.
+#[derive(Clone)]
+pub struct BuilderTransport {
+    roots_der: Vec<Vec<u8>>,
+    client_identity: Option<(Vec<u8>, Vec<u8>)>,
+}
+
+impl std::fmt::Debug for BuilderTransport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("BuilderTransport")
+            .field(
+                "roots_der",
+                &format_args!("<{} root cert(s)>", self.roots_der.len()),
+            )
+            .field(
+                "client_identity",
+                &format_args!(
+                    "<{}>",
+                    if self.client_identity.is_some() {
+                        "client cert configured"
+                    } else {
+                        "no client cert"
+                    }
+                ),
+            )
+            .finish()
+    }
+}
+
+impl TransportConfig for BuilderTransport {
+    fn build_client(&self) -> Result<HttpClient, ClientError> {
+        let mut builder = reqwest::ClientBuilder::new()
+            .connect_timeout(std::time::Duration::from_secs(10))
+            // Replace (not augment) the trust root set. See
+            // CustomCaTransport rationale (bd:JMAP-6r7c.57). Builder
+            // users who want hybrid trust (bundled + private) are
+            // expected to implement TransportConfig directly.
+            .tls_built_in_root_certs(false);
+
+        for der in &self.roots_der {
+            let cert = reqwest::Certificate::from_der(der).map_err(ClientError::from_reqwest)?;
+            builder = builder.add_root_certificate(cert);
+        }
+
+        if let Some((cert_pem, key_pem)) = &self.client_identity {
+            // reqwest::Identity::from_pem expects the cert chain and
+            // private key concatenated into one PEM bundle. Build
+            // that bundle locally without leaking either input across
+            // the function boundary.
+            let mut bundle = Vec::with_capacity(cert_pem.len() + key_pem.len() + 1);
+            bundle.extend_from_slice(cert_pem);
+            if !cert_pem.ends_with(b"\n") {
+                bundle.push(b'\n');
+            }
+            bundle.extend_from_slice(key_pem);
+            let identity =
+                reqwest::Identity::from_pem(&bundle).map_err(ClientError::from_reqwest)?;
+            builder = builder.identity(identity);
+        }
+
+        let client = builder.build().map_err(ClientError::from_reqwest)?;
         Ok(HttpClient::new(client))
     }
 }
@@ -797,6 +1053,150 @@ mod tests {
         // CustomCaTransport is constructible and that auth is separate.
         let transport = CustomCaTransport::new(vec![]);
         assert!(transport.build_client().is_err(), "empty DER must fail");
+    }
+
+    // bd:JMAP-6r7c.65 — CustomTransportBuilder tests below.
+
+    /// Oracle: `parse_all_pem_certs` extracts every PEM-framed
+    /// certificate in a multi-cert bundle and skips non-certificate
+    /// content between frames. Hand-rolled fixture: two valid PEM
+    /// frames concatenated with leading and trailing prose.
+    #[test]
+    fn parse_all_pem_certs_handles_multi_cert_bundle() {
+        // Read the single-cert fixture and concatenate it with itself
+        // so the bundle has two identical PEM frames. The parser MUST
+        // emit two DER blobs even though the content is duplicate.
+        let single = std::fs::read("tests/fixtures/tls/test-ca.pem")
+            .expect("test-ca.pem fixture must exist");
+        let mut bundle = b"# Comment that the parser must ignore\n".to_vec();
+        bundle.extend_from_slice(&single);
+        bundle.extend_from_slice(b"\n# Another comment between frames\n");
+        bundle.extend_from_slice(&single);
+        bundle.extend_from_slice(b"\n# Trailing comment\n");
+
+        let ders = parse_all_pem_certs(&bundle);
+        assert_eq!(ders.len(), 2, "two-cert bundle must produce two DER blobs");
+        assert!(!ders[0].is_empty(), "first DER must be non-empty");
+        assert!(!ders[1].is_empty(), "second DER must be non-empty");
+        // Deterministic same-input check: both decoded DERs must match
+        // because the bundle contains the same cert twice.
+        assert_eq!(
+            ders[0], ders[1],
+            "duplicate-input bundle must produce identical DER blobs"
+        );
+    }
+
+    /// Oracle: `CustomTransportBuilder::add_root_pem` accepts a
+    /// fixture PEM and `build` produces a working `TransportConfig`.
+    #[test]
+    fn custom_transport_builder_single_pem_root_builds() {
+        let pem = std::fs::read("tests/fixtures/tls/test-ca.pem")
+            .expect("test-ca.pem fixture must exist");
+        let transport = CustomTransportBuilder::new()
+            .add_root_pem(&pem)
+            .expect("PEM fixture must parse")
+            .build();
+        transport
+            .build_client()
+            .expect("single-root build_client must succeed");
+    }
+
+    /// Oracle: `add_roots_pem_bundle` accepts a multi-PEM bundle.
+    /// Two identical PEM frames concatenated produces a transport
+    /// with two trust roots loaded.
+    #[test]
+    fn custom_transport_builder_multi_root_bundle_builds() {
+        let single = std::fs::read("tests/fixtures/tls/test-ca.pem")
+            .expect("test-ca.pem fixture must exist");
+        let mut bundle = single.clone();
+        bundle.extend_from_slice(b"\n");
+        bundle.extend_from_slice(&single);
+
+        let transport = CustomTransportBuilder::new()
+            .add_roots_pem_bundle(&bundle)
+            .expect("two-cert PEM bundle must parse")
+            .build();
+        transport
+            .build_client()
+            .expect("multi-root build_client must succeed");
+    }
+
+    /// Oracle: `add_root_pem` rejects input that is not a recognisable
+    /// PEM-framed certificate. Returns ClientError::InvalidArgument
+    /// rather than ClientError::Http — the parse error is at the
+    /// PEM-decode boundary, not at reqwest's TLS layer.
+    #[test]
+    fn custom_transport_builder_add_root_pem_invalid_returns_invalid_argument() {
+        let result = CustomTransportBuilder::new().add_root_pem(b"not a pem");
+        match result {
+            Ok(_) => panic!("garbage input must not produce a valid builder"),
+            Err(ClientError::InvalidArgument(msg)) => {
+                assert!(
+                    msg.contains("CustomTransportBuilder::add_root_pem"),
+                    "error must identify the offending method: {msg}"
+                );
+            }
+            Err(other) => panic!("expected InvalidArgument, got {other:?}"),
+        }
+    }
+
+    /// Oracle: `add_roots_pem_bundle` on input with no PEM frames
+    /// returns ClientError::InvalidArgument.
+    #[test]
+    fn custom_transport_builder_empty_bundle_returns_invalid_argument() {
+        let result = CustomTransportBuilder::new().add_roots_pem_bundle(b"plain text");
+        match result {
+            Ok(_) => panic!("input without PEM frames must not produce a valid builder"),
+            Err(ClientError::InvalidArgument(msg)) => {
+                assert!(
+                    msg.contains("CustomTransportBuilder::add_roots_pem_bundle"),
+                    "error must identify the offending method: {msg}"
+                );
+            }
+            Err(other) => panic!("expected InvalidArgument, got {other:?}"),
+        }
+    }
+
+    /// Oracle: `with_client_cert` configured with bogus PEM bytes
+    /// surfaces the reqwest::Identity parse failure as
+    /// ClientError::Http at build_client time. The builder itself
+    /// does not validate the bytes (matches the DER posture of
+    /// add_root_der + add_root_pem — full validation is deferred to
+    /// build).
+    #[test]
+    fn custom_transport_builder_with_client_cert_invalid_fails_at_build() {
+        // Valid root, invalid client identity.
+        let pem = std::fs::read("tests/fixtures/tls/test-ca.pem")
+            .expect("test-ca.pem fixture must exist");
+        let transport = CustomTransportBuilder::new()
+            .add_root_pem(&pem)
+            .expect("PEM fixture must parse")
+            .with_client_cert(b"not a cert PEM".to_vec(), b"not a key PEM".to_vec())
+            .build();
+        let result = transport.build_client();
+        assert!(
+            matches!(result, Err(ClientError::Http(_))),
+            "invalid client identity must surface as ClientError::Http, got {result:?}"
+        );
+    }
+
+    /// Oracle: `BuilderTransport::Debug` opaquely describes the
+    /// trust-root count and identity presence without leaking the
+    /// raw cert bytes. Mirror the tripwire pattern from the
+    /// CustomCaTransport Debug-redaction test (bd:JMAP-6r7c.13).
+    #[test]
+    fn builder_transport_debug_does_not_leak_cert_bytes() {
+        let canary = vec![0xCA_u8; 32];
+        let transport = CustomTransportBuilder::new().add_root_der(canary).build();
+        let dbg = format!("{transport:?}");
+        assert!(
+            !dbg.contains("cacacacacacacacacacacacacacacacacacacacacacacacacacacacacacacaca"),
+            "BuilderTransport Debug must not contain lowercase-hex DER bytes; got: {dbg}"
+        );
+        assert!(
+            dbg.contains("1 root cert"),
+            "BuilderTransport Debug must surface the root count for diagnostics; got: {dbg}"
+        );
     }
 
     /// Oracle: BearerAuth constructor rejects an empty token string.
