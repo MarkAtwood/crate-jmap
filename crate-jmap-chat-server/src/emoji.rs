@@ -543,13 +543,12 @@ pub async fn handle_emoji_set<B: ChatBackend>(
 
             // Authorization gate (draft-atwood-jmap-chat-00 commit
             // `9344aec`). Pre-fetch the existing emoji to learn its
-            // `spaceId` (which `target_space_id` carries verbatim into
-            // the gate). If the pre-fetch reports the id as not
+            // `spaceId`. If the pre-fetch reports the id as not
             // found, skip the gate entirely — `update_object` will
             // surface `notFound` and we don't want to consume an
             // authorization decision for a non-existent target. A
             // pre-fetch storage error is surfaced as `serverFail`.
-            let existing_space_id: Option<Option<Id>> = match backend
+            let (found, _not_found) = match backend
                 .get_objects::<CustomEmoji>(
                     caller,
                     &account_id,
@@ -558,16 +557,20 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 )
                 .await
             {
-                Ok((found, _not_found)) => found.first().map(|emoji| emoji.space_id.clone()),
+                Ok(result) => result,
                 Err(e) => {
                     not_updated.insert(id_str, server_fail_value_from_backend(&e));
                     continue;
                 }
             };
-            if let Some(scope) = existing_space_id.as_ref() {
-                let scope_ref: Option<&Id> = scope.as_ref();
+            if let Some(emoji) = found.first() {
                 match backend
-                    .may_set_custom_emoji(caller, &account_id, scope_ref, EmojiSetOp::Update)
+                    .may_set_custom_emoji(
+                        caller,
+                        &account_id,
+                        emoji.space_id.as_ref(),
+                        EmojiSetOp::Update,
+                    )
                     .await
                 {
                     Ok(Ok(())) => {}
@@ -646,7 +649,7 @@ pub async fn handle_emoji_set<B: ChatBackend>(
             // skip the gate so `destroy_object` can surface
             // `notFound` naturally. A pre-fetch storage error is
             // surfaced as `serverFail`.
-            let existing_space_id: Option<Option<Id>> = match backend
+            let (found, _not_found) = match backend
                 .get_objects::<CustomEmoji>(
                     caller,
                     &account_id,
@@ -655,16 +658,20 @@ pub async fn handle_emoji_set<B: ChatBackend>(
                 )
                 .await
             {
-                Ok((found, _not_found)) => found.first().map(|emoji| emoji.space_id.clone()),
+                Ok(result) => result,
                 Err(e) => {
                     not_destroyed.insert(id_str.to_owned(), server_fail_value_from_backend(&e));
                     continue;
                 }
             };
-            if let Some(scope) = existing_space_id.as_ref() {
-                let scope_ref: Option<&Id> = scope.as_ref();
+            if let Some(emoji) = found.first() {
                 match backend
-                    .may_set_custom_emoji(caller, &account_id, scope_ref, EmojiSetOp::Destroy)
+                    .may_set_custom_emoji(
+                        caller,
+                        &account_id,
+                        emoji.space_id.as_ref(),
+                        EmojiSetOp::Destroy,
+                    )
                     .await
                 {
                     Ok(Ok(())) => {}
