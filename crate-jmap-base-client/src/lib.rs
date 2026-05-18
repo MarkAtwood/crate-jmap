@@ -19,6 +19,47 @@
 //! # Ok(())
 //! # }
 //! ```
+//!
+//! # `extra` field equality and the `serde_json/preserve_order` feature (bd:JMAP-6r7c.43)
+//!
+//! Every public deserializable struct in this crate carries an
+//! `extra: serde_json::Map<String, serde_json::Value>` field per the
+//! workspace extras-preservation policy (see workspace AGENTS.md). Several
+//! of these structs also derive `PartialEq` / `Eq` so callers can write
+//! `assert_eq!(a, b)` in tests and `if state_a == state_b { ... }` in
+//! application code.
+//!
+//! The derived `PartialEq` impl compares the `extra` field via
+//! [`serde_json::Map`]'s `PartialEq` impl, whose semantics depend on a
+//! third-party feature flag:
+//!
+//! - **Default (this workspace's posture).** `serde_json::Map` is
+//!   BTreeMap-backed; equality is order-insensitive (keys are stored in
+//!   lexicographic order regardless of insertion order).
+//! - **`serde_json/preserve_order` enabled anywhere in the dep graph.**
+//!   `serde_json::Map` switches to `IndexMap` (insertion-order preserved);
+//!   equality becomes order-sensitive.
+//!
+//! Two values constructed with the same `extra` entries inserted in
+//! different orders therefore compare EQUAL under the default
+//! configuration and UNEQUAL under `preserve_order`. The feature flag is
+//! a global toggle: any crate in the consumer's dep graph that enables
+//! `preserve_order` flips the semantics for every crate in the graph.
+//!
+//! **In-scope structs**: [`BlobUploadResponse`], [`Session`],
+//! [`AccountInfo`], [`WebSocketCapability`], and [`StateChange`].
+//!
+//! Workspace memory note: `jmap-base-client` (and the full workspace)
+//! does NOT enable `preserve_order`. Consumers in the same posture get
+//! deterministic `==` behaviour on `extra`. Consumers that enable
+//! `preserve_order` elsewhere and need stable equality independent of
+//! that flag should compare the serialised forms instead:
+//!
+//! ```rust,ignore
+//! let a_json = serde_json::to_value(&a)?;
+//! let b_json = serde_json::to_value(&b)?;
+//! assert_eq!(a_json, b_json);
+//! ```
 
 #![forbid(unsafe_code)]
 

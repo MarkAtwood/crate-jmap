@@ -10,6 +10,13 @@ use jmap_types::{Id, State};
 /// A state change push notification (RFC 8620 §7.1).
 ///
 /// Sent over both SSE (as a push event) and WebSocket (as a frame type).
+///
+/// # `extra` equality is feature-flag-dependent (bd:JMAP-6r7c.43)
+///
+/// The derived `PartialEq` / `Eq` impl's behaviour on the `extra` field
+/// depends on the global `serde_json/preserve_order` feature flag — see
+/// the [crate-level note](crate#extra-field-equality-and-the-serde_jsonpreserve_order-feature-bdjmap-6r7c43)
+/// for the canonical statement.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct StateChange {
@@ -51,5 +58,44 @@ mod tests {
         // Round-trip: serializing back must reproduce the vendor field.
         let v = serde_json::to_value(&obj).expect("StateChange must serialize");
         assert_eq!(v["acmeCorpSequence"], json!(17));
+    }
+
+    /// bd:JMAP-6r7c.43 — regression-guard for the workspace's
+    /// serde_json/preserve_order posture. Two StateChange values with the
+    /// same `extra` keys inserted in different orders MUST compare equal
+    /// under the workspace's default configuration (BTreeMap-backed
+    /// serde_json::Map). If a future Cargo.lock or workspace-level feature
+    /// change accidentally enables `preserve_order`, this assertion fails
+    /// loudly and surfaces the SemVer-policy break before downstream
+    /// consumers hit silently-different equality semantics.
+    ///
+    /// Both values are deserialized from JSON (the wire path) so the test
+    /// exercises the same construction code path consumers use.
+    #[test]
+    fn extra_equality_is_order_insensitive_under_workspace_flags() {
+        // Two equivalent JSON payloads with different key-insertion orders
+        // for the vendor extras. Under BTreeMap-backed Map the keys are
+        // re-sorted lexicographically on deserialize, so the resulting
+        // structures compare equal.
+        let raw_a = json!({
+            "changed": {"acc1": {"Email": "s1"}},
+            "vendorA": 1,
+            "vendorB": 2
+        });
+        let raw_b = json!({
+            "changed": {"acc1": {"Email": "s1"}},
+            "vendorB": 2,
+            "vendorA": 1
+        });
+
+        let a: StateChange = serde_json::from_value(raw_a).expect("a must deserialize");
+        let b: StateChange = serde_json::from_value(raw_b).expect("b must deserialize");
+
+        assert_eq!(
+            a, b,
+            "extra-map equality is order-insensitive under the workspace's \
+             default serde_json::Map (BTreeMap-backed); if this fails, \
+             check whether preserve_order has been enabled in the dep graph"
+        );
     }
 }

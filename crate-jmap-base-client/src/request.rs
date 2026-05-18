@@ -96,6 +96,13 @@ impl JmapRequestBuilder {
 /// Contains only the base RFC 8620 fields. Extension-specific fields
 /// (e.g. JMAP Chat `ownerUserId`) are surfaced by extension crates that
 /// parse the `capabilities` and `accounts` maps.
+///
+/// # `extra` equality is feature-flag-dependent (bd:JMAP-6r7c.43)
+///
+/// The derived `PartialEq` / `Eq` impl's behaviour on the `extra` field
+/// depends on the global `serde_json/preserve_order` feature flag — see
+/// the [crate-level note](crate#extra-field-equality-and-the-serde_jsonpreserve_order-feature-bdjmap-6r7c43)
+/// for the canonical statement.
 #[non_exhaustive]
 #[derive(Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -293,6 +300,13 @@ impl std::fmt::Debug for Session {
 /// definition identifies it as "typically the owner's email address"
 /// (PII under GDPR/CCPA). The other fields are non-credential metadata
 /// and are surfaced directly. See bd:JMAP-sc1b.104.
+///
+/// # `extra` equality is feature-flag-dependent (bd:JMAP-6r7c.43)
+///
+/// The derived `PartialEq` / `Eq` impl's behaviour on the `extra` field
+/// depends on the global `serde_json/preserve_order` feature flag — see
+/// the [crate-level note](crate#extra-field-equality-and-the-serde_jsonpreserve_order-feature-bdjmap-6r7c43)
+/// for the canonical statement.
 #[non_exhaustive]
 #[derive(Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -394,6 +408,13 @@ impl std::fmt::Debug for AccountInfo {
 ///
 /// Advertised in `Session.capabilities` when the server supports JMAP over
 /// WebSocket. The `url` field is the `wss://` endpoint to connect to.
+///
+/// # `extra` equality is feature-flag-dependent (bd:JMAP-6r7c.43)
+///
+/// The derived `PartialEq` / `Eq` impl's behaviour on the `extra` field
+/// depends on the global `serde_json/preserve_order` feature flag — see
+/// the [crate-level note](crate#extra-field-equality-and-the-serde_jsonpreserve_order-feature-bdjmap-6r7c43)
+/// for the canonical statement.
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(rename_all = "camelCase")]
