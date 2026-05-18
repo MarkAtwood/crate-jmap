@@ -234,7 +234,7 @@ async fn upload_blob_streams_with_cap_against_chunked_hostile_server() {
     let addr = spawn_chunked_no_eof_server(256).await;
     let base = format!("http://{addr}");
     let client = build_client_with_upload_cap(&base, cap);
-    let upload_url = format!("{base}/upload/{{accountId}}");
+    let upload_url = jmap_base_client::JmapUrlTemplate::new(format!("{base}/upload/{{accountId}}"));
 
     let result = timeout(
         Duration::from_secs(2),
@@ -268,7 +268,9 @@ async fn download_blob_streams_with_cap_against_chunked_hostile_server() {
     let addr = spawn_chunked_no_eof_server(256).await;
     let base = format!("http://{addr}");
     let client = build_client_with_download_cap(&base, cap);
-    let download_url = format!("{base}/download/{{accountId}}/{{blobId}}/{{name}}");
+    let download_url = jmap_base_client::JmapUrlTemplate::new(format!(
+        "{base}/download/{{accountId}}/{{blobId}}/{{name}}"
+    ));
 
     let result = timeout(
         Duration::from_secs(2),

@@ -541,7 +541,7 @@ impl JmapClient {
         session: &Session,
         req: &jmap_types::JmapRequest,
     ) -> Result<jmap_types::JmapResponse, ClientError> {
-        self.call(&session.api_url, req).await
+        self.call(session.api_url.as_str(), req).await
     }
 
     /// Open an SSE connection to `event_source_url` and return an async stream
@@ -1137,11 +1137,15 @@ pub(crate) fn require_http_url(url: &str) -> Result<(), ClientError> {
 /// the name implied stronger validation than the function actually
 /// performs.
 fn validate_session_url_schemes(session: &Session) -> Result<(), ClientError> {
+    // Mixed types (JmapUrl, JmapUrlTemplate) deliberately — both expose
+    // .as_str() identically. Iterating &str values keeps the validation
+    // loop oblivious to the typed-URL distinction (bd:JMAP-6r7c.40),
+    // which is the right scope for a scheme check.
     for url in [
-        &session.api_url,
-        &session.upload_url,
-        &session.download_url,
-        &session.event_source_url,
+        session.api_url.as_str(),
+        session.upload_url.as_str(),
+        session.download_url.as_str(),
+        session.event_source_url.as_str(),
     ] {
         if !is_http_or_https(url) {
             return Err(ClientError::InvalidSession(format!(

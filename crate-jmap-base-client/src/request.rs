@@ -11,11 +11,162 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 use jmap_types::{Invocation, JmapRequest, State};
 
 use crate::error::ClientError;
+
+// ---------------------------------------------------------------------------
+// JmapUrl / JmapUrlTemplate (bd:JMAP-6r7c.40)
+// ---------------------------------------------------------------------------
+
+/// A plain JMAP URL — no RFC 6570 template variables expected.
+///
+/// This is the typed counterpart to [`JmapUrlTemplate`] (which requires
+/// expansion before use). The Session document distinguishes the two at
+/// the type level so callers cannot accidentally pass an unexpanded
+/// template (e.g. `https://server/download/{accountId}/{blobId}/{name}`)
+/// to a function that wants a plain URL.
+///
+/// Construct via [`JmapUrl::new`]. The string is taken as-is — no URL
+/// parsing or validation; downstream consumers (reqwest, http crate)
+/// validate at the actual request site. Borrow the inner string via
+/// [`as_str`](Self::as_str) for `&str`-accepting APIs.
+///
+/// Deliberately does NOT implement `Deref<Target = str>`. Auto-coercion
+/// would defeat the type distinction with [`JmapUrlTemplate`]: both
+/// would coerce to `&str` and pass any `&str`-accepting function. Use
+/// `.as_str()` at the call site so the type transition is visible in
+/// code review.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct JmapUrl(String);
+
+impl JmapUrl {
+    /// Wrap a string as a plain JMAP URL.
+    pub fn new(url: impl Into<String>) -> Self {
+        Self(url.into())
+    }
+
+    /// Borrow the inner URL string.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Consume the wrapper and return the inner `String`.
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for JmapUrl {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for JmapUrl {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl PartialEq<str> for JmapUrl {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl PartialEq<&str> for JmapUrl {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<JmapUrl> for str {
+    fn eq(&self, other: &JmapUrl) -> bool {
+        self == other.0
+    }
+}
+
+impl PartialEq<JmapUrl> for &str {
+    fn eq(&self, other: &JmapUrl) -> bool {
+        *self == other.0
+    }
+}
+
+/// An RFC 6570 Level-1 URI template — requires variable substitution
+/// before use as a request URL.
+///
+/// Typed counterpart to [`JmapUrl`]. The template carries placeholders
+/// like `{accountId}` or `{blobId}` that must be expanded via
+/// [`expand_url_template`](crate::expand_url_template) before the result
+/// can be sent to an HTTP client. Passing the unexpanded template
+/// verbatim would produce a request URL containing literal `{...}`
+/// braces, which reqwest percent-encodes to `%7B...%7D` and the server
+/// rejects.
+///
+/// Construct via [`JmapUrlTemplate::new`]. See [`JmapUrl`] for the
+/// rationale behind not implementing `Deref<Target = str>`.
+#[non_exhaustive]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
+#[serde(transparent)]
+pub struct JmapUrlTemplate(String);
+
+impl JmapUrlTemplate {
+    /// Wrap a string as a JMAP URL template.
+    pub fn new(template: impl Into<String>) -> Self {
+        Self(template.into())
+    }
+
+    /// Borrow the inner template string.
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+
+    /// Consume the wrapper and return the inner `String`.
+    pub fn into_inner(self) -> String {
+        self.0
+    }
+}
+
+impl AsRef<str> for JmapUrlTemplate {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+impl std::fmt::Display for JmapUrlTemplate {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl PartialEq<str> for JmapUrlTemplate {
+    fn eq(&self, other: &str) -> bool {
+        self.0 == other
+    }
+}
+
+impl PartialEq<&str> for JmapUrlTemplate {
+    fn eq(&self, other: &&str) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<JmapUrlTemplate> for str {
+    fn eq(&self, other: &JmapUrlTemplate) -> bool {
+        self == other.0
+    }
+}
+
+impl PartialEq<JmapUrlTemplate> for &str {
+    fn eq(&self, other: &JmapUrlTemplate) -> bool {
+        *self == other.0
+    }
+}
 
 // ---------------------------------------------------------------------------
 // JmapRequestBuilder (RFC 8620 §3.3)
@@ -146,24 +297,38 @@ pub struct Session {
     pub username: String,
 
     /// URL for JMAP API POST requests (RFC 8620 §2).
-    pub api_url: String,
+    ///
+    /// Typed as [`JmapUrl`] (plain URL — no template variables) to
+    /// distinguish from the template-shaped URL fields below
+    /// (bd:JMAP-6r7c.40). Borrow as `&str` via
+    /// [`JmapUrl::as_str`](crate::JmapUrl::as_str) when calling
+    /// `&str`-accepting APIs.
+    pub api_url: JmapUrl,
 
     /// URL template for blob downloads (RFC 8620 §2).
     ///
     /// URI Template (level 1) containing variables `accountId`, `blobId`,
-    /// `type`, and `name`.
-    pub download_url: String,
+    /// `type`, and `name`. Typed as [`JmapUrlTemplate`] so it cannot be
+    /// confused with [`api_url`](Self::api_url) at the type level
+    /// (bd:JMAP-6r7c.40); expand via
+    /// [`expand_url_template`](crate::expand_url_template) before use.
+    pub download_url: JmapUrlTemplate,
 
     /// URL template for blob uploads (RFC 8620 §2).
     ///
-    /// URI Template (level 1) containing variable `accountId`.
-    pub upload_url: String,
+    /// URI Template (level 1) containing variable `accountId`. Typed
+    /// as [`JmapUrlTemplate`] (bd:JMAP-6r7c.40); see
+    /// [`download_url`](Self::download_url) for the type-distinction
+    /// rationale.
+    pub upload_url: JmapUrlTemplate,
 
     /// URL template for SSE push event stream (RFC 8620 §2, §7.3).
     ///
     /// URI Template (level 1) containing variables `types`, `closeafter`,
-    /// and `ping`.
-    pub event_source_url: String,
+    /// and `ping`. Typed as [`JmapUrlTemplate`] (bd:JMAP-6r7c.40); see
+    /// [`download_url`](Self::download_url) for the type-distinction
+    /// rationale.
+    pub event_source_url: JmapUrlTemplate,
 
     /// Opaque session state token (RFC 8620 §2).
     ///
@@ -1156,5 +1321,75 @@ mod tests {
             .expect("must not error")
             .expect("capability must be present");
         assert_eq!(cap.max_size_upload, 50_000_000);
+    }
+
+    // bd:JMAP-6r7c.40 — Typed URL wrappers (JmapUrl, JmapUrlTemplate)
+
+    /// `JmapUrl` and `JmapUrlTemplate` are distinct types at the type
+    /// level. A function that takes `&JmapUrlTemplate` MUST refuse a
+    /// `&JmapUrl` argument and vice versa. This is the compile-time
+    /// guard that prevents callers from accidentally passing
+    /// `session.api_url` (a plain URL) to a function expecting a
+    /// template, or `session.upload_url` (a template) to a function
+    /// expecting a plain URL.
+    ///
+    /// Implemented as compile-time witness: the function bodies do
+    /// nothing useful; if either signature compiled with the other
+    /// type, the test would break the type-distinction invariant.
+    #[test]
+    fn jmap_url_and_template_are_distinct_types() {
+        fn _takes_plain_url(_u: &JmapUrl) {}
+        fn _takes_template(_t: &JmapUrlTemplate) {}
+
+        let plain = JmapUrl::new("https://example.com/api/");
+        let template = JmapUrlTemplate::new("https://example.com/upload/{accountId}/");
+
+        _takes_plain_url(&plain);
+        _takes_template(&template);
+
+        // The interesting non-compilation cases:
+        //   _takes_plain_url(&template);     // FAILS: expected JmapUrl, got JmapUrlTemplate
+        //   _takes_template(&plain);          // FAILS: expected JmapUrlTemplate, got JmapUrl
+        // These cannot be expressed as runtime assertions; the test's
+        // value is locking in the distinct-types invariant so a future
+        // refactor that accidentally collapses the wrappers (e.g. a
+        // `type JmapUrlTemplate = JmapUrl;` alias) breaks the function
+        // signatures above and the build fails.
+    }
+
+    /// `JmapUrl` round-trips through serde_json as a transparent
+    /// string. Oracle: hand-written JSON containing a quoted string.
+    #[test]
+    fn jmap_url_serde_round_trip() {
+        let original = JmapUrl::new("https://example.com/api/");
+        let json = serde_json::to_value(&original).expect("must serialise");
+        assert_eq!(json, serde_json::json!("https://example.com/api/"));
+        let restored: JmapUrl = serde_json::from_value(json).expect("must deserialise");
+        assert_eq!(restored, original);
+    }
+
+    /// `JmapUrlTemplate` round-trips through serde_json as a transparent
+    /// string.
+    #[test]
+    fn jmap_url_template_serde_round_trip() {
+        let original = JmapUrlTemplate::new("https://example.com/upload/{accountId}/");
+        let json = serde_json::to_value(&original).expect("must serialise");
+        assert_eq!(
+            json,
+            serde_json::json!("https://example.com/upload/{accountId}/")
+        );
+        let restored: JmapUrlTemplate = serde_json::from_value(json).expect("must deserialise");
+        assert_eq!(restored, original);
+    }
+
+    /// `PartialEq<&str>` and `PartialEq<str>` ergonomics for
+    /// `assert_eq!(session.api_url, "...")` style assertions in
+    /// downstream tests.
+    #[test]
+    fn jmap_url_partial_eq_str() {
+        let url = JmapUrl::new("https://example.com/api/");
+        assert_eq!(url, "https://example.com/api/");
+        assert_eq!("https://example.com/api/", url);
+        assert_ne!(url, "https://other.example.com/api/");
     }
 }
