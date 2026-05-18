@@ -74,6 +74,58 @@ pub struct DownloadBlobParams<'a> {
     pub expected_sha256: Option<&'a jmap_cid_types::Sha256>,
 }
 
+/// Parameters for [`JmapClient::upload_blob_session`] (bd:JMAP-6r7c.64).
+///
+/// Slimmed variant of [`UploadBlobParams`] that omits the URL template
+/// — the Session-taking variant supplies it from `session.upload_url`.
+/// Construct with a struct literal:
+///
+/// ```rust,ignore
+/// client.upload_blob_session(&session, UploadBlobSessionParams {
+///     account_id: "A13824",
+///     content_type: "application/pdf",
+///     data: bytes::Bytes::from(buffer),
+/// }).await?;
+/// ```
+#[derive(Debug, Clone)]
+pub struct UploadBlobSessionParams<'a> {
+    /// Account ID that will own the uploaded blob.
+    pub account_id: &'a str,
+    /// Media type sent as the HTTP `Content-Type` request header.
+    pub content_type: &'a str,
+    /// Raw bytes to upload.
+    pub data: bytes::Bytes,
+}
+
+/// Parameters for [`JmapClient::download_blob_session`] (bd:JMAP-6r7c.64).
+///
+/// Slimmed variant of [`DownloadBlobParams`] that omits the URL
+/// template — the Session-taking variant supplies it from
+/// `session.download_url`. Construct with a struct literal:
+///
+/// ```rust,ignore
+/// client.download_blob_session(&session, DownloadBlobSessionParams {
+///     account_id: "A13824",
+///     blob_id: "Gbc4c...",
+///     name: "attachment.pdf",
+///     accept_type: Some("application/pdf"),
+///     expected_sha256: None,
+/// }).await?;
+/// ```
+#[derive(Debug, Clone, Copy)]
+pub struct DownloadBlobSessionParams<'a> {
+    /// Account ID that owns the blob.
+    pub account_id: &'a str,
+    /// Server-assigned blob identifier.
+    pub blob_id: &'a str,
+    /// Human-readable filename for the `{name}` template variable.
+    pub name: &'a str,
+    /// Optional accept type for the `{type}` template variable.
+    pub accept_type: Option<&'a str>,
+    /// Optional expected SHA-256 digest for integrity verification.
+    pub expected_sha256: Option<&'a jmap_cid_types::Sha256>,
+}
+
 /// Parameters for [`JmapClient::upload_blob`].
 ///
 /// Use a struct literal to avoid confusion between the three string-typed
@@ -514,6 +566,63 @@ impl JmapClient {
         }
 
         Ok(bytes)
+    }
+
+    /// Upload raw bytes via a [`crate::Session`]-supplied URL
+    /// template (bd:JMAP-6r7c.64).
+    ///
+    /// Type-safe convenience wrapper over [`Self::upload_blob`] —
+    /// supplies `session.upload_url` for `upload_url_template`
+    /// internally. The caller cannot accidentally pass `session.api_url`
+    /// or any other URL field because the parameter set
+    /// ([`UploadBlobSessionParams`]) does not include a URL field.
+    pub async fn upload_blob_session(
+        &self,
+        session: &crate::request::Session,
+        params: UploadBlobSessionParams<'_>,
+    ) -> Result<BlobUploadResponse, ClientError> {
+        let UploadBlobSessionParams {
+            account_id,
+            content_type,
+            data,
+        } = params;
+        self.upload_blob(UploadBlobParams {
+            upload_url_template: &session.upload_url,
+            account_id,
+            content_type,
+            data,
+        })
+        .await
+    }
+
+    /// Download a blob via a [`crate::Session`]-supplied URL
+    /// template (bd:JMAP-6r7c.64).
+    ///
+    /// Type-safe convenience wrapper over [`Self::download_blob`] —
+    /// supplies `session.download_url` for `download_url_template`
+    /// internally. See [`Self::upload_blob_session`] for the
+    /// rationale.
+    pub async fn download_blob_session(
+        &self,
+        session: &crate::request::Session,
+        params: DownloadBlobSessionParams<'_>,
+    ) -> Result<bytes::Bytes, ClientError> {
+        let DownloadBlobSessionParams {
+            account_id,
+            blob_id,
+            name,
+            accept_type,
+            expected_sha256,
+        } = params;
+        self.download_blob(DownloadBlobParams {
+            download_url_template: &session.download_url,
+            account_id,
+            blob_id,
+            name,
+            accept_type,
+            expected_sha256,
+        })
+        .await
     }
 }
 

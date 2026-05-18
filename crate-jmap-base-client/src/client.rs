@@ -841,6 +841,83 @@ impl JmapClient {
     ) -> Result<crate::ws::WsSession, ClientError> {
         crate::ws::connect_ws_with_limit(ws_url, auth_header, self.config.max_ws_message).await
     }
+
+    /// Open an SSE connection via a [`Session`]-supplied
+    /// URL template (bd:JMAP-6r7c.64).
+    ///
+    /// Type-safe convenience wrapper over [`Self::subscribe_events`] —
+    /// expands `session.event_source_url` internally using the
+    /// caller-supplied [`SubscribeEventsSessionParams`] template
+    /// variables. The caller cannot accidentally pass `session.api_url`
+    /// or any other URL field because no URL is exposed at the call
+    /// site.
+    ///
+    /// Template variables that are `None` expand to an empty string,
+    /// per the RFC 8620 §7.3 default-omission semantics. Most JMAP
+    /// servers accept `types=` (subscribe to all types),
+    /// `closeafter=` (stay-open), and `ping=` (no server pings) as
+    /// defaults; if your server requires explicit values, supply them
+    /// via the params struct.
+    pub async fn subscribe_events_session(
+        &self,
+        session: &Session,
+        params: SubscribeEventsSessionParams<'_>,
+    ) -> Result<futures::stream::BoxStream<'static, Result<SseFrame, ClientError>>, ClientError>
+    {
+        let SubscribeEventsSessionParams {
+            types,
+            close_after,
+            ping,
+            last_event_id,
+        } = params;
+
+        // RFC 8620 §7.3 event_source_url variables: types, closeafter, ping.
+        // ping is u32; format to a String only when needed so the empty-default
+        // path stays allocation-free.
+        let ping_owned = ping.map(|p| p.to_string());
+        let vars = [
+            ("types", types.unwrap_or("")),
+            ("closeafter", close_after.unwrap_or("")),
+            ("ping", ping_owned.as_deref().unwrap_or("")),
+        ];
+        let expanded = crate::blob::expand_url_template(session.event_source_url.as_str(), &vars)?;
+        self.subscribe_events(&expanded, last_event_id).await
+    }
+}
+
+/// Parameters for [`JmapClient::subscribe_events_session`]
+/// (bd:JMAP-6r7c.64).
+///
+/// Carries the RFC 8620 §7.3 event_source_url template variables
+/// (`types`, `closeafter`, `ping`) plus the optional Last-Event-ID
+/// header (RFC 8895 §9). `None` template values expand to an empty
+/// string per the RFC's default-omission semantics.
+///
+/// Construct with a struct literal:
+///
+/// ```rust,ignore
+/// client.subscribe_events_session(&session, SubscribeEventsSessionParams {
+///     types: Some("Email,Mailbox"),
+///     close_after: Some("state"),
+///     ping: Some(60),
+///     last_event_id: Some("evt-1234"),
+/// }).await?;
+/// ```
+#[derive(Debug, Clone, Copy, Default)]
+pub struct SubscribeEventsSessionParams<'a> {
+    /// `types` template variable: comma-separated list of JMAP data-type
+    /// names to subscribe to (`"Email,Mailbox"`), or `"*"` for all types
+    /// the server supports. `None` expands to an empty string.
+    pub types: Option<&'a str>,
+    /// `closeafter` template variable: `"state"` to close after the
+    /// first state-change push, `"no"` for stay-open. `None` expands to
+    /// an empty string.
+    pub close_after: Option<&'a str>,
+    /// `ping` template variable: server-ping interval in seconds, or
+    /// `0` to disable. `None` expands to an empty string.
+    pub ping: Option<u32>,
+    /// Optional `Last-Event-ID` header for resumption (RFC 8895 §9).
+    pub last_event_id: Option<&'a str>,
 }
 
 /// Find the method response matching `call_id` in `resp` and deserialize its
