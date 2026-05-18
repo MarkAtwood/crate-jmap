@@ -344,8 +344,8 @@ impl JmapClient {
     /// that every HTTP method uses. Callers: `fetch_session`, `call`,
     /// `subscribe_events`, `upload_blob`, `download_blob`.
     pub(crate) fn inject_auth(&self, builder: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
-        if let Some((name, value)) = self.auth.auth_header() {
-            builder.header(name, value)
+        if let Some(header) = self.auth.auth_header() {
+            builder.header(header.name(), header.expose_value())
         } else {
             builder
         }
@@ -837,7 +837,7 @@ impl JmapClient {
     pub async fn connect_ws_session(
         &self,
         ws_url: &str,
-        auth_header: Option<(&str, &str)>,
+        auth_header: Option<crate::auth::AuthHeader<'_>>,
     ) -> Result<crate::ws::WsSession, ClientError> {
         crate::ws::connect_ws_with_limit(ws_url, auth_header, self.config.max_ws_message).await
     }
