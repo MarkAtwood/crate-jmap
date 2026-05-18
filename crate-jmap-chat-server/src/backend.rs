@@ -521,10 +521,12 @@ pub trait ChatBackend: JmapBackend {
     ///    `Choice(0)` cheaply on length mismatch, so an attacker can
     ///    learn whether their candidate code matches the stored
     ///    length even when the content compare is constant-time.
-    /// 2. **Minimum 128 bits of CSPRNG entropy.** The default
-    ///    implementation here emits 32 lowercase-hex characters
-    ///    (16 bytes = 128 bits) which is the workspace floor.
-    ///    Production backends MAY use more; less is forbidden.
+    /// 2. **Minimum 128 bits of CSPRNG entropy.** The reference
+    ///    `MemoryBackend` impl in this crate (in `memory.rs`) emits
+    ///    32 lowercase-hex characters (16 bytes = 128 bits) which is
+    ///    the workspace floor. Production backends MAY use more; less
+    ///    is forbidden. The trait method itself is abstract — no
+    ///    default impl — so backends MUST provide one.
     /// 3. **ASCII-safe encoding.** The returned bytes MUST be 7-bit
     ///    ASCII printable, byte-length-equal-to-char-length, and
     ///    safe to use as-is in JMAP wire format and HTTP-style
