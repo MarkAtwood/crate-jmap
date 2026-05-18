@@ -87,7 +87,7 @@ All 26 RFC 8621 method names are available as typed async methods on
 | `identity_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<Identity>` |
 | `identity_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `identity_set` | `create: Option<Value>, update: Option<HashMap<Id, PatchObject>>, destroy: Option<Vec<Id>>` | `SetResponse<Identity>` |
-| `search_snippet_get` | `account_id: Option<&Id>, filter: Value, email_ids: Option<&[Id]>` | `Value` |
+| `search_snippet_get` | `filter: Value, email_ids: Option<&[Id]>` | `Value` |
 | `email_submission_get` | `ids: Option<&[Id]>, properties: Option<&[&str]>` | `GetResponse<EmailSubmission>` |
 | `email_submission_changes` | `since_state: &State, max_changes: Option<u64>` | `ChangesResponse` |
 | `email_submission_query` | `filter: Option<Value>, sort: Option<Value>, position: Option<u64>, limit: Option<u64>` | `QueryResponse` |
