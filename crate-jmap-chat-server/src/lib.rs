@@ -149,8 +149,11 @@ pub use space::{
 /// Register all JMAP Chat method handlers with `dispatcher`.
 ///
 /// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
-/// Pass the same `Arc<B>` to both this function and any application-level code
-/// that needs to access the backend.
+/// You may pass any `Arc<B>` — the function clones it internally into each
+/// registered handler closure. Sharing the same `Arc<B>` across this call
+/// and other application-level uses of the backend is a memory
+/// optimization, not a correctness requirement; separate `Arc<B>` instances
+/// pointing at the same underlying backend would also work.
 ///
 /// After this call, the dispatcher handles:
 /// `Chat/*`, `Message/*`, `Space/*`, `SpaceBan/*`, `ChatContact/*`,
@@ -159,6 +162,26 @@ pub use space::{
 /// The dispatcher's `CallerCtx` is taken from `B::CallerCtx`; every registered
 /// closure forwards it as `&ctx` into the wrapped `handle_*` function. Backends
 /// that use `type CallerCtx = ()` therefore see `&()` inside every handler.
+///
+/// # Re-registration semantics
+///
+/// This function calls [`Dispatcher::register`] once per
+/// draft-atwood-jmap-chat-00 method name. `Dispatcher::register`
+/// **silently overwrites** any pre-existing handler under the same
+/// method name (the underlying primitive is `HashMap::insert`). Three
+/// consequences callers MUST be aware of:
+///
+/// - **Double-call**: invoking this function twice on the same
+///   dispatcher loses the first set's handlers. The second call wins.
+/// - **Custom overrides go LAST**: to replace a single handler (e.g.
+///   provide a custom `Chat/get`), call this function FIRST, then
+///   `dispatcher.register("Chat/get", my_override)`. The inverse
+///   order silently undoes the custom handler.
+/// - **No collision diagnostic**: there is no error or log when a
+///   handler is overwritten. The contract is "last register wins" and
+///   the caller is responsible for ordering.
+///
+/// [`Dispatcher::register`]: jmap_server::Dispatcher::register
 pub fn register_chat_handlers<B>(dispatcher: &mut Dispatcher<B::CallerCtx>, backend: Arc<B>)
 where
     B: ChatBackend + 'static,

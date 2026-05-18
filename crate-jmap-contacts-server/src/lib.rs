@@ -66,11 +66,36 @@ pub use jmap_contacts_types::JMAP_CONTACTS_URI;
 /// Register all JMAP Contacts method handlers with `dispatcher`.
 ///
 /// `backend` is wrapped in [`Arc`] so it is cloned cheaply into each handler.
+/// You may pass any `Arc<B>` — the function clones it internally into each
+/// registered handler closure. Sharing the same `Arc<B>` across this call
+/// and other application-level uses of the backend is a memory
+/// optimization, not a correctness requirement; separate `Arc<B>` instances
+/// pointing at the same underlying backend would also work.
 ///
 /// After this call, the dispatcher handles:
 /// `AddressBook/get`, `AddressBook/changes`, `AddressBook/set`,
 /// `ContactCard/get`, `ContactCard/changes`, `ContactCard/set`,
 /// `ContactCard/copy`, `ContactCard/query`, `ContactCard/queryChanges`.
+///
+/// # Re-registration semantics
+///
+/// This function calls [`Dispatcher::register`] once per
+/// draft-ietf-jmap-contacts-15 method name. `Dispatcher::register`
+/// **silently overwrites** any pre-existing handler under the same
+/// method name (the underlying primitive is `HashMap::insert`). Three
+/// consequences callers MUST be aware of:
+///
+/// - **Double-call**: invoking this function twice on the same
+///   dispatcher loses the first set's handlers. The second call wins.
+/// - **Custom overrides go LAST**: to replace a single handler (e.g.
+///   provide a custom `ContactCard/get`), call this function FIRST,
+///   then `dispatcher.register("ContactCard/get", my_override)`. The
+///   inverse order silently undoes the custom handler.
+/// - **No collision diagnostic**: there is no error or log when a
+///   handler is overwritten. The contract is "last register wins" and
+///   the caller is responsible for ordering.
+///
+/// [`Dispatcher::register`]: jmap_server::Dispatcher::register
 ///
 /// **No `AddressBook/query` or `AddressBook/queryChanges`** — the spec
 /// (RFC 9610) does not define these methods.
