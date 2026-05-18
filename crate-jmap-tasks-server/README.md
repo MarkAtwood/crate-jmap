@@ -130,10 +130,14 @@ pub trait TasksBackend: JmapBackend {
     ///
     /// The default implementation returns (None, None). Backends with full
     /// time-zone support should override this.
-    fn compute_task_utc_times(
-        &self, task: &Task, tz_hint: Option<&str>,
-    ) -> (Option<UTCDate>, Option<UTCDate>) {
-        (None, None)
+    fn compute_utc_times(
+        &self,
+        caller: &Self::CallerCtx,
+        account_id: &Id,
+        task: &Task,
+        tz_hint: Option<&str>,
+    ) -> impl Future<Output = (Option<UTCDate>, Option<UTCDate>)> + Send {
+        async { (None, None) }
     }
 }
 ```
@@ -184,7 +188,7 @@ store per-user data separately without changing the shared `updated` timestamp.
 
 ### Task/get — utcStart and utcDue
 
-`utcStart` and `utcDue` are computed on-demand via `compute_task_utc_times`. They are only
+`utcStart` and `utcDue` are computed on-demand via `compute_utc_times`. They are only
 included in the response when the client explicitly requests them in the `properties` list.
 The default implementation returns `(None, None)`, so both fields are absent unless the
 backend overrides this method.
@@ -246,7 +250,7 @@ until the family is published to crates.io.
 
 ## Gotchas
 
-- `compute_task_utc_times` default returns `(None, None)` — `utcStart`/`utcDue` will be
+- `compute_utc_times` default returns `(None, None)` — `utcStart`/`utcDue` will be
   absent from all `Task/get` responses unless the backend overrides this method.
 - `isDraft` immutability check requires one extra `get_objects` call per updated task where
   the patch includes `isDraft: true`, unless the backend overrides
