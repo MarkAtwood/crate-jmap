@@ -44,8 +44,9 @@ subtle = { workspace = true }
 # CSPRNG for the `memory` reference backend. Only pulled in when `memory`
 # is enabled — production deployments ship their own ChatBackend impl that
 # carries its own randomness story. Pinned to 0.3 (current stable line);
-# the workspace MSRV (1.88) is well ahead of getrandom 0.3's required 1.60.
-getrandom = { version = "0.3", optional = true }
+# Hoisted to [workspace.dependencies] so a future second consumer of
+# getrandom in the workspace pins to the same version. See bd:JMAP-x2gd.66.
+getrandom = { workspace = true, optional = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }

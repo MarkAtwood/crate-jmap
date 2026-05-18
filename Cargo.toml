@@ -98,6 +98,12 @@ serde_json             = "1"
 # timing oracles. Pure-Rust, RustCrypto-stack — matches the workspace's
 # rustls/RustCrypto-first stance. See bd:JMAP-sc1b.89.
 subtle                 = "2.6"
+# OS CSPRNG. Currently consumed only by jmap-chat-server (memory feature)
+# for invite-code generation, but hoisted to workspace.dependencies so a
+# future second consumer (federation-token / blob-id helper / etc.) pins
+# to the same version. The workspace MSRV (1.88) is well ahead of
+# getrandom 0.3's required 1.60. See bd:JMAP-x2gd.66.
+getrandom              = "0.3"
 # Drop-path zeroization for credential-bearing String / Vec<u8> fields
 # (e.g. BearerAuth.header_string, BasicAuth.header_string + plaintext
 # intermediate). Defends against credential recovery from process core
