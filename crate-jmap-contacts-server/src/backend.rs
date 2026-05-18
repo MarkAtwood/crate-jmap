@@ -170,11 +170,28 @@ pub trait ContactsBackend: JmapBackend {
         >,
     > + Send;
 
-    /// Check whether an AddressBook has any ContactCards in it.
+    /// Return `Ok(true)` if `address_book_id` (in `account_id`)
+    /// currently references one or more ContactCards.
     ///
-    /// Called by `AddressBook/set` destroy processing when
-    /// `onDestroyRemoveContents` is false (the default). If this returns
-    /// `Ok(true)`, the destroy is rejected with `addressBookHasContents`.
+    /// "References" is defined by `ContactCard.addressBookIds[id] =
+    /// true` per RFC 9610 §3 (a JMAP addition over the bare RFC 9553
+    /// JSContact schema). Cards that reference this AddressBook in
+    /// addition to others still count — emptiness is a property of
+    /// the AddressBook, not of card ownership.
+    ///
+    /// Backends SHOULD NOT inspect the caller's permissions here.
+    /// Visibility and authorization checks happen in
+    /// [`Self::destroy_object`] (and earlier in
+    /// [`Self::update_object`] for the patch-out-of-addressBookIds
+    /// path); this method is a pure storage-state query.
+    ///
+    /// The handler that calls this method is `AddressBook/set` destroy
+    /// processing when `onDestroyRemoveContents` is false (the default);
+    /// see [`crate::addressbook::handle_address_book_set`] for the full
+    /// RFC 9610 §2.3 destroy semantics. The wire-format consequence of
+    /// returning `Ok(true)` is an `addressBookHasContents` SetError in
+    /// the response — that mapping is the handler's responsibility,
+    /// not the backend's.
     ///
     /// # Error contract
     ///
