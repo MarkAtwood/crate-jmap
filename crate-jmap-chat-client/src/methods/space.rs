@@ -56,12 +56,12 @@ impl super::SessionClient {
         // `chat_get` for the rationale (consistent with set/changes/query).
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] =
-                serde_json::to_value(id_slice).map_err(jmap_base_client::ClientError::Parse)?;
+            args["ids"] = serde_json::to_value(id_slice)
+                .map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(props) = properties {
             args["properties"] =
-                serde_json::to_value(props).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(props).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         let req = super::build_request("Space/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -255,7 +255,7 @@ impl super::SessionClient {
         }
         if let Some(uti) = up_to_id {
             args["upToId"] =
-                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
@@ -405,14 +405,14 @@ impl super::SessionClient {
         if let Some(entry) = patch
             .description
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("description".into(), entry);
         }
         if let Some(entry) = patch
             .icon_blob_id
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("iconBlobId".into(), entry);
         }
@@ -434,7 +434,7 @@ impl super::SessionClient {
                             let mut obj = serde_json::json!({ "id": m.id });
                             if let Some(role_ids) = m.role_ids {
                                 obj["roleIds"] = serde_json::to_value(role_ids)
-                                    .map_err(jmap_base_client::ClientError::Parse)?;
+                                    .map_err(jmap_base_client::ClientError::from_parse)?;
                             }
                             Ok(obj)
                         },
@@ -447,7 +447,7 @@ impl super::SessionClient {
             if !rm.is_empty() {
                 patch_map.insert(
                     "removeMembers".into(),
-                    serde_json::to_value(rm).map_err(jmap_base_client::ClientError::Parse)?,
+                    serde_json::to_value(rm).map_err(jmap_base_client::ClientError::from_parse)?,
                 );
             }
         }
@@ -463,12 +463,12 @@ impl super::SessionClient {
                             let mut obj = serde_json::json!({ "id": u.id });
                             if let Some(role_ids) = u.role_ids {
                                 obj["roleIds"] = serde_json::to_value(role_ids)
-                                    .map_err(jmap_base_client::ClientError::Parse)?;
+                                    .map_err(jmap_base_client::ClientError::from_parse)?;
                             }
                             if let Some(entry) = u
                                 .nick
                                 .map_entry()
-                                .map_err(jmap_base_client::ClientError::Parse)?
+                                .map_err(jmap_base_client::ClientError::from_parse)?
                             {
                                 obj["nick"] = entry;
                             }
@@ -509,7 +509,7 @@ impl super::SessionClient {
             if !rc.is_empty() {
                 patch_map.insert(
                     "removeChannels".into(),
-                    serde_json::to_value(rc).map_err(jmap_base_client::ClientError::Parse)?,
+                    serde_json::to_value(rc).map_err(jmap_base_client::ClientError::from_parse)?,
                 );
             }
         }
@@ -525,14 +525,14 @@ impl super::SessionClient {
                         if let Some(entry) = c
                             .topic
                             .map_entry()
-                            .map_err(jmap_base_client::ClientError::Parse)?
+                            .map_err(jmap_base_client::ClientError::from_parse)?
                         {
                             obj["topic"] = entry;
                         }
                         if let Some(entry) = c
                             .category_id
                             .map_entry()
-                            .map_err(jmap_base_client::ClientError::Parse)?
+                            .map_err(jmap_base_client::ClientError::from_parse)?
                         {
                             obj["categoryId"] = entry;
                         }
@@ -544,7 +544,7 @@ impl super::SessionClient {
                         }
                         if let Some(po) = c.permission_overrides {
                             obj["permissionOverrides"] = serde_json::to_value(po)
-                                .map_err(jmap_base_client::ClientError::Parse)?;
+                                .map_err(jmap_base_client::ClientError::from_parse)?;
                         }
                         Ok(obj)
                     })
@@ -580,7 +580,7 @@ impl super::SessionClient {
             if !rr.is_empty() {
                 patch_map.insert(
                     "removeRoles".into(),
-                    serde_json::to_value(rr).map_err(jmap_base_client::ClientError::Parse)?,
+                    serde_json::to_value(rr).map_err(jmap_base_client::ClientError::from_parse)?,
                 );
             }
         }
@@ -596,7 +596,7 @@ impl super::SessionClient {
                         if let Some(entry) = r
                             .color
                             .map_entry()
-                            .map_err(jmap_base_client::ClientError::Parse)?
+                            .map_err(jmap_base_client::ClientError::from_parse)?
                         {
                             obj["color"] = entry;
                         }
@@ -630,7 +630,7 @@ impl super::SessionClient {
                         }
                         if let Some(cids) = c.channel_ids {
                             obj["channelIds"] = serde_json::to_value(cids)
-                                .map_err(jmap_base_client::ClientError::Parse)?;
+                                .map_err(jmap_base_client::ClientError::from_parse)?;
                         }
                         Ok(obj)
                     })
@@ -642,7 +642,7 @@ impl super::SessionClient {
             if !rc.is_empty() {
                 patch_map.insert(
                     "removeCategories".into(),
-                    serde_json::to_value(rc).map_err(jmap_base_client::ClientError::Parse)?,
+                    serde_json::to_value(rc).map_err(jmap_base_client::ClientError::from_parse)?,
                 );
             }
         }
@@ -660,7 +660,7 @@ impl super::SessionClient {
                         }
                         if let Some(cids) = c.channel_ids {
                             obj["channelIds"] = serde_json::to_value(cids)
-                                .map_err(jmap_base_client::ClientError::Parse)?;
+                                .map_err(jmap_base_client::ClientError::from_parse)?;
                         }
                         Ok(obj)
                     })

@@ -450,7 +450,7 @@ impl JmapClient {
         // chunked Transfer-Encoding (bd:JMAP-6r7c.1).
         let body = read_capped_body(resp, limit).await?;
 
-        let session: Session = serde_json::from_slice(&body).map_err(ClientError::Parse)?;
+        let session: Session = serde_json::from_slice(&body).map_err(ClientError::from_parse)?;
 
         validate_session_url_schemes(&session)?;
 
@@ -514,7 +514,7 @@ impl JmapClient {
         let body = read_capped_body(resp, limit).await?;
 
         let jmap_resp: jmap_types::JmapResponse =
-            serde_json::from_slice(&body).map_err(ClientError::Parse)?;
+            serde_json::from_slice(&body).map_err(ClientError::from_parse)?;
 
         Ok(jmap_resp)
     }
@@ -935,7 +935,7 @@ pub fn extract_response<T: serde::de::DeserializeOwned>(
     let inv = candidates
         .next()
         .ok_or_else(|| ClientError::MethodNotFound(call_id.to_owned()))?;
-    <T as serde::Deserialize>::deserialize(&inv.1).map_err(ClientError::Parse)
+    <T as serde::Deserialize>::deserialize(&inv.1).map_err(ClientError::from_parse)
 }
 
 /// Decode as much valid UTF-8 as possible from `raw` into `buf`, draining

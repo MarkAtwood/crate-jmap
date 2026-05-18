@@ -41,12 +41,12 @@ impl super::SessionClient {
         // `chat_get` for the rationale (consistent with set/changes/query).
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] =
-                serde_json::to_value(id_slice).map_err(jmap_base_client::ClientError::Parse)?;
+            args["ids"] = serde_json::to_value(id_slice)
+                .map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(props) = properties {
             args["properties"] =
-                serde_json::to_value(props).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(props).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         let req = super::build_request("ChatContact/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -124,7 +124,7 @@ impl super::SessionClient {
         if let Some(entry) = patch
             .display_name
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("displayName".into(), entry);
         }
@@ -173,7 +173,7 @@ impl super::SessionClient {
         if let Some(p) = &input.filter_presence {
             filter.insert(
                 "presence".into(),
-                serde_json::to_value(p).map_err(jmap_base_client::ClientError::Parse)?,
+                serde_json::to_value(p).map_err(jmap_base_client::ClientError::from_parse)?,
             );
         }
         let filter_val = if filter.is_empty() {
@@ -187,7 +187,7 @@ impl super::SessionClient {
         });
         if let Some(sp) = &input.sort_property {
             let property =
-                serde_json::to_value(sp).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(sp).map_err(jmap_base_client::ClientError::from_parse)?;
             args["sort"] = serde_json::json!([{
                 "property": property,
                 "isAscending": input.sort_ascending.unwrap_or(false),
@@ -261,7 +261,7 @@ impl super::SessionClient {
         }
         if let Some(uti) = up_to_id {
             args["upToId"] =
-                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();

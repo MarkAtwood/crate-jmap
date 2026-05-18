@@ -37,7 +37,10 @@ pub use auth::{
 };
 pub use blob::{expand_url_template, BlobUploadResponse, DownloadBlobParams, UploadBlobParams};
 pub use client::{extract_response, ClientConfig, JmapClient};
-pub use error::{ClientError, HttpError, InvalidHeaderValueError, WebSocketError};
+pub use error::{
+    ClientError, HttpError, InvalidHeaderValueError, ParseCategory, ParseError, SerializeError,
+    WebSocketError,
+};
 pub use push::StateChange;
 pub use request::{AccountInfo, JmapRequestBuilder, Session, WebSocketCapability};
 pub use sse::{parse_sse_block, SseEvent, SseFrame};

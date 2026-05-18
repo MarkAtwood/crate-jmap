@@ -224,7 +224,9 @@ impl Session {
         let Some(raw) = self.capabilities.get(capability_uri) else {
             return Ok(None);
         };
-        T::deserialize(raw).map(Some).map_err(ClientError::Parse)
+        T::deserialize(raw)
+            .map(Some)
+            .map_err(ClientError::from_parse)
     }
 
     /// Returns `true` if the server advertises the JMAP Blob Content
@@ -354,7 +356,9 @@ impl AccountInfo {
         let Some(raw) = self.account_capabilities.get(capability_uri) else {
             return Ok(None);
         };
-        T::deserialize(raw).map(Some).map_err(ClientError::Parse)
+        T::deserialize(raw)
+            .map(Some)
+            .map_err(ClientError::from_parse)
     }
 }
 

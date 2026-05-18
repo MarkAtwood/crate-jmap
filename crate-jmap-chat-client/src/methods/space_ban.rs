@@ -39,12 +39,12 @@ impl super::SessionClient {
         // `chat_get` for the rationale (consistent with set/changes/query).
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] =
-                serde_json::to_value(id_slice).map_err(jmap_base_client::ClientError::Parse)?;
+            args["ids"] = serde_json::to_value(id_slice)
+                .map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(props) = properties {
             args["properties"] =
-                serde_json::to_value(props).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(props).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         let req = super::build_request("SpaceBan/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;

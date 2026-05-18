@@ -57,12 +57,12 @@ impl super::SessionClient {
         // in proxies / audit loggers.
         let mut args = serde_json::json!({ "accountId": account_id });
         if let Some(id_slice) = ids {
-            args["ids"] =
-                serde_json::to_value(id_slice).map_err(jmap_base_client::ClientError::Parse)?;
+            args["ids"] = serde_json::to_value(id_slice)
+                .map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(props) = properties {
             args["properties"] =
-                serde_json::to_value(props).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(props).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         let req = super::build_request("Chat/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -96,7 +96,8 @@ impl super::SessionClient {
         let (api_url, account_id) = self.session_parts()?;
         let mut filter = serde_json::Map::new();
         if let Some(k) = &input.filter_kind {
-            let kind_str = serde_json::to_value(k).map_err(jmap_base_client::ClientError::Parse)?;
+            let kind_str =
+                serde_json::to_value(k).map_err(jmap_base_client::ClientError::from_parse)?;
             filter.insert("kind".into(), kind_str);
         }
         if let Some(m) = input.filter_muted {
@@ -261,7 +262,7 @@ impl super::SessionClient {
         }
         if let Some(uti) = up_to_id {
             args["upToId"] =
-                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
@@ -401,7 +402,7 @@ impl super::SessionClient {
         if let Some(entry) = patch
             .mute_until
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("muteUntil".into(), entry);
         }
@@ -411,13 +412,13 @@ impl super::SessionClient {
         if let Some(ids) = patch.pinned_message_ids {
             patch_map.insert(
                 "pinnedMessageIds".into(),
-                serde_json::to_value(ids).map_err(jmap_base_client::ClientError::Parse)?,
+                serde_json::to_value(ids).map_err(jmap_base_client::ClientError::from_parse)?,
             );
         }
         if let Some(entry) = patch
             .message_expiry_seconds
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("messageExpirySeconds".into(), entry);
         }
@@ -430,14 +431,14 @@ impl super::SessionClient {
         if let Some(entry) = patch
             .description
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("description".into(), entry);
         }
         if let Some(entry) = patch
             .avatar_blob_id
             .map_entry()
-            .map_err(jmap_base_client::ClientError::Parse)?
+            .map_err(jmap_base_client::ClientError::from_parse)?
         {
             patch_map.insert("avatarBlobId".into(), entry);
         }
@@ -449,7 +450,7 @@ impl super::SessionClient {
                         let mut obj = serde_json::json!({ "id": m.id });
                         if let Some(role) = &m.role {
                             obj["role"] = serde_json::to_value(role)
-                                .map_err(jmap_base_client::ClientError::Parse)?;
+                                .map_err(jmap_base_client::ClientError::from_parse)?;
                         }
                         Ok(obj)
                     })
@@ -461,7 +462,7 @@ impl super::SessionClient {
             if !rm.is_empty() {
                 patch_map.insert(
                     "removeMembers".into(),
-                    serde_json::to_value(rm).map_err(jmap_base_client::ClientError::Parse)?,
+                    serde_json::to_value(rm).map_err(jmap_base_client::ClientError::from_parse)?,
                 );
             }
         }
@@ -473,7 +474,7 @@ impl super::SessionClient {
                         Ok(serde_json::json!({
                             "id": u.id,
                             "role": serde_json::to_value(&u.role)
-                                .map_err(jmap_base_client::ClientError::Parse)?,
+                                .map_err(jmap_base_client::ClientError::from_parse)?,
                         }))
                     })
                     .collect::<Result<Vec<_>, jmap_base_client::ClientError>>()?;

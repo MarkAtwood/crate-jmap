@@ -87,7 +87,7 @@ impl super::SessionClient {
         });
         if let Some(props) = properties {
             args["properties"] =
-                serde_json::to_value(props).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(props).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         let req = super::build_request("Message/get", args, super::USING_CHAT);
         let resp = self.call_internal(api_url, &req).await?;
@@ -269,7 +269,7 @@ impl super::SessionClient {
             "chatId": input.chat_id,
             "body": input.body,
             "bodyType": serde_json::to_value(&input.body_type)
-                .map_err(jmap_base_client::ClientError::Parse)?,
+                .map_err(jmap_base_client::ClientError::from_parse)?,
             "sentAt": input.sent_at.as_ref(),
         });
         if let Some(rt) = input.reply_to {
@@ -350,7 +350,7 @@ impl super::SessionClient {
         if let Some(bt) = &patch.body_type {
             patch_map.insert(
                 "bodyType".into(),
-                serde_json::to_value(bt).map_err(jmap_base_client::ClientError::Parse)?,
+                serde_json::to_value(bt).map_err(jmap_base_client::ClientError::from_parse)?,
             );
         }
         if let Some(ra) = patch.read_at {
@@ -359,7 +359,7 @@ impl super::SessionClient {
         if let Some(rd) = &patch.read_disposition {
             patch_map.insert(
                 "readDisposition".into(),
-                serde_json::to_value(rd).map_err(jmap_base_client::ClientError::Parse)?,
+                serde_json::to_value(rd).map_err(jmap_base_client::ClientError::from_parse)?,
             );
         }
         if let Some(da) = patch.deleted_at {
@@ -499,7 +499,7 @@ impl super::SessionClient {
         }
         if let Some(uti) = up_to_id {
             args["upToId"] =
-                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::Parse)?;
+                serde_json::to_value(uti).map_err(jmap_base_client::ClientError::from_parse)?;
         }
         if let Some(ct) = calculate_total {
             args["calculateTotal"] = ct.into();
