@@ -71,6 +71,52 @@ pub struct DownloadBlobParams<'a> {
     pub expected_sha256: Option<&'a jmap_cid_types::Sha256>,
 }
 
+/// Parameters for [`JmapClient::upload_blob`].
+///
+/// Use a struct literal to avoid confusion between the three string-typed
+/// fields (the URL template, the account id, and the content type — three
+/// positional `&str` arguments are exactly the parameter-confusion footgun
+/// [`DownloadBlobParams`] eliminated for the download side):
+///
+/// ```rust,ignore
+/// client.upload_blob(UploadBlobParams {
+///     upload_url_template: &session.upload_url,
+///     account_id: "A13824",
+///     content_type: "application/pdf",
+///     data: bytes::Bytes::from(buffer),
+/// }).await?;
+/// ```
+///
+/// Adding an optional per-call timeout override, a body-integrity hint,
+/// or any other parameter in a future minor release is a non-breaking
+/// minor-version bump — callers who do not set the new field keep working.
+/// A positional-arg signature would have locked that future evolution to
+/// a major bump (bd:JMAP-6r7c.50).
+///
+/// `data` is owned (`bytes::Bytes`) rather than borrowed, because the
+/// HTTP request body takes ownership of the bytes and the `Bytes` clone
+/// is a cheap refcount bump on the underlying buffer. The other three
+/// fields borrow with a single shared lifetime parameter `'a`.
+#[derive(Debug, Clone)]
+pub struct UploadBlobParams<'a> {
+    /// URL template from `Session.upload_url`. `{accountId}` is the only
+    /// template variable substituted before the POST request.
+    pub upload_url_template: &'a str,
+    /// Account ID that will own the uploaded blob; substituted for
+    /// `{accountId}` in the URL template.
+    pub account_id: &'a str,
+    /// Media type sent as the HTTP `Content-Type` request header. Must
+    /// be a valid HTTP header value (no CR/LF, no leading/trailing
+    /// whitespace) or upload fails with
+    /// [`ClientError::InvalidHeaderValue`].
+    pub content_type: &'a str,
+    /// Raw bytes to upload. The pre-upload SHA-256 is computed locally
+    /// and cross-checked against the server's `BlobUploadResponse.sha256`
+    /// (when present); the byte length is cross-checked against the
+    /// server's `BlobUploadResponse.size`.
+    pub data: bytes::Bytes,
+}
+
 /// Response body returned by a successful blob upload (RFC 8620 §6.1).
 ///
 /// # SemVer coupling with `jmap-cid-types` (bd:JMAP-6r7c.30)
@@ -291,18 +337,22 @@ fn hex_nibble_lower(nibble: u8) -> char {
 impl JmapClient {
     /// Upload raw bytes to the JMAP blob store (RFC 8620 §6.1).
     ///
-    /// `upload_url_template` is from `Session.upload_url`; `{accountId}` is
-    /// substituted before the request. `content_type` is sent as the
-    /// `Content-Type` header. If the server returns a `sha256` field
-    /// (JMAP-CID capability), it is verified against the locally-computed
-    /// digest and `ClientError::BlobIntegrityMismatch` is returned on mismatch.
+    /// `params.upload_url_template` is from `Session.upload_url`;
+    /// `{accountId}` is substituted before the request.
+    /// `params.content_type` is sent as the `Content-Type` header. If the
+    /// server returns a `sha256` field (JMAP-CID capability), it is
+    /// verified against the locally-computed digest and
+    /// `ClientError::BlobIntegrityMismatch` is returned on mismatch.
     pub async fn upload_blob(
         &self,
-        upload_url_template: &str,
-        account_id: &str,
-        data: bytes::Bytes,
-        content_type: &str,
+        params: UploadBlobParams<'_>,
     ) -> Result<BlobUploadResponse, ClientError> {
+        let UploadBlobParams {
+            upload_url_template,
+            account_id,
+            content_type,
+            data,
+        } = params;
         crate::client::require_http_url(upload_url_template)?;
         let ct_hv =
             HeaderValue::from_str(content_type).map_err(ClientError::from_invalid_header)?;
