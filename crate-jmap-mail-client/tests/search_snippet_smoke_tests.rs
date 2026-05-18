@@ -10,10 +10,16 @@
 //! The `search_snippet_get_omits_thread_ids_wire_key` test below guards
 //! against accidental re-introduction.
 //!
+//! Historical note (JMAP-tjvm.30): an earlier version of this client took an
+//! `account_id: Option<&Id>` override as its first argument — the only
+//! `SessionClient` method that allowed the caller to pick a non-session
+//! account. The override has been removed for consistency with every other
+//! `SessionClient` method; the `accountId` on the wire is always the
+//! session's primary mail account.
+//!
 //! Oracles:
 //!   - RFC 8621 §5.1 — SearchSnippet/get semantics and request arguments
 //!     (`accountId`, `filter`, `emailIds`).
-//!   - RFC 8620 §3.1 — `accountId` may be overridden by caller-supplied value.
 
 #[path = "helpers.rs"]
 mod helpers;
@@ -53,7 +59,7 @@ async fn search_snippet_get_omits_thread_ids_wire_key() {
     let filter = json!({ "text": "invoice" });
     let email_ids = [Id::from("M1"), Id::from("M2")];
     let _ = sc
-        .search_snippet_get(None, filter.clone(), Some(&email_ids))
+        .search_snippet_get(filter.clone(), Some(&email_ids))
         .await
         .expect("search_snippet_get: must succeed");
 
@@ -105,7 +111,7 @@ async fn search_snippet_get_omits_email_ids_when_none() {
     let sc = helpers::make_client(&server);
     let filter = json!({ "text": "report" });
     let _ = sc
-        .search_snippet_get(None, filter.clone(), None)
+        .search_snippet_get(filter.clone(), None)
         .await
         .expect("search_snippet_get: must succeed");
 
@@ -128,51 +134,13 @@ async fn search_snippet_get_omits_email_ids_when_none() {
     );
 }
 
-/// SearchSnippet/get with a caller-supplied `account_id` must override the
-/// session's primary account on the wire (RFC 8620 §3.1 — caller may pin
-/// a specific account for cross-account snippet lookups).
-#[tokio::test]
-async fn search_snippet_get_caller_account_id_overrides_session() {
-    let server = MockServer::start().await;
-    let resp_body = json!({
-        "sessionState": "s1",
-        "methodResponses": [[
-            "SearchSnippet/get",
-            {
-                "accountId": "B99999",
-                "filter": { "text": "x" },
-                "list": [],
-                "notFound": null
-            },
-            "r1"
-        ]]
-    });
-    Mock::given(method("POST"))
-        .and(path("/api/"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(&resp_body))
-        .mount(&server)
-        .await;
-
-    let sc = helpers::make_client(&server);
-    let other = Id::from("B99999");
-    let filter = json!({ "text": "x" });
-    let email_ids = [Id::from("M1")];
-    let _ = sc
-        .search_snippet_get(Some(&other), filter, Some(&email_ids))
-        .await
-        .expect("search_snippet_get: must succeed");
-
-    let reqs = server
-        .received_requests()
-        .await
-        .expect("must have recorded requests");
-    let body: serde_json::Value =
-        serde_json::from_slice(&reqs[0].body).expect("request body must be valid JSON");
-    let args = &body["methodCalls"][0][1];
-
-    assert_eq!(
-        args["accountId"],
-        json!("B99999"),
-        "caller-supplied accountId must override session primary"
-    );
-}
+// Deleted in JMAP-tjvm.30: `search_snippet_get_caller_account_id_overrides_session`
+// exercised the `account_id: Option<&Id>` override on the wire. The override
+// has been removed for consistency with every other `SessionClient` method
+// (all of which derive `accountId` from `session_parts()` unconditionally).
+// The session-account binding is now implicitly covered by
+// `search_snippet_get_omits_thread_ids_wire_key` and
+// `search_snippet_get_omits_email_ids_when_none`, both of which assert
+// `args["accountId"]` matches the `helpers::make_client` session binding.
+// The compile-time gate is the absence of the first positional
+// `Option<&Id>` parameter on the function signature.

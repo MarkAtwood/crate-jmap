@@ -33,16 +33,16 @@ impl super::SessionClient {
     /// Callers should deserialize into `Vec<jmap_mail_types::SearchSnippet>` via
     /// `response["list"].as_array()`.
     ///
+    /// The account is the one bound to this [`SessionClient`](super::SessionClient)
+    /// — there is no caller-supplied override (closed bd:JMAP-tjvm.30 for
+    /// consistency with every other `SessionClient` method, which all derive
+    /// `accountId` from the session unconditionally).
+    ///
     /// # Errors
     ///
     /// - [`ClientError::InvalidSession`](jmap_base_client::ClientError::InvalidSession)
     ///   if the bound session has no primary account for
-    ///   `urn:ietf:params:jmap:mail`. Note that this check fires
-    ///   unconditionally even when the caller passes `Some(account_id)`
-    ///   to override the session-derived id — the session-derived id
-    ///   is still required as the fallback. (See bd:JMAP-tjvm.30 for
-    ///   the open contract question on whether the override should
-    ///   continue to exist.)
+    ///   `urn:ietf:params:jmap:mail`.
     /// - Any transport / protocol variant returned by
     ///   [`JmapClient::call`](jmap_base_client::JmapClient::call):
     ///   [`Http`](jmap_base_client::ClientError::Http),
@@ -59,15 +59,12 @@ impl super::SessionClient {
     ///   [`UnexpectedResponse`](jmap_base_client::ClientError::UnexpectedResponse).
     pub async fn search_snippet_get(
         &self,
-        account_id: Option<&Id>,
         filter: serde_json::Value,
         email_ids: Option<&[Id]>,
     ) -> Result<serde_json::Value, jmap_base_client::ClientError> {
-        let (api_url, session_account_id) = self.session_parts()?;
-        let effective_account_id: &str =
-            account_id.map(AsRef::as_ref).unwrap_or(session_account_id);
+        let (api_url, account_id) = self.session_parts()?;
         let mut args = serde_json::json!({
-            "accountId": effective_account_id,
+            "accountId": account_id,
             "filter": filter,
         });
         if let Some(eids) = email_ids {
