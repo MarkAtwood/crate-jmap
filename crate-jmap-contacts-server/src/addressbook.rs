@@ -132,7 +132,24 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
         .get("onDestroyRemoveContents")
         .and_then(|v| v.as_bool())
         .unwrap_or(false);
-    let on_success_set_is_default = args.remove("onSuccessSetIsDefault");
+    // RFC 9610 §2.3: onSuccessSetIsDefault is Id|null (a single string id or
+    // null). §2.3 says "If the id is not found or if the change is not
+    // permitted by the server for policy reasons, it MUST be ignored" — that
+    // covers id-validity / policy refusal, NOT argument-shape errors. A
+    // non-string non-null value is an argument-shape error and is rejected
+    // with `invalidArguments` per the same convention the /set destroy
+    // non-string rejection uses (line ~322). Mirrors the canonical
+    // jmap-mail-server onSuccessActivateScript / onSuccessDeactivateScript
+    // pattern in sieve.rs:370-385 (bd:JMAP-qz9v.8).
+    let on_success_set_is_default: Option<String> = match args.remove("onSuccessSetIsDefault") {
+        None | Some(Value::Null) => None,
+        Some(Value::String(s)) => Some(s),
+        Some(v) => {
+            return Err(JmapError::invalid_arguments(format!(
+                "onSuccessSetIsDefault: expected a string id or null, got {v}"
+            )));
+        }
+    };
 
     let old_state = backend
         .get_state::<AddressBook>(caller, &account_id)
@@ -465,68 +482,64 @@ pub async fn handle_address_book_set<B: ContactsBackend>(
     let main_ops_all_succeeded =
         not_created.is_empty() && not_updated.is_empty() && not_destroyed.is_empty();
     if main_ops_all_succeeded {
-        match on_success_set_is_default {
-            Some(Value::String(id_str)) => {
-                // Resolve creation reference: if id_str starts with '#', look up in created map.
-                let resolved: Option<Id> = if let Some(create_id) = id_str.strip_prefix('#') {
-                    created
-                        .get(create_id)
-                        .and_then(|v| v.get("id"))
-                        .and_then(|v| v.as_str())
-                        .map(Id::from)
-                } else {
-                    Some(Id::from(id_str.as_str()))
-                };
-                if let Some(target_id) = resolved {
-                    // Build a one-key PatchObject {"isDefault": true} via
-                    // the typed constructor. RFC 8620 §5.3.
-                    let mut patch_map = serde_json::Map::new();
-                    patch_map.insert("isDefault".to_owned(), Value::Bool(true));
-                    let patch = PatchObject::from_map(patch_map);
-                    // §2.3: errors here are silently ignored.
-                    match backend
-                        .update_object::<AddressBook>(caller, &account_id, &target_id, patch)
-                        .await
-                    {
-                        Ok(Some(obj)) => {
-                            mutated = true;
-                            updated.insert(
-                                target_id.to_string(),
-                                serde_json::to_value(&obj).unwrap_or(Value::Null),
-                            );
-                            // RFC 8620 §5.3: all changed objects must appear in
-                            // updated.  When isDefault transfers, the backend clears
-                            // it on all other books; re-fetch to pick them up.
-                            if let Ok((all_books, _)) = backend
-                                .get_objects::<AddressBook>(caller, &account_id, None, None)
-                                .await
-                            {
-                                for book in all_books {
-                                    let book_id = book.id.clone();
-                                    if book_id == target_id {
-                                        continue; // already recorded above
-                                    }
-                                    // The backend enforces single-default: any book
-                                    // returned here whose is_default is now false was
-                                    // implicitly demoted.
-                                    if !book.is_default {
-                                        if let Ok(v) = serde_json::to_value(&book) {
-                                            updated.insert(book_id.to_string(), v);
-                                        }
+        if let Some(id_str) = on_success_set_is_default {
+            // Resolve creation reference: if id_str starts with '#', look up in created map.
+            let resolved: Option<Id> = if let Some(create_id) = id_str.strip_prefix('#') {
+                created
+                    .get(create_id)
+                    .and_then(|v| v.get("id"))
+                    .and_then(|v| v.as_str())
+                    .map(Id::from)
+            } else {
+                Some(Id::from(id_str.as_str()))
+            };
+            if let Some(target_id) = resolved {
+                // Build a one-key PatchObject {"isDefault": true} via
+                // the typed constructor. RFC 8620 §5.3.
+                let mut patch_map = serde_json::Map::new();
+                patch_map.insert("isDefault".to_owned(), Value::Bool(true));
+                let patch = PatchObject::from_map(patch_map);
+                // §2.3: errors here are silently ignored.
+                match backend
+                    .update_object::<AddressBook>(caller, &account_id, &target_id, patch)
+                    .await
+                {
+                    Ok(Some(obj)) => {
+                        mutated = true;
+                        updated.insert(
+                            target_id.to_string(),
+                            serde_json::to_value(&obj).unwrap_or(Value::Null),
+                        );
+                        // RFC 8620 §5.3: all changed objects must appear in
+                        // updated.  When isDefault transfers, the backend clears
+                        // it on all other books; re-fetch to pick them up.
+                        if let Ok((all_books, _)) = backend
+                            .get_objects::<AddressBook>(caller, &account_id, None, None)
+                            .await
+                        {
+                            for book in all_books {
+                                let book_id = book.id.clone();
+                                if book_id == target_id {
+                                    continue; // already recorded above
+                                }
+                                // The backend enforces single-default: any book
+                                // returned here whose is_default is now false was
+                                // implicitly demoted.
+                                if !book.is_default {
+                                    if let Ok(v) = serde_json::to_value(&book) {
+                                        updated.insert(book_id.to_string(), v);
                                     }
                                 }
                             }
                         }
-                        Ok(None) => {
-                            mutated = true;
-                            updated.insert(target_id.to_string(), Value::Null);
-                        }
-                        Err(_) => {} // silently ignored per §2.3
                     }
+                    Ok(None) => {
+                        mutated = true;
+                        updated.insert(target_id.to_string(), Value::Null);
+                    }
+                    Err(_) => {} // silently ignored per §2.3
                 }
             }
-            Some(Value::Null) | None => {}
-            _ => {} // malformed — silently ignored
         }
     } // end if main_ops_all_succeeded
 
@@ -847,24 +860,56 @@ mod tests {
         assert_eq!(resp["accountId"], "acc1");
     }
 
-    /// Oracle: RFC 9610 §2.3 — a malformed onSuccessSetIsDefault (object
-    /// instead of Id|null) must be silently ignored; no top-level error.
+    /// Oracle: RFC 9610 §2.3 distinguishes argument-shape errors from
+    /// id-validity / policy-refusal errors. §2.3's "If the id is not found
+    /// or if the change is not permitted by the server for policy reasons,
+    /// it MUST be ignored" covers a *valid Id string* that the server
+    /// chooses not to act on — NOT a wire payload where
+    /// `onSuccessSetIsDefault` has the wrong JSON type. A non-string
+    /// non-null value is an argument-shape error and is rejected with
+    /// `invalidArguments`, matching the convention the /set destroy
+    /// non-string rejection uses (addressbook.rs:322-326) and the
+    /// canonical jmap-mail-server pattern in sieve.rs:370-385
+    /// (bd:JMAP-qz9v.8).
     #[tokio::test]
-    async fn set_on_success_set_is_default_bad_type_ignored() {
+    async fn set_on_success_set_is_default_bad_type_rejected_with_invalid_arguments() {
         let backend = MockBackend::new_with_account("acc1");
         let args = json!({
             "accountId": "acc1",
             "onSuccessSetIsDefault": {"wrong": "type"}
         });
-        let (resp, _) = handle_address_book_set(&backend, &(), args)
+        let err = handle_address_book_set(&backend, &(), args)
             .await
-            .expect("must not return top-level error");
-
-        assert!(
-            resp.get("type").is_none(),
-            "malformed onSuccessSetIsDefault must be silently ignored: {resp}"
+            .expect_err("malformed onSuccessSetIsDefault must be rejected, not silently dropped");
+        assert_eq!(
+            err.error_type.as_str(),
+            "invalidArguments",
+            "non-string non-null onSuccessSetIsDefault must surface as invalidArguments (argument-shape error, not §2.3 silent-ignore): {err:?}"
         );
-        assert_eq!(resp["accountId"], "acc1");
+    }
+
+    /// Oracle: companion to the object-type test above — number, boolean,
+    /// and array values for onSuccessSetIsDefault are also argument-shape
+    /// errors and must produce `invalidArguments`. Exercises the same
+    /// rejection arm with each of the remaining non-string-non-null JSON
+    /// types the bead enumerated (bd:JMAP-qz9v.8).
+    #[tokio::test]
+    async fn set_on_success_set_is_default_other_bad_types_rejected() {
+        let backend = MockBackend::new_with_account("acc1");
+        for bad_value in [json!(42), json!(true), json!(["book1"])] {
+            let args = json!({
+                "accountId": "acc1",
+                "onSuccessSetIsDefault": bad_value,
+            });
+            let err = handle_address_book_set(&backend, &(), args)
+                .await
+                .expect_err("non-string-non-null onSuccessSetIsDefault must be rejected");
+            assert_eq!(
+                err.error_type.as_str(),
+                "invalidArguments",
+                "onSuccessSetIsDefault: {bad_value} must surface as invalidArguments: {err:?}",
+            );
+        }
     }
 
     /// Oracle: RFC 8620 §5.3 — onSuccessSetIsDefault must report the DEMOTED
