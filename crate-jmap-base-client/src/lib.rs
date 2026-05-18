@@ -76,8 +76,11 @@ pub use auth::{
     AuthHeader, AuthProvider, BasicAuth, BearerAuth, CustomCaTransport, DefaultTransport,
     HttpClient, NoneAuth, TransportConfig,
 };
-pub use blob::{expand_url_template, BlobUploadResponse, DownloadBlobParams, UploadBlobParams};
-pub use client::{extract_response, ClientConfig, JmapClient};
+pub use blob::{
+    expand_url_template, BlobUploadResponse, DownloadBlobParams, DownloadBlobSessionParams,
+    UploadBlobParams, UploadBlobSessionParams,
+};
+pub use client::{extract_response, ClientConfig, JmapClient, SubscribeEventsSessionParams};
 pub use error::{
     ClientError, HttpError, InvalidHeaderValueError, ParseCategory, ParseError, SerializeError,
     WebSocketError,

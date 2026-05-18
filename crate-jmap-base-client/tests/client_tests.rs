@@ -604,6 +604,199 @@ async fn test_call_session_routes_to_session_api_url() {
     assert_eq!(resp.method_responses[0].0, "Mailbox/get");
 }
 
+/// Oracle: bd:JMAP-6r7c.64 — `upload_blob_session` reads
+/// `session.upload_url` internally and refuses to route to any other
+/// session URL field. The mock server responds at `/upload/<account>/`;
+/// the other Session URL fields point at unmocked paths so a wrong-
+/// routing regression surfaces as a 404 or connection error rather
+/// than a silent success.
+#[tokio::test]
+async fn test_upload_blob_session_routes_to_session_upload_url() {
+    use wiremock::matchers::header;
+
+    let payload: &[u8] = b"upload-session-bytes";
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/upload/account1/"))
+        .and(header("Content-Type", "application/octet-stream"))
+        .respond_with(ResponseTemplate::new(200).set_body_string(
+            r#"{"accountId":"account1","blobId":"B-session-1","type":"application/octet-stream","size":20}"#,
+        ))
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let upload_url = format!("{}/upload/{{accountId}}/", server.uri());
+    let unmocked = format!("{}/UNMOCKED-must-not-be-hit", server.uri());
+    let session: jmap_base_client::request::Session = serde_json::from_value(serde_json::json!({
+        "capabilities": {},
+        "accounts": {},
+        "primaryAccounts": {},
+        "username": "",
+        "apiUrl": unmocked,
+        "downloadUrl": unmocked,
+        "uploadUrl": upload_url,
+        "eventSourceUrl": unmocked,
+        "state": "",
+    }))
+    .expect("hand-rolled Session JSON must deserialize");
+
+    let resp = client
+        .upload_blob_session(
+            &session,
+            jmap_base_client::UploadBlobSessionParams {
+                account_id: "account1",
+                content_type: "application/octet-stream",
+                data: bytes::Bytes::copy_from_slice(payload),
+            },
+        )
+        .await
+        .expect("upload_blob_session must route via session.upload_url");
+
+    assert_eq!(resp.account_id, "account1");
+    assert_eq!(resp.blob_id, "B-session-1");
+    assert_eq!(resp.size, payload.len() as u64);
+}
+
+/// Oracle: bd:JMAP-6r7c.64 — `download_blob_session` reads
+/// `session.download_url` internally. Same routing-discriminator
+/// pattern as the upload variant.
+#[tokio::test]
+async fn test_download_blob_session_routes_to_session_download_url() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/download/account1/blob-abc/file.bin"))
+        .respond_with(ResponseTemplate::new(200).set_body_bytes(b"download-session-bytes".to_vec()))
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    let download_url = format!(
+        "{}/download/{{accountId}}/{{blobId}}/{{name}}",
+        server.uri()
+    );
+    let unmocked = format!("{}/UNMOCKED-must-not-be-hit", server.uri());
+    let session: jmap_base_client::request::Session = serde_json::from_value(serde_json::json!({
+        "capabilities": {},
+        "accounts": {},
+        "primaryAccounts": {},
+        "username": "",
+        "apiUrl": unmocked,
+        "downloadUrl": download_url,
+        "uploadUrl": unmocked,
+        "eventSourceUrl": unmocked,
+        "state": "",
+    }))
+    .expect("hand-rolled Session JSON must deserialize");
+
+    let bytes = client
+        .download_blob_session(
+            &session,
+            jmap_base_client::DownloadBlobSessionParams {
+                account_id: "account1",
+                blob_id: "blob-abc",
+                name: "file.bin",
+                accept_type: None,
+                expected_sha256: None,
+            },
+        )
+        .await
+        .expect("download_blob_session must route via session.download_url");
+
+    assert_eq!(bytes.as_ref(), b"download-session-bytes");
+}
+
+/// Oracle: bd:JMAP-6r7c.64 — `subscribe_events_session` expands
+/// `session.event_source_url` with the caller-supplied
+/// SubscribeEventsSessionParams template variables. Mock server
+/// responds at the expanded path so a wrong-routing regression
+/// surfaces as a 404.
+#[tokio::test]
+async fn test_subscribe_events_session_routes_to_session_event_source_url() {
+    use futures::StreamExt as _;
+
+    let sse_body = "event: state\ndata: {\"changed\":{\"acc1\":{\"Email\":\"s1\"}}}\n\n";
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/events/"))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .insert_header("Content-Type", "text/event-stream")
+                .set_body_bytes(sse_body.as_bytes().to_vec()),
+        )
+        .mount(&server)
+        .await;
+
+    let client = JmapClient::new(
+        jmap_base_client::auth::DefaultTransport,
+        NoneAuth,
+        &server.uri(),
+        jmap_base_client::client::ClientConfig::default(),
+    )
+    .expect("client construction must succeed");
+
+    // Template with the three RFC 8620 §7.3 variables. With params=None,
+    // each expands to "" producing `/events/?types=&closeafter=&ping=`.
+    // The mock matches the path `/events/` (path matcher ignores query
+    // string), so the routing is correct iff the expansion uses
+    // session.event_source_url.
+    let event_source_url = format!(
+        "{}/events/?types={{types}}&closeafter={{closeafter}}&ping={{ping}}",
+        server.uri()
+    );
+    let unmocked = format!("{}/UNMOCKED-must-not-be-hit", server.uri());
+    let session: jmap_base_client::request::Session = serde_json::from_value(serde_json::json!({
+        "capabilities": {},
+        "accounts": {},
+        "primaryAccounts": {},
+        "username": "",
+        "apiUrl": unmocked,
+        "downloadUrl": unmocked,
+        "uploadUrl": unmocked,
+        "eventSourceUrl": event_source_url,
+        "state": "",
+    }))
+    .expect("hand-rolled Session JSON must deserialize");
+
+    let mut stream = client
+        .subscribe_events_session(
+            &session,
+            jmap_base_client::SubscribeEventsSessionParams::default(),
+        )
+        .await
+        .expect("subscribe_events_session must route via session.event_source_url");
+
+    let frame = stream
+        .next()
+        .await
+        .expect("must receive at least one frame")
+        .expect("frame must parse");
+    match frame.event {
+        jmap_base_client::sse::SseEvent::StateChange(sc) => {
+            let acct = sc
+                .changed
+                .get("acc1")
+                .expect("server StateChange must carry acc1");
+            assert_eq!(acct.get("Email").map(|s| s.as_ref()), Some("s1"));
+        }
+        other => panic!("expected StateChange, got {other:?}"),
+    }
+}
+
 /// Oracle: security requirement — call response body capped at 8 MiB.
 /// A response body of 8 MiB + 1 byte must return ClientError::ResponseTooLarge.
 #[tokio::test]
