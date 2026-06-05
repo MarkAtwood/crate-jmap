@@ -521,16 +521,16 @@ pub(crate) mod test_support {
             _caller: &(),
             account_id: &Id,
             task_list_id: &Id,
-        ) -> bool {
+        ) -> Result<bool, MockError> {
             let guard = self.state.lock().unwrap();
             if let Some(acct) = guard.get(account_id.as_ref()) {
-                return acct.tasks.values().any(|t| {
+                return Ok(acct.tasks.values().any(|t| {
                     t.task_list_id
                         .as_ref()
                         .is_some_and(|lid| lid == task_list_id)
-                });
+                }));
             }
-            false
+            Ok(false)
         }
     }
 }
@@ -981,8 +981,8 @@ mod tests {
                 _caller: &(),
                 _account_id: &Id,
                 _task_list_id: &Id,
-            ) -> bool {
-                false
+            ) -> Result<bool, MockError> {
+                Ok(false)
             }
 
             async fn compute_utc_times(
