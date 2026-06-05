@@ -1492,6 +1492,15 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                             // draft-ietf-jmap-filenode-14 §3.2.3: compare
                             // modified timestamps. Incoming strictly later →
                             // replace; otherwise → alreadyExists.
+                            //
+                            // Note: source_node.modified is already a typed
+                            // Option<UTCDate> (deserialized from the source
+                            // account). The `modified` field is server-owned
+                            // (listed in SERVER_OWNED at
+                            // merge_filenode_overrides), so any client override
+                            // in the copy descriptor is silently dropped — the
+                            // comparison always uses the source node's original
+                            // timestamp.
                             let incoming_modified = source_node
                                 .modified
                                 .as_ref()
