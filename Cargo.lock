@@ -1180,7 +1180,6 @@ dependencies = [
 name = "jmap-metadata-types"
 version = "0.1.1"
 dependencies = [
- "jmap-types",
  "serde",
  "serde_json",
 ]

@@ -11,6 +11,5 @@ keywords = ["jmap", "metadata", "annotation", "types"]
 categories = ["encoding", "network-programming"]
 
 [dependencies]
-jmap-types = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
