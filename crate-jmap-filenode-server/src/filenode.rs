@@ -1720,6 +1720,12 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
 
             // Cascade-destroy descendants from deepest first to maintain
             // tree invariants — matches the FileNode/set §3.2.3 behaviour.
+            // Cascade-destroyed descendant IDs are intentionally NOT added
+            // to destroyed_ids: the implicit /set response reports only
+            // the top-level source nodes the client named, not internal
+            // cascade details. This differs from FileNode/set destroy
+            // which tracks all cascade IDs because the client controls
+            // the batch and needs the full accounting.
             let mut cascade_failed = false;
             if on_destroy_remove_children {
                 for desc_id in desc_ids.iter().rev() {
