@@ -227,6 +227,7 @@ fn dedup_caller_members(members: Vec<Value>, caller_identity: &str) -> Vec<Value
 /// Parse one Remove* entry — a bare string id.
 fn parse_id_entry(canonical: &'static str, idx: usize, entry: Value) -> Result<Id, String> {
     match entry {
+        // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
         Value::String(s) => Ok(Id::from(s.as_str())),
         other => Err(format!(
             "{canonical}[{idx}] must be a string Id, got {}",

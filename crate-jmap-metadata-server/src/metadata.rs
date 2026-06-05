@@ -245,6 +245,7 @@ pub async fn handle_metadata_changes<B: MetadataBackend>(
     let mut union_ids: Vec<Id> = Vec::with_capacity(created_strs.len() + updated_strs.len());
     for s in created_strs.iter().chain(updated_strs.iter()) {
         if seen.insert(s.as_str()) {
+            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             union_ids.push(Id::from(s.as_str()));
         }
     }

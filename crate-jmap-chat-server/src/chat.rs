@@ -363,6 +363,7 @@ pub async fn handle_chat_set<B: ChatBackend>(
                 .unwrap_or(true);
 
             let mut chat = Chat::new(
+                // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
                 Id::from("placeholder"),
                 kind,
                 now,

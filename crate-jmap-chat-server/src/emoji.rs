@@ -261,6 +261,7 @@ pub async fn handle_emoji_query_changes<B: ChatBackend>(
 
     let up_to_id: Option<Id> = match args.get("upToId") {
         None | Some(Value::Null) => None,
+        // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
         Some(Value::String(s)) => Some(Id::from(s.as_str())),
         Some(_) => {
             return Err(JmapError::invalid_arguments(

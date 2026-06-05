@@ -180,6 +180,7 @@ pub async fn handle_submission_query<B: MailBackend>(
     // RFC 8620 §5.5: anchor-based pagination overrides position.
     let anchor: Option<Id> = match args.get("anchor") {
         None | Some(Value::Null) => None,
+        // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
         Some(Value::String(s)) => Some(Id::from(s.as_str())),
         Some(v) => {
             return Err(JmapError::invalid_arguments(format!(

@@ -391,6 +391,7 @@ pub async fn handle_calendar_event_set<B: CalendarsBackend>(
                 continue;
             }
 
+            // Id::from: wire-boundary validation deferred to JMAP-k9va; backend rejects unknown IDs.
             let id = Id::from(id_str.as_str());
 
             // §5.4: if every top-level patch key is a per-user property,
