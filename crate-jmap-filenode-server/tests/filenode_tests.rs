@@ -2089,3 +2089,203 @@ async fn filenode_copy_on_exists_newest_incoming_wins() {
         "the existing destination node must have been destroyed: {get_resp}"
     );
 }
+
+/// Oracle: onExists="newest" with children and onDestroyRemoveChildren=false
+/// MUST return nodeHasChildren — the cascade guard is preserved.
+#[tokio::test]
+async fn filenode_set_on_exists_newest_node_has_children_without_flag() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Seed: parent "shared" with a child.
+    let (resp_parent, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "p": { "name": "shared", "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("seed parent must succeed");
+    let parent_id = resp_parent["created"]["p"]["id"]
+        .as_str()
+        .expect("parent id")
+        .to_owned();
+
+    let _ = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "c": { "name": "child", "parentId": &parent_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("seed child must succeed");
+
+    // Attempt newest (incoming is later) without onDestroyRemoveChildren.
+    // The existing node has children → must return nodeHasChildren.
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "onExists": "newest",
+            "create": {
+                "n": {
+                    "name": "shared",
+                    "parentId": null,
+                    "role": null,
+                    "modified": "2099-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    let not_created = &resp["notCreated"]["n"];
+    assert!(
+        not_created.is_object(),
+        "newest with children must produce notCreated: {resp}"
+    );
+    assert_eq!(
+        not_created["type"], "nodeHasChildren",
+        "without onDestroyRemoveChildren, newest must return nodeHasChildren: {resp}"
+    );
+}
+
+/// Oracle: onExists="newest" with children and onDestroyRemoveChildren=true
+/// MUST cascade-destroy children and create the new node.
+#[tokio::test]
+async fn filenode_set_on_exists_newest_cascades_with_remove_children() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Seed: parent "shared" with a child.
+    let (resp_parent, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "p": { "name": "shared", "parentId": null, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("seed parent must succeed");
+    let parent_id = resp_parent["created"]["p"]["id"]
+        .as_str()
+        .expect("parent id")
+        .to_owned();
+
+    let (resp_child, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "create": {
+                "c": { "name": "child", "parentId": &parent_id, "role": null }
+            }
+        }),
+    )
+    .await
+    .expect("seed child must succeed");
+    let child_id = resp_child["created"]["c"]["id"]
+        .as_str()
+        .expect("child id")
+        .to_owned();
+
+    // Newest with onDestroyRemoveChildren=true: incoming is later → cascade
+    // destroy old parent + child, then create new node.
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "onExists": "newest",
+            "onDestroyRemoveChildren": true,
+            "create": {
+                "n": {
+                    "name": "shared",
+                    "parentId": null,
+                    "role": null,
+                    "modified": "2099-01-01T00:00:00Z"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // New node must be created.
+    assert!(
+        resp["created"].is_object() && resp["created"]["n"].is_object(),
+        "newest+cascade must create the new node: {resp}"
+    );
+
+    // Destroyed list must include old parent and child.
+    let destroyed = resp["destroyed"]
+        .as_array()
+        .expect("destroyed must be array");
+    let destroyed_strs: Vec<&str> = destroyed.iter().filter_map(|v| v.as_str()).collect();
+    assert!(
+        destroyed_strs.contains(&parent_id.as_str()),
+        "destroyed must include the replaced parent {parent_id}: {resp}"
+    );
+    assert!(
+        destroyed_strs.contains(&child_id.as_str()),
+        "destroyed must include the cascaded child {child_id}: {resp}"
+    );
+}
+
+/// Oracle: a malformed `modified` string must NOT beat a valid existing
+/// timestamp. Regression for Skoll HIGH-2 — raw client JSON was previously
+/// compared lexicographically without validation.
+#[tokio::test]
+async fn filenode_set_on_exists_newest_rejects_malformed_modified() {
+    let backend = MemoryBackend::new().with_account("acc1");
+
+    // Seed with a real modified timestamp.
+    backend.seed_node(
+        "acc1",
+        make_dir_with_modified("existing-m", "shared", None, "2020-01-01T00:00:00Z"),
+    );
+
+    // Attempt newest with a malformed "modified" that would lexicographically
+    // win ("9999" > "2020-...") if not validated.
+    let (resp, _) = handle_filenode_set(
+        &backend,
+        &(),
+        json!({
+            "accountId": "acc1",
+            "onExists": "newest",
+            "create": {
+                "n": {
+                    "name": "shared",
+                    "parentId": null,
+                    "role": null,
+                    "modified": "9999"
+                }
+            }
+        }),
+    )
+    .await
+    .expect("must not return top-level error");
+
+    // Malformed incoming → treated as empty → "" > "2020-..." is false →
+    // must reject with alreadyExists.
+    let not_created = &resp["notCreated"]["n"];
+    assert!(
+        not_created.is_object(),
+        "malformed modified must produce notCreated: {resp}"
+    );
+    assert_eq!(
+        not_created["type"], "alreadyExists",
+        "malformed modified must be rejected as alreadyExists: {resp}"
+    );
+}
