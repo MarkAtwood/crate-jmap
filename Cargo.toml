@@ -78,7 +78,7 @@ jmap-contacts-server   = { path = "crate-jmap-contacts-server",  version = "0.1"
 jmap-calendars-server  = { path = "crate-jmap-calendars-server", version = "0.1" }
 jmap-tasks-server      = { path = "crate-jmap-tasks-server",     version = "0.1" }
 jmap-filenode-server   = { path = "crate-jmap-filenode-server",  version = "0.1" }
-jmap-metadata-server   = { path = "crate-jmap-metadata-server",  version = "0.1" }
+jmap-metadata-server   = { path = "crate-jmap-metadata-server",  version = "0.2" }
 jmap-sharing-server    = { path = "crate-jmap-sharing-server",   version = "0.1" }
 jmap-base-client       = { path = "crate-jmap-base-client",      version = "0.1" }
 jmap-mail-client       = { path = "crate-jmap-mail-client",      version = "0.1" }

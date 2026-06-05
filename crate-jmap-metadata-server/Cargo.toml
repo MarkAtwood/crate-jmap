@@ -1,50 +1,17 @@
 [package]
 name = "jmap-metadata-server"
-version = "0.1.1"
+version = "0.2.0"
 authors.workspace = true
 repository.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
-description = "JMAP Object Metadata method handlers (draft-ietf-jmap-metadata) — backend-agnostic, plugs into jmap-server Dispatcher"
+description = "JMAP Object Metadata extension helpers (draft-ietf-jmap-metadata-02) — pure functions for depth validation, namespace support, filter predicates, and /changes classification"
 keywords = ["jmap", "draft-jmap-metadata", "server", "metadata"]
 categories = ["network-programming", "web-programming::http-server"]
 
-[features]
-# Public, feature-gated in-memory reference implementation of MetadataBackend.
-# Not production — intended as a reference impl, integration-test harness, and
-# documentation example. API stability is opt-in via this feature and may
-# break across minor versions pre-1.0. Mirrors the canonical
-# jmap-mail-server `memory` feature (JMAP-hwdv.1).
-memory = []
-
-# Switches `MemoryBackend::demo_next_id` from the default deterministic
-# `"<type><n:016x>"` pattern to a process-global timestamp+counter
-# pattern matching the canonical `jmap-mail-server` `next_id` at
-# `email.rs:1748`. Both modes are explicitly demonstration-quality;
-# production backends must mint real ULIDs (or equivalent
-# globally-unique, monotonic, persistent-across-restarts ids) and never
-# use this helper as a copy-paste source.
-realistic-demo-ids = []
-
 [dependencies]
-jmap-types = { workspace = true }
 jmap-metadata-types = { workspace = true }
-jmap-server = { workspace = true }
 serde_json = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["rt-multi-thread", "macros"] }
-# Tests use the public MemoryBackend reference impl from `src/memory.rs`.
-# Self-dep with the `memory` feature ensures integration tests get the
-# reference impl without exposing it to downstream users by default.
-jmap-metadata-server = { workspace = true, features = ["memory"] }
-# Stub JmapObject types in regression tests (bd:JMAP-826m.13) need
-# #[derive(Serialize, Deserialize)]. Test-only — matches the
-# canonical jmap-mail-server which has serde as a direct dep.
-serde = { workspace = true }
-# Log-redaction canary harness (bd:JMAP-826m.53). Tests-only buffering
-# tracing subscriber, mirroring the pattern used by jmap-base-client's
-# tests/common/log_capture.rs.
-tracing = { workspace = true }
-tracing-subscriber = { workspace = true }
