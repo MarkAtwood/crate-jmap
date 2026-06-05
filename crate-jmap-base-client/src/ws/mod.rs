@@ -896,16 +896,21 @@ mod tests {
     /// caller can move one half into a separate tokio task while keeping
     /// the other half in the current task. The whole point of the split
     /// is two-task concurrent send-while-receiving; if either half were
-    /// `!Send`, the split would not enable it. Compile-time check only —
-    /// nothing to assert at runtime.
+    /// `!Send`, the split would not enable it.
+    ///
+    /// `Sync` is required because `WsSender` behind `Arc` (for concurrent
+    /// sends from multiple tasks) needs `Arc<WsSender>: Send`, which
+    /// requires `WsSender: Sync`. Compile-time check only — nothing to
+    /// assert at runtime.
     #[test]
-    fn ws_sender_and_receiver_are_send() {
-        fn assert_send<T: Send>() {}
-        assert_send::<WsSender>();
-        assert_send::<WsReceiver>();
-        // The unified session was already Send before the split landed;
-        // assert here as a regression guard so a future refactor that
-        // accidentally introduces a `!Send` field in WsSession is caught.
-        assert_send::<WsSession>();
+    fn ws_sender_and_receiver_are_send_and_sync() {
+        fn assert_send_sync<T: Send + Sync>() {}
+        assert_send_sync::<WsSender>();
+        assert_send_sync::<WsReceiver>();
+        // The unified session was already Send+Sync before the split
+        // landed; assert here as a regression guard so a future refactor
+        // that accidentally introduces a `!Send` or `!Sync` field in
+        // WsSession is caught.
+        assert_send_sync::<WsSession>();
     }
 }
