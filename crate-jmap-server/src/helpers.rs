@@ -1203,7 +1203,6 @@ mod tests {
         // Synthetic upper bound: the answer is computable but not 0.
         // What matters is no overflow / no panic, and start <= total.
         let start = resolve_query_offset(i64::MIN, usize::MAX);
-        assert!(start <= usize::MAX);
         assert_eq!(start, usize::MAX - (i64::MAX as usize));
         // And `i64::MAX` on the positive side is also handled.
         assert_eq!(resolve_query_offset(i64::MAX, 0), 0);
