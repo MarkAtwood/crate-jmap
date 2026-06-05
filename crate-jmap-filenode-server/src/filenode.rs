@@ -1726,10 +1726,9 @@ pub async fn handle_filenode_copy<B: FileNodeBackend>(
                             source_id.as_ref().to_owned(),
                             match e {
                                 BackendSetError::SetError(set_err) => set_error_value(&set_err),
-                                BackendSetError::Other(inner) => json!({
-                                    "type": "serverFail",
-                                    "description": inner.to_string(),
-                                }),
+                                BackendSetError::Other(inner) => {
+                                    server_fail_value_from_backend(&inner)
+                                }
                                 _ => json!({
                                     "type": "serverFail",
                                     "description": "unhandled backend error variant",
