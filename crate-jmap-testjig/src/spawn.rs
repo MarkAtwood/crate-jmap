@@ -166,7 +166,7 @@ impl std::fmt::Debug for TestjigHandle {
 ///
 /// Binds a [`TcpListener`] on [`TestjigConfig::ip`]:[`TestjigConfig::port`],
 /// builds the full router (POST /jmap + GET /.well-known/jmap with
-/// all 8 reference MemoryBackends mounted and bearer-auth applied),
+/// all 7 reference MemoryBackends mounted and bearer-auth applied),
 /// and spawns `axum::serve(...)` on `tokio::spawn`. The returned
 /// handle's [`TestjigHandle::addr`] reflects the actual bound
 /// address (with the OS-assigned port when port=0 was requested).

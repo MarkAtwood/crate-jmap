@@ -1283,8 +1283,6 @@ dependencies = [
  "jmap-filenode-types",
  "jmap-mail-server",
  "jmap-mail-types",
- "jmap-metadata-server",
- "jmap-metadata-types",
  "jmap-server",
  "jmap-sharing-server",
  "jmap-sharing-types",

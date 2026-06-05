@@ -43,11 +43,11 @@
 //!   `GET /.well-known/jmap` (RFC 8620 §2 Session). A built-in
 //!   `Core/echo` handler (RFC 8620 §4) is registered so the
 //!   dispatcher demonstrates end-to-end request/response flow.
-//! - `bd:JMAP-cf7p.3` (closed): 8 reference MemoryBackends wired.
+//! - `bd:JMAP-cf7p.3` (closed): 7 reference MemoryBackends wired.
 //! - `bd:JMAP-cf7p.4` (closed): SSE endpoint [`sse::get_events`]
 //!   exposing `GET /events` (RFC 8620 §7.3) that pushes
 //!   [RFC 8620 §7.1] `StateChange` events derived from a tight
-//!   polling loop across all 8 backends.
+//!   polling loop across all 7 backends.
 //! - `bd:JMAP-cf7p.5` (this slice): WebSocket endpoint
 //!   [`ws::get_ws`] exposing `GET /ws` (RFC 8887) that frames
 //!   `Request`/`Response`/`RequestError`/`StateChange` envelopes
